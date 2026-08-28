@@ -432,8 +432,13 @@ service in T-0.6, which speaks the same S3 API.
 - [ ] `app.set_updated_at()` trigger function
 - [ ] Every file has a correct `-- +goose Down`
 - [ ] `make migrate` runs clean as `quizzivy_migrate` (§16 exit criterion)
-- [ ] Test: `server/internal/db/migrate_test.go` — `up`, `down`, `up` against a
-      fresh `postgres:18` container leaves an identical schema dump
+- [ ] Test: `server/internal/db/migrate_test.go` — `up`, `down`, `up` leaves a
+      byte-identical schema snapshot (enum labels, function volatility, column
+      types and nullability, indexes, constraints)
+- [ ] The **intermediate state is asserted empty** too. A `Down` that leaves
+      objects behind still lets `up → down → up` pass, so checking only the ends
+      would miss the most common migration mistake
+- [ ] **Mutation-tested**: removing one `DROP TYPE` from a `Down` must fail it
 - [ ] DDL reviewed against §13 and the Neon skill (§14)
 
 ---
