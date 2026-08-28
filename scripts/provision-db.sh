@@ -41,8 +41,8 @@ MIGRATE_PASSWORD="${QUIZZIVY_MIGRATE_PASSWORD:-migrate}"
 APP_PASSWORD="${QUIZZIVY_APP_PASSWORD:-app}"
 DB_NAME="${QUIZZIVY_DB_NAME:-quizzivy}"
 
-run_psql postgres <<SQL
-DO \$\$
+run_psql postgres -v migrate_pw="$MIGRATE_PASSWORD" -v app_pw="$APP_PASSWORD" <<'SQL'
+DO $$
 BEGIN
   -- Owns the schema and runs goose. Needs CREATE on the database so it can
   -- install the trusted extensions pg_trgm and unaccent.
@@ -55,13 +55,18 @@ BEGIN
     CREATE ROLE quizzivy_app LOGIN;
   END IF;
 END
-\$\$;
+$$;
 
 -- Set the password unconditionally rather than only on creation, so a re-run
 -- with different credentials converges instead of silently keeping the old
 -- ones and handing back a DSN that cannot authenticate.
-ALTER ROLE quizzivy_migrate PASSWORD '${MIGRATE_PASSWORD}';
-ALTER ROLE quizzivy_app     PASSWORD '${APP_PASSWORD}';
+-- Passed as psql variables, not interpolated. :'name' quotes and escapes as a
+-- SQL literal, so a password containing an apostrophe is a password rather than
+-- the end of the string -- and a chosen value is not statement injection into a
+-- session running as the superuser. The same technique cmd/seedadmin documents
+-- for the bootstrap password hash.
+ALTER ROLE quizzivy_migrate PASSWORD :'migrate_pw';
+ALTER ROLE quizzivy_app     PASSWORD :'app_pw';
 
 -- CREATEDB is for the test suite, not for production.
 --
@@ -73,13 +78,13 @@ ALTER ROLE quizzivy_app     PASSWORD '${APP_PASSWORD}';
 -- which needs this. On Neon the migrate role is not provisioned by this script
 -- and does not get it.
 --
--- NOTE FOR EDITORS: this heredoc is UNQUOTED, so that the password variables
--- expand. That also makes backticks command substitution and makes a dollar
--- sign followed by a brace a parameter expansion -- in SQL COMMENTS too, which
--- bash never sees as comments. An earlier version of this note quoted a shell
--- command in backticks and provisioning ran the test suite and piped its output
--- into psql; the version after that used a dollar-brace and got "bad
--- substitution". Keep both characters out of this block.
+-- This heredoc is QUOTED (<<'SQL'), so nothing in it is shell text: the
+-- passwords arrive as psql variables instead of being expanded in. That was not
+-- always true, and both failure modes were real. While it was unquoted, a
+-- backtick in this very comment made provisioning run the test suite and pipe
+-- its output into psql; the fix for that used a dollar-brace and got "bad
+-- substitution". Quoting removes the hazard rather than asking each editor to
+-- remember it.
 ALTER ROLE quizzivy_migrate CREATEDB;
 SQL
 
