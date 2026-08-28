@@ -30,6 +30,7 @@ type AuthService interface {
 type JoinService interface {
 	Rotate(ctx context.Context, req join.RotateRequest) (join.Rotated, error)
 	Revoke(ctx context.Context, req join.RevokeRequest) error
+	Preview(ctx context.Context, rawCode string) (join.PreviewResult, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

@@ -8,6 +8,7 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/httpx"
+	"quizzivy/internal/join"
 	"quizzivy/internal/ratelimit"
 )
 
@@ -26,13 +27,18 @@ func RateLimits() *ratelimit.Registry {
 	// per-IP bucket rather than being buffered.
 	const maxKeyBodyBytes = 8 * 1024
 
-	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
+	// §6.5 requires BOTH buckets. Per-IP alone does not stop a distributed
+	// probe of one code, and per-code alone does not stop one host walking the
+	// code space. Neither is the realistic threat on its own -- forwarding is
+	// (R-02) -- but 40 bits behind no limit is worth probing at scale.
+	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
 	// The contract's second bucket. With a joinCode this endpoint is the signup
 	// path, so one code must not be usable to create accounts from a hundred
 	// addresses. Requests without a joinCode are plain sign-ins and fall back
 	// to the per-IP bucket alone, because JSONFieldKey yields no key for them.
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKey("joinCode", maxKeyBodyBytes), capacity, ratelimit.PerHour(30))
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
 	// §6.5's second bucket: per-email as well as per-IP, so a distributed
 	// attempt against ONE account is limited even though each source address
 	// stays under its own allowance.

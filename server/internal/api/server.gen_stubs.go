@@ -260,7 +260,3 @@ func (s *Server) UnlinkGoogle(_ context.Context, _ openapi.UnlinkGoogleRequestOb
 func (s *Server) LinkGoogle(_ context.Context, _ openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
-
-func (s *Server) PreviewJoinCode(_ context.Context, _ openapi.PreviewJoinCodeRequestObject) (openapi.PreviewJoinCodeResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
