@@ -78,10 +78,19 @@ export default function ClassDetailPage() {
     // Without this a failed removal is pixel-identical to the screen before the
     // click: no message, and the row stays because nothing was invalidated. The
     // teacher concludes it worked and the student keeps their access.
-    onError: (cause) =>
+    //
+    // Close the dialog as well as reporting, the same way JoinCodePanel does.
+    // removeError renders in the page body, and Radix marks everything outside
+    // an open dialog aria-hidden -- so reporting without closing puts the
+    // explanation behind a dialog that now looks like it simply does nothing,
+    // and takes it out of the accessibility tree entirely. That is the original
+    // failure relocated, not fixed.
+    onError: (cause) => {
+      setConfirmRemove(null);
       setRemoveError(
         cause instanceof ApiError ? cause.message : t("classDetail.removeFailed"),
-      ),
+      );
+    },
   });
 
   if (klass.isPending) {
@@ -171,9 +180,13 @@ export default function ClassDetailPage() {
                       variant="ghost"
                       size="sm"
                       disabled={remove.isPending}
-                      onClick={() =>
-                        setConfirmRemove({ userId: m.userId, name: m.fullName })
-                      }
+                      onClick={() => {
+                        // A failure describes the attempt it came from. Left
+                        // on screen it reads as a fresh error about the
+                        // removal now being confirmed.
+                        setRemoveError(null);
+                        setConfirmRemove({ userId: m.userId, name: m.fullName });
+                      }}
                     >
                       {t("classDetail.remove")}
                     </Button>

@@ -172,9 +172,29 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  void navigator.clipboard
-                    .writeText(joinUrl)
-                    .then(() => setCopied(true));
+                  // Both halves fail, and neither is exotic. On a non-secure
+                  // origin `navigator.clipboard` is undefined, so reading
+                  // .writeText throws synchronously; with the permission denied
+                  // the promise rejects. Unguarded, each one gives a button
+                  // that does nothing and says nothing -- and the teacher's
+                  // fallback (select the link and copy it by hand) is only
+                  // obvious once someone says so.
+                  const clipboard = navigator.clipboard as Clipboard | undefined;
+                  if (!clipboard) {
+                    setCopied(false);
+                    setError(t("classDetail.copyFailed"));
+                    return;
+                  }
+                  void clipboard.writeText(joinUrl).then(
+                    () => {
+                      setError(null);
+                      setCopied(true);
+                    },
+                    () => {
+                      setCopied(false);
+                      setError(t("classDetail.copyFailed"));
+                    },
+                  );
                 }}
               >
                 {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
