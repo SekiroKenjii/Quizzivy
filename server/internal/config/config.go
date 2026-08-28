@@ -261,6 +261,18 @@ func (c Config) GoogleEnabled() bool {
 // bounds Argon2id concurrency on a 512 MB machine, so "8 slots" instead of "8"
 // would start the process on 4 and say nothing, and whoever raised it after
 // resizing the machine would never learn it had not applied.
+func getenvInt(key string, fallback int) (int, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be an integer, got %q", key, v)
+	}
+	return n, nil
+}
+
 // getenvBool parses a boolean the way getenvInt parses an integer: anything
 // unparseable is an error, not a silent fallback.
 //
@@ -278,18 +290,6 @@ func getenvBool(key string, fallback bool) (bool, error) {
 		return false, fmt.Errorf("%s must be a boolean such as true or false, got %q", key, v)
 	}
 	return b, nil
-}
-
-func getenvInt(key string, fallback int) (int, error) {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return fallback, nil
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be an integer, got %q", key, v)
-	}
-	return n, nil
 }
 
 func parseDuration(key, fallback string) (time.Duration, error) {
