@@ -13,6 +13,7 @@ import (
 
 	"quizzivy/internal/api"
 	"quizzivy/internal/auth"
+	"quizzivy/internal/auth/google"
 	"quizzivy/internal/config"
 	"quizzivy/internal/db"
 )
@@ -52,6 +53,21 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	authService := auth.NewService(auth.NewStore(pool.Pool), tokens, cfg.RefreshTokenTTL)
+
+	if cfg.GoogleEnabled() {
+		keys := google.NewKeySet("", nil)
+		authService.SetGoogle(google.NewProvider(
+			google.NewExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret,
+				cfg.GoogleRedirectURIs, "", nil),
+			google.NewVerifier(cfg.GoogleClientID, keys),
+		), nil) // SelfEnroller arrives with T-1.8.
+		logger.Info("google sign-in enabled", "redirect_uris", cfg.GoogleRedirectURIs)
+	} else {
+		// Not a warning: a deployment may legitimately run on password login
+		// alone. The endpoint reports itself unavailable rather than failing
+		// in a way that looks like Google's fault.
+		logger.Info("google sign-in disabled (no credentials configured)")
+	}
 
 	handler, err := api.NewRouter(api.Deps{
 		DB:           pool,

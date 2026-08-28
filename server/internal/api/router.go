@@ -27,7 +27,12 @@ func RateLimits() *ratelimit.Registry {
 	const maxKeyBodyBytes = 8 * 1024
 
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
-	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
+	// The contract's second bucket. With a joinCode this endpoint is the signup
+	// path, so one code must not be usable to create accounts from a hundred
+	// addresses. Requests without a joinCode are plain sign-ins and fall back
+	// to the per-IP bucket alone, because JSONFieldKey yields no key for them.
+	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
+		WithKey(ratelimit.JSONFieldKey("joinCode", maxKeyBodyBytes), capacity, ratelimit.PerHour(30))
 	// §6.5's second bucket: per-email as well as per-IP, so a distributed
 	// attempt against ONE account is limited even though each source address
 	// stays under its own allowance.

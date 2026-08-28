@@ -22,6 +22,7 @@ type AuthService interface {
 	Logout(ctx context.Context, token string) error
 	CurrentUser(ctx context.Context, userID string) (auth.User, error)
 	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
+	GoogleSignIn(ctx context.Context, in auth.GoogleSignInInput) (auth.GoogleSignInResult, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

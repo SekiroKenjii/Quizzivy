@@ -5,7 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -111,4 +113,37 @@ type RefreshTokenRecord struct {
 	ExpiresAt time.Time
 	UserAgent *string
 	IP        *string
+}
+
+// FindUserByProviderIdentity is §5.3 step 4's first branch: the Google `sub`
+// we have seen before. Matching on `sub` rather than email is the whole point --
+// a Google account's email can change, its subject cannot.
+func (s *Store) FindUserByProviderIdentity(ctx context.Context, provider, providerUserID string) (User, error) {
+	q := userProjection + `
+		 WHERE u.id = (SELECT user_id FROM app.user_identities
+		                WHERE provider = $1 AND provider_user_id = $2)
+		 GROUP BY u.id`
+	return scanUser(s.pool.QueryRow(ctx, q, provider, providerUserID))
+}
+
+// ErrIdentityAlreadyLinked means the account already has an identity from this
+// provider, and it is a different one. D-08's UNIQUE (user_id, provider) is
+// what makes that detectable rather than silently creating a second link.
+var ErrIdentityAlreadyLinked = errors.New("identity already linked")
+
+// LinkIdentity is step 4's second branch: a verified Google email matching an
+// existing account, which becomes a link rather than a new user.
+func (s *Store) LinkIdentity(ctx context.Context, userID, provider, providerUserID, emailAtLink string) error {
+	const q = `
+		INSERT INTO app.user_identities (user_id, provider, provider_user_id, email_at_link)
+		VALUES ($1, $2, $3, $4)`
+	_, err := s.pool.Exec(ctx, q, userID, provider, providerUserID, emailAtLink)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			return ErrIdentityAlreadyLinked
+		}
+		return err
+	}
+	return nil
 }

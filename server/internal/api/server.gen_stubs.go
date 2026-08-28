@@ -260,10 +260,6 @@ func (s *Server) GetMediaUrl(_ context.Context, _ openapi.GetMediaUrlRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) GoogleAuth(_ context.Context, _ openapi.GoogleAuthRequestObject) (openapi.GoogleAuthResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) UnlinkGoogle(_ context.Context, _ openapi.UnlinkGoogleRequestObject) (openapi.UnlinkGoogleResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

@@ -203,7 +203,25 @@ restate its own rules in Go, or silently have none.
 - [ ] Test: `google/verify_test.go` — `email_verified: false` is rejected even
       when the email matches an existing user
 - [ ] Test: `google/resolve_test.go` — one case per branch of the §5.3 order
-- [ ] Public endpoint: rate-limited and leak-reviewed (§6.5, §14)
+- [ ] Public endpoint: rate-limited and leak-reviewed (§6.5, §14). Both buckets:
+      per-IP, and per-`joinCode` — one code must not be usable to create
+      accounts from a hundred addresses. A request without a join code is a
+      plain sign-in and uses the per-IP bucket alone
+- [ ] Contract: `Set-Cookie` on the 200. It was missing, exactly as it was on
+      `/auth/refresh`; §5.3 step 5 requires the sign-in to set the refresh
+      cookie, and without the header the generated response cannot carry it
+- [ ] Contract: the 403 also documents `ACCOUNT_DISABLED` and
+      `IDENTITY_ALREADY_LINKED`. Both are named explicitly rather than hidden:
+      the caller has just proved to Google that they control the address, so
+      neither discloses anything they could not confirm themselves
+
+**Not done in this task — branch 3.** "No match and a valid `joinCode` → create
+account + enrol" needs join codes, which are T-1.6/T-1.7, and enrolment, which
+is T-1.8. It is implemented as a `SelfEnroller` seam: a join code reaches it and
+gets `ErrSelfEnrolNotAvailable` → 501, rather than falling through to
+`ACCOUNT_NOT_PROVISIONED`, which would be a wrong answer rather than a missing
+one. **T-1.8 must wire the enroller and flip the branch-3 test from asserting
+the seam to asserting an enrolment.**
 
 ---
 
