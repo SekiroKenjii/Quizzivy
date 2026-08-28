@@ -309,3 +309,110 @@ func TestDeletingAUserWhoIssuedACodeIsRefused(t *testing.T) {
 			`DELETE FROM app.users WHERE id = $1`, f.adminID)
 	})
 }
+
+// ── media_assets (§11.1) ──────────────────────────────────────────────────
+//
+// §11.1's limits are CHECKs rather than handler code alone. The handler
+// validates first and says so in Vietnamese; these are what keep "we validate
+// server-side" true when a later code path forgets.
+
+func TestAnAudioAssetMustCarryItsDuration(t *testing.T) {
+	// §7 renders an audio player from `media.kind === 'audio'`, and the take-test
+	// timer budgets against the duration. An audio row with a null duration
+	// would render a player that cannot say how long anything is -- and the
+	// probe is deliberately allowed to REFUSE a file rather than store one
+	// (T-2.2), which only means something if the column cannot be null.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_audio_has_duration",
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('audio', 'media/a.mp3', 'audio/mpeg', 1024, 'a.mp3', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
+
+func TestANonAudioAssetMustNotCarryADuration(t *testing.T) {
+	// The other direction of the same equality. An image with a duration is a
+	// row nothing knows how to render.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_audio_has_duration",
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('image', 'media/i.png', 'image/png', 1024, 5000, 'i.png', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
+
+func TestAnOversizedAssetIsRejected(t *testing.T) {
+	// §11.1: 10 MB. 10485761 is one byte over.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_bytes_check",
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('audio', 'media/big.mp3', 'audio/mpeg', 10485761, 1000, 'big.mp3', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
+
+func TestAnOverlongAssetIsRejected(t *testing.T) {
+	// §11.1: 5 minutes. 300001 ms is one millisecond over.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_duration_ms_check",
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('audio', 'media/long.mp3', 'audio/mpeg', 1024, 300001, 'long.mp3', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
+
+func TestTheKindMustAgreeWithTheMimeType(t *testing.T) {
+	// Otherwise an 'image' row could carry audio/mpeg and the composite FK that
+	// D-05 exists for would attach an audio policy to something that is not.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_kind_matches_mime",
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('image', 'media/x.png', 'audio/mpeg', 1024, 'x.png', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
+
+func TestAnUnknownMimeTypeIsRejected(t *testing.T) {
+	// §11.1 is an allowlist. §17.3 flags ogg/wav as revisitable, and this is
+	// what makes revisiting it a deliberate migration rather than a surprise.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "media_assets_mime_type_check",
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('audio', 'media/x.ogg', 'audio/ogg', 1024, 1000, 'x.ogg', repeat('x',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
+
+func TestTwoAssetsMayShareAChecksum(t *testing.T) {
+	// [D-06] The checksum index is NOT unique, and that is the whole decision:
+	// §11.1 says a re-upload never overwrites an existing object, so an
+	// identical file uploaded twice must produce two rows. The checksum powers
+	// a warning, not a constraint.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		for _, key := range []string{"media/first.mp3", "media/second.mp3"} {
+			mustExec(t, tx,
+				`INSERT INTO app.media_assets
+				   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+				 VALUES ('audio', $1, 'audio/mpeg', 2048, 1000, 'same.mp3', repeat('y',32)::bytea, $2)`,
+				key, f.adminID)
+		}
+	})
+}
+
+func TestAValidAudioAssetIsAccepted(t *testing.T) {
+	// Without this the rejections above could all pass because the INSERT is
+	// malformed for some unrelated reason.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.media_assets
+			   (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
+			 VALUES ('audio', 'media/ok.mp3', 'audio/mpeg', 2048, 120000, 'bai-nghe-1.mp3', repeat('z',32)::bytea, $1)`,
+			f.adminID)
+	})
+}
