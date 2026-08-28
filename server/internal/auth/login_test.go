@@ -80,8 +80,13 @@ func makeUser(t *testing.T, pool *pgxpool.Pool, opts ...func(*userSpec)) (id, em
 		t.Fatalf("insert user: %v", err)
 	}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), `DELETE FROM app.refresh_tokens WHERE user_id = $1`, id)
-		_, _ = pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1`, id)
+		ctx := context.Background()
+		_, _ = pool.Exec(ctx, `DELETE FROM app.refresh_tokens WHERE user_id = $1`, id)
+		// audit_log survives its actor by design (ON DELETE SET NULL), so a
+		// test that triggers an audit write has to clear it explicitly or it
+		// accumulates orphan rows in the development database.
+		_, _ = pool.Exec(ctx, `DELETE FROM app.audit_log WHERE actor_user_id = $1`, id)
+		_, _ = pool.Exec(ctx, `DELETE FROM app.users WHERE id = $1`, id)
 	})
 	return id, spec.email
 }

@@ -34,6 +34,10 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
 		WithKey(ratelimit.JSONFieldKey("email", maxKeyBodyBytes), capacity, ratelimit.PerHour(20))
 	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
+	// Authenticated by the refresh cookie rather than a bearer token, so it is
+	// reachable by anyone and writes to the database on every call. Generous:
+	// throttling logout would be a way to keep someone signed in.
+	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	// Fire-and-forget beacon flush (§10.6). Limited generously: dropping these
 	// costs integrity data, and integrity is observational.
@@ -84,6 +88,10 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 			// After the limiter, so the address recorded against a session is
 			// the same one that was limited.
 			httpx.WithRequestMeta(ratelimit.ClientIP(clientIPHeader)),
+			// The refresh cookie, which the generated strict handlers cannot
+			// reach on their own. Absent on all but three routes; the
+			// middleware is a no-op when there is no cookie to lift.
+			WithRefreshCookie,
 		},
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())

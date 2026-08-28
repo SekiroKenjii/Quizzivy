@@ -140,7 +140,13 @@ export interface paths {
         put?: never;
         /**
          * Revoke the refresh family and clear the cookie
-         * @description Revokes the presented refresh token family. The client also clears its store and calls `queryClient.clear()` (§5.4).
+         * @description Revokes the presented refresh token family. The client also clears its
+         *     store and calls `queryClient.clear()` (§5.4).
+         *
+         *     Authenticated by the refresh COOKIE, not the access token. An expired
+         *     access token must not be able to strand a live refresh family: the one
+         *     moment a user most wants to log out is the moment their session has
+         *     gone strange.
          */
         post: operations["logout"];
         delete?: never;
@@ -2122,6 +2128,12 @@ export interface operations {
             /** @description Rotated. Sets the replacement cookie. */
             200: {
                 headers: {
+                    /**
+                     * @description The REPLACEMENT `quizzivy_refresh` cookie. Rotation is only
+                     *     half-done without it: the predecessor is revoked server-side, so
+                     *     a client that kept the old value is logged out on its next call.
+                     */
+                    "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2131,7 +2143,20 @@ export interface operations {
                     };
                 };
             };
-            /** @description Absent, expired, revoked, or reused. Client clears state and goes to `/login`. */
+            /**
+             * @description Absent, expired, revoked, or reused. Client clears state and goes to `/login`.
+             *
+             *     **Leak review.** `REFRESH_TOKEN_REUSED` when §5.2 reuse detection
+             *     fires, `REFRESH_TOKEN_INVALID` otherwise — including for a suspended
+             *     account, which is not disclosed here any more than it is at login.
+             *
+             *     Distinguishing reuse does tell whoever presented the token that the
+             *     replay was noticed. That is accepted: by then the family is revoked,
+             *     so the information arrives with no access attached. The reason to
+             *     separate them is the victim, not the attacker — "someone else used
+             *     your session" is a message a student can act on, and "your session
+             *     expired" is not. The revocation is also written to `audit_log`.
+             */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2173,8 +2198,29 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthorized"];
+            /**
+             * @description Revoked, and the cookie is cleared. Returned even for a token that
+             *     was already expired or revoked — logging out is idempotent, and
+             *     reporting "that token was not valid" would answer a question the
+             *     caller has no business asking.
+             */
+            204: {
+                headers: {
+                    /** @description `quizzivy_refresh=; Max-Age=0` — same Path and flags, or the browser keeps the old cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No refresh cookie was presented, so there is no session to end. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     changePassword: {

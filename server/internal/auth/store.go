@@ -37,23 +37,20 @@ type Store struct {
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
-// FindUserByEmail looks a user up case-insensitively, matching the
-// users_email_lower_key expression index so the lookup is an index scan rather
-// than a seq scan with a filter.
+// userProjection is shared by every user lookup so the two cannot drift into
+// returning different shapes of the same entity.
 //
 // Explicit column list, never SELECT * (§13.8).
-func (s *Store) FindUserByEmail(ctx context.Context, email string) (User, error) {
-	const q = `
-		SELECT u.id::text, u.email, u.full_name, u.role::text, u.password_hash,
-		       u.must_change_password, u.disabled_at, u.created_at,
-		       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
-		  FROM app.users u
-		  LEFT JOIN app.user_identities i ON i.user_id = u.id
-		 WHERE lower(u.email) = lower($1)
-		 GROUP BY u.id`
+const userProjection = `
+	SELECT u.id::text, u.email, u.full_name, u.role::text, u.password_hash,
+	       u.must_change_password, u.disabled_at, u.created_at,
+	       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
+	  FROM app.users u
+	  LEFT JOIN app.user_identities i ON i.user_id = u.id`
 
+func scanUser(row pgx.Row) (User, error) {
 	var u User
-	err := s.pool.QueryRow(ctx, q, email).Scan(
+	err := row.Scan(
 		&u.ID, &u.Email, &u.FullName, &u.Role, &u.PasswordHash,
 		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.LinkedProviders,
 	)
@@ -66,17 +63,43 @@ func (s *Store) FindUserByEmail(ctx context.Context, email string) (User, error)
 	return u, nil
 }
 
+// FindUserByEmail looks a user up case-insensitively, matching the
+// users_email_lower_key expression index so the lookup is an index scan rather
+// than a seq scan with a filter.
+func (s *Store) FindUserByEmail(ctx context.Context, email string) (User, error) {
+	q := userProjection + `
+		 WHERE lower(u.email) = lower($1)
+		 GROUP BY u.id`
+	return scanUser(s.pool.QueryRow(ctx, q, email))
+}
+
+// FindUserByID is the refresh path's lookup: the token names its owner, and
+// refresh must re-read that owner rather than trust the token. A user disabled
+// an hour ago still holds a valid refresh token, and it must stop working.
+func (s *Store) FindUserByID(ctx context.Context, id string) (User, error) {
+	q := userProjection + `
+		 WHERE u.id = $1
+		 GROUP BY u.id`
+	return scanUser(s.pool.QueryRow(ctx, q, id))
+}
+
 // CreateRefreshToken stores the hash of a newly minted refresh token.
 //
 // The plaintext is never stored (§13.5): a database dump must not hand over
 // live sessions. `familyID` chains rotations so §5.2's reuse detection can
 // revoke an entire lineage at once — T-1.3 uses it.
 func (s *Store) CreateRefreshToken(ctx context.Context, in RefreshTokenRecord) error {
+	// issued_at is written explicitly rather than left to its DEFAULT now().
+	// expires_at comes from the application clock, so letting the database
+	// supply the other half means two clocks decide one row -- and the
+	// `expires_at > issued_at` CHECK is what notices, at insert time, on a
+	// machine whose clock drifted.
 	const q = `
-		INSERT INTO app.refresh_tokens (user_id, family_id, token_hash, expires_at, user_agent, ip)
-		VALUES ($1, $2, $3, $4, $5, $6)`
+		INSERT INTO app.refresh_tokens
+		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	_, err := s.pool.Exec(ctx, q,
-		in.UserID, in.FamilyID, in.TokenHash, in.ExpiresAt, in.UserAgent, in.IP)
+		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP)
 	return err
 }
 
@@ -84,6 +107,7 @@ type RefreshTokenRecord struct {
 	UserID    string
 	FamilyID  string
 	TokenHash []byte
+	IssuedAt  time.Time
 	ExpiresAt time.Time
 	UserAgent *string
 	IP        *string

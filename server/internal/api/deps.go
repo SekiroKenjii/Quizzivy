@@ -16,4 +16,6 @@ type DB interface {
 // a handler test can supply a fake without a database.
 type AuthService interface {
 	Login(ctx context.Context, in auth.LoginInput) (auth.Session, error)
+	Refresh(ctx context.Context, in auth.RefreshInput) (auth.RefreshResult, error)
+	Logout(ctx context.Context, token string) error
 }
