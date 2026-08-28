@@ -36,7 +36,7 @@ Branch per task off `develop` as `feature/t-0-NN-<slug>`.
 **Size:** S
 **Done when:**
 - [ ] A Web application OAuth client exists with authorized JavaScript origins
-      `http://localhost:5173` and `https://app.quizzivy.x`
+      `http://localhost:5173` and `https://app.quizzivy.com`
 - [ ] Authorized redirect URIs cover both origins (§5.3 uses Authorization Code
       + PKCE, so a redirect URI is required even though the code is exchanged
       server-side)

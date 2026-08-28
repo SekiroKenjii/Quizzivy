@@ -15,30 +15,33 @@ audio probe implementation, and build order.
 
 ## BLOCKING
 
-### O-01 — What is the real domain? · Phase 0
-**Default:** the plan writes `quizzivy.x` as a placeholder throughout.
+### O-14 — DNS records for quizzivy.com · before first deploy
+**Default:** `app.quizzivy.com` for the SPA, `api.quizzivy.com` for the API, as
+already written throughout the plan. See `docs/setup/dns.md`.
 
-The topology decision (`00-overview.md` §4.1) depends on the SPA and API being
-subdomains of **one registrable domain** — that is what makes `SameSite=Lax`
-work on cross-origin requests. Any two hosts under the same domain are fine;
-`app.` and `api.` are only conventions. What is *not* fine is a split across two
-registrable domains, which silently breaks refresh entirely (R-07).
+The domain is bought but no records exist yet. **This does not block Phase 0 or
+Phase 1** — local development runs entirely on `localhost`, and the Google client
+already has the localhost redirect registered and verified. It blocks the first
+real deploy.
 
-Needed before T-0.2 registers Google's authorized origins.
+Two things to get right when you do set it up, both of which break quietly
+rather than loudly:
+
+- Both hosts must stay under `quizzivy.com`. That is what makes them same-*site*
+  and therefore what makes §5.2's `SameSite=Lax` refresh cookie work at all
+  (R-07). A split across two registrable domains kills sessions with no error.
+- The Google OAuth client currently has only the localhost origin verified. Add
+  `https://app.quizzivy.com` and
+  `https://app.quizzivy.com/auth/google/callback` before deploying, or Google
+  rejects the exchange with `redirect_uri_mismatch`.
+
+Using the apex `quizzivy.com` for the SPA instead of `app.` is equally valid and
+equally same-site. The plan says `app.` so the apex stays free for a landing
+page later; say so if you would rather have it the other way, since changing it
+after students have bookmarks is unpleasant.
 
 ---
 
-### O-02 — Google OAuth client · Phase 1 · *no default*
-**Default:** none. This is a hard blocker.
-
-T-0.2 owns the work. GIS cannot be meaningfully tested end to end without a real
-client ID — the authorization-code + PKCE exchange (§5.3) needs a real client
-secret on the backend, and E2E 3 mocks the GIS *widget*, not the exchange.
-
-Phase 1 can be built to the point of password login without it. Everything from
-T-1.5 onward stops.
-
----
 
 ### O-13 — GIS cannot do PKCE; §2 and §5.3 may be incompatible · Phase 1
 **Default:** build the authorization request ourselves, keeping §5.3's PKCE and
@@ -78,16 +81,6 @@ If you pick A, `api/openapi.yaml` needs `codeVerifier` made optional on
 
 ---
 
-### O-03 — R2 credentials · Phase 2
-**Default:** develop and test against the MinIO service in T-0.6; provision R2
-before Phase 2 deploys.
-
-T-0.3 owns the work. Because `aws-sdk-go-v2/s3` targets both, only endpoint
-configuration differs, so this blocks *deployment*, not development. The one
-thing worth confirming early rather than late: R2's signed-URL behaviour and
-`Cache-Control` handling under §11.2's 10-minute expiry.
-
----
 
 ### O-04 — `fill_blank` placeholder syntax · Phase 2
 **Default:** `{{1}}`, `{{2}}` … in the Markdown prompt, **1-indexed**, matched to
@@ -226,7 +219,7 @@ For the record, so a later session does not reopen them:
 
 | Question | Answer | Where |
 |---|---|---|
-| Deployment topology | `api.quizzivy.x` + `app.quizzivy.x` | `00-overview.md` §4.1 |
+| Deployment topology | `api.quizzivy.com` + `app.quizzivy.com` | `00-overview.md` §4.1 |
 | Version snapshot shape | Fully normalized, per §13.3 | `00-overview.md` §5 |
 | Audio duration probe | Pure-Go, no ffprobe | `00-overview.md` §5, T-2.2 |
 | Frontend/backend order | Contract-first OpenAPI, both generated | `00-overview.md` §2 |
@@ -234,3 +227,6 @@ For the record, so a later session does not reopen them:
 | §17.2 No approval queue | Keep, but change the `max_uses` default | O-06, R-02 |
 | §17.3 mp3/m4a only | Keep. The probe was the real decision | T-2.2 |
 | Google supports PKCE? | Yes — `S256`, verified from discovery. The gap is the GIS wrapper | O-13 |
+| **O-01** real domain | **`quizzivy.com`**, bought. `app.` + `api.` subdomains | `00-overview.md` §4.1 |
+| **O-02** Google OAuth client | **Done and verified** — `make verify-google` passes | T-0.2 |
+| **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |

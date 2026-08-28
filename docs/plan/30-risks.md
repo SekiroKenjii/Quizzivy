@@ -191,7 +191,7 @@ minutes with no error anyone can see. Or CORS is loosened to `*` during
 debugging and credentials stop working — or worse, keep working.
 
 **Why it is plausible.** `SameSite=Lax` is subtle: it permits same-*site* cross-
-*origin* requests, which is exactly the `app.quizzivy.x` → `api.quizzivy.x`
+*origin* requests, which is exactly the `app.quizzivy.com` → `api.quizzivy.com`
 case, but a reader who conflates site with origin will "fix" it to
 `SameSite=None`. A `127.0.0.1` vs `localhost` split in local dev makes requests
 genuinely cross-site and produces a bug that vanishes in staging.
