@@ -196,6 +196,23 @@ jobs:
       - name: Provision roles and database
         run: ./scripts/provision-db.sh
 
+      # Migrations run BEFORE the tests, not by one of them.
+      #
+      # `go test ./...` runs packages in parallel, and only internal/db applies
+      # migrations -- every other DB-backed package (classes, join, media, auth)
+      # opens a pool and assumes the tables are there. That worked only because
+      # internal/db usually won the race to goose.Up, which is not a guarantee
+      # and is invisible until it loses: "relation app.users does not exist" in
+      # whichever package happened to query first.
+      #
+      # Applying them here makes the schema a precondition of the step rather
+      # than a side effect of one package's tests, and matches what a developer
+      # does locally (`make migrate` before `make test-api`).
+      - name: Apply migrations
+        run: |
+          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
+            -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" up
+
       - name: Vet
         working-directory: server
         run: go vet ./...
