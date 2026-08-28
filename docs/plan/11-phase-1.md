@@ -76,17 +76,37 @@ the public join surface, then the frontend that consumes it.
       and sets the replacement (§5.2)
 - [ ] Cookie is `httpOnly; Secure; SameSite=Lax; Path=/auth`, **host-only** —
       no `Domain` attribute (`00-overview.md` §4.1)
-- [ ] Tokens are stored SHA-256 hashed and compared in constant time (§13.5)
+- [ ] Tokens are stored SHA-256 hashed, and looked up BY that hash (§13.5)
+      — this checkbox previously said "compared in constant time", which
+      misquotes §13.5: that phrase belongs to the JOIN CODE bullet. A join code
+      is short and human-typed; a refresh token is 256 bits from a CSPRNG, and
+      the lookup is a b-tree probe an attacker cannot aim without already
+      holding a candidate. No Go-side compare is added, because comparing a
+      value against the row it was used to find would assert nothing
 - [ ] Presenting an already-rotated token revokes the **whole family** and
       forces re-login (§5.2)
 - [ ] `POST /auth/logout` revokes the presented token's family
-- [ ] An expired-token cleanup path exists and uses `refresh_tokens_expiry_idx`
+- [ ] An expired-token cleanup path exists, runs at startup and daily, and
+      prunes by **family** — never individual rows. `replaced_by` is
+      `ON DELETE SET NULL`, and rotation reads it to tell a replayed token from
+      a wholesale-revoked one; deleting a successor nulls its predecessor's link
+      and silently downgrades reuse detection on it. Latent today (a successor
+      outlives its predecessor), live the moment `REFRESH_TOKEN_TTL` is reduced.
+      This means the scan does not use `refresh_tokens_expiry_idx` — the index
+      the original checkbox named. Correctness over the index, at this size
 - [ ] Test: `auth/rotation_test.go` — "replaying a rotated token revokes every
       token in the family"
 - [ ] Test: `auth/rotation_test.go` — "rotation issues a token in the same
       family with `replaced_by` set on the predecessor"
 - [ ] Test: `auth/cookie_test.go` — asserts the exact `Set-Cookie` attributes,
       including the absence of `Domain`
+- [ ] `POST /auth/logout` is authenticated by the refresh COOKIE, not the
+      access token: an expired access token must not be able to strand a live
+      refresh family
+- [ ] Contract additions: `Set-Cookie` on `/auth/refresh` 200 (rotation cannot
+      deliver its replacement without it) and on `/auth/logout` 204
+- [ ] Test: `auth/rotation_test.go` — concurrent refreshes of one token elect
+      exactly one winner. The row lock is the guarantee; nothing else asserts it
 - [ ] Public endpoint: rate-limited and leak-reviewed (§14)
 
 ---
