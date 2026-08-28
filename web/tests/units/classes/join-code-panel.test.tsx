@@ -361,7 +361,9 @@ describe("copying the join link", () => {
     renderPanel();
     await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
     await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", { name: "Tạo mã mới" }),
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Tạo mã mới",
+      }),
     );
     await screen.findByText(FULL_CODE);
     return screen.getByRole("button", { name: "Sao chép đường dẫn" });
@@ -371,7 +373,9 @@ describe("copying the join link", () => {
     const user = userEvent.setup();
     const copy = await rotateThenGetCopyButton(user);
 
-    const restore = withClipboard({ writeText: () => Promise.reject(new Error("denied")) });
+    const restore = withClipboard({
+      writeText: () => Promise.reject(new Error("denied")),
+    });
     try {
       await user.click(copy);
       expect(await screen.findByText(/Không sao chép được/i)).toBeInTheDocument();

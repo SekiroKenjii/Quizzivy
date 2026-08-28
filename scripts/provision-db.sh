@@ -66,12 +66,20 @@ ALTER ROLE quizzivy_app     PASSWORD '${APP_PASSWORD}';
 -- CREATEDB is for the test suite, not for production.
 --
 -- TestMigrationsAreReversible drops the whole schema to prove every Down works.
--- It used to do that in the shared test database, which `go test ./...` runs
+-- It used to do that in the shared test database, which "go test ./..." runs
 -- packages against IN PARALLEL -- so it deleted app.users out from under
--- internal/classes mid-query and turned develop's CI red for 12 straight runs.
+-- internal/classes mid-query and turned develop CI red for 12 straight runs.
 -- The test now creates a scratch database, does its damage there, and drops it,
 -- which needs this. On Neon the migrate role is not provisioned by this script
 -- and does not get it.
+--
+-- NOTE FOR EDITORS: this heredoc is UNQUOTED, so that the password variables
+-- expand. That also makes backticks command substitution and makes a dollar
+-- sign followed by a brace a parameter expansion -- in SQL COMMENTS too, which
+-- bash never sees as comments. An earlier version of this note quoted a shell
+-- command in backticks and provisioning ran the test suite and piped its output
+-- into psql; the version after that used a dollar-brace and got "bad
+-- substitution". Keep both characters out of this block.
 ALTER ROLE quizzivy_migrate CREATEDB;
 SQL
 
