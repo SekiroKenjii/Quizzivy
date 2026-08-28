@@ -27,7 +27,11 @@ function renderLogin() {
     { path: "/admin", element: <p>admin home</p> },
     { path: "/app", element: <p>student home</p> },
   ];
-  render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/login"] })} />);
+  render(
+    <RouterProvider
+      router={createMemoryRouter(routes, { initialEntries: ["/login"] })}
+    />,
+  );
 }
 
 const { default: LoginPage } = await import("@/features/auth/pages/LoginPage");

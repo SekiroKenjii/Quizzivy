@@ -27,7 +27,7 @@ describe("GoogleMark", () => {
   });
 
   it("keeps a caller's className instead of dropping it", () => {
-    const { container } = render(<GoogleMark className="size-3 mr-2" />);
+    const { container } = render(<GoogleMark className="mr-2 size-3" />);
     const cls = markIn(container).getAttribute("class") ?? "";
     expect(cls).toContain("size-3");
     expect(cls).toContain("mr-2");
@@ -41,6 +41,8 @@ describe("GoogleMark", () => {
       </Button>,
     );
     // One accessible name, from the text -- not "Google" announced twice.
-    expect(screen.getByRole("button", { name: "Tiếp tục với Google" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Tiếp tục với Google" }),
+    ).toBeInTheDocument();
   });
 });
