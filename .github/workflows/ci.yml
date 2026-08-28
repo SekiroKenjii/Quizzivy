@@ -250,7 +250,13 @@ jobs:
     # Server job skips this one, which is backwards: a red build is when static
     # analysis has the most to say, and `develop` can stay red for a long time.
     needs: [server]
-    if: ${{ !cancelled() && github.event_name == 'push' }}
+    # develop only, until the plan allows reading non-main branches.
+    # SonarCloud's main branch is the only one this organization can read, so
+    # `develop` is set as the main branch there -- and an analysis submitted
+    # for any OTHER branch lands somewhere nobody can open. A push to `main`
+    # would do exactly that, so it does not run here rather than filling the
+    # project with branches that cannot be read.
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
