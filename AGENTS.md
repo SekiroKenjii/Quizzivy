@@ -1,17 +1,25 @@
 # Quizzivy — Agent Working Rules
 
-Read this file at the start of every session. Read `quizzivy-spec-v0.3.md`
-before touching any area you have not worked on before.
+Read this file at the start of every session. Read `docs/quizzivy-spec-v0.3.md`
+before touching any area you have not worked on before, and
+`docs/plan/00-overview.md` before touching architecture.
 
 ## Sources of truth, in order
 
-1. `quizzivy-spec-v0.3.md` — product and engineering spec
+1. `docs/quizzivy-spec-v0.3.md` — product and engineering spec
 2. `docs/plan/` — the implementation plan derived from it
-3. Neon `postgres-best-practices` skill — all DDL and SQL
-4. <https://www.postgresql.org/docs/18/index.html> — anything PG-version-specific
+3. `api/openapi.yaml` — the API contract; spec §15 is documentation of it
+4. Neon `postgres-best-practices` skill — all DDL and SQL
+5. <https://www.postgresql.org/docs/18/index.html> — anything PG-version-specific
 
 Where 1 and 2 disagree, the spec wins and the plan gets corrected.
-Where 3 and 4 disagree, the PostgreSQL docs win.
+Where 4 and 5 disagree, the PostgreSQL docs win.
+Where 3 and anything disagree, fix `openapi.yaml` first, then regenerate.
+
+Install the skill with `npx skills add neondatabase/postgres-skills`. One live
+conflict to know: the skill teaches the pre-18
+`ADD CHECK NOT VALID → VALIDATE → SET NOT NULL` pattern. PG18 has a native
+`ALTER TABLE … ADD CONSTRAINT c NOT NULL col NOT VALID`; per rule 5, use it.
 
 ## Non-negotiable
 
@@ -25,6 +33,104 @@ Where 3 and 4 disagree, the PostgreSQL docs win.
 - Never remove or skip a failing test to make CI green. Fix it or flag it.
 - No new dependency without a stated reason in the PR description.
 - Never commit secrets. `.env.example` stays current; `.env` stays ignored.
+- **Never hand-edit generated code.** `server/gen/openapi/` and
+  `web/src/lib/api/schema.d.ts` come from `api/openapi.yaml`. Change the
+  contract and run `make gen`. CI fails on drift.
+- **`attempt_events` and `audit_log` are append-only.** The app role has no
+  `UPDATE` or `DELETE` on them. Do not grant it.
+- **The refresh call is single-flight.** Concurrent 401s must await one shared
+  promise. Parallel rotations trip reuse detection and log the user out on every
+  cold load. See `docs/plan/30-risks.md` R-06.
+
+## Verified platform facts (PG18)
+
+Checked against the docs, not recalled. Do not re-derive; do not assume otherwise.
+
+- `uuidv7()` is built-in, no extension. Signature `uuidv7([shift interval])`.
+- **Virtual generated columns are the PG18 default** and `final_score` uses one.
+  They **cannot be indexed**, cannot carry `UNIQUE` / `NOT NULL` / foreign keys /
+  extended statistics, and are excluded from logical replication. Do not write
+  `ORDER BY final_score` on a cross-attempt query.
+- `OLD`/`NEW` in `RETURNING` work in all four DML statements, but capturing an
+  audit diff in one statement requires a **data-modifying CTE** feeding the
+  `INSERT`. A bare `UPDATE … RETURNING` then `INSERT` is a read-then-write race.
+- `NOT NULL … NOT VALID` exists **only** as
+  `ALTER TABLE … ADD CONSTRAINT c NOT NULL col NOT VALID`. It is not in the
+  `CREATE TABLE` grammar and not available via `SET NOT NULL`. On a greenfield
+  table, declare `NOT NULL` inline — it is free.
+
+`server/internal/db/pg18_test.go` pins all four. If it fails, the docs changed
+and the plan needs revisiting.
+
+## Repository map
+
+```
+api/openapi.yaml   the contract — edit this first, then `make gen`
+web/               quizzivy-web; src/ layout is spec §3, unchanged
+server/            Go module `quizzivy`; internal/ mirrors the feature folders
+  gen/openapi/     generated, committed, never hand-edited
+  media/probe/     pure-Go mp3 + mp4 duration; no ffprobe
+migrations/        goose, forward-only, 00001…
+seed/              seed data — never in a migration
+docs/plan/         the plan; 20-data-model.md is the schema authority
+```
+
+A vertical slice is one `web/src/features/<name>/`, one
+`server/internal/<name>/`, and one section of `api/openapi.yaml`.
+
+## The API contract
+
+`api/openapi.yaml` is hand-authored; everything else generates from it.
+`oapi-codegen` → Go server interfaces. `openapi-typescript` → TS types. MSW
+fixtures are validated against it with `ajv` so mocks cannot drift.
+
+Zod schemas stay hand-written for form input, each carrying a type-level
+`Expect<Equal<…>>` assertion against the generated request type. Drift fails
+`tsc`, not review.
+
+Adding an endpoint means: edit `openapi.yaml` → `make gen` → implement both
+sides → commit the generated files.
+
+## Local development
+
+```
+docker compose up -d     postgres:18 + minio
+make migrate             goose up, as quizzivy_migrate
+make seed
+make gen                 regenerate from api/openapi.yaml
+make dev                 web on :5173, api on :8080
+```
+
+Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
+cross-site and hides the cookie behaviour described in
+`docs/plan/00-overview.md` §4.1.
+
+Two database roles: `quizzivy_migrate` owns the schema and runs goose;
+`quizzivy_app` is what the API connects as and owns nothing.
+
+## Migrations
+
+- goose, SQL, forward-only, **one concern per file**, sequential zero-padded
+  names (`00014_create_test_versions.sql`).
+- Every file has a `-- +goose Down` that actually works. CI runs up/down/up.
+- Every task that touches the DB names its migration file in the PR.
+- `CREATE INDEX CONCURRENTLY` cannot run in a transaction — mark those files
+  `-- +goose NO TRANSACTION`. It is only needed once a table has rows, so none
+  of `00001`–`00022` uses it.
+- Expand-contract for anything breaking; never in one migration.
+- The inventory and the reasoning behind every constraint and index are in
+  `docs/plan/20-data-model.md`. Read the deviation register in §12 before
+  changing a table — twenty deviations from the spec sketch are deliberate.
+
+## Git workflow
+
+Gitflow. `main` is released only and tagged; `develop` is integration.
+
+- One task from a phase file = one branch = one PR: `feature/t-<phase>-<n>-<slug>`
+  off `develop`.
+- Phase completion is `release/phase-<n>` → `main` → back-merge to `develop`.
+- `hotfix/<slug>` off `main`, merged to both.
+- Never commit directly to `main` or `develop`.
 
 ## Design
 
@@ -34,11 +140,19 @@ glassmorphism, no pulse rings, no glow, no emoji in UI chrome. If a
 design choice feels like it needs a new color, it probably needs a
 different layout instead.
 
+Colors come from CSS variables / Tailwind tokens, never hard-coded. Dark mode is
+not in v1 but must remain addable without touching components.
+
+Integrity UI is calm: plain dialogs, plain text, no alarm iconography, no red
+banners, no shame. The teacher judges; the app reports.
+
 ## Language
 
 Vietnamese first. Write the `vi` string, then `en`. No English-only
 user-facing text ever reaches a commit. Code, comments, commit messages,
 and docs are English.
+
+Design for longer Vietnamese strings; avoid fixed-width labels.
 
 ## Per-PR checklist
 
@@ -46,9 +160,15 @@ and docs are English.
 - [ ] Lint clean
 - [ ] Loading / error / empty states present
 - [ ] Keyboard-operable; visible focus
+- [ ] All strings via `t()`, keys in both `vi` and `en`
 - [ ] Tests added or updated at the right level (spec §14)
-- [ ] DDL reviewed against spec §13 and the Neon skill
+- [ ] DDL reviewed against spec §13, `docs/plan/20-data-model.md`, and the Neon
+      skill; migration file named
+- [ ] New public (unauthenticated) endpoint: rate-limited **and** leak-reviewed
+      in this PR (§6.5)
+- [ ] `make gen` run and generated files committed if the contract changed
 - [ ] `.env.example` updated if config changed
+- [ ] New dependencies listed with reasons
 
 ## High-risk areas — extra care
 
@@ -57,8 +177,30 @@ anything touching `attempts` or `test_versions`. Run the relevant unit
 tests before and after every change to these. Do not refactor them
 opportunistically while doing something else.
 
+Four tests are canaries. If one starts failing, something load-bearing broke —
+fix the cause, never the test:
+
+- `publish/snapshot_test.go` — editing a bank question after publish must not
+  change the published version. Without this, versioning is decorative.
+- `AudioPlayer.test.tsx` — `.play()` must be called in the same synchronous tick
+  as the click. Any `await` before it breaks iOS Safari silently.
+- `integrity/events_test.go` — the same `client_seq` from two `session_id`s must
+  both persist. This is what stops a resumed attempt's timeline vanishing.
+- `client.refresh.test.ts` — five concurrent 401s must issue exactly one refresh.
+
+`docs/plan/30-risks.md` explains what each one is guarding.
+
 ## When you are unsure
 
 Ask one precise question. Do not guess on §5 (auth), §6 (join codes),
 §10 (integrity), §11 (audio), or §13 (data model). Guessing in these
 areas is more expensive than waiting for an answer.
+
+Check `docs/plan/40-open-items.md` first — the question may already be there with
+a stated default, in which case build the default and move on.
+
+## Keeping documents current
+
+When a decision changes, edit the spec section and bump its version at the top
+(§18), then correct the affected plan file. A plan that disagrees with what was
+built is worse than no plan.
