@@ -473,9 +473,24 @@ CREATE INDEX questions_prompt_trgm_idx
   WHERE deleted_at IS NULL;
 CREATE INDEX questions_media_idx
   ON app.questions (media_asset_id) WHERE media_asset_id IS NOT NULL;
+-- Answers "which BANK questions use this asset". The delete-blocking check in
+-- §8 is a different query, against `test_version_questions`, served by
+-- `tvq_media_idx` in 00017 -- both indexes are wanted, for different questions.
 CREATE INDEX questions_type_id_idx
   ON app.questions (type, id DESC) WHERE deleted_at IS NULL;
 ```
+
+- **`audio_max_plays` needed a second constraint, added in `00014`.** The
+  biconditional below covers `audio_allow_seek` and `audio_show_transcript_after`
+  and does not mention `audio_max_plays`. Leaving it out of the right-hand side
+  is right — `maxPlays` is `[integer, 'null']` with null meaning unlimited, so a
+  NULL on an audio question is a value, not an absence, and requiring it would
+  forbid "unlimited". But the other direction was missing: on a question with no
+  media the left side is false, which the biconditional satisfies as soon as one
+  of the two booleans is NULL, leaving `audio_max_plays` unconstrained. A
+  `short_answer` question with `audio_max_plays = 3` satisfied every CHECK on
+  the table. `questions_max_plays_only_with_audio` closes it, one-directional
+  like `questions_transcript_iff_audio` beside it.
 
 - **Audio policy columns are nullable [D-04].** §13.3 declares them
   `NOT NULL DEFAULT`, which cannot express §7's `audio?: AudioPolicy` — "present
@@ -609,7 +624,7 @@ CREATE TABLE app.question_blank_answers (
 structure the builder autosaves into (§8, debounced 1.5s) undefined. Three
 draft tables are added [D-14].
 
-### `00014_create_tests.sql`
+### `00015_create_tests.sql`
 
 ```sql
 CREATE TABLE app.tests (
@@ -675,7 +690,7 @@ CREATE INDEX test_section_questions_question_idx
   without one, a parent delete scans and locks the child table. It also serves
   §8's "where used" on the question bank.
 
-### `00015_create_test_versions.sql`
+### `00016_create_test_versions.sql`
 
 Immutable snapshot root. No `updated_at`, no soft delete — a published version
 is a historical fact.
@@ -717,7 +732,7 @@ CREATE TABLE app.test_version_sections (
   it once at publish and freezing it means the score denominator on a two-year-old
   attempt cannot drift.
 
-### `00016_create_test_version_content.sql`
+### `00017_create_test_version_content.sql`
 
 ```sql
 CREATE TABLE app.test_version_questions (
@@ -811,7 +826,7 @@ with §7's nested objects flattened — three booleans and four policy fields do
 not earn separate tables, and flattening keeps the monitor query a single row
 read.
 
-### `00017_create_assignments.sql`
+### `00018_create_assignments.sql`
 
 ```sql
 CREATE TABLE app.assignments (
@@ -875,7 +890,7 @@ CREATE TRIGGER assignments_set_updated_at BEFORE UPDATE ON app.assignments
   Existing attempts always carry their own `test_version_id` regardless (§10).
 - `assignments_window_idx` serves §9's due/upcoming/completed partitioning.
 
-### `00018_create_assignment_targets.sql`
+### `00019_create_assignment_targets.sql`
 
 §7's `targets: { classIds, studentIds }` — two link tables, not an array column.
 Arrays would make "which assignments is this student eligible for" a GIN
@@ -913,7 +928,7 @@ CREATE INDEX assignment_students_user_idx ON app.assignment_students (user_id);
 
 The hot path. Everything here is read on every autosave.
 
-### `00019_create_attempts.sql`
+### `00020_create_attempts.sql`
 
 ```sql
 CREATE TABLE app.attempts (
@@ -985,7 +1000,7 @@ CREATE INDEX attempts_flagged_idx
   history lives in `audit_log` (§13.4), which is where §8's "confirm + reason"
   already goes.
 
-### `00020_create_attempt_answers.sql`
+### `00021_create_attempt_answers.sql`
 
 ```sql
 CREATE TABLE app.attempt_answers (
@@ -1056,7 +1071,7 @@ CREATE TRIGGER attempt_answers_set_updated_at BEFORE UPDATE ON app.attempt_answe
 - `attempt_answers_question_idx` supports the `RESTRICT` and the per-question
   analytics the normalized snapshot exists to enable.
 
-### `00021_create_attempt_audio_plays.sql`
+### `00022_create_attempt_audio_plays.sql`
 
 ```sql
 CREATE TABLE app.attempt_audio_plays (
@@ -1083,7 +1098,7 @@ The increment is `INSERT … ON CONFLICT (attempt_id, question_id) DO UPDATE SET
 plays = attempt_audio_plays.plays + 1, last_played_at = now() RETURNING plays` —
 one statement, atomic, returns the authoritative count §11.4 requires.
 
-### `00022_create_attempt_events.sql`
+### `00023_create_attempt_events.sql`
 
 ```sql
 CREATE TABLE app.attempt_events (
@@ -1241,15 +1256,16 @@ the file it adds.
 | `00011_create_questions.sql` | `questions` | 2 |
 | `00012_create_question_options.sql` | `question_options` | 2 |
 | `00013_create_question_blanks.sql` | `question_blanks`, `question_blank_answers` | 2 |
-| `00014_create_tests.sql` | `tests`, `test_sections`, `test_section_questions` | 2 |
-| `00015_create_test_versions.sql` | `test_versions`, `test_version_sections` | 2 |
-| `00016_create_test_version_content.sql` | `test_version_questions`, `_options`, `_blanks`, `_blank_answers` | 2 |
-| `00017_create_assignments.sql` | `assignments` | 3 |
-| `00018_create_assignment_targets.sql` | `assignment_classes`, `assignment_students` | 3 |
-| `00019_create_attempts.sql` | `attempts` | 3 |
-| `00020_create_attempt_answers.sql` | `attempt_answers` | 3 |
-| `00021_create_attempt_audio_plays.sql` | `attempt_audio_plays` | 3 |
-| `00022_create_attempt_events.sql` | `attempt_events` | 3 |
+| `00014_restrict_audio_max_plays_to_audio.sql` | CHECK on `questions` [D-04] | 2 |
+| `00015_create_tests.sql` | `tests`, `test_sections`, `test_section_questions` | 2 |
+| `00016_create_test_versions.sql` | `test_versions`, `test_version_sections` | 2 |
+| `00017_create_test_version_content.sql` | `test_version_questions`, `_options`, `_blanks`, `_blank_answers` | 2 |
+| `00018_create_assignments.sql` | `assignments` | 3 |
+| `00019_create_assignment_targets.sql` | `assignment_classes`, `assignment_students` | 3 |
+| `00020_create_attempts.sql` | `attempts` | 3 |
+| `00021_create_attempt_answers.sql` | `attempt_answers` | 3 |
+| `00022_create_attempt_audio_plays.sql` | `attempt_audio_plays` | 3 |
+| `00023_create_attempt_events.sql` | `attempt_events` | 3 |
 
 Notes on migration mechanics (§13.7):
 

@@ -62,6 +62,17 @@ END
 -- ones and handing back a DSN that cannot authenticate.
 ALTER ROLE quizzivy_migrate PASSWORD '${MIGRATE_PASSWORD}';
 ALTER ROLE quizzivy_app     PASSWORD '${APP_PASSWORD}';
+
+-- CREATEDB is for the test suite, not for production.
+--
+-- TestMigrationsAreReversible drops the whole schema to prove every Down works.
+-- It used to do that in the shared test database, which `go test ./...` runs
+-- packages against IN PARALLEL -- so it deleted app.users out from under
+-- internal/classes mid-query and turned develop's CI red for 12 straight runs.
+-- The test now creates a scratch database, does its damage there, and drops it,
+-- which needs this. On Neon the migrate role is not provisioned by this script
+-- and does not get it.
+ALTER ROLE quizzivy_migrate CREATEDB;
 SQL
 
 # Membership BEFORE the database is created, not after.

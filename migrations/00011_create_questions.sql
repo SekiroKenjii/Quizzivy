@@ -102,7 +102,10 @@ CREATE INDEX questions_prompt_trgm_idx
   ON app.questions USING gin (app.immutable_unaccent(lower(prompt)) gin_trgm_ops)
   WHERE deleted_at IS NULL;
 
--- "Which questions use this asset" -- the delete-blocking check in §8.
+-- "Which BANK questions use this asset". NOT the delete-blocking check in §8:
+-- that one asks whether a PUBLISHED VERSION references the asset, which is a
+-- query against test_version_questions served by tvq_media_idx (00017). Both
+-- are wanted; they answer different questions.
 CREATE INDEX questions_media_idx
   ON app.questions (media_asset_id) WHERE media_asset_id IS NOT NULL;
 

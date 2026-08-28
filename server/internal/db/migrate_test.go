@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"database/sql"
+	"net/url"
 	"os"
 	"testing"
 
@@ -89,21 +90,95 @@ FROM (
 	return snapshot
 }
 
-func TestMigrationsAreReversible(t *testing.T) {
-	// DESTRUCTIVE. goose.Reset drops the whole schema, which takes any seed
-	// data with it -- so running `go test ./...` locally would silently wipe
-	// the database a developer had just seeded, with no hint as to why.
-	//
-	// Opt-in rather than opt-out: CI sets TEST_DESTRUCTIVE=1 against a
-	// throwaway container, and locally it is one flag away when you actually
-	// want it. The other tests in this package are transaction-scoped and
-	// always run.
-	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
-		t.Skip("TEST_DESTRUCTIVE=1 not set; skipping the destructive migration round trip " +
-			"(it drops schema app, seed data included)")
+// scratchDatabase creates a database of its own for the destructive round trip
+// and drops it afterwards.
+//
+// This test used to run goose.Reset against the SHARED test database, and
+// `go test ./...` runs packages IN PARALLEL. So it dropped schema app out from
+// under internal/classes mid-query -- "relation app.users does not exist" --
+// and develop's CI was red on every run for twelve runs because of it. Nothing
+// was wrong with either test alone; they simply cannot share a database while
+// one of them drops it.
+//
+// Serialising the suite with `-p 1` would also have worked, but it slows every
+// package to fix one interaction and encodes a constraint nothing in the code
+// states. Giving this test its own database makes it correct by construction:
+// there is nothing else in there to break.
+func scratchDatabase(t *testing.T) string {
+	t.Helper()
+	admin, err := sql.Open("pgx", db.TestDSN(t))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = admin.Close() }()
+	if err := admin.Ping(); err != nil {
+		t.Fatalf("ping: %v", err)
 	}
 
-	conn := openMigrate(t)
+	// A fixed name, dropped first: a previous run killed midway would otherwise
+	// leave it behind and fail every run after.
+	const name = "quizzivy_migrate_check"
+	if _, err := admin.Exec(`DROP DATABASE IF EXISTS ` + name); err != nil {
+		t.Fatalf("dropping a leftover %s: %v", name, err)
+	}
+	if _, err := admin.Exec(`CREATE DATABASE ` + name); err != nil {
+		// Not a skip. CREATEDB is granted by scripts/provision-db.sh, so a
+		// failure here means the database was provisioned before that landed --
+		// and a reversibility check that quietly stops running is worse than
+		// one that fails.
+		t.Fatalf("creating %s: %v\n\n"+
+			"The migrate role needs CREATEDB for this test. Re-run provisioning\n"+
+			"(`make db-provision`, or ALTER ROLE quizzivy_migrate CREATEDB).", name, err)
+	}
+	t.Cleanup(func() {
+		cleanup, err := sql.Open("pgx", db.TestDSN(t))
+		if err != nil {
+			return
+		}
+		defer func() { _ = cleanup.Close() }()
+		_, _ = cleanup.Exec(`DROP DATABASE IF EXISTS ` + name)
+	})
+
+	return swapDatabase(t, db.TestDSN(t), name)
+}
+
+// swapDatabase rewrites the database name in a DSN, leaving everything else --
+// credentials, host, sslmode -- exactly as configured.
+func swapDatabase(t *testing.T, dsn, name string) string {
+	t.Helper()
+	u, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatalf("TEST_DATABASE_URL is not a URL: %v", err)
+	}
+	u.Path = "/" + name
+	return u.String()
+}
+
+func TestMigrationsAreReversible(t *testing.T) {
+	// DESTRUCTIVE, but only to a database this test creates for itself -- see
+	// scratchDatabase. It still drops the whole schema, which is the point:
+	// §13.7 wants up -> down -> up proven from nothing.
+	//
+	// Still opt-in. Creating and dropping a database is more than a developer
+	// running `go test ./...` on a laptop expects, and CI sets the flag.
+	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
+		t.Skip("TEST_DESTRUCTIVE=1 not set; skipping the destructive migration round trip " +
+			"(it creates and drops a scratch database)")
+	}
+
+	conn, err := sql.Open("pgx", scratchDatabase(t))
+	if err != nil {
+		t.Fatalf("open scratch: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if err := conn.Ping(); err != nil {
+		t.Fatalf("ping scratch: %v", err)
+	}
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatalf("dialect: %v", err)
+	}
+	goose.SetLogger(goose.NopLogger())
+
 	dir := db.MigrationsDir(t)
 
 	if err := goose.Up(conn, dir); err != nil {
