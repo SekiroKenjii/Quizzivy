@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setSessionLostHandler, __resetRefreshStateForTests } from "./client";
-import { ApiError } from "./errors";
+import { api, setSessionLostHandler, __resetRefreshStateForTests } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 
 /**

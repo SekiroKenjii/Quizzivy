@@ -13,6 +13,7 @@ Gitflow.
 | `feature/t-<phase>-<n>-<slug>` | One task from a phase file. Branch off `develop`. |
 | `release/phase-<n>` | Cut when a phase's tasks are merged. Stabilization only. |
 | `hotfix/<slug>` | Off `main`. Merged to **both** `main` and `develop`. |
+| `chore/<slug>` | Off `develop`. Repo-wide work that is not a plan task — tooling, layout, dependency bumps. |
 
 ```bash
 git checkout -b feature/t-1-04-google-oauth develop

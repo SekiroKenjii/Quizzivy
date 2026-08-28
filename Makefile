@@ -76,7 +76,7 @@ contract: ## Lint api/openapi.yaml and assert its invariants
 	npx --yes @stoplight/spectral-cli@$(SPECTRAL_VERSION) lint api/openapi.yaml --ruleset api/.spectral.yaml
 	# Structural assertions live in the Vitest suite (T-0.13 ported them out of
 	# the interim Python checker). Run just those, not the whole suite.
-	cd web && pnpm vitest run src/test/openapi-contract.test.ts
+	cd web && pnpm vitest run tests/units/contract
 
 gen: contract ## Regenerate Go + TS from api/openapi.yaml
 	cd server && go tool oapi-codegen --config ../api/oapi-codegen.yaml ../api/openapi.yaml

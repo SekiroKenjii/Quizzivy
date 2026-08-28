@@ -232,7 +232,7 @@ service in T-0.6, which speaks the same S3 API.
       the plugins disagree on how they export flat configs, and composing their
       presets produced an error naming the wrong plugin
 - [ ] `lucide-react` is the only icon package in `package.json` (§2)
-- [ ] Test: `web/src/styles/tokens.test.ts` guards §12's colour rules. Note the
+- [ ] Test: `web/tests/units/styles/tokens.test.ts` guards §12's colour rules. Note the
       subtlety it has to get right: Tailwind's zinc sits at hue ~286, squarely in
       the blue band, so a naive hue check would reject the mandated palette. What
       separates zinc from indigo is **chroma** — 0.006 versus 0.23 — so the rule
@@ -258,7 +258,7 @@ service in T-0.6, which speaks the same S3 API.
       §8/§9, with the collapsible sidebar ≤1280px and 768px minimum width
 - [ ] `/login`, `/403`, `/404` render; `/login` is the §16 exit criterion
 - [ ] Global error boundary with reload and a copyable error ID (§9)
-- [ ] Test: `web/src/app/router.chunks.test.ts` runs a real Vite build in-memory
+- [ ] Test: `web/tests/integration/router-chunks.test.ts` runs a real Vite build in-memory
       and asserts against the actual chunk graph — not by reading the router and
       trusting `lazy`. It checks the admin tree, the student tree and the focus
       shell are all absent from the entry chunk, that the admin tree is still
@@ -299,7 +299,7 @@ service in T-0.6, which speaks the same S3 API.
       "store UTC, render `Asia/Ho_Chi_Minh`" (§13.2) is a property of the code
       rather than a convention. Tested across the UTC+7 date boundary, so it
       holds wherever CI runs
-- [ ] Test: `web/src/lib/i18n/parity.test.ts` fails if any key exists in one
+- [ ] Test: `web/tests/units/i18n/parity.test.ts` fails if any key exists in one
       locale and not the other
 - [ ] All strings via `t()`, keys in both `vi` and `en` (§14)
 
@@ -346,12 +346,12 @@ service in T-0.6, which speaks the same S3 API.
 
 ### T-0.13 — Set up the test harnesses
 **Depends on:** T-0.9, T-0.8
-**Touches:** `web/vitest.config.ts`, `web/src/test/`, `web/playwright.config.ts`
+**Touches:** `web/vite.config.ts`, `web/tests/`, `web/playwright.config.ts`
 **Size:** M
 **Done when:**
 - [ ] Vitest + Testing Library run via `pnpm test`
 - [ ] The T-0.7 contract assertions are ported from `api/contract_check.py` into
-      `web/src/test/openapi-contract.test.ts`, mutation tests included, and the
+      `web/tests/units/contract/openapi-contract.test.ts`, mutation tests included, and the
       Python file is deleted
 - [ ] MSW server configured; handlers are typed against `schema.d.ts`
 - [ ] **Every MSW fixture is validated against `api/openapi.yaml` with `ajv`** at
@@ -363,12 +363,12 @@ service in T-0.6, which speaks the same S3 API.
       Vietnamese copy cannot pass or fail for the wrong reason
 - [ ] A smoke suite proves the harness works end to end, including that a cold
       load produces no console errors
-- [ ] Test: `web/src/test/msw-contract.test.ts` proves the validation layer can
+- [ ] Test: `web/tests/units/contract/msw-contract.test.ts` proves the validation layer can
       fail — missing required field, undeclared field, wrong type, out-of-enum
       value, and a response status the contract never declares. Without it
       `contractJson` could silently degrade into plain `HttpResponse.json` with
       every test still green
-- [ ] Test: `web/src/test/render.test.tsx` exercises the whole harness at once —
+- [ ] Test: `web/tests/integration/render.test.tsx` exercises the whole harness at once —
       Testing Library renders, the component fetches through the real API
       client, MSW answers with a contract-validated fixture, i18next supplies
       Vietnamese copy

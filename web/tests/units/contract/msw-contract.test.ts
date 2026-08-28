@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { contractJson } from "./contractResponse";
-import { studentUser } from "./fixtures";
+import { contractJson } from "@tests/support/contractResponse";
+import { studentUser } from "@tests/support/fixtures";
 
 /**
  * Proves the mock-validation layer can actually fail.

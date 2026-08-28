@@ -80,7 +80,9 @@ and the plan needs revisiting.
 
 ```
 api/openapi.yaml   the contract — edit this first, then `make gen`
-web/               quizzivy-web; src/ layout is spec §3, unchanged
+web/               quizzivy-web
+  src/             spec §3 layout, unchanged -- source only, no tests
+  tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`; internal/ mirrors the feature folders
   gen/openapi/     generated, committed, never hand-edited
   media/probe/     pure-Go mp3 + mp4 duration; no ffprobe
@@ -147,6 +149,15 @@ Two database roles: `quizzivy_migrate` owns the schema and runs goose;
   `docs/plan/20-data-model.md`. Read the deviation register in §12 before
   changing a table — twenty deviations from the spec sketch are deliberate.
 
+## Tests
+
+`web/tests/` sits beside `web/src/`, split by cost: `units/` (fast, no build, no
+browser), `integration/` (several real layers at once), `e2e/` (Playwright
+against a production build), `support/` (harness, not tests). `web/tests/README.md`
+has the placement rule. `@/` is `src/`, `@tests/` is `tests/`.
+
+Go tests stay beside the code they cover, as is idiomatic.
+
 ## Git workflow
 
 Gitflow. `main` is released only and tagged; `develop` is integration.
@@ -212,6 +223,9 @@ fix the cause, never the test:
 - `integrity/events_test.go` — the same `client_seq` from two `session_id`s must
   both persist. This is what stops a resumed attempt's timeline vanishing.
 - `client.refresh.test.ts` — five concurrent 401s must issue exactly one refresh.
+- `tests/integration/router-chunks.test.ts` — the admin tree must stay out of
+  the entry chunk. It runs a real build; reading the router and trusting `lazy`
+  would not catch the regression that actually happens.
 
 `docs/plan/30-risks.md` explains what each one is guarding.
 

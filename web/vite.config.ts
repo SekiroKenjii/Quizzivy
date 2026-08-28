@@ -8,7 +8,10 @@ import path from "node:path";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { "@": path.resolve(import.meta.dirname, "./src") },
+    alias: {
+      "@": path.resolve(import.meta.dirname, "./src"),
+      "@tests": path.resolve(import.meta.dirname, "./tests"),
+    },
   },
   server: {
     port: 5173,
@@ -18,13 +21,21 @@ export default defineConfig({
     host: "localhost",
   },
   test: {
-    // Playwright specs live in e2e/ and are run by `pnpm e2e`. Vitest's default
-    // include pattern matches *.spec.ts, so without this it tries to run them
-    // and fails with a confusing "two different versions of @playwright/test".
-    exclude: ["node_modules/**", "dist/**", "e2e/**"],
+    // tests/ sits beside src/ and is split by cost:
+    //   units/       fast and deterministic -- no build, no browser
+    //   integration/ several real layers at once (a real Vite build, MSW +
+    //                Testing Library + the real API client)
+    //   e2e/         Playwright, run separately by `pnpm e2e`
+    //   support/     harness, not tests
+    //
+    // e2e is excluded explicitly: Vitest's default include matches *.spec.ts,
+    // and picking up Playwright specs fails with a confusing "two different
+    // versions of @playwright/test".
+    include: ["tests/{units,integration}/**/*.test.{ts,tsx}"],
+    exclude: ["node_modules/**", "dist/**", "tests/e2e/**"],
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./tests/support/setup.ts"],
     css: true,
   },
 });

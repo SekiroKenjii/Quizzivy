@@ -225,7 +225,7 @@ Backend first so each screen has real data the day it is built.
 
 ### T-4.11 — Build the admin dashboard and close the phase
 **Depends on:** T-4.10, T-4.7, T-4.9
-**Touches:** `web/src/features/`, `web/e2e/`
+**Touches:** `web/src/features/`, `web/tests/e2e/`
 **Size:** M
 **Done when:**
 - [ ] `/admin` renders open assignments, attempts awaiting grading, active

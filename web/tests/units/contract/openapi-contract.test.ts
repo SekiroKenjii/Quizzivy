@@ -8,7 +8,7 @@ import {
   propertyNames,
   resolveRef,
   type Json,
-} from "./openapi";
+} from "@tests/support/openapi";
 
 /**
  * Structural invariants of api/openapi.yaml. Ported from api/contract_check.py,

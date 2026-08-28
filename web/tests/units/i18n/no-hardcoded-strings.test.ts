@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
  * So this checks precisely the attributes that carry human-readable text.
  */
 
-const SRC = resolve(import.meta.dirname, "../..");
+const SRC = resolve(import.meta.dirname, "../../../src");
 const USER_FACING_ATTRS = ["aria-label", "aria-description", "placeholder", "title", "alt"];
 
 function tsxFiles(dir: string): string[] {
