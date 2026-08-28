@@ -44,7 +44,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	handler, err := api.NewRouter(api.Deps{DB: pool}, logger, cfg.AllowedOrigins, cfg.TrustProxy)
+	handler, err := api.NewRouter(api.Deps{DB: pool}, logger, cfg.AllowedOrigins, cfg.ClientIPHeader)
 	if err != nil {
 		return err
 	}

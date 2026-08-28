@@ -15,28 +15,6 @@ audio probe implementation, and build order.
 
 ## BLOCKING
 
-### O-16 — Where does the Go API run? · before first deploy
-**Default:** none yet. This is the one piece of the deployment story still open,
-and it blocks the `api.quizzivy.com` record because a CNAME needs a target.
-
-Settled around it, so this is the only remaining question:
-
-- **Database — Neon, Singapore, PG 18.6.** §13.7 already assumed Neon, and both
-  risks checked out: 18.6 is a normally supported release there (not preview),
-  and it is the same minor this project was developed against. Region
-  `aws-ap-southeast-1` is fixed at project creation, so choose it deliberately.
-- **SPA — Cloudflare Pages.** Static output, already on the account, free.
-
-What the API needs: a container runtime near Vietnam, an always-warm instance
-(a cold start during a timed exam is a bad look, and the server-authoritative
-timer makes it visible), a stable hostname to CNAME, and near-zero cost at ~50
-students.
-
-Whatever is chosen, `TRUST_PROXY=true` only if the platform terminates TLS in
-front of the app and sets `X-Forwarded-For` — otherwise the per-IP rate limit
-keys on the proxy and §6.5 stops working.
-
----
 
 ### O-14 — DNS records for quizzivy.com · before first deploy
 **Default:** `app.quizzivy.com` for the SPA, `api.quizzivy.com` for the API, as
@@ -251,3 +229,4 @@ For the record, so a later session does not reopen them:
 | **O-01** real domain | **`quizzivy.com`**, bought. `app.` + `api.` subdomains | `00-overview.md` §4.1 |
 | **O-02** Google OAuth client | **Done and verified** — `make verify-google` passes | T-0.2 |
 | **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |
+| **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages | `docs/setup/dns.md` |
