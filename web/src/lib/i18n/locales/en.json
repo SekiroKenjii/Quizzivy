@@ -54,5 +54,26 @@
     "new": "New password",
     "hint": "At least 8 characters.",
     "submit": "Change password"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Enter the email and password your teacher gave you.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "or": "or",
+    "continueWithGoogle": "Continue with Google",
+    "failed": "Could not sign in. Please try again.",
+    "googleUnavailable": "Google sign-in is not available right now.",
+    "googleFailed": "Google sign-in did not work. Please try again.",
+    "completingGoogle": "Finishing sign-in…",
+    "backToSignIn": "Back to sign in",
+    "noSignup": "Accounts are created by your teacher. If you have a class code, use the join link they sent you.",
+    "panelBlurb": "An English practice platform built for your class.",
+    "errors": {
+      "emailRequired": "Enter your email.",
+      "emailInvalid": "That email is not valid.",
+      "passwordRequired": "Enter your password."
+    }
   }
 }

@@ -1,7 +1,8 @@
-import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
+import { createBrowserRouter, type RouteObject } from "react-router";
 import { ErrorBoundary, NotFound } from "@/app/ErrorBoundary";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
+import { HomeRedirect } from "@/app/guards/HomeRedirect";
 
 /**
  * Three route trees (§2): `/admin/*`, `/app/*`, and a small public tree.
@@ -23,11 +24,34 @@ const page = (load: () => Promise<{ default: React.ComponentType }>) => async ()
   Component: (await load()).default,
 });
 
+/**
+ * The signed-out screens that own the whole viewport.
+ *
+ * Outside PublicLayout on purpose. That layout is §9's "logo + content" shell,
+ * and these two already carry the brand themselves -- nesting them would put a
+ * header above a full-height split and a `<main>` inside a `<main>`.
+ */
+const authTree: RouteObject = {
+  children: [
+    { path: "login", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
+    // Where Google returns the browser (§5.3). Public: the session does not
+    // exist yet -- creating it is what this page is for.
+    {
+      path: "auth/google/callback",
+      lazy: page(() => import("@/features/auth/pages/GoogleCallbackPage")),
+    },
+  ],
+};
+
+/**
+ * §9's public shell: logo + content. §12 wants the join screens as a single
+ * centered card under it -- "calm and legitimate, not a marketing page", since
+ * this is the first thing a new student sees.
+ */
 const publicTree: RouteObject = {
   lazy: page(() => import("@/layouts/PublicLayout")),
   children: [
-    { path: "login", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
-    // /join/* is built in T-1.12; the path exists so the tree is complete.
+    // /join/* is built in T-1.12; the paths exist so the tree is complete.
     { path: "join", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
     { path: "join/:code", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
   ],
@@ -135,7 +159,8 @@ export const router = createBrowserRouter([
   {
     ErrorBoundary,
     children: [
-      { index: true, element: <Navigate to="/login" replace /> },
+      { index: true, element: <HomeRedirect /> },
+      authTree,
       publicTree,
       protectedTree,
       { path: "403", lazy: page(() => import("@/app/pages/ForbiddenPage")) },

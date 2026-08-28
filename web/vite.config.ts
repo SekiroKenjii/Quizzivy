@@ -7,6 +7,12 @@ import path from "node:path";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // One .env for the whole repository, at the root -- which is where
+  // .env.example lives and where it documents BOTH halves of the config, the
+  // server's and the VITE_ ones. Vite otherwise looks only in web/, so every
+  // VITE_ value in that file was silently unset and the frontend ran on its
+  // fallbacks: VITE_GOOGLE_CLIENT_ID missing simply hid the Google button.
+  envDir: path.resolve(import.meta.dirname, ".."),
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),

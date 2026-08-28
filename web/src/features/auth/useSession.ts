@@ -61,8 +61,14 @@ export function useLogout() {
       // asked to leave. The refresh token may outlive this, which is a smaller
       // problem than a logout button that does nothing.
     }
+    // Leave the guarded route BEFORE forgetting the session. Clearing first
+    // re-renders the page the user is still on, RequireSession sees no user,
+    // and it redirects to `/login?next=<that page>` -- so the next person to
+    // sign in on this device inherits the previous user's destination. Seen
+    // for real: a student signed in after a teacher signed out of
+    // /admin/classes and was sent straight to a 403.
+    await navigate("/login", { replace: true });
     clearSession();
     queryClient.clear();
-    await navigate("/login", { replace: true });
   };
 }

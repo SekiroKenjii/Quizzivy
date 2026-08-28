@@ -164,3 +164,26 @@ describe("role guards", () => {
     expect(await screen.findByText("student home")).toBeInTheDocument();
   });
 });
+
+describe("signing out", () => {
+  it("does not leave a ?next= pointing at the previous user's page", async () => {
+    // Clearing the session while still on a guarded route makes RequireSession
+    // redirect with `?next=<that route>`, and the next person to sign in on the
+    // device inherits it. Found in the browser: a student signed in after a
+    // teacher signed out of /admin/classes and landed on a 403.
+    useAuthStore.setState({
+      isBootstrapping: false,
+      accessToken: "t",
+      user: adminUser,
+    });
+    const router = renderAt("/admin");
+    expect(await screen.findByText("admin home")).toBeInTheDocument();
+
+    // The order useLogout uses: leave first, forget second.
+    await router.navigate("/login", { replace: true });
+    useAuthStore.getState().clearSession();
+
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.search).toBe("");
+  });
+});

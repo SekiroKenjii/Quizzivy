@@ -109,6 +109,15 @@ A vertical slice is one `web/src/features/<name>/`, one
   derived from `api/openapi.yaml`'s `security`. Five operations are open; the
   list is pinned by a test so a sixth takes an argument.
 
+## `pnpm typecheck`, never `tsc --noEmit`
+
+`web/tsconfig.json` is a solution file: `"files": []` plus project references.
+Plain `tsc --noEmit` follows neither, so it checks **zero files and exits 0** --
+it will happily "pass" on a file containing `const n: number = "a string"`.
+
+Use `pnpm typecheck` (`tsc -b --noEmit`), which is what CI runs. This cost real
+time once: a type-level contract assertion was silently never evaluated.
+
 ## Two things about the middleware chain
 
 - **`oapi-codegen` applies the middleware slice in reverse**: the LAST entry
