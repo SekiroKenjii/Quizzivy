@@ -80,6 +80,13 @@ next depends on it.
       overwrites (§11.1)
 - [ ] Local development targets MinIO through the same `aws-sdk-go-v2/s3` client
       as R2 (`00-overview.md` §4.7)
+- [ ] **`RequestChecksumCalculation` is set to `WhenRequired`** (and
+      `ResponseChecksumValidation` likewise). Recent `aws-sdk-go-v2` versions
+      send `x-amz-sdk-checksum-algorithm` on `PutObject` by default; R2 reports
+      most checksum headers as unimplemented, so the default produces an upload
+      that works against MinIO and fails against R2 — a bug that only appears in
+      production. See `docs/setup/r2.md`
+- [ ] Acceptance includes **one upload against real R2**, not only MinIO
 - [ ] Test: `media/upload_test.go` — a WAV renamed `.mp3` is rejected with the
       mime error, not stored
 - [ ] Test: `media/upload_test.go` — a 6-minute MP3 is rejected on duration

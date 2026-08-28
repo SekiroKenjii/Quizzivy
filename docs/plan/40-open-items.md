@@ -40,6 +40,44 @@ T-1.5 onward stops.
 
 ---
 
+### O-13 — GIS cannot do PKCE; §2 and §5.3 may be incompatible · Phase 1
+**Default:** build the authorization request ourselves, keeping §5.3's PKCE and
+deviating from §2's library. **Needs your approval** — AGENTS.md and §18 both say
+do not deviate from §2 silently.
+
+Surfaced while writing the T-0.2 setup guide. §2 fixes **Google Identity
+Services** as the library; §5.3 requires **Authorization Code + PKCE**. Those may
+not be compatible.
+
+Verified from Google's discovery document:
+
+```
+code_challenge_methods_supported: ["plain", "S256"]
+```
+
+So Google's *authorization server* supports PKCE fully. The gap is in the GIS
+JavaScript wrapper: `google.accounts.oauth2.initCodeClient` documents no way to
+pass a `code_challenge`, and neither Google's code-model guide nor its web-server
+flow guide mentions PKCE at all.
+
+| | Approach | Trade-off |
+|---|---|---|
+| **A** | GIS `initCodeClient`, no PKCE | Keeps §2. Drops §5.3's PKCE. The code passes through browser JS, so an XSS could steal it — though redeeming it still needs the client secret, which never leaves the backend. |
+| **B** | Own the authorization request | Keeps §5.3. Deviates from §2. ~40 lines: verifier, S256 challenge, `state`, popup, callback. |
+
+**Recommended: B.** PKCE is cheap to do properly, it is what §5.3 asked for, and
+it drops a dependency on undocumented GIS behaviour. We render our own button
+either way — §12 dictates charcoal, not Google's default styling.
+
+Not urgent: `docs/setup/google-oauth.md` registers both the JavaScript origins
+(A needs them) and the redirect URIs (B needs them), so T-0.2 is not blocked by
+this. **Decide before T-1.5.**
+
+If you pick A, `api/openapi.yaml` needs `codeVerifier` made optional on
+`POST /auth/google`, and §5.3 should be corrected to stop claiming PKCE.
+
+---
+
 ### O-03 — R2 credentials · Phase 2
 **Default:** develop and test against the MinIO service in T-0.6; provision R2
 before Phase 2 deploys.
@@ -195,3 +233,4 @@ For the record, so a later session does not reopen them:
 | §17.1 Google-only self-join | Keep. Agreed; §6.3's reasoning holds | critique |
 | §17.2 No approval queue | Keep, but change the `max_uses` default | O-06, R-02 |
 | §17.3 mp3/m4a only | Keep. The probe was the real decision | T-2.2 |
+| Google supports PKCE? | Yes — `S256`, verified from discovery. The gap is the GIS wrapper | O-13 |
