@@ -300,6 +300,46 @@ correction) causes one visible jump. Acceptable, and the next autosave fixes it.
 
 ---
 
+### R-13 — Argon2id memory exhaustion on a 512 MB machine · Phase 1
+
+**Likelihood:** high · **Blast radius:** the whole API · **First bites:** the
+first lesson where a class signs in together
+
+Argon2id is memory-HARD by design. `m=65536` is not a budget, it is a 64 MiB
+arena held for the duration of *every* call. Measured on this build:
+
+| concurrent hashes | peak RSS |
+|---|---|
+| 1 | 67 MiB |
+| 4 | 260 MiB |
+| 8 | 517 MiB |
+| 30 | 1927 MiB |
+
+The production machine is `shared-cpu-1x` with **512 MB**, so eight simultaneous
+logins exceed the whole instance before the Go runtime, the pgx pool and HTTP
+buffers are counted. Thirty students signing in at the start of a lesson is an
+ordinary Tuesday. The symptom is not slowness — it is the OOM killer.
+
+§6.5's rate limits do **not** bound this: they are per-IP and per-email, and
+thirty students on thirty phones are thirty IPs. Nor is it only accidental —
+every failed login for an unknown email runs a full hash on purpose (the timing
+equaliser), so an attacker spending nothing makes the server allocate 64 MiB a
+request.
+
+**Mitigation, taken:** a concurrency bound in `internal/auth/password.go`
+(`MAX_CONCURRENT_PASSWORD_HASHES`, default 4). Callers queue rather than being
+refused, and a caller whose client has gone gives up its place via the request
+context. Bounded at 4, thirty logins finish in ~1.8s with a 256 MiB ceiling;
+unbounded they peak near 2 GiB. `hashbound_test.go` measures RSS and fails if
+the bound stops holding.
+
+**Not taken:** raising the instance to 1 GB (+$2.51/month). It would work, but
+the bound is needed anyway — without it the ceiling just moves, and the DoS
+shape is unchanged.
+
+**Not taken:** lowering `m`. That trades password strength for memory, which is
+the wrong direction when a cheap scheduling fix exists.
+
 ## R-12 — The beacon flush is unauthenticated or dropped
 
 **What goes wrong.** The `pagehide` flush never lands, so the final events before

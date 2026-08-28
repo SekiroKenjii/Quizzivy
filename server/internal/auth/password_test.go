@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -20,7 +21,7 @@ import (
 const seedHash = `$argon2id$v=19$m=65536,t=3,p=2$NsEIYu5N8g+iv1W9zV2hfQ$HgTGHdo9uosWEPKpMFDPDSUvBOTCc0oVcPvq7FeVIR4`
 
 func TestVerifiesTheSeedHash(t *testing.T) {
-	ok, err := VerifyPassword("quizzivy-dev", seedHash)
+	ok, err := VerifyPassword(context.Background(), "quizzivy-dev", seedHash)
 	if err != nil {
 		t.Fatalf("seed hash did not decode: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestVerifiesTheSeedHash(t *testing.T) {
 }
 
 func TestRoundTrip(t *testing.T) {
-	hash, err := HashPassword("mật khẩu của tôi")
+	hash, err := HashPassword(context.Background(), "mật khẩu của tôi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,12 +39,12 @@ func TestRoundTrip(t *testing.T) {
 		t.Errorf("hash is not PHC argon2id: %.30s", hash)
 	}
 
-	ok, err := VerifyPassword("mật khẩu của tôi", hash)
+	ok, err := VerifyPassword(context.Background(), "mật khẩu của tôi", hash)
 	if err != nil || !ok {
 		t.Errorf("correct password did not verify (ok=%v err=%v)", ok, err)
 	}
 
-	ok, err = VerifyPassword("mật khẩu khác", hash)
+	ok, err = VerifyPassword(context.Background(), "mật khẩu khác", hash)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +54,8 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestSaltIsPerHash(t *testing.T) {
-	a, _ := HashPassword("same")
-	b, _ := HashPassword("same")
+	a, _ := HashPassword(context.Background(), "same")
+	b, _ := HashPassword(context.Background(), "same")
 	if a == b {
 		t.Error("two hashes of the same password are identical; the salt is not random")
 	}
@@ -74,7 +75,7 @@ func TestRejectsMalformedHashesRatherThanReturningFalse(t *testing.T) {
 		"truncated fields": "$argon2id$v=19$m=65536,t=3,p=2$c2FsdA",
 	} {
 		t.Run(name, func(t *testing.T) {
-			ok, err := VerifyPassword("anything", encoded)
+			ok, err := VerifyPassword(context.Background(), "anything", encoded)
 			if err == nil {
 				t.Errorf("malformed hash was accepted as decodable (ok=%v)", ok)
 			}
@@ -96,7 +97,7 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 		base64.RawStdEncoding.EncodeToString(salt),
 		base64.RawStdEncoding.EncodeToString(weakKey))
 
-	ok, err := VerifyPassword("x", weak)
+	ok, err := VerifyPassword(context.Background(), "x", weak)
 	if err != nil {
 		t.Fatalf("a hash with non-default parameters failed to decode: %v", err)
 	}
@@ -106,7 +107,7 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 
 	// And new hashes carry the current parameters, so a future reader can tell
 	// which cost each stored password was made with.
-	fresh, err := HashPassword("x")
+	fresh, err := HashPassword(context.Background(), "x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 // spends ~50ms hashing, is a user-enumeration oracle measurable over a handful
 // of requests.
 func TestUnknownUserCostsTheSameAsAWrongPassword(t *testing.T) {
-	hash, err := HashPassword("correct-horse")
+	hash, err := HashPassword(context.Background(), "correct-horse")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,8 +142,8 @@ func TestUnknownUserCostsTheSameAsAWrongPassword(t *testing.T) {
 		return samples[runs/2]
 	}
 
-	wrongPassword := median(func() { _, _ = VerifyPassword("wrong", hash) })
-	noSuchUser := median(func() { BurnPasswordTime("wrong") })
+	wrongPassword := median(func() { _, _ = VerifyPassword(context.Background(), "wrong", hash) })
+	noSuchUser := median(func() { BurnPasswordTime(context.Background(), "wrong") })
 
 	ratio := float64(noSuchUser) / float64(wrongPassword)
 	if ratio < 0.5 || ratio > 2.0 {

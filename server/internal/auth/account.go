@@ -90,7 +90,7 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 		return ErrNoPasswordSet
 	}
 
-	ok, err := VerifyPassword(in.CurrentPassword, *user.PasswordHash)
+	ok, err := VerifyPassword(ctx, in.CurrentPassword, *user.PasswordHash)
 	if err != nil {
 		return fmt.Errorf("verify current password for %s: %w", user.ID, err)
 	}
@@ -98,7 +98,7 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 		return ErrInvalidCredentials
 	}
 
-	newHash, err := HashPassword(in.NewPassword)
+	newHash, err := HashPassword(ctx, in.NewPassword)
 	if err != nil {
 		return fmt.Errorf("hash new password: %w", err)
 	}
