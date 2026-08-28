@@ -166,8 +166,14 @@ func mp3Duration(r io.ReaderAt, size int64) (int, error) {
 		return 0, err
 	}
 
-	if frames, ok := vbrFrameCount(r, offset, first); ok {
-		return durationMs(frames, first), nil
+	// A VBR header is the only accurate answer short of decoding -- but only if
+	// it describes THIS file. When it does not, fall through to the walk rather
+	// than rejecting: the walk is exact and bounded, and it is what detects the
+	// truncation this path would otherwise skip.
+	if frames, declaredBytes, ok := vbrFrameCount(r, offset, first); ok {
+		if headerAgreesWithFile(frames, declaredBytes, first, size-offset) {
+			return durationMs(frames, first), nil
+		}
 	}
 
 	// No VBR header: count. Each header gives its own frame length, so this is
@@ -263,7 +269,11 @@ func resync(r io.ReaderAt, size, from int64) (int64, error) {
 // version and the channel mode -- getting that wrong reads four bytes of audio
 // and calls them a frame count, which is why the tag is verified rather than
 // assumed.
-func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, bool) {
+// vbrFrameCount reads a Xing/Info or VBRI header. The second result is the
+// stream length in BYTES as the header declares it, or 0 when the header does
+// not carry one -- it is what lets the caller notice a truncated upload, whose
+// header still describes the file it used to be.
+func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, int64, bool) {
 	sideInfo := int64(32) // MPEG1 stereo
 	switch {
 	case f.version == mpeg1 && f.channels == 1:
@@ -280,11 +290,24 @@ func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, bool) 
 	if _, err := r.ReadAt(tag, xingAt); err == nil {
 		if s := string(tag); s == "Xing" || s == "Info" {
 			flags := make([]byte, 4)
-			if _, err := r.ReadAt(flags, xingAt+4); err == nil && binary.BigEndian.Uint32(flags)&0x01 != 0 {
-				count := make([]byte, 4)
-				if _, err := r.ReadAt(count, xingAt+8); err == nil {
-					if n := int(binary.BigEndian.Uint32(count)); n > 0 && n < maxFrameScan {
-						return n, true
+			if _, err := r.ReadAt(flags, xingAt+4); err == nil {
+				bits := binary.BigEndian.Uint32(flags)
+				if bits&xingHasFrames != 0 {
+					count := make([]byte, 4)
+					if _, err := r.ReadAt(count, xingAt+8); err == nil {
+						if n := int(binary.BigEndian.Uint32(count)); n > 0 && n < maxFrameScan {
+							// The bytes field follows the frame count, and only
+							// when both flags are set -- the fields are packed
+							// in flag order, not at fixed offsets.
+							var declared int64
+							if bits&xingHasBytes != 0 {
+								b := make([]byte, 4)
+								if _, err := r.ReadAt(b, xingAt+12); err == nil {
+									declared = int64(binary.BigEndian.Uint32(b))
+								}
+							}
+							return n, declared, true
+						}
 					}
 				}
 			}
@@ -298,9 +321,77 @@ func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, bool) 
 		count := make([]byte, 4)
 		if _, err := r.ReadAt(count, vbriAt+14); err == nil {
 			if n := int(binary.BigEndian.Uint32(count)); n > 0 && n < maxFrameScan {
-				return n, true
+				// VBRI carries its stream size at offset 10, before the frame
+				// count at 14.
+				var declared int64
+				b := make([]byte, 4)
+				if _, err := r.ReadAt(b, vbriAt+10); err == nil {
+					declared = int64(binary.BigEndian.Uint32(b))
+				}
+				return n, declared, true
 			}
 		}
 	}
-	return 0, false
+	return 0, 0, false
+}
+
+// Xing flag bits. The optional fields are packed in this order, so an offset
+// into them is only correct once the preceding flags are known.
+const (
+	xingHasFrames = 1 << 0
+	xingHasBytes  = 1 << 1
+)
+
+// mp3BitrateBounds are the slowest and fastest bitrates any MPEG audio frame
+// can declare, in bits per second. They bound how much audio a given number of
+// bytes can possibly hold, whatever the encoder did in between.
+const (
+	minBitrateBps = 8_000
+	maxBitrateBps = 320_000
+)
+
+// headerAgreesWithFile reports whether a declared frame count can be true of
+// the bytes actually present.
+//
+// The declared count is attacker-controlled -- it is four bytes in the uploaded
+// file -- and it used to be returned with no check beyond `0 < n < 200000`.
+// Two things went wrong with that.
+//
+// A file could simply lie. Writing a Xing header claiming 1000 frames onto an
+// hour of audio made the probe report 26 seconds, which media_assets accepted,
+// and §11.1's five-minute limit became a number the file chose.
+//
+// And a truncated upload was accepted as complete. The frame walk detects
+// truncation by noticing the last frame overruns the file, but that code never
+// ran when a Xing header was present -- on VBR, the file type most likely to
+// have one. A file cut in half still carries the header describing the whole.
+//
+// Both are answered by comparing the header against the bytes that are really
+// there, and neither is answered by rejecting outright: falling back to the
+// frame walk is better, because the walk is exact, already written, and bounded
+// by maxFrameScan.
+func headerAgreesWithFile(frames int, declaredBytes int64, f frameHeader, audioBytes int64) bool {
+	if audioBytes <= 0 {
+		return false
+	}
+
+	// The exact check, when the header offers it. A stream that says how long
+	// it is and then is not that long has been cut; a few hundred bytes of
+	// slack absorbs a trailing ID3v1 tag or a padded final frame.
+	if declaredBytes > 0 && audioBytes < declaredBytes-512 {
+		return false
+	}
+
+	// The bound, for the headers that carry no byte count. A VBR stream's
+	// average bitrate is not the first frame's, so this deliberately spans the
+	// whole legal bitrate range rather than guessing a tighter one: it is meant
+	// to catch a file claiming a duration its bytes could not hold under ANY
+	// encoding, not to second-guess an encoder.
+	ms := int64(durationMs(frames, f))
+	if ms <= 0 {
+		return false
+	}
+	shortestPossibleMs := audioBytes * 8 * 1000 / maxBitrateBps
+	longestPossibleMs := audioBytes * 8 * 1000 / minBitrateBps
+	return ms >= shortestPossibleMs && ms <= longestPossibleMs
 }
