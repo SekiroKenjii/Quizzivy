@@ -273,7 +273,7 @@ jobs:
       # merged before the SonarCloud project exists.
       - name: Scan
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v6
 
       - name: Say why it was skipped
         if: env.SONAR_TOKEN == ''
