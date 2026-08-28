@@ -407,15 +407,38 @@ belt and the braces do different jobs, and both are load-bearing.
 **Done when:**
 - [ ] Password form with react-hook-form + zod, and a "Tiếp tục với Google"
       button (§9)
-- [ ] GIS loaded lazily and requests an **authorization code with PKCE**, not an
-      implicit ID token (§5.3)
+- [ ] Requests an **authorization code with PKCE**, not an implicit ID token
+      (§5.3). **Without GIS** — this checkbox said "GIS loaded lazily", which
+      contradicts O-13 and T-1.5's own "do not reintroduce `gsi/client`".
+      `initCodeClient` cannot send a `code_challenge`, which is the entire
+      reason O-13 chose to own the authorization request
+- [ ] `code_verifier` and `state` are CSPRNG, S256, single-use, and held in
+      `sessionStorage` only for the round trip. That is NOT a contradiction of
+      §5.2's "never sessionStorage": the rule is about the ACCESS TOKEN, a
+      durable bearer credential. A PKCE verifier is single-use, worthless
+      without the matching `code`, and has to survive a redirect by definition
+- [ ] Popup with a redirect fallback. §1.1 puts students on phones, where
+      popups are blocked often enough that a popup-only flow is a dead end
 - [ ] Errors map from the envelope `code` to localized copy; the account-not-
       provisioned case explains that a class code is needed (§5.3)
-- [ ] Design follows §12: single centered card, `zinc-900` primary button, no
-      gradient, no glow
+- [ ] Design follows §12: `zinc-900` primary button, no gradient, no glow, no
+      oversized radii. Split layout (shadcn's authentication example), not the
+      "single centered card" this checkbox used to say — §12 asks for a centered
+      card on **join** screens specifically, and /login is not one. The left
+      panel carries the product name and one plain line; no invented testimonial
 - [ ] Test: `login.test.tsx` — invalid email blocks submit; server error renders
       the localized message; the Google button is keyboard-reachable
 - [ ] Loading / error / empty states present; all strings via `t()` (§14)
+- [ ] A zod schema with a type-level `Expect<Equal<…>>` against the generated
+      request type, per AGENTS.md. **Verified by mutation** — adding a field the
+      contract lacks must fail `tsc -b`
+- [ ] `?next=` is treated as untrusted even though a guard set it. It arrives
+      through the URL, so `?next=https://evil.test` would make sign-in an open
+      redirect; `//evil.test` is protocol-relative and `startsWith("/")` alone
+      accepts it
+- [ ] Post-sign-in destination is role-aware. Navigating to `/` sends the user
+      to the index route, which redirects anonymous visitors to `/login` — so a
+      fresh sign-in lands back on the form it just completed
 
 ---
 

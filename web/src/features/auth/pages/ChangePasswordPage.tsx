@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, fetchCurrentUser } from "@/features/auth/api";
 import { ApiError } from "@/lib/api/errors";
+import { homePathFor } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
 
 /**
@@ -38,8 +39,9 @@ export default function ChangePasswordPage() {
       // Re-read rather than assume: the server clears mustChangePassword, and
       // the guard reads it from the store. Guessing here would leave the user
       // on this page after a successful change.
-      setUser(await fetchCurrentUser());
-      await navigate("/", { replace: true });
+      const user = await fetchCurrentUser();
+      setUser(user);
+      await navigate(homePathFor(user), { replace: true });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : t("error.body"));
     } finally {

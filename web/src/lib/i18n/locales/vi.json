@@ -54,5 +54,26 @@
     "new": "Mật khẩu mới",
     "hint": "Ít nhất 8 ký tự.",
     "submit": "Đổi mật khẩu"
+  },
+  "login": {
+    "title": "Đăng nhập",
+    "subtitle": "Nhập email và mật khẩu giáo viên đã cấp cho bạn.",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "submit": "Đăng nhập",
+    "or": "hoặc",
+    "continueWithGoogle": "Tiếp tục với Google",
+    "failed": "Không thể đăng nhập. Vui lòng thử lại.",
+    "googleUnavailable": "Hiện chưa thể đăng nhập bằng Google.",
+    "googleFailed": "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
+    "completingGoogle": "Đang hoàn tất đăng nhập…",
+    "backToSignIn": "Quay lại đăng nhập",
+    "noSignup": "Tài khoản do giáo viên tạo. Nếu bạn có mã lớp, hãy dùng đường dẫn tham gia lớp mà giáo viên gửi.",
+    "panelBlurb": "Nền tảng luyện thi tiếng Anh dành riêng cho lớp học của bạn.",
+    "errors": {
+      "emailRequired": "Vui lòng nhập email.",
+      "emailInvalid": "Email không hợp lệ.",
+      "passwordRequired": "Vui lòng nhập mật khẩu."
+    }
   }
 }

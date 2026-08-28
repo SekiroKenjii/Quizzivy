@@ -1,0 +1,53 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { buildAuthorizationRequest, rememberPending } from "./pkce";
+
+/** Public config (§5.3). Absent in a deployment without Google sign-in. */
+const CLIENT_ID = import.meta.env["VITE_GOOGLE_CLIENT_ID"] as string | undefined;
+
+export function googleSignInAvailable(): boolean {
+  return typeof CLIENT_ID === "string" && CLIENT_ID.length > 0;
+}
+
+/**
+ * Starts the §5.3 flow by navigating the whole tab to Google.
+ *
+ * A REDIRECT, not a popup. The plan said popup; §1.1 puts students on phones,
+ * where popups are blocked often enough that a popup-only flow is a dead end
+ * with no obvious cause. A redirect is also one code path instead of two --
+ * no `postMessage`, no cross-window origin check, no "the popup closed and I
+ * do not know why" branch. The PKCE verifier already has to survive the round
+ * trip, so nothing is lost.
+ */
+export function useGoogleSignIn() {
+  const { t } = useTranslation();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function start(
+    options: { next?: string | undefined; joinCode?: string | undefined } = {},
+  ) {
+    if (!CLIENT_ID) {
+      setError(t("login.googleUnavailable"));
+      return;
+    }
+    setError(null);
+    setPending(true);
+    try {
+      const request = await buildAuthorizationRequest({
+        clientId: CLIENT_ID,
+        next: options.next,
+        joinCode: options.joinCode,
+      });
+      rememberPending(request.pending);
+      window.location.assign(request.url);
+    } catch {
+      // crypto.subtle is unavailable on insecure origins. Better to say so
+      // than to send the user to Google without a code_challenge.
+      setError(t("login.googleUnavailable"));
+      setPending(false);
+    }
+  }
+
+  return { start, error, pending };
+}
