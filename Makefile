@@ -12,7 +12,7 @@ MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),mig
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
-        seed gen dev dev-web dev-api test test-web test-api lint
+        seed gen contract dev dev-web dev-api test test-web test-api lint
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -60,8 +60,12 @@ migrate-redo: ## up -> down -> up, proving every Down works (what CI runs)
 seed: ## Load seed/ (never in a migration -- spec §13.7)
 	@for f in seed/*.sql; do echo "  $$f"; psql -v ON_ERROR_STOP=1 "$(MIGRATE_DSN)" -f "$$f"; done
 
-gen: ## Regenerate Go + TS from api/openapi.yaml (T-0.8)
-	@echo "not wired yet -- T-0.8"
+contract: ## Lint api/openapi.yaml and assert its invariants
+	npx --yes @stoplight/spectral-cli@latest lint api/openapi.yaml --ruleset api/.spectral.yaml
+	python3 api/contract_check.py
+
+gen: contract ## Regenerate Go + TS from api/openapi.yaml (T-0.8)
+	@echo "codegen not wired yet -- T-0.8"
 
 dev: ## Run web and api together
 	$(MAKE) -j2 dev-api dev-web
@@ -72,7 +76,7 @@ dev-api: ## Go API on :8080
 dev-web: ## Vite on :5173
 	cd web && pnpm dev
 
-test: test-api test-web ## Run all tests
+test: contract test-api test-web ## Run all tests
 
 test-web:
 	cd web && pnpm test

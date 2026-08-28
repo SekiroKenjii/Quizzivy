@@ -141,9 +141,22 @@ service in T-0.6, which speaks the same S3 API.
       appear anywhere in a student schema (§13.5)
 - [ ] Public endpoints are tagged `public` so T-0.14's middleware can assert
       every one of them is rate-limited
-- [ ] `spectral lint api/openapi.yaml` passes in CI
-- [ ] Test: `api/openapi.test.ts` asserts no schema reachable from a `/app/*`
-      response references a component containing the four forbidden keys
+- [ ] `spectral lint api/openapi.yaml` passes in CI, with
+      `operation-description` and `operation-operationId` raised to `error` —
+      this file is read by people as much as by generators
+- [ ] Contract assertions run mechanically, not by review: no dangling `$ref`;
+      no `/app/*` 2xx response reaches a schema containing `isCorrect`,
+      `sampleAnswer` or `acceptedAnswers` **at any depth**, and `transcript`
+      only from the result endpoint; `AdminQuestion` still *has* the grading key;
+      every public operation carries a rate limit and a 429; `operationId`s are
+      unique; every paginated response uses the one `{items, nextCursor}`
+      envelope
+- [ ] The assertions are **mutation-tested** — deliberately leaking a key, or
+      dropping a rate limit, must fail the check. A check that cannot fail is
+      not a check
+- [ ] These live in `api/contract_check.py` for now, because the web project
+      does not exist until T-0.9. **T-0.13 ports them into the Vitest suite**
+      so they run with everything else; delete the Python once it does
 
 ---
 
@@ -248,6 +261,9 @@ service in T-0.6, which speaks the same S3 API.
 **Size:** M
 **Done when:**
 - [ ] Vitest + Testing Library run via `pnpm test`
+- [ ] The T-0.7 contract assertions are ported from `api/contract_check.py` into
+      `web/src/test/openapi-contract.test.ts`, mutation tests included, and the
+      Python file is deleted
 - [ ] MSW server configured; handlers are typed against `schema.d.ts`
 - [ ] **Every MSW fixture is validated against `api/openapi.yaml` with `ajv`** at
       test setup, so a mock cannot drift from the contract (`00-overview.md` §3)
