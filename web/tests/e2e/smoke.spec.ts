@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { adminUser, anonymous, sessionAs, stubApi } from "./support/api";
 
 /**
  * Proves the E2E harness works against a real production build. The scenarios
@@ -6,17 +7,22 @@ import { expect, test } from "@playwright/test";
  */
 
 test("the app boots and lands on /login", async ({ page }) => {
+  await stubApi(page, anonymous);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quizzivy");
+  // The h1 is the ACTION, not the brand: since T-1.11 the product name lives
+  // in the side panel and the heading names what this screen is for.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Đăng nhập");
 });
 
 test("serves Vietnamese and declares it on the document", async ({ page }) => {
+  await stubApi(page, anonymous);
   await page.goto("/login");
   await expect(page.locator("html")).toHaveAttribute("lang", "vi");
 });
 
 test("an unknown path renders the 404 page, not a blank screen", async ({ page }) => {
+  await stubApi(page, anonymous);
   await page.goto("/duong-dan-khong-ton-tai");
   await expect(
     page.getByRole("heading", { name: "Không tìm thấy trang" }),
@@ -27,6 +33,7 @@ test("an unknown path renders the 404 page, not a blank screen", async ({ page }
 // the first version of this test used Playwright's default 1280px viewport and
 // failed -- at exactly 1280 the sidebar is collapsed, which is correct.
 test("admin sidebar is open by default above 1280px", async ({ page }) => {
+  await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/admin");
   await expect(
@@ -38,6 +45,7 @@ test("admin sidebar is open by default above 1280px", async ({ page }) => {
 test("admin sidebar collapses at 1280px and the toggle reopens it", async ({
   page,
 }) => {
+  await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/admin");
 
@@ -58,6 +66,7 @@ test("admin sidebar collapses at 1280px and the toggle reopens it", async ({
 // §14 requires keyboard operability; the sidebar toggle is the one control in
 // the admin shell that could plausibly be mouse-only.
 test("admin sidebar toggle is keyboard operable", async ({ page }) => {
+  await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/admin");
 
@@ -70,8 +79,20 @@ test("admin sidebar toggle is keyboard operable", async ({ page }) => {
 });
 
 test("no console errors on a cold load", async ({ page }) => {
+  // Stubbed, or the bootstrap `GET /auth/me` fails with ERR_CONNECTION_REFUSED
+  // and the assertion would be about the harness rather than the app.
+  await stubApi(page, anonymous);
   const errors: string[] = [];
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  page.on("console", (m) => {
+    // Chromium logs every non-2xx fetch as a console error. An anonymous
+    // bootstrap SHOULD 401 -- that is the app working, not failing -- and
+    // counting it here would mean the test passed only while /login made no
+    // network calls at all. Real faults are unhandled exceptions and React
+    // warnings, and those still land.
+    if (m.type() === "error" && !m.text().startsWith("Failed to load resource:")) {
+      errors.push(m.text());
+    }
+  });
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/login");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
