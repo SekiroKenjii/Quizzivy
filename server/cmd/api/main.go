@@ -18,6 +18,8 @@ import (
 	"quizzivy/internal/config"
 	"quizzivy/internal/db"
 	"quizzivy/internal/join"
+	"quizzivy/internal/media"
+	"quizzivy/internal/storage"
 )
 
 func main() {
@@ -79,7 +81,7 @@ func run(logger *slog.Logger) error {
 		logger.Info("google sign-in disabled (no credentials configured)")
 	}
 
-	handler, err := api.NewRouter(api.Deps{
+	deps := api.Deps{
 		DB:           pool,
 		Auth:         authService,
 		Join:         joinService,
@@ -87,7 +89,27 @@ func run(logger *slog.Logger) error {
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,
-	}, logger, cfg.AllowedOrigins, cfg.ClientIPHeader)
+	}
+
+	if cfg.MediaEnabled() {
+		objects, err := storage.New(ctx, storage.Config{
+			Endpoint:        cfg.S3Endpoint,
+			Region:          cfg.S3Region,
+			Bucket:          cfg.S3Bucket,
+			AccessKeyID:     cfg.S3AccessKeyID,
+			SecretAccessKey: cfg.S3SecretAccessKey,
+			ForcePathStyle:  cfg.S3ForcePathStyle,
+		})
+		if err != nil {
+			return err
+		}
+		deps.Media = media.NewService(media.NewStore(pool.Pool), objects)
+		logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
+	} else {
+		logger.Info("media storage disabled (no bucket configured)")
+	}
+
+	handler, err := api.NewRouter(deps, logger, cfg.AllowedOrigins, cfg.ClientIPHeader)
 	if err != nil {
 		return err
 	}

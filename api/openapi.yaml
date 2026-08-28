@@ -1875,9 +1875,12 @@ paths:
               required: [file]
               properties:
                 file: { type: string, format: binary }
-            encoding:
-              file:
-                contentType: audio/mpeg, audio/mp4, audio/aac, image/png, image/jpeg, image/webp
+            # Deliberately no `encoding.file.contentType`. That would make the
+            # part's Content-Type header a gate, and this endpoint must never
+            # trust it (§11.1) -- the accepted types below are decided by
+            # sniffing the bytes. It would also reject honest clients that send
+            # `application/octet-stream` (curl, Go's multipart writer) or
+            # `audio/x-m4a` (macOS), with a 400 instead of the 415 below.
       responses:
         '201':
           description: Stored.
