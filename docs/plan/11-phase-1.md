@@ -545,3 +545,31 @@ entry bundle.
 - [ ] E2E 3 and E2E 4 still pass — **Phase 1 exit criteria met**
 - [ ] `release/phase-1` merges to `main` and back to `develop`; the phase is
       deployable (§16)
+
+---
+
+## Phase 1 — closed
+
+**Exit criteria met.** E2E 2a, E2E 3 and E2E 4 pass (14 E2E in total), and the
+phase builds: `pnpm build` produces a bundle with the admin tree in its own
+chunk, and both Go binaries compile against migrations `00001`–`00009`.
+
+**What Phase 1 turned out to include that the plan did not say:**
+
+| Added | Why it could not wait |
+|---|---|
+| `00009_grant_app_role.sql` (T-1.2) | The app role had no privileges at all until Phase 3 |
+| Bearer authentication (T-1.4) | Access tokens were minted from T-1.2 and nothing verified one |
+| Request validation (T-1.4b) | Every `minLength` in the contract was decorative server-side |
+| Role authorization (T-1.6) | The first real `/admin` endpoint hands out join codes |
+| `internal/classes` (T-1.13) | The §6.4 panel needs three endpoints no task built |
+| Argon2id concurrency bound | 8 simultaneous logins exceed the 512 MB machine (R-13) |
+
+**Still stubs, deliberately:** `CreateClass`, `UpdateClass`, `AddClassMember`,
+and everything from Phase 2 onward — 50 operations. Nothing in Phase 1 needs
+them, and the 501 is honest.
+
+**Carried into Phase 2:** the teacher cannot create a class from the UI, only
+use the seeded one. That is Phase 2's own class-management work; it is not a
+Phase 1 gap, but it does mean a fresh deployment needs a class seeded before
+the join flow has anything to join.
