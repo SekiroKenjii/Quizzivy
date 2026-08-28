@@ -76,61 +76,106 @@ wrong.
 
 ## Step 1 — the records
 
-**Blocked on choosing where the API runs.** A CNAME needs a target, and there
-is no deployment yet. See "Hosting" below.
+| Name | Type | Target | Proxy |
+|---|---|---|---|
+| `app` | CNAME | the Cloudflare Pages project | proxied (automatic) |
+| `api` | CNAME | `quizzivy-api.fly.dev` | see below |
 
-Once targets exist, both records are proxied (orange cloud) so TLS terminates
-at the edge:
+### `app` — Cloudflare Pages
 
-```
-CNAME  app   ->  <SPA host>       proxied
-CNAME  api   ->  <API host>       proxied
-```
+Pages manages its own certificate and the DNS record. Create the project, point
+it at `web/` with build command `pnpm build` and output `dist`, then add
+`app.quizzivy.com` as a custom domain. Nothing to do by hand.
 
-One caveat for the API record: Cloudflare's proxy imposes a request-body limit
-(100 MB on Free, well above §11.1's 10 MB cap) and its own timeouts. Neither
-binds here, but if a future upload grows, check them before blaming the app.
+### `api` — Fly.io, and the certificate bootstrap
+
+There is one ordering trap here. Fly needs to issue a certificate for
+`api.quizzivy.com`, and if the record is already proxied, Cloudflare answers the
+ACME challenge instead of Fly, so issuance hangs.
+
+Do it in this order:
+
+1. `fly launch --no-deploy` (or `fly apps create quizzivy-api`), then
+   `fly deploy`. `fly.toml` is already in the repo and pins `primary_region = "sin"`.
+2. Add the CNAME in Cloudflare as **DNS only** (grey cloud):
+   `api` → `quizzivy-api.fly.dev`
+3. `fly certs add api.quizzivy.com`. Fly prints the exact records it wants —
+   follow them; a `_acme-challenge` CNAME may be requested, which is fine to add
+   as DNS-only.
+4. Wait for `fly certs show api.quizzivy.com` to report the certificate issued.
+5. **Then** switch the `api` record to **proxied** (orange cloud), and set
+   Cloudflare SSL/TLS mode to **Full (strict)** — Fly now has a real certificate,
+   so strict verification passes.
+
+If you skip step 5 and leave `api` on DNS-only, that is a defensible choice
+(fewer moving parts, one less hop). It changes one setting — see below.
+
+### The setting that depends on the proxy decision
+
+`CLIENT_IP_HEADER` must name the header set by whatever sits directly in front
+of the app:
+
+| `api` record | `CLIENT_IP_HEADER` |
+|---|---|
+| proxied (orange) | `CF-Connecting-IP` |
+| DNS only (grey) | `Fly-Client-IP` |
+
+`fly.toml` currently sets `CF-Connecting-IP`, matching the proxied setup above.
+Change it if you leave the record grey.
+
+**Never set this to `X-Forwarded-For.`** Proxies *append* to that header, so a
+client can send its own value and have the real address appended after it —
+letting it pick a fresh rate-limit bucket per request and defeat §6.5 entirely.
+`config.Load` refuses to start if `CLIENT_IP_HEADER` is `X-Forwarded-For`, and
+`internal/ratelimit/clientip_test.go` covers the forging case end to end.
+
+### Cloudflare proxy limits worth knowing
+
+Neither binds today, but check them before blaming the app:
+
+- Request body: 100 MB on the Free plan, well above §11.1's 10 MB media cap.
+- Origin timeout: 100 seconds. The longest thing this API does is a media
+  upload, which is capped at 10 MB.
 
 ---
 
-## Hosting
+## Secrets on Fly
 
-### Database — decided: Neon, Singapore, PostgreSQL 18
-
-§13.7 already assumes Neon ("On Neon, a branch per migration, reset from parent
-between runs"), and the two things that could have invalidated that are both
-fine as of 2026-08-28:
-
-- Neon runs **18.6** — the same minor this project has been developed and
-  tested against locally — as a normally supported release, no longer preview.
-  §13 hard-requires 18: `uuidv7()` and virtual generated columns do not exist
-  before it, and `pg18_test.go` asserts the major version, so a provider stuck
-  on 17 would fail immediately rather than subtly.
-- Region `aws-ap-southeast-1` (Singapore) is the closest to Vietnam.
-
-The region is **fixed at project creation and cannot be changed**, so pick
-Singapore when creating the project.
-
-Neon's branching is worth using for what §13.7 asks: a branch per migration,
-reset from the parent between runs, so migrations are tested against
-production-shaped data without touching production.
-
-### SPA — Cloudflare Pages
-
-Static output from `pnpm build`. Already on the account, free, and the custom
-domain is one click once DNS is on Cloudflare.
-
-One required setting: the SPA uses client-side routing, so every unmatched path
-must serve `index.html`. Add `web/public/_redirects`:
+Set these with `fly secrets set`, never in `fly.toml` — that file is committed.
 
 ```
-/*  /index.html  200
+DATABASE_URL           postgres://quizzivy_app:...@<neon-host>/quizzivy?sslmode=require
+MIGRATE_DATABASE_URL   postgres://quizzivy_migrate:...@<neon-host>/quizzivy?sslmode=require
+JWT_SIGNING_KEY        openssl rand -base64 48
+GOOGLE_CLIENT_SECRET   from the OAuth client
+R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
 ```
 
-Without it, a deep link like `/join/K7M3-P9QR` — the one URL students are most
-likely to open cold, from a QR code or a message — 404s at the edge before React
-ever loads.
+Two roles, two URLs, deliberately (§13.5). `MIGRATE_DATABASE_URL` is used only
+by the release command; the running API connects as `quizzivy_app`, which cannot
+run DDL. `sslmode=require` because Neon is over the public internet.
 
-### API — open (O-16)
+## Deployment shape
 
-The one piece still undecided. See `docs/plan/40-open-items.md`.
+`Dockerfile` builds two static binaries into a distroless image (36 MB): the API
+and a small migration runner. The runner exists instead of shipping the goose
+CLI, which links drivers for MySQL, SQLite, Turso, Vertica and YDB — a dozen
+dependencies this project does not use, in a binary that runs against a public
+deployment. It uses the same goose library at the same version, with only the
+Postgres driver attached.
+
+`fly.toml` runs `migrate up` as a `release_command`, so the schema is applied
+before a new version takes traffic, and rolls back the deploy if it fails.
+
+`min_machines_running = 1` and `auto_stop_machines = false`: this app has a
+server-authoritative timer and a 1.5-second autosave loop, so a cold start when
+a class all begins a test at once is both slow and visible. At one
+shared-cpu-1x machine, never sleeping is a couple of dollars a month.
+
+## Verify after the first deploy
+
+```bash
+curl -s https://api.quizzivy.com/healthz            # {"database":"ok","status":"ok"}
+GOOGLE_REDIRECT_URI=https://app.quizzivy.com/auth/google/callback make verify-google
+make verify-r2
+```

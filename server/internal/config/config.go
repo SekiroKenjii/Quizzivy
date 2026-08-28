@@ -13,7 +13,13 @@ type Config struct {
 	Env            string
 	DatabaseURL    string
 	AllowedOrigins []string
-	TrustProxy     bool
+
+	// ClientIPHeader names the ONE header that carries the real client address,
+	// or "" to use the socket. Only headers the infrastructure overwrites are
+	// safe here -- CF-Connecting-IP behind Cloudflare, Fly-Client-IP on Fly.
+	// Never X-Forwarded-For: proxies append to it, so a client can prepend its
+	// own value and choose its own rate-limit bucket.
+	ClientIPHeader string
 }
 
 // Load reads the environment and fails loudly on anything missing.
@@ -24,10 +30,17 @@ type Config struct {
 // production without anyone noticing.
 func Load() (Config, error) {
 	cfg := Config{
-		Port:        getenv("API_PORT", "8080"),
-		Env:         getenv("APP_ENV", "development"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		TrustProxy:  getenv("TRUST_PROXY", "false") == "true",
+		Port:           getenv("API_PORT", "8080"),
+		Env:            getenv("APP_ENV", "development"),
+		DatabaseURL:    os.Getenv("DATABASE_URL"),
+		ClientIPHeader: os.Getenv("CLIENT_IP_HEADER"),
+	}
+
+	// Fail rather than silently accept a header that cannot be trusted.
+	if strings.EqualFold(cfg.ClientIPHeader, "X-Forwarded-For") {
+		return cfg, fmt.Errorf(
+			"CLIENT_IP_HEADER must not be X-Forwarded-For: proxies append to it, so a " +
+				"client can prepend a value and choose its own rate-limit bucket (§6.5)")
 	}
 
 	if cfg.DatabaseURL == "" {

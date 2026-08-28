@@ -18,7 +18,7 @@ func (f fakeDB) Ping(context.Context) error { return f.err }
 func newTestRouter(t *testing.T, database DB) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := NewRouter(Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, false)
+	h, err := NewRouter(Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("NewRouter: %v", err)
 	}

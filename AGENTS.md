@@ -61,6 +61,11 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
   and §5.3 requires PKCE. We build the authorization request ourselves against
   Google's `authorization_endpoint` with S256. Do not "fix" this by reintroducing
   `accounts.google.com/gsi/client`.
+- **`CLIENT_IP_HEADER` must never be `X-Forwarded-For`.** Proxies *append* to
+  that header, so a client can prepend its own value and choose its own
+  rate-limit bucket, defeating §6.5 on exactly the endpoints it protects. Name
+  only a header the infrastructure overwrites: `CF-Connecting-IP` behind
+  Cloudflare, `Fly-Client-IP` on Fly. The server refuses to start otherwise.
 - **`unaccent()` is STABLE in PG18 — both the 1-arg and the 2-arg form.** It
   cannot go directly in an index expression. Use `app.immutable_unaccent()`,
   which pins the dictionary and asserts immutability. Changing the unaccent

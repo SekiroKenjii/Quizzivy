@@ -64,19 +64,38 @@ func normalize(pattern string) string {
 	return strings.Join(strings.Fields(pattern), " ")
 }
 
-// ClientIP is the default per-IP key.
+// ClientIP derives the per-IP bucket key from exactly ONE named header, or
+// from the socket when no header is configured.
 //
-// It reads X-Forwarded-For only when the deployment is known to sit behind a
-// trusted proxy, because the header is client-controlled: honouring it blindly
-// lets an attacker forge a fresh identity per request and defeat the limit
-// entirely — the opposite of what §6.5 asks for.
-func ClientIP(trustProxy bool) KeyFunc {
+// The naive version of this took the first entry of X-Forwarded-For whenever a
+// "trust proxy" flag was set. That is wrong in a way that silently disables
+// §6.5 entirely. X-Forwarded-For is a LIST that proxies APPEND to, so a client
+// that sends
+//
+//	X-Forwarded-For: 1.2.3.4
+//
+// arrives at the origin as "1.2.3.4, <real client ip>". Taking the first entry
+// hands the attacker the key: they pick a fresh value per request, every bucket
+// is empty, and the limit protects nothing -- on precisely the endpoints §6.5
+// exists for.
+//
+// So the header is named explicitly rather than sniffed, and only headers the
+// infrastructure OVERWRITES are safe to name:
+//
+//	CF-Connecting-IP   behind Cloudflare's proxy
+//	Fly-Client-IP      on Fly.io
+//
+// Never name X-Forwarded-For. It is appended to, not overwritten.
+//
+// If the header is configured but absent, this falls back to the socket
+// address. Behind a proxy that means every client shares the proxy's bucket --
+// over-limiting rather than under-limiting, which is the right way to fail.
+func ClientIP(header string) KeyFunc {
+	header = strings.TrimSpace(header)
 	return func(r *http.Request) string {
-		if trustProxy {
-			if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-				if first, _, found := strings.Cut(xff, ","); found || first != "" {
-					return strings.TrimSpace(first)
-				}
+		if header != "" {
+			if v := strings.TrimSpace(r.Header.Get(header)); v != "" {
+				return v
 			}
 		}
 		host, _, err := net.SplitHostPort(r.RemoteAddr)

@@ -36,7 +36,7 @@ func RateLimits() *ratelimit.Registry {
 }
 
 // NewRouter builds the HTTP handler.
-func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, trustProxy bool) (http.Handler, error) {
+func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader string) (http.Handler, error) {
 	spec, err := openapi.GetSwagger()
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, trustPro
 		// Applied per route, so r.Pattern is set and the limiter keys on the
 		// OpenAPI path template rather than a concrete URL.
 		Middlewares: []openapi.MiddlewareFunc{
-			httpx.RateLimit(limits, ratelimit.ClientIP(trustProxy)),
+			httpx.RateLimit(limits, ratelimit.ClientIP(clientIPHeader)),
 		},
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
