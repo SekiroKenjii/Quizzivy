@@ -25,6 +25,7 @@ type Server struct {
 type Deps struct {
 	DB     DB
 	Auth   AuthService
+	Join   JoinService
 	Tokens TokenVerifier
 
 	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
@@ -101,14 +102,6 @@ func (s *Server) GetClass(_ context.Context, _ openapi.GetClassRequestObject) (o
 }
 
 func (s *Server) UpdateClass(_ context.Context, _ openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RevokeJoinCode(_ context.Context, _ openapi.RevokeJoinCodeRequestObject) (openapi.RevokeJoinCodeResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RotateJoinCode(_ context.Context, _ openapi.RotateJoinCodeRequestObject) (openapi.RotateJoinCodeResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

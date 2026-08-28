@@ -6,6 +6,7 @@ import (
 
 	"quizzivy/internal/auth"
 	"quizzivy/internal/httpx"
+	"quizzivy/internal/join"
 )
 
 // DB is the slice of the pool handlers need. An interface rather than the
@@ -23,6 +24,12 @@ type AuthService interface {
 	CurrentUser(ctx context.Context, userID string) (auth.User, error)
 	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
 	GoogleSignIn(ctx context.Context, in auth.GoogleSignInInput) (auth.GoogleSignInResult, error)
+}
+
+// JoinService is the slice of internal/join the handlers use.
+type JoinService interface {
+	Rotate(ctx context.Context, req join.RotateRequest) (join.Rotated, error)
+	Revoke(ctx context.Context, req join.RevokeRequest) error
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

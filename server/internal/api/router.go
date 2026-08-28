@@ -111,6 +111,9 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 			// told to log in, not handed a critique of their request body.
 			// Fail-closed -- see httpx.RequireAuth.
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
+			// §3's route trees. Authentication says who you are; this says
+			// whether the /admin tree is yours.
+			httpx.RequireRole,
 			// Last, so a 400 means "you are who you say you are, and this
 			// request is still wrong".
 			validate,

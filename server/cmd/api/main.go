@@ -16,6 +16,7 @@ import (
 	"quizzivy/internal/auth/google"
 	"quizzivy/internal/config"
 	"quizzivy/internal/db"
+	"quizzivy/internal/join"
 )
 
 func main() {
@@ -72,6 +73,7 @@ func run(logger *slog.Logger) error {
 	handler, err := api.NewRouter(api.Deps{
 		DB:           pool,
 		Auth:         authService,
+		Join:         join.NewService(join.NewStore(pool.Pool)),
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,

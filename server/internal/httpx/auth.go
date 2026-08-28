@@ -122,3 +122,59 @@ func requiresScheme(opSecurity *openapi3.SecurityRequirements, global openapi3.S
 	}
 	return false
 }
+
+// RoleAdmin is the app.user_role value the /admin tree requires.
+const RoleAdmin = "admin"
+
+// AdminPathPrefix is spec §3's teacher route tree.
+const AdminPathPrefix = "/admin/"
+
+// RequireRole enforces §3's route trees: everything under /admin/ belongs to
+// the teacher, and a student holding a perfectly valid access token may not
+// have it.
+//
+// Driven by the path rather than a per-operation annotation, because the path
+// IS the contract's structure -- §3 defines three trees and every admin
+// operation lives under one of them. An annotation would be a second thing to
+// remember, and the failure mode of forgetting is a student reading every
+// attempt in the school.
+//
+// Fail-closed twice over: an /admin path with no authenticated principal is
+// refused rather than passed on, even though RequireAuth should already have
+// stopped it.
+func RequireRole(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !IsAdminPattern(r.Pattern) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		principal, ok := PrincipalFromContext(r.Context())
+		if !ok {
+			writeUnauthenticated(w, r)
+			return
+		}
+		if principal.Role != RoleAdmin {
+			// 403, not 404. Hiding the existence of the admin tree would buy
+			// nothing -- it is documented, and the SPA ships routes for it --
+			// while a 404 would send a teacher whose session downgraded to
+			// hunting a broken link instead of signing in again.
+			WriteError(w, r, http.StatusForbidden, CodeForbidden,
+				"Bạn không có quyền truy cập chức năng này.")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// IsAdminPattern reports whether a mux pattern -- "GET /admin/classes/{id}" --
+// addresses the admin tree.
+func IsAdminPattern(pattern string) bool {
+	_, path, found := strings.Cut(pattern, " ")
+	if !found {
+		// No method prefix means this did not come from the generated mux.
+		// Treat the whole string as the path rather than assuming it is safe.
+		path = pattern
+	}
+	return strings.HasPrefix(path, AdminPathPrefix)
+}
