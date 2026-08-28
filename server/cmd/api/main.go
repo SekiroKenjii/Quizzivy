@@ -14,6 +14,7 @@ import (
 	"quizzivy/internal/api"
 	"quizzivy/internal/auth"
 	"quizzivy/internal/auth/google"
+	"quizzivy/internal/classes"
 	"quizzivy/internal/config"
 	"quizzivy/internal/db"
 	"quizzivy/internal/join"
@@ -82,6 +83,7 @@ func run(logger *slog.Logger) error {
 		DB:           pool,
 		Auth:         authService,
 		Join:         joinService,
+		Classes:      classes.NewService(classes.NewStore(pool.Pool)),
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,

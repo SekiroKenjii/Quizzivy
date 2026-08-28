@@ -25,7 +25,11 @@ export function useGoogleSignIn() {
   const [pending, setPending] = useState(false);
 
   async function start(
-    options: { next?: string | undefined; joinCode?: string | undefined } = {},
+    options: {
+      mode?: "signin" | "link";
+      next?: string | undefined;
+      joinCode?: string | undefined;
+    } = {},
   ) {
     if (!CLIENT_ID) {
       setError(t("login.googleUnavailable"));
@@ -36,6 +40,7 @@ export function useGoogleSignIn() {
     try {
       const request = await buildAuthorizationRequest({
         clientId: CLIENT_ID,
+        mode: options.mode ?? "signin",
         next: options.next,
         joinCode: options.joinCode,
       });

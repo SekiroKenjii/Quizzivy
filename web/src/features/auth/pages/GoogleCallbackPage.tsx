@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { callbackUrl, statesMatch, takePending } from "@/features/auth/google/pkce";
-import { destinationAfterSignIn } from "@/features/auth/home";
+import { destinationAfterSignIn, homePathFor } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 
@@ -25,6 +25,7 @@ export default function GoogleCallbackPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const setSession = useAuthStore((s) => s.setSession);
+  const setUser = useAuthStore((s) => s.setUser);
   const [error, setError] = useState<string | null>(null);
   // Effects run twice under StrictMode, and this one redeems a single-use code.
   const started = useRef(false);
@@ -50,6 +51,18 @@ export default function GoogleCallbackPage() {
       }
 
       try {
+        if (pending.mode === "link") {
+          // Attaching a credential to the session that already exists (§15).
+          // Sending this to /auth/google instead would REPLACE that session
+          // with whichever Google account was chosen.
+          const linked = await api("post", "/auth/google/link", {
+            body: { code, codeVerifier: pending.verifier, redirectUri: callbackUrl() },
+          });
+          setUser(linked);
+          await navigate(pending.next ?? homePathFor(linked), { replace: true });
+          return;
+        }
+
         const result = await api("post", "/auth/google", {
           body: {
             code,
@@ -66,7 +79,7 @@ export default function GoogleCallbackPage() {
         setError(cause instanceof ApiError ? cause.message : t("login.googleFailed"));
       }
     })();
-  }, [params, navigate, setSession, t]);
+  }, [params, navigate, setSession, setUser, t]);
 
   if (error) {
     return (
