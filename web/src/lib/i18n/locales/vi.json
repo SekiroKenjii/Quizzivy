@@ -125,7 +125,18 @@
     "viaCode": "Mã ••••{{hint}}",
     "remove": "Xoá khỏi lớp",
     "removeKeepsWork": "Xoá khỏi lớp chỉ thu hồi quyền truy cập. Bài làm của học viên vẫn được giữ lại.",
-    "maskedCode": "••••-{{hint}}"
+    "maskedCode": "••••-{{hint}}",
+    "expiredBadge": "đã hết hạn",
+    "expiredExplainer": "Mã này đã hết hạn nên học viên không dùng được nữa. Hãy tạo mã mới.",
+    "copyFailed": "Không sao chép được. Bạn có thể chọn và sao chép đường dẫn thủ công.",
+    "removeFailed": "Không xoá được học viên khỏi lớp. Vui lòng thử lại.",
+    "membersFailed": "Không tải được danh sách học viên. Vui lòng tải lại trang.",
+    "revokeConfirmTitle": "Ngừng cho tham gia lớp này?",
+    "revokeConfirmBody": "Mã hiện tại sẽ ngừng hoạt động ngay và không có mã mới thay thế. Học viên đã tham gia vẫn ở trong lớp.",
+    "revokeConfirm": "Ngừng cho tham gia",
+    "removeConfirmTitle": "Xoá học viên khỏi lớp?",
+    "removeConfirmBody": "Học viên sẽ mất quyền truy cập lớp này ngay. Bài làm của họ vẫn được giữ lại.",
+    "removeConfirm": "Xoá khỏi lớp"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",

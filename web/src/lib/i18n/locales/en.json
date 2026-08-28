@@ -125,7 +125,18 @@
     "viaCode": "Code ••••{{hint}}",
     "remove": "Remove from class",
     "removeKeepsWork": "Removing a student only revokes access. Their work is kept.",
-    "maskedCode": "••••-{{hint}}"
+    "maskedCode": "••••-{{hint}}",
+    "expiredBadge": "expired",
+    "expiredExplainer": "This code has expired, so students can no longer use it. Create a new one.",
+    "copyFailed": "Could not copy. You can select and copy the link manually.",
+    "removeFailed": "Could not remove the student. Please try again.",
+    "membersFailed": "Could not load the student list. Please reload the page.",
+    "revokeConfirmTitle": "Stop accepting joins for this class?",
+    "revokeConfirmBody": "The current code stops working immediately and no new one replaces it. Students who already joined stay in the class.",
+    "revokeConfirm": "Stop accepting joins",
+    "removeConfirmTitle": "Remove this student from the class?",
+    "removeConfirmBody": "They lose access to this class immediately. Their work is kept.",
+    "removeConfirm": "Remove from class"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
