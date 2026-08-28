@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -122,63 +121,78 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 // spends ~50ms hashing, is a user-enumeration oracle measurable over a handful
 // of requests.
 //
-// The two paths do identical work by construction -- BurnPasswordTime verifies
-// against dummyHash, which init() builds with HashPassword, so the parameters
-// are whatever the current ones are. This asserts that the construction has not
-// been undone.
+// This WAS a wall-clock comparison of the two paths, requiring their ratio to
+// land in [0.5, 2.0]. It turned develop red on a push that touched neither
+// file, at 68ms against 157ms for two operations that differ only in which
+// 64 MiB arena they touch. The property is real; a stopwatch on a shared runner
+// was not measuring it.
 //
-// SAMPLES ARE INTERLEAVED, one of each per round. Measuring seven of one and
-// then seven of the other looks equivalent and is not: on a shared CI runner a
-// slow patch -- CPU steal, a GC cycle, a noisy neighbour -- lands on whichever
-// series happens to be running, and shifts an entire batch. That is what turned
-// this red once, at 68ms against 157ms for two operations that differ only in
-// which 64 MiB arena they touch. Interleaving makes both series experience the
-// same conditions, so environmental noise cancels instead of accumulating on
-// one side.
-func TestUnknownUserCostsTheSameAsAWrongPassword(t *testing.T) {
+// It is now tested where it can actually decay, in two parts.
+
+// TestDummyHashUsesTheCurrentCostParameters covers parameter drift.
+//
+// The equal-cost property holds structurally: BurnPasswordTime IS
+// VerifyPassword against dummyHash, and dummyHash is produced at init by
+// HashPassword, so raising the cost raises both paths together. This asserts
+// that construction has not been undone -- by a hardcoded literal, say, or a
+// dummyHash built with parameters of its own.
+func TestDummyHashUsesTheCurrentCostParameters(t *testing.T) {
+	p, _, _, err := decodeHash(dummyHash)
+	if err != nil {
+		t.Fatalf("dummyHash does not parse as Argon2id: %v", err)
+	}
+	if p.memory != defaultMemory || p.time != defaultTime || p.threads != defaultThreads {
+		t.Errorf("dummyHash is m=%d,t=%d,p=%d but the current parameters are m=%d,t=%d,p=%d; "+
+			"an unknown email would cost less than a real one and login would be a "+
+			"user-enumeration oracle",
+			p.memory, p.time, p.threads, defaultMemory, defaultTime, defaultThreads)
+	}
+}
+
+// TestBurnPasswordTimeDoesRealWork covers the regression the structural
+// argument does not reach: someone reading BurnPasswordTime as pointless work
+// and optimising it away. Asserting dummyHash's parameters says nothing about
+// whether anything still uses it.
+//
+// A FLOOR, not a ratio, and that is the whole point. Contention can only make
+// an operation slower, so a lower bound cannot be crossed by a busy runner --
+// only by the work genuinely not happening. The margin is five orders of
+// magnitude: one Argon2id at 64 MiB is tens of milliseconds on any machine that
+// can run this suite, and a no-op measured 190ns when this was checked by
+// mutation. 5ms sits far below the real cost and far above any plausible noise.
+func TestBurnPasswordTimeDoesRealWork(t *testing.T) {
+	// Untimed: the first Argon2id call faults in a fresh 64 MiB arena.
+	BurnPasswordTime(context.Background(), "warm-up")
+
+	start := time.Now()
+	BurnPasswordTime(context.Background(), "wrong")
+	elapsed := time.Since(start)
+
+	const floor = 5 * time.Millisecond
+	if elapsed < floor {
+		t.Errorf("BurnPasswordTime returned in %v, under the %v floor: it is no longer doing "+
+			"the Argon2id work that makes an unknown email cost the same as a real one, "+
+			"so login is a user-enumeration oracle", elapsed, floor)
+	}
+}
+
+// BenchmarkPasswordPathsAreEqualCost keeps the number visible without gating CI
+// on it. `go test -bench PasswordPaths ./internal/auth/` prints both; they
+// should be within noise of each other, and a real divergence would show as a
+// difference no amount of noise explains.
+func BenchmarkPasswordPathsAreEqualCost(b *testing.B) {
 	hash, err := HashPassword(context.Background(), "correct-horse")
 	if err != nil {
-		t.Fatal(err)
+		b.Fatal(err)
 	}
-
-	verify := func() { _, _ = VerifyPassword(context.Background(), "wrong", hash) }
-	burn := func() { BurnPasswordTime(context.Background(), "wrong") }
-
-	// One of each, untimed: the first Argon2id call faults in a fresh 64 MiB
-	// arena, and that cost belongs to neither measurement.
-	verify()
-	burn()
-
-	const rounds = 9
-	verifySamples := make([]time.Duration, rounds)
-	burnSamples := make([]time.Duration, rounds)
-	for i := range rounds {
-		verifySamples[i] = timeOne(verify)
-		burnSamples[i] = timeOne(burn)
-	}
-
-	wrongPassword := medianOf(verifySamples)
-	noSuchUser := medianOf(burnSamples)
-
-	ratio := float64(noSuchUser) / float64(wrongPassword)
-	if ratio < 0.5 || ratio > 2.0 {
-		t.Errorf("timing differs too much: no-such-user %v vs wrong-password %v (ratio %.2f); "+
-			"login would be a user-enumeration oracle\n  no-such-user samples:  %v\n  wrong-password samples: %v",
-			noSuchUser, wrongPassword, ratio, burnSamples, verifySamples)
-	}
-}
-
-func timeOne(fn func()) time.Duration {
-	start := time.Now()
-	fn()
-	return time.Since(start)
-}
-
-// medianOf sorts a copy, so the caller's samples stay in measurement order for
-// the failure message -- which is where the interesting shape is.
-func medianOf(samples []time.Duration) time.Duration {
-	sorted := make([]time.Duration, len(samples))
-	copy(sorted, samples)
-	slices.Sort(sorted)
-	return sorted[len(sorted)/2]
+	b.Run("wrong-password", func(b *testing.B) {
+		for b.Loop() {
+			_, _ = VerifyPassword(context.Background(), "wrong", hash)
+		}
+	})
+	b.Run("no-such-user", func(b *testing.B) {
+		for b.Loop() {
+			BurnPasswordTime(context.Background(), "wrong")
+		}
+	})
 }

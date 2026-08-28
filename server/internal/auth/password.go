@@ -225,6 +225,17 @@ func init() {
 
 // BurnPasswordTime performs the same work as a real verification and discards
 // the result. Called when no user matches.
+//
+// THE DISCARDED WORK IS THE POINT. This looks like an expensive no-op and is
+// not: without it, "no such user" returns in microseconds while a real account
+// spends tens of milliseconds hashing, and that gap is measurable over a
+// handful of requests. Anyone optimising this into a cheaper body, or removing
+// the call sites in service.go as wasted effort, turns login into a
+// user-enumeration oracle.
+//
+// TestBurnPasswordTimeDoesRealWork holds a floor under it for exactly that
+// reason, and TestDummyHashUsesTheCurrentCostParameters checks the other half:
+// that the hash it verifies against still costs what a real one costs.
 func BurnPasswordTime(ctx context.Context, password string) {
 	_, _ = VerifyPassword(ctx, password, dummyHash)
 }
