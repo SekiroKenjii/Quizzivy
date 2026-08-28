@@ -23,6 +23,20 @@ primary_region = "sin"
   CLIENT_IP_HEADER = "CF-Connecting-IP"
   CORS_ALLOWED_ORIGINS = "https://app.quizzivy.com"
 
+  # Where Google returns the browser (§5.3). Matched EXACTLY at exchange time;
+  # prefix matching on redirect URIs is the classic OAuth mistake. Not a secret:
+  # it travels in the authorization URL the browser follows.
+  #
+  # Google config is all-or-nothing on purpose. The client id and secret were
+  # already set, so WITHOUT this the server refuses to start rather than serve
+  # an /auth/google that fails in a way that looks like Google's fault.
+  GOOGLE_REDIRECT_URI = "https://app.quizzivy.com/auth/google/callback"
+
+  # Argon2id holds a 64 MiB arena for the duration of every hash and this
+  # machine has 512 MB, so eight simultaneous logins would exceed it -- see
+  # R-13. Raise this only alongside the machine's memory.
+  MAX_CONCURRENT_PASSWORD_HASHES = "4"
+
 [http_service]
   internal_port = 8080
   force_https = true
