@@ -54,5 +54,19 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./tests/support/setup.ts"],
     css: true,
+    // The tests state their own preconditions rather than inheriting them from
+    // an untracked file.
+    //
+    // envDir points at the repository root, where VITE_GOOGLE_CLIENT_ID lives
+    // in .env -- which is gitignored. So a developer's machine rendered the
+    // Google button and CI did not, and `/login`'s Google test failed on every
+    // run for twelve runs while passing for everyone locally. A test that only
+    // passes on machines holding a secret is not testing what it claims to.
+    //
+    // The value is a placeholder: nothing in a unit test reaches Google, and
+    // the only thing read from it is whether it is non-empty.
+    env: {
+      VITE_GOOGLE_CLIENT_ID: "test-client-id.apps.googleusercontent.com",
+    },
   },
 });

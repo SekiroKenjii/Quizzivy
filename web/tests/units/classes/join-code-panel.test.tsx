@@ -325,3 +325,74 @@ describe("failures", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 });
+
+describe("copying the join link", () => {
+  // Both failures are ordinary: a denied permission rejects the promise, and on
+  // a non-secure origin navigator.clipboard is undefined so reading .writeText
+  // throws synchronously. Unguarded, each gives a button that does nothing and
+  // says nothing -- and the fallback (select the link and copy it by hand) is
+  // only obvious once someone says so.
+
+  // Replaces the clipboard AFTER userEvent.setup(), which installs a working
+  // stub of its own that would otherwise win.
+  function withClipboard(value: unknown) {
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      value,
+      configurable: true,
+      writable: true,
+    });
+    return () => {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+    };
+  }
+
+  // The copy button exists only once a rotation has produced a plaintext code.
+  async function rotateThenGetCopyButton(user: ReturnType<typeof userEvent.setup>) {
+    server.use(
+      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
+        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+          code: FULL_CODE,
+          expiresAt: "2026-09-27T00:00:00Z",
+          maxUses: 40,
+        }),
+      ),
+    );
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", { name: "Tạo mã mới" }),
+    );
+    await screen.findByText(FULL_CODE);
+    return screen.getByRole("button", { name: "Sao chép đường dẫn" });
+  }
+
+  it("explains a rejected clipboard write instead of going quiet", async () => {
+    const user = userEvent.setup();
+    const copy = await rotateThenGetCopyButton(user);
+
+    const restore = withClipboard({ writeText: () => Promise.reject(new Error("denied")) });
+    try {
+      await user.click(copy);
+      expect(await screen.findByText(/Không sao chép được/i)).toBeInTheDocument();
+      // And it must not claim success at the same time.
+      expect(screen.queryByRole("button", { name: "Đã sao chép" })).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it("survives a non-secure origin, where navigator.clipboard is undefined", async () => {
+    const user = userEvent.setup();
+    const copy = await rotateThenGetCopyButton(user);
+
+    const restore = withClipboard(undefined);
+    try {
+      // The unguarded version threw synchronously reading .writeText.
+      await user.click(copy);
+      expect(await screen.findByText(/Không sao chép được/i)).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+});

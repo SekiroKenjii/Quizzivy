@@ -14,15 +14,22 @@
  *
  * `aria-hidden` because every caller puts a text label beside it -- announcing
  * "Google" twice is worse than not announcing it once.
+ *
+ * SIZING IS THE BUTTON'S JOB, and this carries no size class of its own. That
+ * is not an omission. `button.tsx` sizes icons with
+ * `[&_svg:not([class*='size-'])]:size-4`, dropping to `size-3` on the `xs`
+ * variant -- a rule that matches only while the svg has no `size-` class. An
+ * earlier version defaulted to `size-4`, which always matched the `:not()` and
+ * so opted permanently out of the variant sizing it was trying to agree with:
+ * on an `xs` button every other icon shrank and this one did not.
+ *
+ * The consequence is that a caller OUTSIDE a Button must pass a size, or the
+ * browser renders a `viewBox`-only svg at its 300x150 default. All three
+ * callers today are buttons.
  */
 export function GoogleMark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 48 48"
-      className={className ?? "size-4"}
-      aria-hidden="true"
-      focusable="false"
-    >
+    <svg viewBox="0 0 48 48" className={className} aria-hidden="true" focusable="false">
       <path
         fill="#EA4335"
         d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
