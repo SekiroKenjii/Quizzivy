@@ -1,0 +1,16 @@
+# Generates the Go server side of the contract. Output is committed so the repo
+# builds without the generator; CI regenerates and fails on drift (T-0.8).
+#
+# Run from server/ so oapi-codegen can find go.mod for language-version detection:
+#   cd server && oapi-codegen --config ../api/oapi-codegen.yaml ../api/openapi.yaml
+package: openapi
+output: gen/openapi/openapi.gen.go
+generate:
+  # Go 1.22+ net/http routing handles method+wildcard patterns, so no router
+  # dependency is needed (AGENTS.md: no new dependency without a stated reason).
+  std-http-server: true
+  # Handlers take typed requests and return typed responses, so a handler
+  # cannot forget to marshal or return the wrong shape.
+  strict-server: true
+  models: true
+  embedded-spec: true

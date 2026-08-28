@@ -1,0 +1,7 @@
+# pnpm 11 requires explicit approval for postinstall scripts and reads it here,
+# not from package.json.
+#   esbuild -- places the platform binary Vite's bundler needs
+#   msw     -- writes the service worker used by browser-mode mocking
+allowBuilds:
+  esbuild: true
+  msw: true

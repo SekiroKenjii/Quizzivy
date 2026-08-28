@@ -1,0 +1,30 @@
+# Agent skills are pinned by skills-lock.json, not vendored.
+# Restore with: npx skills add neondatabase/postgres-skills
+.agents/skills/
+.claude/skills/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+
+# Go
+server/bin/
+*.test
+
+# Editors / OS
+.DS_Store
+.idea/
+*.swp
+
+# Local perf captures land in docs/perf/ deliberately; scratch does not
+/tmp-*

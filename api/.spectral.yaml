@@ -1,0 +1,8 @@
+extends: ["spectral:oas"]
+rules:
+  # This file is read by people as much as by generators, so every operation
+  # must explain itself.
+  operation-description: error
+  operation-operationId: error
+  operation-tag-defined: error
+  operation-operationId-unique: error

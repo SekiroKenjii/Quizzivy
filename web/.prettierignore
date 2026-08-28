@@ -1,0 +1,10 @@
+dist
+node_modules
+pnpm-lock.yaml
+# generated from api/openapi.yaml
+src/lib/api/schema.d.ts
+
+# Playwright artifacts. Gitignored, but Prettier walks the working tree, so
+# after any e2e run `format:check` would fail on a generated JSON file.
+test-results
+playwright-report

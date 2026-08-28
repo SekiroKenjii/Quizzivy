@@ -1,0 +1,50 @@
+{
+  "app": {
+    "name": "Quizzivy"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "close": "Close",
+    "back": "Back",
+    "signOut": "Sign out",
+    "language": "Language",
+    "comingSoon": "This section is built in a later phase."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "body": "An unexpected error occurred. Reloading the page should let you continue.",
+    "reload": "Reload the page",
+    "errorId": "Error ID",
+    "copyId": "Copy error ID",
+    "copied": "Copied"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This address does not exist, or it has changed.",
+    "action": "Go home"
+  },
+  "forbidden": {
+    "title": "You do not have access",
+    "body": "Your account is not permitted to view this page. If you think this is a mistake, contact your teacher.",
+    "action": "Go to my page"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "tests": "Tests",
+    "questionBank": "Question bank",
+    "media": "Media library",
+    "assignments": "Assignments",
+    "students": "Students",
+    "classes": "Classes",
+    "settings": "Settings",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "mainNavigation": "Main navigation"
+  },
+  "student": {
+    "myAssignments": "My assignments",
+    "myClasses": "My classes"
+  }
+}

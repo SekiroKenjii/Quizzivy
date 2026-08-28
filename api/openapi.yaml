@@ -1,0 +1,2872 @@
+openapi: 3.1.0
+
+info:
+  title: Quizzivy API
+  version: 0.1.0
+  contact:
+    name: Thuong
+    url: https://github.com/SekiroKenjii/Quizzivy
+  description: |
+    The contract both the React SPA and the Go backend implement.
+
+    **This file supersedes spec §15**, which documented an assumed surface.
+    Where they differ, this file wins and the spec gets corrected (§18).
+
+    Everything else is generated from here: `oapi-codegen` produces the Go
+    server interfaces, `openapi-typescript` produces the TS types, and MSW
+    fixtures are validated against these schemas. CI regenerates and fails on
+    drift. Change the contract here first, then `make gen`.
+
+    ## Reading this file
+
+    - Operations with `security: []` are **public**. Spec §6.5 requires every
+      one of them to be rate-limited; the server asserts this at startup by
+      cross-referencing this file, so adding a public operation without a
+      limiter fails the process rather than shipping.
+    - Student-facing schemas are deliberately separate components from admin
+      ones. See `StudentQuestion` for why.
+    - All timestamps are RFC 3339 UTC. Rendering in `Asia/Ho_Chi_Minh` is the
+      client's job (§13.2).
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.quizzivy.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: public
+    description: |
+      Unauthenticated. Rate-limited per §6.5, and every response is leak-reviewed:
+      no class, student or test is enumerable through them.
+  - name: auth
+  - name: admin-tests
+  - name: admin-questions
+  - name: admin-media
+  - name: admin-assignments
+  - name: admin-attempts
+  - name: admin-students
+  - name: admin-classes
+  - name: student
+  - name: take-test
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        ~15 minute access token, held in memory only — never `localStorage`,
+        never `sessionStorage` (§5.2). On 401 the client calls `/auth/refresh`
+        once and retries; a second 401 logs out.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: quizzivy_refresh
+      description: |
+        Opaque, rotating, `httpOnly; Secure; SameSite=Lax; Path=/auth`, and
+        host-only — no `Domain` attribute, so only the API host receives it.
+        `SameSite=Lax` is sufficient because the SPA and the API are subdomains
+        of one registrable domain and are therefore same-site.
+
+        Presenting an already-rotated token revokes the whole family (§5.2).
+
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this.
+      schema: { type: string, maxLength: 512 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+    Query:
+      name: q
+      in: query
+      required: false
+      description: Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`.
+      schema: { type: string, maxLength: 200 }
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Uuid' }
+
+  responses:
+    BadRequest:
+      description: Malformed or failing validation.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: Missing, invalid or expired access token. Client refreshes once, then logs out.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: |
+        Authenticated but not permitted. A `student` reaching an `/admin/*` route
+        gets this, and the client renders a 403 page rather than redirecting —
+        a redirect hides the misconfiguration (§5.4).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: No such resource, or the caller may not know it exists.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    TooManyRequests:
+      description: Rate limit exceeded (§6.5).
+      headers:
+        Retry-After:
+          required: true
+          description: Seconds until the caller may retry.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NoContent:
+      description: Success, no body.
+
+  schemas:
+
+    # ------------------------------------------------------------------ core
+
+    Uuid:
+      type: string
+      format: uuid
+      description: uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
+      examples: ['019535d9-3df7-79fb-b466-fa907fa17f9e']
+
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
+
+    Points:
+      type: number
+      description: numeric(8,2) — never a float (§13.2).
+      minimum: 0
+      maximum: 999999.99
+
+    ErrorCode:
+      type: string
+      description: |
+        Stable, machine-readable. **The only thing clients branch on.** Copy is
+        driven by `message`, never reconstructed from this.
+      enum:
+        # auth
+        - INVALID_CREDENTIALS
+        - ACCOUNT_NOT_PROVISIONED
+        - ACCOUNT_DISABLED
+        - EMAIL_NOT_VERIFIED
+        - PASSWORD_REQUIRED
+        - IDENTITY_ALREADY_LINKED
+        - LAST_LOGIN_METHOD
+        - REFRESH_TOKEN_INVALID
+        - REFRESH_TOKEN_REUSED
+        # join codes — distinct, but see JoinPreviewResponse on what they may not carry
+        - JOIN_CODE_INVALID
+        - JOIN_CODE_EXPIRED
+        - JOIN_CODE_EXHAUSTED
+        - JOIN_CODE_REVOKED
+        - ALREADY_ENROLLED
+        # authoring
+        - TEST_NOT_PUBLISHED
+        - PUBLISH_VALIDATION_FAILED
+        - STALE_WRITE
+        - MEDIA_REFERENCED
+        - MEDIA_TYPE_UNSUPPORTED
+        - MEDIA_TOO_LARGE
+        - MEDIA_TOO_LONG
+        - MEDIA_UNREADABLE
+        # attempts
+        - ASSIGNMENT_NOT_OPEN
+        - ATTEMPT_LIMIT_REACHED
+        - ATTEMPT_CLOSED
+        - SESSION_SUPERSEDED
+        - DEADLINE_PASSED
+        - GRADING_INCOMPLETE
+        - VERSION_LOCKED
+        # generic
+        - VALIDATION_FAILED
+        - NOT_FOUND
+        - FORBIDDEN
+        - RATE_LIMITED
+        - INTERNAL
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          additionalProperties: false
+          properties:
+            code: { $ref: '#/components/schemas/ErrorCode' }
+            message:
+              type: string
+              description: |
+                Already localized server-side from `Accept-Language`, `vi` by
+                default. Display it; do not build copy from `code`.
+              examples: ['Mã lớp không hợp lệ.']
+            details:
+              type: object
+              additionalProperties: true
+              description: |
+                Shape depends on `code`. Field-level validation errors land here
+                as `{ field: message }` for react-hook-form.
+            requestId:
+              $ref: '#/components/schemas/Uuid'
+              description: The copyable error ID shown by the global error boundary (§9).
+
+    CursorPage:
+      type: object
+      required: [nextCursor]
+      properties:
+        nextCursor:
+          type: [string, 'null']
+          description: Pass back as `cursor`. `null` means the last page (§13.8).
+
+    # ------------------------------------------------------------------ auth
+
+    Role:
+      type: string
+      enum: [admin, student]
+      description: |
+        Guards are written so a third role (`teacher`, limited admin) can be
+        added without restructuring (§1.1).
+
+    User:
+      type: object
+      required: [id, email, fullName, role, hasPassword, linkedProviders, mustChangePassword, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        email: { type: string, format: email, maxLength: 254 }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        role: { $ref: '#/components/schemas/Role' }
+        hasPassword:
+          type: boolean
+          description: false for Google-only accounts. Gates the unlink affordance.
+        linkedProviders:
+          type: array
+          items: { type: string, enum: [google] }
+          maxItems: 1
+        mustChangePassword:
+          type: boolean
+          description: Forces `/change-password`. Always false for Google-only users (§5.4).
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    AuthSuccess:
+      type: object
+      required: [accessToken, expiresIn, user]
+      additionalProperties: false
+      properties:
+        accessToken:
+          type: string
+          description: Held in memory only (§5.2). The refresh token is set as a cookie, not returned here.
+        expiresIn: { type: integer, description: Seconds. }
+        user: { $ref: '#/components/schemas/User' }
+
+    # ---------------------------------------------------------------- classes
+
+    Class:
+      type: object
+      required: [id, name, studentCount, selfJoinEnabled, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'] }
+        studentCount: { type: integer, minimum: 0 }
+        selfJoinEnabled: { type: boolean }
+        joinCode:
+          description: Admin responses only. Never present on a `/app/*` response.
+          oneOf:
+            - $ref: '#/components/schemas/JoinCodeInfo'
+            - type: 'null'
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    JoinCodeInfo:
+      type: object
+      description: |
+        Metadata about the active code — **not the code itself**. The plaintext
+        is returned exactly once, from the rotate endpoint. Thereafter only
+        `hint` (last 4 characters) is available; the stored value is a SHA-256
+        hash (§13.3), so a database dump does not hand over class access.
+      required: [hint, expiresAt, maxUses, usesCount]
+      additionalProperties: false
+      properties:
+        hint: { type: string, minLength: 4, maxLength: 4, examples: ['7K3M'] }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        maxUses: { type: [integer, 'null'], minimum: 1 }
+        usesCount: { type: integer, minimum: 0 }
+
+    ClassMember:
+      type: object
+      required: [userId, fullName, email, joinedVia, joinedAt]
+      additionalProperties: false
+      properties:
+        userId: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string }
+        email: { type: string, format: email }
+        joinedVia:
+          type: string
+          enum: [admin, join_code]
+          description: Lets the teacher spot unexpected enrolments (§6.4).
+        joinedAt: { $ref: '#/components/schemas/Timestamp' }
+        joinCodeHint:
+          type: [string, 'null']
+          description: |
+            Which code this member used, if any. After a rotation this
+            distinguishes "joined via the code that leaked" from "joined via the
+            current one" (D-10).
+
+    # ------------------------------------------------------------------ media
+
+    MediaKind:
+      type: string
+      enum: [image, audio]
+
+    MediaAsset:
+      type: object
+      required: [id, kind, url, mimeType, bytes, originalFilename, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { $ref: '#/components/schemas/MediaKind' }
+        url:
+          type: string
+          format: uri
+          description: |
+            Short-lived signed URL, 10 minutes (§11.2). Treat as expiring: on a
+            403, refetch rather than failing. Hiding this URL is not protection
+            and no further investment is planned.
+        mimeType:
+          type: string
+          enum: [audio/mpeg, audio/mp4, audio/aac, image/png, image/jpeg, image/webp]
+        bytes: { type: integer, minimum: 1, maximum: 10485760 }
+        durationMs:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 300000
+          description: Audio only, and always present for audio. Probed server-side (§11.1).
+        originalFilename: { type: string }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    # --------------------------------------------------------------- questions
+    #
+    # THE SECURITY BOUNDARY OF THIS API.
+    #
+    # There are three question shapes, and they are separate components on
+    # purpose — not one schema with optional fields:
+    #
+    #   AdminQuestion    everything, including the grading key
+    #   StudentQuestion  what a student sees WHILE TAKING a test
+    #   ResultQuestion   what a student sees AFTERWARDS, gated by review policy
+    #
+    # §13.5 requires that `sampleAnswer`, `transcript`, `isCorrect` and
+    # `acceptedAnswers` never reach a student. One schema with `nullable: true`
+    # fields would make that a runtime discipline; three schemas make it a type
+    # error. The Go side mirrors this with separate structs in separate
+    # packages, so a forgotten field is a compile failure rather than a leak.
+    #
+    # Note what the review-policy fields on ResultQuestion are NOT called. When
+    # `showCorrectAnswers` is on, a choice question returns `correctOptionIds`
+    # and a fill-blank returns `correctAnswer` (singular, one canonical value
+    # per blank) — never `isCorrect` per option and never the full
+    # `acceptedAnswers` list. Two reasons: handing over every accepted spelling
+    # is handing over the grading key, and keeping the four forbidden key names
+    # absent from every `/app/*` schema lets the contract test be a literal
+    # string search rather than a judgement call.
+
+    QuestionType:
+      type: string
+      enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer]
+
+    AudioPolicy:
+      type: object
+      description: Present if and only if the attached asset is audio (§7).
+      required: [maxPlays, allowSeek, showTranscriptAfterSubmit]
+      additionalProperties: false
+      properties:
+        maxPlays:
+          type: [integer, 'null']
+          minimum: 1
+          description: |
+            `null` is unlimited. Enforcement is server-side and advisory: over-limit
+            plays are reported to the teacher, never blocked or retroactively
+            penalised (§11.4).
+        allowSeek: { type: boolean, description: Defaults to false for listening (§11.1). }
+        showTranscriptAfterSubmit: { type: boolean }
+
+    AdminQuestionOption:
+      type: object
+      required: [id, ordinal, text, isCorrect]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        ordinal: { type: integer, minimum: 0 }
+        text: { type: string, minLength: 1 }
+        isCorrect: { type: boolean }
+
+    AdminQuestionBlank:
+      type: object
+      required: [id, ordinal, acceptedAnswers, caseSensitive]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        ordinal:
+          type: integer
+          minimum: 1
+          description: 1-indexed, matching the `{{1}}` placeholders in the prompt.
+        acceptedAnswers:
+          type: array
+          items: { type: string, minLength: 1 }
+          minItems: 1
+        caseSensitive: { type: boolean }
+
+    AdminQuestion:
+      type: object
+      required: [id, type, prompt, points, tags, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt:
+          type: string
+          minLength: 1
+          description: |
+            Markdown, rendered with rehype-sanitize — never
+            `dangerouslySetInnerHTML` (§2). For `fill_blank`, blanks are marked
+            `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
+        media:
+          oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+        transcript: { type: [string, 'null'] }
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/AdminQuestionOption' }
+        blanks:
+          type: array
+          items: { $ref: '#/components/schemas/AdminQuestionBlank' }
+        points: { $ref: '#/components/schemas/Points' }
+        explanation: { type: [string, 'null'] }
+        sampleAnswer:
+          type: [string, 'null']
+          description: |
+            `short_answer` only. **Admin-only, shown during grading.** Never
+            appears in any `/app/*` schema, including the result endpoint.
+        tags: { type: array, items: { type: string } }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    StudentOption:
+      type: object
+      description: No `isCorrect`. Deliberately not a subset-by-omission of AdminQuestionOption.
+      required: [id, text]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        text: { type: string }
+
+    StudentBlank:
+      type: object
+      description: No `acceptedAnswers`, no `caseSensitive` — both are grading key.
+      required: [id, ordinal]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        ordinal: { type: integer, minimum: 1 }
+
+    StudentQuestion:
+      type: object
+      description: |
+        What a student receives while taking a test. Contains none of
+        `isCorrect`, `sampleAnswer`, `acceptedAnswers`, `transcript` — asserted
+        by a contract test over this file and by an E2E test over a live
+        response (§14 E2E 9).
+
+        Options arrive in the order the student must see them, already shuffled
+        server-side from the attempt's `shuffleSeed` so a reload cannot reorder
+        them (D-02).
+      required: [id, type, prompt, points]
+      additionalProperties: false
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+          description: A `test_version_questions` id — never a bank question id (§7).
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt: { type: string }
+        media:
+          oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+        options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
+        blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
+        points: { $ref: '#/components/schemas/Points' }
+
+    ResultQuestion:
+      type: object
+      description: |
+        The post-submission view. Every revealing field is gated by the
+        assignment's review policy and simply absent when the policy is off —
+        the client has no fallback that could surface a suppressed value.
+      required: [id, type, prompt, points, answer]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt: { type: string }
+        media:
+          oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
+        blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
+        points: { $ref: '#/components/schemas/Points' }
+        answer:
+          oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }]
+          description: What the student submitted. `null` if unanswered.
+        earned:
+          oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }]
+          description: Present only when `review.showScore`. `null` while awaiting manual grading.
+        pendingManual: { type: boolean }
+        graderComment: { type: [string, 'null'] }
+        correctOptionIds:
+          type: [array, 'null']
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: |
+            Only when `review.showCorrectAnswers`. Replaces per-option
+            `isCorrect` so that key name never appears under `/app/*`.
+        correctAnswers:
+          type: [array, 'null']
+          items:
+            type: object
+            required: [blankId, answer]
+            additionalProperties: false
+            properties:
+              blankId: { $ref: '#/components/schemas/Uuid' }
+              answer:
+                type: string
+                description: |
+                  **One canonical accepted answer**, not the full accepted list.
+                  Showing every accepted spelling would hand over the grading key.
+          description: Only when `review.showCorrectAnswers`, for `fill_blank`.
+        explanation:
+          type: [string, 'null']
+          description: Only when `review.showExplanations`.
+        transcript:
+          type: [string, 'null']
+          description: |
+            Only when the question's `showTranscriptAfterSubmit` is on, and only
+            on this endpoint — never on `GET /app/attempts/{id}` (§13.5). Also
+            serves as the accessibility fallback for hard-of-hearing students (§11.3).
+        audioPlaysUsed: { type: [integer, 'null'], minimum: 0 }
+
+    # ------------------------------------------------------------------ tests
+
+    TestStatus:
+      type: string
+      enum: [draft, published, archived]
+
+    TestSection:
+      type: object
+      required: [id, ordinal, title, questionIds]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        ordinal: { type: integer, minimum: 0 }
+        title: { type: string, minLength: 1 }
+        instructions: { type: [string, 'null'] }
+        questionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+
+    Test:
+      type: object
+      required: [id, title, status, currentVersion, totalPoints, questionCount, sections, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/TestStatus' }
+        currentVersion:
+          type: integer
+          minimum: 0
+          description: 0 while never published. A `published` test always has ≥ 1.
+        totalPoints: { $ref: '#/components/schemas/Points' }
+        questionCount: { type: integer, minimum: 0 }
+        sections:
+          type: array
+          items: { $ref: '#/components/schemas/TestSection' }
+          description: The **draft** outline. Published content lives in versions.
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        deletedAt: { type: [string, 'null'], format: date-time }
+
+    TestVersion:
+      type: object
+      description: Immutable. Editing a published test creates a new one; in-flight attempts keep theirs (§7).
+      required: [id, version, totalPoints, questionCount, publishedAt, publishedBy]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        version: { type: integer, minimum: 1 }
+        totalPoints: { $ref: '#/components/schemas/Points' }
+        questionCount: { type: integer, minimum: 0 }
+        publishedAt: { $ref: '#/components/schemas/Timestamp' }
+        publishedBy: { type: string, description: Display name. }
+
+    PublishValidationError:
+      type: object
+      description: |
+        Publish returns **every** problem at once, each anchored to a question,
+        so the builder can mark them inline rather than surfacing one per attempt.
+      required: [rule, message]
+      additionalProperties: false
+      properties:
+        rule:
+          type: string
+          enum:
+            - points_positive
+            - choice_has_correct_option
+            - blank_has_accepted_answer
+            - blank_placeholders_match
+            - audio_question_has_asset
+            - section_not_empty
+        message: { type: string }
+        sectionId: { type: [string, 'null'], format: uuid }
+        questionId: { type: [string, 'null'], format: uuid }
+
+    # ------------------------------------------------------------- assignments
+
+    AssignmentStatus:
+      type: string
+      enum: [scheduled, open, closed]
+      description: |
+        **Derived**, never stored (D-18). A pure function of `opensAt`,
+        `closesAt` and an optional early `closedAt`, so it cannot go stale and
+        needs no scheduler.
+
+    ReviewPolicy:
+      type: object
+      required: [showScore, showCorrectAnswers, showExplanations]
+      additionalProperties: false
+      properties:
+        showScore: { type: boolean, default: true }
+        showCorrectAnswers: { type: boolean, default: false }
+        showExplanations: { type: boolean, default: false }
+
+    IntegrityPolicy:
+      type: object
+      description: |
+        Defaults are §10.3's, conservative on purpose — the teacher opts into
+        stricter modes per test. Whatever is enabled is stated in plain
+        Vietnamese on the intro page before the student starts (§10.2).
+      required: [requireFullscreen, blockCopyPaste, maxFocusLoss, onLimitExceeded, minAwayMs]
+      additionalProperties: false
+      properties:
+        requireFullscreen: { type: boolean, default: false }
+        blockCopyPaste: { type: boolean, default: true }
+        maxFocusLoss: { type: integer, minimum: 0, default: 0, description: '0 = unlimited.' }
+        onLimitExceeded:
+          type: string
+          enum: [warn, flag, auto_submit]
+          default: flag
+          description: '`auto_submit` ships in Phase 5 (T-5.1); `warn` and `flag` in Phase 3.'
+        minAwayMs:
+          type: integer
+          minimum: 0
+          default: 3000
+          description: |
+            An away episode shorter than this is not a strike. A 2-second blur is
+            a notification; a 90-second blur is a search (§10.1).
+
+    Assignment:
+      type: object
+      required:
+        [id, testId, testVersionId, testVersion, testTitle, targets, window,
+         durationMinutes, maxAttempts, shuffleQuestions, shuffleOptions,
+         review, integrity, status]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        testId: { $ref: '#/components/schemas/Uuid' }
+        testVersionId: { $ref: '#/components/schemas/Uuid' }
+        testVersion: { type: integer, minimum: 1 }
+        testTitle: { type: string }
+        targets:
+          type: object
+          required: [classIds, studentIds]
+          additionalProperties: false
+          properties:
+            classIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+            studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        window:
+          type: object
+          required: [opensAt, closesAt]
+          additionalProperties: false
+          properties:
+            opensAt: { $ref: '#/components/schemas/Timestamp' }
+            closesAt: { $ref: '#/components/schemas/Timestamp' }
+            closedAt: { type: [string, 'null'], format: date-time, description: Set when closed early by the admin. }
+        durationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 600
+          description: |
+            Server-enforced. An attempt's deadline is
+            `min(startedAt + duration, closesAt)`, so starting late does not buy
+            a full duration and does not cut the student off mid-window (O-05).
+        maxAttempts: { type: integer, minimum: 1 }
+        shuffleQuestions: { type: boolean }
+        shuffleOptions: { type: boolean }
+        review: { $ref: '#/components/schemas/ReviewPolicy' }
+        integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        status: { $ref: '#/components/schemas/AssignmentStatus' }
+        submittedCount: { type: integer, minimum: 0 }
+        targetCount: { type: integer, minimum: 0 }
+        flaggedCount: { type: integer, minimum: 0 }
+
+    # ---------------------------------------------------------------- attempts
+
+    AttemptStatus:
+      type: string
+      enum: [in_progress, submitted, timed_out, graded, voided]
+
+    Answer:
+      description: Discriminated by `type` (§7).
+      oneOf:
+        - $ref: '#/components/schemas/ChoiceAnswer'
+        - $ref: '#/components/schemas/TrueFalseAnswer'
+        - $ref: '#/components/schemas/FillBlankAnswer'
+        - $ref: '#/components/schemas/TextAnswer'
+      discriminator:
+        propertyName: type
+        mapping:
+          choice: '#/components/schemas/ChoiceAnswer'
+          true_false: '#/components/schemas/TrueFalseAnswer'
+          fill_blank: '#/components/schemas/FillBlankAnswer'
+          text: '#/components/schemas/TextAnswer'
+
+    ChoiceAnswer:
+      type: object
+      required: [type, optionIds]
+      additionalProperties: false
+      properties:
+        type: { type: string, const: choice }
+        optionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+
+    TrueFalseAnswer:
+      type: object
+      required: [type, value]
+      additionalProperties: false
+      properties:
+        type: { type: string, const: true_false }
+        value: { type: boolean }
+
+    FillBlankAnswer:
+      type: object
+      required: [type, values]
+      additionalProperties: false
+      properties:
+        type: { type: string, const: fill_blank }
+        values:
+          type: object
+          additionalProperties: { type: string }
+          description: Keyed by blank id.
+
+    TextAnswer:
+      type: object
+      required: [type, value]
+      additionalProperties: false
+      properties:
+        type: { type: string, const: text }
+        value: { type: string }
+
+    AttemptScore:
+      type: object
+      required: [earned, total, pendingManual]
+      additionalProperties: false
+      properties:
+        earned: { $ref: '#/components/schemas/Points' }
+        total: { $ref: '#/components/schemas/Points' }
+        pendingManual: { type: integer, minimum: 0, description: Questions still awaiting manual grading. }
+
+    Attempt:
+      type: object
+      required: [id, assignmentId, studentId, testVersionId, attemptNo, status, startedAt, deadlineAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        testVersionId: { $ref: '#/components/schemas/Uuid' }
+        attemptNo: { type: integer, minimum: 1 }
+        status: { $ref: '#/components/schemas/AttemptStatus' }
+        startedAt: { $ref: '#/components/schemas/Timestamp' }
+        deadlineAt:
+          $ref: '#/components/schemas/Timestamp'
+        submittedAt: { type: [string, 'null'], format: date-time }
+        gradedAt: { type: [string, 'null'], format: date-time }
+        score:
+          oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
+        integrity:
+          type: [object, 'null']
+          required: [focusLossCount, flagged]
+          additionalProperties: false
+          properties:
+            focusLossCount: { type: integer, minimum: 0 }
+            flagged: { type: boolean }
+
+    AttemptSession:
+      type: object
+      description: |
+        Returned when an attempt is created or resumed. Everything the engine
+        needs to run authoritatively.
+      required: [attempt, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
+      additionalProperties: false
+      properties:
+        attempt: { $ref: '#/components/schemas/Attempt' }
+        questions:
+          type: array
+          items: { $ref: '#/components/schemas/StudentQuestion' }
+          description: Already in presentation order, shuffled server-side and stable across reloads (D-02).
+        sessionId:
+          $ref: '#/components/schemas/Uuid'
+          description: |
+            Identifies this device/tab. Every write carries it; a superseded
+            session gets `SESSION_SUPERSEDED`, which is how the first tab learns
+            it lost (§10.1, E2E 7).
+        beaconToken:
+          type: string
+          description: |
+            Opaque, valid until `deadlineAt`, **append-only event access**.
+            `navigator.sendBeacon` cannot set an `Authorization` header and the
+            15-minute access token has usually expired by `pagehide`, so the
+            beacon carries this in its body instead. Grants no read access.
+        serverTime:
+          $ref: '#/components/schemas/Timestamp'
+        audioPlays:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+          description: |
+            Keyed by question id. **Server-authoritative** — the client renders
+            remaining plays from this, decrements optimistically, and reconciles
+            on the next fetch. A client-side counter would reset on reload and
+            make the limit meaningless (§11.4).
+        answers:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/Answer' }
+          description: Keyed by question id. The base for the resume merge.
+        integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+
+    IntegrityEventInput:
+      type: object
+      required: [kind, occurredAt, clientSeq]
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          maxLength: 40
+          description: |
+            Not an enum: an append-only telemetry log reliably gains kinds, and a
+            newer client must not fail against an older server. Unknown kinds are
+            stored, not rejected. Known set is §10.1.
+          examples: [tab_hidden, window_blur, paste, audio_play, network_offline]
+        occurredAt: { $ref: '#/components/schemas/Timestamp' }
+        clientSeq:
+          type: integer
+          minimum: 0
+          description: |
+            Monotonic **within a session**. Uniqueness is
+            `(attempt, session, clientSeq)`, so a resumed attempt restarting at 0
+            does not collide with the previous session (D-01).
+        questionId: { type: [string, 'null'], format: uuid }
+        meta: { type: [object, 'null'], additionalProperties: true }
+
+    IntegrityEvent:
+      type: object
+      required: [id, kind, occurredAt, offsetMs, clientSeq]
+      additionalProperties: false
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string }
+        occurredAt: { $ref: '#/components/schemas/Timestamp' }
+        offsetMs: { type: integer, description: Milliseconds since the attempt started. }
+        durationMs:
+          type: [integer, 'null']
+          description: |
+            For paired events (hidden/visible, blur/focus, fullscreen in/out),
+            computed server-side. `null` on an unpaired trailing event — the
+            student never came back — which renders open-ended rather than being
+            dropped (§10.4).
+        clientSeq: { type: integer }
+        sessionId: { $ref: '#/components/schemas/Uuid' }
+        questionId: { type: [string, 'null'], format: uuid }
+        meta: { type: [object, 'null'], additionalProperties: true }
+
+    IntegritySummary:
+      type: object
+      description: The §10.4 summary strip. Neutral by construction — counts, not verdicts.
+      required: [totalAwayMs, awayEpisodes, pasteCount, resumeCount, audioReplays, offlineEpisodes]
+      additionalProperties: false
+      properties:
+        totalAwayMs: { type: integer, minimum: 0 }
+        awayEpisodes: { type: integer, minimum: 0, description: Episodes exceeding `minAwayMs`. }
+        pasteCount: { type: integer, minimum: 0 }
+        resumeCount: { type: integer, minimum: 0 }
+        audioReplays: { type: integer, minimum: 0 }
+        offlineEpisodes:
+          type: integer
+          minimum: 0
+          description: Shown distinctly from focus loss — distinguishing bad wifi from cheating matters for fairness (§10.1).
+
+    MonitorRow:
+      type: object
+      description: One row per **targeted student**, including those who never started.
+      required: [studentId, fullName, state]
+      additionalProperties: false
+      properties:
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string }
+        state: { type: string, enum: [not_started, in_progress, submitted, timed_out, graded, voided] }
+        attemptId: { type: [string, 'null'], format: uuid }
+        attemptNo: { type: [integer, 'null'] }
+        deadlineAt: { type: [string, 'null'], format: date-time }
+        submittedAt: { type: [string, 'null'], format: date-time }
+        score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
+        focusLossCount: { type: [integer, 'null'] }
+        flagged: { type: boolean }
+        audioOverLimit: { type: boolean, description: Reported, never enforced (§11.4). }
+
+    AttemptListRow:
+      type: object
+      required: [id, studentId, studentName, assignmentId, testTitle, status, flagged]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        studentName: { type: string }
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        testTitle: { type: string }
+        status: { $ref: '#/components/schemas/AttemptStatus' }
+        submittedAt: { type: [string, 'null'], format: date-time }
+        pendingManual: { type: integer, minimum: 0 }
+        flagged: { type: boolean }
+
+    Dashboard:
+      type: object
+      description: |
+        §8's `/admin` needs five counts that spec §15 has no endpoint for. One
+        round trip, not five.
+      required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, recentAttempts]
+      additionalProperties: false
+      properties:
+        openAssignments: { type: integer, minimum: 0 }
+        awaitingGrading: { type: integer, minimum: 0 }
+        activeStudents: { type: integer, minimum: 0 }
+        flaggedAttempts: { type: integer, minimum: 0 }
+        recentAttempts:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/AttemptListRow' }
+
+    StudentAssignmentCard:
+      type: object
+      required: [id, testTitle, status, opensAt, closesAt, durationMinutes, attemptsUsed, maxAttempts]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        testTitle: { type: string }
+        status: { $ref: '#/components/schemas/AssignmentStatus' }
+        opensAt: { $ref: '#/components/schemas/Timestamp' }
+        closesAt: { $ref: '#/components/schemas/Timestamp' }
+        durationMinutes: { type: integer }
+        attemptsUsed: { type: integer, minimum: 0 }
+        maxAttempts: { type: integer, minimum: 1 }
+        lastAttemptId: { type: [string, 'null'], format: uuid }
+        hasLiveAttempt: { type: boolean, description: Drives Start vs Resume (§9). }
+        score:
+          oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
+          description: Only when the assignment's `review.showScore` is on.
+
+    # ----------------------------------------------------------- write shapes
+
+    QuestionInput:
+      type: object
+      description: |
+        Create/update body for a bank question. Cross-field rules that a single
+        schema cannot express — a choice question needs at least one correct
+        option, a `fill_blank` needs its `{{n}}` placeholders to match its blank
+        ordinals, an audio policy requires an audio asset — are validated by the
+        server and again at publish (§8). Failing them returns
+        `VALIDATION_FAILED` with per-field `details`.
+      required: [type, prompt, points]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt:
+          type: string
+          minLength: 1
+          description: Markdown. `fill_blank` marks blanks `{{1}}`, `{{2}}`, 1-indexed.
+        mediaAssetId: { type: [string, 'null'], format: uuid }
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+          description: Required if and only if the asset is audio (§7).
+        transcript:
+          type: [string, 'null']
+          description: Audio questions only. Admin-authored; the student sees it only per policy.
+        options:
+          type: array
+          items:
+            type: object
+            required: [text, isCorrect]
+            additionalProperties: false
+            properties:
+              id: { type: [string, 'null'], format: uuid, description: Omit to create. }
+              text: { type: string, minLength: 1 }
+              isCorrect: { type: boolean }
+          description: Order in the array is the stored ordinal.
+        blanks:
+          type: array
+          items:
+            type: object
+            required: [ordinal, acceptedAnswers]
+            additionalProperties: false
+            properties:
+              id: { type: [string, 'null'], format: uuid }
+              ordinal: { type: integer, minimum: 1 }
+              acceptedAnswers:
+                type: array
+                minItems: 1
+                items: { type: string, minLength: 1 }
+              caseSensitive: { type: boolean, default: false }
+        points: { $ref: '#/components/schemas/Points' }
+        explanation: { type: [string, 'null'] }
+        sampleAnswer:
+          type: [string, 'null']
+          description: '`short_answer` only. Rejected on any other type.'
+        tags: { type: array, items: { type: string, minLength: 1 } }
+
+    AssignmentInput:
+      type: object
+      required: [testVersionId, targets, window, durationMinutes, maxAttempts, review, integrity]
+      additionalProperties: false
+      properties:
+        testVersionId:
+          $ref: '#/components/schemas/Uuid'
+          description: Must be a published version. Immutable once any attempt exists.
+        targets:
+          type: object
+          required: [classIds, studentIds]
+          additionalProperties: false
+          properties:
+            classIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+            studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        window:
+          type: object
+          required: [opensAt, closesAt]
+          additionalProperties: false
+          properties:
+            opensAt: { $ref: '#/components/schemas/Timestamp' }
+            closesAt: { $ref: '#/components/schemas/Timestamp' }
+        durationMinutes: { type: integer, minimum: 1, maximum: 600 }
+        maxAttempts: { type: integer, minimum: 1, default: 1 }
+        shuffleQuestions: { type: boolean, default: false }
+        shuffleOptions: { type: boolean, default: false }
+        review: { $ref: '#/components/schemas/ReviewPolicy' }
+        integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        closeNow:
+          type: boolean
+          description: PATCH only. Sets `closedAt`, closing the assignment before `closesAt`.
+
+paths:
+
+  # ======================================================================
+  # PUBLIC — unauthenticated.
+  #
+  # Every operation below has `security: []` and the `public` tag. The server
+  # cross-references this file at startup and refuses to boot if any of them
+  # lacks a registered rate limiter, so §14's "public endpoint is rate-limited"
+  # checkbox is structural rather than procedural.
+  # ======================================================================
+
+  /join/preview:
+    post:
+      operationId: previewJoinCode
+      tags: [public]
+      security: []
+      summary: Look up a class by join code
+      description: |
+        Backs the `/join/:code/confirm` step, which exists so the student sees
+        **which class they are joining** before authenticating. Never create an
+        account and enrol in one blind tap (§6.2).
+
+        Lookup is by SHA-256 hash of the normalized code, compared in constant
+        time. The plaintext is never stored (§6.5).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [joinCode]
+              additionalProperties: false
+              properties:
+                joinCode:
+                  type: string
+                  minLength: 8
+                  maxLength: 9
+                  description: |
+                    Accepted with or without the dash and in any case; normalized
+                    before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+                  examples: ['K7M3-P9QR', 'k7m3p9qr']
+      responses:
+        '200':
+          description: |
+            **Leak review (§6.5).** Exactly three fields. No student names, no
+            counts, no member list, no assignment titles. `classId` is included
+            because the confirm step needs an idempotency key for the subsequent
+            enrolment; it is a uuidv7 that reveals only the class's creation time
+            and grants nothing on its own.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [classId, className, teacherName]
+                additionalProperties: false
+                properties:
+                  classId: { $ref: '#/components/schemas/Uuid' }
+                  className: { type: string }
+                  teacherName: { type: string }
+        '404':
+          description: |
+            Invalid, expired, exhausted, revoked, or self-join disabled.
+
+            **Leak review.** These return distinct `code` values so the client can
+            show an accurate message, but identical `details` — empty — and no
+            class-identifying text. A disabled-self-join class is indistinguishable
+            from a nonexistent one. Nothing here lets a caller enumerate classes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 10, perHour: 60 }
+        perCode: { perHour: 30 }
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [public, auth]
+      security: []
+      summary: Email and password sign-in
+      description: |
+        Admin-created accounts and the admin's own login (§5.1). Self-signup
+        requires Google (§6.3); there is no password registration endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 8, maxLength: 512 }
+      responses:
+        '200':
+          description: Signed in. Sets the rotating refresh cookie.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: '`quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSuccess' }
+        '401':
+          description: |
+            **Leak review.** `INVALID_CREDENTIALS` for both an unknown email and
+            a wrong password, with the same message and comparable timing, so the
+            endpoint is not a user-enumeration oracle. A disabled account returns
+            the same thing.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 10, perHour: 60 }
+        perEmail: { perHour: 20 }
+
+  /auth/google:
+    post:
+      operationId: googleAuth
+      tags: [public, auth]
+      security: []
+      summary: Google sign-in, and the only self-signup path
+      description: |
+        The frontend obtains an **authorization code with PKCE** — not an
+        implicit ID token — and this endpoint exchanges it server-side. The
+        client secret never leaves the backend (§5.3).
+
+        Resolution order (§5.3 step 4), in full:
+
+        1. identity exists → log in
+        2. verified email matches a user → link identity, log in
+        3. no match **and** a valid `joinCode` → create account + enrol (§6.3)
+        4. no match, no join code → `403 ACCOUNT_NOT_PROVISIONED`
+
+        An ID token with `email_verified: false` is **rejected outright** — no
+        link, no create, regardless of `joinCode`. This closes an
+        account-takeover path and is not negotiable (§5.1).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, codeVerifier, redirectUri]
+              additionalProperties: false
+              properties:
+                code: { type: string }
+                codeVerifier: { type: string, minLength: 43, maxLength: 128 }
+                redirectUri: { type: string, format: uri }
+                joinCode:
+                  type: string
+                  minLength: 8
+                  maxLength: 9
+                  description: Present only from the `/join/:code/confirm` flow. Turns this into a signup.
+      responses:
+        '200':
+          description: Signed in, or signed up and enrolled.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AuthSuccess'
+                  - type: object
+                    properties:
+                      enrolledClass:
+                        oneOf: [{ $ref: '#/components/schemas/Class' }, { type: 'null' }]
+                        description: Present only when a `joinCode` produced an enrolment.
+        '401':
+          description: Code exchange failed, or `email_verified` was false.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: |
+            `ACCOUNT_NOT_PROVISIONED` — a valid Google identity with no matching
+            account and no join code. The client explains that a class code is
+            needed rather than offering a signup form (§5.3).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: The supplied `joinCode` was invalid, expired, exhausted or revoked. **No account is created.**
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 10, perHour: 60 }
+        perCode: { perHour: 30 }
+
+  /auth/refresh:
+    post:
+      operationId: refreshSession
+      tags: [public, auth]
+      security:
+        - refreshCookie: []
+      summary: Rotate the refresh token
+      description: |
+        Reads the opaque token from the cookie and rotates it. Presenting an
+        already-rotated token revokes the **whole family** and forces re-login
+        (§5.2).
+
+        The client must call this **single-flight** — one shared in-flight
+        promise. Parallel calls on a cold page load would each present the same
+        token, trip reuse detection, and log the user out on every load.
+      responses:
+        '200':
+          description: Rotated. Sets the replacement cookie.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accessToken, expiresIn]
+                additionalProperties: false
+                properties:
+                  accessToken: { type: string }
+                  expiresIn: { type: integer }
+        '401':
+          description: Absent, expired, revoked, or reused. Client clears state and goes to `/login`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 30, perHour: 200 }
+
+  # ====================================================================== auth
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Current session
+      description: Called on app load. A 401 sends the client to `/login` (§5.4).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      operationId: logout
+      description: Revokes the presented refresh token family. The client also clears its store and calls `queryClient.clear()` (§5.4).
+      tags: [auth]
+      summary: Revoke the refresh family and clear the cookie
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change own password
+      description: |
+        Clears `mustChangePassword` and revokes every **other** refresh family
+        for this user, so a second device is signed out.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              additionalProperties: false
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8, maxLength: 512 }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/google/link:
+    post:
+      operationId: linkGoogle
+      tags: [auth]
+      summary: Link Google to the current account
+      description: Same `email_verified` rule as sign-in (§5.1).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, codeVerifier, redirectUri]
+              additionalProperties: false
+              properties:
+                code: { type: string }
+                codeVerifier: { type: string }
+                redirectUri: { type: string, format: uri }
+      responses:
+        '200':
+          description: Linked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: '`IDENTITY_ALREADY_LINKED` — that Google account belongs to another user.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      operationId: unlinkGoogle
+      tags: [auth]
+      summary: Unlink Google
+      description: |
+        **Rejected if it would leave no login method** (§15). A Google-only
+        account cannot unlink; the client disables the control and explains why.
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: '`LAST_LOGIN_METHOD` — the account has no password to fall back to.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # =============================================================== admin/tests
+
+  /admin/tests:
+    get:
+      operationId: listTests
+      description: Backs the §8 tests list. Soft-deleted tests are excluded; keyset paginated (§13.8).
+      tags: [admin-tests]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/TestStatus' } }
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CursorPage'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/Test' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createTest
+      description: Creates an empty draft. Content is added through the builder, and nothing is assignable until it is published.
+      tags: [admin-tests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              additionalProperties: false
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                description: { type: [string, 'null'] }
+      responses:
+        '201':
+          description: Created as a draft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/tests/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getTest
+      description: Full test including the draft outline. Published content lives in versions, not here.
+      tags: [admin-tests]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Test' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateTest
+      tags: [admin-tests]
+      summary: Update metadata and the draft outline
+      description: |
+        Backs the builder's 1.5s-debounced autosave (§8). The whole outline —
+        sections and question ordering — is written in one transaction.
+
+        `expectedUpdatedAt` is a version guard. §1.3 says one admin edits at a
+        time; this makes a stale second tab fail loudly with `STALE_WRITE`
+        instead of silently reverting the outline.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedUpdatedAt]
+              additionalProperties: false
+              properties:
+                expectedUpdatedAt: { $ref: '#/components/schemas/Timestamp' }
+                title: { type: string, minLength: 1, maxLength: 200 }
+                description: { type: [string, 'null'] }
+                status: { $ref: '#/components/schemas/TestStatus' }
+                sections:
+                  type: array
+                  items:
+                    type: object
+                    required: [title, questionIds]
+                    additionalProperties: false
+                    properties:
+                      id: { type: [string, 'null'], format: uuid, description: Omit to create. }
+                      title: { type: string, minLength: 1 }
+                      instructions: { type: [string, 'null'] }
+                      questionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: '`STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/tests/{id}/publish:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: publishTest
+      tags: [admin-tests]
+      summary: Validate and snapshot a new version
+      description: |
+        Validates, snapshots resolved content into the version tables, bumps
+        `currentVersion` and writes an audit row — all in one transaction.
+
+        Snapshotting is what makes editing a published test safe: in-flight and
+        historical attempts keep rendering the version they started with (§7).
+        `mediaAssetId` points at the same immutable asset; the file is never
+        copied (§11.1).
+
+        Republishing an unchanged test still creates a version — this is an
+        append-only history, not a diff.
+      responses:
+        '201':
+          description: Published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TestVersion' }
+        '409':
+          description: |
+            `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
+            each anchored to a question, so the builder marks them inline rather
+            than surfacing one per attempt (§8).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - type: object
+                    properties:
+                      violations:
+                        type: array
+                        items: { $ref: '#/components/schemas/PublishValidationError' }
+
+  /admin/tests/{id}/duplicate:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: duplicateTest
+      tags: [admin-tests]
+      description: Copies the draft structure only — never the versions. The copy starts as a draft.
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Test' }
+
+  /admin/tests/{id}/versions:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: listTestVersions
+      tags: [admin-tests]
+      summary: Version history
+      description: Backs §8's test-detail version history. Spec §15 has no endpoint for this.
+      responses:
+        '200':
+          description: Newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/TestVersion' } }
+
+  /admin/tests/{id}/preview:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: previewTest
+      tags: [admin-tests]
+      summary: Student-eye preview of a published version
+      description: |
+        Renders from the **published version**, not the draft, so what the admin
+        checks is what a student would actually receive (§8).
+      parameters:
+        - { name: version, in: query, schema: { type: integer, minimum: 1 }, description: Defaults to current. }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version, questions]
+                additionalProperties: false
+                properties:
+                  version: { type: integer }
+                  questions: { type: array, items: { $ref: '#/components/schemas/StudentQuestion' } }
+        '409':
+          description: '`TEST_NOT_PUBLISHED`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # =========================================================== admin/questions
+
+  /admin/questions:
+    get:
+      operationId: listQuestions
+      description: The §8 question bank, with type and tag filters plus search.
+      tags: [admin-questions]
+      parameters:
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/QuestionType' } }
+        - { name: tag, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: |
+            `q` searches the prompt. Matching is **accent-insensitive**: `phat am`
+            finds `phát âm`, `duong` finds `Đường` (D-11). Soft-deleted questions
+            are excluded.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CursorPage'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
+    post:
+      operationId: createQuestion
+      description: Adds a question to the bank. Options and blanks are written in the same transaction, with ordinals normalized dense.
+      tags: [admin-questions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuestionInput' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/questions/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getQuestion
+      description: A single bank question, including its grading key. Admin-only by construction.
+      tags: [admin-questions]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateQuestion
+      description: Edits the bank copy only. Published versions hold their own snapshot and are unaffected (§7).
+      tags: [admin-questions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuestionInput' }
+      responses:
+        '200':
+          description: Saved. Published versions are unaffected — they hold their own snapshot (§7).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestion' }
+    delete:
+      operationId: deleteQuestion
+      tags: [admin-questions]
+      description: Soft delete (§13.2). Version snapshots that reference it keep working.
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '409':
+          description: Still referenced by a draft test outline.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # =============================================================== admin/media
+
+  /admin/media:
+    get:
+      operationId: listMedia
+      description: The §8 media library, with a usage count so referenced assets can be shown as undeletable.
+      tags: [admin-media]
+      parameters:
+        - { name: kind, in: query, schema: { $ref: '#/components/schemas/MediaKind' } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CursorPage'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/MediaAsset'
+                            - type: object
+                              properties:
+                                usageCount:
+                                  type: integer
+                                  description: Published-version references. Non-zero blocks delete (§8).
+    post:
+      operationId: uploadMedia
+      tags: [admin-media]
+      summary: Upload an audio or image asset
+      description: |
+        Upload goes **through the backend** in v1 — the files are small, volume
+        is low, and the backend must validate anyway. Presigned direct-to-R2 is
+        the P1 optimisation, and the client contract will not change beyond this
+        one call (§11.1).
+
+        Validation order is size → magic bytes → duration, so an oversized
+        upload is cut off before anything is parsed. **Never trusts the
+        `Content-Type` header or the file extension** (§11.1): the type comes
+        from sniffing, and the duration from probing the container.
+
+        Assets are immutable. Re-uploading the same file creates a new row with
+        a new key; it never overwrites (§11.1). That is what lets a version
+        snapshot reference an asset without copying the file.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+            encoding:
+              file:
+                contentType: audio/mpeg, audio/mp4, audio/aac, image/png, image/jpeg, image/webp
+      responses:
+        '201':
+          description: Stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaAsset' }
+        '413':
+          description: '`MEDIA_TOO_LARGE` — over 10 MB (§11.1).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: |
+            `MEDIA_TYPE_UNSUPPORTED` (not mp3/m4a — §11.1 and §17.3),
+            `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
+            correctly but the duration could not be probed — rejected rather
+            than stored with an unknown duration).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/media/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      operationId: deleteMedia
+      description: Soft-deletes an unreferenced asset. The R2 object itself is retained; lifecycle cleanup is deliberately out of v1 scope.
+      tags: [admin-media]
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '409':
+          description: '`MEDIA_REFERENCED` — a published version still uses it (§8, §15).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # ========================================================= admin/assignments
+
+  /admin/assignments:
+    get:
+      operationId: listAssignments
+      description: Backs the §8 assignments list. `status` is derived per assignment, not stored (D-18).
+      tags: [admin-assignments]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/AssignmentStatus' } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CursorPage'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/Assignment' } }
+    post:
+      operationId: createAssignment
+      tags: [admin-assignments]
+      description: Only a **published** version may be assigned (§8).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssignmentInput' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '409':
+          description: '`TEST_NOT_PUBLISHED`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/assignments/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getAssignment
+      description: A single assignment with its targets, window, and review and integrity policies.
+      tags: [admin-assignments]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateAssignment
+      tags: [admin-assignments]
+      description: |
+        `testVersionId` may be changed **only while no attempt exists**.
+        Re-pointing an untouched assignment at a corrected version is a
+        legitimate workflow; doing it once students have started is not.
+        Existing attempts always carry their own version regardless (§7).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssignmentInput' }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '409':
+          description: '`VERSION_LOCKED` — attempts exist, so the version cannot be changed.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/assignments/{id}/attempts:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getAssignmentMonitor
+      tags: [admin-assignments, admin-attempts]
+      summary: Monitor rows, one per targeted student
+      description: |
+        Includes students who have not started — the roster is the left side of
+        the join, not the attempts table. Two queries total, never one per
+        student: N+1 is the named default failure mode of this screen (§13.8).
+
+        The client polls every 15s while the assignment is `open`, and stops when
+        the tab is hidden (§8).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serverTime, rows]
+                additionalProperties: false
+                properties:
+                  serverTime:
+                    $ref: '#/components/schemas/Timestamp'
+                  rows: { type: array, items: { $ref: '#/components/schemas/MonitorRow' } }
+
+  # ============================================================ admin/attempts
+
+  /admin/attempts:
+    get:
+      operationId: listAttempts
+      tags: [admin-attempts]
+      summary: Cross-assignment attempt list
+      description: |
+        Backs §8's dashboard rows — attempts awaiting grading, flagged attempts —
+        which spec §15 has no endpoint for. `status=submitted` and `flagged=true`
+        each hit a partial index that stays near-empty (D-19).
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/AttemptStatus' } }
+        - { name: flagged, in: query, schema: { type: boolean } }
+        - { name: pendingGrading, in: query, schema: { type: boolean } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CursorPage'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AttemptListRow' } }
+
+  /admin/attempts/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getAttemptForReview
+      tags: [admin-attempts]
+      summary: Full attempt for review and grading
+      description: |
+        The admin view, so it carries the grading key: `AdminQuestion` includes
+        `isCorrect`, `sampleAnswer` and `acceptedAnswers`. This is the only
+        question shape that does.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attempt, student, questions, answers, audioPlays, integrity]
+                additionalProperties: false
+                properties:
+                  attempt: { $ref: '#/components/schemas/Attempt' }
+                  student: { $ref: '#/components/schemas/User' }
+                  questions: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
+                  answers:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      required: [answer]
+                      additionalProperties: false
+                      properties:
+                        answer: { oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }] }
+                        autoScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
+                        manualScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
+                        requiresManual: { type: boolean }
+                        graderComment: { type: [string, 'null'] }
+                  audioPlays:
+                    type: object
+                    additionalProperties: { type: integer }
+                    description: Shown as used-vs-allowed, including over-limit. Reported, not enforced (§11.4).
+                  integrity: { $ref: '#/components/schemas/IntegritySummary' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/attempts/{id}/events:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getAttemptEvents
+      tags: [admin-attempts]
+      summary: Integrity timeline
+      description: |
+        Chronological, with paired durations computed server-side so the client
+        does not reimplement pairing (§10.4).
+
+        Ordering is `clientSeq` within a session and `occurredAt` across
+        sessions, so clock skew cannot scramble a session's internal order.
+
+        **The UI presenting this must be neutral** — no red banners, no
+        "CHEATING DETECTED". These signals are evidence for a conversation, not
+        proof: they cannot see a second device, a phone beside the laptop, a
+        person in the room, or a printed sheet (§10.5).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, summary, startedAt]
+                additionalProperties: false
+                properties:
+                  startedAt: { $ref: '#/components/schemas/Timestamp' }
+                  events: { type: array, items: { $ref: '#/components/schemas/IntegrityEvent' } }
+                  summary: { $ref: '#/components/schemas/IntegritySummary' }
+
+  /admin/attempts/{id}/extend:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: extendAttempt
+      tags: [admin-attempts]
+      description: |
+        May push the deadline past the assignment's `closesAt` — that is the
+        point of an accommodation. Audited in the same statement as the update,
+        via an `OLD`/`NEW` data-modifying CTE (§13.4).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [minutes, reason]
+              additionalProperties: false
+              properties:
+                minutes: { type: integer, minimum: 1, maximum: 600 }
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: Extended.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attempt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/attempts/{id}/reset:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: resetAttempt
+      tags: [admin-attempts]
+      description: |
+        **Voids** the existing attempt and permits a new one at `attemptNo + 1`.
+        Nothing is deleted — §6.4's retention principle, and deleting would lose
+        the record §13.4 exists to keep (O-08).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              additionalProperties: false
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: The voided attempt.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attempt' }
+
+  /admin/attempts/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: voidAttempt
+      description: Marks an attempt void with a required reason. Nothing is deleted, and the audit row is written in the same statement (§13.4).
+      tags: [admin-attempts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              additionalProperties: false
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: Voided.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attempt' }
+
+  /admin/attempts/{id}/grade:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: gradeAttempt
+      tags: [admin-attempts]
+      summary: Save manual grades
+      description: |
+        Saved per call rather than as one giant submit, so a half-graded attempt
+        survives a refresh. `points` is rejected above the question's ceiling.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              additionalProperties: false
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [questionId, points]
+                    additionalProperties: false
+                    properties:
+                      questionId: { $ref: '#/components/schemas/Uuid' }
+                      points: { $ref: '#/components/schemas/Points' }
+                      comment: { type: [string, 'null'], maxLength: 2000 }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptScore' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/attempts/{id}/finish-grading:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: finishGrading
+      tags: [admin-attempts]
+      description: |
+        Recomputes the score from `SUM(final_score)` — the PG18 virtual generated
+        column, so manual precedence over auto cannot drift (§13.3) — and sets
+        status `graded`. Re-enterable: a graded attempt can be re-graded.
+      responses:
+        '200':
+          description: Graded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attempt' }
+        '409':
+          description: '`GRADING_INCOMPLETE` — a `short_answer` is still ungraded.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [admin-attempts]
+      description: The five counts §8 needs and spec §15 has no endpoint for. One round trip.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dashboard' }
+
+  # ==================================================== admin/students+classes
+
+  /admin/students:
+    get:
+      operationId: listStudents
+      description: Backs the §8 students table. CSV import is P1 and deliberately not built (§16).
+      tags: [admin-students]
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CursorPage'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/User' } }
+    post:
+      operationId: createStudent
+      tags: [admin-students]
+      description: |
+        Admin-created accounts get a temporary password and
+        `mustChangePassword: true`. Self-signup requires Google (§6.3).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, fullName]
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                fullName: { type: string, minLength: 1, maxLength: 200 }
+                classIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+      responses:
+        '201':
+          description: Created. The temporary password is returned **once**.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user, temporaryPassword]
+                additionalProperties: false
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  temporaryPassword: { type: string }
+        '409':
+          description: Email already in use (case-insensitively).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/students/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getStudent
+      description: A student with their class memberships, linked providers and `joinedVia` (§8).
+      tags: [admin-students]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      classes: { type: array, items: { $ref: '#/components/schemas/Class' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateStudent
+      description: Edits profile fields, or disables the account. Disabling blocks login without deleting any attempt history.
+      tags: [admin-students]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                fullName: { type: string, minLength: 1, maxLength: 200 }
+                email: { type: string, format: email }
+                disabled: { type: boolean }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+
+  /admin/students/{id}/reset-password:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: resetStudentPassword
+      tags: [admin-students]
+      description: |
+        Sets a temporary password and `mustChangePassword`. There is no
+        self-service email reset in v1 — that needs an email provider, which is
+        the same dependency §6.3 declines (§5.4, §17.1).
+      responses:
+        '200':
+          description: Reset. Password returned **once**.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [temporaryPassword]
+                additionalProperties: false
+                properties:
+                  temporaryPassword: { type: string }
+
+  /admin/classes:
+    get:
+      operationId: listClasses
+      description: All classes. Unpaginated -- a single-teacher practice has single-digit classes (§1.3).
+      tags: [admin-classes]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Class' } }
+    post:
+      operationId: createClass
+      description: Creates a class. A join code is not issued automatically; rotate to get one (§6.4).
+      tags: [admin-classes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: [string, 'null'] }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Class' }
+
+  /admin/classes/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getClass
+      description: A single class, including its active join code metadata -- but never the code itself (§13.3).
+      tags: [admin-classes]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Class' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateClass
+      description: Edits name and description, or toggles self-join. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
+      tags: [admin-classes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: [string, 'null'] }
+                selfJoinEnabled: { type: boolean }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Class' }
+
+  /admin/classes/{id}/members:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: listClassMembers
+      tags: [admin-classes]
+      description: |
+        Shows `joinedVia` and `joinedAt` so the teacher can spot unexpected
+        enrolments — the mitigation §6.5 relies on instead of an approval queue.
+        Spec §15 has no endpoint for this.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ClassMember' } }
+    post:
+      operationId: addClassMember
+      description: 'Enrols an existing user directly, bypassing the join code. Recorded as `joinedVia: admin` so the teacher can tell the two apart.'
+      tags: [admin-classes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              additionalProperties: false
+              properties:
+                userId: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '201':
+          description: 'Added with `joinedVia: admin`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassMember' }
+
+  /admin/classes/{id}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: userId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    delete:
+      operationId: removeClassMember
+      tags: [admin-classes]
+      description: |
+        Revokes access. **Attempts are retained, not deleted** (§6.4), and an
+        in-flight attempt is not revoked — eligibility is evaluated at attempt
+        creation.
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+
+  /admin/classes/{id}/join-code:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: rotateJoinCode
+      tags: [admin-classes]
+      summary: Issue a new join code, revoking the old one
+      description: |
+        Revoke-and-issue happens in **one transaction**, so the one-active-code-
+        per-class constraint cannot be violated. Previously enrolled students are
+        unaffected (§6.1).
+
+        The plaintext code is returned **exactly once, here**. Only a SHA-256
+        hash is stored, so a database dump does not hand over class access
+        (§13.3). If it is lost, rotate again.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expiresInDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
+                maxUses:
+                  type: [integer, 'null']
+                  minimum: 1
+                  default: 40
+                  description: |
+                    Defaults to 40 rather than spec §6.1's `null = unlimited`
+                    (O-06). The realistic threat to a bearer code is being
+                    *forwarded*, not guessed, and a use cap is the mitigation
+                    that costs nothing.
+      responses:
+        '201':
+          description: Issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expiresAt, maxUses]
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    description: Plaintext, grouped `XXXX-XXXX`. Shown once and never retrievable again.
+                    examples: ['K7M3-P9QR']
+                  expiresAt: { $ref: '#/components/schemas/Timestamp' }
+                  maxUses: { type: [integer, 'null'] }
+    delete:
+      operationId: revokeJoinCode
+      tags: [admin-classes]
+      description: 'Revokes without issuing a replacement, and sets `selfJoinEnabled: false` (§6.4).'
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+
+  # =================================================================== student
+
+  /app/classes:
+    get:
+      operationId: listMyClasses
+      description: Classes the signed-in student belongs to. Backs §9 `/app/classes`.
+      tags: [student]
+      responses:
+        '200':
+          description: '`joinCode` is never populated on this response — it is admin-only.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Class' } }
+
+  /app/classes/join:
+    post:
+      operationId: joinClass
+      tags: [student]
+      summary: Enrol with a code, already signed in
+      description: |
+        The already-authenticated half of §6.2 — a student who hits `/join/:code`
+        while logged in skips straight here. Idempotent when already a member.
+        Every enrolment is audited with ip and user agent (§6.5).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [joinCode]
+              additionalProperties: false
+              properties:
+                joinCode: { type: string, minLength: 8, maxLength: 9 }
+      responses:
+        '200':
+          description: Enrolled, or already a member.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Class' }
+        '404':
+          description: Invalid, expired, exhausted or revoked. Same leak rules as `/join/preview`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 10, perHour: 60 }
+        perCode: { perHour: 30 }
+
+  /app/assignments:
+    get:
+      operationId: listMyAssignments
+      tags: [student]
+      description: The three §9 sections — **Đến hạn**, **Sắp tới**, **Đã hoàn thành**.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [dueNow, upcoming, completed]
+                additionalProperties: false
+                properties:
+                  dueNow: { type: array, items: { $ref: '#/components/schemas/StudentAssignmentCard' } }
+                  upcoming: { type: array, items: { $ref: '#/components/schemas/StudentAssignmentCard' } }
+                  completed: { type: array, items: { $ref: '#/components/schemas/StudentAssignmentCard' } }
+
+  /app/assignments/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getMyAssignment
+      tags: [student]
+      summary: Intro page
+      description: |
+        Everything the intro must state before the student starts: duration,
+        attempts used and allowed, review policy, **the integrity rules in plain
+        language**, and the audio rules if the test has listening questions
+        ("Mỗi câu nghe được phát tối đa 2 lần") (§9, §10.2).
+
+        Announced, visible, never silent — a student is never surprised by a rule
+        mid-test.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StudentAssignmentCard'
+                  - type: object
+                    required: [review, integrity, hasAudio]
+                    properties:
+                      instructions: { type: [string, 'null'] }
+                      review: { $ref: '#/components/schemas/ReviewPolicy' }
+                      integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+                      hasAudio: { type: boolean }
+                      audioMaxPlays:
+                        type: [integer, 'null']
+                        description: The strictest `maxPlays` across the test, for the intro copy.
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ================================================================= take-test
+
+  /app/assignments/{id}/attempts:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: startOrResumeAttempt
+      tags: [take-test]
+      summary: Create or resume an attempt
+      description: |
+        Idempotent under a double tap: a partial unique index permits one live
+        attempt per (assignment, student), so the second insert loses the race
+        and the handler resumes instead of erroring.
+
+        Resuming issues a **new** `sessionId` and records a `resume` event — and
+        a `session_takeover` event if the previous session was still live. The
+        superseded session finds out on its next write, via `SESSION_SUPERSEDED`
+        (§10.1, E2E 7).
+
+        `deadlineAt` is computed server-side as
+        `min(now + durationMinutes, closesAt)` and is authoritative. The client
+        derives remaining time from it plus the `serverTime` offset, never from
+        the device clock.
+      responses:
+        '200':
+          description: Created, or resumed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptSession' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /app/attempts/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getAttempt
+      tags: [take-test]
+      summary: The take-test payload
+      description: |
+        **In the student flow, test content is fetched only through here** (§7).
+
+        The response contains no `isCorrect`, no `sampleAnswer`, no
+        `acceptedAnswers` and no `transcript` — at any depth. This is asserted by
+        a contract test over this file, a Go unit test that walks the live JSON,
+        and E2E 9 (§13.5, §14). None of those three may be weakened.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptSession' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /app/attempts/{id}/answers:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: saveAnswers
+      tags: [take-test]
+      summary: Autosave answers and flush buffered events
+      description: |
+        Answers and events land in **one transaction**, so a partial flush cannot
+        record an event for an answer that was not saved.
+
+        Events are inserted `ON CONFLICT DO NOTHING` on
+        `(attempt, session, clientSeq)`, so a retried batch is a no-op rather
+        than a failure (D-01).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              additionalProperties: false
+              properties:
+                sessionId: { $ref: '#/components/schemas/Uuid' }
+                answers:
+                  type: object
+                  additionalProperties: { $ref: '#/components/schemas/Answer' }
+                events:
+                  type: array
+                  items: { $ref: '#/components/schemas/IntegrityEventInput' }
+                  maxItems: 500
+      responses:
+        '200':
+          description: Saved. `serverTime` is returned every time so the client's clock offset self-corrects.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serverTime, savedAt]
+                additionalProperties: false
+                properties:
+                  serverTime: { $ref: '#/components/schemas/Timestamp' }
+                  savedAt: { $ref: '#/components/schemas/Timestamp' }
+        '409':
+          description: |
+            `SESSION_SUPERSEDED` — opened elsewhere; the client goes read-only
+            with a plain explanation rather than throwing.
+            `DEADLINE_PASSED` — the client should submit.
+            `ATTEMPT_CLOSED` — already submitted or voided.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /app/attempts/{id}/events:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: flushEvents
+      tags: [take-test]
+      summary: Standalone event flush, including the sendBeacon path
+      description: |
+        Two content types, because `navigator.sendBeacon` cannot set request
+        headers:
+
+        - `application/json` with a normal `Authorization` header, for ordinary flushes.
+        - `text/plain` carrying `beaconToken` in the body, for the `pagehide`
+          flush. `text/plain` is CORS-safelisted, so the request skips preflight —
+          necessary, because a preflight on unload is not reliably delivered.
+
+        The beacon token grants **append-only event access** and nothing else, so
+        the weaker credential buys no additional authority.
+
+        Fire-and-forget: this is best-effort by design and a failure here must
+        never block answering or submitting (§10.6).
+      security:
+        - bearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, events]
+              additionalProperties: false
+              properties:
+                sessionId: { $ref: '#/components/schemas/Uuid' }
+                events: { type: array, items: { $ref: '#/components/schemas/IntegrityEventInput' }, maxItems: 500 }
+          text/plain:
+            schema:
+              type: string
+              description: |
+                JSON encoded as text: `{ beaconToken, sessionId, events }`. Sent
+                as a `Blob` with type `text/plain` from `navigator.sendBeacon`.
+      responses:
+        '202':
+          description: Accepted. Always 202 — the client cannot act on the outcome anyway.
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /app/attempts/{id}/audio-play:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: recordAudioPlay
+      tags: [take-test]
+      summary: Increment the server-authoritative play counter
+      description: |
+        The obvious client-side counter resets on reload, which makes `maxPlays`
+        meaningless — so the count lives here (§11.4).
+
+        **Never rejects a play.** Playback is optimistic: a failed POST does not
+        block audio, and a student who goes offline to farm replays leaves a gap
+        in the event log, which is what the integrity timeline is for. Blocking
+        on a round trip would punish bad wifi far more often than it would catch
+        anyone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionId]
+              additionalProperties: false
+              properties:
+                questionId: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: '`plays` may exceed `maxPlays`. That is reported to the teacher, not enforced.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plays, maxPlays]
+                additionalProperties: false
+                properties:
+                  plays: { type: integer, minimum: 1 }
+                  maxPlays: { type: [integer, 'null'] }
+
+  /app/attempts/{id}/submit:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: submitAttempt
+      tags: [take-test]
+      description: |
+        **Idempotent.** A second call on an already-closed attempt is `409
+        ATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit
+        yields one submission.
+
+        Objective types are graded immediately; `short_answer` is marked
+        `requiresManual`. Nothing is rejected based on audio play count (§11.4).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                sessionId: { $ref: '#/components/schemas/Uuid' }
+                reason:
+                  type: string
+                  enum: [manual, timer_expired, auto_submit]
+                  default: manual
+      responses:
+        '200':
+          description: Submitted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attempt' }
+        '409':
+          description: '`ATTEMPT_CLOSED`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /app/attempts/{id}/result:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getAttemptResult
+      tags: [take-test]
+      summary: Post-submission review
+      description: |
+        Honours the assignment's review policy. Suppressed fields are **absent**,
+        not nulled-and-hidden, so no client fallback can surface them.
+
+        `transcript` appears here and only here, gated on the question's
+        `showTranscriptAfterSubmit` (§11.3, §13.5). `sampleAnswer` never appears
+        at all.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attempt, review, questions]
+                additionalProperties: false
+                properties:
+                  attempt: { $ref: '#/components/schemas/Attempt' }
+                  review: { $ref: '#/components/schemas/ReviewPolicy' }
+                  questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Not yet submitted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /app/media/{assetId}/url:
+    parameters:
+      - { name: assetId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    get:
+      operationId: getMediaUrl
+      tags: [take-test]
+      summary: Mint a short-lived signed URL
+      description: |
+        10-minute signature, minted per request (§11.2). A student may only mint
+        a URL for an asset reachable from an attempt they own — checked against
+        the version questions, not by asset id alone.
+
+        The client fetches this **before** enabling the play button, never inside
+        the click handler: iOS Safari requires `.play()` to run synchronously in
+        the gesture, so awaiting anything first would break playback (§11.3).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, expiresAt]
+                additionalProperties: false
+                properties:
+                  url: { type: string, format: uri }
+                  expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        '403': { $ref: '#/components/responses/Forbidden' }

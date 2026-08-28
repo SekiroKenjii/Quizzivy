@@ -1,0 +1,5 @@
+# Generated from api/openapi.yaml by `make gen`. Never edit by hand; CI fails on
+# drift. Marking them linguist-generated collapses them in review diffs, which
+# keeps a contract change readable.
+server/gen/**            linguist-generated=true
+web/src/lib/api/schema.d.ts  linguist-generated=true
