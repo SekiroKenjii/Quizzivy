@@ -34,4 +34,10 @@ COPY migrations /app/migrations
 
 USER nonroot:nonroot
 EXPOSE 8080
-ENTRYPOINT ["/app/api"]
+
+# CMD, not ENTRYPOINT. Fly APPENDS release_command to a container's entrypoint,
+# so with ENTRYPOINT ["/app/api"] the release step runs
+#   /app/api /app/migrate -dir /app/migrations up
+# -- the API binary with stray arguments, which ignores them, boots, and fails.
+# The migration never runs, and the error looks like a database problem.
+CMD ["/app/api"]

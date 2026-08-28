@@ -36,9 +36,43 @@ func Open(ctx context.Context, dsn string) (*Pool, error) {
 	return &Pool{Pool: pool}, nil
 }
 
-// Ping reports whether the database is reachable. Backs /healthz.
+// Ping reports whether the database is reachable. Backs /healthz, where a
+// short timeout is right: a health check should fail fast, not hang.
 func (p *Pool) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	return p.Pool.Ping(ctx)
+}
+
+// WaitReady blocks until the database answers, or the budget runs out.
+//
+// Startup needs a far longer budget than /healthz. Neon suspends idle computes
+// and resumes them on the first connection, which takes seconds -- so a 2s
+// startup ping fails on exactly the deploy that follows a quiet period, and
+// reports "context deadline exceeded", which reads like a network fault rather
+// than a database that is simply waking up.
+//
+// Retries rather than one long timeout, so a genuinely misconfigured DSN still
+// fails quickly on the first attempt instead of hanging for the full budget.
+func (p *Pool) WaitReady(ctx context.Context, budget time.Duration) error {
+	deadline := time.Now().Add(budget)
+	var lastErr error
+	for attempt := 1; ; attempt++ {
+		attemptCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := p.Pool.Ping(attemptCtx)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("database not ready after %s (%d attempts): %w", budget, attempt, lastErr)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
 }
