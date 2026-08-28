@@ -269,10 +269,10 @@ func resync(r io.ReaderAt, size, from int64) (int64, error) {
 // version and the channel mode -- getting that wrong reads four bytes of audio
 // and calls them a frame count, which is why the tag is verified rather than
 // assumed.
-// vbrFrameCount reads a Xing/Info or VBRI header. The second result is the
-// stream length in BYTES as the header declares it, or 0 when the header does
-// not carry one -- it is what lets the caller notice a truncated upload, whose
-// header still describes the file it used to be.
+//
+// The second result is the stream length in BYTES as the header declares it, or
+// 0 when the header does not carry one. That is what lets the caller notice a
+// truncated upload, whose header still describes the file it used to be.
 func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, int64, bool) {
 	sideInfo := int64(32) // MPEG1 stereo
 	switch {
@@ -284,55 +284,91 @@ func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, int64,
 		sideInfo = 17
 	}
 
-	// Xing ("Info" for CBR files that still carry the frame count).
+	// Xing ("Info" for CBR files that still carry the frame count) sits after
+	// the side info; VBRI sits at a fixed 32 bytes past the header, and only
+	// Fraunhofer encoders write it.
+	if n, declared, ok := xingFrameCount(r, frameOffset+4+sideInfo); ok {
+		return n, declared, true
+	}
+	return vbriFrameCount(r, frameOffset+4+32)
+}
+
+// readUint32 reads a big-endian uint32, reporting whether it could. Every
+// header field below is one of these, and threading the read failure through as
+// a bool is what keeps the two parsers flat.
+func readUint32(r io.ReaderAt, at int64) (uint32, bool) {
+	buf := make([]byte, 4)
+	if _, err := r.ReadAt(buf, at); err != nil {
+		return 0, false
+	}
+	return binary.BigEndian.Uint32(buf), true
+}
+
+// plausibleFrameCount rejects the two counts that cannot be real before they
+// reach any arithmetic: zero, and more frames than the walk would ever scan.
+func plausibleFrameCount(n uint32) (int, bool) {
+	count := int(n)
+	return count, count > 0 && count < maxFrameScan
+}
+
+// xingFrameCount reads a Xing/Info header at `at`, the offset of the tag.
+func xingFrameCount(r io.ReaderAt, at int64) (int, int64, bool) {
 	tag := make([]byte, 4)
-	xingAt := frameOffset + 4 + sideInfo
-	if _, err := r.ReadAt(tag, xingAt); err == nil {
-		if s := string(tag); s == "Xing" || s == "Info" {
-			flags := make([]byte, 4)
-			if _, err := r.ReadAt(flags, xingAt+4); err == nil {
-				bits := binary.BigEndian.Uint32(flags)
-				if bits&xingHasFrames != 0 {
-					count := make([]byte, 4)
-					if _, err := r.ReadAt(count, xingAt+8); err == nil {
-						if n := int(binary.BigEndian.Uint32(count)); n > 0 && n < maxFrameScan {
-							// The bytes field follows the frame count, and only
-							// when both flags are set -- the fields are packed
-							// in flag order, not at fixed offsets.
-							var declared int64
-							if bits&xingHasBytes != 0 {
-								b := make([]byte, 4)
-								if _, err := r.ReadAt(b, xingAt+12); err == nil {
-									declared = int64(binary.BigEndian.Uint32(b))
-								}
-							}
-							return n, declared, true
-						}
-					}
-				}
-			}
-		}
+	if _, err := r.ReadAt(tag, at); err != nil {
+		return 0, 0, false
+	}
+	if s := string(tag); s != "Xing" && s != "Info" {
+		return 0, 0, false
 	}
 
-	// VBRI sits at a fixed 32 bytes past the header, and only Fraunhofer
-	// encoders write it.
-	vbriAt := frameOffset + 4 + 32
-	if _, err := r.ReadAt(tag, vbriAt); err == nil && string(tag) == "VBRI" {
-		count := make([]byte, 4)
-		if _, err := r.ReadAt(count, vbriAt+14); err == nil {
-			if n := int(binary.BigEndian.Uint32(count)); n > 0 && n < maxFrameScan {
-				// VBRI carries its stream size at offset 10, before the frame
-				// count at 14.
-				var declared int64
-				b := make([]byte, 4)
-				if _, err := r.ReadAt(b, vbriAt+10); err == nil {
-					declared = int64(binary.BigEndian.Uint32(b))
-				}
-				return n, declared, true
-			}
+	bits, ok := readUint32(r, at+4)
+	if !ok || bits&xingHasFrames == 0 {
+		return 0, 0, false
+	}
+	raw, ok := readUint32(r, at+8)
+	if !ok {
+		return 0, 0, false
+	}
+	count, ok := plausibleFrameCount(raw)
+	if !ok {
+		return 0, 0, false
+	}
+
+	// The bytes field FOLLOWS the frame count, and only when both flags are
+	// set -- the optional fields are packed in flag order, not at fixed
+	// offsets, so this offset is only correct because HasFrames was checked
+	// above.
+	var declared int64
+	if bits&xingHasBytes != 0 {
+		if b, ok := readUint32(r, at+12); ok {
+			declared = int64(b)
 		}
 	}
-	return 0, 0, false
+	return count, declared, true
+}
+
+// vbriFrameCount reads a VBRI header at `at`, the offset of the tag. Its fields
+// are at fixed offsets rather than flag-dependent: stream size at 10, frame
+// count at 14.
+func vbriFrameCount(r io.ReaderAt, at int64) (int, int64, bool) {
+	tag := make([]byte, 4)
+	if _, err := r.ReadAt(tag, at); err != nil || string(tag) != "VBRI" {
+		return 0, 0, false
+	}
+	raw, ok := readUint32(r, at+14)
+	if !ok {
+		return 0, 0, false
+	}
+	count, ok := plausibleFrameCount(raw)
+	if !ok {
+		return 0, 0, false
+	}
+
+	var declared int64
+	if b, ok := readUint32(r, at+10); ok {
+		declared = int64(b)
+	}
+	return count, declared, true
 }
 
 // Xing flag bits. The optional fields are packed in this order, so an offset
