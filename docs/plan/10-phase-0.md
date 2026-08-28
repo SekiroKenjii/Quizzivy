@@ -322,7 +322,22 @@ service in T-0.6, which speaks the same S3 API.
 - [ ] Error envelope decoded into a typed `ApiError` carrying `code`, `message`
       and `requestId`
 - [ ] Test: `client.refresh.test.ts` — "five concurrent 401s issue exactly one
-      POST /auth/refresh and all five requests succeed"
+      POST /auth/refresh and all five requests succeed". Asserted by **counting**
+      calls: an implementation that refreshes per request passes every functional
+      test and still logs everyone out in production
+- [ ] Test: retries carry the **new** token, not the stale one
+- [ ] Test: a later, separate 401 is allowed to refresh again — single-flight
+      must not become refresh-once-ever
+- [ ] Test: the login endpoint's own 401 does not trigger a refresh (that would
+      loop, and would trip reuse detection)
+- [ ] **Mutation-tested**: making refresh per-request must fail it
+- [ ] `client.typecheck.ts` asserts the contract binds at the type level, using
+      `@ts-expect-error` — which is self-verifying, since TypeScript fails the
+      build if the directive stops being needed. It covers unknown paths, wrong
+      methods, missing body fields, wrong path-param names, and **§13.5**: a
+      student payload must not expose `sampleAnswer`, `transcript` or
+      `isCorrect`. That is the third layer, after `contract_check.py` and the Go
+      reflection tests
 - [ ] Test: `client.refresh.test.ts` — "a second 401 after refresh clears the
       store and redirects to /login"
 - [ ] TypeScript strict passes, no `any` (§14)
