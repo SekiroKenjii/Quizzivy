@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
+import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { previewJoinCode, joinClass, type JoinPreview } from "@/features/join/api";
 import { format, normalize } from "@/features/join/code";
 import { useGoogleSignIn } from "@/features/auth/google/useGoogleSignIn";
@@ -124,7 +125,14 @@ export default function JoinConfirmPage() {
         disabled={joining || google.pending}
         onClick={() => void onConfirm()}
       >
-        {user ? t("join.confirmSignedIn") : t("join.confirmWithGoogle")}
+        {user ? (
+          t("join.confirmSignedIn")
+        ) : (
+          <>
+            <GoogleMark />
+            {t("join.confirmWithGoogle")}
+          </>
+        )}
       </Button>
 
       {!user ? (

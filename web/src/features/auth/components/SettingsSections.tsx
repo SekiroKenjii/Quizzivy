@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, fetchCurrentUser } from "@/features/auth/api";
@@ -201,6 +202,7 @@ export function GoogleSection() {
               void google.start({ mode: "link", next: window.location.pathname })
             }
           >
+            <GoogleMark />
             {t("settings.linkGoogle")}
           </Button>
         ) : (
