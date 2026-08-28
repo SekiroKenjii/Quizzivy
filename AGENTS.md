@@ -213,7 +213,10 @@ glassmorphism, no pulse rings, no glow, no emoji in UI chrome. If a
 design choice feels like it needs a new color, it probably needs a
 different layout instead.
 
-Colors come from CSS variables / Tailwind tokens, never hard-coded. Dark mode is
+Colors come from CSS variables / Tailwind tokens, never hard-coded. The one
+exception is `GoogleMark` — a provider's identifying mark on a button that hands
+the user to that provider. It is not decorative colour and not theme-aware on
+purpose. Do not add a second exception without the same argument. Dark mode is
 not in v1 but must remain addable without touching components.
 
 Integrity UI is calm: plain dialogs, plain text, no alarm iconography, no red
