@@ -40,7 +40,9 @@ func run(logger *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	if err := pool.Ping(ctx); err != nil {
+	// Neon resumes a suspended compute on first connect, so the first ping of a
+	// deploy can take seconds. 60s of retries costs nothing on a warm database.
+	if err := pool.WaitReady(ctx, 60*time.Second); err != nil {
 		return err
 	}
 
