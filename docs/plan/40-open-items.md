@@ -182,6 +182,19 @@ tag phase completions, dropping `develop` and `release/*`. Say the word.
 
 ---
 
+### O-15 — React Router v8 is out; §2 says v7 · any phase
+**Default:** pinned to **v7.18.2**, as §2 names. Not upgraded silently.
+
+`pnpm add react-router` now resolves to 8.3.0. §2 fixes the stack "unless Thuong
+approves a change", so the install was pinned back to v7. Nothing in the plan
+needs v8, and the router is small enough that upgrading later is cheap — the
+sooner it happens the cheaper, though, since Phase 3's take-test engine is the
+part that would make a migration awkward.
+
+Worth deciding before Phase 3 rather than after.
+
+---
+
 ### O-12 — Dark mode · post-v1
 **Default:** not in v1, per §12. Theming goes through CSS variables and Tailwind
 tokens from T-0.9, so it can be added later without touching components.

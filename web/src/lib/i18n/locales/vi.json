@@ -9,7 +9,8 @@
     "close": "Đóng",
     "back": "Quay lại",
     "signOut": "Đăng xuất",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "comingSoon": "Phần này sẽ được xây dựng ở giai đoạn sau."
   },
   "error": {
     "title": "Đã xảy ra lỗi",
