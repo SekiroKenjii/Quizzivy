@@ -18,6 +18,10 @@ export default defineConfig({
     host: "localhost",
   },
   test: {
+    // Playwright specs live in e2e/ and are run by `pnpm e2e`. Vitest's default
+    // include pattern matches *.spec.ts, so without this it tries to run them
+    // and fails with a confusing "two different versions of @playwright/test".
+    exclude: ["node_modules/**", "dist/**", "e2e/**"],
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
