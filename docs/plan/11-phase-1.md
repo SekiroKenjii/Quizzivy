@@ -22,7 +22,7 @@ the public join surface, then the frontend that consumes it.
 **Size:** M
 **Migrations:** `00004_create_users.sql`, `00005_create_refresh_tokens.sql`,
 `00006_create_classes.sql`, `00007_create_class_members.sql`,
-`00008_create_audit_log.sql`
+`00008_create_audit_log.sql`, `00009_grant_app_role.sql`
 **Done when:**
 - [ ] Tables match `20-data-model.md` §3–§5 exactly, including deviations D-08,
       D-09, D-10 and D-16
@@ -40,6 +40,11 @@ the public join surface, then the frontend that consumes it.
       `must_change_password = true` and `password_hash = NULL` is rejected (D-16)
 - [ ] Test: `constraints_test.go` — two users differing only in email case
       collide on `users_email_lower_key`
+- [ ] `00009` grants `quizzivy_app` DML **and** sets `ALTER DEFAULT PRIVILEGES`
+      so every later table is covered automatically. It was planned for Phase 3;
+      that left the app role unable to read anything until then
+- [ ] Test: connected as `quizzivy_app`, `UPDATE app.audit_log` is refused —
+      §13.4's append-only claim as a privilege, not a promise
 - [ ] DDL reviewed against §13 and the Neon skill (§14)
 
 ---

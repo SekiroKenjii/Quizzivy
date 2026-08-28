@@ -21,8 +21,8 @@ phase that carries the most.
 **Depends on:** T-2.9
 **Touches:** `migrations/`
 **Size:** M
-**Migrations:** `00016_create_assignments.sql`,
-`00017_create_assignment_targets.sql`
+**Migrations:** `00017_create_assignments.sql`,
+`00018_create_assignment_targets.sql`
 **Done when:**
 - [ ] Matches `20-data-model.md` §9: flattened review and integrity policy
       columns with §10.3's defaults, `closed_at` and no `status` column (D-18),
@@ -66,7 +66,7 @@ phase that carries the most.
 **Depends on:** T-3.1
 **Touches:** `migrations/`
 **Size:** S
-**Migrations:** `00018_create_attempts.sql`
+**Migrations:** `00019_create_attempts.sql`
 **Done when:**
 - [ ] Matches `20-data-model.md` §10, including `shuffle_seed` (D-02),
       `beacon_token_hash` (D-03), `attempts_one_live`, and the two partial
@@ -111,7 +111,7 @@ phase that carries the most.
 **Depends on:** T-3.4
 **Touches:** `server/internal/attempts/`
 **Size:** M
-**Migrations:** `00019_create_attempt_answers.sql`
+**Migrations:** `00020_create_attempt_answers.sql`
 **Done when:**
 - [ ] `00019` matches `20-data-model.md` §10, including the VIRTUAL
       `final_score`, `requires_manual`, `graded_by`, `graded_at` (D-19)
@@ -157,7 +157,7 @@ phase that carries the most.
 **Depends on:** T-3.5
 **Touches:** `server/internal/attempts/`
 **Size:** S
-**Migrations:** `00020_create_attempt_audio_plays.sql`
+**Migrations:** `00021_create_attempt_audio_plays.sql`
 **Done when:**
 - [ ] `POST /app/attempts/:id/audio-play` takes `{ questionId }` and returns
       `{ plays, maxPlays }` (§15)
@@ -176,7 +176,7 @@ phase that carries the most.
 **Depends on:** T-3.6
 **Touches:** `server/internal/integrity/`
 **Size:** M
-**Migrations:** `00021_create_attempt_events.sql`, `00022_grant_app_role.sql`
+**Migrations:** `00022_create_attempt_events.sql`, `00009_grant_app_role.sql`
 **Done when:**
 - [ ] `00021` matches `20-data-model.md` §10, with the `(attempt_id, session_id,
       client_seq)` unique (D-01)

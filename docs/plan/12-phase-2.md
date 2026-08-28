@@ -18,7 +18,7 @@ next depends on it.
 **Depends on:** T-1.1
 **Touches:** `migrations/`
 **Size:** S
-**Migrations:** `00009_create_media_assets.sql`
+**Migrations:** `00010_create_media_assets.sql`
 **Done when:**
 - [ ] Matches `20-data-model.md` §6, including `UNIQUE (id, kind)` (D-05), the
       non-unique checksum index (D-06), and the byte and duration `CHECK`s that
@@ -123,8 +123,8 @@ next depends on it.
 **Depends on:** T-2.1
 **Touches:** `migrations/`
 **Size:** M
-**Migrations:** `00010_create_questions.sql`,
-`00011_create_question_options.sql`, `00012_create_question_blanks.sql`
+**Migrations:** `00011_create_questions.sql`,
+`00012_create_question_options.sql`, `00013_create_question_blanks.sql`
 **Done when:**
 - [ ] Matches `20-data-model.md` §7, including nullable audio policy columns
       (D-04), the composite media FK (D-05), the trigram index (D-11), partial
@@ -174,7 +174,7 @@ next depends on it.
 **Depends on:** T-2.5
 **Touches:** `migrations/`
 **Size:** S
-**Migrations:** `00013_create_tests.sql`
+**Migrations:** `00014_create_tests.sql`
 **Done when:**
 - [ ] Creates `tests`, `test_sections`, `test_section_questions` per
       `20-data-model.md` §8, including the draft tables added as D-14
@@ -210,8 +210,8 @@ next depends on it.
 **Depends on:** T-2.7
 **Touches:** `migrations/`
 **Size:** M
-**Migrations:** `00014_create_test_versions.sql`,
-`00015_create_test_version_content.sql`
+**Migrations:** `00015_create_test_versions.sql`,
+`00016_create_test_version_content.sql`
 **Done when:**
 - [ ] Creates all six version tables per `20-data-model.md` §8, including
       `UNIQUE (id, test_id)` (D-17), `tvq_media_idx`, and
