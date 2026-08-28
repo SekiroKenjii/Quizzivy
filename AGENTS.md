@@ -99,6 +99,19 @@ docs/plan/         the plan; 20-data-model.md is the schema authority
 A vertical slice is one `web/src/features/<name>/`, one
 `server/internal/<name>/`, and one section of `api/openapi.yaml`.
 
+## Two things about the middleware chain
+
+- **`oapi-codegen` applies the middleware slice in reverse**: the LAST entry
+  wraps outermost and therefore runs FIRST. `NewRouter` passes the list through
+  `inExecutionOrder`, so what is written top-to-bottom is what a request
+  actually travels. Add new middleware to that list in the position you want it
+  to RUN. `router_test.go` pins the direction.
+- **The contract is enforced at runtime, once, in `httpx.ValidateRequests`.**
+  Do not hand-write `required` / length / format checks in a handler; put the
+  constraint in `api/openapi.yaml` and it is enforced everywhere. Handlers still
+  own rules the schema cannot express — "the current password must be correct"
+  is not a schema constraint.
+
 ## The API contract
 
 `api/openapi.yaml` is hand-authored; everything else generates from it.
