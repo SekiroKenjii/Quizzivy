@@ -1,6 +1,21 @@
-import { Placeholder } from "@/components/shared/Placeholder";
+import { useTranslation } from "react-i18next";
+import {
+  GoogleSection,
+  LanguageSection,
+  PasswordSection,
+  ProfileSection,
+} from "@/features/auth/components/SettingsSections";
 
-/** Placeholder. Built out in a later phase; the route and its chunk exist now. */
+/** §8's settings: profile, password, Google, language. */
 export default function AdminSettingsPage() {
-  return <Placeholder titleKey="nav.settings" />;
+  const { t } = useTranslation();
+  return (
+    <div className="max-w-3xl space-y-6">
+      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
+      <ProfileSection />
+      <PasswordSection />
+      <GoogleSection />
+      <LanguageSection />
+    </div>
+  );
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"time"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/httpx"
@@ -22,7 +23,17 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	DB DB
+	DB      DB
+	Auth    AuthService
+	Join    JoinService
+	Classes ClassesService
+	Tokens  TokenVerifier
+
+	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
+	// is false only for plain-http localhost; everywhere else it must be true,
+	// or the cookie travels in the clear.
+	RefreshTTL   time.Duration
+	CookieSecure bool
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)
@@ -79,15 +90,7 @@ func (s *Server) VoidAttempt(_ context.Context, _ openapi.VoidAttemptRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) ListClasses(_ context.Context, _ openapi.ListClassesRequestObject) (openapi.ListClassesResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObject) (openapi.CreateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetClass(_ context.Context, _ openapi.GetClassRequestObject) (openapi.GetClassResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 
@@ -95,23 +98,7 @@ func (s *Server) UpdateClass(_ context.Context, _ openapi.UpdateClassRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) RevokeJoinCode(_ context.Context, _ openapi.RevokeJoinCodeRequestObject) (openapi.RevokeJoinCodeResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RotateJoinCode(_ context.Context, _ openapi.RotateJoinCodeRequestObject) (openapi.RotateJoinCodeResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListClassMembers(_ context.Context, _ openapi.ListClassMembersRequestObject) (openapi.ListClassMembersResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) AddClassMember(_ context.Context, _ openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RemoveClassMember(_ context.Context, _ openapi.RemoveClassMemberRequestObject) (openapi.RemoveClassMemberResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 
@@ -243,46 +230,6 @@ func (s *Server) ListMyClasses(_ context.Context, _ openapi.ListMyClassesRequest
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) JoinClass(_ context.Context, _ openapi.JoinClassRequestObject) (openapi.JoinClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) GetMediaUrl(_ context.Context, _ openapi.GetMediaUrlRequestObject) (openapi.GetMediaUrlResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ChangePassword(_ context.Context, _ openapi.ChangePasswordRequestObject) (openapi.ChangePasswordResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GoogleAuth(_ context.Context, _ openapi.GoogleAuthRequestObject) (openapi.GoogleAuthResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UnlinkGoogle(_ context.Context, _ openapi.UnlinkGoogleRequestObject) (openapi.UnlinkGoogleResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) LinkGoogle(_ context.Context, _ openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) Login(_ context.Context, _ openapi.LoginRequestObject) (openapi.LoginResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) Logout(_ context.Context, _ openapi.LogoutRequestObject) (openapi.LogoutResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetCurrentUser(_ context.Context, _ openapi.GetCurrentUserRequestObject) (openapi.GetCurrentUserResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RefreshSession(_ context.Context, _ openapi.RefreshSessionRequestObject) (openapi.RefreshSessionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) PreviewJoinCode(_ context.Context, _ openapi.PreviewJoinCodeRequestObject) (openapi.PreviewJoinCodeResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

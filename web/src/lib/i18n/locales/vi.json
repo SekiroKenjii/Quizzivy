@@ -46,5 +46,108 @@
   "student": {
     "myAssignments": "Bài của tôi",
     "myClasses": "Lớp của tôi"
+  },
+  "changePassword": {
+    "title": "Đổi mật khẩu",
+    "body": "Bạn cần đặt mật khẩu mới trước khi tiếp tục.",
+    "current": "Mật khẩu hiện tại",
+    "new": "Mật khẩu mới",
+    "hint": "Ít nhất 8 ký tự.",
+    "submit": "Đổi mật khẩu"
+  },
+  "login": {
+    "title": "Đăng nhập",
+    "subtitle": "Nhập email và mật khẩu giáo viên đã cấp cho bạn.",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "submit": "Đăng nhập",
+    "or": "hoặc",
+    "continueWithGoogle": "Tiếp tục với Google",
+    "failed": "Không thể đăng nhập. Vui lòng thử lại.",
+    "googleUnavailable": "Hiện chưa thể đăng nhập bằng Google.",
+    "googleFailed": "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
+    "completingGoogle": "Đang hoàn tất đăng nhập…",
+    "backToSignIn": "Quay lại đăng nhập",
+    "noSignup": "Tài khoản do giáo viên tạo. Nếu bạn có mã lớp, hãy dùng đường dẫn tham gia lớp mà giáo viên gửi.",
+    "panelBlurb": "Nền tảng luyện thi tiếng Anh dành riêng cho lớp học của bạn.",
+    "errors": {
+      "emailRequired": "Vui lòng nhập email.",
+      "emailInvalid": "Email không hợp lệ.",
+      "passwordRequired": "Vui lòng nhập mật khẩu."
+    }
+  },
+  "join": {
+    "title": "Tham gia lớp học",
+    "subtitle": "Nhập mã lớp giáo viên đã gửi cho bạn.",
+    "codeLabel": "Mã lớp",
+    "codeHint": "8 ký tự, ví dụ K7M3-P9QR. Không phân biệt hoa thường.",
+    "continue": "Tiếp tục",
+    "youAreJoining": "Bạn đang tham gia lớp",
+    "teacher": "Giáo viên: {{name}}",
+    "confirmWithGoogle": "Tiếp tục với Google",
+    "confirmSignedIn": "Tham gia lớp này",
+    "googleExplainer": "Tài khoản của bạn sẽ được tạo bằng Google. Chúng tôi chỉ dùng tên và email của bạn.",
+    "cannotJoin": "Không thể tham gia lớp",
+    "tryAnotherCode": "Thử mã khác",
+    "enrolling": "Đang thêm bạn vào lớp…",
+    "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
+    "errors": {
+      "incomplete": "Mã lớp phải có đủ 8 ký tự."
+    }
+  },
+  "classDetail": {
+    "joinCode": "Mã tham gia lớp",
+    "codeHint": "Mã hiện tại",
+    "expiresAt": "Hết hạn",
+    "uses": "Đã dùng",
+    "noActiveCode": "Lớp này chưa mở tham gia bằng mã.",
+    "shownOnce": "Mã chỉ hiện một lần. Hãy sao chép ngay.",
+    "qrAlt": "Mã QR dẫn tới trang tham gia lớp",
+    "copyLink": "Sao chép đường dẫn",
+    "copied": "Đã sao chép",
+    "rotateToReveal": "Vì lý do an toàn, hệ thống chỉ lưu bản mã hoá. Hãy tạo mã mới nếu bạn cần gửi lại cho học viên.",
+    "rotate": "Tạo mã mới",
+    "issue": "Mở tham gia bằng mã",
+    "disableSelfJoin": "Ngừng cho tham gia",
+    "rotateConfirmTitle": "Tạo mã mới cho lớp này?",
+    "rotateConfirmBody": "Mã cũ sẽ ngừng hoạt động ngay. Học viên đã tham gia vẫn ở trong lớp.",
+    "rotateConfirm": "Tạo mã mới",
+    "rotateFailed": "Không tạo được mã mới. Vui lòng thử lại.",
+    "revokeFailed": "Không thể ngừng tham gia. Vui lòng thử lại.",
+    "loadFailed": "Không tải được lớp học.",
+    "members": "Học viên ({{count}})",
+    "noMembers": "Chưa có học viên nào trong lớp.",
+    "name": "Học viên",
+    "joinedVia": "Tham gia qua",
+    "joinedAt": "Ngày tham gia",
+    "actions": "Thao tác",
+    "viaAdmin": "Giáo viên thêm",
+    "viaCode": "Mã ••••{{hint}}",
+    "remove": "Xoá khỏi lớp",
+    "removeKeepsWork": "Xoá khỏi lớp chỉ thu hồi quyền truy cập. Bài làm của học viên vẫn được giữ lại.",
+    "maskedCode": "••••-{{hint}}"
+  },
+  "classes": {
+    "loadFailed": "Không tải được danh sách lớp.",
+    "empty": "Chưa có lớp học nào.",
+    "studentCount": "{{count}} học viên"
+  },
+  "settings": {
+    "profile": "Hồ sơ",
+    "fullName": "Họ và tên",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "passwordChanged": "Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.",
+    "noPassword": "Tài khoản này đăng nhập bằng Google nên chưa có mật khẩu.",
+    "google": "Tài khoản Google",
+    "googleLinked": "Đã liên kết với Google.",
+    "googleNotLinked": "Chưa liên kết với Google.",
+    "googleOnlyExplainer": "Google đang là cách duy nhất để đăng nhập vào tài khoản này. Hãy đặt mật khẩu trước khi bỏ liên kết.",
+    "linkGoogle": "Liên kết Google",
+    "unlinkGoogle": "Bỏ liên kết Google",
+    "locale": {
+      "vi": "Tiếng Việt",
+      "en": "English"
+    }
   }
 }

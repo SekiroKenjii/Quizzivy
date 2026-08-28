@@ -168,6 +168,10 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
       TEST_DATABASE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable
+      # Enables the migration round trip, which drops and recreates schema app.
+      # Safe here -- the service container is thrown away after the job. Locally
+      # it is off by default so `go test ./...` cannot wipe a seeded database.
+      TEST_DESTRUCTIVE: "1"
 
     steps:
       - uses: actions/checkout@v4

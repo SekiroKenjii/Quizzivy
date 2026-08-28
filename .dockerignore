@@ -1,0 +1,16 @@
+# Everything the image does not need. Keeping the context small matters more
+# than it looks: node_modules alone is hundreds of megabytes.
+web/
+docs/
+.git/
+.github/
+scripts/
+docker/
+.agents/
+.claude/
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+.env
+*.md

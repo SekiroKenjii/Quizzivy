@@ -1,0 +1,50 @@
+# Fly.io deployment for the Go API. See docs/setup/dns.md.
+app = "quizzivy-api"
+
+# Singapore -- the closest Fly region to Vietnam.
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Migrations run before the new version takes traffic, as quizzivy_migrate.
+# The app itself connects as quizzivy_app and cannot run DDL (§13.5), so this
+# is the only place the schema changes.
+[deploy]
+  release_command = "/app/migrate -dir /app/migrations up"
+  strategy = "rolling"
+
+[env]
+  APP_ENV = "production"
+  API_PORT = "8080"
+  # Cloudflare proxies api.quizzivy.com, and CF-Connecting-IP is the one header
+  # it OVERWRITES. Never X-Forwarded-For: proxies append to it, so a client
+  # could prepend a value and pick its own rate-limit bucket (§6.5).
+  CLIENT_IP_HEADER = "CF-Connecting-IP"
+  CORS_ALLOWED_ORIGINS = "https://app.quizzivy.com"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  # Always warm. This app has a server-authoritative timer and a 1.5s autosave
+  # loop; a cold start when a class all begins a test at once is both slow and
+  # visible. At one shared-cpu-1x machine the cost of never sleeping is small.
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "3s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

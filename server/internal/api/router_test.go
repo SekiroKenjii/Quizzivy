@@ -18,7 +18,7 @@ func (f fakeDB) Ping(context.Context) error { return f.err }
 func newTestRouter(t *testing.T, database DB) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := NewRouter(Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, false)
+	h, err := NewRouter(Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("NewRouter: %v", err)
 	}
@@ -48,8 +48,18 @@ func TestHealthzReportsDatabaseReachability(t *testing.T) {
 }
 
 func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
+	// Authenticated: every admin route now requires a token, and a 401 would
+	// mask the thing this test is about.
+	issuer := testIssuer(t)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
 	rec := httptest.NewRecorder()
-	newTestRouter(t, fakeDB{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/auth/me", nil))
+	newAuthTestRouter(t, issuer).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNotImplemented {
 		t.Fatalf("status = %d, want 501 (a 404 would look like a routing bug)", rec.Code)

@@ -15,6 +15,7 @@ audio probe implementation, and build order.
 
 ## BLOCKING
 
+
 ### O-14 — DNS records for quizzivy.com · before first deploy
 **Default:** `app.quizzivy.com` for the SPA, `api.quizzivy.com` for the API, as
 already written throughout the plan. See `docs/setup/dns.md`.
@@ -30,10 +31,15 @@ rather than loudly:
 - Both hosts must stay under `quizzivy.com`. That is what makes them same-*site*
   and therefore what makes §5.2's `SameSite=Lax` refresh cookie work at all
   (R-07). A split across two registrable domains kills sessions with no error.
-- The Google OAuth client currently has only the localhost origin verified. Add
-  `https://app.quizzivy.com` and
-  `https://app.quizzivy.com/auth/google/callback` before deploying, or Google
-  rejects the exchange with `redirect_uri_mismatch`.
+- ~~The Google OAuth client needs the production origin.~~ **Done and verified
+  2026-08-28**: `https://app.quizzivy.com/auth/google/callback` is registered,
+  confirmed by probing Google's token endpoint (returns `invalid_grant`, not
+  `redirect_uri_mismatch`).
+- The domain is **not on Cloudflare yet** — nameservers are still
+  `ns1–ns4.zonedns.vn` and no records exist. Moving them is step 0 in
+  `docs/setup/dns.md` and takes up to 24h, so it is worth starting before the
+  hosting question is settled.
+- The records themselves are blocked on O-16.
 
 Using the apex `quizzivy.com` for the SPA instead of `app.` is equally valid and
 equally same-site. The plan says `app.` so the apex stays free for a landing
@@ -223,3 +229,4 @@ For the record, so a later session does not reopen them:
 | **O-01** real domain | **`quizzivy.com`**, bought. `app.` + `api.` subdomains | `00-overview.md` §4.1 |
 | **O-02** Google OAuth client | **Done and verified** — `make verify-google` passes | T-0.2 |
 | **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |
+| **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages | `docs/setup/dns.md` |

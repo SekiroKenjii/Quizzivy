@@ -140,7 +140,13 @@ export interface paths {
         put?: never;
         /**
          * Revoke the refresh family and clear the cookie
-         * @description Revokes the presented refresh token family. The client also clears its store and calls `queryClient.clear()` (§5.4).
+         * @description Revokes the presented refresh token family. The client also clears its
+         *     store and calls `queryClient.clear()` (§5.4).
+         *
+         *     Authenticated by the refresh COOKIE, not the access token. An expired
+         *     access token must not be able to strand a live refresh family: the one
+         *     moment a user most wants to log out is the moment their session has
+         *     gone strange.
          */
         post: operations["logout"];
         delete?: never;
@@ -162,6 +168,11 @@ export interface paths {
          * Change own password
          * @description Clears `mustChangePassword` and revokes every **other** refresh family
          *     for this user, so a second device is signed out.
+         *
+         *     The calling session is identified by the refresh cookie, which reaches
+         *     this endpoint because it is scoped `Path=/auth`. Without it the server
+         *     cannot tell the caller's family from a stranger's and revokes them all,
+         *     signing the caller out too.
          */
         post: operations["changePassword"];
         delete?: never;
@@ -845,6 +856,10 @@ export interface paths {
          * @description Revokes access. **Attempts are retained, not deleted** (§6.4), and an
          *     in-flight attempt is not revoked — eligibility is evaluated at attempt
          *     creation.
+         *
+         *     Idempotent for a user who is not a member: the class ends up in the
+         *     requested state either way. A class that does not exist is still a 404,
+         *     so a typo in the URL does not look like it worked.
          */
         delete: operations["removeClassMember"];
         options?: never;
@@ -874,7 +889,16 @@ export interface paths {
          *     (§13.3). If it is lost, rotate again.
          */
         post: operations["rotateJoinCode"];
-        /** @description Revokes without issuing a replacement, and sets `selfJoinEnabled: false` (§6.4). */
+        /**
+         * @description Revokes without issuing a replacement, and sets `selfJoinEnabled: false`
+         *     (§6.4). Both, or neither: a revoked code with self-join still on
+         *     advertises a flow that cannot succeed, and a cleared flag without the
+         *     revocation leaves a live bearer secret the teacher believes is cancelled.
+         *
+         *     Idempotent. A class with no active code still returns 204 — "there is no
+         *     way in" is the requested state, and reporting failure would invite a
+         *     retry that changes nothing.
+         */
         delete: operations["revokeJoinCode"];
         options?: never;
         head?: never;
@@ -1219,7 +1243,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         ErrorResponse: {
             error: {
                 code: components["schemas"]["ErrorCode"];
@@ -2067,6 +2091,8 @@ export interface operations {
             /** @description Signed in, or signed up and enrolled. */
             200: {
                 headers: {
+                    /** @description `quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth` — §5.3 step 5. Without it the sign-in has no session. */
+                    "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2089,6 +2115,17 @@ export interface operations {
              * @description `ACCOUNT_NOT_PROVISIONED` — a valid Google identity with no matching
              *     account and no join code. The client explains that a class code is
              *     needed rather than offering a signup form (§5.3).
+             *
+             *     `ACCOUNT_DISABLED` — the matched account is suspended. Named
+             *     explicitly here, unlike at password login: the caller has just
+             *     proved to Google that they control this address, so the fact
+             *     discloses nothing they could not confirm themselves, and an
+             *     unexplained failure would send them to support instead of to the
+             *     teacher.
+             *
+             *     `IDENTITY_ALREADY_LINKED` — the verified email matches an account
+             *     that is already linked to a DIFFERENT Google `sub`. Linking a second
+             *     one would make "unlink Google" ambiguous, so it is refused (D-08).
              */
             403: {
                 headers: {
@@ -2122,6 +2159,12 @@ export interface operations {
             /** @description Rotated. Sets the replacement cookie. */
             200: {
                 headers: {
+                    /**
+                     * @description The REPLACEMENT `quizzivy_refresh` cookie. Rotation is only
+                     *     half-done without it: the predecessor is revoked server-side, so
+                     *     a client that kept the old value is logged out on its next call.
+                     */
+                    "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2131,7 +2174,20 @@ export interface operations {
                     };
                 };
             };
-            /** @description Absent, expired, revoked, or reused. Client clears state and goes to `/login`. */
+            /**
+             * @description Absent, expired, revoked, or reused. Client clears state and goes to `/login`.
+             *
+             *     **Leak review.** `REFRESH_TOKEN_REUSED` when §5.2 reuse detection
+             *     fires, `REFRESH_TOKEN_INVALID` otherwise — including for a suspended
+             *     account, which is not disclosed here any more than it is at login.
+             *
+             *     Distinguishing reuse does tell whoever presented the token that the
+             *     replay was noticed. That is accepted: by then the family is revoked,
+             *     so the information arrives with no access attached. The reason to
+             *     separate them is the victim, not the attacker — "someone else used
+             *     your session" is a message a student can act on, and "your session
+             *     expired" is not. The revocation is also written to `audit_log`.
+             */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2173,8 +2229,29 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthorized"];
+            /**
+             * @description Revoked, and the cookie is cleared. Returned even for a token that
+             *     was already expired or revoked — logging out is idempotent, and
+             *     reporting "that token was not valid" would answer a question the
+             *     caller has no business asking.
+             */
+            204: {
+                headers: {
+                    /** @description `quizzivy_refresh=; Max-Age=0` — same Path and flags, or the browser keeps the old cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No refresh cookie was presented, so there is no session to end. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     changePassword: {
@@ -2193,8 +2270,34 @@ export interface operations {
             };
         };
         responses: {
-            204: components["responses"]["NoContent"];
-            400: components["responses"]["BadRequest"];
+            /** @description Changed. The calling session survives; every other one is revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /**
+             * @description `INVALID_CREDENTIALS` — `currentPassword` is wrong.
+             *     `PASSWORD_REQUIRED` — the account signs in with Google only and has
+             *     no current password to verify; it needs a set-password flow, not this one.
+             *     `VALIDATION_FAILED` — `newPassword` is shorter than 8 characters.
+             *
+             *     **A wrong current password is deliberately 400, not 401.** The SPA
+             *     treats 401 as "the session died": it refreshes once and retries, and
+             *     a second 401 signs the user out (§5.2, `client.ts`). Returning 401
+             *     here would mean mistyping your own password rotates your refresh
+             *     token and then logs you out — with no hint that the typo was the
+             *     cause. 401 on this endpoint means the SESSION is invalid, nothing else.
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -2216,7 +2319,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Linked. */
+            /**
+             * @description Linked, or already linked to this same Google account — re-linking
+             *     is a no-op success rather than a conflict.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2225,8 +2331,36 @@ export interface operations {
                     "application/json": components["schemas"]["User"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            /** @description `IDENTITY_ALREADY_LINKED` — that Google account belongs to another user. */
+            /**
+             * @description The session is invalid, or the exchange failed, or `email_verified`
+             *     was false — the same §5.1 rule sign-in applies, for the same reason:
+             *     an unverified address is not evidence of anything, and binding one
+             *     to an existing account is the takeover path with the account
+             *     already chosen.
+             */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `IDENTITY_ALREADY_LINKED` covers three cases, all of which mean
+             *     "this link cannot be made":
+             *
+             *     - that Google account is already bound to another user;
+             *     - this account already has a *different* Google account linked
+             *       (D-08 allows one, so that "unlink" is unambiguous);
+             *     - the Google address is already some other account's email.
+             *
+             *     The third is refused for where it leads rather than where it starts.
+             *     Linking binds the Google `sub` to this account, and §5.3's first
+             *     branch matches on `sub` before email — so the owner of that address
+             *     signing in with their own Google would land in someone else's
+             *     account. Silent, and very hard to diagnose from the inside.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3473,6 +3607,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     rotateJoinCode: {
@@ -3494,9 +3630,17 @@ export interface operations {
                      *     (O-06). The realistic threat to a bearer code is being
                      *     *forwarded*, not guessed, and a use cap is the mitigation
                      *     that costs nothing.
+                     *
+                     *     **Not nullable on the way in, unlike the stored column.**
+                     *     A nullable request field cannot express what it promises:
+                     *     an omitted field and an explicit `null` both arrive as "no
+                     *     value", so "unlimited" would have been indistinguishable
+                     *     from "use the default" and one of the two would silently
+                     *     never happen. A cap of 1000 covers every real cohort, and
+                     *     the column stays nullable for codes issued before this.
                      * @default 40
                      */
-                    maxUses?: number | null;
+                    maxUses?: number;
                 };
             };
         };
@@ -3518,6 +3662,8 @@ export interface operations {
                     };
                 };
             };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     revokeJoinCode: {
@@ -3532,6 +3678,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMyClasses: {

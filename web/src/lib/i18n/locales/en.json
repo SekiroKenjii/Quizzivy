@@ -46,5 +46,108 @@
   "student": {
     "myAssignments": "My assignments",
     "myClasses": "My classes"
+  },
+  "changePassword": {
+    "title": "Change your password",
+    "body": "You need to set a new password before continuing.",
+    "current": "Current password",
+    "new": "New password",
+    "hint": "At least 8 characters.",
+    "submit": "Change password"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Enter the email and password your teacher gave you.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "or": "or",
+    "continueWithGoogle": "Continue with Google",
+    "failed": "Could not sign in. Please try again.",
+    "googleUnavailable": "Google sign-in is not available right now.",
+    "googleFailed": "Google sign-in did not work. Please try again.",
+    "completingGoogle": "Finishing sign-in…",
+    "backToSignIn": "Back to sign in",
+    "noSignup": "Accounts are created by your teacher. If you have a class code, use the join link they sent you.",
+    "panelBlurb": "An English practice platform built for your class.",
+    "errors": {
+      "emailRequired": "Enter your email.",
+      "emailInvalid": "That email is not valid.",
+      "passwordRequired": "Enter your password."
+    }
+  },
+  "join": {
+    "title": "Join a class",
+    "subtitle": "Enter the class code your teacher sent you.",
+    "codeLabel": "Class code",
+    "codeHint": "8 characters, for example K7M3-P9QR. Case does not matter.",
+    "continue": "Continue",
+    "youAreJoining": "You are joining",
+    "teacher": "Teacher: {{name}}",
+    "confirmWithGoogle": "Continue with Google",
+    "confirmSignedIn": "Join this class",
+    "googleExplainer": "Your account will be created with Google. We only use your name and email.",
+    "cannotJoin": "Cannot join this class",
+    "tryAnotherCode": "Try another code",
+    "enrolling": "Adding you to the class…",
+    "failed": "Could not join the class. Please try again.",
+    "errors": {
+      "incomplete": "The class code needs all 8 characters."
+    }
+  },
+  "classDetail": {
+    "joinCode": "Class join code",
+    "codeHint": "Current code",
+    "expiresAt": "Expires",
+    "uses": "Used",
+    "noActiveCode": "This class is not open for joining by code.",
+    "shownOnce": "Shown once only. Copy it now.",
+    "qrAlt": "QR code linking to the class join page",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "rotateToReveal": "Only a hashed copy is stored. Create a new code if you need to send it again.",
+    "rotate": "Create a new code",
+    "issue": "Open joining by code",
+    "disableSelfJoin": "Stop accepting joins",
+    "rotateConfirmTitle": "Create a new code for this class?",
+    "rotateConfirmBody": "The old code stops working immediately. Students who already joined stay in the class.",
+    "rotateConfirm": "Create a new code",
+    "rotateFailed": "Could not create a new code. Please try again.",
+    "revokeFailed": "Could not stop joining. Please try again.",
+    "loadFailed": "Could not load the class.",
+    "members": "Students ({{count}})",
+    "noMembers": "No students in this class yet.",
+    "name": "Student",
+    "joinedVia": "Joined via",
+    "joinedAt": "Joined on",
+    "actions": "Actions",
+    "viaAdmin": "Added by teacher",
+    "viaCode": "Code ••••{{hint}}",
+    "remove": "Remove from class",
+    "removeKeepsWork": "Removing a student only revokes access. Their work is kept.",
+    "maskedCode": "••••-{{hint}}"
+  },
+  "classes": {
+    "loadFailed": "Could not load classes.",
+    "empty": "No classes yet.",
+    "studentCount": "{{count}} students"
+  },
+  "settings": {
+    "profile": "Profile",
+    "fullName": "Full name",
+    "email": "Email",
+    "password": "Password",
+    "passwordChanged": "Password changed. Other devices have been signed out.",
+    "noPassword": "This account signs in with Google and has no password.",
+    "google": "Google account",
+    "googleLinked": "Linked to Google.",
+    "googleNotLinked": "Not linked to Google.",
+    "googleOnlyExplainer": "Google is currently the only way into this account. Set a password before unlinking.",
+    "linkGoogle": "Link Google",
+    "unlinkGoogle": "Unlink Google",
+    "locale": {
+      "vi": "Tiếng Việt",
+      "en": "English"
+    }
   }
 }

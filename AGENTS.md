@@ -61,6 +61,11 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
   and §5.3 requires PKCE. We build the authorization request ourselves against
   Google's `authorization_endpoint` with S256. Do not "fix" this by reintroducing
   `accounts.google.com/gsi/client`.
+- **`CLIENT_IP_HEADER` must never be `X-Forwarded-For`.** Proxies *append* to
+  that header, so a client can prepend its own value and choose its own
+  rate-limit bucket, defeating §6.5 on exactly the endpoints it protects. Name
+  only a header the infrastructure overwrites: `CF-Connecting-IP` behind
+  Cloudflare, `Fly-Client-IP` on Fly. The server refuses to start otherwise.
 - **`unaccent()` is STABLE in PG18 — both the 1-arg and the 2-arg form.** It
   cannot go directly in an index expression. Use `app.immutable_unaccent()`,
   which pins the dictionary and asserts immutability. Changing the unaccent
@@ -93,6 +98,38 @@ docs/plan/         the plan; 20-data-model.md is the schema authority
 
 A vertical slice is one `web/src/features/<name>/`, one
 `server/internal/<name>/`, and one section of `api/openapi.yaml`.
+
+## Authentication and authorization
+
+- **`/admin/*` is gated on the path prefix**, in `httpx.RequireRole`. Adding an
+  admin endpoint requires nothing: put it under `/admin/` and it is teacher-only.
+  Putting a teacher-only endpoint anywhere else silently makes it student-
+  reachable.
+- **Everything the contract does not explicitly open requires a bearer token**,
+  derived from `api/openapi.yaml`'s `security`. Five operations are open; the
+  list is pinned by a test so a sixth takes an argument.
+
+## `pnpm typecheck`, never `tsc --noEmit`
+
+`web/tsconfig.json` is a solution file: `"files": []` plus project references.
+Plain `tsc --noEmit` follows neither, so it checks **zero files and exits 0** --
+it will happily "pass" on a file containing `const n: number = "a string"`.
+
+Use `pnpm typecheck` (`tsc -b --noEmit`), which is what CI runs. This cost real
+time once: a type-level contract assertion was silently never evaluated.
+
+## Two things about the middleware chain
+
+- **`oapi-codegen` applies the middleware slice in reverse**: the LAST entry
+  wraps outermost and therefore runs FIRST. `NewRouter` passes the list through
+  `inExecutionOrder`, so what is written top-to-bottom is what a request
+  actually travels. Add new middleware to that list in the position you want it
+  to RUN. `router_test.go` pins the direction.
+- **The contract is enforced at runtime, once, in `httpx.ValidateRequests`.**
+  Do not hand-write `required` / length / format checks in a handler; put the
+  constraint in `api/openapi.yaml` and it is enforced everywhere. Handlers still
+  own rules the schema cannot express — "the current password must be correct"
+  is not a schema constraint.
 
 ## The API contract
 
@@ -138,7 +175,7 @@ Two database roles: `quizzivy_migrate` owns the schema and runs goose;
 ## Migrations
 
 - goose, SQL, forward-only, **one concern per file**, sequential zero-padded
-  names (`00014_create_test_versions.sql`).
+  names (`00015_create_test_versions.sql`).
 - Every file has a `-- +goose Down` that actually works. CI runs up/down/up.
 - Every task that touches the DB names its migration file in the PR.
 - `CREATE INDEX CONCURRENTLY` cannot run in a transaction — mark those files
