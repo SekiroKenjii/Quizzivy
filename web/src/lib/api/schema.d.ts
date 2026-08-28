@@ -2795,6 +2795,15 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    /**
+                     * @description `private, no-store`. Every item carries a signed URL with the
+                     *     same ten-minute life as `/app/media/{assetId}/url`, so a cached
+                     *     page would keep showing URLs that stopped working — and unlike
+                     *     the single-URL response there is nothing worth re-serving, since
+                     *     the library changes on every upload and delete. `no-store`
+                     *     rather than `max-age` for that reason (§11.2).
+                     */
+                    "Cache-Control": string;
                     [name: string]: unknown;
                 };
                 content: {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"mime/multipart"
+	"time"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/httpx"
@@ -151,7 +152,8 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 	// once here and filled by index rather than written out a second time as a
 	// composite literal.
 	var out openapi.ListMedia200JSONResponse
-	out.Items = make([]struct {
+	out.Headers.CacheControl = cacheControlForSignedURLList
+	out.Body.Items = make([]struct {
 		Bytes            int                                               `json:"bytes"`
 		CreatedAt        openapi.Timestamp                                 `json:"createdAt"`
 		DurationMs       *int                                              `json:"durationMs,omitempty"`
@@ -165,18 +167,18 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 
 	for i, a := range assets {
 		usage := a.UsageCount
-		out.Items[i].Bytes = int(a.Bytes)
-		out.Items[i].CreatedAt = a.CreatedAt
-		out.Items[i].DurationMs = a.DurationMs
-		out.Items[i].Id = parseUUID(a.ID)
-		out.Items[i].Kind = openapi.MediaKind(a.Kind)
-		out.Items[i].MimeType = openapi.ListMedia200JSONResponseBodyItemsMimeType(a.MimeType)
-		out.Items[i].OriginalFilename = a.OriginalFilename
-		out.Items[i].Url = a.URL
-		out.Items[i].UsageCount = &usage
+		out.Body.Items[i].Bytes = int(a.Bytes)
+		out.Body.Items[i].CreatedAt = a.CreatedAt
+		out.Body.Items[i].DurationMs = a.DurationMs
+		out.Body.Items[i].Id = parseUUID(a.ID)
+		out.Body.Items[i].Kind = openapi.MediaKind(a.Kind)
+		out.Body.Items[i].MimeType = openapi.ListMedia200JSONResponseBodyItemsMimeType(a.MimeType)
+		out.Body.Items[i].OriginalFilename = a.OriginalFilename
+		out.Body.Items[i].Url = a.URL
+		out.Body.Items[i].UsageCount = &usage
 	}
 	if next != "" {
-		out.NextCursor = &next
+		out.Body.NextCursor = &next
 	}
 	return out, nil
 }
@@ -249,11 +251,27 @@ func (s *Server) GetMediaUrl(ctx context.Context, request openapi.GetMediaUrlReq
 			ExpiresAt: result.ExpiresAt,
 			Url:       result.URL,
 		},
-		Headers: openapi.GetMediaUrl200ResponseHeaders{CacheControl: cacheControlForSignedURL},
+		Headers: openapi.GetMediaUrl200ResponseHeaders{
+			CacheControl: cacheControlForSignedURL(s.Deps.Media.SignedURLTTL()),
+		},
 	}, nil
 }
 
-// cacheControlForSignedURL is §11.2's directive, derived from the TTL rather
-// than written twice: changing SignedURLTTL without changing this would let a
-// cached response outlive the signature it contains.
-var cacheControlForSignedURL = fmt.Sprintf("private, max-age=%d", int(media.SignedURLTTL.Seconds()))
+// cacheControlForSignedURL is §11.2's directive, derived from the TTL the
+// service actually signs with rather than written twice. Two independent copies
+// of "ten minutes" is precisely how a cache entry comes to outlive the
+// signature it holds, which is the failure the directive exists to prevent.
+func cacheControlForSignedURL(ttl time.Duration) string {
+	return fmt.Sprintf("private, max-age=%d", int(ttl.Seconds()))
+}
+
+// cacheControlForSignedURLList is the list endpoint's answer.
+//
+// `no-store`, not `max-age`. The list carries a signed URL for EVERY item, with
+// the same ten-minute life, so a cached page keeps showing URLs that have
+// stopped working -- and unlike the single-asset response there is nothing
+// worth re-serving from cache, because the library changes on every upload and
+// delete. The request carries an Authorization header so a shared cache would
+// not store it anyway; what this stops is the browser's heuristic caching of a
+// 200 that names no policy at all.
+const cacheControlForSignedURLList = "private, no-store"

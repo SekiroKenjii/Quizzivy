@@ -44,6 +44,7 @@ type Config struct {
 	S3AccessKeyID     string
 	S3SecretAccessKey string
 	S3ForcePathStyle  bool
+	SignedURLTTL      time.Duration
 
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
@@ -113,13 +114,9 @@ func Load() (Config, error) {
 		return cfg, fmt.Errorf("MAX_CONCURRENT_PASSWORD_HASHES must be at least 1")
 	}
 
-	cfg.S3Endpoint = os.Getenv("S3_ENDPOINT")
-	cfg.S3Region = getenv("S3_REGION", "auto")
-	cfg.S3Bucket = os.Getenv("S3_BUCKET")
-	cfg.S3AccessKeyID = os.Getenv("S3_ACCESS_KEY_ID")
-	cfg.S3SecretAccessKey = os.Getenv("S3_SECRET_ACCESS_KEY")
-	// MinIO serves buckets as a path; R2 serves them as a subdomain.
-	cfg.S3ForcePathStyle = getenv("S3_FORCE_PATH_STYLE", "true") != "false"
+	if err := loadMedia(&cfg); err != nil {
+		return cfg, err
+	}
 
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if strings.TrimSpace(origins) == "" {
@@ -185,8 +182,68 @@ func loadGoogle(cfg *Config) error {
 // MediaEnabled reports whether object storage is configured. Media upload is
 // optional as a group, like Google sign-in: a deployment without it serves
 // everything else rather than refusing to start.
+//
+// The ENDPOINT counts. Without it the SDK has no BaseEndpoint and resolves
+// against real AWS S3 -- so a deployment holding a bucket and R2 credentials
+// but no S3_ENDPOINT used to report media as enabled and then talk to the wrong
+// provider entirely. loadMedia now refuses that at startup, so by the time this
+// is asked the four are all set or all empty.
 func (c Config) MediaEnabled() bool {
-	return c.S3Bucket != "" && c.S3AccessKeyID != "" && c.S3SecretAccessKey != ""
+	return c.S3Endpoint != "" && c.S3Bucket != "" &&
+		c.S3AccessKeyID != "" && c.S3SecretAccessKey != ""
+}
+
+// loadMedia reads the object-storage group, all-or-nothing, the same way
+// loadGoogle reads Google's.
+func loadMedia(cfg *Config) error {
+	cfg.S3Endpoint = os.Getenv("S3_ENDPOINT")
+	cfg.S3Region = getenv("S3_REGION", "auto")
+	cfg.S3Bucket = os.Getenv("S3_BUCKET")
+	cfg.S3AccessKeyID = os.Getenv("S3_ACCESS_KEY_ID")
+	cfg.S3SecretAccessKey = os.Getenv("S3_SECRET_ACCESS_KEY")
+
+	set := 0
+	for _, v := range []string{
+		cfg.S3Endpoint, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey,
+	} {
+		if strings.TrimSpace(v) != "" {
+			set++
+		}
+	}
+	switch set {
+	case 0:
+		// Media is simply off. Still read the remaining values so a misspelled
+		// boolean is reported rather than ignored.
+	case 4:
+	default:
+		// Half-configured is worse than off, exactly as for Google: the upload
+		// endpoint would exist and fail in a way that looks like R2's fault.
+		return fmt.Errorf("object storage needs S3_ENDPOINT, S3_BUCKET, " +
+			"S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY together, or none of them")
+	}
+
+	// Defaults to FALSE, which is what production wants.
+	//
+	// It used to default to true -- path-style addressing -- while .env.example
+	// said "MinIO needs this; R2 does not", which reads as an instruction to
+	// drop the line for production. Dropping it took the default and broke
+	// every upload against R2, which serves buckets as a subdomain, while dev
+	// against MinIO worked perfectly. The default now matches the deployment
+	// that cannot easily be tested by hand.
+	forcePathStyle, err := getenvBool("S3_FORCE_PATH_STYLE", false)
+	if err != nil {
+		return err
+	}
+	cfg.S3ForcePathStyle = forcePathStyle
+
+	// §11.2's ten minutes, configurable like every other TTL here rather than
+	// documented in .env.example and read by nothing.
+	ttl, err := parseDuration("SIGNED_URL_TTL", "10m")
+	if err != nil {
+		return err
+	}
+	cfg.SignedURLTTL = ttl
+	return nil
 }
 
 // GoogleEnabled reports whether §5.3 sign-in is configured.
@@ -204,6 +261,25 @@ func (c Config) GoogleEnabled() bool {
 // bounds Argon2id concurrency on a 512 MB machine, so "8 slots" instead of "8"
 // would start the process on 4 and say nothing, and whoever raised it after
 // resizing the machine would never learn it had not applied.
+// getenvBool parses a boolean the way getenvInt parses an integer: anything
+// unparseable is an error, not a silent fallback.
+//
+// The previous form was `getenv(key, "true") != "false"`, under which `0`,
+// `False`, `FALSE` and `no` all quietly meant true -- the same shape that was
+// fixed for getenvInt one commit earlier, and for the same reason: every other
+// input here fails loudly.
+func getenvBool(key string, fallback bool) (bool, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean such as true or false, got %q", key, v)
+	}
+	return b, nil
+}
+
 func getenvInt(key string, fallback int) (int, error) {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
