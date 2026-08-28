@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 )
 
 // maxAtoms bounds the walk. A crafted file can nest atoms or declare a size of
@@ -76,6 +77,19 @@ func scaled(duration, timescale uint64) (int, error) {
 	// unmeasurable rather than as 585 million years.
 	if duration == 0 || duration == 0xFFFFFFFF || duration == 0xFFFFFFFFFFFFFFFF {
 		return 0, errors.New("mp4: duration is not set")
+	}
+	// Bounded BEFORE the multiply, not after. `duration` comes straight out of
+	// the uploaded file's mvhd, so `duration * 1000` wraps for anything above
+	// 2^64/1000 -- and the plausibility check below then runs on the wrapped
+	// product, which is a number the uploader chose.
+	//
+	// Concretely: timescale 1000 with duration 2305843009213723952 wraps to
+	// exactly 30000000, so a file declaring 73 million years of audio reports
+	// itself as a tidy 30 seconds, passes this check, passes media_assets'
+	// `duration_ms <= 300000`, and §11.1's five-minute limit is set by the file
+	// rather than measured.
+	if duration > math.MaxUint64/1000 {
+		return 0, errors.New("mp4: implausible duration")
 	}
 	ms := duration * 1000 / timescale
 	if ms > uint64(1<<31-1) {
