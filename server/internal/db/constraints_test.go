@@ -601,3 +601,52 @@ func newQuestion(t *testing.T, tx *sql.Tx, author, qtype, prompt string) string 
 	}
 	return id
 }
+
+// [D-04] The half of the audio-policy rule that 00011 left open, closed by
+// 00014. `audio_max_plays` is excluded from the biconditional's right-hand side
+// on purpose -- maxPlays is nullable, where null means unlimited -- but nothing
+// stopped it being SET on a question with no audio at all.
+func TestMaxPlaysCannotBeSetWithoutAudio(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_max_plays_only_with_audio",
+			`INSERT INTO app.questions (type, prompt, points, created_by, audio_max_plays)
+			 VALUES ('short_answer', 'Không có audio', 1.0, $1, 3)`, f.adminID)
+	})
+}
+
+func TestMaxPlaysCannotBeSetOnAnImageQuestion(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		image := newImageAsset(t, tx, f.adminID)
+		rejectsWith(t, tx, "questions_max_plays_only_with_audio",
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, media_asset_id, media_asset_kind, audio_max_plays)
+			 VALUES ('short_answer', 'Ảnh', 1.0, $1, $2, 'image', 3)`, f.adminID, image)
+	})
+}
+
+// NULL still means unlimited on an audio question -- the reason maxPlays was
+// left out of the biconditional in the first place. A constraint that broke
+// this would forbid "unlimited plays", which §7 allows.
+func TestAnAudioQuestionMayLeaveMaxPlaysUnlimited(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		asset := newAudioAsset(t, tx, f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			         audio_allow_seek, audio_show_transcript_after, audio_max_plays)
+			 VALUES ('short_answer', 'Nghe không giới hạn', 1.0, $1, $2, 'audio', false, true, NULL)`,
+			f.adminID, asset)
+	})
+}
+
+func TestAnAudioQuestionMaySetMaxPlays(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		asset := newAudioAsset(t, tx, f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			         audio_allow_seek, audio_show_transcript_after, audio_max_plays)
+			 VALUES ('short_answer', 'Nghe tối đa 2 lần', 1.0, $1, $2, 'audio', false, true, 2)`,
+			f.adminID, asset)
+	})
+}
