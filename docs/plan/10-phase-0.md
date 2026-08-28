@@ -258,8 +258,18 @@ service in T-0.6, which speaks the same S3 API.
       §8/§9, with the collapsible sidebar ≤1280px and 768px minimum width
 - [ ] `/login`, `/403`, `/404` render; `/login` is the §16 exit criterion
 - [ ] Global error boundary with reload and a copyable error ID (§9)
-- [ ] Test: `web/src/app/router.test.tsx` asserts the admin chunk is not in the
-      public entry graph
+- [ ] Test: `web/src/app/router.chunks.test.ts` runs a real Vite build in-memory
+      and asserts against the actual chunk graph — not by reading the router and
+      trusting `lazy`. It checks the admin tree, the student tree and the focus
+      shell are all absent from the entry chunk, that the admin tree is still
+      built somewhere (so a broken import path cannot pass vacuously), and that
+      no chunk contains both the admin and student trees
+- [ ] **Mutation-tested**: turning one `lazy` into a static import must fail it
+- [ ] Note for whoever touches the router: React Router `lazy` supplies
+      `Component`/`loader`/`action`/`ErrorBoundary` but **not `children`** — the
+      route tree has to be statically matchable. A first version returned
+      `children` from `lazy`; it type-checked, rendered the layout, and 404'd on
+      every child route
 - [ ] Loading / error / empty states present; keyboard-operable (§14)
 
 ---
