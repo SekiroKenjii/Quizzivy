@@ -21,12 +21,18 @@ func linkGoogle(t *testing.T, pool *pgxpool.Pool, userID, email string) {
 	if _, err := rand.Read(nonce); err != nil {
 		t.Fatal(err)
 	}
+	linkGoogleSubject(t, pool, userID, hex.EncodeToString(nonce), email)
+}
+
+// linkGoogleSubject links a CHOSEN Google subject, which the §5.3 resolution
+// tests need in order to control which branch a sign-in takes.
+func linkGoogleSubject(t *testing.T, pool *pgxpool.Pool, userID, subject, email string) {
+	t.Helper()
 	// email_at_link records the Google address AS IT WAS when linked; it is not
 	// the account's email and does not follow it.
 	if _, err := pool.Exec(context.Background(),
 		`INSERT INTO app.user_identities (user_id, provider, provider_user_id, email_at_link)
-		 VALUES ($1, 'google', $2, $3)`,
-		userID, hex.EncodeToString(nonce), email); err != nil {
+		 VALUES ($1, 'google', $2, $3)`, userID, subject, email); err != nil {
 		t.Fatalf("link google identity: %v", err)
 	}
 }

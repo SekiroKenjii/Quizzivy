@@ -22,6 +22,13 @@ type Config struct {
 	// own value and choose its own rate-limit bucket.
 	ClientIPHeader string
 
+	// Google sign-in (§5.3). Optional as a group: a deployment without it
+	// still serves password login. Partially set is a misconfiguration and
+	// refuses to start.
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURIs []string
+
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
 	RefreshTokenTTL     time.Duration
@@ -74,6 +81,10 @@ func Load() (Config, error) {
 	// clear the first time someone forgot to set it.
 	cfg.RefreshCookieSecure = getenv("REFRESH_COOKIE_SECURE", "true") != "false"
 
+	if err := loadGoogle(&cfg); err != nil {
+		return cfg, err
+	}
+
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if strings.TrimSpace(origins) == "" {
 		return cfg, fmt.Errorf("CORS_ALLOWED_ORIGINS is required (exact origins, never '*')")
@@ -93,6 +104,51 @@ func Load() (Config, error) {
 		return cfg, fmt.Errorf("API_PORT must be numeric, got %q", cfg.Port)
 	}
 	return cfg, nil
+}
+
+// loadGoogle reads the §5.3 credentials.
+//
+// The client id is deliberately read from VITE_GOOGLE_CLIENT_ID when
+// GOOGLE_CLIENT_ID is unset. It is the same public value the frontend bundles,
+// and the backend needs it as the `aud` it verifies ID tokens against. Two
+// names for one value is how they end up different, and the failure -- every
+// Google sign-in rejected for a bad audience -- says nothing about the cause.
+func loadGoogle(cfg *Config) error {
+	cfg.GoogleClientID = getenv("GOOGLE_CLIENT_ID", os.Getenv("VITE_GOOGLE_CLIENT_ID"))
+	cfg.GoogleClientSecret = os.Getenv("GOOGLE_CLIENT_SECRET")
+	redirects := os.Getenv("GOOGLE_REDIRECT_URI")
+
+	set := 0
+	for _, v := range []string{cfg.GoogleClientID, cfg.GoogleClientSecret, redirects} {
+		if strings.TrimSpace(v) != "" {
+			set++
+		}
+	}
+	switch set {
+	case 0:
+		return nil // Google sign-in is simply off.
+	case 3:
+	default:
+		// Half-configured is worse than off: the endpoint would exist and fail
+		// in a way that looks like Google's fault.
+		return fmt.Errorf("google sign-in needs GOOGLE_CLIENT_ID (or VITE_GOOGLE_CLIENT_ID), " +
+			"GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI together, or none of them")
+	}
+
+	// Comma-separated so one build can serve localhost and production. Exact
+	// matching is done at exchange time; prefix matching on redirect URIs is
+	// the classic OAuth mistake.
+	for _, uri := range strings.Split(redirects, ",") {
+		if uri = strings.TrimSpace(uri); uri != "" {
+			cfg.GoogleRedirectURIs = append(cfg.GoogleRedirectURIs, uri)
+		}
+	}
+	return nil
+}
+
+// GoogleEnabled reports whether §5.3 sign-in is configured.
+func (c Config) GoogleEnabled() bool {
+	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && len(c.GoogleRedirectURIs) > 0
 }
 
 func parseDuration(key, fallback string) (time.Duration, error) {

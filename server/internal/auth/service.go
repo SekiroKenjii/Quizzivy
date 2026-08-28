@@ -28,6 +28,11 @@ type Service struct {
 	tokens     *TokenIssuer
 	refreshTTL time.Duration
 	now        func() time.Time
+
+	// Optional. Nil means Google sign-in is unavailable on this deployment,
+	// which is a different answer from "your sign-in failed".
+	google   GoogleProvider
+	enroller SelfEnroller
 }
 
 func NewService(store *Store, tokens *TokenIssuer, refreshTTL time.Duration) *Service {

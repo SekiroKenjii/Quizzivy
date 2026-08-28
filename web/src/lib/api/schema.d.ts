@@ -2078,6 +2078,8 @@ export interface operations {
             /** @description Signed in, or signed up and enrolled. */
             200: {
                 headers: {
+                    /** @description `quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth` — §5.3 step 5. Without it the sign-in has no session. */
+                    "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2100,6 +2102,17 @@ export interface operations {
              * @description `ACCOUNT_NOT_PROVISIONED` — a valid Google identity with no matching
              *     account and no join code. The client explains that a class code is
              *     needed rather than offering a signup form (§5.3).
+             *
+             *     `ACCOUNT_DISABLED` — the matched account is suspended. Named
+             *     explicitly here, unlike at password login: the caller has just
+             *     proved to Google that they control this address, so the fact
+             *     discloses nothing they could not confirm themselves, and an
+             *     unexplained failure would send them to support instead of to the
+             *     teacher.
+             *
+             *     `IDENTITY_ALREADY_LINKED` — the verified email matches an account
+             *     that is already linked to a DIFFERENT Google `sub`. Linking a second
+             *     one would make "unlink Google" ambiguous, so it is refused (D-08).
              */
             403: {
                 headers: {
