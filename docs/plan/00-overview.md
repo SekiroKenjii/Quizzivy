@@ -244,6 +244,22 @@ binary in the container at the cost of roughly a day of work and residual
 edge-case risk, tracked as R-08 in `30-risks.md` and mitigated by the fixture
 corpus in T-2.2.
 
+**Google sign-in library (approved deviation from §2).** §2 fixes Google
+Identity Services as the library and §5.3 requires Authorization Code + PKCE.
+Those turned out to be incompatible: Google's authorization *server* supports
+PKCE — its discovery document advertises
+`code_challenge_methods_supported: ["plain","S256"]` — but the GIS JavaScript
+wrapper `google.accounts.oauth2.initCodeClient` documents no way to pass a
+`code_challenge`. **Thuong approved building the authorization request
+directly**, which keeps §5.3's PKCE intact at the cost of not using the GIS SDK.
+
+Concretely: generate a `code_verifier`, derive an S256 `code_challenge`, add a
+`state` value, and open Google's `authorization_endpoint` in a popup. The
+callback posts `{ code, codeVerifier, redirectUri }` to `POST /auth/google`,
+exactly as `api/openapi.yaml` already specifies. No GIS script tag, and no
+dependency on undocumented wrapper behaviour. The "Tiếp tục với Google" button
+is ours either way — §12 dictates charcoal, not Google's default styling.
+
 Two further disagreements were accepted and are implemented as described:
 `30-risks.md` R-05 (the `clientSeq` collision, §13.3 deviation D-01) and the
 §16 exit-criteria corrections in `11-phase-1.md` and `12-phase-2.md`.

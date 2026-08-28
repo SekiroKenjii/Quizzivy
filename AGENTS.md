@@ -56,6 +56,11 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
 - `OLD`/`NEW` in `RETURNING` work in all four DML statements, but capturing an
   audit diff in one statement requires a **data-modifying CTE** feeding the
   `INSERT`. A bare `UPDATE … RETURNING` then `INSERT` is a read-then-write race.
+- **Google sign-in does NOT use the GIS SDK.** This is an approved deviation
+  from §2, not an oversight: GIS `initCodeClient` cannot send a `code_challenge`,
+  and §5.3 requires PKCE. We build the authorization request ourselves against
+  Google's `authorization_endpoint` with S256. Do not "fix" this by reintroducing
+  `accounts.google.com/gsi/client`.
 - **`unaccent()` is STABLE in PG18 — both the 1-arg and the 2-arg form.** It
   cannot go directly in an index expression. Use `app.immutable_unaccent()`,
   which pins the dictionary and asserts immutability. Changing the unaccent

@@ -100,6 +100,12 @@ the public join surface, then the frontend that consumes it.
 **Touches:** `server/internal/auth/google/`
 **Size:** L
 **Done when:**
+- [ ] **No GIS SDK.** Per O-13 the frontend builds the authorization request
+      itself: CSPRNG `code_verifier`, S256 `code_challenge`, a `state` value
+      checked on return, popup to Google's `authorization_endpoint`. Approved
+      deviation from §2 — do not reintroduce `gsi/client`
+- [ ] `state` is single-use and compared in constant time; a mismatch aborts
+      before any network call to our backend
 - [ ] `POST /auth/google` exchanges `{ code, codeVerifier, redirectUri }` with
       Google server-side; the client secret never leaves the backend (§5.3)
 - [ ] ID token verified for `iss`, `aud`, `exp` and signature via JWKS, with the
