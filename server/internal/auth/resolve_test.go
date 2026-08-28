@@ -9,6 +9,7 @@ import (
 
 	"quizzivy/internal/auth"
 	"quizzivy/internal/auth/google"
+	"quizzivy/internal/join"
 )
 
 // §5.3 step 4's resolution order, one test per branch. The order is the
@@ -134,16 +135,55 @@ func TestBranch2AVerifiedEmailLinksToAnExistingAccount(t *testing.T) {
 	}
 }
 
-func TestBranch3AJoinCodeReachesTheEnrolmentSeam(t *testing.T) {
-	// Creating and enrolling an account is T-1.8. Until it lands, a join code
-	// must reach a seam that says so, rather than falling through to
-	// ACCOUNT_NOT_PROVISIONED -- which would be a wrong answer, not a missing one.
+func TestBranch3AJoinCodeCreatesAndEnrols(t *testing.T) {
+	// §5.3's third branch, and the only self-signup path in the product.
 	pool := newPool(t)
-	svc, _ := googleService(t, pool, verifiedIdentity("brand-new@example.com"))
+	classID, teacherID := makeClassForEnrol(t, pool)
+	svc, _ := googleServiceWithEnroller(t, pool, verifiedIdentity("brand-new@example.com"))
+	code := issueJoinCode(t, pool, classID, teacherID)
 
-	_, err := signIn(svc, "ABCD2345")
-	if !errors.Is(err, auth.ErrSelfEnrolNotAvailable) {
-		t.Fatalf("error = %v, want ErrSelfEnrolNotAvailable", err)
+	result, err := signIn(svc, code)
+	if err != nil {
+		t.Fatalf("sign-in with a join code: %v", err)
+	}
+	if result.EnrolledClass == nil {
+		t.Fatal("no enrolledClass on a signup that enrolled")
+	}
+	if result.EnrolledClass.ID != classID {
+		t.Errorf("enrolled in %s, want %s", result.EnrolledClass.ID, classID)
+	}
+	if result.Session.AccessToken == "" {
+		t.Error("no session was issued to the new member")
+	}
+	if result.Session.User.Role != "student" {
+		t.Errorf("role = %s, want student", result.Session.User.Role)
+	}
+	// Google-only, per §6.3: there is no password to set.
+	if result.Session.User.HasPassword() {
+		t.Error("a self-join account was created with a password")
+	}
+	t.Cleanup(func() { deleteUser(t, pool, result.Session.User.ID) })
+}
+
+func TestBranch3RejectsABadJoinCodeWithoutCreatingAnyone(t *testing.T) {
+	// E2E 4's backend half. The code is validated before anything is created,
+	// inside one transaction, so a stale code leaves no orphan account behind
+	// for the teacher to wonder about.
+	pool := newPool(t)
+	svc, _ := googleServiceWithEnroller(t, pool, verifiedIdentity("never-created@example.com"))
+
+	var rejected auth.JoinCodeRejected
+	if _, err := signIn(svc, "ZZZZ-ZZZZ"); !errors.As(err, &rejected) {
+		t.Fatalf("error = %v, want auth.JoinCodeRejected", err)
+	}
+
+	var users int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM app.users WHERE email = $1`, "never-created@example.com").Scan(&users); err != nil {
+		t.Fatal(err)
+	}
+	if users != 0 {
+		t.Error("a rejected join code still created an account")
 	}
 }
 
@@ -242,4 +282,55 @@ func TestGoogleSignInIsUnavailableWhenUnconfigured(t *testing.T) {
 	if _, err := signIn(svc, ""); !errors.Is(err, auth.ErrGoogleUnavailable) {
 		t.Fatalf("error = %v, want ErrGoogleUnavailable", err)
 	}
+}
+
+// The §5.3 branch-3 fixtures. These reach into internal/join because branch 3
+// IS an enrolment -- testing it against a fake enroller would assert only that
+// the wiring compiles.
+
+func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity google.Identity) (*auth.Service, *stubGoogle) {
+	t.Helper()
+	svc := newService(t, pool)
+	stub := &stubGoogle{identity: identity}
+	svc.SetGoogle(stub, join.NewService(join.NewStore(pool)))
+	return svc, stub
+}
+
+func makeClassForEnrol(t *testing.T, pool *pgxpool.Pool) (classID, teacherID string) {
+	t.Helper()
+	ctx := context.Background()
+	teacherID, _ = makeUser(t, pool, admin)
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.classes (name) VALUES ('Lớp ghi danh') RETURNING id::text`).Scan(&classID); err != nil {
+		t.Fatalf("insert class: %v", err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1`, classID)
+		_, _ = pool.Exec(c, `DELETE FROM app.class_join_codes WHERE class_id = $1`, classID)
+		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1`, classID)
+	})
+	return classID, teacherID
+}
+
+func issueJoinCode(t *testing.T, pool *pgxpool.Pool, classID, teacherID string) string {
+	t.Helper()
+	rotated, err := join.NewService(join.NewStore(pool)).Rotate(context.Background(),
+		join.RotateRequest{ClassID: classID, ActorUserID: teacherID})
+	if err != nil {
+		t.Fatalf("issue join code: %v", err)
+	}
+	return rotated.Code
+}
+
+// deleteUser removes an account the test caused to be created, which makeUser's
+// cleanup cannot know about.
+func deleteUser(t *testing.T, pool *pgxpool.Pool, userID string) {
+	t.Helper()
+	c := context.Background()
+	_, _ = pool.Exec(c, `DELETE FROM app.refresh_tokens WHERE user_id = $1`, userID)
+	_, _ = pool.Exec(c, `DELETE FROM app.audit_log WHERE actor_user_id = $1`, userID)
+	_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE user_id = $1`, userID)
+	_, _ = pool.Exec(c, `DELETE FROM app.user_identities WHERE user_id = $1`, userID)
+	_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = $1`, userID)
 }

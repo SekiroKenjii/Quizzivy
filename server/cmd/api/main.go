@@ -54,6 +54,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	authService := auth.NewService(auth.NewStore(pool.Pool), tokens, cfg.RefreshTokenTTL)
+	joinService := join.NewService(join.NewStore(pool.Pool))
 
 	if cfg.GoogleEnabled() {
 		keys := google.NewKeySet("", nil)
@@ -61,7 +62,7 @@ func run(logger *slog.Logger) error {
 			google.NewExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret,
 				cfg.GoogleRedirectURIs, "", nil),
 			google.NewVerifier(cfg.GoogleClientID, keys),
-		), nil) // SelfEnroller arrives with T-1.8.
+		), joinService)
 		logger.Info("google sign-in enabled", "redirect_uris", cfg.GoogleRedirectURIs)
 	} else {
 		// Not a warning: a deployment may legitimately run on password login
@@ -73,7 +74,7 @@ func run(logger *slog.Logger) error {
 	handler, err := api.NewRouter(api.Deps{
 		DB:           pool,
 		Auth:         authService,
-		Join:         join.NewService(join.NewStore(pool.Pool)),
+		Join:         joinService,
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,

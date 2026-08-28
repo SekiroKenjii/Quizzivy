@@ -49,7 +49,11 @@ func RateLimits() *ratelimit.Registry {
 	// reachable by anyone and writes to the database on every call. Generous:
 	// throttling logout would be a way to keep someone signed in.
 	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
-	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
+	// Authenticated, but still a code-redemption endpoint: the contract asks
+	// for the same two buckets, and a signed-in account is not a reason to let
+	// one code be probed without limit.
+	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
 	// Fire-and-forget beacon flush (§10.6). Limited generously: dropping these
 	// costs integrity data, and integrity is observational.
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))

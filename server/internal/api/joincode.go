@@ -118,24 +118,75 @@ func (s *Server) PreviewJoinCode(ctx context.Context, request openapi.PreviewJoi
 		return nil, err
 	}
 
-	switch result.Outcome {
-	case join.PreviewOK:
-		return openapi.PreviewJoinCode200JSONResponse{
-			ClassId:     parseUUID(result.ClassID),
-			ClassName:   result.ClassName,
-			TeacherName: result.TeacherName,
-		}, nil
-	case join.PreviewRevoked:
-		return openapi.PreviewJoinCode404JSONResponse(authError(ctx, openapi.JOINCODEREVOKED,
-			"Mã lớp này đã bị thu hồi. Vui lòng xin giáo viên mã mới.")), nil
-	case join.PreviewExpired:
-		return openapi.PreviewJoinCode404JSONResponse(authError(ctx, openapi.JOINCODEEXPIRED,
-			"Mã lớp này đã hết hạn. Vui lòng xin giáo viên mã mới.")), nil
-	case join.PreviewExhausted:
-		return openapi.PreviewJoinCode404JSONResponse(authError(ctx, openapi.JOINCODEEXHAUSTED,
-			"Mã lớp này đã hết lượt sử dụng. Vui lòng xin giáo viên mã mới.")), nil
-	default:
-		return openapi.PreviewJoinCode404JSONResponse(authError(ctx, openapi.JOINCODEINVALID,
-			"Mã lớp không đúng. Vui lòng kiểm tra lại.")), nil
+	if result.Outcome != join.PreviewOK {
+		return openapi.PreviewJoinCode404JSONResponse(joinCodeError(ctx, result.Outcome)), nil
 	}
+	return openapi.PreviewJoinCode200JSONResponse{
+		ClassId:     parseUUID(result.ClassID),
+		ClassName:   result.ClassName,
+		TeacherName: result.TeacherName,
+	}, nil
+}
+
+// joinCodeError maps a refusal to its §9 error code and message.
+//
+// One mapping, used by /join/preview, /app/classes/join and the joinCode branch
+// of /auth/google. Three copies would drift, and the thing they would drift on
+// is how much each endpoint gives away about a class (§6.5).
+func joinCodeError(ctx context.Context, outcome join.PreviewOutcome) openapi.ErrorResponse {
+	switch outcome {
+	case join.PreviewRevoked:
+		return authError(ctx, openapi.JOINCODEREVOKED,
+			"Mã lớp này đã bị thu hồi. Vui lòng xin giáo viên mã mới.")
+	case join.PreviewExpired:
+		return authError(ctx, openapi.JOINCODEEXPIRED,
+			"Mã lớp này đã hết hạn. Vui lòng xin giáo viên mã mới.")
+	case join.PreviewExhausted:
+		return authError(ctx, openapi.JOINCODEEXHAUSTED,
+			"Mã lớp này đã hết lượt sử dụng. Vui lòng xin giáo viên mã mới.")
+	default:
+		return authError(ctx, openapi.JOINCODEINVALID,
+			"Mã lớp không đúng. Vui lòng kiểm tra lại.")
+	}
+}
+
+// toAPIClass renders the §7 Class shape.
+func toAPIClass(c join.EnrolledClass) openapi.Class {
+	return openapi.Class{
+		Id:              parseUUID(c.ID),
+		Name:            c.Name,
+		Description:     c.Description,
+		StudentCount:    c.StudentCount,
+		SelfJoinEnabled: c.SelfJoinEnabled,
+		CreatedAt:       c.CreatedAt,
+	}
+}
+
+// JoinClass implements POST /app/classes/join (§6.2).
+//
+// The already-signed-in half of the join flow: a student who follows
+// /join/:code while logged in skips the account-creation branch entirely.
+// Idempotent when they are already a member -- a deep link gets followed twice,
+// and the second time is a success, not an error. Crucially the repeat does NOT
+// consume a use, or a student could burn their own class's code by tapping
+// twice.
+func (s *Server) JoinClass(ctx context.Context, request openapi.JoinClassRequestObject) (openapi.JoinClassResponseObject, error) {
+	if s.Deps.Join == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	meta := httpx.RequestMetaFromContext(ctx)
+	result, err := s.Deps.Join.EnrolExisting(ctx, principal.UserID, request.Body.JoinCode,
+		join.Meta{IP: meta.IP, UserAgent: meta.UserAgent})
+	if err != nil {
+		return nil, err
+	}
+	if result.Outcome != join.PreviewOK {
+		return openapi.JoinClass404JSONResponse(joinCodeError(ctx, result.Outcome)), nil
+	}
+	return openapi.JoinClass200JSONResponse(toAPIClass(result.Class)), nil
 }

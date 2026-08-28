@@ -215,13 +215,13 @@ restate its own rules in Go, or silently have none.
       the caller has just proved to Google that they control the address, so
       neither discloses anything they could not confirm themselves
 
-**Not done in this task — branch 3.** "No match and a valid `joinCode` → create
-account + enrol" needs join codes, which are T-1.6/T-1.7, and enrolment, which
-is T-1.8. It is implemented as a `SelfEnroller` seam: a join code reaches it and
-gets `ErrSelfEnrolNotAvailable` → 501, rather than falling through to
-`ACCOUNT_NOT_PROVISIONED`, which would be a wrong answer rather than a missing
-one. **T-1.8 must wire the enroller and flip the branch-3 test from asserting
-the seam to asserting an enrolment.**
+**Branch 3 was a seam until T-1.8, and is now closed.** `*join.Service`
+satisfies `auth.SelfEnroller` directly — the interface is declared in terms of
+`internal/join`'s types, so there is no adapter to keep in step. The dependency
+runs one way (join knows nothing about auth) and §5.3's third branch genuinely
+is "sign-in creates an enrolment", so auth depending on enrolment is the real
+shape rather than a convenience. `TestBranch3AJoinCodeCreatesAndEnrols` now
+asserts a real enrolment.
 
 ---
 
@@ -332,7 +332,19 @@ the seam to asserting an enrolment.**
       (E2E 4's backend half)
 - [ ] Test: `join/audit_test.go` — an enrolment writes exactly one audit row
       with a non-null ip
-- [ ] **Public endpoint: rate-limited and leak-reviewed (§6.5, §14)**
+- [ ] **Public endpoint: rate-limited and leak-reviewed (§6.5, §14)**. All three
+      code-redemption endpoints carry both buckets, keyed on the NORMALIZED code
+- [ ] `uses_count` increments only for a NEW membership. Counting a repeat would
+      let a student exhaust their own class's code by tapping the link twice
+- [ ] Refusals reuse `/join/preview`'s outcome taxonomy and its single error
+      mapping, so the three redemption paths cannot drift into disagreeing about
+      what a code's state means — or into leaking different amounts about it
+
+**Worth knowing, from the mutation check.** Removing the `FOR UPDATE` row lock
+on the code does **not** oversell the class: D-09's `uses_count <= max_uses`
+CHECK refuses the extra rows. What the lock buys is the difference between a
+clean `JOIN_CODE_EXHAUSTED` and a constraint violation surfacing as a 500. The
+belt and the braces do different jobs, and both are load-bearing.
 
 ---
 
