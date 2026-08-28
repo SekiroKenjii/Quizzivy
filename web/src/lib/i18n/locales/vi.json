@@ -46,5 +46,13 @@
   "student": {
     "myAssignments": "Bài của tôi",
     "myClasses": "Lớp của tôi"
+  },
+  "changePassword": {
+    "title": "Đổi mật khẩu",
+    "body": "Bạn cần đặt mật khẩu mới trước khi tiếp tục.",
+    "current": "Mật khẩu hiện tại",
+    "new": "Mật khẩu mới",
+    "hint": "Ít nhất 8 ký tự.",
+    "submit": "Đổi mật khẩu"
   }
 }

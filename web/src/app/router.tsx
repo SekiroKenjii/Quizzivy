@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
 import { ErrorBoundary, NotFound } from "@/app/ErrorBoundary";
+import { RequireSession } from "@/app/guards/RequireSession";
+import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
 
 /**
  * Three route trees (§2): `/admin/*`, `/app/*`, and a small public tree.
@@ -33,52 +35,65 @@ const publicTree: RouteObject = {
 
 const adminTree: RouteObject = {
   path: "admin",
-  lazy: page(() => import("@/layouts/AdminLayout")),
+  element: <AdminOnly />,
   children: [
-    { index: true, lazy: page(() => import("@/app/pages/AdminDashboardPage")) },
-    { path: "tests", lazy: page(() => import("@/features/tests/pages/TestsListPage")) },
     {
-      path: "question-bank",
-      lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
-    },
-    {
-      path: "media",
-      lazy: page(() => import("@/features/media/pages/MediaLibraryPage")),
-    },
-    {
-      path: "assignments",
-      lazy: page(() => import("@/features/assignments/pages/AssignmentsListPage")),
-    },
-    {
-      path: "students",
-      lazy: page(() => import("@/features/students/pages/StudentsListPage")),
-    },
-    {
-      path: "classes",
-      lazy: page(() => import("@/features/classes/pages/ClassesListPage")),
-    },
-    {
-      path: "settings",
-      lazy: page(() => import("@/features/auth/pages/AdminSettingsPage")),
+      lazy: page(() => import("@/layouts/AdminLayout")),
+      children: [
+        { index: true, lazy: page(() => import("@/app/pages/AdminDashboardPage")) },
+        {
+          path: "tests",
+          lazy: page(() => import("@/features/tests/pages/TestsListPage")),
+        },
+        {
+          path: "question-bank",
+          lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
+        },
+        {
+          path: "media",
+          lazy: page(() => import("@/features/media/pages/MediaLibraryPage")),
+        },
+        {
+          path: "assignments",
+          lazy: page(() => import("@/features/assignments/pages/AssignmentsListPage")),
+        },
+        {
+          path: "students",
+          lazy: page(() => import("@/features/students/pages/StudentsListPage")),
+        },
+        {
+          path: "classes",
+          lazy: page(() => import("@/features/classes/pages/ClassesListPage")),
+        },
+        {
+          path: "settings",
+          lazy: page(() => import("@/features/auth/pages/AdminSettingsPage")),
+        },
+      ],
     },
   ],
 };
 
 const studentTree: RouteObject = {
   path: "app",
-  lazy: page(() => import("@/layouts/StudentLayout")),
+  element: <StudentArea />,
   children: [
     {
-      index: true,
-      lazy: page(() => import("@/features/assignments/pages/StudentHomePage")),
-    },
-    {
-      path: "classes",
-      lazy: page(() => import("@/features/classes/pages/StudentClassesPage")),
-    },
-    {
-      path: "settings",
-      lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),
+      lazy: page(() => import("@/layouts/StudentLayout")),
+      children: [
+        {
+          index: true,
+          lazy: page(() => import("@/features/assignments/pages/StudentHomePage")),
+        },
+        {
+          path: "classes",
+          lazy: page(() => import("@/features/classes/pages/StudentClassesPage")),
+        },
+        {
+          path: "settings",
+          lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),
+        },
+      ],
     },
   ],
 };
@@ -98,15 +113,31 @@ const takeTestTree: RouteObject = {
   ],
 };
 
+/**
+ * Everything that needs a session. A pathless route, so the guard runs once for
+ * all three trees rather than being repeated -- and so a route added to any of
+ * them is protected without anyone remembering to protect it.
+ */
+const protectedTree: RouteObject = {
+  element: <RequireSession />,
+  children: [
+    {
+      path: "change-password",
+      lazy: page(() => import("@/features/auth/pages/ChangePasswordPage")),
+    },
+    adminTree,
+    studentTree,
+    takeTestTree,
+  ],
+};
+
 export const router = createBrowserRouter([
   {
     ErrorBoundary,
     children: [
       { index: true, element: <Navigate to="/login" replace /> },
       publicTree,
-      adminTree,
-      studentTree,
-      takeTestTree,
+      protectedTree,
       { path: "403", lazy: page(() => import("@/app/pages/ForbiddenPage")) },
       { path: "*", element: <NotFound /> },
     ],

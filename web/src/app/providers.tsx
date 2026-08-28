@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { queryClient } from "./queryClient";
 import { router } from "./router";
 import { setSessionLostHandler } from "@/lib/api/client";
+import { useBootstrapSession } from "@/features/auth/useSession";
+import { useAuthStore } from "@/stores/auth";
 
 /**
  * Wires the API client's "the session is gone" signal into the router and the
@@ -18,9 +20,14 @@ import { setSessionLostHandler } from "@/lib/api/client";
  * transition; the client falls back to a hard redirect if this never runs.
  */
 export function AppProviders() {
+  // Restores the session before the guards decide anything (§5.4). Runs once,
+  // above the router, so a deep link survives the round trip.
+  useBootstrapSession();
+
   useEffect(() => {
     setSessionLostHandler(() => {
       queryClient.clear();
+      useAuthStore.getState().clearSession();
       if (router.state.location.pathname !== "/login") {
         void router.navigate("/login", { replace: true });
       }

@@ -13,6 +13,7 @@ import {
   PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SignOutButton } from "@/features/auth/SignOutButton";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 /**
@@ -67,6 +68,9 @@ export default function AdminLayout() {
           <span className="text-base font-semibold tracking-tight">
             {t("app.name")}
           </span>
+          <div className="ml-auto">
+            <SignOutButton />
+          </div>
         </div>
       </header>
 
