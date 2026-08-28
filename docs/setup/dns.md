@@ -76,16 +76,32 @@ wrong.
 
 ## Step 1 — the records
 
-| Name | Type | Target | Proxy |
+| Name | Type | Target | Who creates it |
 |---|---|---|---|
-| `app` | CNAME | the Cloudflare Pages project | proxied (automatic) |
-| `api` | CNAME | `quizzivy-api.fly.dev` | see below |
+| `app` | CNAME | `<project>.pages.dev` | **Cloudflare, automatically** |
+| `api` | CNAME | `quizzivy-api.fly.dev` | you, by hand |
 
 ### `app` — Cloudflare Pages
 
-Pages manages its own certificate and the DNS record. Create the project, point
-it at `web/` with build command `pnpm build` and output `dist`, then add
-`app.quizzivy.com` as a custom domain. Nothing to do by hand.
+**You do not create this record.** That is the part worth being explicit about:
+Pages owns both the DNS record and the certificate. The flow is
+
+1. Create the Pages project.
+2. In the project → **Custom domains** → add `app.quizzivy.com`.
+3. Cloudflare creates a CNAME to `<project>.pages.dev` and issues the cert.
+
+There is no value for you to type into a Target field; if you create the record
+by hand first, Pages will refuse the custom domain because the name is already
+taken.
+
+Two ways to create the project:
+
+- **Git integration** — connect the GitHub repo, build command `pnpm build`,
+  output directory `dist`, root directory `web`. Requires the repo to be pushed,
+  and gives preview deploys per branch.
+- **Direct upload** — `pnpm build && npx wrangler pages deploy dist
+  --project-name quizzivy-web` from `web/`. No GitHub needed, good for a first
+  smoke test.
 
 ### `api` — Fly.io, and the certificate bootstrap
 
