@@ -1,0 +1,9 @@
+# Agent skills are pinned by skills-lock.json, not vendored.
+# Restore with: npx skills add neondatabase/postgres-skills
+.agents/skills/
+.claude/skills/
+
+# Env
+.env
+.env.local
+.env.*.local

@@ -38,12 +38,28 @@ in PG13+, so `quizzivy_migrate` can install it without superuser.
 ```sql
 CREATE SCHEMA app;
 
-CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- questions_prompt_trgm_idx [D-11]
+CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- questions_prompt_trgm_idx [D-11]
+CREATE EXTENSION IF NOT EXISTS unaccent;   -- Vietnamese search        [D-11]
+
+-- unaccent() is STABLE in PG18 -- BOTH the one-argument and the two-argument
+-- form; verified on 18.6. Postgres therefore refuses it in an index expression
+-- ("functions in index expression must be marked IMMUTABLE"). This wrapper pins
+-- the dictionary and asserts immutability, which is the standard workaround.
+--
+-- The assertion is a deliberate white lie: if the unaccent dictionary file ever
+-- changes, every index built on this function must be REINDEXed. That is an
+-- accepted trade-off and is why the dictionary is named explicitly.
+CREATE FUNCTION app.immutable_unaccent(text) RETURNS text
+  LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT AS
+  $fn$ SELECT public.unaccent('public.unaccent'::regdictionary, $1) $fn$;
 
 -- Documentation only: this has been the default since PG15. Kept so the
 -- intent in spec §13.2 is visible in the schema history.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 ```
+
+Both extensions are *trusted* in PG13+, so `quizzivy_migrate` can install them
+without superuser.
 
 ### `00002_create_enums.sql`
 
@@ -453,7 +469,8 @@ CREATE INDEX questions_tags_idx
 CREATE INDEX questions_prompt_fts_idx
   ON app.questions USING gin (to_tsvector('simple', prompt)) WHERE deleted_at IS NULL;
 CREATE INDEX questions_prompt_trgm_idx
-  ON app.questions USING gin (lower(prompt) gin_trgm_ops) WHERE deleted_at IS NULL;
+  ON app.questions USING gin (app.immutable_unaccent(lower(prompt)) gin_trgm_ops)
+  WHERE deleted_at IS NULL;
 CREATE INDEX questions_media_idx
   ON app.questions (media_asset_id) WHERE media_asset_id IS NOT NULL;
 CREATE INDEX questions_type_id_idx
@@ -478,12 +495,30 @@ CREATE INDEX questions_type_id_idx
 - **`questions_prompt_trgm_idx` is an addition [D-11].** §13.3 gives only
   `to_tsvector('simple', prompt)`. `'simple'` does no stemming and no diacritic
   folding, so in a Vietnamese-first product a search for `nghe` will not match
-  `nghé`, and `phat am` will not match `phát âm`. Trigram search on
-  `lower(prompt)` handles both, plus the substring matching §8's "full-text
-  search" box actually implies. Both indexes are kept: `@@` for word queries,
-  `%`/`ILIKE` for the typing-ahead case. `to_tsvector(regconfig, text)` with a
-  literal config is `IMMUTABLE`, so the expression index is legal; the one-argument
-  form is `STABLE` and would be rejected.
+  `nghé`, and `phat am` will not match `phát âm`.
+
+  **`pg_trgm` alone does not fix this** — an earlier draft of this document
+  claimed it did, and that was wrong. Verified on 18.6: `'nghé' ILIKE '%nghe%'`
+  is **false**, and `similarity('nghé','nghe')` is only 0.43. Trigram matching is
+  case-insensitive but not accent-insensitive.
+
+  So the index folds accents explicitly, through `app.immutable_unaccent`.
+  Queries must use the **identical** expression or the planner will not match the
+  index:
+
+  ```sql
+  WHERE app.immutable_unaccent(lower(prompt))
+        LIKE '%' || app.immutable_unaccent(lower($1)) || '%'
+  ```
+
+  Verified that the wrapper folds Vietnamese correctly, including the `Đ`/`đ`
+  stroke that plain Unicode decomposition misses: `Đường` → `duong`,
+  `tiếng Việt` → `tieng viet`.
+
+  Both indexes are kept: `@@` against the tsvector for word queries, trigram for
+  substring and accent-insensitive matching. `to_tsvector(regconfig, text)` with
+  a literal config is `IMMUTABLE`, so that expression index is legal as written;
+  the one-argument form is `STABLE` and would be rejected.
 - A **stored** `tsvector` generated column would be the indexing reference's
   preferred shape, but it buys little here (prompts are short, the table is
   small) and it would foreclose adding `unaccent`, which is not `IMMUTABLE`
@@ -976,12 +1011,23 @@ CREATE TRIGGER attempt_answers_set_updated_at BEFORE UPDATE ON app.attempt_answe
   VIRTUAL is the PG18 default; it is written explicitly anyway so the intent
   survives a reader who does not know that.
 
-  **The constraint this imposes:** a virtual generated column cannot be indexed,
-  cannot carry `UNIQUE`, `NOT NULL`, or a foreign key, and is excluded from
-  logical replication. That is fine — `final_score` is only ever summed within
-  one attempt (≤ ~100 rows) — but it is why `pendingManual` cannot be derived
-  from it. Do not add `ORDER BY final_score` to a cross-attempt query without
-  reading this paragraph first.
+  **The constraints this imposes**, verified against 18.6 rather than recalled:
+
+  | Operation on a virtual generated column | PG18.6 |
+  |---|---|
+  | `CREATE INDEX` | ❌ "indexes on virtual generated columns are not supported" |
+  | `UNIQUE` | ❌ "unique constraints on virtual generated columns are not supported" |
+  | `PRIMARY KEY` | ❌ "primary keys on virtual generated columns are not supported" |
+  | `CREATE STATISTICS` | ❌ "statistics creation on virtual generated columns is not supported" |
+  | `SET NOT NULL` | ✅ allowed |
+  | `CHECK` referencing it | ✅ allowed |
+  | `sum()` / aggregates | ✅ allowed |
+  | Logical replication | ❌ stored only |
+
+  None of the rejections hurt here — `final_score` is only ever summed within one
+  attempt (≤ ~100 rows). But the missing index is why `pendingManual` cannot be
+  derived from it, and why `requires_manual` exists. Do not add
+  `ORDER BY final_score` to a cross-attempt query without reading this table.
 - **`requires_manual` is new [D-19].** §7's `score.pendingManual` needs an
   indexable predicate, and `final_score IS NULL` is not one. Set at answer
   creation from the question type (`short_answer` ⇒ true) so the grading queue is
@@ -1149,7 +1195,7 @@ listed here matches the spec.
 | D-08 | `user_identities`: add `UNIQUE (user_id, provider)`, drop the standalone `(user_id)` index | §15's unlink endpoint assumes one Google identity per user; the composite makes the single-column index redundant |
 | D-09 | `class_join_codes`: add `CHECK (expires_at > created_at)` and `CHECK (uses_count <= max_uses)` | §6.5 treats the code as a bearer secret; exhaustion must not be enforceable only in a handler |
 | D-10 | Add `class_members.added_by` + `join_code_id`; `ip` columns are `inet` not `text` | §6.4 wants unexpected enrolments spottable — after a rotation, *which* code someone used is the useful fact |
-| D-11 | `questions`: add `gin (lower(prompt) gin_trgm_ops)` alongside the tsvector index; requires `pg_trgm` | `'simple'` does no diacritic folding, so `nghe` would not match `nghé` in a Vietnamese-first product (§12) |
+| D-11 | `questions`: add `gin (app.immutable_unaccent(lower(prompt)) gin_trgm_ops)` alongside the tsvector index; requires `pg_trgm` + `unaccent` + an IMMUTABLE wrapper | `'simple'` does no diacritic folding, and `pg_trgm` alone does **not** either — `'nghé' ILIKE '%nghe%'` is false. Vietnamese-first search needs explicit accent folding (§12) |
 | D-12 | All bank/test/media indexes partial on `deleted_at IS NULL` | Every query filters deleted rows, so the predicate is free and the index stays smaller |
 | D-13 | Ordinal uniques on draft-editable tables are `DEFERRABLE INITIALLY IMMEDIATE` | Drag-to-reorder (§8) transiently violates uniqueness mid-transaction |
 | D-14 | Add `test_sections` + `test_section_questions` | §13.3 defines no draft structure, but §8's builder autosaves one every 1.5s |
@@ -1168,7 +1214,7 @@ the file it adds.
 
 | File | Creates | Phase |
 |---|---|---|
-| `00001_create_schema_and_extensions.sql` | schema `app`, `pg_trgm`, public revoke | 0 |
+| `00001_create_schema_and_extensions.sql` | schema `app`, `pg_trgm`, `unaccent`, `app.immutable_unaccent()`, public revoke | 0 |
 | `00002_create_enums.sql` | seven enum types | 0 |
 | `00003_create_updated_at_trigger.sql` | `app.set_updated_at()` | 0 |
 | `00004_create_users.sql` | `users`, `user_identities` | 1 |

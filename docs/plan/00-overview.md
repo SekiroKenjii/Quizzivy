@@ -18,9 +18,16 @@ four work, but three carry caveats §13 does not mention.
 | Construct | Docs | Verdict |
 |---|---|---|
 | `uuidv7()` | [functions-uuid](https://www.postgresql.org/docs/18/functions-uuid.html) | Works as §13.2 assumes. Built-in, no extension. Signature is `uuidv7([shift interval])`. |
-| Virtual generated columns | [ddl-generated-columns](https://www.postgresql.org/docs/18/ddl-generated-columns.html) | VIRTUAL is the PG18 default — "A generated column is by default of the virtual kind." `final_score` works. **Caveat:** virtual columns cannot be indexed and cannot carry UNIQUE, FK, NOT NULL, or extended statistics; they are excluded from logical replication ("only supported for stored generated columns"). |
+| Virtual generated columns | [ddl-generated-columns](https://www.postgresql.org/docs/18/ddl-generated-columns.html) | VIRTUAL is the PG18 default — "A generated column is by default of the virtual kind." `final_score` works, and `sum()` over it works. **Caveat:** they cannot be indexed, cannot carry `UNIQUE` or `PRIMARY KEY`, and cannot have extended statistics; they are excluded from logical replication ("only supported for stored generated columns"). They **can** take `NOT NULL` and **can** be referenced by a `CHECK`. |
 | `OLD` / `NEW` in `RETURNING` | [dml-returning](https://www.postgresql.org/docs/18/dml-returning.html) | Works in INSERT/UPDATE/DELETE/MERGE; aliases renameable. **Caveat:** §13.4's "one statement instead of read-then-write" only holds inside a data-modifying CTE (§4.4 below). A bare `UPDATE … RETURNING` followed by an `INSERT` is still two round trips. |
 | `NOT NULL … NOT VALID` | [sql-altertable](https://www.postgresql.org/docs/18/sql-altertable.html), [release-18](https://www.postgresql.org/docs/18/release-18.html) | Real in PG18 — release note: "Allow `ALTER TABLE` to set the `NOT VALID` attribute of `NOT NULL` constraints." **Caveat:** only via the table-constraint form `ADD CONSTRAINT c NOT NULL col NOT VALID`. It is not in the `CREATE TABLE` grammar (which shows `NOT NULL [ NO INHERIT ]` only) and not available via `SET NOT NULL`. |
+
+All four were additionally verified against a live `postgres:18.6` container
+during T-0.1, not only read. The exact error strings are recorded in
+`server/internal/db/pg18_test.go` (T-0.16). Two claims in the first draft of this
+plan were wrong and are corrected above: virtual generated columns **do** accept
+`NOT NULL` and **do** accept a `CHECK`; only indexes, `UNIQUE`, `PRIMARY KEY` and
+extended statistics are rejected.
 
 Consequence for this project: `NOT NULL NOT VALID` is **unreachable on a
 greenfield schema**. Every table in `20-data-model.md` declares `NOT NULL`

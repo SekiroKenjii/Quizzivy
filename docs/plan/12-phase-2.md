@@ -143,13 +143,20 @@ next depends on it.
 **Done when:**
 - [ ] `GET /admin/questions?type=&tag=&q=&cursor=`, `POST`, `PATCH`, `DELETE`
       per §15; `DELETE` is a soft delete (§13.2)
-- [ ] Search combines the tsvector index for word queries and the trigram index
-      for substring/diacritic-insensitive matching (D-11), in one query
+- [ ] Search combines the tsvector index for word queries and the
+      accent-folded trigram index for substring matching (D-11), in one query.
+      The query must use `app.immutable_unaccent(lower(prompt))` **verbatim** on
+      both sides or the planner will not match the index
 - [ ] Options and blanks are written in the same transaction as the question,
       with ordinals normalized to a dense 0..n-1 (1..n for blanks)
 - [ ] Explicit column lists everywhere; no `SELECT *` (§13.8)
 - [ ] Test: `questions/search_test.go` — searching `nghe` matches a prompt
-      containing `nghé`, and `phat am` matches `phát âm`
+      containing `nghé`, `phat am` matches `phát âm`, and `duong` matches
+      `Đường`. Without D-11's `unaccent` folding these all fail: `pg_trgm` is
+      case-insensitive but **not** accent-insensitive
+- [ ] Test: `questions/search_test.go` — `EXPLAIN` confirms the trigram index is
+      actually used, so a later refactor of the query expression cannot silently
+      fall back to a seq scan
 - [ ] Test: `questions/crud_test.go` — a soft-deleted question is absent from
       list results but still resolvable by ID for version snapshots
 - [ ] Test: `questions/crud_test.go` — reordering options round-trips
