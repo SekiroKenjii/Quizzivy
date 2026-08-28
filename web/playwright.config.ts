@@ -40,5 +40,17 @@ export default defineConfig({
     url: "http://localhost:4173",
     reuseExistingServer: !process.env["CI"],
     timeout: 120_000,
+    env: {
+      // `pnpm build` runs in production mode, so it picks up .env.production --
+      // which points at https://api.quizzivy.com. Without this override the
+      // E2E suite builds an app that calls the LIVE API: every request from a
+      // test run leaves the machine, the route stubs (which match
+      // localhost:8080) never fire, and the failure surfaces as a CORS error
+      // rather than as "these tests are talking to production".
+      //
+      // Vite inlines VITE_ variables from process.env as well as from .env
+      // files, and process.env wins.
+      VITE_API_BASE_URL: "http://localhost:8080",
+    },
   },
 });

@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { callbackUrl, statesMatch, takePending } from "@/features/auth/google/pkce";
-import { destinationAfterSignIn, homePathFor } from "@/features/auth/home";
+import { destinationAfterSignIn } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 
@@ -59,7 +59,15 @@ export default function GoogleCallbackPage() {
             body: { code, codeVerifier: pending.verifier, redirectUri: callbackUrl() },
           });
           setUser(linked);
-          await navigate(pending.next ?? homePathFor(linked), { replace: true });
+          // The SAME guard the sign-in branch uses. `next` reaches us through
+          // the URL, so it is untrusted even though we put it there. Today the
+          // only caller passes window.location.pathname, so nothing hostile
+          // can arrive -- but buildAuthorizationRequest takes an arbitrary
+          // `next`, and "link Google and come back to where you were" is one
+          // feature away from making this a real open redirect.
+          await navigate(destinationAfterSignIn(pending.next, linked), {
+            replace: true,
+          });
           return;
         }
 

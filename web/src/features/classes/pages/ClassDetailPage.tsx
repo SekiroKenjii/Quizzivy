@@ -1,7 +1,16 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -14,6 +23,7 @@ import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/datetime";
+import { ApiError } from "@/lib/api/errors";
 
 function currentLocale(language: string): Locale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(language)
@@ -45,14 +55,33 @@ export default function ClassDetailPage() {
     queryFn: ({ signal }) => fetchMembers(id, signal),
   });
 
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  // Removing a student revokes their access immediately and is not undoable --
+  // the same two properties that earned rotation its dialog (§6.4). One of the
+  // three destructive actions on this screen having a confirmation and the
+  // others not was an inconsistency, not a design.
+  const [confirmRemove, setConfirmRemove] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
+
   const remove = useMutation({
     mutationFn: (userId: string) => removeMember(id, userId),
     onSuccess: async () => {
+      setRemoveError(null);
+      setConfirmRemove(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin-class-members", id] }),
         queryClient.invalidateQueries({ queryKey: ["admin-class", id] }),
       ]);
     },
+    // Without this a failed removal is pixel-identical to the screen before the
+    // click: no message, and the row stays because nothing was invalidated. The
+    // teacher concludes it worked and the student keeps their access.
+    onError: (cause) =>
+      setRemoveError(
+        cause instanceof ApiError ? cause.message : t("classDetail.removeFailed"),
+      ),
   });
 
   if (klass.isPending) {
@@ -90,7 +119,14 @@ export default function ClassDetailPage() {
           </h2>
         </div>
 
-        {members.isPending ? (
+        {members.isError ? (
+          // NOT the empty state. Reusing it here would put "no students yet"
+          // directly under a heading that says "Students (12)", and a teacher
+          // reads that as an enrolment problem rather than a failed request.
+          <p role="alert" className="text-destructive px-6 py-8 text-sm">
+            {t("classDetail.membersFailed")}
+          </p>
+        ) : members.isPending ? (
           <p
             className="text-muted-foreground px-6 py-8 text-sm"
             role="status"
@@ -135,7 +171,9 @@ export default function ClassDetailPage() {
                       variant="ghost"
                       size="sm"
                       disabled={remove.isPending}
-                      onClick={() => remove.mutate(m.userId)}
+                      onClick={() =>
+                        setConfirmRemove({ userId: m.userId, name: m.fullName })
+                      }
                     >
                       {t("classDetail.remove")}
                     </Button>
@@ -145,10 +183,41 @@ export default function ClassDetailPage() {
             </TableBody>
           </Table>
         )}
+        {removeError ? (
+          <p role="alert" className="text-destructive border-t px-6 py-3 text-sm">
+            {removeError}
+          </p>
+        ) : null}
         <p className="text-muted-foreground border-t px-6 py-3 text-xs">
           {t("classDetail.removeKeepsWork")}
         </p>
       </section>
+
+      <Dialog
+        open={confirmRemove !== null}
+        onOpenChange={(open) => !open && setConfirmRemove(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("classDetail.removeConfirmTitle")}</DialogTitle>
+            <DialogDescription>
+              {confirmRemove ? `${confirmRemove.name} — ` : ""}
+              {t("classDetail.removeConfirmBody")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmRemove(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              disabled={remove.isPending}
+              onClick={() => confirmRemove && remove.mutate(confirmRemove.userId)}
+            >
+              {remove.isPending ? t("common.loading") : t("classDetail.removeConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

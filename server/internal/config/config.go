@@ -95,8 +95,11 @@ func Load() (Config, error) {
 	// Deliberately NOT derived from GOMAXPROCS or the CPU count. The binding
 	// constraint is RAM, and a shared-cpu-1x machine reports the host's cores,
 	// not its own memory -- sizing on cores would pick a number that OOMs.
-	cfg.MaxConcurrentPasswordHashes = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
+	cfg.MaxConcurrentPasswordHashes, err = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
 		auth.DefaultMaxConcurrentHashes)
+	if err != nil {
+		return cfg, err
+	}
 	if cfg.MaxConcurrentPasswordHashes < 1 {
 		return cfg, fmt.Errorf("MAX_CONCURRENT_PASSWORD_HASHES must be at least 1")
 	}
@@ -167,16 +170,26 @@ func (c Config) GoogleEnabled() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && len(c.GoogleRedirectURIs) > 0
 }
 
-func getenvInt(key string, fallback int) int {
+// getenvInt reads an integer setting. An ABSENT value takes the fallback; a
+// PRESENT but unparseable one is an error.
+//
+// The two are not the same thing and used to be treated as such. Every other
+// input here fails loudly -- a non-numeric API_PORT, X-Forwarded-For as the
+// client-IP header, a `*` in the CORS origins, a half-configured Google block --
+// and this was the one that quietly substituted the default. Its only caller
+// bounds Argon2id concurrency on a 512 MB machine, so "8 slots" instead of "8"
+// would start the process on 4 and say nothing, and whoever raised it after
+// resizing the machine would never learn it had not applied.
+func getenvInt(key string, fallback int) (int, error) {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
-		return fallback
+		return fallback, nil
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		return fallback
+		return 0, fmt.Errorf("%s must be an integer, got %q", key, v)
 	}
-	return n
+	return n, nil
 }
 
 func parseDuration(key, fallback string) (time.Duration, error) {
