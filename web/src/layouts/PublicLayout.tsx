@@ -14,7 +14,9 @@ export default function PublicLayout() {
     <div className="flex min-h-svh flex-col">
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-5xl items-center px-4">
-          <span className="text-base font-semibold tracking-tight">{t("app.name")}</span>
+          <span className="text-base font-semibold tracking-tight">
+            {t("app.name")}
+          </span>
         </div>
       </header>
       <main className="flex flex-1 items-center justify-center p-4">

@@ -4,12 +4,12 @@
 The split is by **cost**, which is what makes it useful — you can run the cheap
 ones on every save and the expensive ones on demand.
 
-| Directory | What belongs here | Cost |
-|---|---|---|
-| `units/` | Fast, deterministic, no build and no browser. Stub the boundary. | ~ms |
+| Directory      | What belongs here                                                                                                           | Cost        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `units/`       | Fast, deterministic, no build and no browser. Stub the boundary.                                                            | ~ms         |
 | `integration/` | Several real layers at once — a real Vite build, or Testing Library + MSW + the real API client + TanStack Query + i18next. | ~100s of ms |
-| `e2e/` | Playwright, against a real production build. | seconds |
-| `support/` | Harness, not tests. MSW server and handlers, fixtures, the ajv contract validator, the OpenAPI reader. | — |
+| `e2e/`         | Playwright, against a real production build.                                                                                | seconds     |
+| `support/`     | Harness, not tests. MSW server and handlers, fixtures, the ajv contract validator, the OpenAPI reader.                      | —           |
 
 ```bash
 pnpm test              # units + integration

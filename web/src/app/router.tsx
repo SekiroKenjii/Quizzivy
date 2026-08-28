@@ -41,14 +41,26 @@ const adminTree: RouteObject = {
       path: "question-bank",
       lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
     },
-    { path: "media", lazy: page(() => import("@/features/media/pages/MediaLibraryPage")) },
+    {
+      path: "media",
+      lazy: page(() => import("@/features/media/pages/MediaLibraryPage")),
+    },
     {
       path: "assignments",
       lazy: page(() => import("@/features/assignments/pages/AssignmentsListPage")),
     },
-    { path: "students", lazy: page(() => import("@/features/students/pages/StudentsListPage")) },
-    { path: "classes", lazy: page(() => import("@/features/classes/pages/ClassesListPage")) },
-    { path: "settings", lazy: page(() => import("@/features/auth/pages/AdminSettingsPage")) },
+    {
+      path: "students",
+      lazy: page(() => import("@/features/students/pages/StudentsListPage")),
+    },
+    {
+      path: "classes",
+      lazy: page(() => import("@/features/classes/pages/ClassesListPage")),
+    },
+    {
+      path: "settings",
+      lazy: page(() => import("@/features/auth/pages/AdminSettingsPage")),
+    },
   ],
 };
 
@@ -56,9 +68,18 @@ const studentTree: RouteObject = {
   path: "app",
   lazy: page(() => import("@/layouts/StudentLayout")),
   children: [
-    { index: true, lazy: page(() => import("@/features/assignments/pages/StudentHomePage")) },
-    { path: "classes", lazy: page(() => import("@/features/classes/pages/StudentClassesPage")) },
-    { path: "settings", lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")) },
+    {
+      index: true,
+      lazy: page(() => import("@/features/assignments/pages/StudentHomePage")),
+    },
+    {
+      path: "classes",
+      lazy: page(() => import("@/features/classes/pages/StudentClassesPage")),
+    },
+    {
+      path: "settings",
+      lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),
+    },
   ],
 };
 
@@ -69,7 +90,12 @@ const studentTree: RouteObject = {
 const takeTestTree: RouteObject = {
   path: "app/attempts/:attemptId",
   lazy: page(() => import("@/layouts/FocusLayout")),
-  children: [{ index: true, lazy: page(() => import("@/features/take-test/pages/TakeTestPage")) }],
+  children: [
+    {
+      index: true,
+      lazy: page(() => import("@/features/take-test/pages/TakeTestPage")),
+    },
+  ],
 };
 
 export const router = createBrowserRouter([

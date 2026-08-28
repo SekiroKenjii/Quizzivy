@@ -9,7 +9,8 @@ import { authStore } from "@/stores/auth";
  * The interesting part is refresh. See `refreshSession` below.
  */
 
-const BASE_URL: string = import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:8080";
+const BASE_URL: string =
+  import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:8080";
 
 // ---------------------------------------------------------------- typing
 
@@ -40,7 +41,9 @@ type JsonOf<T> = T extends { content: { "application/json": infer R } } ? R : ne
 type ResponsesOf<O> = O extends { responses: infer R } ? R : never;
 type OkStatusOf<O> = Extract<keyof ResponsesOf<O>, 200 | 201>;
 /** 204 responses have no JSON body, so they resolve to `void`. */
-type SuccessOf<O> = [OkStatusOf<O>] extends [never] ? void : JsonOf<ResponsesOf<O>[OkStatusOf<O>]>;
+type SuccessOf<O> = [OkStatusOf<O>] extends [never]
+  ? void
+  : JsonOf<ResponsesOf<O>[OkStatusOf<O>]>;
 
 type BodyOf<O> = O extends { requestBody?: infer B }
   ? [B] extends [never]

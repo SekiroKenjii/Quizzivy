@@ -16,7 +16,13 @@ import { describe, expect, it } from "vitest";
  */
 
 const SRC = resolve(import.meta.dirname, "../../../src");
-const USER_FACING_ATTRS = ["aria-label", "aria-description", "placeholder", "title", "alt"];
+const USER_FACING_ATTRS = [
+  "aria-label",
+  "aria-description",
+  "placeholder",
+  "title",
+  "alt",
+];
 
 function tsxFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {

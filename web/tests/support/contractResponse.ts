@@ -51,7 +51,9 @@ function validatorFor(path: string, method: string, status: number): ValidateFun
 /** True when the contract actually defines a JSON body for this response. */
 function hasJsonBody(path: string, method: string, status: number): boolean {
   const op = spec?.paths?.[path]?.[method] as Json;
-  return Boolean(op?.responses?.[String(status)]?.content?.["application/json"]?.schema);
+  return Boolean(
+    op?.responses?.[String(status)]?.content?.["application/json"]?.schema,
+  );
 }
 
 /**

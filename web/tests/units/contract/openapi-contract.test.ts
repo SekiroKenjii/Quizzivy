@@ -24,7 +24,12 @@ const doc = loadSpec();
 const ops = operations(doc);
 
 /** §13.5. `transcript` is the one exception, on the result endpoint only. */
-const FORBIDDEN = ["isCorrect", "sampleAnswer", "acceptedAnswers", "transcript"] as const;
+const FORBIDDEN = [
+  "isCorrect",
+  "sampleAnswer",
+  "acceptedAnswers",
+  "transcript",
+] as const;
 const TRANSCRIPT_ALLOWED_AT = new Set(["/app/attempts/{id}/result"]);
 
 describe("references", () => {
@@ -58,14 +63,20 @@ describe("§13.5: the student-payload boundary", () => {
 
   it("keeps StudentQuestion clean in isolation", () => {
     const names = propertyNames(doc, doc.components.schemas.StudentQuestion);
-    for (const bad of FORBIDDEN) expect(names.has(bad), `StudentQuestion has ${bad}`).toBe(false);
+    for (const bad of FORBIDDEN)
+      expect(names.has(bad), `StudentQuestion has ${bad}`).toBe(false);
   });
 
   it("still gives AdminQuestion the grading key", () => {
     // The inverse failure: if this regressed, grading would break silently
     // rather than failing to compile.
     const names = propertyNames(doc, doc.components.schemas.AdminQuestion);
-    for (const needed of ["isCorrect", "sampleAnswer", "acceptedAnswers", "transcript"]) {
+    for (const needed of [
+      "isCorrect",
+      "sampleAnswer",
+      "acceptedAnswers",
+      "transcript",
+    ]) {
       expect(names.has(needed), `AdminQuestion is missing ${needed}`).toBe(true);
     }
   });
@@ -103,7 +114,8 @@ describe("conventions", () => {
     for (const { path, method, op } of ops) {
       const id = op.operationId;
       expect(id, `${method.toUpperCase()} ${path} has no operationId`).toBeTruthy();
-      if (seen.has(id)) dupes.push(`${id}: ${seen.get(id)} and ${method.toUpperCase()} ${path}`);
+      if (seen.has(id))
+        dupes.push(`${id}: ${seen.get(id)} and ${method.toUpperCase()} ${path}`);
       seen.set(id, `${method.toUpperCase()} ${path}`);
     }
     expect(dupes).toEqual([]);
@@ -141,7 +153,10 @@ describe("the checkers themselves", () => {
           Mid: { type: "array", items: { $ref: "#/components/schemas/Leaf" } },
           Root: {
             allOf: [
-              { type: "object", properties: { nested: { $ref: "#/components/schemas/Mid" } } },
+              {
+                type: "object",
+                properties: { nested: { $ref: "#/components/schemas/Mid" } },
+              },
             ],
           },
         },
@@ -157,7 +172,10 @@ describe("the checkers themselves", () => {
         schemas: {
           Node: {
             type: "object",
-            properties: { child: { $ref: "#/components/schemas/Node" }, id: { type: "string" } },
+            properties: {
+              child: { $ref: "#/components/schemas/Node" },
+              id: { type: "string" },
+            },
           },
         },
       },

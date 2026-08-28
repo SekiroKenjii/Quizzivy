@@ -488,9 +488,14 @@ service in T-0.6, which speaks the same S3 API.
 **Touches:** `.github/workflows/ci.yml`
 **Size:** M
 **Done when:**
-- [ ] Jobs: web lint, web typecheck, web unit, web build, Go vet, Go test,
-      migration up/down/up against a `postgres:18` service container, and the
-      T-0.8 codegen drift check
+- [ ] Four parallel jobs: **contract** (spectral, invariants, codegen drift),
+      **web** (lint, typecheck, format, unit, integration, build), **e2e**
+      (Playwright against a production build), **server** (vet, gofmt, tests,
+      migration up/down/up against a `postgres:18` service container)
+- [ ] The `postgres:18` service is version-pinned, and `pg18_test.go` asserts the
+      major version — every construct §13 relies on is absent before 18
+- [ ] Roles are provisioned by `scripts/provision-db.sh`, the same script
+      `docker/initdb` calls locally, so the two cannot drift
 - [ ] CI fails on lint errors (§2)
 - [ ] The workflow runs on PRs into `develop` and `main`, matching the T-0.5
       branch protections

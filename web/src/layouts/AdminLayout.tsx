@@ -64,7 +64,9 @@ export default function AdminLayout() {
           >
             <PanelLeft className="size-5" aria-hidden="true" />
           </button>
-          <span className="text-base font-semibold tracking-tight">{t("app.name")}</span>
+          <span className="text-base font-semibold tracking-tight">
+            {t("app.name")}
+          </span>
         </div>
       </header>
 

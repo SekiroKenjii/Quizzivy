@@ -43,6 +43,10 @@ export const handlers = [
   ),
 
   http.get(`${BASE}/app/assignments`, () =>
-    contractJson("/app/assignments", "get", 200, { dueNow: [], upcoming: [], completed: [] }),
+    contractJson("/app/assignments", "get", 200, {
+      dueNow: [],
+      upcoming: [],
+      completed: [],
+    }),
   ),
 ];

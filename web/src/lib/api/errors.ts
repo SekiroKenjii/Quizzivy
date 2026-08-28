@@ -70,7 +70,9 @@ export async function toApiError(response: Response): Promise<ApiError> {
       message: e.message,
       requestId: e.requestId,
       details: e.details as Record<string, unknown> | undefined,
-      retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined,
+      retryAfterSeconds: Number.isFinite(retryAfterSeconds)
+        ? retryAfterSeconds
+        : undefined,
     });
   }
 
@@ -78,6 +80,8 @@ export async function toApiError(response: Response): Promise<ApiError> {
     status: response.status,
     code: "UNKNOWN",
     message: `HTTP ${response.status}`,
-    retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined,
+    retryAfterSeconds: Number.isFinite(retryAfterSeconds)
+      ? retryAfterSeconds
+      : undefined,
   });
 }

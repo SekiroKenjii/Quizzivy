@@ -40,10 +40,7 @@ export default [
     rules: {
       ...reactHooks.configs["recommended-latest"].rules,
       ...jsxA11y.flatConfigs.recommended.rules,
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
 
       // §14: "no `any` without a comment". An explicit `any` should have to be
       // argued for in the diff, so this is an error, not a warning.
