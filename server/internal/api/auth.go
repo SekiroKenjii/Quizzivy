@@ -3,8 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -73,23 +71,78 @@ func invalidCredentials(ctx context.Context) openapi.ErrorResponse {
 	}
 }
 
-// refreshCookie builds the §5.2 cookie: httpOnly, Secure, SameSite=Lax,
-// Path=/auth, and HOST-ONLY -- no Domain attribute, so only the API host ever
-// receives it.
+// RefreshSession implements POST /auth/refresh (§5.2).
 //
-// SameSite=Lax is sufficient because app.quizzivy.com and api.quizzivy.com are
-// the same SITE even though they are different origins. On genuinely cross-site
-// hosts this cookie would never be sent and sessions would die silently
-// (docs/plan/30-risks.md R-07).
-func refreshCookie(token string, ttl time.Duration, secure bool) *http.Cookie {
-	return &http.Cookie{
-		Name:     "quizzivy_refresh",
-		Value:    token,
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(ttl.Seconds()),
+// The rotated cookie is the whole point of the response: the predecessor is
+// revoked server-side before this returns, so a client that does not receive
+// the replacement is already logged out and does not know it yet.
+func (s *Server) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRequestObject) (openapi.RefreshSessionResponseObject, error) {
+	if s.Deps.Auth == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	meta := httpx.RequestMetaFromContext(ctx)
+	res, err := s.Deps.Auth.Refresh(ctx, auth.RefreshInput{
+		Token:     refreshTokenFromContext(ctx),
+		UserAgent: meta.UserAgent,
+		IP:        meta.IP,
+	})
+	switch {
+	case errors.Is(err, auth.ErrRefreshReused):
+		return openapi.RefreshSession401JSONResponse(authError(ctx, openapi.REFRESHTOKENREUSED,
+			"Phiên đăng nhập này đã được sử dụng ở nơi khác. Vì lý do an toàn, vui lòng đăng nhập lại.")), nil
+	case errors.Is(err, auth.ErrRefreshRejected):
+		return openapi.RefreshSession401JSONResponse(authError(ctx, openapi.REFRESHTOKENINVALID,
+			"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")), nil
+	case err != nil:
+		return nil, err
+	}
+
+	var body openapi.RefreshSession200JSONResponse
+	body.Body.AccessToken = res.AccessToken
+	body.Body.ExpiresIn = res.ExpiresIn
+	body.Headers.SetCookie = ptr(refreshCookie(res.RefreshToken, s.Deps.RefreshTTL, s.Deps.CookieSecure).String())
+	return body, nil
+}
+
+// Logout implements POST /auth/logout (§5.4).
+//
+// Authenticated by the refresh cookie rather than the access token: a user
+// whose access token has already expired must still be able to end their
+// session, and that is precisely when they are most likely to try.
+func (s *Server) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (openapi.LogoutResponseObject, error) {
+	if s.Deps.Auth == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	token := refreshTokenFromContext(ctx)
+	if token == "" {
+		return openapi.Logout401JSONResponse(authError(ctx, openapi.REFRESHTOKENINVALID,
+			"Không có phiên đăng nhập.")), nil
+	}
+	if err := s.Deps.Auth.Logout(ctx, token); err != nil {
+		return nil, err
+	}
+
+	return openapi.Logout204Response{
+		Headers: openapi.Logout204ResponseHeaders{
+			SetCookie: ptr(clearRefreshCookie(s.Deps.CookieSecure).String()),
+		},
+	}, nil
+}
+
+func authError(ctx context.Context, code openapi.ErrorCode, message string) openapi.ErrorResponse {
+	return openapi.ErrorResponse{
+		Error: struct {
+			Code      openapi.ErrorCode       `json:"code"`
+			Details   *map[string]interface{} `json:"details,omitempty"`
+			Message   string                  `json:"message"`
+			RequestId openapi.Uuid            `json:"requestId"`
+		}{
+			Code:      code,
+			Message:   message,
+			RequestId: parseUUID(httpx.RequestIDFromContext(ctx)),
+		},
 	}
 }
 

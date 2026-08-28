@@ -110,11 +110,13 @@ func (s *Service) issueSession(ctx context.Context, user User, userAgent, ip str
 		return Session{}, err
 	}
 
+	now := s.now()
 	rec := RefreshTokenRecord{
 		UserID:    user.ID,
 		FamilyID:  uuid.NewString(),
 		TokenHash: hash,
-		ExpiresAt: s.now().Add(s.refreshTTL),
+		IssuedAt:  now,
+		ExpiresAt: now.Add(s.refreshTTL),
 	}
 	if userAgent != "" {
 		rec.UserAgent = &userAgent

@@ -73,6 +73,8 @@ func run(logger *slog.Logger) error {
 		IdleTimeout:  90 * time.Second,
 	}
 
+	go prunePeriodically(ctx, logger, authService)
+
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("listening", "port", cfg.Port, "env", cfg.Env, "origins", cfg.AllowedOrigins)
@@ -89,5 +91,45 @@ func run(logger *slog.Logger) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
+	}
+}
+
+// prunePeriodically deletes refresh-token families whose every token has
+// expired (§5.2's cleanup path).
+//
+// A single machine runs this, so there is no coordination to do; if a second
+// ever runs, the DELETE is idempotent and the loser removes nothing. It runs
+// once at startup so a long-lived deployment is not the only thing that ever
+// prunes, then daily -- a 30-day token means nothing here is urgent.
+func prunePeriodically(ctx context.Context, logger *slog.Logger, svc *auth.Service) {
+	const every = 24 * time.Hour
+
+	prune := func() {
+		// Its own timeout: a slow prune must not hold anything up, and must not
+		// inherit a request deadline it does not have.
+		runCtx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		n, err := svc.PruneExpiredTokens(runCtx)
+		if err != nil {
+			// Not fatal. Stale rows are inert -- they cannot authenticate
+			// anything -- so failing to remove them is untidy, not unsafe.
+			logger.Warn("refresh token prune failed", "err", err)
+			return
+		}
+		if n > 0 {
+			logger.Info("pruned expired refresh tokens", "rows", n)
+		}
+	}
+
+	prune()
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			prune()
+		}
 	}
 }

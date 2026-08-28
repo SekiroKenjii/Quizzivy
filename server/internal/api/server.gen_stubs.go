@@ -275,15 +275,7 @@ func (s *Server) LinkGoogle(_ context.Context, _ openapi.LinkGoogleRequestObject
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) Logout(_ context.Context, _ openapi.LogoutRequestObject) (openapi.LogoutResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) GetCurrentUser(_ context.Context, _ openapi.GetCurrentUserRequestObject) (openapi.GetCurrentUserResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RefreshSession(_ context.Context, _ openapi.RefreshSessionRequestObject) (openapi.RefreshSessionResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 
