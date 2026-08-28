@@ -48,12 +48,21 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
 
 - `uuidv7()` is built-in, no extension. Signature `uuidv7([shift interval])`.
 - **Virtual generated columns are the PG18 default** and `final_score` uses one.
-  They **cannot be indexed**, cannot carry `UNIQUE` / `NOT NULL` / foreign keys /
-  extended statistics, and are excluded from logical replication. Do not write
+  Verified against 18.6: they **cannot be indexed** ("indexes on virtual
+  generated columns are not supported"), cannot carry `UNIQUE` or `PRIMARY KEY`,
+  and cannot have extended statistics. They **can** take `NOT NULL` and **can**
+  be referenced by a `CHECK`, and `sum()` over one works normally. Do not write
   `ORDER BY final_score` on a cross-attempt query.
 - `OLD`/`NEW` in `RETURNING` work in all four DML statements, but capturing an
   audit diff in one statement requires a **data-modifying CTE** feeding the
   `INSERT`. A bare `UPDATE … RETURNING` then `INSERT` is a read-then-write race.
+- **`unaccent()` is STABLE in PG18 — both the 1-arg and the 2-arg form.** It
+  cannot go directly in an index expression. Use `app.immutable_unaccent()`,
+  which pins the dictionary and asserts immutability. Changing the unaccent
+  dictionary requires reindexing anything built on it.
+- **`pg_trgm` is case-insensitive but not accent-insensitive.** `'nghé' ILIKE
+  '%nghe%'` is false. Vietnamese search must go through
+  `app.immutable_unaccent(lower(...))` on both the index and the query.
 - `NOT NULL … NOT VALID` exists **only** as
   `ALTER TABLE … ADD CONSTRAINT c NOT NULL col NOT VALID`. It is not in the
   `CREATE TABLE` grammar and not available via `SET NOT NULL`. On a greenfield

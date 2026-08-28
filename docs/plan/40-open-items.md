@@ -138,13 +138,22 @@ after Phase 4 touches three layers.
 ---
 
 ### O-10 — Diacritic-insensitive search scope · Phase 5
-**Default:** the trigram index from D-11 handles *matching* — `nghe` finds
-`nghé`. Ranking Vietnamese results well is deferred to P1.
+**Default:** accent-insensitive **matching** ships in Phase 2. Accent-aware
+**ranking** is deferred to P1.
 
-Good ranking would want `unaccent` wrapped in an `IMMUTABLE` function plus a
-stored `tsvector` generated column. That is real work for a question bank of a
-few hundred rows where every result fits on one screen. Revisit when the bank is
-large enough that ordering matters.
+This item originally said `pg_trgm` handled matching on its own. It does not —
+verified on 18.6, `'nghé' ILIKE '%nghe%'` is false. D-11 now folds accents
+explicitly via `app.immutable_unaccent`, which costs one extension, one wrapper
+function and one index, so matching is in v1 rather than deferred.
+
+What stays deferred is ranking: ordering results by relevance would want a
+stored `tsvector` generated column over the unaccented text. That is real work
+for a bank of a few hundred questions where every result fits on one screen.
+Revisit when the bank is large enough that ordering matters.
+
+One operational note that comes with the wrapper: it is marked `IMMUTABLE` as an
+assertion, not a fact. If the `unaccent` dictionary is ever changed, every index
+built on it must be `REINDEX`ed.
 
 ---
 

@@ -294,8 +294,12 @@ service in T-0.6, which speaks the same S3 API.
 **Migrations:** `00001_create_schema_and_extensions.sql`,
 `00002_create_enums.sql`, `00003_create_updated_at_trigger.sql`
 **Done when:**
-- [ ] Schema `app`, `pg_trgm`, and the documented `REVOKE` from
+- [ ] Schema `app`; extensions `pg_trgm` and `unaccent`; the
+      `app.immutable_unaccent()` wrapper; and the documented `REVOKE` from
       `20-data-model.md` §2
+- [ ] Test: `db/unaccent_test.go` — `app.immutable_unaccent(lower('Đường'))` is
+      `duong` and `lower('tiếng Việt')` folds to `tieng viet`, covering the `Đ`
+      stroke that plain Unicode decomposition misses
 - [ ] All seven enum types including `app.integrity_action`
 - [ ] `app.set_updated_at()` trigger function
 - [ ] Every file has a correct `-- +goose Down`
@@ -313,10 +317,14 @@ service in T-0.6, which speaks the same S3 API.
 **Done when:**
 - [ ] Test asserts `uuidv7()` exists, needs no extension, and that
       `uuid_extract_timestamp` on two sequential values is monotonic
-- [ ] Test asserts a `GENERATED ALWAYS AS (…) VIRTUAL` column reflects an update
-      to its base columns on the next read, and that `CREATE INDEX` on that
-      column **fails** — pinning the limitation recorded in
-      `20-data-model.md` §10 so a future session does not discover it in Phase 4
+- [ ] Test asserts `VIRTUAL` is the kind chosen when neither keyword is given
+      (`pg_attribute.attgenerated = 'v'`), and that the column reflects an update
+      to its base columns on the next read
+- [ ] Test pins the **exact** rejection set from `20-data-model.md` §10, matching
+      on the error message: `CREATE INDEX`, `UNIQUE` and `PRIMARY KEY` on a
+      virtual column all fail, `CREATE STATISTICS` fails, while `SET NOT NULL`,
+      a referencing `CHECK`, and `sum()` all succeed. The first draft of this
+      plan had two of these backwards; the test is what stops that recurring
 - [ ] Test asserts `old.`/`new.` in `RETURNING` work **inside a data-modifying
       CTE** whose output feeds an `INSERT` (`00-overview.md` §4.4), not just in a
       bare statement
@@ -326,6 +334,10 @@ service in T-0.6, which speaks the same S3 API.
 - [ ] Test asserts the same `NOT VALID` clause is **rejected** in `CREATE TABLE`,
       documenting why the migrations in `20-data-model.md` §13 declare `NOT NULL`
       inline instead
+- [ ] Test asserts `unaccent()` is `STABLE` in **both** its 1-arg and 2-arg
+      forms — the folklore that the 2-arg form is `IMMUTABLE` is false on 18.6 —
+      and that a bare `unaccent(col)` in an index expression is rejected while
+      `app.immutable_unaccent(col)` is accepted
 - [ ] Each assertion carries a comment citing its PostgreSQL 18 docs section
       (§13.1)
 
