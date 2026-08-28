@@ -21,7 +21,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "paths": { "@/*": ["./src/*"] },
+    "paths": { "@/*": ["./src/*"], "@tests/*": ["./tests/*"] },
 
     /* strict — spec §2 says TypeScript (strict), and §14 forbids `any`
        without a comment. These are the settings that make that real. */
@@ -35,5 +35,5 @@
     "noImplicitOverride": true,
     "erasableSyntaxOnly": true
   },
-  "include": ["src"]
+  "include": ["src", "tests"]
 }

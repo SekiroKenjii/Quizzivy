@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
  * "saturated AND in the blue band", not "in the blue band".
  */
 
-const CSS = readFileSync(resolve(import.meta.dirname, "../index.css"), "utf8");
+const CSS = readFileSync(resolve(import.meta.dirname, "../../../src/index.css"), "utf8");
 
 type Token = { name: string; l: number; c: number; h: number; raw: string };
 

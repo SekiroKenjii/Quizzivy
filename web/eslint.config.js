@@ -87,7 +87,7 @@ export default [
     rules: { "react-refresh/only-export-components": "off" },
   },
   {
-    files: ["**/*.config.{js,ts}", "src/test/**"],
+    files: ["**/*.config.{js,ts}", "tests/**"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 ];

@@ -41,7 +41,7 @@ T-5.1 is the one feature task, deferred out of Phase 3.
 
 ### T-5.2 — Verify rate limits and re-run the leak review
 **Depends on:** T-1.7, T-1.8
-**Touches:** `server/internal/ratelimit/`, `web/e2e/`
+**Touches:** `server/internal/ratelimit/`, `web/tests/e2e/`
 **Size:** M
 **Done when:**
 - [ ] An automated suite drives every `public`-tagged operation past its limit

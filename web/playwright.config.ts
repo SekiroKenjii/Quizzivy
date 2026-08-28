@@ -12,7 +12,7 @@ import { defineConfig, devices } from "@playwright/test";
  * is written there is nothing to set up.
  */
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 2 : 0,

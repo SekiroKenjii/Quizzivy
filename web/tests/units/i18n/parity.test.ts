@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import vi from "./locales/vi.json";
-import en from "./locales/en.json";
-import { formatDateTime, formatDuration, APP_TIME_ZONE } from "./datetime";
+import vi from "@/lib/i18n/locales/vi.json";
+import en from "@/lib/i18n/locales/en.json";
+import { formatDateTime, formatDuration, APP_TIME_ZONE } from "@/lib/i18n/datetime";
 
 /** Flatten to dotted key paths so a nested drift is caught, not just a top-level one. */
 function keyPaths(obj: unknown, prefix = ""): string[] {

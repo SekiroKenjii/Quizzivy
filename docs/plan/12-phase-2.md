@@ -356,7 +356,7 @@ next depends on it.
 
 ### T-2.16 — Close the phase with E2E 1a
 **Depends on:** T-2.15, T-2.14
-**Touches:** `web/e2e/`
+**Touches:** `web/tests/e2e/`
 **Size:** M
 **Done when:**
 - [ ] **E2E 1a** passes: admin logs in → creates a test with one of each

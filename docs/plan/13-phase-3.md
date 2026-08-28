@@ -398,7 +398,7 @@ phase that carries the most.
 
 ### T-3.16 — Close the phase with E2E 5–8
 **Depends on:** T-3.15, T-3.12, T-3.9
-**Touches:** `web/e2e/`
+**Touches:** `web/tests/e2e/`
 **Size:** M
 **Done when:**
 - [ ] **E2E 5** — timer expiry auto-submits

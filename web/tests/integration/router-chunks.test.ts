@@ -24,6 +24,8 @@ type BuildOutput = { output: ({ type: "asset" } | OutputChunk)[] };
  * student. This is the only thing that would notice.
  */
 
+// tests/integration -> tests -> web. Same depth as the old location,
+// so the Vite root is still the web package.
 const ROOT = resolve(import.meta.dirname, "../..");
 
 let output: BuildOutput["output"];
