@@ -58,6 +58,18 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 		"student-"+n+"@example.com").Scan(&studentID); err != nil {
 		t.Fatalf("insert student: %v", err)
 	}
+	// Registered before the remaining inserts, not after. Cleanup at the END of
+	// a fixture only runs if the fixture finishes: an earlier version of this
+	// helper failed on the class insert and left nine orphan teachers in the
+	// development database, which the single-teacher lookup then picked up.
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.audit_log WHERE actor_user_id IN ($1, $2)`, teacherID, studentID)
+		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1`, classID)
+		_, _ = pool.Exec(c, `DELETE FROM app.class_join_codes WHERE class_id = $1`, classID)
+		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1`, classID)
+		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1, $2)`, teacherID, studentID)
+	})
 	// app.classes has no created_by: there is one teacher (§1), so recording
 	// which one made a class would be a column with one value in it forever.
 	if err := pool.QueryRow(ctx,
@@ -71,14 +83,6 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 		t.Fatalf("enrol student: %v", err)
 	}
 
-	t.Cleanup(func() {
-		c := context.Background()
-		_, _ = pool.Exec(c, `DELETE FROM app.audit_log WHERE actor_user_id IN ($1, $2)`, teacherID, studentID)
-		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1`, classID)
-		_, _ = pool.Exec(c, `DELETE FROM app.class_join_codes WHERE class_id = $1`, classID)
-		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1`, classID)
-		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1, $2)`, teacherID, studentID)
-	})
 	return classID, teacherID, studentID
 }
 

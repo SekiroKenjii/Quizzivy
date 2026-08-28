@@ -291,8 +291,21 @@ the seam to asserting an enrolment.**
       than the three permitted ones, asserted structurally
 - [ ] Test: `join/preview_test.go` — the four failure modes produce four codes
       and none echoes the class name
-- [ ] Test: `join/ratelimit_test.go` — the 11th request in a minute from one IP
-      is 429; the 31st for one code is 429 even across different IPs
+- [ ] Test: the 11th request in a minute from one IP is 429; the 31st for one
+      code is 429 even across different IPs. Lives in
+      `api/join_preview_test.go`, not `join/ratelimit_test.go` — the limiter is
+      router middleware, and testing it needs the router
+- [ ] **The per-code bucket keys on the NORMALIZED code.** §6.1 accepts a code
+      with or without the dash and in any case, so `K7M3-P9QR` and `k7m3p9qr`
+      are one code — and keyed on the raw body value they are two buckets, which
+      hands an attacker a fresh allowance for every spelling of the same secret.
+      Same fix applies to the `joinCode` bucket on `POST /auth/google` added in
+      T-1.5. A test walks five spellings and requires the 31st to be 429
+- [ ] Note: because revoke ALSO closes self-join, and self-join is checked
+      first, a revoked code reports `JOIN_CODE_INVALID`. The path that surfaces
+      `JOIN_CODE_REVOKED` is a **rotation**, which re-opens the class — which is
+      the case that matters: a student holding last month's code is told to ask
+      for the new one instead of being told they mistyped it
 - [ ] **Public endpoint: rate-limited and leak-reviewed (§6.5, §14)**
 
 ---
