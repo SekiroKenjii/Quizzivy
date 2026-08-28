@@ -79,7 +79,7 @@ wrong.
 | Name | Type | Target | Who creates it |
 |---|---|---|---|
 | `app` | CNAME | `<project>.pages.dev` | **Cloudflare, automatically** |
-| `api` | CNAME | `quizzivy-api.fly.dev` | you, by hand |
+| `api` | A + AAAA | the IPs `fly certs add` prints | you, by hand |
 
 ### `app` — Cloudflare Pages
 
@@ -103,28 +103,32 @@ Two ways to create the project:
   --project-name quizzivy-web` from `web/`. No GitHub needed, good for a first
   smoke test.
 
-### `api` — Fly.io, and the certificate bootstrap
+### `api` — Fly.io, and the certificate
 
-There is one ordering trap here. Fly needs to issue a certificate for
-`api.quizzivy.com`, and if the record is already proxied, Cloudflare answers the
-ACME challenge instead of Fly, so issuance hangs.
+Done on 2026-08-28. `fly certs add api.quizzivy.com` created the certificate and
+printed the records it wants — **A and AAAA to the app's dedicated IPs**, not a
+CNAME to `quizzivy-api.fly.dev`. Use whatever `fly certs add` prints rather than
+the values here; they are per-app.
 
-Do it in this order:
+```
+A     api  ->  66.241.124.115
+AAAA  api  ->  2a09:8280:1::17d:c39f:0
+```
 
-1. `fly launch --no-deploy` (or `fly apps create quizzivy-api`), then
-   `fly deploy`. `fly.toml` is already in the repo and pins `primary_region = "sin"`.
-2. Add the CNAME in Cloudflare as **DNS only** (grey cloud):
-   `api` → `quizzivy-api.fly.dev`
-3. `fly certs add api.quizzivy.com`. Fly prints the exact records it wants —
-   follow them; a `_acme-challenge` CNAME may be requested, which is fine to add
-   as DNS-only.
-4. Wait for `fly certs show api.quizzivy.com` to report the certificate issued.
-5. **Then** switch the `api` record to **proxied** (orange cloud), and set
-   Cloudflare SSL/TLS mode to **Full (strict)** — Fly now has a real certificate,
-   so strict verification passes.
+Order matters. Add them **DNS only** (grey cloud) first: with the record already
+proxied, Cloudflare answers the ACME challenge instead of Fly and issuance
+hangs. Then:
 
-If you skip step 5 and leave `api` on DNS-only, that is a defensible choice
-(fewer moving parts, one less hop). It changes one setting — see below.
+```bash
+fly certs check api.quizzivy.com     # wait for "Certificate issued"
+```
+
+Only once it is issued, switch the records to **proxied** (orange) and set the
+zone's SSL/TLS mode to **Full (strict)** — Fly now presents a real certificate,
+so strict verification passes.
+
+Leaving them grey is a defensible alternative: one less hop, and Fly terminates
+TLS itself. It changes one setting, below.
 
 ### The setting that depends on the proxy decision
 
@@ -187,6 +191,37 @@ before a new version takes traffic, and rolls back the deploy if it fails.
 server-authoritative timer and a 1.5-second autosave loop, so a cold start when
 a class all begins a test at once is both slow and visible. At one
 shared-cpu-1x machine, never sleeping is a couple of dollars a month.
+
+## What is deployed (2026-08-28)
+
+| | |
+|---|---|
+| API | `https://quizzivy-api.fly.dev` — 2 machines in `sin`, healthy |
+| SPA | `https://quizzivy-web.pages.dev` |
+| Database | Neon, `ap-southeast-1`, PostgreSQL **18.6**, migrations at version 3 |
+
+Verified end to end: `/healthz` returns `database:ok`; an unbuilt operation
+returns the Vietnamese error envelope with a `requestId` matching the
+`X-Request-Id` header; CORS allows `https://app.quizzivy.com` and refuses
+others; deep links like `/join/K7M3-P9QR` serve the SPA shell rather than a
+CDN 404.
+
+Two manual steps remain, both needing dashboard access this project's tokens do
+not have (`zone:read` only, and Pages custom domains have no wrangler command):
+
+1. **`api`** — add the A and AAAA records above as **DNS only**, wait for
+   `fly certs check api.quizzivy.com` to report issued, then switch to proxied.
+2. **`app`** — Pages project `quizzivy-web` → Custom domains → add
+   `app.quizzivy.com`. Cloudflare creates the record itself.
+
+### A note on machine count
+
+Fly created **two** machines on first deploy, for zero-downtime rolling
+deploys. `fly.toml` only asks for a minimum of one. Two costs roughly twice as
+much and, at ~50 students, one would serve the load comfortably —
+`fly scale count 1 -a quizzivy-api` if the redundancy is not worth it. The
+argument for keeping two is that this is a test-taking app: a machine dying
+mid-exam with no second one is a bad afternoon.
 
 ## Verify after the first deploy
 
