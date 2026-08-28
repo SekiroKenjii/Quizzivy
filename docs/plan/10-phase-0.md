@@ -223,10 +223,25 @@ service in T-0.6, which speaks the same S3 API.
 - [ ] shadcn/ui initialized on the neutral/zinc base; Button, Input, Dialog,
       Table, Card installed as a starting set
 - [ ] ESLint (typescript-eslint, react-hooks, jsx-a11y) + Prettier; CI fails on
-      lint errors (§2)
+      lint errors (§2). **The Vite template now ships `oxlint` instead — it is
+      removed.** §2 names ESLint and specifically `jsx-a11y`, and accessibility
+      linting is load-bearing here (§14 keyboard-operable, §16 Lighthouse ≥ 95).
+      Revisiting oxlint later is a §2 change needing approval, not a default
+      to drift into
+- [ ] Plugins are registered explicitly rather than composed through `extends` —
+      the plugins disagree on how they export flat configs, and composing their
+      presets produced an error naming the wrong plugin
 - [ ] `lucide-react` is the only icon package in `package.json` (§2)
-- [ ] Test: `web/src/styles/tokens.test.ts` asserts no `--color-*` token resolves
-      to a blue/indigo/purple hue, guarding §12's primary-button rule
+- [ ] Test: `web/src/styles/tokens.test.ts` guards §12's colour rules. Note the
+      subtlety it has to get right: Tailwind's zinc sits at hue ~286, squarely in
+      the blue band, so a naive hue check would reject the mandated palette. What
+      separates zinc from indigo is **chroma** — 0.006 versus 0.23 — so the rule
+      is "saturated **and** in the blue band"
+- [ ] It also asserts `@theme` maps tokens to `var(--token)` and never to a
+      literal colour, which is what makes §12's "dark mode addable without
+      touching components" actually true
+- [ ] **Mutation-tested**: swapping the primary for indigo, and inlining a
+      literal into `@theme`, must each fail it
 - [ ] TypeScript strict passes, no `any`; lint clean
 
 ---

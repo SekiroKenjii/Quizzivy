@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    // vite/client declares the CSS and asset module shapes; node is needed by
+    // tokens.test.ts, which reads index.css off disk. jest-dom is NOT listed:
+    // its bare types entry pulls in Jest globals, so setup.ts imports the
+    // `/vitest` entry point instead.
+    "types": ["vite/client", "vitest/globals", "node"],
+    // Third-party .d.ts files churn faster than this project can track,
+    // especially against a new TypeScript major. Our own code is still fully
+    // checked.
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": { "@/*": ["./src/*"] },
+
+    /* strict — spec §2 says TypeScript (strict), and §14 forbids `any`
+       without a comment. These are the settings that make that real. */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src"]
+}
