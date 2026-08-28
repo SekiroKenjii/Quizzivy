@@ -3,12 +3,15 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"quizzivy/internal/audit"
 )
 
 var ErrUserNotFound = errors.New("user not found")
@@ -146,4 +149,22 @@ func (s *Store) LinkIdentity(ctx context.Context, userID, provider, providerUser
 		return err
 	}
 	return nil
+}
+
+// UnlinkIdentity removes a provider identity. Reports whether a row went, so
+// the caller can tell "unlinked" from "there was nothing to unlink".
+func (s *Store) UnlinkIdentity(ctx context.Context, userID, provider string) (bool, error) {
+	const q = `DELETE FROM app.user_identities WHERE user_id = $1 AND provider = $2`
+	tag, err := s.pool.Exec(ctx, q, userID, provider)
+	if err != nil {
+		return false, fmt.Errorf("unlink %s identity: %w", provider, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// WriteAudit appends an audit row outside any transaction. Used where the
+// audited change is a single statement that has already committed, so there is
+// no transaction to join.
+func (s *Store) WriteAudit(ctx context.Context, e audit.Entry) error {
+	return audit.Write(ctx, s.pool, e)
 }

@@ -2315,7 +2315,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Linked. */
+            /**
+             * @description Linked, or already linked to this same Google account — re-linking
+             *     is a no-op success rather than a conflict.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2324,8 +2327,36 @@ export interface operations {
                     "application/json": components["schemas"]["User"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            /** @description `IDENTITY_ALREADY_LINKED` — that Google account belongs to another user. */
+            /**
+             * @description The session is invalid, or the exchange failed, or `email_verified`
+             *     was false — the same §5.1 rule sign-in applies, for the same reason:
+             *     an unverified address is not evidence of anything, and binding one
+             *     to an existing account is the takeover path with the account
+             *     already chosen.
+             */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `IDENTITY_ALREADY_LINKED` covers three cases, all of which mean
+             *     "this link cannot be made":
+             *
+             *     - that Google account is already bound to another user;
+             *     - this account already has a *different* Google account linked
+             *       (D-08 allows one, so that "unlink" is unambiguous);
+             *     - the Google address is already some other account's email.
+             *
+             *     The third is refused for where it leads rather than where it starts.
+             *     Linking binds the Google `sub` to this account, and §5.3's first
+             *     branch matches on `sub` before email — so the owner of that address
+             *     signing in with their own Google would land in someone else's
+             *     account. Silent, and very hard to diagnose from the inside.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

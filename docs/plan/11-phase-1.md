@@ -361,6 +361,19 @@ belt and the braces do different jobs, and both are load-bearing.
       a 409 with a specific error code
 - [ ] Test: `auth/link_test.go` — linking a Google identity already bound to
       another user is rejected (D-08's `UNIQUE (provider, provider_user_id)`)
+- [ ] **Linking a Google address that is another account's email is refused.**
+      Not in the original list, and it is about where the link LEADS rather than
+      where it starts: linking binds the `sub` to this account, and §5.3's first
+      branch matches on `sub` before email — so the owner of that address
+      signing in with their own Google would land in someone else's account.
+      Silent, and very hard to diagnose from the inside
+- [ ] Re-linking the SAME Google account is a no-op success, not a conflict.
+      The requested state already holds
+- [ ] `email_verified` is enforced on link exactly as on sign-in, and the
+      reasoning is stronger here: the account is already chosen, so an
+      unverified address is a takeover with the target picked out
+- [ ] Link and unlink are both written to `audit_log` — they add and remove a
+      way into an account
 
 ---
 

@@ -248,11 +248,3 @@ func (s *Server) ListMyClasses(_ context.Context, _ openapi.ListMyClassesRequest
 func (s *Server) GetMediaUrl(_ context.Context, _ openapi.GetMediaUrlRequestObject) (openapi.GetMediaUrlResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
-
-func (s *Server) UnlinkGoogle(_ context.Context, _ openapi.UnlinkGoogleRequestObject) (openapi.UnlinkGoogleResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) LinkGoogle(_ context.Context, _ openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
