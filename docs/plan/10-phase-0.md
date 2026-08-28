@@ -473,6 +473,13 @@ service in T-0.6, which speaks the same S3 API.
       `app.immutable_unaccent(col)` is accepted
 - [ ] Each assertion carries a comment citing its PostgreSQL 18 docs section
       (§13.1)
+- [ ] A guard that the server really is 18.x — every other assertion here is
+      meaningless against 16/17, where `uuidv7()` and virtual generated columns
+      do not exist at all
+- [ ] Two of these exist **because the first draft of the plan was wrong**:
+      `pg_trgm` was assumed to fold accents (it does not), and virtual generated
+      columns were assumed to reject `NOT NULL` and `CHECK` (they accept both).
+      Both mistakes are now un-repeatable
 
 ---
 
