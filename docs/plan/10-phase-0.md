@@ -43,7 +43,15 @@ Branch per task off `develop` as `feature/t-0-NN-<slug>`.
 - [ ] Client ID is recorded in `.env.example` as `VITE_GOOGLE_CLIENT_ID` (public,
       §5.3); the client secret is handed over out-of-band and never committed
 - [ ] The OAuth consent screen lists the `email`, `profile` and `openid` scopes
-      only
+      only — these are Google's *non-sensitive* scopes, so publishing needs no
+      verification review. Anything else triggers one
+- [ ] **Publishing status is "In production", not "Testing".** Testing status
+      only admits users on a hand-maintained test-user list, so every new student
+      would be blocked until someone remembers to add them
+- [ ] `make verify-google` passes — it probes Google's token endpoint with the
+      real credentials and an invalid code, so `invalid_grant` proves the client
+      works without any browser or consent screen
+- [ ] Full instructions: `docs/setup/google-oauth.md`
 
 **Blocks:** all of Phase 1's Google path (T-1.6 onward). No workaround — GIS
 cannot be meaningfully mocked end-to-end without a real client ID.
@@ -58,8 +66,17 @@ cannot be meaningfully mocked end-to-end without a real client ID.
 - [ ] Bucket `quizzivy-media` exists, **private**: no public listing, no public
       read (§11.2)
 - [ ] An API token scoped to that bucket only, with object read/write, exists
+- [ ] The r2.dev **public development URL is disabled** and no custom domain is
+      bound — Cloudflare offers public access in one click, and enabling it would
+      make every listening file world-readable by URL
+- [ ] The API token is **Object Read & Write scoped to `quizzivy-media` only**,
+      not an Admin token
 - [ ] `.env.example` lists `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-      `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` with empty values
+      `R2_SECRET_ACCESS_KEY` and `S3_BUCKET` with empty values; the endpoint is
+      derived, not configured
+- [ ] `make verify-r2` passes all six checks, including that an **unsigned
+      request is refused** — the one that proves §11.2's private bucket
+- [ ] Full instructions: `docs/setup/r2.md`
 
 **Blocks:** Phase 2 deployment only. Local development is unblocked by the MinIO
 service in T-0.6, which speaks the same S3 API.

@@ -12,10 +12,10 @@ MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),mig
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
-        seed gen contract dev dev-web dev-api test test-web test-api lint
+        seed gen contract verify-google verify-r2 dev dev-web dev-api test test-web test-api lint
 
 help: ## Show this help
-	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 doctor: ## Check prerequisites (T-0.2 .. T-0.4 blockers)
@@ -28,8 +28,14 @@ doctor: ## Check prerequisites (T-0.2 .. T-0.4 blockers)
 	@command -v goose   >/dev/null && echo "  goose    $$(goose --version 2>&1 | head -1)" || echo "  goose    MISSING  -> T-0.4"
 	@echo "== credentials =="
 	@test -f .env && echo "  .env     present" || echo "  .env     MISSING  -> cp .env.example .env"
-	@grep -q '^VITE_GOOGLE_CLIENT_ID=.\+' .env 2>/dev/null && echo "  google   set" || echo "  google   NOT SET  -> T-0.2 (blocks Phase 1 Google path)"
-	@grep -q '^R2_ACCESS_KEY_ID=.\+'      .env 2>/dev/null && echo "  r2       set" || echo "  r2       NOT SET  -> T-0.3 (blocks Phase 2 deploy; MinIO covers local)"
+	@grep -q '^VITE_GOOGLE_CLIENT_ID=.\+' .env 2>/dev/null && echo "  google   set      -> verify with: make verify-google" || echo "  google   NOT SET  -> T-0.2  docs/setup/google-oauth.md"
+	@grep -q '^R2_ACCESS_KEY_ID=.\+'      .env 2>/dev/null && echo "  r2       set      -> verify with: make verify-r2" || echo "  r2       NOT SET  -> T-0.3  docs/setup/r2.md (MinIO covers local dev)"
+
+verify-google: ## T-0.2 -- check the Google OAuth client works
+	@./scripts/verify-google.sh
+
+verify-r2: ## T-0.3 -- check the R2 bucket, credentials and privacy
+	@./scripts/verify-r2.sh
 
 up: ## Start postgres:18 + MinIO
 	docker compose up -d --wait db minio
