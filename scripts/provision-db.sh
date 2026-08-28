@@ -47,16 +47,33 @@ BEGIN
   -- Owns the schema and runs goose. Needs CREATE on the database so it can
   -- install the trusted extensions pg_trgm and unaccent.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'quizzivy_migrate') THEN
-    CREATE ROLE quizzivy_migrate LOGIN PASSWORD '${MIGRATE_PASSWORD}';
+    CREATE ROLE quizzivy_migrate LOGIN;
   END IF;
 
   -- What the API connects as. Owns nothing, cannot run DDL.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'quizzivy_app') THEN
-    CREATE ROLE quizzivy_app LOGIN PASSWORD '${APP_PASSWORD}';
+    CREATE ROLE quizzivy_app LOGIN;
   END IF;
 END
 \$\$;
+
+-- Set the password unconditionally rather than only on creation, so a re-run
+-- with different credentials converges instead of silently keeping the old
+-- ones and handing back a DSN that cannot authenticate.
+ALTER ROLE quizzivy_migrate PASSWORD '${MIGRATE_PASSWORD}';
+ALTER ROLE quizzivy_app     PASSWORD '${APP_PASSWORD}';
 SQL
+
+# Membership BEFORE the database is created, not after.
+#
+# CREATE DATABASE ... OWNER <role> requires the creator to be able to SET ROLE
+# to that owner. A superuser always can, so this is invisible locally; on a
+# managed provider the admin is only CREATEROLE, and the ordering bug surfaces
+# as "must be able to SET ROLE quizzivy_migrate" -- after the roles have already
+# been created, leaving a half-provisioned database.
+run_psql postgres -c "GRANT quizzivy_migrate TO CURRENT_USER WITH SET TRUE" 2>/dev/null \
+  || run_psql postgres -c "GRANT quizzivy_migrate TO CURRENT_USER" 2>/dev/null \
+  || true
 
 if ! run_psql postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 1; then
   run_psql postgres -c "CREATE DATABASE ${DB_NAME} OWNER quizzivy_migrate"
@@ -64,9 +81,6 @@ fi
 
 run_psql postgres -c "GRANT CONNECT ON DATABASE ${DB_NAME} TO quizzivy_app"
 
-# The admin role must be able to hand ownership over. On a managed provider the
-# admin is not a superuser, so it needs membership in the target role first.
-run_psql postgres -c "GRANT quizzivy_migrate TO CURRENT_USER" 2>/dev/null || true
 
 # Deny the app role anything in public; everything it needs is in schema app,
 # granted by migration 00022.
