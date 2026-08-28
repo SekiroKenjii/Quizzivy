@@ -76,15 +76,43 @@ else
   warn "could not mint a presigned URL via mc — verify in code during T-2.4"
 fi
 
-# 5. THE IMPORTANT ONE: unsigned access must be refused
+# 5. Unsigned access to the S3 API must not return content.
+#
+#    Test the CONTENT, not the status code. R2 answers an unsigned request with
+#    400 InvalidArgument/Authorization -- it rejects before it even looks at the
+#    object -- where AWS S3 would say 403. Asserting on the code alone would
+#    either false-alarm on R2 or, worse, pass on some future code that did serve
+#    the body. What actually matters is that the bytes do not come back.
+body=$(curl -s "${ENDPOINT}/${BUCKET}/${KEY}")
 code=$(curl -s -o /dev/null -w '%{http_code}' "${ENDPOINT}/${BUCKET}/${KEY}")
-if [ "$code" = "401" ] || [ "$code" = "403" ]; then
-  ok "unsigned request refused (HTTP ${code}) — bucket is private, per §11.2"
-else
-  bad "unsigned request returned HTTP ${code} — THE BUCKET MAY BE PUBLIC"
+if printf '%s' "$body" | grep -q 'quizzivy-verification'; then
+  bad "unsigned request SERVED THE OBJECT (HTTP ${code}) — the bucket is public"
   echo "      §11.2 requires a private bucket: no public listing, no public read."
-  echo "      Check R2 > ${BUCKET} > Settings > Public access, and remove any r2.dev"
-  echo "      subdomain or custom domain binding."
+else
+  ok "unsigned request served no content (HTTP ${code}) — S3 endpoint requires auth"
+fi
+
+# 5b. What check 5 does NOT prove.
+#
+#     R2's S3 API endpoint ALWAYS requires a signature, whether or not the bucket
+#     is published. Public access is exposed on a DIFFERENT hostname -- a
+#     pub-<hash>.r2.dev subdomain, or a custom domain -- so no probe against the
+#     S3 endpoint can detect it. Saying otherwise would be a false all-clear on
+#     exactly the setting §11.2 cares about.
+if [ -n "${R2_PUBLIC_URL:-}" ]; then
+  pcode=$(curl -s -o /dev/null -w '%{http_code}' "${R2_PUBLIC_URL%/}/${KEY}")
+  if [ "$pcode" = "200" ]; then
+    bad "R2_PUBLIC_URL serves objects publicly (HTTP 200) — disable it (§11.2)"
+  else
+    ok "R2_PUBLIC_URL does not serve objects (HTTP ${pcode})"
+  fi
+else
+  warn "cannot verify the r2.dev / custom-domain exposure from here"
+  echo "      Confirm by hand, once: Cloudflare > R2 > ${BUCKET} > Settings"
+  echo "        - Public Development URL (r2.dev): disabled"
+  echo "        - Custom Domains: none"
+  echo "      If a public URL exists deliberately, set R2_PUBLIC_URL in .env and"
+  echo "      this check will test it instead of nagging."
 fi
 
 # 6. clean up

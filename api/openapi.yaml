@@ -31,7 +31,7 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local development
-  - url: https://api.quizzivy.x
+  - url: https://api.quizzivy.com
     description: Production
 
 security:

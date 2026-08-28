@@ -90,20 +90,20 @@ Name it `quizzivy-web`.
 
 ```
 http://localhost:5173
-https://app.quizzivy.x
+https://app.quizzivy.com
 ```
 
 **Authorized redirect URIs** — full URLs:
 
 ```
 http://localhost:5173/auth/google/callback
-https://app.quizzivy.x/auth/google/callback
+https://app.quizzivy.com/auth/google/callback
 ```
 
 Register all four even though only one pair will end up being used. They cost
 nothing, and it means the option A/B decision above does not send you back here.
 
-Replace `app.quizzivy.x` with the real host once O-01 is settled. Both must sit
+Replace `app.quizzivy.com` with the real host once O-01 is settled. Both must sit
 under one registrable domain as the API — that is what makes the `SameSite=Lax`
 refresh cookie work (`docs/plan/00-overview.md` §4.1).
 

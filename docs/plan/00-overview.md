@@ -107,7 +107,7 @@ fixture validation), `oapi-codegen` (Go tool — server generation).
 
 ### 4.1 Deployment topology and the refresh cookie
 
-`app.quizzivy.x` serves the SPA; `api.quizzivy.x` serves the Go API. Both are
+`app.quizzivy.com` serves the SPA; `api.quizzivy.com` serves the Go API. Both are
 subdomains of one registrable domain, which makes every request between them
 **same-site** even though it is cross-*origin*.
 
@@ -118,7 +118,7 @@ backend, say) `/auth/refresh` would silently never authenticate. The topology is
 load-bearing; it is not a deployment detail to revisit casually.
 
 - Refresh cookie: `httpOnly; Secure; SameSite=Lax; Path=/auth`, and **host-only**
-  — no `Domain` attribute, so `app.quizzivy.x` never receives it. The API is at
+  — no `Domain` attribute, so `app.quizzivy.com` never receives it. The API is at
   the root of its host, so `Path=/auth` matches `/auth/refresh` exactly.
 - CORS: exact-origin allowlist (never `*`, which is illegal with credentials),
   `Access-Control-Allow-Credentials: true`, `Vary: Origin`, and preflight
