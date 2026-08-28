@@ -23,7 +23,9 @@ function ClassList() {
   if (isPending) return <p>{t("common.loading")}</p>;
   return (
     <ul aria-label={t("student.myClasses")}>
-      {data?.items.map((c) => <li key={c.id}>{c.name}</li>)}
+      {data?.items.map((c) => (
+        <li key={c.id}>{c.name}</li>
+      ))}
     </ul>
   );
 }

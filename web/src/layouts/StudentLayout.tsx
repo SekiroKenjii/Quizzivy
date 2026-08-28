@@ -16,14 +16,18 @@ export default function StudentLayout() {
   const link = ({ isActive }: { isActive: boolean }) =>
     cn(
       "rounded-md px-3 py-1.5 text-sm transition-colors",
-      isActive ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground",
+      isActive
+        ? "bg-secondary text-secondary-foreground"
+        : "text-muted-foreground hover:text-foreground",
     );
 
   return (
     <div className="flex min-h-svh flex-col">
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-4 px-4">
-          <span className="text-base font-semibold tracking-tight">{t("app.name")}</span>
+          <span className="text-base font-semibold tracking-tight">
+            {t("app.name")}
+          </span>
           <nav aria-label={t("nav.mainNavigation")} className="flex items-center gap-1">
             <NavLink to="/app" end className={link}>
               {t("student.myAssignments")}

@@ -66,7 +66,8 @@ export function propertyNames(
   if (!node || typeof node !== "object" || depth > 40) return names;
 
   if (Array.isArray(node)) {
-    for (const v of node) for (const n of propertyNames(doc, v, seen, depth + 1)) names.add(n);
+    for (const v of node)
+      for (const n of propertyNames(doc, v, seen, depth + 1)) names.add(n);
     return names;
   }
 
@@ -82,7 +83,14 @@ export function propertyNames(
       for (const n of propertyNames(doc, value, seen, depth + 1)) names.add(n);
     }
   }
-  for (const key of ["items", "allOf", "oneOf", "anyOf", "additionalProperties", "not"]) {
+  for (const key of [
+    "items",
+    "allOf",
+    "oneOf",
+    "anyOf",
+    "additionalProperties",
+    "not",
+  ]) {
     if (key in node) {
       for (const n of propertyNames(doc, node[key], seen, depth + 1)) names.add(n);
     }
@@ -115,6 +123,9 @@ export function isPublic(op: Json): boolean {
   return Array.isArray(sec) && sec.some((s: Json) => s && Object.keys(s).length === 0);
 }
 
-export function jsonResponseSchema(op: Json, status: string | number): Json | undefined {
+export function jsonResponseSchema(
+  op: Json,
+  status: string | number,
+): Json | undefined {
   return op?.responses?.[String(status)]?.content?.["application/json"]?.schema;
 }

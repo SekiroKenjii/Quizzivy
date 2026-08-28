@@ -18,7 +18,9 @@ test("serves Vietnamese and declares it on the document", async ({ page }) => {
 
 test("an unknown path renders the 404 page, not a blank screen", async ({ page }) => {
   await page.goto("/duong-dan-khong-ton-tai");
-  await expect(page.getByRole("heading", { name: "Không tìm thấy trang" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Không tìm thấy trang" }),
+  ).toBeVisible();
 });
 
 // §8: "Collapsible sidebar ≤1280px." Both halves of that are asserted, because
@@ -27,11 +29,15 @@ test("an unknown path renders the 404 page, not a blank screen", async ({ page }
 test("admin sidebar is open by default above 1280px", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/admin");
-  await expect(page.getByRole("navigation", { name: "Điều hướng chính" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Điều hướng chính" }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "Đề thi" })).toBeVisible();
 });
 
-test("admin sidebar collapses at 1280px and the toggle reopens it", async ({ page }) => {
+test("admin sidebar collapses at 1280px and the toggle reopens it", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/admin");
 

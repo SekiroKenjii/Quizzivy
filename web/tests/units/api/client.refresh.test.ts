@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setSessionLostHandler, __resetRefreshStateForTests } from "@/lib/api/client";
+import {
+  api,
+  setSessionLostHandler,
+  __resetRefreshStateForTests,
+} from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 
@@ -58,9 +62,16 @@ describe("single-flight refresh (R-06)", () => {
       }
       // Every protected call 401s until the refresh lands.
       return refreshed
-        ? json({ id: "u1", email: "a@b.c", fullName: "A", role: "student",
-                 hasPassword: true, linkedProviders: [], mustChangePassword: false,
-                 createdAt: "2026-01-01T00:00:00Z" })
+        ? json({
+            id: "u1",
+            email: "a@b.c",
+            fullName: "A",
+            role: "student",
+            hasPassword: true,
+            linkedProviders: [],
+            mustChangePassword: false,
+            createdAt: "2026-01-01T00:00:00Z",
+          })
         : envelope("REFRESH_TOKEN_INVALID", 401);
     };
 
@@ -161,9 +172,9 @@ describe("session loss (§5.2)", () => {
 describe("error envelope (00-overview.md §7)", () => {
   it("decodes code, message and requestId", async () => {
     handler = () => envelope("JOIN_CODE_EXPIRED", 404, "Mã lớp đã hết hạn.");
-    const err = await api("post", "/join/preview", { body: { joinCode: "ABCD1234" } }).catch(
-      (e: unknown) => e,
-    );
+    const err = await api("post", "/join/preview", {
+      body: { joinCode: "ABCD1234" },
+    }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     const apiErr = err as ApiError;
     expect(apiErr.code).toBe("JOIN_CODE_EXPIRED");
@@ -182,13 +193,18 @@ describe("error envelope (00-overview.md §7)", () => {
 
   it("exposes Retry-After on a 429", async () => {
     handler = () =>
-      new Response(JSON.stringify({ error: { code: "RATE_LIMITED", message: "slow down", requestId: "r" } }), {
-        status: 429,
-        headers: { "Content-Type": "application/json", "Retry-After": "42" },
-      });
-    const err = (await api("post", "/join/preview", { body: { joinCode: "ABCD1234" } }).catch(
-      (e: unknown) => e,
-    )) as ApiError;
+      new Response(
+        JSON.stringify({
+          error: { code: "RATE_LIMITED", message: "slow down", requestId: "r" },
+        }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json", "Retry-After": "42" },
+        },
+      );
+    const err = (await api("post", "/join/preview", {
+      body: { joinCode: "ABCD1234" },
+    }).catch((e: unknown) => e)) as ApiError;
     expect(err.isRateLimited).toBe(true);
     expect(err.retryAfterSeconds).toBe(42);
   });

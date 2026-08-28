@@ -16,7 +16,10 @@ import { describe, expect, it } from "vitest";
  * "saturated AND in the blue band", not "in the blue band".
  */
 
-const CSS = readFileSync(resolve(import.meta.dirname, "../../../src/index.css"), "utf8");
+const CSS = readFileSync(
+  resolve(import.meta.dirname, "../../../src/index.css"),
+  "utf8",
+);
 
 type Token = { name: string; l: number; c: number; h: number; raw: string };
 
@@ -81,9 +84,10 @@ describe("§12 design tokens", () => {
       const [lo, hi] = bands[name];
       expect(t!.h, `${name} sits outside its meaning band`).toBeGreaterThanOrEqual(lo);
       expect(t!.h, `${name} sits outside its meaning band`).toBeLessThanOrEqual(hi);
-      expect(t!.c, `${name} should be saturated enough to read as a signal`).toBeGreaterThan(
-        CHROMA_IS_A_COLOUR,
-      );
+      expect(
+        t!.c,
+        `${name} should be saturated enough to read as a signal`,
+      ).toBeGreaterThan(CHROMA_IS_A_COLOUR);
     }
   });
 

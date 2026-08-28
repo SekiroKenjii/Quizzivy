@@ -15,7 +15,9 @@ export default function ForbiddenPage() {
     <main className="mx-auto flex min-h-svh max-w-lg flex-col justify-center gap-6 p-6">
       <div className="space-y-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("forbidden.title")}</h1>
-        <p className="text-muted-foreground text-sm leading-relaxed">{t("forbidden.body")}</p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {t("forbidden.body")}
+        </p>
       </div>
       <div>
         <Button asChild>

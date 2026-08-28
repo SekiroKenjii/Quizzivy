@@ -52,8 +52,10 @@ const entry = () => {
 const matches = (ids: readonly string[], re: RegExp) =>
   ids.map((i) => i.replace(/\\/g, "/")).filter((i) => re.test(i));
 
-const ADMIN = /\/(layouts\/AdminLayout|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
-const STUDENT = /\/(layouts\/StudentLayout|features\/assignments\/pages\/StudentHomePage)/;
+const ADMIN =
+  /\/(layouts\/AdminLayout|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
+const STUDENT =
+  /\/(layouts\/StudentLayout|features\/assignments\/pages\/StudentHomePage)/;
 const FOCUS = /\/layouts\/FocusLayout\./;
 
 describe("route-level code splitting (§2)", () => {
@@ -97,7 +99,9 @@ describe("route-level code splitting (§2)", () => {
     for (const c of chunks()) {
       const hasAdmin = matches(c.moduleIds, ADMIN).length > 0;
       const hasStudent = matches(c.moduleIds, STUDENT).length > 0;
-      expect(hasAdmin && hasStudent, `chunk ${c.fileName} contains both trees`).toBe(false);
+      expect(hasAdmin && hasStudent, `chunk ${c.fileName} contains both trees`).toBe(
+        false,
+      );
     }
   });
 });

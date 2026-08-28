@@ -1,0 +1,222 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+# A newer push supersedes an in-flight run on the same ref, except on the
+# protected branches where every commit's result is worth keeping.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  PNPM_VERSION: "11.12.0"
+  GO_VERSION: "1.27"
+
+jobs:
+  # ---------------------------------------------------------------- contract
+  # api/openapi.yaml is the single source of truth (T-0.7/T-0.8). This job is
+  # what stops it drifting from the code generated out of it: it regenerates
+  # both sides and fails if the committed output differs. Without it the
+  # generated files are just files someone remembered to update.
+  contract:
+    name: Contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint the contract and assert its invariants
+        run: make contract
+
+      - name: Regenerate and fail on drift
+        run: make gen-check
+
+  # -------------------------------------------------------------------- web
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      # §2: "CI fails on lint errors."
+      - name: Lint
+        working-directory: web
+        run: pnpm lint
+
+      - name: Typecheck
+        working-directory: web
+        run: pnpm typecheck
+
+      - name: Format check
+        working-directory: web
+        run: pnpm format:check
+
+      - name: Unit tests
+        working-directory: web
+        run: pnpm test:unit
+
+      - name: Integration tests
+        working-directory: web
+        run: pnpm test:integration
+
+      - name: Build
+        working-directory: web
+        run: pnpm build
+
+  # -------------------------------------------------------------------- e2e
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: web
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Playwright's webServer runs `pnpm build && pnpm preview`, so this
+      # exercises a real production build rather than the dev server.
+      - name: Run Playwright
+        working-directory: web
+        run: pnpm e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+  # ----------------------------------------------------------------- server
+  server:
+    name: Server
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Pinned to 18: uuidv7() and virtual generated columns do not exist
+        # before it, and internal/db/pg18_test.go asserts the major version.
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      TEST_DATABASE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - name: Install psql 18
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18
+
+      # The same script docker/initdb calls locally, so the two cannot drift.
+      - name: Provision roles and database
+        run: ./scripts/provision-db.sh
+
+      - name: Vet
+        working-directory: server
+        run: go vet ./...
+
+      - name: Check formatting
+        working-directory: server
+        run: |
+          unformatted=$(gofmt -l . | grep -v '^gen/' || true)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt would change these files:"; echo "$unformatted"; exit 1
+          fi
+
+      # Covers the PG18 construct assertions and the migration up/down/up
+      # reversibility check, both of which need TEST_DATABASE_URL.
+      - name: Test
+        working-directory: server
+        run: go test ./... -count=1
+
+      # Explicitly re-run the round trip against a database that has never seen
+      # these migrations, which is the state that matters for a first deploy.
+      - name: Migrations apply and reverse on a clean database
+        run: |
+          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
+            -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" up
+          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
+            -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" reset
+          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
+            -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" up

@@ -56,7 +56,9 @@ export function ErrorBoundary() {
     <main className="mx-auto flex min-h-svh max-w-lg flex-col justify-center gap-6 p-6">
       <div className="space-y-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("error.title")}</h1>
-        <p className="text-muted-foreground text-sm leading-relaxed">{t("error.body")}</p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {t("error.body")}
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -81,7 +83,9 @@ export function NotFound() {
     <main className="mx-auto flex min-h-svh max-w-lg flex-col justify-center gap-6 p-6">
       <div className="space-y-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("notFound.title")}</h1>
-        <p className="text-muted-foreground text-sm leading-relaxed">{t("notFound.body")}</p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {t("notFound.body")}
+        </p>
       </div>
       <div>
         <Button asChild>

@@ -18,8 +18,14 @@ describe("locale parity", () => {
   it("has the same keys in vi and en", () => {
     // AGENTS.md: "No English-only user-facing text ever reaches a commit."
     // The inverse matters too -- a vi-only key renders as a raw key path in en.
-    expect(enKeys.filter((k) => !viKeys.includes(k)), "keys in en but missing from vi").toEqual([]);
-    expect(viKeys.filter((k) => !enKeys.includes(k)), "keys in vi but missing from en").toEqual([]);
+    expect(
+      enKeys.filter((k) => !viKeys.includes(k)),
+      "keys in en but missing from vi",
+    ).toEqual([]);
+    expect(
+      viKeys.filter((k) => !enKeys.includes(k)),
+      "keys in vi but missing from en",
+    ).toEqual([]);
   });
 
   it("has no empty strings", () => {
@@ -53,6 +59,8 @@ describe("datetime", () => {
     expect(formatDuration(59_000)).toBe("00:59");
     expect(formatDuration(90_000)).toBe("01:30");
     expect(formatDuration(3_600_000)).toBe("1:00:00");
-    expect(formatDuration(-5_000), "a passed deadline shows zero, never negative").toBe("00:00");
+    expect(formatDuration(-5_000), "a passed deadline shows zero, never negative").toBe(
+      "00:00",
+    );
   });
 });
