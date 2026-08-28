@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -120,34 +121,64 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 // accounts exist. A missing user that returns instantly, while a real one
 // spends ~50ms hashing, is a user-enumeration oracle measurable over a handful
 // of requests.
+//
+// The two paths do identical work by construction -- BurnPasswordTime verifies
+// against dummyHash, which init() builds with HashPassword, so the parameters
+// are whatever the current ones are. This asserts that the construction has not
+// been undone.
+//
+// SAMPLES ARE INTERLEAVED, one of each per round. Measuring seven of one and
+// then seven of the other looks equivalent and is not: on a shared CI runner a
+// slow patch -- CPU steal, a GC cycle, a noisy neighbour -- lands on whichever
+// series happens to be running, and shifts an entire batch. That is what turned
+// this red once, at 68ms against 157ms for two operations that differ only in
+// which 64 MiB arena they touch. Interleaving makes both series experience the
+// same conditions, so environmental noise cancels instead of accumulating on
+// one side.
 func TestUnknownUserCostsTheSameAsAWrongPassword(t *testing.T) {
 	hash, err := HashPassword(context.Background(), "correct-horse")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	median := func(fn func()) time.Duration {
-		const runs = 7
-		samples := make([]time.Duration, runs)
-		for i := range samples {
-			start := time.Now()
-			fn()
-			samples[i] = time.Since(start)
-		}
-		for i := 1; i < len(samples); i++ {
-			for j := i; j > 0 && samples[j] < samples[j-1]; j-- {
-				samples[j], samples[j-1] = samples[j-1], samples[j]
-			}
-		}
-		return samples[runs/2]
+	verify := func() { _, _ = VerifyPassword(context.Background(), "wrong", hash) }
+	burn := func() { BurnPasswordTime(context.Background(), "wrong") }
+
+	// One of each, untimed: the first Argon2id call faults in a fresh 64 MiB
+	// arena, and that cost belongs to neither measurement.
+	verify()
+	burn()
+
+	const rounds = 9
+	verifySamples := make([]time.Duration, rounds)
+	burnSamples := make([]time.Duration, rounds)
+	for i := range rounds {
+		verifySamples[i] = timeOne(verify)
+		burnSamples[i] = timeOne(burn)
 	}
 
-	wrongPassword := median(func() { _, _ = VerifyPassword(context.Background(), "wrong", hash) })
-	noSuchUser := median(func() { BurnPasswordTime(context.Background(), "wrong") })
+	wrongPassword := medianOf(verifySamples)
+	noSuchUser := medianOf(burnSamples)
 
 	ratio := float64(noSuchUser) / float64(wrongPassword)
 	if ratio < 0.5 || ratio > 2.0 {
 		t.Errorf("timing differs too much: no-such-user %v vs wrong-password %v (ratio %.2f); "+
-			"login would be a user-enumeration oracle", noSuchUser, wrongPassword, ratio)
+			"login would be a user-enumeration oracle\n  no-such-user samples:  %v\n  wrong-password samples: %v",
+			noSuchUser, wrongPassword, ratio, burnSamples, verifySamples)
 	}
+}
+
+func timeOne(fn func()) time.Duration {
+	start := time.Now()
+	fn()
+	return time.Since(start)
+}
+
+// medianOf sorts a copy, so the caller's samples stay in measurement order for
+// the failure message -- which is where the interesting shape is.
+func medianOf(samples []time.Duration) time.Duration {
+	sorted := make([]time.Duration, len(samples))
+	copy(sorted, samples)
+	slices.Sort(sorted)
+	return sorted[len(sorted)/2]
 }
