@@ -46,5 +46,13 @@
   "student": {
     "myAssignments": "My assignments",
     "myClasses": "My classes"
+  },
+  "changePassword": {
+    "title": "Change your password",
+    "body": "You need to set a new password before continuing.",
+    "current": "Current password",
+    "new": "New password",
+    "hint": "At least 8 characters.",
+    "submit": "Change password"
   }
 }

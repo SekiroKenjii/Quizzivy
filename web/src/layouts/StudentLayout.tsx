@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { SignOutButton } from "@/features/auth/SignOutButton";
 
 /**
  * §9: "minimal top bar, no sidebar, mobile-first, safe-area padding."
@@ -35,6 +36,7 @@ export default function StudentLayout() {
             <NavLink to="/app/classes" className={link}>
               {t("student.myClasses")}
             </NavLink>
+            <SignOutButton />
           </nav>
         </div>
       </header>

@@ -87,4 +87,15 @@ export default [
     files: ["**/*.config.{js,ts}", "tests/**"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
+  {
+    // Test fixtures render marker text -- "admin home", "login page" -- to
+    // assert which route won. Those are not user-facing strings and have no
+    // business in the locale files; putting them through t() would mean the
+    // test asserted its own translation rather than the routing.
+    //
+    // Narrow on purpose: the rule stays on for everything under src/, which is
+    // the only place §14's requirement applies.
+    files: ["tests/**"],
+    rules: { "react/jsx-no-literals": "off" },
+  },
 ];
