@@ -100,3 +100,90 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 	}
 	return response, nil
 }
+
+// LinkGoogle implements POST /auth/google/link (§15).
+//
+// Authenticated: this attaches a credential to an account that already exists,
+// so the session is the proof of ownership and the Google exchange is the proof
+// of the other side.
+func (s *Server) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
+	if s.Deps.Auth == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	meta := httpx.RequestMetaFromContext(ctx)
+	user, err := s.Deps.Auth.LinkGoogle(ctx, auth.LinkGoogleInput{
+		UserID:       principal.UserID,
+		Code:         request.Body.Code,
+		CodeVerifier: request.Body.CodeVerifier,
+		RedirectURI:  request.Body.RedirectUri,
+		IP:           meta.IP,
+		UserAgent:    meta.UserAgent,
+	})
+	switch {
+	case err == nil:
+		return openapi.LinkGoogle200JSONResponse(toAPIUser(user)), nil
+
+	// Every way the link cannot be made. One code, because the client's move is
+	// the same in all three: tell the user this Google account is not available
+	// for this login.
+	case errors.Is(err, auth.ErrIdentityAlreadyLinked),
+		errors.Is(err, auth.ErrEmailBelongsToAnotherUser):
+		return openapi.LinkGoogle409JSONResponse(authError(ctx, openapi.IDENTITYALREADYLINKED,
+			"Tài khoản Google này không thể liên kết với tài khoản của bạn.")), nil
+
+	case errors.Is(err, google.ErrEmailUnverified):
+		return openapi.LinkGoogle401JSONResponse(authError(ctx, openapi.EMAILNOTVERIFIED,
+			"Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.")), nil
+
+	case errors.Is(err, google.ErrExchangeFailed),
+		errors.Is(err, google.ErrRedirectNotAllowed),
+		errors.Is(err, google.ErrTokenInvalid):
+		return openapi.LinkGoogle401JSONResponse(authError(ctx, openapi.INVALIDCREDENTIALS,
+			"Liên kết Google không thành công. Vui lòng thử lại.")), nil
+
+	case errors.Is(err, auth.ErrAccountDisabled), errors.Is(err, auth.ErrUserNotFound):
+		return openapi.LinkGoogle401JSONResponse(sessionInvalid(ctx)), nil
+
+	case errors.Is(err, auth.ErrGoogleUnavailable):
+		return nil, httpx.ErrNotImplemented
+
+	default:
+		return nil, err
+	}
+}
+
+// UnlinkGoogle implements DELETE /auth/google/link (§15).
+//
+// Refused when Google is the account's only way in. The result would be an
+// account that still exists, still holds its attempts and enrolments, and that
+// nobody can sign into -- including the person asking.
+func (s *Server) UnlinkGoogle(ctx context.Context, _ openapi.UnlinkGoogleRequestObject) (openapi.UnlinkGoogleResponseObject, error) {
+	if s.Deps.Auth == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	meta := httpx.RequestMetaFromContext(ctx)
+	err := s.Deps.Auth.UnlinkGoogle(ctx, principal.UserID, meta.IP, meta.UserAgent)
+	switch {
+	case err == nil:
+		return openapi.UnlinkGoogle204Response{}, nil
+	case errors.Is(err, auth.ErrLastLoginMethod):
+		return openapi.UnlinkGoogle409JSONResponse(authError(ctx, openapi.LASTLOGINMETHOD,
+			"Bạn cần đặt mật khẩu trước khi bỏ liên kết Google, nếu không sẽ không còn cách nào đăng nhập.")), nil
+	case errors.Is(err, auth.ErrAccountDisabled), errors.Is(err, auth.ErrUserNotFound):
+		return openapi.UnlinkGoogle401JSONResponse{
+			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
+		}, nil
+	default:
+		return nil, err
+	}
+}

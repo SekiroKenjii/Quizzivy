@@ -24,6 +24,8 @@ type AuthService interface {
 	CurrentUser(ctx context.Context, userID string) (auth.User, error)
 	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
 	GoogleSignIn(ctx context.Context, in auth.GoogleSignInInput) (auth.GoogleSignInResult, error)
+	LinkGoogle(ctx context.Context, in auth.LinkGoogleInput) (auth.User, error)
+	UnlinkGoogle(ctx context.Context, userID, ip, userAgent string) error
 }
 
 // JoinService is the slice of internal/join the handlers use.
