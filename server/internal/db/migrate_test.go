@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"database/sql"
+	"os"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -89,6 +90,19 @@ FROM (
 }
 
 func TestMigrationsAreReversible(t *testing.T) {
+	// DESTRUCTIVE. goose.Reset drops the whole schema, which takes any seed
+	// data with it -- so running `go test ./...` locally would silently wipe
+	// the database a developer had just seeded, with no hint as to why.
+	//
+	// Opt-in rather than opt-out: CI sets TEST_DESTRUCTIVE=1 against a
+	// throwaway container, and locally it is one flag away when you actually
+	// want it. The other tests in this package are transaction-scoped and
+	// always run.
+	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
+		t.Skip("TEST_DESTRUCTIVE=1 not set; skipping the destructive migration round trip " +
+			"(it drops schema app, seed data included)")
+	}
+
 	conn := openMigrate(t)
 	dir := db.MigrationsDir(t)
 
