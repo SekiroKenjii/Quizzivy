@@ -105,8 +105,12 @@ test: contract test-api test-web ## Run all tests
 test-web:
 	cd web && pnpm test
 
-test-api:
-	cd server && go test ./...
+test-api: ## Go tests, including the DB-backed ones
+	# The DB tests skip themselves when TEST_DATABASE_URL is unset, so a bare
+	# `go test ./...` passes without ever touching Postgres. The Makefile knows
+	# the DSN, so wire it up -- a green run here means the DB tests really ran.
+	# TEST_DESTRUCTIVE stays off: `make test` must not wipe a seeded database.
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./...
 
 e2e: ## Playwright, against a real production build
 	cd web && pnpm e2e

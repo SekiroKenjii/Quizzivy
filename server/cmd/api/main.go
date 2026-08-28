@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"quizzivy/internal/api"
+	"quizzivy/internal/auth"
 	"quizzivy/internal/config"
 	"quizzivy/internal/db"
 )
@@ -46,7 +47,18 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	handler, err := api.NewRouter(api.Deps{DB: pool}, logger, cfg.AllowedOrigins, cfg.ClientIPHeader)
+	tokens, err := auth.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
+	if err != nil {
+		return err
+	}
+	authService := auth.NewService(auth.NewStore(pool.Pool), tokens, cfg.RefreshTokenTTL)
+
+	handler, err := api.NewRouter(api.Deps{
+		DB:           pool,
+		Auth:         authService,
+		RefreshTTL:   cfg.RefreshTokenTTL,
+		CookieSecure: cfg.RefreshCookieSecure,
+	}, logger, cfg.AllowedOrigins, cfg.ClientIPHeader)
 	if err != nil {
 		return err
 	}

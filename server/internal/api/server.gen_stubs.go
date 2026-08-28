@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"time"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/httpx"
@@ -22,7 +23,14 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	DB DB
+	DB   DB
+	Auth AuthService
+
+	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
+	// is false only for plain-http localhost; everywhere else it must be true,
+	// or the cookie travels in the clear.
+	RefreshTTL   time.Duration
+	CookieSecure bool
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)
@@ -264,10 +272,6 @@ func (s *Server) UnlinkGoogle(_ context.Context, _ openapi.UnlinkGoogleRequestOb
 }
 
 func (s *Server) LinkGoogle(_ context.Context, _ openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) Login(_ context.Context, _ openapi.LoginRequestObject) (openapi.LoginResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

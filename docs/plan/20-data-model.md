@@ -347,7 +347,7 @@ written with the `OLD`/`NEW` CTE pattern in `00-overview.md` §4.4.
 
 ## 6. Media (§11)
 
-### `00009_create_media_assets.sql`
+### `00010_create_media_assets.sql`
 
 ```sql
 CREATE TABLE app.media_assets (
@@ -416,7 +416,7 @@ CREATE INDEX media_assets_checksum_idx
 Normalized, not `jsonb` (§13.3). Options and blanks are reordered by the builder,
 edited individually, and graded against.
 
-### `00010_create_questions.sql`
+### `00011_create_questions.sql`
 
 ```sql
 CREATE TABLE app.questions (
@@ -527,7 +527,7 @@ CREATE INDEX questions_type_id_idx
   index (`uuidv7()` PKs make `id DESC` a valid time order, §13.8). Tag filtering
   goes through the GIN index; combining the two is a bitmap AND, which is correct.
 
-### `00011_create_question_options.sql`
+### `00012_create_question_options.sql`
 
 ```sql
 CREATE TABLE app.question_options (
@@ -555,7 +555,7 @@ CREATE TABLE app.question_options (
   `question_blanks`, `test_sections`, `test_section_questions`. **Not** applied to
   the `test_version_*` tables, which are written once and never reordered.
 
-### `00012_create_question_blanks.sql`
+### `00013_create_question_blanks.sql`
 
 §13.3 says only "`question_blanks` and `question_blank_answers` mirror this".
 
@@ -598,7 +598,7 @@ CREATE TABLE app.question_blank_answers (
 structure the builder autosaves into (§8, debounced 1.5s) undefined. Three
 draft tables are added [D-14].
 
-### `00013_create_tests.sql`
+### `00014_create_tests.sql`
 
 ```sql
 CREATE TABLE app.tests (
@@ -664,7 +664,7 @@ CREATE INDEX test_section_questions_question_idx
   without one, a parent delete scans and locks the child table. It also serves
   §8's "where used" on the question bank.
 
-### `00014_create_test_versions.sql`
+### `00015_create_test_versions.sql`
 
 Immutable snapshot root. No `updated_at`, no soft delete — a published version
 is a historical fact.
@@ -706,7 +706,7 @@ CREATE TABLE app.test_version_sections (
   it once at publish and freezing it means the score denominator on a two-year-old
   attempt cannot drift.
 
-### `00015_create_test_version_content.sql`
+### `00016_create_test_version_content.sql`
 
 ```sql
 CREATE TABLE app.test_version_questions (
@@ -800,7 +800,7 @@ with §7's nested objects flattened — three booleans and four policy fields do
 not earn separate tables, and flattening keeps the monitor query a single row
 read.
 
-### `00016_create_assignments.sql`
+### `00017_create_assignments.sql`
 
 ```sql
 CREATE TABLE app.assignments (
@@ -864,7 +864,7 @@ CREATE TRIGGER assignments_set_updated_at BEFORE UPDATE ON app.assignments
   Existing attempts always carry their own `test_version_id` regardless (§10).
 - `assignments_window_idx` serves §9's due/upcoming/completed partitioning.
 
-### `00017_create_assignment_targets.sql`
+### `00018_create_assignment_targets.sql`
 
 §7's `targets: { classIds, studentIds }` — two link tables, not an array column.
 Arrays would make "which assignments is this student eligible for" a GIN
@@ -902,7 +902,7 @@ CREATE INDEX assignment_students_user_idx ON app.assignment_students (user_id);
 
 The hot path. Everything here is read on every autosave.
 
-### `00018_create_attempts.sql`
+### `00019_create_attempts.sql`
 
 ```sql
 CREATE TABLE app.attempts (
@@ -974,7 +974,7 @@ CREATE INDEX attempts_flagged_idx
   history lives in `audit_log` (§13.4), which is where §8's "confirm + reason"
   already goes.
 
-### `00019_create_attempt_answers.sql`
+### `00020_create_attempt_answers.sql`
 
 ```sql
 CREATE TABLE app.attempt_answers (
@@ -1045,7 +1045,7 @@ CREATE TRIGGER attempt_answers_set_updated_at BEFORE UPDATE ON app.attempt_answe
 - `attempt_answers_question_idx` supports the `RESTRICT` and the per-question
   analytics the normalized snapshot exists to enable.
 
-### `00020_create_attempt_audio_plays.sql`
+### `00021_create_attempt_audio_plays.sql`
 
 ```sql
 CREATE TABLE app.attempt_audio_plays (
@@ -1072,7 +1072,7 @@ The increment is `INSERT … ON CONFLICT (attempt_id, question_id) DO UPDATE SET
 plays = attempt_audio_plays.plays + 1, last_played_at = now() RETURNING plays` —
 one statement, atomic, returns the authoritative count §11.4 requires.
 
-### `00021_create_attempt_events.sql`
+### `00022_create_attempt_events.sql`
 
 ```sql
 CREATE TABLE app.attempt_events (
@@ -1126,7 +1126,7 @@ retried on the next flush) cannot fail a whole batch on one duplicate row.
 
 ## 11. Privileges and the student-payload rule
 
-### `00022_grant_app_role.sql`
+### `00009_grant_app_role.sql`
 
 ```sql
 GRANT USAGE ON SCHEMA app TO quizzivy_app;
@@ -1134,9 +1134,12 @@ GRANT USAGE ON SCHEMA app TO quizzivy_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO quizzivy_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO quizzivy_app;
 
--- Append-only tables (§13.3, §13.4): no UPDATE, no DELETE, ever.
-REVOKE UPDATE, DELETE ON app.attempt_events FROM quizzivy_app;
-REVOKE UPDATE, DELETE ON app.audit_log      FROM quizzivy_app;
+-- Custom types need their own USAGE; schema USAGE is not enough.
+GRANT USAGE ON TYPE app.user_role TO quizzivy_app;   -- and the other six
+
+-- Append-only (§13.4). audit_log exists by Phase 1; attempt_events gets the
+-- same REVOKE in the migration that creates it (Phase 3).
+REVOKE UPDATE, DELETE ON app.audit_log FROM quizzivy_app;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE quizzivy_migrate IN SCHEMA app
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO quizzivy_app;
@@ -1222,20 +1225,20 @@ the file it adds.
 | `00006_create_classes.sql` | `classes`, `class_join_codes` | 1 |
 | `00007_create_class_members.sql` | `class_members` | 1 |
 | `00008_create_audit_log.sql` | `audit_log` | 1 |
-| `00009_create_media_assets.sql` | `media_assets` | 2 |
-| `00010_create_questions.sql` | `questions` | 2 |
-| `00011_create_question_options.sql` | `question_options` | 2 |
-| `00012_create_question_blanks.sql` | `question_blanks`, `question_blank_answers` | 2 |
-| `00013_create_tests.sql` | `tests`, `test_sections`, `test_section_questions` | 2 |
-| `00014_create_test_versions.sql` | `test_versions`, `test_version_sections` | 2 |
-| `00015_create_test_version_content.sql` | `test_version_questions`, `_options`, `_blanks`, `_blank_answers` | 2 |
-| `00016_create_assignments.sql` | `assignments` | 3 |
-| `00017_create_assignment_targets.sql` | `assignment_classes`, `assignment_students` | 3 |
-| `00018_create_attempts.sql` | `attempts` | 3 |
-| `00019_create_attempt_answers.sql` | `attempt_answers` | 3 |
-| `00020_create_attempt_audio_plays.sql` | `attempt_audio_plays` | 3 |
-| `00021_create_attempt_events.sql` | `attempt_events` | 3 |
-| `00022_grant_app_role.sql` | grants to `quizzivy_app` | 3 |
+| `00009_grant_app_role.sql` | grants + default privileges for `quizzivy_app` | **1** |
+| `00010_create_media_assets.sql` | `media_assets` | 2 |
+| `00011_create_questions.sql` | `questions` | 2 |
+| `00012_create_question_options.sql` | `question_options` | 2 |
+| `00013_create_question_blanks.sql` | `question_blanks`, `question_blank_answers` | 2 |
+| `00014_create_tests.sql` | `tests`, `test_sections`, `test_section_questions` | 2 |
+| `00015_create_test_versions.sql` | `test_versions`, `test_version_sections` | 2 |
+| `00016_create_test_version_content.sql` | `test_version_questions`, `_options`, `_blanks`, `_blank_answers` | 2 |
+| `00017_create_assignments.sql` | `assignments` | 3 |
+| `00018_create_assignment_targets.sql` | `assignment_classes`, `assignment_students` | 3 |
+| `00019_create_attempts.sql` | `attempts` | 3 |
+| `00020_create_attempt_answers.sql` | `attempt_answers` | 3 |
+| `00021_create_attempt_audio_plays.sql` | `attempt_audio_plays` | 3 |
+| `00022_create_attempt_events.sql` | `attempt_events` | 3 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1253,8 +1256,15 @@ Notes on migration mechanics (§13.7):
   construct (§13.6) applies only to tightening an existing nullable column
   against existing rows — realistically Phase 5 or later. T-0.16 verifies it
   works so it is proven when needed rather than assumed.
-- `00022` runs last so it can `GRANT … ON ALL TABLES`, and the
-  `ALTER DEFAULT PRIVILEGES` clauses cover every table added after it.
+- **`00009` runs in Phase 1, not last.** It was originally scheduled for Phase 3
+  on the reasoning that `GRANT … ON ALL TABLES` must follow the tables. That is
+  backwards: it left `quizzivy_app` unable to read anything from the first table
+  until the end of Phase 3, and the first integration test to connect as the app
+  role failed with `permission denied for schema app`.
+  `ALTER DEFAULT PRIVILEGES` resolves it — applying to objects created *after*
+  it, so one early migration covers every table Phases 2–5 add. Custom types
+  need their own `USAGE`; schema `USAGE` is not enough to reference
+  `app.user_role` in a query.
 - Seed data lives in `seed/`, never in a migration (§13.7).
 
 ## 14. Query discipline (§13.8)

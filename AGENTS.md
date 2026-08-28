@@ -143,7 +143,7 @@ Two database roles: `quizzivy_migrate` owns the schema and runs goose;
 ## Migrations
 
 - goose, SQL, forward-only, **one concern per file**, sequential zero-padded
-  names (`00014_create_test_versions.sql`).
+  names (`00015_create_test_versions.sql`).
 - Every file has a `-- +goose Down` that actually works. CI runs up/down/up.
 - Every task that touches the DB names its migration file in the PR.
 - `CREATE INDEX CONCURRENTLY` cannot run in a transaction — mark those files

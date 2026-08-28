@@ -22,10 +22,17 @@ import (
 func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
+	// Enough for any of these request bodies; anything larger falls back to the
+	// per-IP bucket rather than being buffered.
+	const maxKeyBodyBytes = 8 * 1024
 
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
-	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
+	// §6.5's second bucket: per-email as well as per-IP, so a distributed
+	// attempt against ONE account is limited even though each source address
+	// stays under its own allowance.
+	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
+		WithKey(ratelimit.JSONFieldKey("email", maxKeyBodyBytes), capacity, ratelimit.PerHour(20))
 	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	// Fire-and-forget beacon flush (§10.6). Limited generously: dropping these
@@ -74,6 +81,9 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		// OpenAPI path template rather than a concrete URL.
 		Middlewares: []openapi.MiddlewareFunc{
 			httpx.RateLimit(limits, ratelimit.ClientIP(clientIPHeader)),
+			// After the limiter, so the address recorded against a session is
+			// the same one that was limited.
+			httpx.WithRequestMeta(ratelimit.ClientIP(clientIPHeader)),
 		},
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
