@@ -75,5 +75,24 @@
       "emailInvalid": "Email không hợp lệ.",
       "passwordRequired": "Vui lòng nhập mật khẩu."
     }
+  },
+  "join": {
+    "title": "Tham gia lớp học",
+    "subtitle": "Nhập mã lớp giáo viên đã gửi cho bạn.",
+    "codeLabel": "Mã lớp",
+    "codeHint": "8 ký tự, ví dụ K7M3-P9QR. Không phân biệt hoa thường.",
+    "continue": "Tiếp tục",
+    "youAreJoining": "Bạn đang tham gia lớp",
+    "teacher": "Giáo viên: {{name}}",
+    "confirmWithGoogle": "Tiếp tục với Google",
+    "confirmSignedIn": "Tham gia lớp này",
+    "googleExplainer": "Tài khoản của bạn sẽ được tạo bằng Google. Chúng tôi chỉ dùng tên và email của bạn.",
+    "cannotJoin": "Không thể tham gia lớp",
+    "tryAnotherCode": "Thử mã khác",
+    "enrolling": "Đang thêm bạn vào lớp…",
+    "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
+    "errors": {
+      "incomplete": "Mã lớp phải có đủ 8 ký tự."
+    }
   }
 }

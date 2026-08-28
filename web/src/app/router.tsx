@@ -51,9 +51,15 @@ const authTree: RouteObject = {
 const publicTree: RouteObject = {
   lazy: page(() => import("@/layouts/PublicLayout")),
   children: [
-    // /join/* is built in T-1.12; the paths exist so the tree is complete.
-    { path: "join", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
-    { path: "join/:code", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
+    // §6.2's three steps. `/join` and `/join/:code` are the same screen --
+    // they differ only in whether the code arrives prefilled -- and the
+    // confirm step is mandatory: nothing before it creates an account.
+    { path: "join", lazy: page(() => import("@/features/join/pages/JoinPage")) },
+    { path: "join/:code", lazy: page(() => import("@/features/join/pages/JoinPage")) },
+    {
+      path: "join/:code/confirm",
+      lazy: page(() => import("@/features/join/pages/JoinConfirmPage")),
+    },
   ],
 };
 

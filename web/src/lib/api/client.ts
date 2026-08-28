@@ -102,9 +102,18 @@ let inFlightRefresh: Promise<boolean> | null = null;
 
 /** Replaced in tests; in the app it sends the user to /login. */
 let onSessionLost: () => void = () => {
-  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.assign("/login");
-  }
+  // Last resort, used only if the app never installed a handler. Public
+  // screens are excluded for the same reason the real handler navigates
+  // nowhere: /join works without a session by design, and bouncing a visitor
+  // off it breaks the only flow that creates student accounts.
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  const isPublic =
+    path === "/login" ||
+    path === "/join" ||
+    path.startsWith("/join/") ||
+    path.startsWith("/auth/");
+  if (!isPublic) window.location.assign("/login");
 };
 
 export function setSessionLostHandler(handler: () => void) {

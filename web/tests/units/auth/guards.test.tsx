@@ -187,3 +187,35 @@ describe("signing out", () => {
     expect(router.state.location.search).toBe("");
   });
 });
+
+describe("losing the session", () => {
+  it("leaves a visitor on a public screen where they are", async () => {
+    // The bootstrap `GET /auth/me` 401s for everyone without an account --
+    // which is the normal answer, not a failure. When that used to trigger a
+    // navigation to /login, an anonymous student following a join link was
+    // thrown off /join before ever seeing which class invited them. That is
+    // the one flow §6.2 exists for.
+    //
+    // The rule now: losing a session CLEARS state; the guards decide where
+    // anyone goes. A public route has no guard, so nobody is moved.
+    const routes: RouteObject[] = [
+      { path: "/login", element: <p>login page</p> },
+      { path: "/join/:code/confirm", element: <p>confirm page</p> },
+      {
+        element: <RequireSession />,
+        children: [{ path: "/app", element: <p>student home</p> }],
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: ["/join/K7M3P9QR/confirm"],
+    });
+    render(<RouterProvider router={router} />);
+    expect(await screen.findByText("confirm page")).toBeInTheDocument();
+
+    // What the API client does when a session turns out not to exist.
+    useAuthStore.getState().clearSession();
+
+    expect(router.state.location.pathname).toBe("/join/K7M3P9QR/confirm");
+    expect(screen.getByText("confirm page")).toBeInTheDocument();
+  });
+});

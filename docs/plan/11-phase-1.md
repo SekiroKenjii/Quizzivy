@@ -468,6 +468,28 @@ belt and the braces do different jobs, and both are load-bearing.
 - [ ] **E2E 4** passes: expired code → plain error, no account created, nothing
       leaked about the class
 - [ ] Loading / error / empty states; keyboard-operable; both locales (§14)
+- [ ] The E2E suite gained an API stub layer (`tests/e2e/support/api.ts`). It
+      runs a production build against `vite preview` with **no backend** — a
+      deliberate boundary: these tests are about what the BROWSER does, and the
+      server's behaviour is covered by Go tests against a real Postgres
+- [ ] E2E 3 drives the REAL PKCE round trip. Only Google is replaced, and the
+      `state` is echoed from the authorization request rather than invented, so
+      a broken state check fails the test rather than passing it
+
+**Two bugs T-1.10/T-1.11 introduced, both found only by E2E** — neither is
+visible to a unit test, and both broke the flow for the exact person it exists
+for:
+
+1. `onSessionLost` navigated to `/login` unconditionally. An anonymous student
+   following a join link bootstraps with `GET /auth/me`, gets the 401 a visitor
+   with no account is supposed to get, and was thrown off `/join` before ever
+   seeing which class invited them. Losing a session now only CLEARS state; the
+   guards decide where anyone goes, and a public route has no guard.
+2. `queryClient.clear()` ran on that same 401 and wiped the join preview
+   **mid-flight**, leaving the component pending forever — "Đang tải…" and
+   nothing else. The cache clear now requires a session to have existed, which
+   is the only case it was ever for (§5.4: one user's data must not reach the
+   next).
 
 ---
 
