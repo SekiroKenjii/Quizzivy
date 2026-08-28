@@ -179,12 +179,29 @@ service in T-0.6, which speaks the same S3 API.
 
 ### T-0.8 — Wire code generation and the CI drift check
 **Depends on:** T-0.7
-**Touches:** `Makefile`, `server/gen/openapi/`, `web/src/lib/api/schema.d.ts`, CI
+**Touches:** `Makefile`, `server/go.mod`, `server/gen/openapi/`,
+`web/src/lib/api/schema.d.ts`, `.gitattributes`, CI
 **Size:** M
+
+> **Ordering correction.** As planned, T-0.8 sat before T-0.14 (Go skeleton) —
+> but codegen needs a module to generate *into*, so T-0.8 creates the minimal
+> `server/go.mod` (`module quizzivy`) and T-0.14 builds the server on top of it.
+> The plan had this dependency backwards.
+
 **Done when:**
 - [ ] `make gen` runs `oapi-codegen` (strict server mode) into
       `server/gen/openapi/` and `openapi-typescript` into
       `web/src/lib/api/schema.d.ts`
+- [ ] **Generator versions are pinned** — `oapi-codegen` by the `tool` directive
+      in `server/go.mod`, the npm tools by variables in the Makefile. A floating
+      version makes the drift check meaningless: output would differ for reasons
+      unrelated to the contract
+- [ ] Go boundary tests assert the *generated types* honour §13.5:
+      `StudentQuestion` and `AttemptSession` expose none of the four forbidden
+      keys at any depth, `AdminQuestion` still carries all of them, and
+      `ResultQuestion` carries `transcript` but not the other three
+- [ ] Those tests are **mutation-tested** — leaking a key into the contract and
+      regenerating must fail them
 - [ ] Both outputs are committed, so the repo builds without the generators
 - [ ] CI runs `make gen` then `git diff --exit-code` and fails on drift
 - [ ] `server/gen/` and `schema.d.ts` carry a "generated — do not edit" header
@@ -296,8 +313,8 @@ service in T-0.6, which speaks the same S3 API.
 **Touches:** `server/cmd/api/`, `server/internal/httpx/`, `server/internal/ratelimit/`
 **Size:** M
 **Done when:**
-- [ ] `server/go.mod` declares module `quizzivy` (§4); `go run ./cmd/api` serves
-      on 8080
+- [ ] `go run ./cmd/api` serves on 8080. (`server/go.mod` already exists —
+      T-0.8 created it because codegen needed a module to target.)
 - [ ] Generated strict handlers from T-0.8 are mounted; routes come from the
       contract, not from hand-written mux entries
 - [ ] pgx pool connects as `quizzivy_app` (never the owner, §13.5)

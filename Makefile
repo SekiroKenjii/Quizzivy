@@ -8,6 +8,12 @@ SHELL := /bin/bash
 -include .env
 export
 
+# Generator versions are PINNED. A floating version makes the CI drift check
+# meaningless: regenerated output would differ for reasons unrelated to the
+# contract. oapi-codegen is pinned by the `tool` directive in server/go.mod.
+SPECTRAL_VERSION ?= 6.16.3
+OPENAPI_TS_VERSION ?= 7.13.0
+
 MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),migrate)@localhost:5432/quizzivy?sslmode=disable
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
 
@@ -67,11 +73,21 @@ seed: ## Load seed/ (never in a migration -- spec §13.7)
 	@for f in seed/*.sql; do echo "  $$f"; psql -v ON_ERROR_STOP=1 "$(MIGRATE_DSN)" -f "$$f"; done
 
 contract: ## Lint api/openapi.yaml and assert its invariants
-	npx --yes @stoplight/spectral-cli@latest lint api/openapi.yaml --ruleset api/.spectral.yaml
+	npx --yes @stoplight/spectral-cli@$(SPECTRAL_VERSION) lint api/openapi.yaml --ruleset api/.spectral.yaml
 	python3 api/contract_check.py
 
-gen: contract ## Regenerate Go + TS from api/openapi.yaml (T-0.8)
-	@echo "codegen not wired yet -- T-0.8"
+gen: contract ## Regenerate Go + TS from api/openapi.yaml
+	cd server && go tool oapi-codegen --config ../api/oapi-codegen.yaml ../api/openapi.yaml
+	npx --yes openapi-typescript@$(OPENAPI_TS_VERSION) api/openapi.yaml -o web/src/lib/api/schema.d.ts
+	cd server && go build ./... && go test ./gen/...
+	@echo "generated: server/gen/openapi/openapi.gen.go, web/src/lib/api/schema.d.ts"
+
+gen-check: gen ## Fail if generated output drifts from the contract (what CI runs)
+	@git diff --exit-code -- server/gen web/src/lib/api/schema.d.ts \
+		|| (echo ""; \
+		    echo "Generated code is out of date. Run 'make gen' and commit the result."; \
+		    exit 1)
+	@echo "generated code matches api/openapi.yaml"
 
 dev: ## Run web and api together
 	$(MAKE) -j2 dev-api dev-web
