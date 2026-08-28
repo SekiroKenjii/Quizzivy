@@ -416,3 +416,188 @@ func TestAValidAudioAssetIsAccepted(t *testing.T) {
 			f.adminID)
 	})
 }
+
+// ------------------------------------------------------- question bank
+
+// newAudioAsset and newImageAsset put a usable media row in the transaction, so
+// the composite-FK tests below have a real asset of each kind to point at.
+func newAudioAsset(t *testing.T, tx *sql.Tx, owner string) string {
+	t.Helper()
+	var id string
+	if err := tx.QueryRow(
+		`INSERT INTO app.media_assets
+		        (kind, storage_key, mime_type, bytes, duration_ms,
+		         original_filename, checksum_sha256, uploaded_by)
+		 VALUES ('audio', $1, 'audio/mpeg', 1024, 10000, 'nghe.mp3',
+		         repeat('a', 32)::bytea, $2)
+		 RETURNING id`, "audio/"+randomTag(t)+".mp3", owner).Scan(&id); err != nil {
+		t.Fatalf("audio fixture: %v", err)
+	}
+	return id
+}
+
+func newImageAsset(t *testing.T, tx *sql.Tx, owner string) string {
+	t.Helper()
+	var id string
+	if err := tx.QueryRow(
+		`INSERT INTO app.media_assets
+		        (kind, storage_key, mime_type, bytes,
+		         original_filename, checksum_sha256, uploaded_by)
+		 VALUES ('image', $1, 'image/png', 1024, 'anh.png',
+		         repeat('b', 32)::bytea, $2)
+		 RETURNING id`, "image/"+randomTag(t)+".png", owner).Scan(&id); err != nil {
+		t.Fatalf("image fixture: %v", err)
+	}
+	return id
+}
+
+func randomTag(t *testing.T) string {
+	t.Helper()
+	nonce := make([]byte, 8)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	return hex.EncodeToString(nonce)
+}
+
+// [D-04] The biconditional, tested in both directions. One direction alone
+// would pass with a plain implication and leave the other half unenforced.
+
+func TestNonAudioQuestionCannotCarryAnAudioPolicy(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_audio_policy_iff_audio",
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, audio_allow_seek, audio_show_transcript_after)
+			 VALUES ('short_answer', 'Không có audio', 1.0, $1, false, true)`, f.adminID)
+	})
+}
+
+func TestAudioQuestionMustCarryAnAudioPolicy(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		asset := newAudioAsset(t, tx, f.adminID)
+		rejectsWith(t, tx, "questions_audio_policy_iff_audio",
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, media_asset_id, media_asset_kind)
+			 VALUES ('short_answer', 'Có audio nhưng thiếu policy', 1.0, $1, $2, 'audio')`,
+			f.adminID, asset)
+	})
+}
+
+func TestAudioQuestionWithItsPolicyIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		asset := newAudioAsset(t, tx, f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			         audio_max_plays, audio_allow_seek, audio_show_transcript_after, transcript)
+			 VALUES ('short_answer', 'Nghe và trả lời', 2.0, $1, $2, 'audio',
+			         2, false, true, 'Hello there.')`, f.adminID, asset)
+	})
+}
+
+// [D-05] The composite FK is what makes the audio-policy CHECK enforceable
+// relationally. Claiming 'audio' for an image asset must fail at the FK, before
+// the CHECK ever gets a chance to be satisfied by a lie.
+func TestImageAssetCannotBeClaimedAsAudio(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		image := newImageAsset(t, tx, f.adminID)
+		rejectsWith(t, tx, "questions_media_asset_id_media_asset_kind_fkey",
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			         audio_allow_seek, audio_show_transcript_after)
+			 VALUES ('short_answer', 'Ảnh giả làm audio', 1.0, $1, $2, 'audio', false, true)`,
+			f.adminID, image)
+	})
+}
+
+// The other half of D-05: an honestly-declared image cannot carry an audio
+// policy either. Together these close the loophole in both directions.
+func TestImageQuestionCannotCarryAnAudioPolicy(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		image := newImageAsset(t, tx, f.adminID)
+		rejectsWith(t, tx, "questions_audio_policy_iff_audio",
+			`INSERT INTO app.questions
+			        (type, prompt, points, created_by, media_asset_id, media_asset_kind,
+			         audio_allow_seek, audio_show_transcript_after)
+			 VALUES ('short_answer', 'Ảnh có policy audio', 1.0, $1, $2, 'image', false, true)`,
+			f.adminID, image)
+	})
+}
+
+func TestMediaPairMustBeCompleteOrAbsent(t *testing.T) {
+	// A half-set pair makes the composite FK vacuous: a NULL component means
+	// the constraint is simply not checked.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		asset := newAudioAsset(t, tx, f.adminID)
+		rejectsWith(t, tx, "questions_media_pair_complete",
+			`INSERT INTO app.questions (type, prompt, points, created_by, media_asset_id)
+			 VALUES ('short_answer', 'Thiếu kind', 1.0, $1, $2)`, f.adminID, asset)
+	})
+}
+
+func TestSampleAnswerIsShortAnswerOnly(t *testing.T) {
+	// §7 marks sample_answer short_answer-only and ADMIN ONLY. This stops it
+	// being SET on a type whose grading UI would never display it.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_sample_answer_only_short_answer",
+			`INSERT INTO app.questions (type, prompt, points, created_by, sample_answer)
+			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, 'Đáp án mẫu')`, f.adminID)
+	})
+}
+
+func TestSampleAnswerOnShortAnswerIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, sample_answer)
+			 VALUES ('short_answer', 'Viết câu trả lời', 1.0, $1, 'Đáp án mẫu')`, f.adminID)
+	})
+}
+
+func TestTranscriptRequiresAudio(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_transcript_iff_audio",
+			`INSERT INTO app.questions (type, prompt, points, created_by, transcript)
+			 VALUES ('short_answer', 'Không có audio', 1.0, $1, 'Lời thoại')`, f.adminID)
+	})
+}
+
+func TestBlankOrdinalsStartAtOne(t *testing.T) {
+	// A 0-ordinal blank would be unreachable from the prompt, which addresses
+	// blanks as {{1}}, {{2}}.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		q := newQuestion(t, tx, f.adminID, "fill_blank", "Điền vào {{1}}")
+		rejectsWith(t, tx, "question_blanks_ordinal_check",
+			`INSERT INTO app.question_blanks (question_id, ordinal) VALUES ($1, 0)`, q)
+	})
+}
+
+func TestBlankAnswersAreCaseDistinct(t *testing.T) {
+	// UNIQUE (blank_id, answer) is exact, not lower(answer): a case_sensitive
+	// blank legitimately wants Cat and cat as two accepted answers.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		q := newQuestion(t, tx, f.adminID, "fill_blank", "Điền vào {{1}}")
+		var blank string
+		if err := tx.QueryRow(
+			`INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive)
+			 VALUES ($1, 1, true) RETURNING id`, q).Scan(&blank); err != nil {
+			t.Fatal(err)
+		}
+		mustExec(t, tx, `INSERT INTO app.question_blank_answers (blank_id, answer) VALUES ($1,'Cat')`, blank)
+		mustExec(t, tx, `INSERT INTO app.question_blank_answers (blank_id, answer) VALUES ($1,'cat')`, blank)
+		rejectsWith(t, tx, "question_blank_answers_blank_id_answer_key",
+			`INSERT INTO app.question_blank_answers (blank_id, answer) VALUES ($1,'Cat')`, blank)
+	})
+}
+
+// newQuestion inserts a minimal question of the given type.
+func newQuestion(t *testing.T, tx *sql.Tx, author, qtype, prompt string) string {
+	t.Helper()
+	var id string
+	if err := tx.QueryRow(
+		`INSERT INTO app.questions (type, prompt, points, created_by)
+		 VALUES ($1::app.question_type, $2, 1.0, $3) RETURNING id`,
+		qtype, prompt, author).Scan(&id); err != nil {
+		t.Fatalf("question fixture: %v", err)
+	}
+	return id
+}

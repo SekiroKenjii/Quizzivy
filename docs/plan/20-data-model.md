@@ -547,8 +547,19 @@ CREATE TABLE app.question_options (
   serves every lookup, and adding one would be the redundancy the indexing
   reference warns about.
 - **`DEFERRABLE INITIALLY IMMEDIATE` [D-13].** The builder reorders options by
-  drag-and-drop (§8). Rewriting ordinals 0,1,2 → 1,2,0 in one `UPDATE` transiently
-  violates uniqueness. Deferrable lets the reorder transaction issue
+  drag-and-drop (§8).
+
+  **Corrected against 18.6 in T-2.5.** This paragraph used to say that rewriting
+  ordinals 0,1,2 → 1,2,0 in one `UPDATE` transiently violates uniqueness. It does
+  not: Postgres checks a unique constraint at **end of statement**, so a
+  set-based permutation is accepted with no deferral at all. What genuinely needs
+  deferral is the **multi-statement** reorder — the shape a real one takes, since
+  the client sends a list of `(id, ordinal)` pairs and the server writes them one
+  row at a time, colliding with rows that have not moved yet. D-13 is right; this
+  justification for it was not. `server/internal/db/reorder_test.go` pins both
+  halves so the claim cannot rot again.
+
+  Deferrable lets the reorder transaction issue
   `SET CONSTRAINTS app.question_options_ordinal_key DEFERRED` and write the new
   ordinals directly, instead of the two-phase negative-offset trick. Applied to
   every ordinal-unique on a draft-editable table: `question_options`,
