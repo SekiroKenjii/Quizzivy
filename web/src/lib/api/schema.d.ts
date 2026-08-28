@@ -2806,6 +2806,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     uploadMedia: {
@@ -2870,6 +2871,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            404: components["responses"]["NotFound"];
             /** @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15). */
             409: {
                 headers: {
@@ -4052,6 +4054,13 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    /**
+                     * @description `private, max-age=600` (§11.2) — long enough to survive a replay,
+                     *     short enough that the cache entry cannot outlive the signature it
+                     *     holds. The TTL and this max-age are the same number on purpose;
+                     *     they are set from one constant server-side.
+                     */
+                    "Cache-Control": string;
                     [name: string]: unknown;
                 };
                 content: {
