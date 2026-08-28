@@ -21,6 +21,8 @@ import (
 // accepted anything at all -- every endpoint had to re-state its own rules in
 // Go, or silently not have any.
 //
+// Routes whose body is a binary upload are skipped -- see StreamingBodyRoutes.
+//
 // Authentication is deliberately NOT delegated here. The validator will happily
 // enforce security requirements, but it knows nothing about our tokens, so it
 // would either reject everything or need a second copy of RequireAuth. The
@@ -40,8 +42,14 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 		return nil, err
 	}
 
+	streaming := StreamingBodyRoutes(&stripped)
+
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(&stripped,
 		&nethttpmiddleware.Options{
+			Skipper: func(r *http.Request) bool {
+				_, isStreaming := streaming[r.Pattern]
+				return isStreaming
+			},
 			Options: openapi3filter.Options{
 				AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error {
 					return nil
@@ -109,4 +117,53 @@ func failingField(reqErr *openapi3filter.RequestError) string {
 		}
 	}
 	return ""
+}
+
+// StreamingBodyRoutes lists the operations whose request body is a file upload,
+// keyed by the `METHOD /path` pattern the mux matches on.
+//
+// These are skipped by the validator for two independent reasons, either of
+// which alone would be disqualifying.
+//
+// The first is memory. openapi3filter validates a body by io.ReadAll-ing it and
+// then decoding each part, so a 10 MB upload -- the §11.1 cap -- allocated
+// 87.2 MB before the handler ran at all. The upload handler streams to a temp
+// file precisely so a large body never sits in RAM on a 512 MB instance (R-13);
+// validating it first made that pointless and put concurrent uploads on the
+// same OOM path as unbounded Argon2id.
+//
+// Worth knowing if this is ever revisited: with the content-type gate below
+// still in place the figure was 44.8 MB, because rejecting early meant the file
+// part was never decoded. Removing that gate alone would have made the memory
+// problem twice as bad. The two fixes belong together.
+//
+// The second is correctness. `encoding.<part>.contentType` makes the validator
+// reject a part whose Content-Type header is not on the list -- and §11.1 says
+// in as many words that this endpoint never trusts that header or the file
+// extension. It is also a check that stops nobody, since a caller can label
+// anything `audio/mpeg`. What it did stop was honest clients: Go's own
+// multipart.CreateFormFile and curl both default to `application/octet-stream`,
+// and macOS reports `audio/x-m4a` for m4a, so real uploads failed with a 400
+// that named no field, instead of reaching the sniffer that decides the answer.
+//
+// Nothing is lost by skipping. Auth ran in earlier middleware, these operations
+// declare no parameters (TestStreamingRoutesHaveNoParameters holds that true),
+// and the handler's size -> magic-bytes -> duration checks are strictly stronger
+// than anything the schema can say about a `format: binary` string.
+func StreamingBodyRoutes(spec *openapi3.T) map[string]struct{} {
+	streaming := map[string]struct{}{}
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+				continue
+			}
+			for mediaType := range op.RequestBody.Value.Content {
+				if strings.HasPrefix(mediaType, "multipart/") {
+					streaming[method+" "+path] = struct{}{}
+					break
+				}
+			}
+		}
+	}
+	return streaming
 }

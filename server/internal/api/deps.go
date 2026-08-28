@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/classes"
 	"quizzivy/internal/httpx"
 	"quizzivy/internal/join"
+	"quizzivy/internal/media"
 )
 
 // DB is the slice of the pool handlers need. An interface rather than the
@@ -43,6 +44,12 @@ type ClassesService interface {
 	List(ctx context.Context) ([]classes.Class, error)
 	Members(ctx context.Context, classID string) ([]classes.Member, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
+}
+
+// MediaService is the slice of internal/media the handlers use.
+type MediaService interface {
+	Upload(ctx context.Context, in media.UploadInput) (media.Asset, error)
+	SignedURL(ctx context.Context, asset media.Asset) (string, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

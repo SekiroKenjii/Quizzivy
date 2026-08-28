@@ -27,6 +27,7 @@ type Deps struct {
 	Auth    AuthService
 	Join    JoinService
 	Classes ClassesService
+	Media   MediaService
 	Tokens  TokenVerifier
 
 	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
@@ -107,10 +108,6 @@ func (s *Server) GetDashboard(_ context.Context, _ openapi.GetDashboardRequestOb
 }
 
 func (s *Server) ListMedia(_ context.Context, _ openapi.ListMediaRequestObject) (openapi.ListMediaResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UploadMedia(_ context.Context, _ openapi.UploadMediaRequestObject) (openapi.UploadMediaResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

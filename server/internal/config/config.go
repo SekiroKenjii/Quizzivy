@@ -36,6 +36,15 @@ type Config struct {
 	// concurrency limit's clothes -- see auth.DefaultMaxConcurrentHashes.
 	MaxConcurrentPasswordHashes int
 
+	// Object storage (§11.2). MinIO in development, R2 in production, through
+	// the same client -- they differ only in endpoint and addressing style.
+	S3Endpoint        string
+	S3Region          string
+	S3Bucket          string
+	S3AccessKeyID     string
+	S3SecretAccessKey string
+	S3ForcePathStyle  bool
+
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
 	RefreshTokenTTL     time.Duration
@@ -104,6 +113,14 @@ func Load() (Config, error) {
 		return cfg, fmt.Errorf("MAX_CONCURRENT_PASSWORD_HASHES must be at least 1")
 	}
 
+	cfg.S3Endpoint = os.Getenv("S3_ENDPOINT")
+	cfg.S3Region = getenv("S3_REGION", "auto")
+	cfg.S3Bucket = os.Getenv("S3_BUCKET")
+	cfg.S3AccessKeyID = os.Getenv("S3_ACCESS_KEY_ID")
+	cfg.S3SecretAccessKey = os.Getenv("S3_SECRET_ACCESS_KEY")
+	// MinIO serves buckets as a path; R2 serves them as a subdomain.
+	cfg.S3ForcePathStyle = getenv("S3_FORCE_PATH_STYLE", "true") != "false"
+
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if strings.TrimSpace(origins) == "" {
 		return cfg, fmt.Errorf("CORS_ALLOWED_ORIGINS is required (exact origins, never '*')")
@@ -163,6 +180,13 @@ func loadGoogle(cfg *Config) error {
 		}
 	}
 	return nil
+}
+
+// MediaEnabled reports whether object storage is configured. Media upload is
+// optional as a group, like Google sign-in: a deployment without it serves
+// everything else rather than refusing to start.
+func (c Config) MediaEnabled() bool {
+	return c.S3Bucket != "" && c.S3AccessKeyID != "" && c.S3SecretAccessKey != ""
 }
 
 // GoogleEnabled reports whether §5.3 sign-in is configured.
