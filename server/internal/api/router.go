@@ -58,6 +58,8 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 	if err := httpx.AssertPublicRoutesLimited(spec, limits); err != nil {
 		return nil, err
 	}
+	// Everything the contract does not explicitly open requires a bearer token.
+	openRoutes := httpx.OpenRoutes(spec, "bearerAuth")
 
 	server := &Server{Deps: deps}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
@@ -92,6 +94,9 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 			// reach on their own. Absent on all but three routes; the
 			// middleware is a no-op when there is no cookie to lift.
 			WithRefreshCookie,
+			// Last, so an unauthenticated caller has already been rate-limited
+			// and logged. Fail-closed: see httpx.RequireAuth.
+			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 		},
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())

@@ -23,8 +23,9 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	DB   DB
-	Auth AuthService
+	DB     DB
+	Auth   AuthService
+	Tokens TokenVerifier
 
 	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
 	// is false only for plain-http localhost; everywhere else it must be true,
@@ -259,10 +260,6 @@ func (s *Server) GetMediaUrl(_ context.Context, _ openapi.GetMediaUrlRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) ChangePassword(_ context.Context, _ openapi.ChangePasswordRequestObject) (openapi.ChangePasswordResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) GoogleAuth(_ context.Context, _ openapi.GoogleAuthRequestObject) (openapi.GoogleAuthResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
@@ -272,10 +269,6 @@ func (s *Server) UnlinkGoogle(_ context.Context, _ openapi.UnlinkGoogleRequestOb
 }
 
 func (s *Server) LinkGoogle(_ context.Context, _ openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetCurrentUser(_ context.Context, _ openapi.GetCurrentUserRequestObject) (openapi.GetCurrentUserResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

@@ -296,3 +296,94 @@ func insertAudit(ctx context.Context, tx pgx.Tx, e auditEntry) error {
 	}
 	return nil
 }
+
+// ChangePasswordRecord is what the store needs to swap a password and prune the
+// sessions that the old one authorised.
+type ChangePasswordRecord struct {
+	UserID  string
+	NewHash string
+	// KeepTokenHash identifies the CALLER's session, whose family survives.
+	// Nil revokes every family, including the caller's.
+	KeepTokenHash []byte
+	Now           time.Time
+	IP            *string
+	UserAgent     *string
+}
+
+// ChangePassword swaps the hash, clears must_change_password, and revokes every
+// refresh family except the caller's -- all in one transaction.
+//
+// One transaction because the halves are useless apart. A password changed
+// without the revocation leaves a stolen session alive under a password its
+// holder no longer knows, which is the whole reason the user changed it.
+func (s *Store) ChangePassword(ctx context.Context, in ChangePasswordRecord) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin password change: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Resolve the surviving family inside the transaction, scoped to this user
+	// so another account's token cannot be presented to spare a family.
+	var keepFamily *string
+	if len(in.KeepTokenHash) > 0 {
+		var family string
+		err := tx.QueryRow(ctx,
+			`SELECT family_id::text FROM app.refresh_tokens
+			  WHERE token_hash = $1 AND user_id = $2`,
+			in.KeepTokenHash, in.UserID).Scan(&family)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			// Unknown token: keep nothing. Deliberately not an error -- the
+			// change still has to happen, and the caller is signed out with
+			// everyone else.
+		case err != nil:
+			return fmt.Errorf("resolve surviving family: %w", err)
+		default:
+			keepFamily = &family
+		}
+	}
+
+	const setPassword = `
+		UPDATE app.users
+		   SET password_hash = $2, must_change_password = false
+		 WHERE id = $1`
+	tag, err := tx.Exec(ctx, setPassword, in.UserID, in.NewHash)
+	if err != nil {
+		return fmt.Errorf("set password: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+
+	// `$2::uuid IS NULL OR family_id <> $2` rather than a subquery against the
+	// token: a subquery that finds nothing yields NULL, `family_id <> NULL` is
+	// NULL, and the UPDATE would then revoke NOTHING. That failure is silent
+	// and points the wrong way -- an unknown token must revoke everything.
+	const revokeOthers = `
+		UPDATE app.refresh_tokens
+		   SET revoked_at = $3
+		 WHERE user_id = $1
+		   AND revoked_at IS NULL
+		   AND ($2::uuid IS NULL OR family_id <> $2)`
+	if _, err := tx.Exec(ctx, revokeOthers, in.UserID, keepFamily, in.Now); err != nil {
+		return fmt.Errorf("revoke other sessions: %w", err)
+	}
+
+	if err := insertAudit(ctx, tx, auditEntry{
+		ActorUserID: &in.UserID,
+		Action:      "user.password_changed",
+		Entity:      "user",
+		EntityID:    &in.UserID,
+		OccurredAt:  in.Now,
+		IP:          in.IP,
+		UserAgent:   in.UserAgent,
+	}); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit password change: %w", err)
+	}
+	return nil
+}

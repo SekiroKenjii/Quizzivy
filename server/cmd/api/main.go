@@ -56,6 +56,7 @@ func run(logger *slog.Logger) error {
 	handler, err := api.NewRouter(api.Deps{
 		DB:           pool,
 		Auth:         authService,
+		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,
 	}, logger, cfg.AllowedOrigins, cfg.ClientIPHeader)

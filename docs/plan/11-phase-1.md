@@ -125,6 +125,22 @@ the public join surface, then the frontend that consumes it.
       `hasPassword: false`, `linkedProviders: ['google']`
 - [ ] Test: `auth/change_password_test.go` — a second device's refresh token is
       dead after a password change
+- [ ] **Bearer authentication middleware.** T-1.4 is where access tokens start
+      being CHECKED; before it, `/auth/login` minted them and nothing verified
+      one. Driven from the contract, not a list in Go: an operation inherits the
+      document's top-level `security` unless it overrides it, so a new endpoint
+      is protected by default. Fail-CLOSED — anything not explicitly open needs
+      a token, because a route missing from a protected-list serves data
+      silently while one missing from an open-list returns a visible 401
+- [ ] Test: exactly five operations are reachable without an access token
+      (`login`, `google`, `refresh`, `logout`, `join/preview`). The list is
+      pinned so opening a sixth takes an argument, not an unreviewed diff
+- [ ] A wrong `currentPassword` returns **400, not 401**. `client.ts` treats 401
+      as a dead session: refresh once, retry, sign out on the second. A 401 here
+      means mistyping your own password silently logs you out
+- [ ] Contract: `UNAUTHORIZED` added to the `ErrorCode` enum. It had none, so
+      401s were being sent with code `FORBIDDEN` — the client could not tell
+      "log in" from "you may not" except by reading the status line
 
 ---
 

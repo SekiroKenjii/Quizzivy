@@ -200,6 +200,7 @@ components:
         # generic
         - VALIDATION_FAILED
         - NOT_FOUND
+        - UNAUTHORIZED
         - FORBIDDEN
         - RATE_LIMITED
         - INTERNAL
@@ -1397,6 +1398,11 @@ paths:
       description: |
         Clears `mustChangePassword` and revokes every **other** refresh family
         for this user, so a second device is signed out.
+
+        The calling session is identified by the refresh cookie, which reaches
+        this endpoint because it is scoped `Path=/auth`. Without it the server
+        cannot tell the caller's family from a stranger's and revokes them all,
+        signing the caller out too.
       requestBody:
         required: true
         content:
@@ -1409,8 +1415,24 @@ paths:
                 currentPassword: { type: string }
                 newPassword: { type: string, minLength: 8, maxLength: 512 }
       responses:
-        '204': { $ref: '#/components/responses/NoContent' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '204':
+          description: Changed. The calling session survives; every other one is revoked.
+        '400':
+          description: |
+            `INVALID_CREDENTIALS` — `currentPassword` is wrong.
+            `PASSWORD_REQUIRED` — the account signs in with Google only and has
+            no current password to verify; it needs a set-password flow, not this one.
+            `VALIDATION_FAILED` — `newPassword` is shorter than 8 characters.
+
+            **A wrong current password is deliberately 400, not 401.** The SPA
+            treats 401 as "the session died": it refreshes once and retries, and
+            a second 401 signs the user out (§5.2, `client.ts`). Returning 401
+            here would mean mistyping your own password rotates your refresh
+            token and then logs you out — with no hint that the typo was the
+            cause. 401 on this endpoint means the SESSION is invalid, nothing else.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /auth/google/link:
