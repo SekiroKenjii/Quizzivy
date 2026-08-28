@@ -356,9 +356,22 @@ service in T-0.6, which speaks the same S3 API.
 - [ ] MSW server configured; handlers are typed against `schema.d.ts`
 - [ ] **Every MSW fixture is validated against `api/openapi.yaml` with `ajv`** at
       test setup, so a mock cannot drift from the contract (`00-overview.md` §3)
-- [ ] Playwright configured against a `pnpm build && pnpm preview` target
-- [ ] Test: `web/src/test/msw-contract.test.ts` fails when a handler returns a
-      body the OpenAPI schema rejects
+- [ ] Playwright runs against a real **production build** via `vite preview`,
+      not the dev server — §16's exit criteria are about what ships, and dev-only
+      behaviour would make the tests agree with something users never receive
+- [ ] Browser context is `vi-VN` / `Asia/Ho_Chi_Minh`, so assertions on
+      Vietnamese copy cannot pass or fail for the wrong reason
+- [ ] A smoke suite proves the harness works end to end, including that a cold
+      load produces no console errors
+- [ ] Test: `web/src/test/msw-contract.test.ts` proves the validation layer can
+      fail — missing required field, undeclared field, wrong type, out-of-enum
+      value, and a response status the contract never declares. Without it
+      `contractJson` could silently degrade into plain `HttpResponse.json` with
+      every test still green
+- [ ] Test: `web/src/test/render.test.tsx` exercises the whole harness at once —
+      Testing Library renders, the component fetches through the real API
+      client, MSW answers with a contract-validated fixture, i18next supplies
+      Vietnamese copy
 - [ ] `pnpm test` and `pnpm build` green (§16 exit criterion)
 
 ---

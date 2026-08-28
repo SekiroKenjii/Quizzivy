@@ -18,7 +18,7 @@ MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),mig
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
-        seed gen contract verify-google verify-r2 dev dev-web dev-api test test-web test-api lint
+        seed gen contract verify-google verify-r2 dev dev-web dev-api test test-web test-api e2e lint
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -74,7 +74,9 @@ seed: ## Load seed/ (never in a migration -- spec §13.7)
 
 contract: ## Lint api/openapi.yaml and assert its invariants
 	npx --yes @stoplight/spectral-cli@$(SPECTRAL_VERSION) lint api/openapi.yaml --ruleset api/.spectral.yaml
-	python3 api/contract_check.py
+	# Structural assertions live in the Vitest suite (T-0.13 ported them out of
+	# the interim Python checker). Run just those, not the whole suite.
+	cd web && pnpm vitest run src/test/openapi-contract.test.ts
 
 gen: contract ## Regenerate Go + TS from api/openapi.yaml
 	cd server && go tool oapi-codegen --config ../api/oapi-codegen.yaml ../api/openapi.yaml
@@ -105,6 +107,9 @@ test-web:
 
 test-api:
 	cd server && go test ./...
+
+e2e: ## Playwright, against a real production build
+	cd web && pnpm e2e
 
 lint: ## Lint both sides
 	cd web && pnpm lint
