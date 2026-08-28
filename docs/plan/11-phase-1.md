@@ -144,6 +144,40 @@ the public join surface, then the frontend that consumes it.
 
 ---
 
+### T-1.4b — Enforce the contract on incoming requests
+**Depends on:** T-1.4
+**Touches:** `server/internal/httpx/`, `server/internal/api/router.go`
+**Size:** S
+**Added during T-1.4**, not in the original plan. `oapi-codegen` generates types
+and binds JSON; it enforces **none** of the contract's constraints. `minLength`,
+`format`, `enum`, `required` and `additionalProperties` were all decorative on
+the server side, so `POST /auth/login` accepted an empty password and a
+`{"email": "banana"}`. Every one of the 60 remaining endpoints would have had to
+restate its own rules in Go, or silently have none.
+
+**Done when:**
+- [ ] `nethttp-middleware`'s `OapiRequestValidator` runs on every generated
+      route, driven by the same embedded spec the rest of the router uses
+- [ ] Failures return the §7 envelope with `VALIDATION_FAILED`, not
+      `kin-openapi`'s default — which is English, unreadable, and quotes the
+      failing schema back at an anonymous caller
+- [ ] Authentication runs **before** validation: an anonymous caller is told to
+      log in, not handed a critique of their request body
+- [ ] `spec.Servers` is cleared for the validator. Left set, it validates the
+      `Host` header against the production URLs and rejects every request in
+      development and in tests
+- [ ] Authentication is **not** delegated to the validator. It would enforce the
+      security requirements it can see, knows nothing about our tokens, and
+      would need a second copy of `RequireAuth`
+- [ ] Middleware is written in execution order. `oapi-codegen` applies the slice
+      so the LAST entry runs FIRST; the chain had been reading backwards, with
+      two comments describing an order that was not the real one. `NewRouter`
+      reverses explicitly and a test pins the direction
+- [ ] Test: contract constraints rejected — short password, bad email, unknown
+      field, wrong type, unparseable body, malformed uuid path parameter
+- [ ] Test: a well-formed request still reaches its handler
+- [ ] Test: validation messages do not echo the schema
+
 ### T-1.5 — Implement the Google OAuth exchange
 **Depends on:** T-1.4, T-0.2
 **Touches:** `server/internal/auth/google/`

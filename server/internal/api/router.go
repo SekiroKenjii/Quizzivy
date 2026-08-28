@@ -61,6 +61,11 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 	// Everything the contract does not explicitly open requires a bearer token.
 	openRoutes := httpx.OpenRoutes(spec, "bearerAuth")
 
+	validate, err := httpx.ValidateRequests(spec)
+	if err != nil {
+		return nil, err
+	}
+
 	server := &Server{Deps: deps}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -85,19 +90,26 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		BaseRouter: mux,
 		// Applied per route, so r.Pattern is set and the limiter keys on the
 		// OpenAPI path template rather than a concrete URL.
-		Middlewares: []openapi.MiddlewareFunc{
+		Middlewares: inExecutionOrder(
+			// Cheapest rejection first: a flood is turned away before it costs
+			// a token verification or a schema walk.
 			httpx.RateLimit(limits, ratelimit.ClientIP(clientIPHeader)),
-			// After the limiter, so the address recorded against a session is
-			// the same one that was limited.
+			// Same address resolver as the limiter, so the value stored against
+			// a session is the one that was limited rather than a second
+			// notion of "the client" that disagrees behind a proxy.
 			httpx.WithRequestMeta(ratelimit.ClientIP(clientIPHeader)),
 			// The refresh cookie, which the generated strict handlers cannot
 			// reach on their own. Absent on all but three routes; the
 			// middleware is a no-op when there is no cookie to lift.
 			WithRefreshCookie,
-			// Last, so an unauthenticated caller has already been rate-limited
-			// and logged. Fail-closed: see httpx.RequireAuth.
+			// Authenticate before validating: an anonymous caller should be
+			// told to log in, not handed a critique of their request body.
+			// Fail-closed -- see httpx.RequireAuth.
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
-		},
+			// Last, so a 400 means "you are who you say you are, and this
+			// request is still wrong".
+			validate,
+		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
 		},
@@ -123,4 +135,23 @@ func healthz(database DB) http.HandlerFunc {
 		w.WriteHeader(status)
 		_ = json.NewEncoder(w).Encode(body)
 	}
+}
+
+// inExecutionOrder reverses the middleware slice.
+//
+// oapi-codegen wraps them in order -- `handler = middleware(handler)` in a loop
+// -- so the LAST entry ends up outermost and runs FIRST. Written literally,
+// the list reads backwards from what happens, and the comments on it drift into
+// describing an order that is not the real one. Reversing here lets the list
+// above be read top-to-bottom as the sequence a request actually travels.
+//
+// router_test.go pins the direction, so an upstream change to how the generated
+// wrapper applies middleware fails a test instead of silently inverting the
+// chain.
+func inExecutionOrder(mw ...openapi.MiddlewareFunc) []openapi.MiddlewareFunc {
+	out := make([]openapi.MiddlewareFunc, 0, len(mw))
+	for i := len(mw) - 1; i >= 0; i-- {
+		out = append(out, mw[i])
+	}
+	return out
 }
