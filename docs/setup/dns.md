@@ -90,9 +90,25 @@ Pages owns both the DNS record and the certificate. The flow is
 2. In the project → **Custom domains** → add `app.quizzivy.com`.
 3. Cloudflare creates a CNAME to `<project>.pages.dev` and issues the cert.
 
-There is no value for you to type into a Target field; if you create the record
-by hand first, Pages will refuse the custom domain because the name is already
-taken.
+There is no value for you to type into a Target field.
+
+**If you create the CNAME by hand instead, the site returns 522** and it is not
+obvious why. Cloudflare proxies the request to Pages, Pages does not recognise
+the `Host` header as one of its domains, and the connection is refused — which
+the edge reports as an origin timeout. Confirmed 2026-08-28:
+
+```bash
+curl -o /dev/null -w '%{http_code}\n' https://app.quizzivy.com/
+# 522
+
+# the giveaway: Pages itself rejects the hostname
+curl -H 'Host: app.quizzivy.com' https://quizzivy-web.pages.dev/
+# 403 Forbidden -- cloudflare
+```
+
+The fix is to add the domain in the Pages project. If a hand-made record is
+already there, delete it first — Pages will not claim a name that already
+exists.
 
 Two ways to create the project:
 
