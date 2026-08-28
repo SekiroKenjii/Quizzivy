@@ -25,11 +25,29 @@ type Service struct {
 	store  *Store
 	object ObjectStore
 	now    func() time.Time
+	ttl    time.Duration
 }
 
 func NewService(store *Store, object ObjectStore) *Service {
-	return &Service{store: store, object: object, now: time.Now}
+	return &Service{store: store, object: object, now: time.Now, ttl: DefaultSignedURLTTL}
 }
+
+// WithSignedURLTTL sets the signature lifetime from configuration. A
+// non-positive value keeps the default rather than minting URLs that are
+// already expired.
+func (s *Service) WithSignedURLTTL(ttl time.Duration) *Service {
+	if ttl > 0 {
+		s.ttl = ttl
+	}
+	return s
+}
+
+// SignedURLTTL is the lifetime this service signs with. Exported because the
+// Cache-Control directive on a signed-URL response has to be derived from the
+// same value -- a cache entry outliving its signature is what §11.2's max-age
+// exists to prevent, and two independent copies of "ten minutes" is how that
+// stops being true.
+func (s *Service) SignedURLTTL() time.Duration { return s.ttl }
 
 type UploadInput struct {
 	Filename   string
@@ -167,8 +185,20 @@ func sanitiseFilename(name string) string {
 	if name == "" || name == "." || name == "/" {
 		return "tệp-không-tên"
 	}
-	if len(name) > 200 {
-		name = name[:200]
+	// Truncate by RUNES, not bytes.
+	//
+	// len() counts bytes, and Vietnamese characters are 2-3 bytes each, so a
+	// byte cut lands mid-character often enough to matter -- and the result is
+	// not valid UTF-8. original_filename is `text`, and Postgres rejects an
+	// invalid byte sequence for the encoding, so the INSERT failed after the
+	// object had already been stored: the teacher got "Đã xảy ra lỗi" for a
+	// perfectly good file, and retrying the same name failed the same way every
+	// time. The filename comes from the multipart part, so a 300-byte name is
+	// also a one-line reproducer for a 500 from anyone who wants one.
+	//
+	// Counting runes also makes 200 mean what a person would predict.
+	if r := []rune(name); len(r) > 200 {
+		name = string(r[:200])
 	}
 	return name
 }
@@ -182,13 +212,16 @@ func optional(v string) *string {
 
 var errNoID = errors.New("media: could not generate an asset id")
 
-// SignedURLTTL is §11.2's ten minutes. Short because the URL IS the
+// DefaultSignedURLTTL is §11.2's ten minutes. Short because the URL IS the
 // capability: one that outlives its purpose cannot be revoked afterwards.
-const SignedURLTTL = 10 * time.Minute
+//
+// The value a Service actually signs with is its ttl field, set from
+// SIGNED_URL_TTL. This is the fallback for a Service built without one.
+const DefaultSignedURLTTL = 10 * time.Minute
 
 // SignedURL mints a fresh URL for an asset, per request (§11.2).
 func (s *Service) SignedURL(ctx context.Context, asset Asset) (string, error) {
-	return s.object.SignedURL(ctx, asset.StorageKey, SignedURLTTL)
+	return s.object.SignedURL(ctx, asset.StorageKey, s.ttl)
 }
 
 // ErrForbidden is a student asking for an asset they cannot reach. Deliberately
@@ -229,11 +262,11 @@ func (s *Service) MintForStudent(ctx context.Context, studentID, assetID string)
 // mint is the one place a signature and its stated expiry are produced, so the
 // expiresAt a client caches against cannot drift from the TTL actually signed.
 func (s *Service) mint(ctx context.Context, asset Asset) (SignedURLResult, error) {
-	url, err := s.object.SignedURL(ctx, asset.StorageKey, SignedURLTTL)
+	url, err := s.object.SignedURL(ctx, asset.StorageKey, s.ttl)
 	if err != nil {
 		return SignedURLResult{}, err
 	}
-	return SignedURLResult{URL: url, ExpiresAt: s.now().Add(SignedURLTTL)}, nil
+	return SignedURLResult{URL: url, ExpiresAt: s.now().Add(s.ttl)}, nil
 }
 
 // List returns a page of the library with a signed URL on every item, since the
@@ -244,7 +277,7 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, string, erro
 		return nil, "", err
 	}
 	for i := range assets {
-		url, err := s.object.SignedURL(ctx, assets[i].StorageKey, SignedURLTTL)
+		url, err := s.object.SignedURL(ctx, assets[i].StorageKey, s.ttl)
 		if err != nil {
 			return nil, "", err
 		}

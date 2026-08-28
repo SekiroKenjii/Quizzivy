@@ -103,7 +103,8 @@ func run(logger *slog.Logger) error {
 		if err != nil {
 			return err
 		}
-		deps.Media = media.NewService(media.NewStore(pool.Pool), objects)
+		deps.Media = media.NewService(media.NewStore(pool.Pool), objects).
+			WithSignedURLTTL(cfg.SignedURLTTL)
 		logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
 	} else {
 		logger.Info("media storage disabled (no bucket configured)")

@@ -57,7 +57,9 @@ func (s *Store) SoftDelete(ctx context.Context, in DeleteInput) error {
 		return ErrNotFound
 	}
 
-	refs, err := CountReferences(ctx, s.pool, in.ID)
+	// `tx`, not the pool: the count belongs to the same transaction and
+	// snapshot as the lock taken above.
+	refs, err := CountReferences(ctx, tx, in.ID)
 	if err != nil {
 		return err
 	}

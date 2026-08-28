@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"time"
 
 	"quizzivy/internal/auth"
 	"quizzivy/internal/classes"
@@ -53,6 +54,9 @@ type MediaService interface {
 	List(ctx context.Context, in media.ListInput) ([]media.Asset, string, error)
 	Delete(ctx context.Context, in media.DeleteInput) error
 	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
+	// SignedURLTTL is what the Cache-Control directive is derived from, so the
+	// header and the signature cannot state different lifetimes.
+	SignedURLTTL() time.Duration
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

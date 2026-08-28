@@ -1848,6 +1848,17 @@ paths:
                                 usageCount:
                                   type: integer
                                   description: Published-version references. Non-zero blocks delete (§8).
+          headers:
+            Cache-Control:
+              description: |
+                `private, no-store`. Every item carries a signed URL with the
+                same ten-minute life as `/app/media/{assetId}/url`, so a cached
+                page would keep showing URLs that stopped working — and unlike
+                the single-URL response there is nothing worth re-serving, since
+                the library changes on every upload and delete. `no-store`
+                rather than `max-age` for that reason (§11.2).
+              required: true
+              schema: { type: string }
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: uploadMedia
