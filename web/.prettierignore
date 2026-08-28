@@ -1,0 +1,5 @@
+dist
+node_modules
+pnpm-lock.yaml
+# generated from api/openapi.yaml
+src/lib/api/schema.d.ts
