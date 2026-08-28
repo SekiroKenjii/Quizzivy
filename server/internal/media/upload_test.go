@@ -319,3 +319,39 @@ func sixMinuteMP3() []byte {
 	}
 	return out
 }
+
+// contains reports membership, for assertions that must ignore rows other
+// tests left in the shared table.
+func contains(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func bytesReader(b []byte) *bytes.Reader { return bytes.NewReader(b) }
+
+// makeStudent is a caller with no attempts, which is every student today.
+func makeStudent(t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	nonce := make([]byte, 8)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatal(err)
+	}
+	email := "hocsinh-" + hex.EncodeToString(nonce) + "@example.com"
+
+	var id string
+	if err := pool.QueryRow(context.Background(),
+		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học sinh','student') RETURNING id::text`,
+		email).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.audit_log WHERE actor_user_id = $1`, id)
+		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = $1`, id)
+	})
+	return id
+}

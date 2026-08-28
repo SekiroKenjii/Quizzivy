@@ -1848,6 +1848,7 @@ paths:
                                 usageCount:
                                   type: integer
                                   description: Published-version references. Non-zero blocks delete (§8).
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: uploadMedia
       tags: [admin-media]
@@ -1910,6 +1911,7 @@ paths:
       tags: [admin-media]
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`MEDIA_REFERENCED` — a published version still uses it (§8, §15).'
           content:
@@ -2992,6 +2994,15 @@ paths:
       responses:
         '200':
           description: OK
+          headers:
+            Cache-Control:
+              description: |
+                `private, max-age=600` (§11.2) — long enough to survive a replay,
+                short enough that the cache entry cannot outlive the signature it
+                holds. The TTL and this max-age are the same number on purpose;
+                they are set from one constant server-side.
+              required: true
+              schema: { type: string }
           content:
             application/json:
               schema:

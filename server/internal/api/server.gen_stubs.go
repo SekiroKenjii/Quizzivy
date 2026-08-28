@@ -107,14 +107,6 @@ func (s *Server) GetDashboard(_ context.Context, _ openapi.GetDashboardRequestOb
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) ListMedia(_ context.Context, _ openapi.ListMediaRequestObject) (openapi.ListMediaResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) DeleteMedia(_ context.Context, _ openapi.DeleteMediaRequestObject) (openapi.DeleteMediaResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) ListQuestions(_ context.Context, _ openapi.ListQuestionsRequestObject) (openapi.ListQuestionsResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
@@ -224,9 +216,5 @@ func (s *Server) SubmitAttempt(_ context.Context, _ openapi.SubmitAttemptRequest
 }
 
 func (s *Server) ListMyClasses(_ context.Context, _ openapi.ListMyClassesRequestObject) (openapi.ListMyClassesResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetMediaUrl(_ context.Context, _ openapi.GetMediaUrlRequestObject) (openapi.GetMediaUrlResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

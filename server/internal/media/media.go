@@ -41,6 +41,10 @@ type Asset struct {
 	ChecksumSHA256   []byte
 	CreatedAt        time.Time
 	UsageCount       int
+
+	// URL is a freshly minted signed URL, set by the service on read paths.
+	// Not persisted: it expires in ten minutes (§11.2).
+	URL string
 }
 
 // imageTypes is §11.1's image allowlist, matched on magic bytes.

@@ -50,6 +50,9 @@ type ClassesService interface {
 type MediaService interface {
 	Upload(ctx context.Context, in media.UploadInput) (media.Asset, error)
 	SignedURL(ctx context.Context, asset media.Asset) (string, error)
+	List(ctx context.Context, in media.ListInput) ([]media.Asset, string, error)
+	Delete(ctx context.Context, in media.DeleteInput) error
+	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

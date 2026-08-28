@@ -190,3 +190,82 @@ const SignedURLTTL = 10 * time.Minute
 func (s *Service) SignedURL(ctx context.Context, asset Asset) (string, error) {
 	return s.object.SignedURL(ctx, asset.StorageKey, SignedURLTTL)
 }
+
+// ErrForbidden is a student asking for an asset they cannot reach. Deliberately
+// indistinguishable from an asset that does not exist: telling the caller which
+// one it was turns the endpoint into an oracle for which asset ids are real.
+var ErrForbidden = errors.New("media: asset not reachable by this student")
+
+// SignedURLResult is a minted capability and the moment it stops working.
+type SignedURLResult struct {
+	URL       string
+	ExpiresAt time.Time
+}
+
+// MintForStudent issues a signed URL only for an asset the student can reach
+// through an attempt of their own (§11.2).
+//
+// Authorization is decided before the URL is minted, and the same error is
+// returned whether the asset is unreachable or absent.
+func (s *Service) MintForStudent(ctx context.Context, studentID, assetID string) (SignedURLResult, error) {
+	ok, err := ReachableByStudent(ctx, s.store.pool, studentID, assetID)
+	if err != nil {
+		return SignedURLResult{}, err
+	}
+	if !ok {
+		return SignedURLResult{}, ErrForbidden
+	}
+
+	asset, err := s.store.Get(ctx, assetID)
+	if errors.Is(err, ErrNotFound) {
+		return SignedURLResult{}, ErrForbidden
+	}
+	if err != nil {
+		return SignedURLResult{}, err
+	}
+	return s.mint(ctx, asset)
+}
+
+// mint is the one place a signature and its stated expiry are produced, so the
+// expiresAt a client caches against cannot drift from the TTL actually signed.
+func (s *Service) mint(ctx context.Context, asset Asset) (SignedURLResult, error) {
+	url, err := s.object.SignedURL(ctx, asset.StorageKey, SignedURLTTL)
+	if err != nil {
+		return SignedURLResult{}, err
+	}
+	return SignedURLResult{URL: url, ExpiresAt: s.now().Add(SignedURLTTL)}, nil
+}
+
+// List returns a page of the library with a signed URL on every item, since the
+// bucket is private and a listing without URLs cannot render a preview (§11.2).
+func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, string, error) {
+	assets, next, err := s.store.List(ctx, in)
+	if err != nil {
+		return nil, "", err
+	}
+	for i := range assets {
+		url, err := s.object.SignedURL(ctx, assets[i].StorageKey, SignedURLTTL)
+		if err != nil {
+			return nil, "", err
+		}
+		assets[i].URL = url
+
+		// Counted per asset rather than joined into the list query. The join is
+		// the better shape and belongs here once the version tables exist; the
+		// N+1 is invisible while this returns a constant.
+		refs, err := CountReferences(ctx, s.store.pool, assets[i].ID)
+		if err != nil {
+			return nil, "", err
+		}
+		assets[i].UsageCount = refs
+	}
+	return assets, next, nil
+}
+
+// Delete soft-deletes an unreferenced asset.
+func (s *Service) Delete(ctx context.Context, in DeleteInput) error {
+	if in.Now.IsZero() {
+		in.Now = s.now()
+	}
+	return s.store.SoftDelete(ctx, in)
+}
