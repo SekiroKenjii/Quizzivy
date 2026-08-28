@@ -9,7 +9,7 @@ import (
 
 type ctxKey int
 
-const requestIDKey ctxKey = iota
+const requestIDKey ctxKey = 0
 
 // RequestID assigns every request an id, exposes it as a response header, and
 // puts it in the context.
