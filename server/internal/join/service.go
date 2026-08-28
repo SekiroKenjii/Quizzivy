@@ -117,3 +117,31 @@ func optional(v string) *string {
 	}
 	return &v
 }
+
+// Meta is the request context §6.5 requires on every enrolment audit row.
+type Meta struct {
+	IP        string
+	UserAgent string
+}
+
+// EnrolNewMember creates an account and enrols it (§6.3). The signup path.
+func (s *Service) EnrolNewMember(ctx context.Context, m NewMember, rawCode string, meta Meta) (EnrolResult, error) {
+	return s.store.Enrol(ctx, EnrolInput{
+		RawCode:   rawCode,
+		NewMember: &m,
+		Now:       s.now(),
+		IP:        optional(meta.IP),
+		UserAgent: optional(meta.UserAgent),
+	})
+}
+
+// EnrolExisting enrols a student who is already signed in (§6.2).
+func (s *Service) EnrolExisting(ctx context.Context, userID, rawCode string, meta Meta) (EnrolResult, error) {
+	return s.store.Enrol(ctx, EnrolInput{
+		RawCode:        rawCode,
+		ExistingUserID: userID,
+		Now:            s.now(),
+		IP:             optional(meta.IP),
+		UserAgent:      optional(meta.UserAgent),
+	})
+}

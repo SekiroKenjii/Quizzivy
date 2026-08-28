@@ -30,6 +30,9 @@ func (f *fakeJoin) Rotate(context.Context, join.RotateRequest) (join.Rotated, er
 	return join.Rotated{}, nil
 }
 func (f *fakeJoin) Revoke(context.Context, join.RevokeRequest) error { return nil }
+func (f *fakeJoin) EnrolExisting(context.Context, string, string, join.Meta) (join.EnrolResult, error) {
+	return join.EnrolResult{}, nil
+}
 func (f *fakeJoin) Preview(_ context.Context, code string) (join.PreviewResult, error) {
 	f.seen = append(f.seen, code)
 	return f.result, f.err

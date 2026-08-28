@@ -245,10 +245,6 @@ func (s *Server) ListMyClasses(_ context.Context, _ openapi.ListMyClassesRequest
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) JoinClass(_ context.Context, _ openapi.JoinClassRequestObject) (openapi.JoinClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) GetMediaUrl(_ context.Context, _ openapi.GetMediaUrlRequestObject) (openapi.GetMediaUrlResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

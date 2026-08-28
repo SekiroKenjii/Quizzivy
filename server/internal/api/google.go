@@ -42,6 +42,7 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 		in.JoinCode = *request.Body.JoinCode
 	}
 
+	var rejected auth.JoinCodeRejected
 	result, err := s.Deps.Auth.GoogleSignIn(ctx, in)
 	switch {
 	case err == nil:
@@ -67,6 +68,11 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 		return openapi.GoogleAuth403JSONResponse(authError(ctx, openapi.ACCOUNTDISABLED,
 			"Tài khoản của bạn đã bị vô hiệu hoá. Vui lòng liên hệ giáo viên.")), nil
 
+	// The join code did not pass. No account was created: Enrol validates the
+	// code before creating anything, in one transaction.
+	case errors.As(err, &rejected):
+		return openapi.GoogleAuth404JSONResponse(joinCodeError(ctx, rejected.Outcome)), nil
+
 	case errors.Is(err, auth.ErrIdentityAlreadyLinked):
 		return openapi.GoogleAuth403JSONResponse(authError(ctx, openapi.IDENTITYALREADYLINKED,
 			"Tài khoản này đã được liên kết với một tài khoản Google khác.")), nil
@@ -89,14 +95,8 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 		result.Session.RefreshToken, s.Deps.RefreshTTL, s.Deps.CookieSecure).String())
 
 	if c := result.EnrolledClass; c != nil {
-		response.Body.EnrolledClass = &openapi.Class{
-			Id:              parseUUID(c.ID),
-			Name:            c.Name,
-			Description:     c.Description,
-			StudentCount:    c.StudentCount,
-			SelfJoinEnabled: c.SelfJoinEnabled,
-			CreatedAt:       c.CreatedAt,
-		}
+		class := toAPIClass(*c)
+		response.Body.EnrolledClass = &class
 	}
 	return response, nil
 }

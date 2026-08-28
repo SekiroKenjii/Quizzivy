@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"quizzivy/internal/auth/google"
+	"quizzivy/internal/join"
 )
 
 var (
@@ -37,22 +37,26 @@ type GoogleProvider interface {
 	Verify(ctx context.Context, rawIDToken string) (google.Identity, error)
 }
 
-// SelfEnroller creates an account from a join code and enrols it (§6.3). Nil
-// until T-1.8 builds it.
+// SelfEnroller creates an account from a join code and enrols it (§6.3).
+//
+// Defined in terms of internal/join's types rather than a local copy, so
+// *join.Service satisfies it directly and there is no adapter to keep in step.
+// The dependency runs one way -- join knows nothing about auth -- and §5.3's
+// third branch genuinely is "sign-in creates an enrolment", so auth depending
+// on enrolment is the real shape rather than a convenience.
 type SelfEnroller interface {
-	CreateAndEnrol(ctx context.Context, identity google.Identity, joinCode string) (User, EnrolledClass, error)
+	EnrolNewMember(ctx context.Context, m join.NewMember, rawCode string, meta join.Meta) (join.EnrolResult, error)
 }
 
-// EnrolledClass mirrors the contract's Class schema, which is what the sign-in
-// response has to return. Every field is required there, so carrying fewer here
-// would only move the problem into T-1.8.
-type EnrolledClass struct {
-	ID              string
-	Name            string
-	Description     *string
-	StudentCount    int
-	SelfJoinEnabled bool
-	CreatedAt       time.Time
+// JoinCodeRejected is a join code that did not pass. It carries the outcome so
+// the HTTP layer can reuse /join/preview's exact mapping: the same four codes,
+// the same leak rules, decided in one place rather than two that drift.
+type JoinCodeRejected struct {
+	Outcome join.PreviewOutcome
+}
+
+func (e JoinCodeRejected) Error() string {
+	return fmt.Sprintf("join code rejected (outcome %d)", e.Outcome)
 }
 
 // SetGoogle wires the provider. Nil leaves Google sign-in unavailable rather
@@ -73,7 +77,7 @@ type GoogleSignInInput struct {
 
 type GoogleSignInResult struct {
 	Session       Session
-	EnrolledClass *EnrolledClass
+	EnrolledClass *join.EnrolledClass
 }
 
 // GoogleSignIn implements §5.3 in full.
@@ -140,18 +144,34 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 		if s.enroller == nil {
 			return GoogleSignInResult{}, ErrSelfEnrolNotAvailable
 		}
-		created, class, err := s.enroller.CreateAndEnrol(ctx, identity, in.JoinCode)
+		result, err := s.enroller.EnrolNewMember(ctx,
+			join.NewMember{
+				Email:          identity.Email,
+				FullName:       identity.Name,
+				Provider:       "google",
+				ProviderUserID: identity.Subject,
+			}, in.JoinCode, join.Meta{IP: in.IP, UserAgent: in.UserAgent})
 		if err != nil {
 			return GoogleSignInResult{}, err
 		}
-		return s.googleSession(ctx, created, in, &class)
+		if result.Outcome != join.PreviewOK {
+			// The account is NOT created: Enrol validates the code before it
+			// creates anything, and the whole thing is one transaction.
+			return GoogleSignInResult{}, JoinCodeRejected{Outcome: result.Outcome}
+		}
+
+		created, err := s.store.FindUserByID(ctx, result.UserID)
+		if err != nil {
+			return GoogleSignInResult{}, fmt.Errorf("load enrolled member: %w", err)
+		}
+		return s.googleSession(ctx, created, in, &result.Class)
 	}
 
 	// 4. No match, no join code.
 	return GoogleSignInResult{}, ErrAccountNotProvisioned
 }
 
-func (s *Service) googleSession(ctx context.Context, user User, in GoogleSignInInput, class *EnrolledClass) (GoogleSignInResult, error) {
+func (s *Service) googleSession(ctx context.Context, user User, in GoogleSignInInput, class *join.EnrolledClass) (GoogleSignInResult, error) {
 	// §5.1: a suspended account cannot sign in, by any route. Checked here
 	// rather than in each branch so no branch can forget.
 	if user.Disabled() {
