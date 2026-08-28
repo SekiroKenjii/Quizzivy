@@ -9,39 +9,24 @@ Owner: **Thuong**. Verify with `make verify-google` when done.
 
 ---
 
-## Before you start: one thing the spec assumes that needs deciding
+## How this app talks to Google (decided — O-13)
 
-Spec §2 picks **Google Identity Services** as the library and §5.3 requires
-**Authorization Code + PKCE**. Those two may not be compatible, and it is worth
-knowing before you configure the console.
+§2 named Google Identity Services; §5.3 required Authorization Code + PKCE.
+Those are incompatible, so **we do not use the GIS SDK.**
 
-What was verified, from Google's own discovery document:
+Google's authorization server supports PKCE — its discovery document advertises
+`code_challenge_methods_supported: ["plain","S256"]`, and `make verify-google`
+re-checks that every run. The GIS *wrapper* (`initCodeClient`) has no documented
+way to pass a `code_challenge`. Thuong approved building the request directly.
 
-```
-code_challenge_methods_supported: ["plain", "S256"]
-```
+So the flow is: generate a verifier, derive an S256 challenge, add `state`, open
+Google's `authorization_endpoint` in a popup, and post
+`{ code, codeVerifier, redirectUri }` to `POST /auth/google`. The client secret
+never leaves the backend.
 
-So **Google's authorization server fully supports PKCE**. The problem is the GIS
-JavaScript wrapper: `google.accounts.oauth2.initCodeClient` has no documented
-parameter for passing a `code_challenge`. Google's own docs for the code model
-and for the web-server flow do not mention PKCE at all.
-
-Two ways forward:
-
-| | Approach | Trade-off |
-|---|---|---|
-| **A** | GIS `initCodeClient`, no PKCE | Keeps §2's library. Drops §5.3's PKCE. The code passes through browser JS, so an XSS could steal it — though redeeming it still needs the client secret, which never leaves the backend. |
-| **B** | Build the authorization request ourselves | Keeps §5.3's PKCE. Deviates from §2's stated library, which AGENTS.md says needs your approval. About 40 lines: generate a verifier, S256 challenge, `state`, open the popup, handle the callback. |
-
-**Recommendation: B.** PKCE is cheap to do properly, it is what §5.3 asked for,
-and it removes a dependency on undocumented GIS behaviour. We would still render
-a "Tiếp tục với Google" button — §12 dictates our own button styling anyway.
-
-**This does not block the console setup.** The instructions below register both
-the JavaScript origins (option A needs these) and the redirect URIs (option B
-needs these), so either choice works afterwards. Decide before T-1.5.
-
----
+**What this means for the console:** the **Authorized redirect URIs** are the
+load-bearing setting. JavaScript origins are registered too, but nothing depends
+on them now.
 
 ## Console steps
 
@@ -100,8 +85,8 @@ http://localhost:5173/auth/google/callback
 https://app.quizzivy.com/auth/google/callback
 ```
 
-Register all four even though only one pair will end up being used. They cost
-nothing, and it means the option A/B decision above does not send you back here.
+The redirect URIs are what matter (see O-13 above). The JavaScript origins are
+registered anyway — they cost nothing and keep the door open.
 
 Replace `app.quizzivy.com` with the real host once O-01 is settled. Both must sit
 under one registrable domain as the API — that is what makes the `SameSite=Lax`
