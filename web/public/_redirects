@@ -1,0 +1,5 @@
+# SPA fallback. Every unmatched path serves index.html so client-side routing
+# works on a cold load. Without this, a deep link like /join/K7M3-P9QR -- the
+# URL students are most likely to open first, from a QR code -- 404s at the CDN
+# before React ever runs.
+/*  /index.html  200

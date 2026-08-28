@@ -15,6 +15,29 @@ audio probe implementation, and build order.
 
 ## BLOCKING
 
+### O-16 — Where does the Go API run? · before first deploy
+**Default:** none yet. This is the one piece of the deployment story still open,
+and it blocks the `api.quizzivy.com` record because a CNAME needs a target.
+
+Settled around it, so this is the only remaining question:
+
+- **Database — Neon, Singapore, PG 18.6.** §13.7 already assumed Neon, and both
+  risks checked out: 18.6 is a normally supported release there (not preview),
+  and it is the same minor this project was developed against. Region
+  `aws-ap-southeast-1` is fixed at project creation, so choose it deliberately.
+- **SPA — Cloudflare Pages.** Static output, already on the account, free.
+
+What the API needs: a container runtime near Vietnam, an always-warm instance
+(a cold start during a timed exam is a bad look, and the server-authoritative
+timer makes it visible), a stable hostname to CNAME, and near-zero cost at ~50
+students.
+
+Whatever is chosen, `TRUST_PROXY=true` only if the platform terminates TLS in
+front of the app and sets `X-Forwarded-For` — otherwise the per-IP rate limit
+keys on the proxy and §6.5 stops working.
+
+---
+
 ### O-14 — DNS records for quizzivy.com · before first deploy
 **Default:** `app.quizzivy.com` for the SPA, `api.quizzivy.com` for the API, as
 already written throughout the plan. See `docs/setup/dns.md`.
@@ -30,10 +53,15 @@ rather than loudly:
 - Both hosts must stay under `quizzivy.com`. That is what makes them same-*site*
   and therefore what makes §5.2's `SameSite=Lax` refresh cookie work at all
   (R-07). A split across two registrable domains kills sessions with no error.
-- The Google OAuth client currently has only the localhost origin verified. Add
-  `https://app.quizzivy.com` and
-  `https://app.quizzivy.com/auth/google/callback` before deploying, or Google
-  rejects the exchange with `redirect_uri_mismatch`.
+- ~~The Google OAuth client needs the production origin.~~ **Done and verified
+  2026-08-28**: `https://app.quizzivy.com/auth/google/callback` is registered,
+  confirmed by probing Google's token endpoint (returns `invalid_grant`, not
+  `redirect_uri_mismatch`).
+- The domain is **not on Cloudflare yet** — nameservers are still
+  `ns1–ns4.zonedns.vn` and no records exist. Moving them is step 0 in
+  `docs/setup/dns.md` and takes up to 24h, so it is worth starting before the
+  hosting question is settled.
+- The records themselves are blocked on O-16.
 
 Using the apex `quizzivy.com` for the SPA instead of `app.` is equally valid and
 equally same-site. The plan says `app.` so the apex stays free for a landing
