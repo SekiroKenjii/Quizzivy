@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"quizzivy/internal/auth"
+	"quizzivy/internal/classes"
 	"quizzivy/internal/httpx"
 	"quizzivy/internal/join"
 )
@@ -34,6 +35,14 @@ type JoinService interface {
 	Revoke(ctx context.Context, req join.RevokeRequest) error
 	Preview(ctx context.Context, rawCode string) (join.PreviewResult, error)
 	EnrolExisting(ctx context.Context, userID, rawCode string, meta join.Meta) (join.EnrolResult, error)
+}
+
+// ClassesService is the slice of internal/classes the handlers use.
+type ClassesService interface {
+	Get(ctx context.Context, classID string) (classes.Class, error)
+	List(ctx context.Context) ([]classes.Class, error)
+	Members(ctx context.Context, classID string) ([]classes.Member, error)
+	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

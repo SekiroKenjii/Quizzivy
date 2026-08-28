@@ -94,5 +94,60 @@
     "errors": {
       "incomplete": "The class code needs all 8 characters."
     }
+  },
+  "classDetail": {
+    "joinCode": "Class join code",
+    "codeHint": "Current code",
+    "expiresAt": "Expires",
+    "uses": "Used",
+    "noActiveCode": "This class is not open for joining by code.",
+    "shownOnce": "Shown once only. Copy it now.",
+    "qrAlt": "QR code linking to the class join page",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "rotateToReveal": "Only a hashed copy is stored. Create a new code if you need to send it again.",
+    "rotate": "Create a new code",
+    "issue": "Open joining by code",
+    "disableSelfJoin": "Stop accepting joins",
+    "rotateConfirmTitle": "Create a new code for this class?",
+    "rotateConfirmBody": "The old code stops working immediately. Students who already joined stay in the class.",
+    "rotateConfirm": "Create a new code",
+    "rotateFailed": "Could not create a new code. Please try again.",
+    "revokeFailed": "Could not stop joining. Please try again.",
+    "loadFailed": "Could not load the class.",
+    "members": "Students ({{count}})",
+    "noMembers": "No students in this class yet.",
+    "name": "Student",
+    "joinedVia": "Joined via",
+    "joinedAt": "Joined on",
+    "actions": "Actions",
+    "viaAdmin": "Added by teacher",
+    "viaCode": "Code ••••{{hint}}",
+    "remove": "Remove from class",
+    "removeKeepsWork": "Removing a student only revokes access. Their work is kept.",
+    "maskedCode": "••••-{{hint}}"
+  },
+  "classes": {
+    "loadFailed": "Could not load classes.",
+    "empty": "No classes yet.",
+    "studentCount": "{{count}} students"
+  },
+  "settings": {
+    "profile": "Profile",
+    "fullName": "Full name",
+    "email": "Email",
+    "password": "Password",
+    "passwordChanged": "Password changed. Other devices have been signed out.",
+    "noPassword": "This account signs in with Google and has no password.",
+    "google": "Google account",
+    "googleLinked": "Linked to Google.",
+    "googleNotLinked": "Not linked to Google.",
+    "googleOnlyExplainer": "Google is currently the only way into this account. Set a password before unlinking.",
+    "linkGoogle": "Link Google",
+    "unlinkGoogle": "Unlink Google",
+    "locale": {
+      "vi": "Tiếng Việt",
+      "en": "English"
+    }
   }
 }

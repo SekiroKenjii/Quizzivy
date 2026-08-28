@@ -23,10 +23,11 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	DB     DB
-	Auth   AuthService
-	Join   JoinService
-	Tokens TokenVerifier
+	DB      DB
+	Auth    AuthService
+	Join    JoinService
+	Classes ClassesService
+	Tokens  TokenVerifier
 
 	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
 	// is false only for plain-http localhost; everywhere else it must be true,
@@ -89,15 +90,7 @@ func (s *Server) VoidAttempt(_ context.Context, _ openapi.VoidAttemptRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) ListClasses(_ context.Context, _ openapi.ListClassesRequestObject) (openapi.ListClassesResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObject) (openapi.CreateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetClass(_ context.Context, _ openapi.GetClassRequestObject) (openapi.GetClassResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 
@@ -105,15 +98,7 @@ func (s *Server) UpdateClass(_ context.Context, _ openapi.UpdateClassRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) ListClassMembers(_ context.Context, _ openapi.ListClassMembersRequestObject) (openapi.ListClassMembersResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) AddClassMember(_ context.Context, _ openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RemoveClassMember(_ context.Context, _ openapi.RemoveClassMemberRequestObject) (openapi.RemoveClassMemberResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

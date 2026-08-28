@@ -17,6 +17,13 @@ const STORAGE_KEY = "quizzivy.oauth.pending";
 export interface PendingAuthorization {
   verifier: string;
   state: string;
+  /**
+   * What the returning code is FOR. The callback lands on one URL for both
+   * journeys, and exchanging a link request at the sign-in endpoint would
+   * replace the current session with whichever Google account was chosen --
+   * silently signing the user in as someone else.
+   */
+  mode: "signin" | "link";
   /** Where to go after a successful sign-in. Carried across the round trip. */
   next?: string;
   /** Set when the flow started from /join, so the callback can enrol. */
@@ -101,6 +108,7 @@ export interface AuthorizationRequest {
 /** Builds the authorization request and the state that has to outlive it. */
 export async function buildAuthorizationRequest(options: {
   clientId: string;
+  mode?: "signin" | "link";
   next?: string | undefined;
   joinCode?: string | undefined;
 }): Promise<AuthorizationRequest> {
@@ -126,6 +134,7 @@ export async function buildAuthorizationRequest(options: {
     pending: {
       verifier,
       state,
+      mode: options.mode ?? "signin",
       ...(options.next ? { next: options.next } : {}),
       ...(options.joinCode ? { joinCode: options.joinCode } : {}),
     },

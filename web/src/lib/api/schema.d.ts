@@ -856,6 +856,10 @@ export interface paths {
          * @description Revokes access. **Attempts are retained, not deleted** (§6.4), and an
          *     in-flight attempt is not revoked — eligibility is evaluated at attempt
          *     creation.
+         *
+         *     Idempotent for a user who is not a member: the class ends up in the
+         *     requested state either way. A class that does not exist is still a 404,
+         *     so a typo in the URL does not look like it worked.
          */
         delete: operations["removeClassMember"];
         options?: never;
@@ -3603,6 +3607,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     rotateJoinCode: {

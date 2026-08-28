@@ -515,6 +515,20 @@ for:
       accepted
 - [ ] Loading / error / empty states; both locales; keyboard-operable (§14)
 
+**Scope the task did not name.** T-1.13's "Touches" listed only
+`web/src/features/classes/`, but its Done-when needs `GET /admin/classes/{id}`
+(with the code metadata), `GET .../members` and `DELETE .../members/{userId}` —
+none of which existed, and no Phase 1 task built them. The panel cannot exist
+without them, so `internal/classes/` was built here. `ListClasses` came too,
+because the panel is otherwise unreachable. `CreateClass`, `UpdateClass` and
+`AddClassMember` remain stubs: nothing in Phase 1 needs them.
+
+**New dependency:** `qrcode.react` (4 KB installed). §6.2 puts the code on a QR
+for a whiteboard or a message, and a QR encoder is Reed–Solomon over GF(256) —
+several hundred lines of exactly the code that is wrong in ways you find later.
+It lands in the admin chunk, which `router-chunks.test.ts` keeps out of the
+entry bundle.
+
 ---
 
 ### T-1.14 — Build the settings pages and close the phase
