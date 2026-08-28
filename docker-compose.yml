@@ -1,0 +1,73 @@
+name: quizzivy
+
+services:
+  db:
+    image: postgres:18
+    container_name: quizzivy-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      # Consumed by docker/initdb/01-roles-and-db.sh
+      QUIZZIVY_MIGRATE_PASSWORD: ${QUIZZIVY_MIGRATE_PASSWORD:-migrate}
+      QUIZZIVY_APP_PASSWORD: ${QUIZZIVY_APP_PASSWORD:-app}
+    ports:
+      - "5432:5432"
+    volumes:
+      # PG18+ images changed layout: the mount goes at /var/lib/postgresql, and
+      # the image places data in a major-version subdirectory beneath it
+      # (/var/lib/postgresql/18/docker). Mounting at .../data -- correct for
+      # 17 and earlier -- makes the container refuse to start.
+      # https://github.com/docker-library/postgres/pull/1259
+      - db-data:/var/lib/postgresql
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # S3-compatible stand-in for Cloudflare R2. aws-sdk-go-v2/s3 targets both;
+  # only the endpoint differs. This is what keeps Phases 0-2 unblocked while
+  # the real R2 credentials are outstanding (T-0.3).
+  minio:
+    image: minio/minio:latest
+    container_name: quizzivy-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-quizzivy}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-quizzivy-dev-secret}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Creates the bucket and asserts it is private. Runs once and exits.
+  minio-init:
+    image: minio/mc:latest
+    container_name: quizzivy-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-quizzivy}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-quizzivy-dev-secret}
+      S3_BUCKET: ${S3_BUCKET:-quizzivy-media}
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 \"$${S3_ACCESS_KEY_ID}\" \"$${S3_SECRET_ACCESS_KEY}\" &&
+        mc mb --ignore-existing local/$${S3_BUCKET} &&
+        mc anonymous set none local/$${S3_BUCKET} &&
+        echo 'bucket ready and private: '$${S3_BUCKET}
+      "
+    restart: "no"
+
+volumes:
+  db-data:
+  minio-data:

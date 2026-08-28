@@ -114,6 +114,17 @@ Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
 cross-site and hides the cookie behaviour described in
 `docs/plan/00-overview.md` §4.1.
 
+Two local-dev facts worth not rediscovering:
+
+- **The `postgres:18` image changed its data layout.** The volume mounts at
+  `/var/lib/postgresql`, and the image puts data in a version subdirectory
+  beneath it. Mounting at `/var/lib/postgresql/data` — correct for 17 and
+  earlier — makes the container refuse to start.
+- **Roles are created by `docker/initdb/`, not by a migration.** `CREATE ROLE`
+  needs superuser and `quizzivy_migrate` deliberately is not one. `pg_trgm` and
+  `unaccent` are *trusted* extensions, so the migrate role can install them
+  itself — verified.
+
 Two database roles: `quizzivy_migrate` owns the schema and runs goose;
 `quizzivy_app` is what the API connects as and owns nothing.
 
