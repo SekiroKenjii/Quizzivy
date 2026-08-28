@@ -1,0 +1,49 @@
+{
+  "app": {
+    "name": "Quizzivy"
+  },
+  "common": {
+    "loading": "Đang tải…",
+    "retry": "Thử lại",
+    "cancel": "Huỷ",
+    "close": "Đóng",
+    "back": "Quay lại",
+    "signOut": "Đăng xuất",
+    "language": "Ngôn ngữ"
+  },
+  "error": {
+    "title": "Đã xảy ra lỗi",
+    "body": "Một lỗi ngoài dự kiến đã xảy ra. Bạn có thể tải lại trang để tiếp tục.",
+    "reload": "Tải lại trang",
+    "errorId": "Mã lỗi",
+    "copyId": "Sao chép mã lỗi",
+    "copied": "Đã sao chép"
+  },
+  "notFound": {
+    "title": "Không tìm thấy trang",
+    "body": "Đường dẫn này không tồn tại hoặc đã bị thay đổi.",
+    "action": "Về trang chủ"
+  },
+  "forbidden": {
+    "title": "Bạn không có quyền truy cập",
+    "body": "Tài khoản của bạn không được phép xem trang này. Nếu bạn nghĩ đây là nhầm lẫn, hãy liên hệ giáo viên.",
+    "action": "Về trang của tôi"
+  },
+  "nav": {
+    "dashboard": "Tổng quan",
+    "tests": "Đề thi",
+    "questionBank": "Ngân hàng câu hỏi",
+    "media": "Thư viện media",
+    "assignments": "Bài giao",
+    "students": "Học viên",
+    "classes": "Lớp học",
+    "settings": "Cài đặt",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu",
+    "mainNavigation": "Điều hướng chính"
+  },
+  "student": {
+    "myAssignments": "Bài của tôi",
+    "myClasses": "Lớp của tôi"
+  }
+}

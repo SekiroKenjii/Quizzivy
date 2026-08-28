@@ -3,6 +3,7 @@ import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import react from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
 
 // Plugins are registered explicitly rather than through `extends`. The plugins
@@ -34,6 +35,7 @@ export default [
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
       "jsx-a11y": jsxA11y,
+      react,
     },
     rules: {
       ...reactHooks.configs["recommended-latest"].rules,
@@ -56,6 +58,24 @@ export default [
       "jsx-a11y/no-static-element-interactions": "error",
       "jsx-a11y/click-events-have-key-events": "error",
       "jsx-a11y/no-autofocus": "warn",
+
+      // §14: "All strings via t(), keys in both vi and en." Vietnamese is the
+      // product language and AGENTS.md forbids English-only text reaching a
+      // commit -- this is what stops a hardcoded string sneaking in.
+      //
+      // Scope: JSX text children only (ignoreProps). Checking every attribute
+      // would flag className, id and type, which is unusable. Hardcoded
+      // user-facing ATTRIBUTES -- aria-label, placeholder, title -- are covered
+      // by src/lib/i18n/no-hardcoded-strings.test.ts instead, which can be
+      // precise about which attributes matter.
+      "react/jsx-no-literals": [
+        "error",
+        {
+          noStrings: true,
+          ignoreProps: true,
+          allowedStrings: ["·", "—", "–", "/", "|", ":", "×", "…"],
+        },
+      ],
     },
   },
   {

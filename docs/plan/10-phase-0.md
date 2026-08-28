@@ -266,14 +266,29 @@ service in T-0.6, which speaks the same S3 API.
 
 ### T-0.11 — Set up i18n with Vietnamese as default
 **Depends on:** T-0.9
+
+> **Ordering correction.** Done *before* T-0.10. §14 requires every string to go
+> through `t()`, and T-0.10 writes the 403/404/nav/error-boundary copy — so the
+> planned order meant writing every one of those strings twice.
+
 **Touches:** `web/src/lib/i18n/`
 **Size:** S
 **Done when:**
 - [ ] i18next + react-i18next configured, `vi` default and `en` secondary (§2)
 - [ ] date-fns + date-fns-tz with `Asia/Ho_Chi_Minh` as the render timezone;
       all stored values are UTC (§13.2)
-- [ ] An ESLint rule (or a CI script) fails on a user-facing string literal in
-      JSX outside `t()`
+- [ ] `react/jsx-no-literals` fails on a string literal in JSX children.
+      Configured with `ignoreProps`, because checking every attribute would flag
+      `className`/`id`/`type` and be unusable
+- [ ] A companion test covers what that rule cannot: literal text in the
+      attributes that are actually user-facing — `aria-label`, `placeholder`,
+      `title`, `alt`. An English `aria-label` is read aloud to a Vietnamese
+      student, which is precisely what AGENTS.md forbids
+- [ ] Both are **mutation-tested**
+- [ ] `formatDateTime` and friends are the only place a timezone is applied, so
+      "store UTC, render `Asia/Ho_Chi_Minh`" (§13.2) is a property of the code
+      rather than a convention. Tested across the UTC+7 date boundary, so it
+      holds wherever CI runs
 - [ ] Test: `web/src/lib/i18n/parity.test.ts` fails if any key exists in one
       locale and not the other
 - [ ] All strings via `t()`, keys in both `vi` and `en` (§14)
