@@ -99,6 +99,16 @@ docs/plan/         the plan; 20-data-model.md is the schema authority
 A vertical slice is one `web/src/features/<name>/`, one
 `server/internal/<name>/`, and one section of `api/openapi.yaml`.
 
+## Authentication and authorization
+
+- **`/admin/*` is gated on the path prefix**, in `httpx.RequireRole`. Adding an
+  admin endpoint requires nothing: put it under `/admin/` and it is teacher-only.
+  Putting a teacher-only endpoint anywhere else silently makes it student-
+  reachable.
+- **Everything the contract does not explicitly open requires a bearer token**,
+  derived from `api/openapi.yaml`'s `security`. Five operations are open; the
+  list is pinned by a test so a sixth takes an argument.
+
 ## Two things about the middleware chain
 
 - **`oapi-codegen` applies the middleware slice in reverse**: the LAST entry

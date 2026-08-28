@@ -2520,14 +2520,23 @@ paths:
               properties:
                 expiresInDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
                 maxUses:
-                  type: [integer, 'null']
+                  type: integer
                   minimum: 1
+                  maximum: 1000
                   default: 40
                   description: |
                     Defaults to 40 rather than spec §6.1's `null = unlimited`
                     (O-06). The realistic threat to a bearer code is being
                     *forwarded*, not guessed, and a use cap is the mitigation
                     that costs nothing.
+
+                    **Not nullable on the way in, unlike the stored column.**
+                    A nullable request field cannot express what it promises:
+                    an omitted field and an explicit `null` both arrive as "no
+                    value", so "unlimited" would have been indistinguishable
+                    from "use the default" and one of the two would silently
+                    never happen. A cap of 1000 covers every real cohort, and
+                    the column stays nullable for codes issued before this.
       responses:
         '201':
           description: Issued.
@@ -2544,12 +2553,24 @@ paths:
                     examples: ['K7M3-P9QR']
                   expiresAt: { $ref: '#/components/schemas/Timestamp' }
                   maxUses: { type: [integer, 'null'] }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: revokeJoinCode
       tags: [admin-classes]
-      description: 'Revokes without issuing a replacement, and sets `selfJoinEnabled: false` (§6.4).'
+      description: |
+        Revokes without issuing a replacement, and sets `selfJoinEnabled: false`
+        (§6.4). Both, or neither: a revoked code with self-join still on
+        advertises a flow that cannot succeed, and a cleared flag without the
+        revocation leaves a live bearer secret the teacher believes is cancelled.
+
+        Idempotent. A class with no active code still returns 204 — "there is no
+        way in" is the requested state, and reporting failure would invite a
+        retry that changes nothing.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # =================================================================== student
 

@@ -245,9 +245,30 @@ the seam to asserting an enrolment.**
 - [ ] Test: `join/code_test.go` — "normalize" is idempotent across
       `abcd-1234`, `ABCD1234`, `abcd 1234`
 - [ ] Test: `join/code_test.go` — 100k generated codes contain no character from
-      the ambiguous set `0O1IL`
+      the ambiguous set `0O1I`. **Not `L`** — this checkbox said `0O1IL`, which
+      contradicts §6.1's own alphabet: `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`
+      contains `L`. The spec's "(no 0/O, 1/I/L)" names the two confusion
+      GROUPS, not a blocklist; from {1, I, L} it keeps one member, and with `1`
+      and `I` gone there is nothing left for `L` to be mistaken for. Dropping it
+      too would make the alphabet 31 characters — no longer a power of two, so
+      uniform selection needs rejection sampling for no gain in legibility
 - [ ] Test: `join/rotate_test.go` — after rotation the old code fails and
       existing members are untouched (§6.1)
+- [ ] Test: `join/rotate_test.go` — six concurrent rotations of one class leave
+      exactly one active code. `class_join_codes_one_active` is a partial unique
+      index: insert-then-revoke violates it, revoke-then-insert leaves a window
+      with no code. The transaction plus a row lock on the class is what makes
+      neither state observable
+- [ ] **Role authorization.** T-1.6 adds the first real `/admin` endpoint, so
+      `/admin/*` must stop being reachable by any authenticated student. Driven
+      by the path prefix, because the path IS §3's route-tree structure — a
+      per-operation annotation is a second thing to remember, and the cost of
+      forgetting is a student reading every attempt in the school. The contract's
+      `Forbidden` response already documented this rule; nothing enforced it
+- [ ] Contract: `maxUses` is **not nullable on the request**, unlike the stored
+      column. An omitted field and an explicit `null` both arrive as "no value",
+      so `null = unlimited` was indistinguishable from "use the default 40" and
+      one of the two would silently never happen. Capped at 1000 instead
 
 ---
 

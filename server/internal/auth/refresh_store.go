@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"quizzivy/internal/audit"
 )
 
 // RotateOutcome classifies a presented refresh token. Rotate returns one of
@@ -102,7 +104,7 @@ func (s *Store) Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenR
 		if err := revokeFamily(ctx, tx, familyID, now); err != nil {
 			return RotateResult{}, err
 		}
-		if err := insertAudit(ctx, tx, auditEntry{
+		if err := audit.Write(ctx, tx, audit.Entry{
 			ActorUserID: &userID,
 			Action:      "refresh_token.reuse_detected",
 			Entity:      "refresh_token_family",
@@ -272,31 +274,6 @@ func (s *Store) DeleteExpired(ctx context.Context, before time.Time) (int64, err
 	return tag.RowsAffected(), nil
 }
 
-// auditEntry is the subset of app.audit_log this package writes. A shared audit
-// helper belongs in its own package once a second feature needs one; inventing
-// it for a single caller would be guessing at that package's shape.
-type auditEntry struct {
-	ActorUserID *string
-	Action      string
-	Entity      string
-	EntityID    *string
-	OccurredAt  time.Time
-	IP          *string
-	UserAgent   *string
-}
-
-func insertAudit(ctx context.Context, tx pgx.Tx, e auditEntry) error {
-	const q = `
-		INSERT INTO app.audit_log
-		       (actor_user_id, action, entity, entity_id, occurred_at, ip, user_agent)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	if _, err := tx.Exec(ctx, q,
-		e.ActorUserID, e.Action, e.Entity, e.EntityID, e.OccurredAt, e.IP, e.UserAgent); err != nil {
-		return fmt.Errorf("write audit entry %s: %w", e.Action, err)
-	}
-	return nil
-}
-
 // ChangePasswordRecord is what the store needs to swap a password and prune the
 // sessions that the old one authorised.
 type ChangePasswordRecord struct {
@@ -370,7 +347,7 @@ func (s *Store) ChangePassword(ctx context.Context, in ChangePasswordRecord) err
 		return fmt.Errorf("revoke other sessions: %w", err)
 	}
 
-	if err := insertAudit(ctx, tx, auditEntry{
+	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &in.UserID,
 		Action:      "user.password_changed",
 		Entity:      "user",

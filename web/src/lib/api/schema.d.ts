@@ -885,7 +885,16 @@ export interface paths {
          *     (§13.3). If it is lost, rotate again.
          */
         post: operations["rotateJoinCode"];
-        /** @description Revokes without issuing a replacement, and sets `selfJoinEnabled: false` (§6.4). */
+        /**
+         * @description Revokes without issuing a replacement, and sets `selfJoinEnabled: false`
+         *     (§6.4). Both, or neither: a revoked code with self-join still on
+         *     advertises a flow that cannot succeed, and a cleared flag without the
+         *     revocation leaves a live bearer secret the teacher believes is cancelled.
+         *
+         *     Idempotent. A class with no active code still returns 204 — "there is no
+         *     way in" is the requested state, and reporting failure would invite a
+         *     retry that changes nothing.
+         */
         delete: operations["revokeJoinCode"];
         options?: never;
         head?: never;
@@ -3584,9 +3593,17 @@ export interface operations {
                      *     (O-06). The realistic threat to a bearer code is being
                      *     *forwarded*, not guessed, and a use cap is the mitigation
                      *     that costs nothing.
+                     *
+                     *     **Not nullable on the way in, unlike the stored column.**
+                     *     A nullable request field cannot express what it promises:
+                     *     an omitted field and an explicit `null` both arrive as "no
+                     *     value", so "unlimited" would have been indistinguishable
+                     *     from "use the default" and one of the two would silently
+                     *     never happen. A cap of 1000 covers every real cohort, and
+                     *     the column stays nullable for codes issued before this.
                      * @default 40
                      */
-                    maxUses?: number | null;
+                    maxUses?: number;
                 };
             };
         };
@@ -3608,6 +3625,8 @@ export interface operations {
                     };
                 };
             };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     revokeJoinCode: {
@@ -3622,6 +3641,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMyClasses: {
