@@ -168,6 +168,11 @@ export interface paths {
          * Change own password
          * @description Clears `mustChangePassword` and revokes every **other** refresh family
          *     for this user, so a second device is signed out.
+         *
+         *     The calling session is identified by the refresh cookie, which reaches
+         *     this endpoint because it is scoped `Path=/auth`. Without it the server
+         *     cannot tell the caller's family from a stranger's and revokes them all,
+         *     signing the caller out too.
          */
         post: operations["changePassword"];
         delete?: never;
@@ -1225,7 +1230,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         ErrorResponse: {
             error: {
                 code: components["schemas"]["ErrorCode"];
@@ -2239,8 +2244,34 @@ export interface operations {
             };
         };
         responses: {
-            204: components["responses"]["NoContent"];
-            400: components["responses"]["BadRequest"];
+            /** @description Changed. The calling session survives; every other one is revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /**
+             * @description `INVALID_CREDENTIALS` — `currentPassword` is wrong.
+             *     `PASSWORD_REQUIRED` — the account signs in with Google only and has
+             *     no current password to verify; it needs a set-password flow, not this one.
+             *     `VALIDATION_FAILED` — `newPassword` is shorter than 8 characters.
+             *
+             *     **A wrong current password is deliberately 400, not 401.** The SPA
+             *     treats 401 as "the session died": it refreshes once and retries, and
+             *     a second 401 signs the user out (§5.2, `client.ts`). Returning 401
+             *     here would mean mistyping your own password rotates your refresh
+             *     token and then logs you out — with no hint that the typo was the
+             *     cause. 401 on this endpoint means the SESSION is invalid, nothing else.
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
         };
     };
