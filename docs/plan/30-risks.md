@@ -300,6 +300,19 @@ correction) causes one visible jump. Acceptable, and the next autosave fixes it.
 
 ---
 
+**Update after T-2.2.** The prober is built and the arithmetic is verified, but
+the corpus is SYNTHESISED (`testdata/generate.go` writes each file byte by byte)
+rather than encoded. That makes every expected duration exact and each case
+isolated — a 32 KB ID3v2 tag of `0xFF`, a Xing frame count, a VBR stream with no
+header at all — and it proves the parsing is right.
+
+What it does not prove is that the parser survives real encoders: LAME's exact
+padding, iTunes' atom ordering, the stray byte between frames that files from
+the wild sometimes carry. **The residual risk is unchanged in kind and smaller
+in size.** Closing it needs no code: drop real `.mp3`/`.m4a` files into
+`server/internal/media/probe/testdata/` and add a row to the table in
+`probe_test.go`. Worth doing with the first real audio Thuong uploads.
+
 ### R-13 — Argon2id memory exhaustion on a 512 MB machine · Phase 1
 
 **Likelihood:** high · **Blast radius:** the whole API · **First bites:** the
