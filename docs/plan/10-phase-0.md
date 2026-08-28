@@ -390,8 +390,18 @@ service in T-0.6, which speaks the same S3 API.
       `requestId` (`00-overview.md` §7)
 - [ ] CORS middleware: exact-origin allowlist, `Allow-Credentials: true`,
       `Vary: Origin`, preflight for `PATCH`/`DELETE` + `Authorization`. Never `*`
-- [ ] Rate-limit middleware exists with per-IP and per-key buckets and emits
-      `429` with `Retry-After` (§6.5)
+- [ ] Rate-limit middleware with per-IP and per-key buckets, emitting `429` with
+      `Retry-After` (§6.5). Applied **per route**, so it keys on the OpenAPI path
+      template rather than a concrete URL — `/admin/tests/{id}` shares one bucket
+      instead of creating one per test
+- [ ] The limiter is **capacity-bounded** with LRU eviction. An unbounded map
+      keyed by client IP is a memory-exhaustion vector on precisely the endpoints
+      §6.5 protects
+- [ ] A rejected request consumes **nothing**, so a burst blocked by the minute
+      rule does not also drain the hour's budget
+- [ ] `X-Forwarded-For` is honoured only behind a trusted proxy — the header is
+      client-controlled, and trusting it blindly lets an attacker forge a fresh
+      identity per request and defeat the limit entirely
 - [ ] **A startup assertion fails the process if any route tagged `public` in
       `api/openapi.yaml` has no rate-limit rule registered** — this is what makes
       §14's public-endpoint checkbox structural rather than procedural
