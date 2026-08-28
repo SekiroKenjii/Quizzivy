@@ -17,6 +17,9 @@ importers:
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.3.3(@types/react@19.2.18)(react@19.2.8)
+      '@tanstack/react-query':
+        specifier: ^5.102.6
+        version: 5.102.6(react@19.2.8)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -53,6 +56,9 @@ importers:
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.6.0
+      zustand:
+        specifier: ^5.0.15
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.1
@@ -1405,6 +1411,14 @@ packages:
     resolution: {integrity: sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
+
+  '@tanstack/query-core@5.102.6':
+    resolution: {integrity: sha512-jp+GucyQ+fel2ILb8ZLQeqMaAqZL/Bzaj+dKOQiPk4vPdf2rQPEV7heUyEVIhatpY42j4AFHav4DzBa1oTIp/A==}
+
+  '@tanstack/react-query@5.102.6':
+    resolution: {integrity: sha512-ANz4KZ8z80D85fiz5IAHjpb8XBPLrjOb/0natlD9Ascyy/3p96V86Zw8UbOfA0HDLcvK/A4gNd95r723y5UT2w==}
+    peerDependencies:
+      react: ^18 || ^19
 
   '@testing-library/dom@10.4.1':
     resolution: {integrity: sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==}
@@ -3227,6 +3241,24 @@ packages:
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
+  zustand@5.0.15:
+    resolution: {integrity: sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+      immer: '>=9.0.6'
+      react: '>=18.0.0'
+      use-sync-external-store: '>=1.2.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+      use-sync-external-store:
+        optional: true
+
 snapshots:
 
   '@acemir/cssom@0.9.31': {}
@@ -4426,6 +4458,13 @@ snapshots:
       '@tailwindcss/oxide': 4.3.3
       tailwindcss: 4.3.3
       vite: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)
+
+  '@tanstack/query-core@5.102.6': {}
+
+  '@tanstack/react-query@5.102.6(react@19.2.8)':
+    dependencies:
+      '@tanstack/query-core': 5.102.6
+      react: 19.2.8
 
   '@testing-library/dom@10.4.1':
     dependencies:
@@ -6409,3 +6448,9 @@ snapshots:
       zod: 4.4.3
 
   zod@4.4.3: {}
+
+  zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)):
+    optionalDependencies:
+      '@types/react': 19.2.18
+      react: 19.2.8
+      use-sync-external-store: 1.6.0(react@19.2.8)
