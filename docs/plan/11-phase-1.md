@@ -27,7 +27,15 @@ the public join surface, then the frontend that consumes it.
 - [ ] Tables match `20-data-model.md` §3–§5 exactly, including deviations D-08,
       D-09, D-10 and D-16
 - [ ] `seed/` creates one admin user and one class; never in a migration (§13.7)
-- [ ] Test: `migrate_test.go` up/down/up still clean
+- [ ] Test: `migrate_test.go` up/down/up still clean, and **mutation-tested** —
+      removing one `DROP TABLE` from a `Down` must fail it
+- [ ] That round trip is **opt-in** (`TEST_DESTRUCTIVE=1`, set in CI). It drops
+      schema `app`, so leaving it on by default meant `go test ./...` silently
+      wiped a developer's seeded database with no hint as to why
+- [ ] Constraint tests build their fixtures with **generated** ids, never
+      hard-coded ones. The first version used fixed uuids and every case broke
+      the moment `make seed` ran — a suite that assumes an empty database only
+      passes on a machine nobody has used
 - [ ] Test: `server/internal/db/constraints_test.go` — inserting a user with
       `must_change_password = true` and `password_hash = NULL` is rejected (D-16)
 - [ ] Test: `constraints_test.go` — two users differing only in email case

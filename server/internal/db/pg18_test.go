@@ -347,9 +347,11 @@ func TestAccentFolding(t *testing.T) {
 	})
 }
 
-func mustExec(t *testing.T, tx *sql.Tx, stmt string) {
+// mustExec runs a statement that is expected to succeed. Shared with
+// constraints_test.go, hence the variadic args.
+func mustExec(t *testing.T, tx *sql.Tx, stmt string, args ...any) {
 	t.Helper()
-	if _, err := tx.Exec(stmt); err != nil {
-		t.Fatalf("exec %.60s...: %v", strings.TrimSpace(stmt), err)
+	if _, err := tx.Exec(stmt, args...); err != nil {
+		t.Fatalf("should have succeeded (%.80s): %v", strings.TrimSpace(stmt), err)
 	}
 }
