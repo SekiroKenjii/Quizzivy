@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"quizzivy/internal/auth"
 )
 
 type Config struct {
@@ -28,6 +30,11 @@ type Config struct {
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURIs []string
+
+	// MaxConcurrentPasswordHashes bounds Argon2id concurrency. Each in-flight
+	// hash holds a 64 MiB arena, so this is a MEMORY limit wearing a
+	// concurrency limit's clothes -- see auth.DefaultMaxConcurrentHashes.
+	MaxConcurrentPasswordHashes int
 
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
@@ -83,6 +90,15 @@ func Load() (Config, error) {
 
 	if err := loadGoogle(&cfg); err != nil {
 		return cfg, err
+	}
+
+	// Deliberately NOT derived from GOMAXPROCS or the CPU count. The binding
+	// constraint is RAM, and a shared-cpu-1x machine reports the host's cores,
+	// not its own memory -- sizing on cores would pick a number that OOMs.
+	cfg.MaxConcurrentPasswordHashes = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
+		auth.DefaultMaxConcurrentHashes)
+	if cfg.MaxConcurrentPasswordHashes < 1 {
+		return cfg, fmt.Errorf("MAX_CONCURRENT_PASSWORD_HASHES must be at least 1")
 	}
 
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
@@ -149,6 +165,18 @@ func loadGoogle(cfg *Config) error {
 // GoogleEnabled reports whether §5.3 sign-in is configured.
 func (c Config) GoogleEnabled() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && len(c.GoogleRedirectURIs) > 0
+}
+
+func getenvInt(key string, fallback int) int {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fallback
+	}
+	return n
 }
 
 func parseDuration(key, fallback string) (time.Duration, error) {

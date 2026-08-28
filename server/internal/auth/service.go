@@ -74,7 +74,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 	user, err := s.store.FindUserByEmail(ctx, in.Email)
 	switch {
 	case errors.Is(err, ErrUserNotFound):
-		BurnPasswordTime(in.Password)
+		BurnPasswordTime(ctx, in.Password)
 		return Session{}, ErrInvalidCredentials
 	case err != nil:
 		return Session{}, fmt.Errorf("look up user: %w", err)
@@ -82,11 +82,11 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 
 	if !user.HasPassword() {
 		// A Google-only account (§5.1). Indistinguishable from a wrong password.
-		BurnPasswordTime(in.Password)
+		BurnPasswordTime(ctx, in.Password)
 		return Session{}, ErrInvalidCredentials
 	}
 
-	ok, err := VerifyPassword(in.Password, *user.PasswordHash)
+	ok, err := VerifyPassword(ctx, in.Password, *user.PasswordHash)
 	if err != nil {
 		// A corrupt stored hash is an operational fault, not a user error. It
 		// must not be reported as "wrong password", or the cause is never found.

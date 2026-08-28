@@ -49,6 +49,13 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	// Before the server starts serving: SetMaxConcurrentHashes is only safe
+	// while no handler goroutine exists yet.
+	auth.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
+	logger.Info("password hashing bounded",
+		"max_concurrent", cfg.MaxConcurrentPasswordHashes,
+		"peak_arena_mib", cfg.MaxConcurrentPasswordHashes*64)
+
 	tokens, err := auth.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
 	if err != nil {
 		return err
