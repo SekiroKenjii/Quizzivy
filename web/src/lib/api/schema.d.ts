@@ -2433,6 +2433,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };
@@ -2529,6 +2530,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             /** @description `STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`. */
             409: {
                 headers: {
@@ -2597,6 +2599,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listTestVersions: {

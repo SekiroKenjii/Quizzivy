@@ -29,6 +29,7 @@ type Deps struct {
 	Classes      ClassesService
 	Media        MediaService
 	Questions    QuestionsService
+	Tests        TestsService
 	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
 	CookieSecure bool
@@ -121,26 +122,6 @@ func (s *Server) UpdateStudent(_ context.Context, _ openapi.UpdateStudentRequest
 }
 
 func (s *Server) ResetStudentPassword(_ context.Context, _ openapi.ResetStudentPasswordRequestObject) (openapi.ResetStudentPasswordResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListTests(_ context.Context, _ openapi.ListTestsRequestObject) (openapi.ListTestsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) CreateTest(_ context.Context, _ openapi.CreateTestRequestObject) (openapi.CreateTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetTest(_ context.Context, _ openapi.GetTestRequestObject) (openapi.GetTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateTest(_ context.Context, _ openapi.UpdateTestRequestObject) (openapi.UpdateTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) DuplicateTest(_ context.Context, _ openapi.DuplicateTestRequestObject) (openapi.DuplicateTestResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 
