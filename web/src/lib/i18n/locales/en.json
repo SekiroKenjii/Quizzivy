@@ -332,5 +332,23 @@
     "bankEmpty": "No more questions to add.",
     "newSection": "Section {{n}}",
     "addFailed": "Could not add the question. Please try again."
+  },
+  "bank": {
+    "typeFilter": "Question type",
+    "tagFilter": "Tags",
+    "allTypes": "All",
+    "noTags": "No tags yet.",
+    "summary": "{{count}} questions",
+    "newQuestion": "New question",
+    "searchPlaceholder": "Search the question text — accents optional",
+    "loadFailed": "Could not load the question bank.",
+    "empty": "The bank has no questions yet.",
+    "noMatches": "No question matches these filters.",
+    "prompt": "Question",
+    "type": "Type",
+    "tags": "Tags",
+    "points": "Points",
+    "preview": "Preview",
+    "loadMore": "Show more"
   }
 }
