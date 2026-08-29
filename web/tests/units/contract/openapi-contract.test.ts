@@ -9,6 +9,7 @@ import {
   resolveRef,
   type Json,
 } from "@tests/support/openapi";
+import { MAX_BYTES, MAX_DURATION_MS } from "@/features/media/limits";
 
 /**
  * Structural invariants of api/openapi.yaml. Ported from api/contract_check.py,
@@ -193,5 +194,32 @@ describe("the checkers themselves", () => {
       paths: { "/x": { parameters: [{ name: "id" }], get: { operationId: "getX" } } },
     });
     expect(found.map((o) => o.method)).toEqual(["get"]);
+  });
+});
+
+describe("§11.1's upload limits agree across the layers", () => {
+  // The contract carries the numbers, but openapi-typescript cannot express a
+  // JSON-Schema `maximum` as a TypeScript type, so schema.d.ts does not carry
+  // them and limits.ts genuinely has to restate them. That is what makes this
+  // pin necessary rather than redundant.
+  //
+  // Drift in either direction costs something. Raise the server without the
+  // client and the widget refuses a file the server would accept. Raise the
+  // client without the database -- the likelier order, since the user-facing
+  // check is the one someone edits first -- and the upload runs, the object
+  // lands in R2, and the INSERT fails on the CHECK: expensive work, then a
+  // refusal, which is the shape of #15.
+  const asset = resolveRef(doc, "#/components/schemas/MediaAsset") as Record<
+    string,
+    Json
+  >;
+  const properties = asset["properties"] as Record<string, Record<string, Json>>;
+
+  it("MAX_BYTES matches MediaAsset.bytes.maximum", () => {
+    expect(properties["bytes"]?.["maximum"]).toBe(MAX_BYTES);
+  });
+
+  it("MAX_DURATION_MS matches MediaAsset.durationMs.maximum", () => {
+    expect(properties["durationMs"]?.["maximum"]).toBe(MAX_DURATION_MS);
   });
 });
