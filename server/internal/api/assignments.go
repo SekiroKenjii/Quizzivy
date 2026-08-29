@@ -86,7 +86,10 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 			OnLimitExceeded:   openapi.IntegrityPolicyOnLimitExceeded(a.Integrity.OnLimitExceeded),
 			MinAwayMs:         a.Integrity.MinAwayMs,
 		},
-		Status:         openapi.AssignmentStatus(assignments.StatusAt(time.Now(), a.OpensAt, a.ClosesAt, a.ClosedAt)),
+		Status: openapi.AssignmentStatus(
+			assignments.StatusAt(time.Now(), a.PublishedAt, a.OpensAt, a.ClosesAt, a.ClosedAt),
+		),
+		PublishedAt:    a.PublishedAt,
 		SubmittedCount: &a.SubmittedCount,
 		TargetCount:    &a.TargetCount,
 		FlaggedCount:   &a.FlaggedCount,
@@ -220,6 +223,9 @@ func toWriteInput(body openapi.AssignmentInput) assignments.WriteInput {
 	}
 	if body.CloseNow != nil {
 		in.CloseNow = *body.CloseNow
+	}
+	if body.Draft != nil {
+		in.Draft = *body.Draft
 	}
 	for _, id := range body.Targets.ClassIds {
 		in.ClassIDs = append(in.ClassIDs, id.String())

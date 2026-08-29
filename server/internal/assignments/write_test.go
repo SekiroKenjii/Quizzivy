@@ -404,7 +404,7 @@ func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 	if closed.ClosedAt == nil {
 		t.Fatal("closeNow did not set closedAt")
 	}
-	if got := assignments.StatusAt(time.Now(), closed.OpensAt, closed.ClosesAt, closed.ClosedAt); got != assignments.Closed {
+	if got := assignments.StatusAt(time.Now(), closed.PublishedAt, closed.OpensAt, closed.ClosesAt, closed.ClosedAt); got != assignments.Closed {
 		t.Errorf("status: want closed, got %s", got)
 	}
 
@@ -497,5 +497,125 @@ func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 	}
 	if after.TargetCount != 1 {
 		t.Errorf("target count = %d after disabling one of two, want 1", after.TargetCount)
+	}
+}
+
+// G-01's "Lưu nháp": saved, targeted or not, given to nobody.
+func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
+	pool := newPool(t)
+	store := assignments.NewStore(pool)
+	w := seedWorld(t, pool, "published")
+	ctx := context.Background()
+
+	in := legalInput(w)
+	in.Draft = true
+	// The one assignment allowed to reach nobody yet: coming back to it is the
+	// point of saving one.
+	in.ClassIDs = nil
+
+	draft, err := store.Create(ctx, request(w), in)
+	if err != nil {
+		t.Fatalf("saving a draft with no targets: %v", err)
+	}
+	if draft.PublishedAt != nil {
+		t.Error("a draft reports a publication time")
+	}
+	if got := assignments.StatusAt(time.Now(), draft.PublishedAt,
+		draft.OpensAt, draft.ClosesAt, draft.ClosedAt); got != assignments.Draft {
+		t.Errorf("status = %s, want draft — its window is current", got)
+	}
+
+	// Saving again with draft:false is what "Giao bài" sends.
+	req := request(w)
+	req.ID = draft.ID
+	published, err := store.Update(ctx, req, legalInput(w))
+	if err != nil {
+		t.Fatalf("publishing the draft: %v", err)
+	}
+	if published.PublishedAt == nil {
+		t.Fatal("publishing did not record when")
+	}
+	if got := assignments.StatusAt(time.Now(), published.PublishedAt,
+		published.OpensAt, published.ClosesAt, published.ClosedAt); got != assignments.Open {
+		t.Errorf("status = %s, want open", got)
+	}
+
+	var action string
+	if err := pool.QueryRow(ctx,
+		`SELECT action FROM app.audit_log WHERE entity_id = $1::uuid
+		  ORDER BY occurred_at DESC LIMIT 1`, draft.ID).Scan(&action); err != nil {
+		t.Fatal(err)
+	}
+	if action != "assignment.published" {
+		t.Errorf("audit action = %q, want assignment.published", action)
+	}
+}
+
+// Publishing is one-way. Students may already be sitting it, so the only way
+// back out is closing it.
+func TestAPublishedAssignmentCannotBecomeADraftAgain(t *testing.T) {
+	pool := newPool(t)
+	store := assignments.NewStore(pool)
+	w := seedWorld(t, pool, "published")
+	ctx := context.Background()
+
+	created, err := store.Create(ctx, request(w), legalInput(w))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := request(w)
+	req.ID = created.ID
+	back := legalInput(w)
+	back.Draft = true
+
+	saved, err := store.Update(ctx, req, back)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.PublishedAt == nil {
+		t.Error("saving with draft:true un-gave an assignment students may be sitting")
+	}
+}
+
+// The status filter has to know about the new state, or a draft shows up under
+// whatever its window happens to say.
+func TestTheListFiltersDraftsSeparately(t *testing.T) {
+	pool := newPool(t)
+	store := assignments.NewStore(pool)
+	w := seedWorld(t, pool, "published")
+	ctx := context.Background()
+
+	in := legalInput(w)
+	in.Draft = true
+	draft, err := store.Create(ctx, request(w), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	drafts := assignments.Draft
+	found, _, err := store.List(ctx, assignments.ListInput{Status: &drafts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen bool
+	for _, a := range found {
+		if a.ID == draft.ID {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Error("status=draft did not return the draft")
+	}
+
+	open := assignments.Open
+	opened, _, err := store.List(ctx, assignments.ListInput{Status: &open})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range opened {
+		if a.ID == draft.ID {
+			t.Error("a draft appeared under status=open because its window is current")
+		}
 	}
 }

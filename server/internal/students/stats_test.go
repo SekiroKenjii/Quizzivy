@@ -79,8 +79,10 @@ func (w world) assignment(t *testing.T, pool *pgxpool.Pool) string {
 	var id string
 	if err := pool.QueryRow(context.Background(), `
 		INSERT INTO app.assignments
-		       (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by)
-		VALUES ($1::uuid,$2::uuid, now() - interval '2 hours', now() + interval '2 hours', 45, $3::uuid)
+		       (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by,
+		         published_at)
+		VALUES ($1::uuid,$2::uuid, now() - interval '2 hours', now() + interval '2 hours', 45, $3::uuid,
+		        now())
 		RETURNING id::text`, w.testID, w.version, w.admin).Scan(&id); err != nil {
 		t.Fatal(err)
 	}

@@ -24,9 +24,16 @@ import { statusAt } from "@/features/assignments/status";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/i18n/datetime";
 
-const TABS: (AssignmentStatus | "all")[] = ["all", "open", "scheduled", "closed"];
+const TABS: (AssignmentStatus | "all")[] = [
+  "all",
+  "draft",
+  "open",
+  "scheduled",
+  "closed",
+];
 
 const STATUS_VARIANT: Record<AssignmentStatus, "success" | "secondary" | "outline"> = {
+  draft: "secondary",
   open: "success",
   scheduled: "secondary",
   closed: "outline",

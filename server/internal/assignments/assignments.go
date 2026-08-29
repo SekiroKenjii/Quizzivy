@@ -17,13 +17,21 @@ import (
 type Status string
 
 const (
+	Draft     Status = "draft"
 	Scheduled Status = "scheduled"
 	Open      Status = "open"
 	Closed    Status = "closed"
 )
 
 // StatusAt is D-18's pure function: no scheduler, no stale row.
-func StatusAt(now, opensAt, closesAt time.Time, closedAt *time.Time) Status {
+//
+// The draft case does not weaken that. Publishing is an act by the teacher, not
+// a timestamp arriving, so nothing has to flip a row when a clock passes -- the
+// window rule reads exactly as it did once publishedAt exists.
+func StatusAt(now time.Time, publishedAt *time.Time, opensAt, closesAt time.Time, closedAt *time.Time) Status {
+	if publishedAt == nil {
+		return Draft
+	}
 	if closedAt != nil && !now.Before(*closedAt) {
 		return Closed
 	}
@@ -60,6 +68,7 @@ type Assignment struct {
 	OpensAt        time.Time
 	ClosesAt       time.Time
 	ClosedAt       *time.Time
+	PublishedAt    *time.Time
 	DurationMin    int
 	MaxAttempts    int
 	ShuffleQ       bool
@@ -103,7 +112,7 @@ func decodeCursor(s string) (string, error) {
 // in the list and another on the detail screen.
 const selectAssignment = `
 		SELECT a.id::text, a.test_id::text, a.test_version_id::text, v.version, t.title,
-		       a.opens_at, a.closes_at, a.closed_at,
+		       a.opens_at, a.closes_at, a.closed_at, a.published_at,
 		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
@@ -149,7 +158,7 @@ type querier interface {
 func scanAssignment(row pgx.Row) (Assignment, error) {
 	var a Assignment
 	err := row.Scan(&a.ID, &a.TestID, &a.TestVersionID, &a.TestVersion, &a.TestTitle,
-		&a.OpensAt, &a.ClosesAt, &a.ClosedAt,
+		&a.OpensAt, &a.ClosesAt, &a.ClosedAt, &a.PublishedAt,
 		&a.DurationMin, &a.MaxAttempts, &a.ShuffleQ, &a.ShuffleO,
 		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
@@ -195,6 +204,7 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, string, e
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(`
 			CASE
+			  WHEN a.published_at IS NULL THEN 'draft'
 			  WHEN a.closed_at IS NOT NULL AND now() >= a.closed_at THEN 'closed'
 			  WHEN now() < a.opens_at THEN 'scheduled'
 			  WHEN now() < a.closes_at THEN 'open'

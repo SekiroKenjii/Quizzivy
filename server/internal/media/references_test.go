@@ -81,8 +81,9 @@ func seedReachability(t *testing.T, pool *pgxpool.Pool) reachabilityFixture {
 		return err
 	}())
 	must(pool.QueryRow(ctx, `INSERT INTO app.assignments
-		       (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by)
-		VALUES ($1,$2, now() - interval '1 hour', now() + interval '1 hour', 45, $3)
+		       (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by,
+		         published_at)
+		VALUES ($1,$2, now() - interval '1 hour', now() + interval '1 hour', 45, $3, now())
 		RETURNING id::text`, testID, versionID, author).Scan(&assignmentID))
 
 	var attemptID string

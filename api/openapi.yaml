@@ -846,11 +846,16 @@ components:
 
     AssignmentStatus:
       type: string
-      enum: [scheduled, open, closed]
+      enum: [draft, scheduled, open, closed]
       description: |
-        **Derived**, never stored (D-18). A pure function of `opensAt`,
-        `closesAt` and an optional early `closedAt`, so it cannot go stale and
-        needs no scheduler.
+        **Derived**, never stored (D-18). A pure function of `publishedAt`,
+        `opensAt`, `closesAt` and an optional early `closedAt`, so it cannot go
+        stale and needs no scheduler.
+
+        `draft` is what an unpublished assignment reads as. It does not weaken
+        D-18: publishing is an explicit act by the teacher, not a timestamp
+        arriving, so nothing has to flip a row on a schedule. A draft is
+        invisible to students and counts towards nothing.
 
     ReviewPolicy:
       type: object
@@ -890,8 +895,8 @@ components:
       type: object
       required:
         [id, testId, testVersionId, testVersion, testTitle, targets, window,
-         durationMinutes, maxAttempts, shuffleQuestions, shuffleOptions,
-         review, integrity, status]
+         publishedAt, durationMinutes, maxAttempts, shuffleQuestions,
+         shuffleOptions, review, integrity, status]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -906,6 +911,10 @@ components:
           properties:
             classIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
             studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        publishedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Null while the assignment is a draft.
         window:
           type: object
           required: [opensAt, closesAt]
@@ -1281,6 +1290,15 @@ components:
         shuffleOptions: { type: boolean, default: false }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        draft:
+          type: boolean
+          default: false
+          description: |
+            Save without giving it out — G-01's "Lưu nháp". Saving again with
+            `false` publishes it, which is what the "Giao bài" button sends.
+
+            A draft is the only assignment allowed to have no targets: the point
+            of saving one is to come back to it.
         closeNow:
           type: boolean
           description: PATCH only. Sets `closedAt`, closing the assignment before `closesAt`.

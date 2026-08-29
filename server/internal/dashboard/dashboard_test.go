@@ -84,8 +84,9 @@ func seed(t *testing.T, pool *pgxpool.Pool, opensAt, closesAt time.Time, flagged
 		sectionID).Scan(&questionID))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.assignments
-		        (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by)
-		 VALUES ($1,$2,$3,$4,45,$5) RETURNING id::text`,
+		        (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by,
+		         published_at)
+		 VALUES ($1,$2,$3,$4,45,$5, now()) RETURNING id::text`,
 		testID, versionID, opensAt, closesAt, author).Scan(&assignmentID))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.attempts

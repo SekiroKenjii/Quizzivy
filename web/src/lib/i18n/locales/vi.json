@@ -503,6 +503,7 @@
     "all": "Tất cả",
     "statusFilter": "Lọc theo trạng thái",
     "status": {
+      "draft": "Nháp",
       "open": "Đang mở",
       "scheduled": "Sắp mở",
       "closed": "Đã đóng"
@@ -598,7 +599,9 @@
     "summaryTitle": "Tóm tắt",
     "progressValue": "{{submitted}}/{{total}}",
     "windowValue": "{{opens}} → {{closes}}",
-    "latestVersion": "mới nhất: bản v{{version}}"
+    "latestVersion": "mới nhất: bản v{{version}}",
+    "saveDraft": "Lưu nháp",
+    "needTargets": "Chọn lớp hoặc học viên trước khi giao."
   },
   "students": {
     "summary": "{{count}} học viên · {{active}} hoạt động 7 ngày qua",

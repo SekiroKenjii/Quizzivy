@@ -50,8 +50,11 @@ func (s *Store) Get(ctx context.Context) (Summary, error) {
 	var out Summary
 	err := s.pool.QueryRow(ctx, `
 		SELECT
+		  -- published_at NOT NULL: a draft whose window happens to be current
+		  -- is not open, because nobody has been given it.
 		  (SELECT count(*) FROM app.assignments a
-		    WHERE a.closed_at IS NULL
+		    WHERE a.published_at IS NOT NULL
+		      AND a.closed_at IS NULL
 		      AND now() >= a.opens_at AND now() < a.closes_at),
 		  (SELECT count(*)
 		     FROM app.attempt_answers ans

@@ -55,7 +55,10 @@ type WriteInput struct {
 	// CloseNow is an action, not a state: it sets closed_at and there is no
 	// value of it that reopens an assignment.
 	CloseNow bool
-	Now      time.Time
+	// Draft withholds it from students. Saving again with Draft false is what
+	// publishes it; there is no separate publish call.
+	Draft bool
+	Now   time.Time
 }
 
 func validate(in WriteInput) error {
@@ -67,7 +70,10 @@ func validate(in WriteInput) error {
 
 	// An assignment with no targets reaches nobody, and nothing downstream says
 	// so: the list would show 0/0 and the student home would simply be empty.
-	if len(in.ClassIDs) == 0 && len(in.StudentIDs) == 0 {
+	//
+	// A draft is the exception, and the only one: coming back to it later is
+	// the whole reason to save one.
+	if !in.Draft && len(in.ClassIDs) == 0 && len(in.StudentIDs) == 0 {
 		fields = append(fields, FieldError{"targets", "Chọn ít nhất một lớp hoặc một học viên."})
 	}
 
@@ -114,16 +120,16 @@ func (s *Store) Create(ctx context.Context, req Request, in WriteInput) (Assignm
 		        review_show_score, review_show_correct_answers, review_show_explanations,
 		        integrity_require_fullscreen, integrity_block_copy_paste,
 		        integrity_max_focus_loss, integrity_on_limit_exceeded, integrity_min_away_ms,
-		        created_by)
+		        created_by, published_at)
 		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-		        $13, $14, $15, $16::app.integrity_action, $17, $18::uuid)
+		        $13, $14, $15, $16::app.integrity_action, $17, $18::uuid, $19)
 		RETURNING id::text`,
 		testID, in.TestVersionID, in.OpensAt, in.ClosesAt, closedAt(in),
 		in.DurationMin, in.MaxAttempts, in.ShuffleQ, in.ShuffleO,
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded, in.Integrity.MinAwayMs,
-		req.ActorID).Scan(&id); err != nil {
+		req.ActorID, publishedAt(in)).Scan(&id); err != nil {
 		return Assignment{}, fmt.Errorf("assignments: insert: %w", err)
 	}
 
@@ -166,11 +172,11 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 	// Locked so the attempt count below cannot be overtaken by a student
 	// starting between the check and the write.
 	var currentVersionID string
-	var currentClosedAt *time.Time
+	var currentClosedAt, currentPublishedAt *time.Time
 	switch err := tx.QueryRow(ctx, `
-		SELECT test_version_id::text, closed_at FROM app.assignments
+		SELECT test_version_id::text, closed_at, published_at FROM app.assignments
 		 WHERE id = $1::uuid FOR UPDATE`, req.ID).
-		Scan(&currentVersionID, &currentClosedAt); {
+		Scan(&currentVersionID, &currentClosedAt, &currentPublishedAt); {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
 		return Assignment{}, ErrNotFound
@@ -213,14 +219,15 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 		       integrity_require_fullscreen = $14, integrity_block_copy_paste = $15,
 		       integrity_max_focus_loss = $16,
 		       integrity_on_limit_exceeded = $17::app.integrity_action,
-		       integrity_min_away_ms = $18
+		       integrity_min_away_ms = $18,
+		       published_at = $19
 		 WHERE id = $1::uuid`,
 		req.ID, testID, in.TestVersionID, in.OpensAt, in.ClosesAt, next,
 		in.DurationMin, in.MaxAttempts, in.ShuffleQ, in.ShuffleO,
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded,
-		in.Integrity.MinAwayMs); err != nil {
+		in.Integrity.MinAwayMs, nextPublishedAt(currentPublishedAt, in)); err != nil {
 		return Assignment{}, fmt.Errorf("assignments: update: %w", err)
 	}
 
@@ -237,8 +244,11 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 	}
 
 	action := "assignment.updated"
-	if in.CloseNow && currentClosedAt == nil {
+	switch {
+	case in.CloseNow && currentClosedAt == nil:
 		action = "assignment.closed"
+	case currentPublishedAt == nil && !in.Draft:
+		action = "assignment.published"
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
@@ -260,6 +270,25 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 		return Assignment{}, fmt.Errorf("assignments: commit update: %w", err)
 	}
 	return saved, nil
+}
+
+// nextPublishedAt keeps an already-published assignment published. Saving one
+// with draft:true again does not un-give it -- students may already be sitting
+// it, and the only way back out is closing it.
+func nextPublishedAt(current *time.Time, in WriteInput) *time.Time {
+	if current != nil {
+		return current
+	}
+	return publishedAt(in)
+}
+
+// publishedAt is set once and never cleared: an assignment students have
+// already been given cannot be pulled back into a draft, only closed.
+func publishedAt(in WriteInput) *time.Time {
+	if in.Draft {
+		return nil
+	}
+	return &in.Now
 }
 
 func closedAt(in WriteInput) *time.Time {

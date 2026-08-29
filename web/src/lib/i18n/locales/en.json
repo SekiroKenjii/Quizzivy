@@ -503,6 +503,7 @@
     "all": "All",
     "statusFilter": "Filter by status",
     "status": {
+      "draft": "Draft",
       "open": "Open",
       "scheduled": "Scheduled",
       "closed": "Closed"
@@ -598,7 +599,9 @@
     "summaryTitle": "Summary",
     "progressValue": "{{submitted}}/{{total}}",
     "windowValue": "{{opens}} → {{closes}}",
-    "latestVersion": "latest: v{{version}}"
+    "latestVersion": "latest: v{{version}}",
+    "saveDraft": "Save draft",
+    "needTargets": "Choose a class or student before assigning."
   },
   "students": {
     "summary": "{{count}} students · {{active}} active in the last 7 days",

@@ -22,6 +22,7 @@ function assignment(over: Record<string, unknown> = {}) {
       classIds: ["018f0000-0000-7000-8000-0000000000c1"],
       studentIds: [],
     },
+    publishedAt: "2026-08-27T00:00:00Z",
     window: {
       opensAt: "2026-08-28T00:00:00Z",
       closesAt: "2026-08-31T14:00:00Z",
@@ -151,5 +152,32 @@ describe("the assignments list", () => {
     expect(
       screen.getAllByRole("button", { name: "Giao bài mới" }).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * G-01's "Lưu nháp" (D-18 amended by migration 00022): a draft is never
+ * anything else, whatever its window says. Publishing is an act by the teacher,
+ * so nothing has to flip a row when a clock passes — which is what keeps
+ * "no scheduler" true with a draft state in the enum.
+ */
+describe("a draft assignment", () => {
+  it("reads as a draft even while its window is current", async () => {
+    serve([
+      assignment({
+        publishedAt: null,
+        status: "open",
+        window: {
+          opensAt: "2026-08-28T00:00:00Z",
+          closesAt: "2026-08-31T14:00:00Z",
+          closedAt: null,
+        },
+      }),
+    ]);
+    renderList();
+
+    const table = await rows();
+    expect(table.getByText("Nháp")).toBeInTheDocument();
+    expect(table.queryByText("Đang mở")).toBeNull();
   });
 });

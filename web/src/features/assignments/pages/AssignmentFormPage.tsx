@@ -130,10 +130,11 @@ export default function AssignmentFormPage() {
   }
 
   const create = useMutation({
-    mutationFn: () => {
+    mutationFn: (asDraft: boolean) => {
       const picked = draft.picked;
       if (!picked) throw new Error("no version picked");
       return createAssignment({
+        draft: asDraft,
         testVersionId: picked.version.id,
         targets: {
           classIds: draft.classes.map((c) => c.id),
@@ -164,8 +165,11 @@ export default function AssignmentFormPage() {
       }),
   });
 
-  const ready =
-    draft.picked !== null && (draft.classes.length > 0 || draft.students.length > 0);
+  // Assigning needs somebody to assign to; saving a draft only needs the test,
+  // because coming back to it later is the point of saving one.
+  const hasTargets = draft.classes.length > 0 || draft.students.length > 0;
+  const ready = draft.picked !== null && hasTargets;
+  const savable = draft.picked !== null;
 
   return (
     <>
@@ -507,19 +511,35 @@ export default function AssignmentFormPage() {
             </div>
           )}
 
-          <Button
-            className="w-full"
-            disabled={!ready || create.isPending}
-            onClick={() => {
-              setError(null);
-              create.mutate();
-            }}
-          >
-            {create.isPending ? t("common.loading") : t("assignments.assign")}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              className="w-full"
+              disabled={!ready || create.isPending}
+              onClick={() => {
+                setError(null);
+                create.mutate(false);
+              }}
+            >
+              {create.isPending ? t("common.loading") : t("assignments.assign")}
+            </Button>
+            {/* A draft needs only the test. The teacher who has not decided who
+              it is for yet is exactly who this button is for, which is why it
+              stays enabled when "Giao bài" cannot be. */}
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!savable || create.isPending}
+              onClick={() => {
+                setError(null);
+                create.mutate(true);
+              }}
+            >
+              {t("assignments.saveDraft")}
+            </Button>
+          </div>
           {ready ? null : (
             <p className="text-muted-foreground text-xs">
-              {t("assignments.readyHint")}
+              {savable ? t("assignments.needTargets") : t("assignments.readyHint")}
             </p>
           )}
         </aside>

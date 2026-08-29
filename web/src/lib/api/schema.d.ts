@@ -1680,12 +1680,17 @@ export interface components {
             questionId?: string | null;
         };
         /**
-         * @description **Derived**, never stored (D-18). A pure function of `opensAt`,
-         *     `closesAt` and an optional early `closedAt`, so it cannot go stale and
-         *     needs no scheduler.
+         * @description **Derived**, never stored (D-18). A pure function of `publishedAt`,
+         *     `opensAt`, `closesAt` and an optional early `closedAt`, so it cannot go
+         *     stale and needs no scheduler.
+         *
+         *     `draft` is what an unpublished assignment reads as. It does not weaken
+         *     D-18: publishing is an explicit act by the teacher, not a timestamp
+         *     arriving, so nothing has to flip a row on a schedule. A draft is
+         *     invisible to students and counts towards nothing.
          * @enum {string}
          */
-        AssignmentStatus: "scheduled" | "open" | "closed";
+        AssignmentStatus: "draft" | "scheduled" | "open" | "closed";
         ReviewPolicy: {
             /** @default true */
             showScore: boolean;
@@ -1732,6 +1737,11 @@ export interface components {
                 classIds: components["schemas"]["Uuid"][];
                 studentIds: components["schemas"]["Uuid"][];
             };
+            /**
+             * Format: date-time
+             * @description Null while the assignment is a draft.
+             */
+            publishedAt: string | null;
             window: {
                 opensAt: components["schemas"]["Timestamp"];
                 closesAt: components["schemas"]["Timestamp"];
@@ -2036,6 +2046,15 @@ export interface components {
             shuffleOptions: boolean;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /**
+             * @description Save without giving it out — G-01's "Lưu nháp". Saving again with
+             *     `false` publishes it, which is what the "Giao bài" button sends.
+             *
+             *     A draft is the only assignment allowed to have no targets: the point
+             *     of saving one is to come back to it.
+             * @default false
+             */
+            draft: boolean;
             /** @description PATCH only. Sets `closedAt`, closing the assignment before `closesAt`. */
             closeNow?: boolean;
         };
