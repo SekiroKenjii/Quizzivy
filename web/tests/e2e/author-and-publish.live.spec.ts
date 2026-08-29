@@ -65,7 +65,10 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
 
   // ---------------------------------------------------------------- create
   await page.goto("/admin/tests");
-  await page.getByRole("button", { name: "Đề thi mới" }).click();
+  // `.first()` deliberately: the empty state offers the same action under the
+  // same name, so on a database with no tests the bare role+name matches twice.
+  // The page-header button precedes the empty state in the DOM.
+  await page.getByRole("button", { name: "Đề thi mới" }).first().click();
   await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
 
   const title = `E2E 1a — ${Date.now()}`;
@@ -100,11 +103,26 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
   await addQuestion(page, "Một đáp án", "Người phụ nữ đề nghị làm gì?");
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
 
-  // The server sniffed the bytes, measured the duration and stored the object.
-  await expect(page.getByText("unit5-listening.mp3")).toBeVisible({ timeout: 30_000 });
+  // Waiting on the REMOVE control, not the filename: UploadPanel shows the name
+  // while it pre-checks the file, so the name appearing means the upload has
+  // started, not that it finished. The remove button exists only once an asset
+  // is attached.
+  await expect(page.getByRole("button", { name: "Gỡ" })).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(page.getByText("unit5-listening.mp3")).toBeVisible();
+
+  // The server sniffed the bytes and measured the duration. 0:10 is what the
+  // pure-Go probe reads out of this fixture (probe_test.go: 10005ms), so the
+  // number appearing here is proof the probe ran rather than a mock answering.
+  await expect(page.getByText(/0:10/)).toBeVisible();
+
   // §11.1's defaults arrive with the asset, visibly.
   await expect(page.getByLabel("Số lần được nghe")).toHaveValue("2");
   await expect(page.getByRole("switch", { name: "Cho tua" })).not.toBeChecked();
+  await expect(
+    page.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),
+  ).toBeChecked();
 
   await setOptions(page, ["Gọi lại sau", "Đổi lịch hẹn"]);
 
