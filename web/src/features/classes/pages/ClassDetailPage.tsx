@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
+import { ArrowLeft, Search } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +47,7 @@ function currentLocale(language: string): Locale {
  */
 export default function ClassDetailPage() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
   const locale = currentLocale(i18n.language);
@@ -55,6 +61,7 @@ export default function ClassDetailPage() {
     queryFn: ({ signal }) => fetchMembers(id, signal),
   });
 
+  const [query, setQuery] = useState("");
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{
     userId: string;
@@ -94,97 +101,140 @@ export default function ClassDetailPage() {
     );
   }
 
-  const items = members.data?.items ?? [];
+  const items = matching(members.data?.items ?? [], query);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{klass.data.name}</h1>
-        {klass.data.description ? (
-          <p className="text-muted-foreground mt-1 text-sm">{klass.data.description}</p>
-        ) : null}
+    <div className="-m-6">
+      <div className="flex h-14 items-center gap-3 border-b px-4">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("common.back")}
+          onClick={() => void navigate("/admin/classes")}
+        >
+          <ArrowLeft aria-hidden="true" />
+        </Button>
+        <h1 className="truncate text-sm font-medium">{klass.data.name}</h1>
+        <Badge>
+          {t("classDetail.studentCount", { count: klass.data.studentCount })}
+        </Badge>
       </div>
 
-      <JoinCodePanel klass={klass.data} />
+      <div className="grid gap-5 p-6 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          <Card asChild className="gap-0 py-0">
+            <section aria-labelledby="members-heading">
+              <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
+                <h2
+                  id="members-heading"
+                  className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
+                >
+                  {t("classDetail.members", { count: klass.data.studentCount })}
+                </h2>
+                <div className="relative w-56">
+                  <Search
+                    className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-3.5"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    className="h-8 pl-8 text-xs"
+                    placeholder={t("classDetail.searchMembers")}
+                    aria-label={t("classDetail.searchMembers")}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </div>
+              </div>
 
-      <section className="rounded-lg border" aria-labelledby="members-heading">
-        <div className="border-b px-6 py-4">
-          <h2 id="members-heading" className="text-base font-semibold">
-            {t("classDetail.members", { count: klass.data.studentCount })}
-          </h2>
+              {members.isError ? (
+                <p role="alert" className="text-destructive px-5 pb-8 text-sm">
+                  {t("classDetail.membersFailed")}
+                </p>
+              ) : members.isPending ? (
+                <p
+                  className="text-muted-foreground px-5 pb-8 text-sm"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {t("common.loading")}
+                </p>
+              ) : items.length === 0 ? (
+                // §12: one short sentence and one action, no illustration.
+                <p className="text-muted-foreground px-5 pb-8 text-sm">
+                  {t("classDetail.noMembers")}
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("classDetail.name")}</TableHead>
+                      <TableHead>{t("classDetail.joinedVia")}</TableHead>
+                      <TableHead>{t("classDetail.joinedAt")}</TableHead>
+                      <TableHead className="sr-only">
+                        {t("classDetail.actions")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((m) => (
+                      <TableRow key={m.userId}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar name={m.fullName} size="sm" />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{m.fullName}</p>
+                              <p className="text-muted-foreground truncate text-xs">
+                                {m.email}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {m.joinedVia === "admin" ? (
+                            <Badge>{t("classDetail.viaAdmin")}</Badge>
+                          ) : (
+                            <Badge variant="secondary">
+                              {t("classDetail.viaCode", { hint: m.joinCodeHint ?? "" })}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(m.joinedAt, locale)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={remove.isPending}
+                            onClick={() => {
+                              setRemoveError(null);
+                              setConfirmRemove({ userId: m.userId, name: m.fullName });
+                            }}
+                          >
+                            {t("classDetail.remove")}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              {removeError ? (
+                <p role="alert" className="text-destructive px-5 pb-2 text-sm">
+                  {removeError}
+                </p>
+              ) : null}
+              <p className="text-muted-foreground px-5 pb-4 text-xs">
+                {t("classDetail.removeKeepsWork")}
+              </p>
+            </section>
+          </Card>
         </div>
 
-        {members.isError ? (
-          <p role="alert" className="text-destructive px-6 py-8 text-sm">
-            {t("classDetail.membersFailed")}
-          </p>
-        ) : members.isPending ? (
-          <p
-            className="text-muted-foreground px-6 py-8 text-sm"
-            role="status"
-            aria-live="polite"
-          >
-            {t("common.loading")}
-          </p>
-        ) : items.length === 0 ? (
-          // §12: one short sentence and one action, no illustration.
-          <p className="text-muted-foreground px-6 py-8 text-sm">
-            {t("classDetail.noMembers")}
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("classDetail.name")}</TableHead>
-                <TableHead>{t("classDetail.joinedVia")}</TableHead>
-                <TableHead>{t("classDetail.joinedAt")}</TableHead>
-                <TableHead className="sr-only">{t("classDetail.actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((m) => (
-                <TableRow key={m.userId}>
-                  <TableCell>
-                    <span className="font-medium">{m.fullName}</span>
-                    <span className="text-muted-foreground block text-xs">
-                      {m.email}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {m.joinedVia === "admin"
-                      ? t("classDetail.viaAdmin")
-                      : t("classDetail.viaCode", { hint: m.joinCodeHint ?? "" })}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {formatDate(m.joinedAt, locale)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={remove.isPending}
-                      onClick={() => {
-                        setRemoveError(null);
-                        setConfirmRemove({ userId: m.userId, name: m.fullName });
-                      }}
-                    >
-                      {t("classDetail.remove")}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-        {removeError ? (
-          <p role="alert" className="text-destructive border-t px-6 py-3 text-sm">
-            {removeError}
-          </p>
-        ) : null}
-        <p className="text-muted-foreground border-t px-6 py-3 text-xs">
-          {t("classDetail.removeKeepsWork")}
-        </p>
-      </section>
+        <div className="space-y-5">
+          <JoinCodePanel klass={klass.data} />
+        </div>
+      </div>
 
       <Dialog
         open={confirmRemove !== null}
@@ -212,5 +262,21 @@ export default function ClassDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// The members endpoint has no query parameter and a class is ~50 people, so the
+// deck's search box filters what is already loaded rather than adding a round
+// trip per keystroke.
+function matching<T extends { fullName: string; email: string }>(
+  members: T[],
+  query: string,
+): T[] {
+  const needle = query.trim().toLocaleLowerCase("vi");
+  if (needle === "") return members;
+  return members.filter(
+    (member) =>
+      member.fullName.toLocaleLowerCase("vi").includes(needle) ||
+      member.email.toLowerCase().includes(needle),
   );
 }

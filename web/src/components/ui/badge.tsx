@@ -11,6 +11,15 @@ const badgeVariants = cva(
       variant: {
         outline: "border-border text-muted-foreground",
         secondary: "bg-secondary text-secondary-foreground",
+        primary: "bg-primary text-primary-foreground",
+        // The deck mixes each status colour toward the surface rather than
+        // using it flat, so a badge reads as a label and not as an alert.
+        success:
+          "border-[color-mix(in_oklab,var(--success)_28%,transparent)] bg-[color-mix(in_oklab,var(--success)_12%,var(--background))] text-[color-mix(in_oklab,var(--success)_78%,var(--foreground))]",
+        warning:
+          "border-[color-mix(in_oklab,var(--warning)_35%,transparent)] bg-[color-mix(in_oklab,var(--warning)_18%,var(--background))] text-[color-mix(in_oklab,var(--warning)_45%,var(--foreground))]",
+        danger:
+          "border-[color-mix(in_oklab,var(--destructive)_25%,transparent)] bg-[color-mix(in_oklab,var(--destructive)_10%,var(--background))] text-[color-mix(in_oklab,var(--destructive)_82%,var(--foreground))]",
       },
     },
     defaultVariants: { variant: "outline" },

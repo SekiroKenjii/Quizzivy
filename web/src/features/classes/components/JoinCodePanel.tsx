@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
+import { Copy, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -120,64 +122,84 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   }
 
   return (
-    <section className="rounded-lg border p-6" aria-labelledby="join-code-heading">
-      <h2 id="join-code-heading" className="text-base font-semibold">
-        {t("classDetail.joinCode")}
-      </h2>
+    <Card asChild className="gap-0 py-0">
+      <section aria-labelledby="join-code-heading">
+        <div className="px-5 pt-4 pb-3">
+          <h2
+            id="join-code-heading"
+            className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
+          >
+            {t("classDetail.joinCode")}
+          </h2>
+        </div>
 
-      {klass.joinCode ? (
-        <CodeSummary code={klass.joinCode} expired={expired} locale={locale} />
-      ) : (
-        <p className="text-muted-foreground mt-4 text-sm">
-          {t("classDetail.noActiveCode")}
-        </p>
-      )}
+        <div className="space-y-3 px-5 pb-4">
+          {klass.joinCode ? (
+            <CodeSummary code={klass.joinCode} expired={expired} locale={locale} />
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              {t("classDetail.noActiveCode")}
+            </p>
+          )}
 
-      {freshCode ? (
-        <FreshCode
+          {error ? (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => setConfirming("rotate")}
+              disabled={rotate.isPending}
+            >
+              <RotateCw aria-hidden="true" />
+              {klass.joinCode && !expired
+                ? t("classDetail.rotate")
+                : t("classDetail.issue")}
+            </Button>
+            {klass.joinCode ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                aria-label={t("classDetail.disableSelfJoin")}
+                onClick={() => setConfirming("revoke")}
+                disabled={revoke.isPending}
+              >
+                {t("classDetail.stop")}
+              </Button>
+            ) : null}
+          </div>
+
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            {expired && klass.joinCode
+              ? t("classDetail.expiredExplainer")
+              : t("classDetail.codeShareHint")}
+          </p>
+        </div>
+
+        <ConfirmDialog
+          action={confirming}
+          pending={confirming === "revoke" ? revoke.isPending : rotate.isPending}
+          onCancel={() => setConfirming(null)}
+          onConfirm={() =>
+            confirming === "revoke" ? revoke.mutate() : rotate.mutate()
+          }
+        />
+
+        <FreshCodeDialog
           code={freshCode}
           joinUrl={joinUrl}
           copied={copied}
           onCopy={copyJoinUrl}
+          onClose={() => setFreshCode(null)}
         />
-      ) : klass.joinCode ? (
-        <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
-          {expired
-            ? t("classDetail.expiredExplainer")
-            : t("classDetail.rotateToReveal")}
-        </p>
-      ) : null}
-
-      {error ? (
-        <p role="alert" className="text-destructive mt-4 text-sm">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Button onClick={() => setConfirming("rotate")} disabled={rotate.isPending}>
-          {klass.joinCode && !expired
-            ? t("classDetail.rotate")
-            : t("classDetail.issue")}
-        </Button>
-        {klass.joinCode ? (
-          <Button
-            variant="outline"
-            onClick={() => setConfirming("revoke")}
-            disabled={revoke.isPending}
-          >
-            {t("classDetail.disableSelfJoin")}
-          </Button>
-        ) : null}
-      </div>
-
-      <ConfirmDialog
-        action={confirming}
-        pending={confirming === "revoke" ? revoke.isPending : rotate.isPending}
-        onCancel={() => setConfirming(null)}
-        onConfirm={() => (confirming === "revoke" ? revoke.mutate() : rotate.mutate())}
-      />
-    </section>
+      </section>
+    </Card>
   );
 }
 
@@ -192,59 +214,119 @@ function CodeSummary({
 }) {
   const { t } = useTranslation();
 
+  const days = daysUntil(code.expiresAt);
+
   return (
-    <dl className="mt-4 grid grid-cols-2 gap-y-3 text-sm">
-      <dt className="text-muted-foreground">{t("classDetail.codeHint")}</dt>
-      <dd className="font-mono">{t("classDetail.maskedCode", { hint: code.hint })}</dd>
-      <dt className="text-muted-foreground">{t("classDetail.expiresAt")}</dt>
-      <dd>
-        {formatDateTime(code.expiresAt, locale)}
-        {expired ? (
-          <span className="text-destructive ml-2 text-xs font-medium">
-            {t("classDetail.expiredBadge")}
-          </span>
-        ) : null}
-      </dd>
-      <dt className="text-muted-foreground">{t("classDetail.uses")}</dt>
-      <dd>
-        {code.usesCount}
-        {code.maxUses === null ? "" : ` / ${code.maxUses}`}
-      </dd>
-    </dl>
+    <>
+      <div className="rounded-md border p-3 text-center">
+        <p className="font-mono text-xl tracking-wide">
+          {t("classDetail.maskedCode", { hint: code.hint })}
+        </p>
+        <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
+          {t("classDetail.codeMaskedNote")}
+        </p>
+      </div>
+
+      <dl className="space-y-2 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-muted-foreground">{t("classDetail.expiresAt")}</dt>
+          <dd className="text-right">
+            {formatDateTime(code.expiresAt, locale)}{" "}
+            {expired ? (
+              <span className="text-destructive text-xs font-medium">
+                {t("classDetail.expiredBadge")}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">
+                {days === 0
+                  ? t("classDetail.expiresToday")
+                  : t("classDetail.expiresIn", { count: days })}
+              </span>
+            )}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-muted-foreground">{t("classDetail.uses")}</dt>
+          <dd className="tabular-nums">
+            {code.usesCount}
+            {" / "}
+            {code.maxUses === null ? t("classDetail.unlimited") : code.maxUses}
+          </dd>
+        </div>
+      </dl>
+    </>
   );
 }
 
-function FreshCode({
+// The deck's "còn 13 ngày": §6.5's 30-day default reads as a safety feature
+// only when the teacher can see how much of it is left.
+function daysUntil(expiresAt: string): number {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
+
+/**
+ * The one moment the plaintext code exists. The deck gives it a dialog rather
+ * than a corner of the panel, because there is no second chance to read it --
+ * dismissing this is the last time anyone sees the code.
+ */
+function FreshCodeDialog({
   code,
   joinUrl,
   copied,
   onCopy,
+  onClose,
 }: {
-  code: string;
+  code: string | null;
   joinUrl: string | null;
   copied: boolean;
   onCopy: (joinUrl: string) => void;
+  onClose: () => void;
 }) {
   const { t } = useTranslation();
 
   return (
-    <div className="mt-6 rounded-md border p-4 text-center">
-      <p className="text-muted-foreground text-xs">{t("classDetail.shownOnce")}</p>
-      <p className="mt-2 font-mono text-2xl tracking-widest">{code}</p>
-      {joinUrl ? (
-        <div className="mt-4 flex flex-col items-center gap-3">
-          <QRCodeSVG
-            value={joinUrl}
-            size={144}
-            level="M"
-            aria-label={t("classDetail.qrAlt")}
-          />
-          <Button variant="outline" size="sm" onClick={() => onCopy(joinUrl)}>
-            {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
-          </Button>
+    <Dialog open={code !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("classDetail.freshTitle")}</DialogTitle>
+          <DialogDescription>{t("classDetail.rotateConfirmBody")}</DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-md border p-4 text-center">
+          <p className="font-mono text-2xl tracking-wide">{code}</p>
+          <p className="text-muted-foreground mt-2 text-xs">
+            {t("classDetail.shownOnce")}
+          </p>
         </div>
-      ) : null}
-    </div>
+
+        {joinUrl ? (
+          <div className="flex items-center gap-3">
+            <QRCodeSVG
+              value={joinUrl}
+              size={80}
+              level="M"
+              aria-label={t("classDetail.qrAlt")}
+            />
+            <div className="min-w-0 space-y-1.5">
+              <p className="text-muted-foreground font-mono text-xs break-words">
+                {joinUrl}
+              </p>
+              <Button variant="outline" size="xs" onClick={() => onCopy(joinUrl)}>
+                <Copy aria-hidden="true" />
+                {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <DialogFooter>
+          <Button className="w-full" onClick={onClose}>
+            {t("classDetail.done")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -46,7 +46,7 @@ describe("the join code panel", () => {
     // The hint is all that survives, and it is masked.
     expect(screen.getByText(/••••-P9QR/)).toBeInTheDocument();
     // And there is no QR to scan, because there is no link to encode.
-    expect(document.querySelector("svg")).toBeNull();
+    expect(screen.queryByLabelText("Mã QR dẫn tới trang tham gia lớp")).toBeNull();
   });
 
   it("shows the counters the teacher needs to judge a code", () => {
@@ -224,6 +224,11 @@ describe("revoking", () => {
     );
     expect(await screen.findByText(FULL_CODE)).toBeInTheDocument();
 
+    // Dismissing is the last time anyone sees it: there is no endpoint that
+    // could return it and it was never put in the query cache.
+    await user.click(screen.getByRole("button", { name: "Xong" }));
+    await waitFor(() => expect(screen.queryByText(FULL_CODE)).not.toBeInTheDocument());
+
     await user.click(screen.getByRole("button", { name: "Ngừng cho tham gia" }));
     await user.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
@@ -232,6 +237,7 @@ describe("revoking", () => {
     );
 
     await waitFor(() => expect(screen.queryByText(FULL_CODE)).not.toBeInTheDocument());
+    expect(document.body.textContent).not.toContain("K7M3");
   });
 });
 
