@@ -283,3 +283,67 @@ func TestSearchQueryUsesTheIndexedExpressionVerbatim(t *testing.T) {
 			"a LIKE:\n%s", indexdef)
 	}
 }
+
+// A-06's rail is checkboxes and chips, so the two groups behave differently
+// from each other: within a group the values widen, across groups they narrow.
+func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	store := questions.NewStore(pool)
+	ctx := context.Background()
+	tag := "grp-" + strings.ReplaceAll(author, "-", "")[:12]
+
+	essay := write(t, svc, author, "Câu tự luận", tag, tag+"-b")
+
+	// A second type, so the type group has something to widen into.
+	single, err := svc.Create(ctx, questions.WriteRequest{
+		Input: questions.Input{
+			Type: questions.SingleChoice, Prompt: "Câu một đáp án", Points: "1.00",
+			Tags: []string{tag},
+			Options: []questions.OptionInput{
+				{Text: "A", IsCorrect: true}, {Text: "B"},
+			},
+		},
+		ActorID: author,
+	})
+	if err != nil {
+		t.Fatalf("create single_choice: %v", err)
+	}
+
+	ids := func(in questions.ListInput) map[string]bool {
+		found, _, err := store.List(ctx, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]bool{}
+		for _, q := range found {
+			out[q.ID] = true
+		}
+		return out
+	}
+
+	one := ids(questions.ListInput{
+		Tags:  []string{tag},
+		Types: []questions.Type{questions.SingleChoice},
+	})
+	if !one[single.ID] || one[essay.ID] {
+		t.Errorf("one ticked type should match only that type: %v", one)
+	}
+
+	// Ticking the second type must ADD rows, never remove any.
+	both := ids(questions.ListInput{
+		Tags:  []string{tag},
+		Types: []questions.Type{questions.SingleChoice, questions.ShortAnswer},
+	})
+	if !both[single.ID] || !both[essay.ID] {
+		t.Errorf("two ticked types should match both: %v", both)
+	}
+
+	// A second chip widens too -- overlap, not containment. Under `@>` the
+	// single-choice question, which lacks the second tag, would drop out.
+	widened := ids(questions.ListInput{Tags: []string{tag, tag + "-b"}})
+	if !widened[single.ID] || !widened[essay.ID] {
+		t.Errorf("a second tag chip removed rows instead of adding them: %v", widened)
+	}
+}

@@ -229,7 +229,12 @@ describe("the question bank list", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByLabelText("unit5-listening-2.mp3")).toBeInTheDocument();
-    expect(screen.getByText(/1:50 · unit5-listening-2\.mp3/)).toBeInTheDocument();
+
+    // The deck's player, not the browser's: a round play control, a track, and
+    // a time readout that knows the length before the file is fetched.
+    expect(screen.getByRole("button", { name: "Phát" })).toBeInTheDocument();
+    expect(screen.getByText("0:00 / 1:50")).toBeInTheDocument();
+    expect(screen.getByText("unit5-listening-2.mp3")).toBeInTheDocument();
   });
 
   it("says so when a preview URL has expired, rather than a player that will not start", async () => {

@@ -246,7 +246,10 @@
     "blockedNote": "Tệp đã dùng trong đề đã phát hành thì không xoá được — các bài đang làm vẫn cần nghe nó. Tải bản mới sẽ tạo một tệp mới, không ghi đè.",
     "understood": "Đã hiểu",
     "previewNamed": "Nghe thử {{name}}",
-    "viewNamed": "Xem {{name}}"
+    "viewNamed": "Xem {{name}}",
+    "play": "Phát",
+    "pause": "Tạm dừng",
+    "seek": "Tua"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -392,7 +395,8 @@
     "previewOf": "Nghe thử: {{prompt}}",
     "summarySoFar": "{{count}} câu đã tải",
     "usedIn": "Đang dùng",
-    "usedInCount": "{{count}} đề"
+    "usedInCount": "{{count}} đề",
+    "audioOnly": "Chỉ câu có audio"
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",

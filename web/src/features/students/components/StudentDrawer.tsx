@@ -78,7 +78,7 @@ export function StudentDrawer({
   return (
     <aside
       aria-label={t("students.detailFor", { name: student.fullName })}
-      className="w-96 shrink-0 space-y-5 border-l p-5"
+      className="w-96 shrink-0 space-y-5 overflow-y-auto border-l p-5"
     >
       <div className="flex items-start gap-3">
         <Avatar size="lg" name={student.fullName} />

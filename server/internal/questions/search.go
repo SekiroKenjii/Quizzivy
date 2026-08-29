@@ -16,12 +16,17 @@ const (
 )
 
 // ListInput selects a page of the bank.
+//
+// Types and Tags are each OR-ed within themselves and AND-ed with each other,
+// which is what A-06's rail of checkboxes and chips means: ticking a second
+// type widens the results, adding a tag from the other group narrows them.
 type ListInput struct {
-	Type   *Type
-	Tag    string
-	Query  string
-	Cursor string
-	Limit  int
+	Types    []Type
+	Tags     []string
+	HasAudio *bool
+	Query    string
+	Cursor   string
+	Limit    int
 }
 
 // encodeCursor renders a keyset position opaquely. A uuidv7 id is both
@@ -66,13 +71,25 @@ func buildFilters(in ListInput, limit int, after string) (args []any, where []st
 	args = []any{limit + 1}
 	where = []string{`q.deleted_at IS NULL`}
 
-	if in.Type != nil {
-		args = append(args, string(*in.Type))
-		where = append(where, fmt.Sprintf(`q.type = $%d::app.question_type`, len(args)))
+	if len(in.Types) > 0 {
+		types := make([]string, len(in.Types))
+		for i, t := range in.Types {
+			types[i] = string(t)
+		}
+		args = append(args, types)
+		where = append(where, fmt.Sprintf(`q.type = ANY($%d::app.question_type[])`, len(args)))
 	}
-	if in.Tag != "" {
-		args = append(args, []string{in.Tag})
-		where = append(where, fmt.Sprintf(`q.tags @> $%d::text[]`, len(args)))
+	if len(in.Tags) > 0 {
+		// Overlap, not containment: two ticked chips mean "either", the same
+		// way two ticked types do. `@>` would mean "carries both", which reads
+		// as a filter that gets stricter the more of the rail you touch.
+		args = append(args, in.Tags)
+		where = append(where, fmt.Sprintf(`q.tags && $%d::text[]`, len(args)))
+	}
+	if in.HasAudio != nil {
+		args = append(args, *in.HasAudio)
+		where = append(where, fmt.Sprintf(
+			`(q.media_asset_kind = 'audio') = $%d::boolean`, len(args)))
 	}
 	if q := strings.TrimSpace(in.Query); q != "" {
 		args = append(args, escapeLike(q))

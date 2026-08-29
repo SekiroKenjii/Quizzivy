@@ -26,7 +26,7 @@ export function PageHeader({ title, meta, actions, backTo }: PageHeaderProps) {
   const navigate = useNavigate();
 
   return (
-    <header className="bg-background sticky top-14 z-10 -mx-6 -mt-6 mb-6 border-b">
+    <header className="bg-background sticky top-0 z-10 -mx-6 -mt-6 mb-6 border-b">
       <div className="flex h-14 items-center gap-3 px-6">
         {backTo === undefined ? null : (
           <Button

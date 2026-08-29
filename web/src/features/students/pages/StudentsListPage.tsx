@@ -74,8 +74,8 @@ export default function StudentsListPage() {
   const selected = selectedId === null ? null : (detail.data ?? null);
 
   return (
-    <div className="-m-6 flex">
-      <div className="min-w-0 flex-1 space-y-4 p-6">
+    <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
+      <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
         <div className="flex items-end justify-between">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">

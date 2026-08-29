@@ -246,7 +246,10 @@
     "blockedNote": "A file used by a published test cannot be deleted — attempts in progress still need it. Uploading a new one creates a new file rather than overwriting this.",
     "understood": "Got it",
     "previewNamed": "Preview {{name}}",
-    "viewNamed": "View {{name}}"
+    "viewNamed": "View {{name}}",
+    "play": "Play",
+    "pause": "Pause",
+    "seek": "Seek"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -392,7 +395,8 @@
     "previewOf": "Preview: {{prompt}}",
     "summarySoFar": "{{count}} questions loaded",
     "usedIn": "Used in",
-    "usedInCount": "{{count}} tests"
+    "usedInCount": "{{count}} tests",
+    "audioOnly": "Audio questions only"
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",

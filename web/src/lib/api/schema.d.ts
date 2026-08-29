@@ -2806,8 +2806,10 @@ export interface operations {
     listQuestions: {
         parameters: {
             query?: {
-                type?: components["schemas"]["QuestionType"];
-                tag?: string;
+                type?: components["schemas"]["QuestionType"][];
+                tag?: string[];
+                /** @description A-06's "Chỉ câu có audio". */
+                hasAudio?: boolean;
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */

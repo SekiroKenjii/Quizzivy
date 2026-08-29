@@ -1936,8 +1936,29 @@ paths:
       description: The §8 question bank, with type and tag filters plus search.
       tags: [admin-questions]
       parameters:
-        - { name: type, in: query, schema: { $ref: '#/components/schemas/QuestionType' } }
-        - { name: tag, in: query, schema: { type: string } }
+        # Repeatable, because A-06's rail is checkboxes and tag chips, not a
+        # radio group. Within a group the values are OR-ed; the groups are
+        # AND-ed with each other and with `q` -- the ordinary faceted-search
+        # reading, and the only one where ticking a second type can never
+        # shrink the result set.
+        - name: type
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/QuestionType' }
+        - name: tag
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { type: string }
+        - name: hasAudio
+          in: query
+          description: A-06's "Chỉ câu có audio".
+          schema: { type: boolean }
         - $ref: '#/components/parameters/Query'
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'

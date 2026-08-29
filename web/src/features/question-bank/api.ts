@@ -6,8 +6,10 @@ export type AdminQuestion = components["schemas"]["AdminQuestion"];
 export type QuestionType = components["schemas"]["QuestionType"];
 
 export interface ListQuestionsParams {
-  type?: QuestionType;
-  tag?: string;
+  /** Repeatable. Several types widen the results; see A-06's rail. */
+  type?: QuestionType[];
+  tag?: string[];
+  hasAudio?: boolean;
   q?: string;
   cursor?: string;
   limit?: number;
@@ -15,8 +17,9 @@ export interface ListQuestionsParams {
 
 export function listQuestions(params: ListQuestionsParams = {}, signal?: AbortSignal) {
   const query: Record<string, unknown> = {};
-  if (params.type) query["type"] = params.type;
-  if (params.tag) query["tag"] = params.tag;
+  if (params.type?.length) query["type"] = params.type;
+  if (params.tag?.length) query["tag"] = params.tag;
+  if (params.hasAudio !== undefined) query["hasAudio"] = params.hasAudio;
   if (params.q) query["q"] = params.q;
   if (params.cursor) query["cursor"] = params.cursor;
   if (params.limit) query["limit"] = params.limit;
