@@ -36,7 +36,11 @@ beforeEach(() => {
   creations = 0;
   server.use(
     http.get(`${BASE}/admin/tests`, () =>
-      contractJson("/admin/tests", "get", 200, { items: [], nextCursor: null }),
+      contractJson("/admin/tests", "get", 200, {
+        items: [],
+        nextCursor: null,
+        facets: { all: 0, draft: 0, published: 0, archived: 0 },
+      }),
     ),
     http.post(`${BASE}/admin/tests`, () => {
       creations += 1;
@@ -106,7 +110,7 @@ describe("the tests list with nothing in it", () => {
     const user = renderList();
     await screen.findByText("Chưa có đề thi nào.");
 
-    await user.click(screen.getByRole("tab", { name: "Đã phát hành" }));
+    await user.click(screen.getByRole("tab", { name: /^Đã phát hành/ }));
 
     expect(await screen.findByText("Không có đề thi nào khớp.")).toBeInTheDocument();
   });

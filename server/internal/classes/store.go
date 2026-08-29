@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -184,4 +185,52 @@ func (s *Store) RemoveMember(ctx context.Context, in RemoveMemberInput) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// UpdateInput carries only the fields the caller actually sent, so a PATCH that
+// renames a class cannot silently clear its description.
+type UpdateInput struct {
+	Name *string
+	// nil means "the caller did not send it". Clearing a description back to
+	// NULL is therefore not expressible: the generated body decodes both an
+	// omitted field and an explicit null to a nil *string, so the handler
+	// cannot tell them apart. Sending "" is how a teacher empties it.
+	Description     *string
+	SelfJoinEnabled *bool
+}
+
+// Update edits a class's own fields.
+//
+// Disabling self-join deliberately does NOT revoke the code: §6.4 separates the
+// two, and a teacher pausing enrolment for a week should not have to reissue a
+// code and re-share it afterwards. Revoking is its own endpoint.
+func (s *Store) Update(ctx context.Context, classID string, in UpdateInput) (Class, error) {
+	sets := []string{}
+	args := []any{classID}
+
+	if in.Name != nil {
+		args = append(args, *in.Name)
+		sets = append(sets, fmt.Sprintf("name = $%d", len(args)))
+	}
+	if in.Description != nil {
+		args = append(args, *in.Description)
+		sets = append(sets, fmt.Sprintf("description = $%d", len(args)))
+	}
+	if in.SelfJoinEnabled != nil {
+		args = append(args, *in.SelfJoinEnabled)
+		sets = append(sets, fmt.Sprintf("self_join_enabled = $%d", len(args)))
+	}
+	if len(sets) == 0 {
+		return s.Get(ctx, classID)
+	}
+
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE app.classes SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)
+	if err != nil {
+		return Class{}, fmt.Errorf("update class %s: %w", classID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return Class{}, ErrNotFound
+	}
+	return s.Get(ctx, classID)
 }

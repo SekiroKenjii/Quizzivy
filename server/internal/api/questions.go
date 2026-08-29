@@ -44,7 +44,22 @@ func (s *Server) ListQuestions(ctx context.Context, request openapi.ListQuestion
 		return nil, err
 	}
 
-	out := openapi.ListQuestions200JSONResponse{Items: make([]openapi.AdminQuestion, len(found))}
+	facets, err := s.Deps.Questions.Facets(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
+	out := openapi.ListQuestions200JSONResponse{
+		Items: make([]openapi.AdminQuestion, len(found)),
+		Facets: openapi.QuestionTypeFacets{
+			All:            facets.All,
+			SingleChoice:   facets.ByType[questions.SingleChoice],
+			MultipleChoice: facets.ByType[questions.MultipleChoice],
+			TrueFalse:      facets.ByType[questions.TrueFalse],
+			FillBlank:      facets.ByType[questions.FillBlank],
+			ShortAnswer:    facets.ByType[questions.ShortAnswer],
+		},
+	}
 	for i, q := range found {
 		out.Items[i], err = s.toAPIQuestion(ctx, q)
 		if err != nil {
@@ -259,6 +274,7 @@ func (s *Server) toAPIQuestion(ctx context.Context, q questions.Question) (opena
 		Explanation:  q.Explanation,
 		SampleAnswer: q.SampleAnswer,
 		Tags:         q.Tags,
+		UsedInTests:  &q.UsedInTests,
 		Transcript:   q.Transcript,
 		CreatedAt:    q.CreatedAt,
 		UpdatedAt:    q.UpdatedAt,

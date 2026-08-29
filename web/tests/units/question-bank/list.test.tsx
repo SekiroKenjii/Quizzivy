@@ -40,6 +40,14 @@ beforeEach(() => {
     http.get(`${BASE}/admin/questions`, ({ request }) => {
       requests.push(new URL(request.url));
       return contractJson("/admin/questions", "get", 200, {
+        facets: {
+          all: 0,
+          single_choice: 0,
+          multiple_choice: 0,
+          true_false: 0,
+          fill_blank: 0,
+          short_answer: 0,
+        },
         items: [question()],
         nextCursor: null,
       });
@@ -73,7 +81,7 @@ describe("the question bank list", () => {
     const user = renderBank();
     await screen.findByText("Người phụ nữ đề nghị làm gì?");
 
-    await user.click(screen.getByLabelText("Điền từ"));
+    await user.click(screen.getByLabelText(/^Điền từ/));
     await user.type(screen.getByLabelText(/Tìm trong nội dung/), "nghe");
     await vi.advanceTimersByTimeAsync(300);
 
@@ -102,6 +110,14 @@ describe("the question bank list", () => {
         const url = new URL(request.url);
         requests.push(url);
         return contractJson("/admin/questions", "get", 200, {
+          facets: {
+            all: 0,
+            single_choice: 0,
+            multiple_choice: 0,
+            true_false: 0,
+            fill_blank: 0,
+            short_answer: 0,
+          },
           items: [
             question({
               id: `018f0000-0000-7000-8000-00000000${url.searchParams.get("cursor") ? "0002" : "0001"}`,
@@ -124,7 +140,18 @@ describe("the question bank list", () => {
   it("offers one sentence and one action when nothing matches", async () => {
     server.use(
       http.get(`${BASE}/admin/questions`, () =>
-        contractJson("/admin/questions", "get", 200, { items: [], nextCursor: null }),
+        contractJson("/admin/questions", "get", 200, {
+          facets: {
+            all: 0,
+            single_choice: 0,
+            multiple_choice: 0,
+            true_false: 0,
+            fill_blank: 0,
+            short_answer: 0,
+          },
+          items: [],
+          nextCursor: null,
+        }),
       ),
     );
     renderBank();
@@ -138,13 +165,24 @@ describe("the question bank list", () => {
   it("distinguishes an empty bank from an empty filter", async () => {
     server.use(
       http.get(`${BASE}/admin/questions`, () =>
-        contractJson("/admin/questions", "get", 200, { items: [], nextCursor: null }),
+        contractJson("/admin/questions", "get", 200, {
+          facets: {
+            all: 0,
+            single_choice: 0,
+            multiple_choice: 0,
+            true_false: 0,
+            fill_blank: 0,
+            short_answer: 0,
+          },
+          items: [],
+          nextCursor: null,
+        }),
       ),
     );
     const user = renderBank();
     await screen.findByText("Ngân hàng chưa có câu hỏi nào.");
 
-    await user.click(screen.getByLabelText("Tự luận"));
+    await user.click(screen.getByLabelText(/^Tự luận/));
 
     expect(
       await screen.findByText("Không có câu hỏi nào khớp với bộ lọc này."),
@@ -155,6 +193,14 @@ describe("the question bank list", () => {
     server.use(
       http.get(`${BASE}/admin/questions`, () =>
         contractJson("/admin/questions", "get", 200, {
+          facets: {
+            all: 0,
+            single_choice: 0,
+            multiple_choice: 0,
+            true_false: 0,
+            fill_blank: 0,
+            short_answer: 0,
+          },
           items: [
             question({
               media: {
@@ -192,6 +238,14 @@ describe("the question bank list", () => {
       http.get(`${BASE}/admin/questions`, () => {
         listings += 1;
         return contractJson("/admin/questions", "get", 200, {
+          facets: {
+            all: 0,
+            single_choice: 0,
+            multiple_choice: 0,
+            true_false: 0,
+            fill_blank: 0,
+            short_answer: 0,
+          },
           items: [
             question({
               media: {

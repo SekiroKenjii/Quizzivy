@@ -78,8 +78,11 @@ type Question struct {
 	Explanation    *string
 	SampleAnswer   *string
 	Tags           []string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// Draft outlines referencing this question. Editing the bank copy changes
+	// every one of them; published versions hold their own snapshot (§7).
+	UsedInTests int
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // Input is a create or update body, already parsed but not yet validated.

@@ -69,6 +69,7 @@ export default function QuestionBankPage() {
   });
 
   const items = bank.data?.pages.flatMap((page) => page.items) ?? [];
+  const facets = bank.data?.pages[0]?.facets;
   const tags = tagsIn(items);
 
   return (
@@ -81,6 +82,7 @@ export default function QuestionBankPage() {
           <div className="space-y-2">
             <FilterOption
               label={t("bank.allTypes")}
+              count={facets?.all}
               checked={type === null}
               onChange={() => setType(null)}
             />
@@ -88,6 +90,7 @@ export default function QuestionBankPage() {
               <FilterOption
                 key={value}
                 label={t(`questionEditor.type.${value}`)}
+                count={facets?.[value]}
                 checked={type === value}
                 onChange={() => setType(type === value ? null : value)}
               />
@@ -127,11 +130,7 @@ export default function QuestionBankPage() {
               {t("nav.questionBank")}
             </h1>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              {bank.isSuccess
-                ? t(bank.hasNextPage ? "bank.summarySoFar" : "bank.summary", {
-                    count: items.length,
-                  })
-                : "\u00a0"}
+              {facets ? t("bank.summary", { count: facets.all }) : "\u00a0"}
             </p>
           </div>
           <Button asChild size="sm">
@@ -191,6 +190,7 @@ export default function QuestionBankPage() {
                     <TableHead>{t("bank.type")}</TableHead>
                     <TableHead>{t("bank.tags")}</TableHead>
                     <TableHead className="text-right">{t("bank.points")}</TableHead>
+                    <TableHead>{t("bank.usedIn")}</TableHead>
                     <TableHead className="w-9">
                       <span className="sr-only">{t("bank.preview")}</span>
                     </TableHead>
@@ -275,6 +275,13 @@ function Row({
           </span>
         </TableCell>
         <TableCell className="text-right tabular-nums">{question.points}</TableCell>
+        <TableCell className="text-muted-foreground tabular-nums">
+          {question.usedInTests === undefined
+            ? "—"
+            : question.usedInTests === 0
+              ? "—"
+              : t("bank.usedInCount", { count: question.usedInTests })}
+        </TableCell>
         <TableCell className="text-right">
           {audio ? (
             <Button
@@ -292,7 +299,7 @@ function Row({
 
       {audio && playing ? (
         <TableRow>
-          <TableCell colSpan={5} className="p-0">
+          <TableCell colSpan={6} className="p-0">
             {/* Keyed on the URL: a refetch mints a fresh one, and the row has
                 to forget that the previous one had expired. */}
             <AudioPreviewRow
@@ -317,10 +324,12 @@ function tagsIn(questions: AdminQuestion[]): string[] {
 
 function FilterOption({
   label,
+  count,
   checked,
   onChange,
 }: {
   label: string;
+  count: number | undefined;
   checked: boolean;
   onChange: () => void;
 }) {
@@ -333,6 +342,11 @@ function FilterOption({
         className="border-input accent-foreground size-4"
       />
       {label}
+      {count === undefined ? null : (
+        <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+          {count}
+        </span>
+      )}
     </label>
   );
 }

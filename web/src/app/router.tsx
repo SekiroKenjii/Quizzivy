@@ -66,10 +66,7 @@ const adminTree: RouteObject = {
           path: "tests/:id",
           lazy: page(() => import("@/features/tests/pages/TestDetailPage")),
         },
-        {
-          path: "tests/:id/edit",
-          lazy: page(() => import("@/features/tests/pages/TestBuilderPage")),
-        },
+
         {
           path: "question-bank",
           lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
@@ -107,6 +104,16 @@ const adminTree: RouteObject = {
           lazy: page(() => import("@/features/auth/pages/AdminSettingsPage")),
         },
       ],
+    },
+    /**
+     * The builder is A-04's focus mode: three columns and no sidebar, because
+     * the outline, the editor and the settings rail all want width and the nav
+     * is not what the teacher is reaching for while authoring. Same guard,
+     * outside AdminLayout.
+     */
+    {
+      path: "tests/:id/edit",
+      lazy: page(() => import("@/features/tests/pages/TestBuilderPage")),
     },
   ],
 };

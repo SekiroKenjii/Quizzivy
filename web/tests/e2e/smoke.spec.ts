@@ -34,10 +34,11 @@ test("admin sidebar is open by default above 1280px", async ({ page }) => {
   await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/admin");
-  await expect(
-    page.getByRole("navigation", { name: "Điều hướng chính" }),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Đề thi" })).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Điều hướng chính" });
+  await expect(nav).toBeVisible();
+  // Scoped and exact: the dashboard also links "Đề thi mới", which a loose
+  // substring match picks up as well.
+  await expect(nav.getByRole("link", { name: "Đề thi", exact: true })).toBeVisible();
 });
 
 test("admin sidebar collapses at 1280px and the toggle reopens it", async ({

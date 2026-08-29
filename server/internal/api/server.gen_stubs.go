@@ -31,16 +31,14 @@ type Deps struct {
 	Questions    QuestionsService
 	Tests        TestsService
 	Publisher    PublishService
+	Dashboard    DashboardService
+	Assignments  AssignmentsService
 	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
 	CookieSecure bool
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)
-
-func (s *Server) ListAssignments(_ context.Context, _ openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
 
 func (s *Server) CreateAssignment(_ context.Context, _ openapi.CreateAssignmentRequestObject) (openapi.CreateAssignmentResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
@@ -94,15 +92,7 @@ func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) UpdateClass(_ context.Context, _ openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) AddClassMember(_ context.Context, _ openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetDashboard(_ context.Context, _ openapi.GetDashboardRequestObject) (openapi.GetDashboardResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

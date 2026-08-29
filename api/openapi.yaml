@@ -452,6 +452,35 @@ components:
           minItems: 1
         caseSensitive: { type: boolean }
 
+    TestStatusFacets:
+      type: object
+      description: |
+        How many tests each status holds for the CURRENT search, ignoring the
+        status filter itself — selecting one tab must not zero the others.
+        Backs A-03's "Tất cả 12 · Bản nháp 3 · Đã phát hành 8".
+      required: [all, draft, published, archived]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        draft: { type: integer, minimum: 0 }
+        published: { type: integer, minimum: 0 }
+        archived: { type: integer, minimum: 0 }
+
+    QuestionTypeFacets:
+      type: object
+      description: |
+        How many questions each type holds for the CURRENT tag and search,
+        ignoring the type filter itself. Backs A-06's rail counts.
+      required: [all, single_choice, multiple_choice, true_false, fill_blank, short_answer]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        single_choice: { type: integer, minimum: 0 }
+        multiple_choice: { type: integer, minimum: 0 }
+        true_false: { type: integer, minimum: 0 }
+        fill_blank: { type: integer, minimum: 0 }
+        short_answer: { type: integer, minimum: 0 }
+
     AdminQuestion:
       type: object
       required: [id, type, prompt, points, tags, createdAt, updatedAt]
@@ -485,6 +514,15 @@ components:
             `short_answer` only. **Admin-only, shown during grading.** Never
             appears in any `/app/*` schema, including the result endpoint.
         tags: { type: array, items: { type: string } }
+        usedInTests:
+          type: integer
+          minimum: 0
+          description: |
+            How many DRAFT test outlines reference this question. Editing the
+            bank copy changes every one of them, which is a versioning event the
+            teacher deserves to know about before they type (A-06). Published
+            versions are deliberately not counted: they hold their own snapshot
+            and a bank edit cannot reach them (§7).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
         updatedAt: { $ref: '#/components/schemas/Timestamp' }
 
@@ -1554,9 +1592,10 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/Test' } }
+                      facets: { $ref: '#/components/schemas/TestStatusFacets' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -1773,9 +1812,10 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
+                      facets: { $ref: '#/components/schemas/QuestionTypeFacets' }
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestion

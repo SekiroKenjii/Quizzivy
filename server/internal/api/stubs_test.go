@@ -27,7 +27,6 @@ var unimplemented = []string{
 	"GetAssignment",
 	"GetAttempt",
 	"GetMyAssignment",
-	"ListAssignments",
 	"ListMyAssignments",
 	"RecordAudioPlay",
 	"SaveAnswers",
@@ -42,7 +41,6 @@ var unimplemented = []string{
 	"GetAttemptEvents",
 	"GetAttemptForReview",
 	"GetAttemptResult",
-	"GetDashboard",
 	"GradeAttempt",
 	"ListAttempts",
 	"ResetAttempt",
@@ -56,7 +54,6 @@ var unimplemented = []string{
 	"ListMyClasses",
 	"ListStudents",
 	"ResetStudentPassword",
-	"UpdateClass",
 	"UpdateStudent",
 }
 
@@ -144,6 +141,7 @@ func TestThePhase2ScreensDoNotRestOnStubs(t *testing.T) {
 		"UpdateTest",       // the builder's autosave
 		"CreateQuestion",   // the builder's "Thêm câu hỏi"
 		"UploadMedia",      // the audio upload the probe runs behind
+		"GetDashboard",     // §8's /admin
 	} {
 		if slices.Contains(stubs, name) {
 			t.Errorf("%s is a stub, but a Phase 2 screen calls it", name)

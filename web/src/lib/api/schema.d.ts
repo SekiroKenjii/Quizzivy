@@ -1395,6 +1395,29 @@ export interface components {
             acceptedAnswers: string[];
             caseSensitive: boolean;
         };
+        /**
+         * @description How many tests each status holds for the CURRENT search, ignoring the
+         *     status filter itself — selecting one tab must not zero the others.
+         *     Backs A-03's "Tất cả 12 · Bản nháp 3 · Đã phát hành 8".
+         */
+        TestStatusFacets: {
+            all: number;
+            draft: number;
+            published: number;
+            archived: number;
+        };
+        /**
+         * @description How many questions each type holds for the CURRENT tag and search,
+         *     ignoring the type filter itself. Backs A-06's rail counts.
+         */
+        QuestionTypeFacets: {
+            all: number;
+            single_choice: number;
+            multiple_choice: number;
+            true_false: number;
+            fill_blank: number;
+            short_answer: number;
+        };
         AdminQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
@@ -1417,6 +1440,14 @@ export interface components {
              */
             sampleAnswer?: string | null;
             tags: string[];
+            /**
+             * @description How many DRAFT test outlines reference this question. Editing the
+             *     bank copy changes every one of them, which is a versioning event the
+             *     teacher deserves to know about before they type (A-06). Published
+             *     versions are deliberately not counted: they hold their own snapshot
+             *     and a bank edit cannot reach them (§7).
+             */
+            usedInTests?: number;
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
         };
@@ -2430,6 +2461,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
                         items: components["schemas"]["Test"][];
+                        facets: components["schemas"]["TestStatusFacets"];
                     };
                 };
             };
@@ -2693,6 +2725,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
                         items: components["schemas"]["AdminQuestion"][];
+                        facets: components["schemas"]["QuestionTypeFacets"];
                     };
                 };
             };

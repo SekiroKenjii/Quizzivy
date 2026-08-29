@@ -45,7 +45,8 @@
     "closeMenu": "Đóng menu",
     "mainNavigation": "Điều hướng chính",
     "sectionTeaching": "Giảng dạy",
-    "sectionClasses": "Lớp học"
+    "sectionClasses": "Lớp học",
+    "account": "Tài khoản của {{name}}"
   },
   "student": {
     "myAssignments": "Bài của tôi",
@@ -77,7 +78,8 @@
       "emailRequired": "Vui lòng nhập email.",
       "emailInvalid": "Email không hợp lệ.",
       "passwordRequired": "Vui lòng nhập mật khẩu."
-    }
+    },
+    "panelBlurb": "Nền tảng luyện thi tiếng Anh dành riêng cho lớp học của bạn."
   },
   "join": {
     "title": "Tham gia lớp học",
@@ -155,7 +157,12 @@
     "copyCode": "Sao chép mã",
     "done": "Xong",
     "removeNamed": "Xoá {{name}} khỏi lớp",
-    "noMemberMatches": "Không có học viên nào khớp với “{{query}}”."
+    "noMemberMatches": "Không có học viên nào khớp với “{{query}}”.",
+    "classSettings": "Lớp",
+    "className": "Tên lớp",
+    "classDescription": "Mô tả",
+    "saveFailed": "Không lưu được thay đổi.",
+    "savedNote": "Đã lưu"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -222,7 +229,15 @@
     "rejectRetry": "Chọn tệp khác",
     "rejectFolder": "Không nhận được tệp nào. Nếu bạn kéo cả thư mục, hãy mở thư mục và kéo từng tệp.",
     "rejectMany": "Mỗi lần chỉ tải lên được một tệp. Hãy kéo từng tệp một.",
-    "deleteNamed": "Xoá {{name}}"
+    "deleteNamed": "Xoá {{name}}",
+    "summarySoFar": "{{count}} tệp đã tải · {{size}}",
+    "view": "Xem",
+    "blockedTitle": "Không xoá được tệp này",
+    "blockedBody": "{{name}} đang được dùng trong {{count}} đề đã phát hành. Học viên đang làm bài vẫn cần nghe được tệp.",
+    "blockedNote": "Tệp đã dùng trong đề đã phát hành thì không xoá được — các bài đang làm vẫn cần nghe nó. Tải bản mới sẽ tạo một tệp mới, không ghi đè.",
+    "understood": "Đã hiểu",
+    "previewNamed": "Nghe thử {{name}}",
+    "viewNamed": "Xem {{name}}"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -344,7 +359,8 @@
     "dirty": "Chưa lưu",
     "bankNoMatches": "Không có câu hỏi nào khớp.",
     "bankAllAdded": "Mọi câu hỏi tìm được đều đã có trong đề này.",
-    "outlineQuestionsOnly": "{{questions}} câu"
+    "outlineQuestionsOnly": "{{questions}} câu",
+    "position": "Câu {{number}} · {{section}}"
   },
   "bank": {
     "typeFilter": "Loại câu",
@@ -365,10 +381,12 @@
     "loadMore": "Xem thêm",
     "previewExpired": "Đường dẫn nghe thử đã hết hạn. Tải lại danh sách để nghe.",
     "previewOf": "Nghe thử: {{prompt}}",
-    "summarySoFar": "{{count}} câu đã tải"
+    "summarySoFar": "{{count}} câu đã tải",
+    "usedIn": "Đang dùng",
+    "usedInCount": "{{count}} đề"
   },
   "tests": {
-    "summary": "{{count}} đề",
+    "summary": "{{count}} đề · {{drafts}} bản nháp",
     "new": "Đề thi mới",
     "untitled": "Đề thi chưa đặt tên",
     "statusFilter": "Lọc theo trạng thái",
@@ -407,5 +425,59 @@
   "preview": {
     "questionNumber": "Câu {{n}}",
     "writtenAnswer": "Học viên viết câu trả lời ở đây"
+  },
+  "palette": {
+    "title": "Tìm kiếm và lệnh",
+    "placeholder": "Tìm hoặc gõ lệnh…",
+    "tests": "Đề thi",
+    "questions": "Câu hỏi",
+    "navigate": "Điều hướng",
+    "noMatches": "Không tìm thấy gì khớp.",
+    "hint": "Gõ để tìm đề thi và câu hỏi, hoặc chọn một trang bên dưới.",
+    "open": "Tìm đề thi, học viên, câu hỏi…",
+    "escape": "esc",
+    "keyK": "K"
+  },
+  "dashboard": {
+    "assign": "Giao bài",
+    "needsYou": "Cần bạn xử lý",
+    "awaitingGrading": "Câu tự luận chờ chấm",
+    "awaitingGradingHint": "Bài đã nộp, còn câu cần bạn chấm tay.",
+    "flagged": "Bài cần xem lại",
+    "flaggedHint": "Có dấu hiệu rời trang nhiều.",
+    "openAssignments": "Bài đang mở",
+    "openAssignmentsHint": "Đang trong thời gian làm bài.",
+    "grade": "Chấm",
+    "review": "Xem",
+    "monitor": "Theo dõi",
+    "openNow": "Bài đang mở",
+    "allAssignments": "Tất cả bài giao",
+    "assignment": "Bài giao",
+    "closesAt": "Đóng lúc",
+    "progress": "Tiến độ",
+    "progressOf": "{{submitted}} trên {{target}} đã nộp",
+    "byStudent": "Theo học viên",
+    "recent": "Hoạt động gần đây",
+    "noActivity": "Chưa có hoạt động nào.",
+    "noAssignments": "Chưa có bài giao nào.",
+    "activeStudents": "Học viên hoạt động 7 ngày",
+    "inProgress": "đang làm",
+    "flaggedShort": "cần xem lại",
+    "loadFailed": "Không tải được tổng quan.",
+    "status": {
+      "in_progress": "đang làm",
+      "submitted": "nộp",
+      "graded": "đã được chấm",
+      "voided": "bị huỷ",
+      "expired": "hết giờ"
+    },
+    "assignmentStatus": {
+      "scheduled": "Đã lên lịch",
+      "open": "Đang mở",
+      "closed": "Đã đóng"
+    },
+    "notifications": "Thông báo",
+    "notificationsWith": "Thông báo, {{count}} việc cần xử lý",
+    "nothingOutstanding": "Không có việc nào cần xử lý."
   }
 }

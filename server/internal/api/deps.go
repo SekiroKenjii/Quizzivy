@@ -5,8 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"quizzivy/internal/assignments"
 	"quizzivy/internal/auth"
 	"quizzivy/internal/classes"
+	"quizzivy/internal/dashboard"
 	"quizzivy/internal/httpx"
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
@@ -47,6 +49,7 @@ type ClassesService interface {
 	Get(ctx context.Context, classID string) (classes.Class, error)
 	List(ctx context.Context) ([]classes.Class, error)
 	Members(ctx context.Context, classID string) ([]classes.Member, error)
+	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
 }
 
@@ -65,6 +68,7 @@ type MediaService interface {
 // QuestionsService is the slice of internal/questions the handlers use.
 type QuestionsService interface {
 	List(ctx context.Context, in questions.ListInput) ([]questions.Question, string, error)
+	Facets(ctx context.Context, in questions.ListInput) (questions.TypeFacets, error)
 	Get(ctx context.Context, id string) (questions.Question, error)
 	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
@@ -74,12 +78,23 @@ type QuestionsService interface {
 // TestsService is the slice of internal/tests the handlers use.
 type TestsService interface {
 	List(ctx context.Context, in tests.ListInput) ([]tests.Test, string, error)
+	Facets(ctx context.Context, in tests.ListInput) (tests.StatusFacets, error)
 	Get(ctx context.Context, id string) (tests.Test, error)
 	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
 	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)
 	Duplicate(ctx context.Context, req tests.Request) (tests.Test, error)
 	ListVersions(ctx context.Context, testID string) ([]tests.Version, error)
 	Preview(ctx context.Context, testID string, version int) (int, []tests.PreviewQuestion, error)
+}
+
+// AssignmentsService is the slice of internal/assignments the handlers use.
+type AssignmentsService interface {
+	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, string, error)
+}
+
+// DashboardService is the slice of internal/dashboard the handlers use.
+type DashboardService interface {
+	Get(ctx context.Context) (dashboard.Summary, error)
 }
 
 // PublishService is the slice of internal/tests/publish the handlers use.

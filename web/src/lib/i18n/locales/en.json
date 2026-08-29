@@ -45,7 +45,8 @@
     "closeMenu": "Close menu",
     "mainNavigation": "Main navigation",
     "sectionTeaching": "Teaching",
-    "sectionClasses": "Classes"
+    "sectionClasses": "Classes",
+    "account": "{{name}}'s account"
   },
   "student": {
     "myAssignments": "My assignments",
@@ -77,7 +78,8 @@
       "emailRequired": "Enter your email.",
       "emailInvalid": "That email is not valid.",
       "passwordRequired": "Enter your password."
-    }
+    },
+    "panelBlurb": "An English practice platform built for your class."
   },
   "join": {
     "title": "Join a class",
@@ -155,7 +157,12 @@
     "copyCode": "Copy the code",
     "done": "Done",
     "removeNamed": "Remove {{name}} from the class",
-    "noMemberMatches": "No student matches “{{query}}”."
+    "noMemberMatches": "No student matches “{{query}}”.",
+    "classSettings": "Class",
+    "className": "Class name",
+    "classDescription": "Description",
+    "saveFailed": "Could not save the change.",
+    "savedNote": "Saved"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -222,7 +229,15 @@
     "rejectRetry": "Choose another file",
     "rejectFolder": "No file arrived. If you dragged a folder, open it and drag the files themselves.",
     "rejectMany": "One file at a time. Please drag them one by one.",
-    "deleteNamed": "Delete {{name}}"
+    "deleteNamed": "Delete {{name}}",
+    "summarySoFar": "{{count}} files loaded · {{size}}",
+    "view": "View",
+    "blockedTitle": "This file cannot be deleted",
+    "blockedBody": "{{name}} is used by {{count}} published tests. Students sitting them still need to hear it.",
+    "blockedNote": "A file used by a published test cannot be deleted — attempts in progress still need it. Uploading a new one creates a new file rather than overwriting this.",
+    "understood": "Got it",
+    "previewNamed": "Preview {{name}}",
+    "viewNamed": "View {{name}}"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -344,7 +359,8 @@
     "dirty": "Not saved",
     "bankNoMatches": "No question matches.",
     "bankAllAdded": "Every question found is already in this test.",
-    "outlineQuestionsOnly": "{{questions}} questions"
+    "outlineQuestionsOnly": "{{questions}} questions",
+    "position": "Question {{number}} · {{section}}"
   },
   "bank": {
     "typeFilter": "Question type",
@@ -365,10 +381,12 @@
     "loadMore": "Show more",
     "previewExpired": "The preview link has expired. Reload the list to play it.",
     "previewOf": "Preview: {{prompt}}",
-    "summarySoFar": "{{count}} questions loaded"
+    "summarySoFar": "{{count}} questions loaded",
+    "usedIn": "Used in",
+    "usedInCount": "{{count}} tests"
   },
   "tests": {
-    "summary": "{{count}} tests",
+    "summary": "{{count}} tests · {{drafts}} drafts",
     "new": "New test",
     "untitled": "Untitled test",
     "statusFilter": "Filter by status",
@@ -407,5 +425,59 @@
   "preview": {
     "questionNumber": "Question {{n}}",
     "writtenAnswer": "The student writes their answer here"
+  },
+  "palette": {
+    "title": "Search and commands",
+    "placeholder": "Search or type a command…",
+    "tests": "Tests",
+    "questions": "Questions",
+    "navigate": "Go to",
+    "noMatches": "Nothing matches.",
+    "hint": "Type to search tests and questions, or pick a page below.",
+    "open": "Search tests, students, questions…",
+    "escape": "esc",
+    "keyK": "K"
+  },
+  "dashboard": {
+    "assign": "Assign",
+    "needsYou": "Needs you",
+    "awaitingGrading": "Short answers to grade",
+    "awaitingGradingHint": "Submitted, with answers only you can score.",
+    "flagged": "Attempts to review",
+    "flaggedHint": "Signs of leaving the page repeatedly.",
+    "openAssignments": "Open assignments",
+    "openAssignmentsHint": "Inside their window right now.",
+    "grade": "Grade",
+    "review": "Review",
+    "monitor": "Monitor",
+    "openNow": "Open now",
+    "allAssignments": "All assignments",
+    "assignment": "Assignment",
+    "closesAt": "Closes",
+    "progress": "Progress",
+    "progressOf": "{{submitted}} of {{target}} submitted",
+    "byStudent": "By student",
+    "recent": "Recent activity",
+    "noActivity": "Nothing yet.",
+    "noAssignments": "No assignments yet.",
+    "activeStudents": "Active students, 7 days",
+    "inProgress": "in progress",
+    "flaggedShort": "needs review",
+    "loadFailed": "Could not load the overview.",
+    "status": {
+      "in_progress": "started",
+      "submitted": "submitted",
+      "graded": "was graded on",
+      "voided": "had voided",
+      "expired": "ran out of time on"
+    },
+    "assignmentStatus": {
+      "scheduled": "Scheduled",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "notifications": "Notifications",
+    "notificationsWith": "Notifications, {{count}} outstanding",
+    "nothingOutstanding": "Nothing outstanding."
   }
 }

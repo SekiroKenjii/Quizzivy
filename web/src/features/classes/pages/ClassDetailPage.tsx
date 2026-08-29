@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
+import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/datetime";
@@ -240,6 +241,7 @@ export default function ClassDetailPage() {
 
         <div className="space-y-5">
           <JoinCodePanel klass={klass.data} />
+          <ClassSettingsCard klass={klass.data} />
         </div>
       </div>
 

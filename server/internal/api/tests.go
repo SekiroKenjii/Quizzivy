@@ -39,7 +39,20 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 		return nil, err
 	}
 
-	out := openapi.ListTests200JSONResponse{Items: make([]openapi.Test, len(found))}
+	facets, err := s.Deps.Tests.Facets(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
+	out := openapi.ListTests200JSONResponse{
+		Items: make([]openapi.Test, len(found)),
+		Facets: openapi.TestStatusFacets{
+			All:       facets.All,
+			Draft:     facets.Draft,
+			Published: facets.Published,
+			Archived:  facets.Archived,
+		},
+	}
 	for i, t := range found {
 		if out.Items[i], err = toAPITest(t); err != nil {
 			return nil, err

@@ -32,6 +32,34 @@ func (s *Server) GetClass(ctx context.Context, request openapi.GetClassRequestOb
 	return openapi.GetClass200JSONResponse(toAPIAdminClass(class)), nil
 }
 
+// UpdateClass implements PATCH /admin/classes/{id}.
+//
+// Only the fields actually present in the body are written, so renaming a class
+// cannot silently clear its description -- the difference between "absent" and
+// "null" is the whole point of a PATCH.
+func (s *Server) UpdateClass(ctx context.Context, request openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
+	if s.Deps.Classes == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	in := classes.UpdateInput{}
+	if request.Body.Name != nil {
+		in.Name = request.Body.Name
+	}
+	if request.Body.Description != nil {
+		in.Description = request.Body.Description
+	}
+	if request.Body.SelfJoinEnabled != nil {
+		in.SelfJoinEnabled = request.Body.SelfJoinEnabled
+	}
+
+	class, err := s.Deps.Classes.Update(ctx, request.Id.String(), in)
+	if err != nil {
+		return nil, err
+	}
+	return openapi.UpdateClass200JSONResponse(toAPIAdminClass(class)), nil
+}
+
 // ListClasses implements GET /admin/classes.
 func (s *Server) ListClasses(ctx context.Context, _ openapi.ListClassesRequestObject) (openapi.ListClassesResponseObject, error) {
 	if s.Deps.Classes == nil {
