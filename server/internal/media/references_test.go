@@ -5,38 +5,32 @@ import (
 	"testing"
 )
 
-// TestReferenceChecksAreWiredOnceVersionTablesExist is a deliberate tripwire.
+// TestStudentReachabilityIsWiredOnceAttemptsExist keeps the second half of the
+// stub honest.
 //
-// CountReferences and ReachableByStudent both return a constant because the
-// table they must query does not exist yet (migration 00016, T-2.9). Those
-// constants are correct today -- nothing can reference an asset and no student
-// can have an attempt -- and become security bugs the moment the schema can
-// express either relationship: deletes would stop being blocked, and the
-// student check would deny access that should be granted.
-//
-// A stub whose blocker disappears silently is how a permission check quietly
-// turns into a no-op. So this fails the moment the table lands, naming what to
-// do. It is not testing behaviour; it is refusing to let the two live together.
-func TestReferenceChecksAreWiredOnceVersionTablesExist(t *testing.T) {
+// media.CountReferences is now real -- test_version_questions arrived in T-2.9.
+// ReachableByStudent is not, because it joins through app.attempts, which
+// Phase 3 creates. The original tripwire named both and fired on the version
+// tables, which is one table too early for this half; this is the same guard
+// re-pointed at the blocker that actually remains.
+func TestStudentReachabilityIsWiredOnceAttemptsExist(t *testing.T) {
 	pool := newPool(t)
 
 	var exists bool
 	err := pool.QueryRow(context.Background(),
 		`SELECT EXISTS (
 		    SELECT 1 FROM information_schema.tables
-		     WHERE table_schema = 'app' AND table_name = 'test_version_questions')`).Scan(&exists)
+		     WHERE table_schema = 'app' AND table_name = 'attempts')`).Scan(&exists)
 	if err != nil {
-		t.Fatalf("checking for the version content table: %v", err)
+		t.Fatalf("checking for the attempts table: %v", err)
 	}
 
 	if exists {
 		t.Fatal(
-			"app.test_version_questions now exists, so media.CountReferences and " +
-				"media.ReachableByStudent must stop returning constants:\n" +
-				"  - CountReferences: count test_version_questions rows with this media_asset_id,\n" +
-				"    so DELETE /admin/media/:id returns 409 for a referenced asset (§8, §15).\n" +
-				"  - ReachableByStudent: join attempts -> test_version_questions filtered by the\n" +
-				"    caller's own user id, so a student can play their own listening files (§11.2).\n" +
-				"Then delete this test and replace it with real coverage of both.")
+			"app.attempts now exists, so media.ReachableByStudent must stop returning false:\n" +
+				"  join attempts -> test_versions -> test_version_sections ->\n" +
+				"  test_version_questions, filtered by the caller's own user id, so a student\n" +
+				"  can play the listening files of a test they are actually sitting (§11.2).\n" +
+				"Then delete this test and replace it with real coverage.")
 	}
 }

@@ -743,3 +743,157 @@ func newSection(t *testing.T, tx *sql.Tx, author string) string {
 	}
 	return sectionID
 }
+
+// ------------------------------------------------- version snapshots
+
+// newVersion creates a published test with one version and one section, and
+// returns the section id.
+func newVersion(t *testing.T, tx *sql.Tx, author string) string {
+	t.Helper()
+	var testID, versionID, sectionID string
+	if err := tx.QueryRow(
+		`INSERT INTO app.tests (title, status, current_version, created_by)
+		 VALUES ('Đề đã xuất bản', 'published', 1, $1) RETURNING id`, author).Scan(&testID); err != nil {
+		t.Fatalf("test fixture: %v", err)
+	}
+	if err := tx.QueryRow(
+		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
+		 VALUES ($1, 1, 10.00, $2) RETURNING id`, testID, author).Scan(&versionID); err != nil {
+		t.Fatalf("version fixture: %v", err)
+	}
+	if err := tx.QueryRow(
+		`INSERT INTO app.test_version_sections (test_version_id, ordinal, title)
+		 VALUES ($1, 0, 'Phần 1') RETURNING id`, versionID).Scan(&sectionID); err != nil {
+		t.Fatalf("version section fixture: %v", err)
+	}
+	return sectionID
+}
+
+// [D-07] source_question_id is ON DELETE SET NULL rather than RESTRICT: it is
+// informational, and RESTRICT would let a three-year-old frozen version veto a
+// bank cleanup forever. Losing it degrades a link, not an attempt -- so the
+// version row and everything a student sat must survive intact.
+func TestHardDeletingABankQuestionNullsTheVersionLinkAndKeepsTheSnapshot(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		q := newQuestion(t, tx, f.adminID, "short_answer", "Câu hỏi gốc")
+		section := newVersion(t, tx, f.adminID)
+
+		var vqID string
+		if err := tx.QueryRow(
+			`INSERT INTO app.test_version_questions
+			        (test_version_section_id, ordinal, source_question_id, type, prompt, points)
+			 VALUES ($1, 0, $2, 'short_answer', 'Bản đông cứng', 4.00) RETURNING id`,
+			section, q).Scan(&vqID); err != nil {
+			t.Fatal(err)
+		}
+
+		mustExec(t, tx, `DELETE FROM app.questions WHERE id = $1`, q)
+
+		var source *string
+		var prompt string
+		var points string
+		if err := tx.QueryRow(
+			`SELECT source_question_id::text, prompt, points::text
+			   FROM app.test_version_questions WHERE id = $1`, vqID).Scan(&source, &prompt, &points); err != nil {
+			t.Fatalf("the version question was deleted with the bank question: %v", err)
+		}
+		if source != nil {
+			t.Errorf("source_question_id is %q, want NULL after the bank question was purged", *source)
+		}
+		if prompt != "Bản đông cứng" || points != "4.00" {
+			t.Errorf("the snapshot changed: prompt=%q points=%q", prompt, points)
+		}
+	})
+}
+
+// [D-17] The composite-FK target assignments will use to prove a version
+// belongs to the test it names.
+func TestAVersionCarriesTheCompositeKeyAssignmentsWillNeed(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		newVersion(t, tx, f.adminID)
+
+		var exists bool
+		if err := tx.QueryRow(
+			`SELECT EXISTS (
+			    SELECT 1 FROM pg_constraint
+			     WHERE conname = 'test_versions_id_test_key' AND contype = 'u')`).Scan(&exists); err != nil {
+			t.Fatal(err)
+		}
+		if !exists {
+			t.Error("test_versions_id_test_key is missing; assignments cannot prove a version " +
+				"belongs to its test without it")
+		}
+	})
+}
+
+// A version is a historical fact. Deleting the test it belongs to must fail
+// here rather than two levels down inside attempts.
+func TestHardDeletingATestWithAVersionIsRestricted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		var testID string
+		if err := tx.QueryRow(
+			`SELECT v.test_id::text FROM app.test_version_sections s
+			   JOIN app.test_versions v ON v.id = s.test_version_id
+			  WHERE s.id = $1`, section).Scan(&testID); err != nil {
+			t.Fatal(err)
+		}
+
+		rejectsWith(t, tx, "test_versions_test_id_fkey",
+			`DELETE FROM app.tests WHERE id = $1`, testID)
+	})
+}
+
+// An asset a published version depends on must not vanish under it.
+func TestHardDeletingAnAssetAVersionUsesIsRestricted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		asset := newAudioAsset(t, tx, f.adminID)
+		section := newVersion(t, tx, f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.test_version_questions
+			        (test_version_section_id, ordinal, type, prompt, points,
+			         media_asset_id, media_asset_kind, audio_allow_seek, audio_show_transcript_after)
+			 VALUES ($1, 0, 'short_answer', 'Nghe', 4.00, $2, 'audio', false, true)`, section, asset)
+
+		rejectsWith(t, tx, "test_version_questions_media_asset_id_media_asset_kind_fkey",
+			`DELETE FROM app.media_assets WHERE id = $1`, asset)
+	})
+}
+
+// The same [D-04] biconditional the bank carries, on the frozen copy: a version
+// question is what a student actually sits, so the audio rule matters more here
+// rather than less.
+func TestAVersionQuestionCannotCarryAnAudioPolicyWithoutAudio(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		rejectsWith(t, tx, "tvq_audio_policy_iff_audio",
+			`INSERT INTO app.test_version_questions
+			        (test_version_section_id, ordinal, type, prompt, points,
+			         audio_allow_seek, audio_show_transcript_after)
+			 VALUES ($1, 0, 'short_answer', 'Không có audio', 4.00, false, true)`, section)
+	})
+}
+
+func TestAVersionQuestionCannotSetMaxPlaysWithoutAudio(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		rejectsWith(t, tx, "tvq_max_plays_only_with_audio",
+			`INSERT INTO app.test_version_questions
+			        (test_version_section_id, ordinal, type, prompt, points, audio_max_plays)
+			 VALUES ($1, 0, 'short_answer', 'Không có audio', 4.00, 3)`, section)
+	})
+}
+
+func TestAVersionMustHaveAPositiveVersionNumber(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		var testID string
+		if err := tx.QueryRow(
+			`INSERT INTO app.tests (title, created_by) VALUES ('Đề', $1) RETURNING id`,
+			f.adminID).Scan(&testID); err != nil {
+			t.Fatal(err)
+		}
+		rejectsWith(t, tx, "test_versions_version_check",
+			`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
+			 VALUES ($1, 0, 10.00, $2)`, testID, f.adminID)
+	})
+}
