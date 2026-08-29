@@ -250,7 +250,8 @@
     "viewNamed": "Xem {{name}}",
     "play": "Phát",
     "pause": "Tạm dừng",
-    "seek": "Tua"
+    "seek": "Tua",
+    "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe."
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",

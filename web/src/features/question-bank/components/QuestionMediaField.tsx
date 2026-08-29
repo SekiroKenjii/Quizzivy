@@ -13,6 +13,8 @@ import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { formatBytes, formatDuration } from "@/features/media/format";
 
 interface QuestionMediaFieldProps {
+  /** Refetches the question, minting a fresh signed URL when one expires. */
+  onRefresh?: (() => void) | undefined;
   value: MediaAsset | null;
   onChange: (asset: MediaAsset | null) => void;
 }
@@ -22,7 +24,11 @@ interface QuestionMediaFieldProps {
  * states the format and the limits before a file is chosen (§11.1), and A-05's
  * attached-asset card once one is.
  */
-export function QuestionMediaField({ value, onChange }: QuestionMediaFieldProps) {
+export function QuestionMediaField({
+  value,
+  onChange,
+  onRefresh,
+}: QuestionMediaFieldProps) {
   const { t } = useTranslation();
   const uploader = useRef<UploadHandle>(null);
   const [picking, setPicking] = useState(false);
@@ -83,6 +89,7 @@ export function QuestionMediaField({ value, onChange }: QuestionMediaFieldProps)
               label={value.originalFilename}
               durationMs={value.durationMs}
               size="sm"
+              {...(onRefresh ? { onRetry: onRefresh } : {})}
             />
           ) : null}
         </div>

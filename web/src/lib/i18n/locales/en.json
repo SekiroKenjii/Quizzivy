@@ -250,7 +250,8 @@
     "viewNamed": "View {{name}}",
     "play": "Play",
     "pause": "Pause",
-    "seek": "Seek"
+    "seek": "Seek",
+    "expired": "This preview link has expired. Reload to listen."
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",

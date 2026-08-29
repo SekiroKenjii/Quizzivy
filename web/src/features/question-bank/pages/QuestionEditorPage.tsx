@@ -59,10 +59,30 @@ export default function QuestionEditorPage() {
 
   // Remounting on identity is what seeds the form from the server without an
   // effect that would fight the teacher's edits on every background refetch.
-  return <Editor key={question?.id ?? "new"} question={question} />;
+  // Returns the refreshed asset rather than just refetching: the editor seeds
+  // its form state once, on purpose, so a refetch alone would mint a fresh
+  // signed URL that nothing on screen ever reads.
+  async function refreshAsset(): Promise<MediaAsset | null> {
+    const { data } = await existing.refetch();
+    return data?.media ?? null;
+  }
+
+  return (
+    <Editor
+      key={question?.id ?? "new"}
+      question={question}
+      onRefreshAsset={refreshAsset}
+    />
+  );
 }
 
-function Editor({ question }: { question: AdminQuestion | null }) {
+function Editor({
+  question,
+  onRefreshAsset,
+}: {
+  question: AdminQuestion | null;
+  onRefreshAsset: () => Promise<MediaAsset | null>;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -139,6 +159,11 @@ function Editor({ question }: { question: AdminQuestion | null }) {
         <QuestionEditor
           value={values}
           asset={asset}
+          onRefresh={() => {
+            void onRefreshAsset().then((fresh) => {
+              if (fresh) setAsset(fresh);
+            });
+          }}
           onChange={setValues}
           onAssetChange={setAsset}
         />

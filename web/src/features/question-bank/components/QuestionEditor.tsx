@@ -37,6 +37,8 @@ interface QuestionEditorProps {
   contextLabel?: string | null;
   onChange: (value: QuestionValues) => void;
   onAssetChange: (asset: MediaAsset | null) => void;
+  /** Refetches the question so an expired media URL can be replaced. */
+  onRefresh?: (() => void) | undefined;
 }
 
 /**
@@ -51,6 +53,7 @@ interface QuestionEditorProps {
 export function QuestionEditor({
   value,
   asset,
+  onRefresh,
   contextLabel = null,
   onChange,
   onAssetChange,
@@ -211,6 +214,7 @@ export function QuestionEditor({
           </p>
           <QuestionMediaField
             value={asset}
+            {...(onRefresh ? { onRefresh } : {})}
             onChange={(next) => {
               onAssetChange(next);
               onChange({

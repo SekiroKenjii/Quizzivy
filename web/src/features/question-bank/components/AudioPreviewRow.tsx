@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
@@ -19,38 +18,25 @@ interface AudioPreviewRowProps {
  * STUDENT sitting a test, and the teacher who wrote the question is not the
  * person they constrain.
  *
- * The URL was signed when the list loaded and lives ten minutes (§11.2), and
- * `preload="none"` means it is not fetched until play is pressed -- so reviewing
- * a bank for longer than that, which is the whole scenario above, reaches a
- * control that silently refuses. Failing loudly and offering a refetch is what
- * keeps that from looking like a broken player.
+ * The expired-URL case is the player's own now. The URL was signed when the list
+ * loaded and lives ten minutes (§11.2), which is easily shorter than a review of
+ * the bank -- and this row used to be the only place that said so, which is how
+ * the question editor ended up silent on the same failure (#43).
  */
 export function AudioPreviewRow({ asset, onRetry, onClose }: AudioPreviewRowProps) {
   const { t } = useTranslation();
-  const [failed, setFailed] = useState(false);
 
   return (
     <div className="bg-muted/30 flex items-center gap-3 px-3 py-3">
-      {failed ? (
-        <>
-          <p role="alert" className="flex-1 text-xs">
-            {t("bank.previewExpired")}
-          </p>
-          <Button variant="outline" size="xs" onClick={onRetry}>
-            {t("common.retry")}
-          </Button>
-        </>
-      ) : (
-        <div className="min-w-0 flex-1">
-          <AudioPlayer
-            src={asset.url}
-            label={asset.originalFilename}
-            durationMs={asset.durationMs}
-            hint={asset.originalFilename}
-            onError={() => setFailed(true)}
-          />
-        </div>
-      )}
+      <div className="min-w-0 flex-1">
+        <AudioPlayer
+          src={asset.url}
+          label={asset.originalFilename}
+          durationMs={asset.durationMs}
+          hint={asset.originalFilename}
+          onRetry={onRetry}
+        />
+      </div>
       <Button
         variant="ghost"
         size="xs"

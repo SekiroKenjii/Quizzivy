@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pause, Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface AudioPlayerProps {
@@ -14,7 +15,13 @@ interface AudioPlayerProps {
   hint?: string | undefined;
   /** A-05 puts a smaller one inside the question editor's chosen-audio card. */
   size?: "default" | "sm";
-  onError?: (() => void) | undefined;
+  /**
+   * Refetches whatever owns the asset, minting a fresh signed URL.
+   *
+   * Optional only because not every caller can refetch — never because the
+   * failure may go unreported. The player says so either way.
+   */
+  onRetry?: (() => void) | undefined;
 }
 
 /**
@@ -36,13 +43,17 @@ export function AudioPlayer({
   allowSeek = true,
   hint,
   size = "default",
-  onError,
+  onRetry,
 }: AudioPlayerProps) {
   const { t } = useTranslation();
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [loaded, setLoaded] = useState<number | null>(null);
+  // Keyed by src rather than a bare boolean, so a fresh URL is not still
+  // wearing the old one's failure and no caller has to remember a `key`.
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const failed = failedFor === src;
 
   const total =
     loaded ?? (durationMs != null && durationMs > 0 ? durationMs / 1000 : 0);
@@ -79,10 +90,36 @@ export function AudioPlayer({
     if (element.paused) {
       // Called straight out of the click, not from a promise: iOS Safari only
       // honours play() inside the gesture that triggered it (§11.3).
-      void element.play().catch(() => onError?.());
+      void element.play().catch(() => setFailedFor(src));
     } else {
       element.pause();
     }
+  }
+
+  if (failed) {
+    return (
+      <div
+        role="alert"
+        className={cn(
+          "border-destructive/25 bg-destructive/5 flex items-center gap-3 rounded-lg border",
+          size === "sm" ? "px-3 py-2.5" : "p-3.5 px-4",
+        )}
+      >
+        <p className="min-w-0 flex-1 text-xs leading-relaxed">{t("media.expired")}</p>
+        {onRetry === undefined ? null : (
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => {
+              setFailedFor(null);
+              onRetry();
+            }}
+          >
+            {t("common.retry")}
+          </Button>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -169,7 +206,7 @@ export function AudioPlayer({
         src={src}
         preload="none"
         aria-label={label}
-        onError={() => onError?.()}
+        onError={() => setFailedFor(src)}
       />
     </div>
   );
