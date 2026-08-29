@@ -414,7 +414,8 @@
     "addToTestFailed": "Không thêm được vào đề. Vui lòng thử lại.",
     "noTestsToAddTo": "Chưa có đề nào để thêm vào.",
     "noSections": "Đề này chưa có phần nào.",
-    "addHere": "đang có {{count}} câu"
+    "addHere": "đang có {{count}} câu",
+    "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}"
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",

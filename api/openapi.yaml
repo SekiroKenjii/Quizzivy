@@ -2124,10 +2124,35 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items, facets]
+                    required: [items, facets, tags, total, filtered]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
                       facets: { $ref: '#/components/schemas/QuestionTypeFacets' }
+                      tags:
+                        type: array
+                        items: { type: string }
+                        description: |
+                          Every tag reachable through the CURRENT type, audio and
+                          search filters, sorted and distinct. Server-derived, not
+                          collected from the returned page: a rail built from one
+                          page can only offer the tags that page happens to carry,
+                          which makes a second chip unselectable and the filter
+                          look broken.
+
+                          The tag filter itself is not applied, for the same
+                          reason the type facets ignore the type filter — picking
+                          one chip must not empty the rail.
+                      total:
+                        type: integer
+                        minimum: 0
+                        description: Live questions in the bank, before any filter. A-06's "180 câu".
+                      filtered:
+                        type: integer
+                        minimum: 0
+                        description: |
+                          Matching ALL current filters — A-06's "đang lọc 41".
+                          Distinct from `facets.all`, which ignores the type
+                          filter so the "Tất cả" row can show a total.
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestion

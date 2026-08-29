@@ -28,6 +28,9 @@ describe("array query parameters", () => {
             fill_blank: 0,
             short_answer: 0,
           },
+          tags: [],
+          total: 0,
+          filtered: 0,
         });
       }),
     );

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Headphones, Play, Plus, Search, Tag as TagIcon } from "lucide-react";
+import { Headphones, Play, Plus, Search, Tag as TagIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
@@ -82,11 +82,17 @@ export default function QuestionBankPage() {
   });
 
   const items = bank.data?.pages.flatMap((page) => page.items) ?? [];
-  const facets = bank.data?.pages[0]?.facets;
-  // Union of what is loaded and what is selected, so a chip cannot vanish from
-  // the rail because the rows it filtered to no longer mention it.
-  const shownTags = [...new Set([...tags, ...tagsIn(items)])].sort((a, b) =>
-    a.localeCompare(b, "vi"),
+  const page = bank.data?.pages[0];
+  const facets = page?.facets;
+  // From the server, not from `items`. A rail built out of the loaded page can
+  // only offer the tags that page happens to carry — with 72 questions and a
+  // page of 50, two of the bank's three tags were invisible, so a second chip
+  // could not be picked and multi-tag filtering looked unbuilt.
+  //
+  // Unioned with the selection so a chosen chip cannot vanish from the rail
+  // when it is the only thing still matching.
+  const shownTags = [...new Set([...tags, ...(bank.data?.pages[0]?.tags ?? [])])].sort(
+    (a, b) => a.localeCompare(b, "vi"),
   );
   const filtering = types.length > 0 || tags.length > 0 || audioOnly;
   const allSelected = items.length > 0 && items.every((q) => selected.has(q.id));
@@ -97,10 +103,10 @@ export default function QuestionBankPage() {
         with the results is a rail you cannot reach while reading them. */}
       <aside className="w-56 shrink-0 space-y-5 overflow-y-auto border-r p-4">
         <div>
-          <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
+          <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
             {t("bank.typeFilter")}
           </p>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <FilterOption
               label={t("bank.allTypes")}
               count={facets?.all}
@@ -129,18 +135,24 @@ export default function QuestionBankPage() {
             <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
-              {shownTags.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={tags.includes(value)}
-                  onClick={() => setTags(toggle(tags, value))}
-                >
-                  <Badge variant={tags.includes(value) ? "primary" : "outline"}>
-                    {value}
-                  </Badge>
-                </button>
-              ))}
+              {shownTags.map((value) => {
+                const picked = tags.includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={picked}
+                    onClick={() => setTags(toggle(tags, value))}
+                  >
+                    <Badge variant={picked ? "primary" : "outline"} className="gap-1">
+                      {value}
+                      {/* A-06 draws the × on the chosen chip: with several
+                        picked, "click it again" is not visibly the way off. */}
+                      {picked ? <X className="size-3" aria-hidden="true" /> : null}
+                    </Badge>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -163,7 +175,14 @@ export default function QuestionBankPage() {
               {t("nav.questionBank")}
             </h1>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              {facets ? t("bank.summary", { count: facets.all }) : "\u00a0"}
+              {page === undefined
+                ? "\u00a0"
+                : page.filtered === page.total
+                  ? t("bank.summary", { count: page.total })
+                  : t("bank.summaryFiltered", {
+                      count: page.total,
+                      filtered: page.filtered,
+                    })}
             </p>
           </div>
           <Button asChild size="sm">
@@ -426,11 +445,6 @@ function Row({
 }
 
 /** The tags actually present in the results, so the rail cannot offer a dead end. */
-function tagsIn(questions: AdminQuestion[]): string[] {
-  const seen = new Set<string>();
-  for (const question of questions) for (const tag of question.tags) seen.add(tag);
-  return [...seen].sort((a, b) => a.localeCompare(b, "vi"));
-}
 
 function FilterOption({
   label,

@@ -45,6 +45,9 @@ beforeEach(() => {
           fill_blank: 0,
           short_answer: 2,
         },
+        tags: [],
+        total: 0,
+        filtered: 0,
       });
     }),
     http.post(`${BASE}/admin/questions/tags`, async ({ request }) => {
@@ -134,5 +137,77 @@ describe("the bulk tag dialog", () => {
 
     await waitFor(() => expect(tagged).not.toBeNull());
     expect(tagged?.tags).toEqual(["unit-9"]);
+  });
+});
+
+/**
+ * The rail's chips come from the SERVER, not from the returned page.
+ *
+ * Derived from `items`, a rail can only offer the tags that page happens to
+ * carry: with 72 questions and a page of 50, two of the bank's three tags were
+ * invisible — so a second chip could not be picked and multi-tag filtering
+ * looked unbuilt when the server had supported it all along.
+ */
+describe("A-06's tag rail", () => {
+  it("offers tags no row on this page carries", async () => {
+    server.use(
+      http.get(`${BASE}/admin/questions`, () =>
+        contractJson("/admin/questions", "get", 200, {
+          // Neither row mentions unit-9 or past-simple.
+          items: [question(A, "Câu một"), question(B, "Câu hai")],
+          nextCursor: null,
+          facets: {
+            all: 2,
+            single_choice: 0,
+            multiple_choice: 0,
+            true_false: 0,
+            fill_blank: 0,
+            short_answer: 2,
+          },
+          tags: ["listening", "past-simple", "unit-5", "unit-9"],
+          total: 72,
+          filtered: 2,
+        }),
+      ),
+    );
+    const user = renderBank();
+
+    // All four offered, including the two nothing on this page carries.
+    for (const tag of ["listening", "past-simple", "unit-5", "unit-9"]) {
+      expect(
+        await screen.findByRole("button", { name: tag, pressed: false }),
+      ).toBeInTheDocument();
+    }
+
+    // And several can be held at once, which is what the page-derived rail
+    // made impossible.
+    await user.click(screen.getByRole("button", { name: "unit-5", pressed: false }));
+    await user.click(screen.getByRole("button", { name: "unit-9", pressed: false }));
+    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(2);
+  });
+
+  it("shows the bank size and how much of it is showing", async () => {
+    server.use(
+      http.get(`${BASE}/admin/questions`, () =>
+        contractJson("/admin/questions", "get", 200, {
+          items: [question(A, "Câu một"), question(B, "Câu hai")],
+          nextCursor: null,
+          facets: {
+            all: 2,
+            single_choice: 0,
+            multiple_choice: 0,
+            true_false: 0,
+            fill_blank: 0,
+            short_answer: 2,
+          },
+          tags: [],
+          total: 72,
+          filtered: 2,
+        }),
+      ),
+    );
+    renderBank();
+    // A-06's "180 câu · đang lọc 41".
+    expect(await screen.findByText("72 câu · đang lọc 2")).toBeInTheDocument();
   });
 });

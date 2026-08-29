@@ -414,7 +414,8 @@
     "addToTestFailed": "Could not add them to the test. Please try again.",
     "noTestsToAddTo": "No tests to add to yet.",
     "noSections": "This test has no sections yet.",
-    "addHere": "{{count}} here now"
+    "addHere": "{{count}} here now",
+    "summaryFiltered": "{{count}} questions · {{filtered}} shown"
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",
