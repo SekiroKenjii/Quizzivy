@@ -43,9 +43,7 @@ export function rememberPending(pending: PendingAuthorization) {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
   } catch {
-    // Private mode, or storage disabled. The callback then finds nothing and
-    // reports a failed sign-in, which is correct: without the verifier the
-    // exchange cannot succeed anyway.
+    // Private mode or a full quota: the sign-in fails later with a clear error.
   }
 }
 
@@ -54,10 +52,22 @@ export function takePending(): PendingAuthorization | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     sessionStorage.removeItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as PendingAuthorization) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isPendingAuthorization(parsed) ? parsed : null;
   } catch {
     return null;
   }
+}
+
+function isPendingAuthorization(value: unknown): value is PendingAuthorization {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v["state"] === "string" &&
+    typeof v["verifier"] === "string" &&
+    (v["mode"] === "signin" || v["mode"] === "link")
+  );
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
@@ -118,9 +128,6 @@ export async function buildAuthorizationRequest(options: {
   const params = new URLSearchParams({
     client_id: options.clientId,
     redirect_uri: callbackUrl(),
-    // CODE, not token or id_token. The implicit flow would put a credential in
-    // the URL bar, in history, and in any referrer. §5.3 requires the code
-    // flow, and this parameter is where that is decided.
     response_type: "code",
     scope: "openid email profile",
     code_challenge: await s256(verifier),

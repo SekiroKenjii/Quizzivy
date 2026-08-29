@@ -31,9 +31,6 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-
-			// Always vary, even when the origin is not allowed: the response
-			// still differs by origin, and a cache must not conflate them.
 			w.Header().Add("Vary", "Origin")
 
 			if origin != "" && slices.Contains(allowed, origin) {
@@ -50,8 +47,6 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 					w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
 					w.Header().Set("Access-Control-Max-Age", strconv.Itoa(maxAge))
 				}
-				// A disallowed origin gets 204 with no allow headers, which is
-				// what makes the browser block the real request.
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

@@ -114,18 +114,11 @@ func scratchDatabase(t *testing.T) string {
 	if err := admin.Ping(); err != nil {
 		t.Fatalf("ping: %v", err)
 	}
-
-	// A fixed name, dropped first: a previous run killed midway would otherwise
-	// leave it behind and fail every run after.
 	const name = "quizzivy_migrate_check"
 	if _, err := admin.Exec(`DROP DATABASE IF EXISTS ` + name); err != nil {
 		t.Fatalf("dropping a leftover %s: %v", name, err)
 	}
 	if _, err := admin.Exec(`CREATE DATABASE ` + name); err != nil {
-		// Not a skip. CREATEDB is granted by scripts/provision-db.sh, so a
-		// failure here means the database was provisioned before that landed --
-		// and a reversibility check that quietly stops running is worse than
-		// one that fails.
 		t.Fatalf("creating %s: %v\n\n"+
 			"The migrate role needs CREATEDB for this test. Re-run provisioning\n"+
 			"(`make db-provision`, or ALTER ROLE quizzivy_migrate CREATEDB).", name, err)
@@ -155,12 +148,6 @@ func swapDatabase(t *testing.T, dsn, name string) string {
 }
 
 func TestMigrationsAreReversible(t *testing.T) {
-	// DESTRUCTIVE, but only to a database this test creates for itself -- see
-	// scratchDatabase. It still drops the whole schema, which is the point:
-	// §13.7 wants up -> down -> up proven from nothing.
-	//
-	// Still opt-in. Creating and dropping a database is more than a developer
-	// running `go test ./...` on a laptop expects, and CI sets the flag.
 	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
 		t.Skip("TEST_DESTRUCTIVE=1 not set; skipping the destructive migration round trip " +
 			"(it creates and drops a scratch database)")
@@ -192,9 +179,6 @@ func TestMigrationsAreReversible(t *testing.T) {
 	if err := goose.Reset(conn, dir); err != nil {
 		t.Fatalf("reset: %v", err)
 	}
-
-	// The intermediate state must be genuinely empty. A Down that leaves the
-	// schema behind still lets up->down->up pass.
 	empty := schemaSnapshot(t, conn)
 	if empty != "" {
 		t.Errorf("`down` left objects behind in schema app:\n%s", empty)

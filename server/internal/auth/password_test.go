@@ -62,8 +62,6 @@ func TestSaltIsPerHash(t *testing.T) {
 }
 
 func TestRejectsMalformedHashesRatherThanReturningFalse(t *testing.T) {
-	// Returning (false, nil) for a corrupt hash would look like a wrong
-	// password, and a storage problem would be diagnosed as a user error.
 	for name, encoded := range map[string]string{
 		"empty":            "",
 		"not PHC":          "just-a-string",
@@ -87,9 +85,6 @@ func TestRejectsMalformedHashesRatherThanReturningFalse(t *testing.T) {
 }
 
 func TestParametersTravelWithTheHash(t *testing.T) {
-	// The whole point of PHC format: a hash derived with parameters this
-	// package would never choose must still verify. Tuning the constants above
-	// must not invalidate every stored password.
 	salt := []byte("sixteen-byte-slt")
 	weakKey := argon2.IDKey([]byte("x"), salt, 1, 8*1024, 1, 32)
 	weak := fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
@@ -104,9 +99,6 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 	if !ok {
 		t.Error("a hash with non-default parameters did not verify")
 	}
-
-	// And new hashes carry the current parameters, so a future reader can tell
-	// which cost each stored password was made with.
 	fresh, err := HashPassword(context.Background(), "x")
 	if err != nil {
 		t.Fatal(err)

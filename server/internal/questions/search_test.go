@@ -129,8 +129,6 @@ func TestSearchIsAccentInsensitive(t *testing.T) {
 }
 
 func TestSearchStillDiscriminates(t *testing.T) {
-	// An accent-insensitive search that matches everything would pass the test
-	// above and be useless.
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
@@ -193,9 +191,6 @@ func TestTrigramIndexIsActuallyUsed(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-
-	// DROP INDEX needs ACCESS EXCLUSIVE on the table. Bounded rather than
-	// allowed to hang, since another package's test may hold a row lock.
 	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '5s'`); err != nil {
 		t.Fatal(err)
 	}
@@ -204,18 +199,11 @@ func TestTrigramIndexIsActuallyUsed(t *testing.T) {
 	}
 	if _, err := tx.Exec(ctx, `DROP INDEX app.questions_tags_idx, app.questions_type_id_idx,
 	                                      app.questions_prompt_fts_idx, app.questions_media_idx`); err != nil {
-		// A lock timeout says nothing about whether the expression matches, so
-		// it is not a failure -- but it is named, so it cannot be mistaken for
-		// the test having passed.
 		if strings.Contains(err.Error(), "lock timeout") || strings.Contains(err.Error(), "canceling statement") {
 			t.Skipf("could not take the table lock within 5s, so the plan could not be isolated: %v", err)
 		}
 		t.Fatalf("dropping the competing indexes: %v", err)
 	}
-
-	// The same expression the store uses, from the same constant -- if the two
-	// ever diverge this test is checking the wrong query, which is what
-	// TestTheSearchQueryUsesTheSharedExpression exists to prevent.
 	sql := `EXPLAIN SELECT q.id FROM app.questions q
 	         WHERE q.deleted_at IS NULL
 	           AND ` + questions.TrigramExpression +
@@ -239,26 +227,10 @@ func TestTrigramIndexIsActuallyUsed(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-
-	// The index NAME alone is not the assertion, and finding that out is the
-	// reason this comment exists. questions_prompt_trgm_idx is partial on
-	// `deleted_at IS NULL`, so the planner will happily scan the whole index to
-	// satisfy THAT predicate and then apply the trigram condition as a Filter --
-	// which is what it does when the expression does not match. The index name
-	// appears in the plan either way; only the cost differs, 12235 against 102.
-	//
-	// What distinguishes a match is the trigram condition being an Index Cond
-	// rather than a Filter. That is the property, so that is what is asserted.
-	// Verified by mutation: reordering the expression to
-	// lower(app.immutable_unaccent(prompt)) -- same results, different
-	// expression -- leaves the index name in the plan and moves the condition to
-	// Filter, and this fails.
 	text := plan.String()
 	indexed := false
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
-		// `~~` is LIKE. An Index Cond carrying it means the trigram index is
-		// answering the search, not merely the deleted_at predicate.
 		if strings.HasPrefix(line, "Index Cond:") && strings.Contains(line, "~~") {
 			indexed = true
 		}
@@ -280,8 +252,6 @@ func TestTheSearchQueryUsesTheSharedExpression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading search.go: %v", err)
 	}
-	// The search condition is built from the constant by concatenation, so the
-	// constant's NAME is what should appear in the query, not its text.
 	if !strings.Contains(string(source), "` + TrigramExpression + `") {
 		t.Error("the search condition no longer interpolates TrigramExpression, so the " +
 			"EXPLAIN test is verifying an expression the store does not use")
@@ -308,8 +278,6 @@ func TestSearchQueryUsesTheIndexedExpressionVerbatim(t *testing.T) {
 		t.Errorf("TrigramExpression is %q, which does not appear in the index definition:\n%s",
 			questions.TrigramExpression, indexdef)
 	}
-	// gin_trgm_ops is what makes the index serve LIKE at all. A different
-	// opclass would leave the expression matching and the index useless.
 	if !strings.Contains(indexdef, "gin_trgm_ops") {
 		t.Errorf("questions_prompt_trgm_idx is not a gin_trgm_ops index, so it cannot serve "+
 			"a LIKE:\n%s", indexdef)

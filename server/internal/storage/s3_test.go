@@ -52,16 +52,6 @@ func testKey(t *testing.T) string {
 }
 
 func TestAnObjectRoundTripsThroughASignedURL(t *testing.T) {
-	// The whole media path in one: put a private object, mint a URL for it,
-	// and fetch the bytes back.
-	//
-	// This is also what catches the checksum trap. Recent aws-sdk-go-v2
-	// versions send x-amz-sdk-checksum-algorithm on PutObject by default and R2
-	// reports it unimplemented -- an upload that works against MinIO and fails
-	// in production. The client sets RequestChecksumCalculation to
-	// WhenRequired; if that is ever removed, this still passes here and breaks
-	// there, which is why docs/setup/r2.md exists and why T-2.3's acceptance
-	// asks for one upload against real R2.
 	client := newClient(t)
 	ctx := context.Background()
 	key := testKey(t)
@@ -95,14 +85,9 @@ func TestAnObjectRoundTripsThroughASignedURL(t *testing.T) {
 }
 
 func TestTheBucketIsPrivate(t *testing.T) {
-	// §11.2 mints a signed URL per request precisely because the bucket is not
-	// readable. If it were public, every signature would be theatre.
 	client := newClient(t)
 	ctx := context.Background()
 	key := testKey(t)
-
-	// len() of the BYTES, not the characters: "bí mật" is six runes and nine
-	// bytes, and ContentLength is a byte count.
 	const secret = "bí mật"
 	if err := client.Put(ctx, key, "text/plain", strings.NewReader(secret), int64(len(secret))); err != nil {
 		t.Fatalf("Put: %v", err)
@@ -127,8 +112,6 @@ func TestTheBucketIsPrivate(t *testing.T) {
 }
 
 func TestASignatureExpires(t *testing.T) {
-	// §11.2's ten minutes only means something if the deadline is enforced by
-	// the server rather than by the client choosing not to reuse the URL.
 	client := newClient(t)
 	ctx := context.Background()
 	key := testKey(t)
@@ -157,8 +140,6 @@ func TestASignatureExpires(t *testing.T) {
 }
 
 func TestDeletingSomethingThatIsNotThereSucceeds(t *testing.T) {
-	// Delete undoes a Put whose row failed. If it errored on a missing key, the
-	// cleanup path would report a failure for having nothing to clean.
 	client := newClient(t)
 	if err := client.Delete(context.Background(), testKey(t)); err != nil {
 		t.Errorf("Delete on a missing key: %v", err)

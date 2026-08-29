@@ -28,8 +28,6 @@ func linkGoogle(t *testing.T, pool *pgxpool.Pool, userID, email string) {
 // tests need in order to control which branch a sign-in takes.
 func linkGoogleSubject(t *testing.T, pool *pgxpool.Pool, userID, subject, email string) {
 	t.Helper()
-	// email_at_link records the Google address AS IT WAS when linked; it is not
-	// the account's email and does not follow it.
 	if _, err := pool.Exec(context.Background(),
 		`INSERT INTO app.user_identities (user_id, provider, provider_user_id, email_at_link)
 		 VALUES ($1, 'google', $2, $3)`, userID, subject, email); err != nil {
@@ -61,9 +59,6 @@ func TestCurrentUserReportsTheSessionShape(t *testing.T) {
 }
 
 func TestAGoogleOnlyUserReportsNoPasswordAndTheGoogleProvider(t *testing.T) {
-	// §7's User drives the settings screen: it decides whether to offer
-	// "change password" or "set a password", and whether unlinking Google
-	// would lock the account out entirely.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	id, email := makeUser(t, pool, googleOnly)
@@ -82,9 +77,6 @@ func TestAGoogleOnlyUserReportsNoPasswordAndTheGoogleProvider(t *testing.T) {
 }
 
 func TestASuspendedAccountHasNoCurrentUser(t *testing.T) {
-	// An access token stays valid for up to 15 minutes after a suspension.
-	// Reading the user afresh is what makes "disable this student" take effect
-	// now rather than a quarter of an hour from now.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool, disabled)

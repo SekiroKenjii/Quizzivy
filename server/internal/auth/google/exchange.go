@@ -16,10 +16,6 @@ import (
 const DefaultTokenURL = "https://oauth2.googleapis.com/token"
 
 var (
-	// ErrExchangeFailed covers every way Google can refuse the code: expired,
-	// already redeemed, a PKCE verifier that does not match, a mismatched
-	// redirect. The client's response is identical in all of them -- start over
-	// -- and the specific reason is Google's to know and ours to log.
 	ErrExchangeFailed = errors.New("google: authorization code exchange failed")
 
 	// ErrRedirectNotAllowed is a redirect_uri the deployment does not recognise.
@@ -86,9 +82,6 @@ func (e *Exchanger) Exchange(ctx context.Context, code, codeVerifier, redirectUR
 		return "", fmt.Errorf("%w: %v", ErrExchangeFailed, err)
 	}
 	defer resp.Body.Close()
-
-	// Bounded: this is a response to an unauthenticated request, and an
-	// endpoint that streams forever should not be able to exhaust our memory.
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return "", fmt.Errorf("%w: reading response: %v", ErrExchangeFailed, err)
@@ -112,9 +105,6 @@ func (e *Exchanger) Exchange(ctx context.Context, code, codeVerifier, redirectUR
 		return "", fmt.Errorf("%w: decoding response: %v", ErrExchangeFailed, err)
 	}
 	if token.IDToken == "" {
-		// A 200 with no id_token means the `openid` scope was not requested.
-		// Worth its own message: it is a frontend configuration bug that would
-		// otherwise present as an unexplained sign-in failure.
 		return "", fmt.Errorf("%w: response carried no id_token (was the `openid` scope requested?)",
 			ErrExchangeFailed)
 	}
@@ -123,9 +113,6 @@ func (e *Exchanger) Exchange(ctx context.Context, code, codeVerifier, redirectUR
 
 func (e *Exchanger) redirectAllowed(uri string) bool {
 	for _, allowed := range e.redirectURIs {
-		// Exact match. Prefix matching on redirect URIs is the classic OAuth
-		// mistake: `https://app.example.com` would also allow
-		// `https://app.example.com.attacker.test`.
 		if uri == allowed {
 			return true
 		}

@@ -151,8 +151,6 @@ func TestAValidUploadStoresTheObjectAndThenTheRow(t *testing.T) {
 }
 
 func TestAWavRenamedMp3IsRejectedOnItsBytes(t *testing.T) {
-	// The reason identification never consults the extension (§11.1). Storing
-	// this would put a file in the library that no browser plays as audio.
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
 	objects := newFakeStore()
@@ -181,9 +179,6 @@ func TestAWavRenamedMp3IsRejectedOnItsBytes(t *testing.T) {
 }
 
 func TestAnOverlongRecordingIsRejected(t *testing.T) {
-	// §11.1: five minutes. Six minutes of CBR 128k is about 5.7 MB, so this is
-	// rejected on DURATION rather than on size -- which is the check being
-	// tested.
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
 	objects := newFakeStore()
@@ -203,8 +198,6 @@ func TestAnOverlongRecordingIsRejected(t *testing.T) {
 }
 
 func TestAnOversizedUploadIsCutOffBeforeAnythingParsesIt(t *testing.T) {
-	// The order §11.1 specifies: size first. A 50 MB upload must not become a
-	// parsing problem, and must not be held in full anywhere.
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
 	objects := newFakeStore()
@@ -221,9 +214,6 @@ func TestAnOversizedUploadIsCutOffBeforeAnythingParsesIt(t *testing.T) {
 }
 
 func TestTheSameFileTwiceMakesTwoRowsWithTwoKeys(t *testing.T) {
-	// [D-06] and §11.1: a re-upload never overwrites. That is what lets a
-	// frozen test version reference an asset without copying the file. The
-	// equal checksums are what the "you already uploaded this" warning reads.
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
 	objects := newFakeStore()
@@ -256,9 +246,6 @@ func TestTheSameFileTwiceMakesTwoRowsWithTwoKeys(t *testing.T) {
 }
 
 func TestAFailedRowInsertRemovesTheObject(t *testing.T) {
-	// An object with no row is a file nothing references, nothing lists, and
-	// nothing will ever clean up. The uploader id is bogus, so the FK rejects
-	// the row after the object has already landed.
 	pool := newPool(t)
 	objects := newFakeStore()
 	svc := newService(t, pool, objects)
@@ -280,8 +267,6 @@ func TestAFailedRowInsertRemovesTheObject(t *testing.T) {
 }
 
 func TestAFilenameNeverBecomesAPath(t *testing.T) {
-	// The name is a label in the library and nothing else -- the key comes from
-	// the asset id. This asserts it cannot carry a directory separator anyway.
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
 	svc := newService(t, pool, newFakeStore())

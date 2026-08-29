@@ -43,28 +43,14 @@ type RotateInput struct {
 	UserAgent   *string
 }
 
-// Rotate revokes the class's active code and issues a replacement, in ONE
-// transaction (§6.1).
-//
-// The transaction is not a nicety. `class_join_codes_one_active` is a partial
-// unique index on (class_id) WHERE revoked_at IS NULL, so inserting before
-// revoking violates it and revoking before inserting leaves a window in which
-// the class has no code at all. Doing both in one transaction means neither
-// state is ever observable.
-//
-// Previously enrolled students are untouched: membership lives in
-// class_members and has no reference to the code that produced it beyond a
-// historical join_code_id.
+// Rotate revokes the class's active code and issues a replacement in one
+// transaction, so a class is never left with two active codes or none.
 func (s *Store) Rotate(ctx context.Context, in RotateInput) (IssuedCode, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return IssuedCode{}, fmt.Errorf("begin rotate: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-
-	// Lock the class row, so two admins rotating at once serialise here rather
-	// than racing into the partial unique index and one of them getting a
-	// constraint violation instead of a code.
 	var exists bool
 	err = tx.QueryRow(ctx,
 		`SELECT true FROM app.classes WHERE id = $1 FOR UPDATE`,
@@ -105,11 +91,6 @@ func (s *Store) Rotate(ctx context.Context, in RotateInput) (IssuedCode, error) 
 	).Scan(&out.ID, &out.UsesCount); err != nil {
 		return IssuedCode{}, fmt.Errorf("issue code: %w", err)
 	}
-
-	// Issuing a code IS enabling self-join. Leaving the flag alone would mean a
-	// rotate after a revoke hands the teacher a code that silently does
-	// nothing -- §6.4 turns the flag off on revoke, so something has to turn it
-	// back on, and this is the action that means "let students in again".
 	if _, err := tx.Exec(ctx,
 		`UPDATE app.classes SET self_join_enabled = true WHERE id = $1`, in.ClassID); err != nil {
 		return IssuedCode{}, fmt.Errorf("enable self join: %w", err)
@@ -195,12 +176,10 @@ func (s *Store) Revoke(ctx context.Context, in RevokeInput) error {
 		ActorUserID: &in.ActorUserID,
 		Action:      "class.join_code_revoked",
 		Entity:      "class_join_code",
-		// Nil when there was nothing to revoke: the class was already closed,
-		// and inventing an id would make the log say otherwise.
-		EntityID:   revokedID,
-		OccurredAt: in.Now,
-		IP:         in.IP,
-		UserAgent:  in.UserAgent,
+		EntityID:    revokedID,
+		OccurredAt:  in.Now,
+		IP:          in.IP,
+		UserAgent:   in.UserAgent,
 	}); err != nil {
 		return err
 	}

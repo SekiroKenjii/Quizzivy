@@ -20,8 +20,6 @@ import { loadSpec, type Json } from "./openapi";
 const spec = loadSpec();
 
 const ajv = new Ajv2020({
-  // OpenAPI adds keywords JSON Schema does not know (`discriminator`,
-  // `x-rate-limit`, `example`). They are documentation here, not validation.
   strict: false,
   allErrors: true,
 });

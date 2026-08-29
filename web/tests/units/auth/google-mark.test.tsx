@@ -21,8 +21,6 @@ describe("GoogleMark", () => {
         Tiếp tục với Google
       </Button>,
     );
-    // The button's rule is `[&_svg:not([class*='size-'])]:size-4`. Any size-*
-    // class here defeats it -- which is the bug this pins.
     expect(markIn(container).getAttribute("class") ?? "").not.toMatch(/size-/);
   });
 

@@ -48,8 +48,6 @@ func choice(opts ...questions.OptionInput) questions.Input {
 }
 
 func TestAChoiceQuestionNeedsACorrectOption(t *testing.T) {
-	// The rule that makes a question gradeable at all. Without it the bank
-	// accepts a question no answer can score on.
 	err := choice(
 		questions.OptionInput{Text: "A", IsCorrect: false},
 		questions.OptionInput{Text: "B", IsCorrect: false},
@@ -117,8 +115,6 @@ func TestFillBlankPlaceholdersMustMatchTheBlanks(t *testing.T) {
 }
 
 func TestPromptPlaceholdersIgnoresWhatIsNotOne(t *testing.T) {
-	// `{{0}}` is not a placeholder this system defines -- blanks are 1-indexed
-	// -- so it is prose that happens to look like one, not an error.
 	got := questions.PromptPlaceholders("a {{1}} b {{0}} c {{x}} d {{12}}")
 	want := []int{1, 12}
 	if len(got) != len(want) {

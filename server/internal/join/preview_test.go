@@ -73,9 +73,6 @@ func lower(s string) string {
 }
 
 func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
-	// §9: an accurate message is worth having. "Ask your teacher for a new
-	// code" is actionable where "wrong code" is not, and a student with a
-	// stale code told they mistyped it will simply give up.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	ctx := context.Background()
@@ -96,8 +93,6 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 		if err := svc.Revoke(ctx, join.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
 			t.Fatal(err)
 		}
-		// Revoke also closes self-join, and self-join is checked FIRST -- so
-		// re-open it to observe the revocation itself rather than the closure.
 		if _, err := pool.Exec(ctx,
 			`UPDATE app.classes SET self_join_enabled = true WHERE id = $1`, classID); err != nil {
 			t.Fatal(err)
@@ -114,8 +109,6 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 	t.Run("expired", func(t *testing.T) {
 		classID, teacherID, _ := makeClass(t, pool)
 		code := issueCode(t, svc, classID, teacherID)
-		// Both columns move: class_join_codes_expiry_after_creation CHECKs that
-		// expires_at > created_at, so a code cannot be aged by moving only one.
 		if _, err := pool.Exec(ctx,
 			`UPDATE app.class_join_codes
 			    SET created_at = now() - interval '2 days',
@@ -156,10 +149,6 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 }
 
 func TestAClosedClassIsIndistinguishableFromANonexistentOne(t *testing.T) {
-	// A teacher who switched self-join off should not have that confirmed to
-	// whoever holds a forwarded code. Checking the flag BEFORE the code's own
-	// state is what makes the two answers identical -- reporting "expired"
-	// would confirm the class exists.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -189,8 +178,6 @@ func TestAClosedClassIsIndistinguishableFromANonexistentOne(t *testing.T) {
 }
 
 func TestAClosedClassLeaksNothingEvenWhenTheCodeIsAlsoExpired(t *testing.T) {
-	// The ordering property, stated as its own case: whichever other fault the
-	// code has, a closed class answers "invalid".
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -219,8 +206,6 @@ func TestAClosedClassLeaksNothingEvenWhenTheCodeIsAlsoExpired(t *testing.T) {
 }
 
 func TestNoRefusalCarriesClassData(t *testing.T) {
-	// Asserted over every refusal path at once: a PreviewResult that is not OK
-	// must be empty of anything identifying.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)

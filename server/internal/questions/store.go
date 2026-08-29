@@ -16,9 +16,8 @@ type Store struct{ pool *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
-// questionColumns is spelled out rather than `SELECT *` (§13.8). The bank row
-// carries sample_answer, which §7 marks admin-only -- an implicit column list
-// is how that ends up in a student payload the day someone adds a join.
+// questionColumns is explicit rather than SELECT *, so admin-only columns such
+// as sample_answer cannot leak into a payload by accident.
 const questionColumns = `
 	       q.id::text, q.type::text, q.prompt,
 	       q.media_asset_id::text, q.media_asset_kind::text,
@@ -43,9 +42,7 @@ func scanQuestion(row pgx.Row) (Question, error) {
 	}
 	q.Type = Type(typ)
 
-	// [D-04] The two booleans are non-null exactly when the asset is audio, so
-	// their presence is what says whether there is a policy at all. MaxPlays is
-	// nullable within a present policy and means unlimited.
+	// The two booleans are non-null exactly when the asset is audio [D-04].
 	if allowSeek != nil && showTranscript != nil {
 		q.Audio = &AudioPolicy{
 			MaxPlays:                  maxPlays,
@@ -61,11 +58,8 @@ func (s *Store) Get(ctx context.Context, id string) (Question, error) {
 	return s.get(ctx, s.pool, id, false)
 }
 
-// GetIncludingDeleted resolves a question by id whether or not it is deleted.
-//
-// Version snapshots reference bank rows that may since have been deleted, and a
-// soft delete must not break a published test (§13.2). List results exclude
-// them; resolution by id does not.
+// GetIncludingDeleted resolves a question by id whether or not it is deleted,
+// so a soft delete cannot break a published version snapshot.
 func (s *Store) GetIncludingDeleted(ctx context.Context, id string) (Question, error) {
 	return s.get(ctx, s.pool, id, true)
 }
@@ -115,8 +109,6 @@ func (s *Store) loadOptions(ctx context.Context, q querier, questionID string) (
 }
 
 func (s *Store) loadBlanks(ctx context.Context, q querier, questionID string) ([]Blank, error) {
-	// One query rather than one per blank: the answers are aggregated in SQL,
-	// ordered so the array is stable between reads.
 	rows, err := q.Query(ctx,
 		`SELECT b.id::text, b.ordinal, b.case_sensitive,
 		        coalesce(array_agg(a.answer ORDER BY a.answer)
@@ -144,12 +136,8 @@ func (s *Store) loadBlanks(ctx context.Context, q querier, questionID string) ([
 
 // WriteInput is a create or an update, depending on whether ID is set.
 type WriteInput struct {
-	ID    string // empty to create
-	Input Input
-	// MediaAssetKind is read from media_assets by the service, never taken from
-	// the request. It is half of the composite FK [D-05], and letting a caller
-	// state it would let them declare an image to be audio -- which is exactly
-	// what the composite FK exists to make impossible.
+	ID             string // empty to create
+	Input          Input
 	MediaAssetKind *string
 	ActorID        string
 	Now            time.Time
@@ -157,18 +145,13 @@ type WriteInput struct {
 	UserAgent      string
 }
 
-// Create inserts a question and its children in ONE transaction.
-//
-// §8's editor sends the whole question on every save, so children are replaced
-// wholesale rather than diffed. Doing that outside a transaction would leave a
-// question with the old options and the new prompt if the second statement
-// failed -- a question that renders one thing and grades another.
+// Create inserts a question and its children in one transaction.
 func (s *Store) Create(ctx context.Context, in WriteInput) (Question, error) {
 	return s.write(ctx, in, false)
 }
 
-// Update replaces a question and its children. Edits the BANK copy only:
-// published versions hold their own snapshot and are unaffected (§7).
+// Update replaces a question and its children. Edits the bank copy only;
+// published versions hold their own snapshot.
 func (s *Store) Update(ctx context.Context, in WriteInput) (Question, error) {
 	return s.write(ctx, in, true)
 }
@@ -187,9 +170,7 @@ func (s *Store) write(ctx context.Context, in WriteInput, update bool) (Question
 		allowSeek = &in.Input.Audio.AllowSeek
 		showTranscript = &in.Input.Audio.ShowTranscriptAfterSubmit
 	}
-	// The composite FK needs both halves or neither [D-05]. The kind is not
-	// taken from the request: it is read from media_assets by the service, so a
-	// caller cannot declare an image to be audio.
+	// The composite FK needs both halves or neither.
 	var kind *string
 	if in.Input.MediaAssetID != nil {
 		kind = in.MediaAssetKind
@@ -265,16 +246,9 @@ func (s *Store) write(ctx context.Context, in WriteInput, update bool) (Question
 	return written, nil
 }
 
-// replaceOptions writes the options with DENSE ordinals, 0..n-1.
-//
-// Array position is the ordinal, per the contract. Normalising rather than
-// trusting an ordinal from the client means a reorder cannot leave gaps, and a
-// gap matters: shuffleOptions and the grading key both address options by
-// position.
-//
-// Delete-then-insert rather than diffing. The editor sends the whole question
-// on every save, so there is no reliable identity to diff against, and a diff
-// that gets it wrong silently re-points a correct answer.
+// replaceOptions rewrites the options with dense ordinals 0..n-1, taking array
+// position as the ordinal. Delete-then-insert because the editor sends the
+// whole question and a wrong diff would re-point the correct answer.
 func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in Input) error {
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM app.question_options WHERE question_id = $1`, questionID); err != nil {
@@ -297,13 +271,8 @@ func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in Input)
 	return nil
 }
 
-// replaceBlanks writes blanks with dense ordinals 1..n, in the order given.
-//
-// 1-indexed because the prompt addresses them as `{{1}}`, `{{2}}` -- a
-// 0-ordinal blank would be unreachable from the text that references it.
-// Validation has already checked that the ordinal set matches the prompt's, so
-// renumbering here would break that agreement: the blanks are sorted by their
-// stated ordinal and keep it.
+// replaceBlanks rewrites the blanks, keeping the ordinals validation has
+// already matched against the prompt's {{n}} placeholders.
 func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in Input) error {
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM app.question_blanks WHERE question_id = $1`, questionID); err != nil {
@@ -321,8 +290,7 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in Input) 
 			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
 			return fmt.Errorf("questions: write blank: %w", err)
 		}
-		// Deduplicated: UNIQUE (blank_id, answer) is exact, so two identical
-		// accepted answers would abort the whole save over a typo in the form.
+		// UNIQUE (blank_id, answer) is exact, so a repeated answer would abort.
 		seen := map[string]bool{}
 		for _, answer := range b.AcceptedAnswers {
 			if seen[answer] {
@@ -339,7 +307,7 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in Input) 
 	return nil
 }
 
-// SoftDelete marks a question deleted and audits it (§13.2).
+// SoftDelete marks a question deleted and audits it.
 func (s *Store) SoftDelete(ctx context.Context, in WriteInput) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -347,8 +315,7 @@ func (s *Store) SoftDelete(ctx context.Context, in WriteInput) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Locked before the reference count, so a draft outline cannot start
-	// referencing this question between the check and the update.
+	// Locked before the reference count, so a draft cannot claim it in between.
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,

@@ -68,9 +68,6 @@ type UploadInput struct {
 // is a library entry that 404s when a student presses play, and an object
 // without a row is a file nothing will ever reference or clean up.
 func (s *Service) Upload(ctx context.Context, in UploadInput) (Asset, error) {
-	// A temp FILE, not a memory buffer. The probe needs io.ReaderAt, and 10 MB
-	// per concurrent upload held in memory is the same shape of problem as
-	// R-13 -- on a 512 MB machine it does not take many.
 	tmp, err := os.CreateTemp("", "quizzivy-upload-*")
 	if err != nil {
 		return Asset{}, fmt.Errorf("media: temp file: %w", err)
@@ -89,9 +86,6 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (Asset, error) {
 	if size == 0 {
 		return Asset{}, fmt.Errorf("%w: empty file", probe.ErrUnsupportedType)
 	}
-
-	// 2. Magic bytes, and 3. duration -- both from the bytes, never from the
-	// filename or the Content-Type header.
 	kind, mime, durationMs, err := identify(tmp, size)
 	if err != nil {
 		return Asset{}, err
@@ -105,9 +99,6 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (Asset, error) {
 	if err != nil {
 		return Asset{}, err
 	}
-	// §11.2's layout. The id is in the key, so a re-upload of identical bytes
-	// gets a different key and never overwrites (§11.1) -- which is what lets a
-	// frozen version reference an asset without copying the file.
 	key := fmt.Sprintf("%s/%s%s", kind, assetID, extensionFor(mime))
 
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
@@ -132,8 +123,6 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (Asset, error) {
 		UserAgent:        optional(in.UserAgent),
 	})
 	if err != nil {
-		// Undo the object, or it is orphaned: nothing references it, nothing
-		// lists it, and nothing will ever delete it.
 		_ = s.object.Delete(ctx, key)
 		return Asset{}, err
 	}
@@ -185,18 +174,6 @@ func sanitiseFilename(name string) string {
 	if name == "" || name == "." || name == "/" {
 		return "tệp-không-tên"
 	}
-	// Truncate by RUNES, not bytes.
-	//
-	// len() counts bytes, and Vietnamese characters are 2-3 bytes each, so a
-	// byte cut lands mid-character often enough to matter -- and the result is
-	// not valid UTF-8. original_filename is `text`, and Postgres rejects an
-	// invalid byte sequence for the encoding, so the INSERT failed after the
-	// object had already been stored: the teacher got "Đã xảy ra lỗi" for a
-	// perfectly good file, and retrying the same name failed the same way every
-	// time. The filename comes from the multipart part, so a 300-byte name is
-	// also a one-line reproducer for a 500 from anyone who wants one.
-	//
-	// Counting runes also makes 200 mean what a person would predict.
 	if r := []rune(name); len(r) > 200 {
 		name = string(r[:200])
 	}
@@ -282,10 +259,6 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, string, erro
 			return nil, "", err
 		}
 		assets[i].URL = url
-
-		// Counted per asset rather than joined into the list query. The join is
-		// the better shape and belongs here once the version tables exist; the
-		// N+1 is invisible while this returns a constant.
 		refs, err := CountReferences(ctx, s.store.pool, assets[i].ID)
 		if err != nil {
 			return nil, "", err

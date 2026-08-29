@@ -20,9 +20,6 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
   await page.getByLabel("Email").fill("hocvien@example.com");
   await page.getByLabel("Mật khẩu").fill("quizzivy-dev");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
-
-  // Their own tree, not "/" -- which would bounce off the index route back to
-  // the form they just completed.
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.getByRole("heading", { name: "Bài của tôi" })).toBeVisible();
 });
@@ -36,16 +33,12 @@ test("E2E 2a: the student settings screen renders §9's three sections", async (
   for (const heading of ["Mật khẩu", "Tài khoản Google", "Ngôn ngữ"]) {
     await expect(page.getByRole("heading", { name: heading })).toBeVisible();
   }
-  // §9 gives the student no profile block: their name and email come from the
-  // teacher or from Google, and there is nothing here to edit.
   await expect(page.getByRole("heading", { name: "Hồ sơ" })).toHaveCount(0);
 });
 
 test("unlinking is disabled, with a reason, when Google is the only way in", async ({
   page,
 }) => {
-  // §15. The account would still exist, still hold its work, and nobody --
-  // including its owner -- could sign into it.
   await stubApi(
     page,
     sessionAs({ ...studentUser, hasPassword: false, linkedProviders: ["google"] }),

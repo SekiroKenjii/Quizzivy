@@ -62,8 +62,6 @@ func TestPathStyleDefaultsToFalseForR2(t *testing.T) {
 }
 
 func TestPathStyleIsParsedNotCompared(t *testing.T) {
-	// The old form was `getenv(key, "true") != "false"`, under which every one
-	// of these quietly meant path-style.
 	for _, v := range []string{"0", "False", "FALSE", "f"} {
 		cfg, err := loadWith(t, merge(fullMedia(), map[string]string{"S3_FORCE_PATH_STYLE": v}))
 		if err != nil {
@@ -85,8 +83,6 @@ func TestPathStyleIsParsedNotCompared(t *testing.T) {
 }
 
 func TestAnUnparseableBooleanFailsLoudly(t *testing.T) {
-	// Every other input here fails loudly; this one used to substitute a
-	// default silently.
 	if _, err := loadWith(t, merge(fullMedia(),
 		map[string]string{"S3_FORCE_PATH_STYLE": "yes please"})); err == nil {
 		t.Error("an unparseable S3_FORCE_PATH_STYLE was accepted")
@@ -97,9 +93,6 @@ func TestAnUnparseableBooleanFailsLoudly(t *testing.T) {
 // than off, because the endpoint exists and fails in a way that looks like the
 // provider's fault.
 func TestMediaIsAllOrNothing(t *testing.T) {
-	// The specific gap this closes: bucket and credentials but no endpoint used
-	// to report media as ENABLED, and the SDK then resolved against real AWS S3
-	// rather than R2 or MinIO.
 	partial := fullMedia()
 	partial["S3_ENDPOINT"] = ""
 	if _, err := loadWith(t, partial); err == nil {

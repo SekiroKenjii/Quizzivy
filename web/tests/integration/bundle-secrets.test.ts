@@ -57,8 +57,6 @@ function secretValues(): { name: string; value: string }[] {
     const [, name, rawValue] = match;
     if (!name || !SERVER_ONLY.includes(name)) continue;
     const value = (rawValue ?? "").trim().replace(/^["']|["']$/g, "");
-    // Short values produce false positives against minified output; a real
-    // credential is never four characters.
     if (value.length >= 8) out.push({ name, value });
   }
   return out;
@@ -84,8 +82,6 @@ beforeAll(async () => {
 
 describe("the built bundle", () => {
   it("contains no server-only variable NAME", () => {
-    // The name appearing at all means something inlined it, whatever the value
-    // happened to be on the machine that built it.
     const leaked = SERVER_ONLY.filter((name) => bundle.includes(name));
     expect(
       leaked,
@@ -94,8 +90,6 @@ describe("the built bundle", () => {
   });
 
   it("contains no server-only VALUE from the local .env", () => {
-    // The case an explicit envPrefix cannot catch: a variable misnamed with a
-    // VITE_ prefix is inlined by design, and only its value would show up.
     const values = secretValues();
     if (values.length === 0) {
       // No .env on this machine (CI). The name check above still applies.
@@ -110,8 +104,6 @@ describe("the built bundle", () => {
   });
 
   it("does contain the values that are public by design", () => {
-    // Without this the test above could pass because the build produced
-    // nothing at all, or because env inlining silently stopped working.
     expect(bundle.length).toBeGreaterThan(10_000);
     expect(bundle).toContain("VITE_API_BASE_URL");
   });

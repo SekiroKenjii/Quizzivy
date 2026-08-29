@@ -57,8 +57,6 @@ type MediaService interface {
 	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
 	// Get resolves one asset, so a question can render its attachment.
 	Get(ctx context.Context, id string) (media.Asset, error)
-	// SignedURLTTL is what the Cache-Control directive is derived from, so the
-	// header and the signature cannot state different lifetimes.
 	SignedURLTTL() time.Duration
 }
 

@@ -47,8 +47,6 @@ export function useGoogleSignIn() {
       rememberPending(request.pending);
       window.location.assign(request.url);
     } catch {
-      // crypto.subtle is unavailable on insecure origins. Better to say so
-      // than to send the user to Google without a code_challenge.
       setError(t("login.googleUnavailable"));
       setPending(false);
     }

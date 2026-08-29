@@ -65,9 +65,6 @@ func parseFrameHeader(b []byte) (frameHeader, error) {
 	case 3:
 		version = mpeg1
 	}
-
-	// Layer III is 0b01. §11.1 accepts mp3 and nothing else in this family, so
-	// a Layer I or II frame is not something we should be measuring.
 	if (b[1]>>1)&0x03 != 0x01 {
 		return frameHeader{}, errors.New("not layer III")
 	}
@@ -90,9 +87,6 @@ func parseFrameHeader(b []byte) (frameHeader, error) {
 	if channelMode == 3 { // single channel
 		channels = 1
 	}
-
-	// Layer III frame length. The 144 is 1152 samples / 8 bits; MPEG2/2.5 use
-	// 576 samples, hence 72.
 	coefficient := 144
 	if version != mpeg1 {
 		coefficient = 72
@@ -165,19 +159,11 @@ func mp3Duration(r io.ReaderAt, size int64) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	// A VBR header is the only accurate answer short of decoding -- but only if
-	// it describes THIS file. When it does not, fall through to the walk rather
-	// than rejecting: the walk is exact and bounded, and it is what detects the
-	// truncation this path would otherwise skip.
 	if frames, declaredBytes, ok := vbrFrameCount(r, offset, first); ok {
 		if headerAgreesWithFile(frames, declaredBytes, first, size-offset) {
 			return durationMs(frames, first), nil
 		}
 	}
-
-	// No VBR header: count. Each header gives its own frame length, so this is
-	// correct for VBR too -- it just costs a seek per frame.
 	frames := 0
 	header := make([]byte, 4)
 	overran := false
@@ -187,8 +173,6 @@ func mp3Duration(r io.ReaderAt, size int64) (int, error) {
 		}
 		f, err := parseFrameHeader(header)
 		if err != nil {
-			// Resynchronise once: a stray byte between frames is common enough
-			// in real files that failing here would reject valid audio.
 			next, resyncErr := resync(r, size, offset+1)
 			if resyncErr != nil {
 				break
@@ -198,13 +182,6 @@ func mp3Duration(r io.ReaderAt, size int64) (int, error) {
 		}
 		frames++
 		offset += int64(f.frameLen)
-		// The frame header declares a length that runs past the end of the
-		// file. A complete stream's last frame fits; a truncated one's does
-		// not, and that difference is the only thing distinguishing "this
-		// upload was cut short" from "this is the end of the song".
-		//
-		// A file cut exactly at a frame boundary is indistinguishable from a
-		// complete one -- nothing can detect that, so nothing pretends to.
 		if offset > size {
 			overran = true
 		}
@@ -283,10 +260,6 @@ func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, int64,
 	case f.version != mpeg1:
 		sideInfo = 17
 	}
-
-	// Xing ("Info" for CBR files that still carry the frame count) sits after
-	// the side info; VBRI sits at a fixed 32 bytes past the header, and only
-	// Fraunhofer encoders write it.
 	if n, declared, ok := xingFrameCount(r, frameOffset+4+sideInfo); ok {
 		return n, declared, true
 	}
@@ -333,11 +306,6 @@ func xingFrameCount(r io.ReaderAt, at int64) (int, int64, bool) {
 	if !ok {
 		return 0, 0, false
 	}
-
-	// The bytes field FOLLOWS the frame count, and only when both flags are
-	// set -- the optional fields are packed in flag order, not at fixed
-	// offsets, so this offset is only correct because HasFrames was checked
-	// above.
 	var declared int64
 	if bits&xingHasBytes != 0 {
 		if b, ok := readUint32(r, at+12); ok {
@@ -386,43 +354,20 @@ const (
 	maxBitrateBps = 320_000
 )
 
-// headerAgreesWithFile reports whether a declared frame count can be true of
-// the bytes actually present.
+// headerAgreesWithFile reports whether a declared frame count can be true of the
+// bytes present.
 //
-// The declared count is attacker-controlled -- it is four bytes in the uploaded
-// file -- and it used to be returned with no check beyond `0 < n < 200000`.
-// Two things went wrong with that.
-//
-// A file could simply lie. Writing a Xing header claiming 1000 frames onto an
-// hour of audio made the probe report 26 seconds, which media_assets accepted,
-// and §11.1's five-minute limit became a number the file chose.
-//
-// And a truncated upload was accepted as complete. The frame walk detects
-// truncation by noticing the last frame overruns the file, but that code never
-// ran when a Xing header was present -- on VBR, the file type most likely to
-// have one. A file cut in half still carries the header describing the whole.
-//
-// Both are answered by comparing the header against the bytes that are really
-// there, and neither is answered by rejecting outright: falling back to the
-// frame walk is better, because the walk is exact, already written, and bounded
-// by maxFrameScan.
+// The count is four attacker-chosen bytes, so a file could claim a short
+// duration over long audio and bypass the length limit; a truncated upload also
+// keeps the header describing the whole file. The caller falls back to the frame
+// walk when this fails, which is exact and detects truncation.
 func headerAgreesWithFile(frames int, declaredBytes int64, f frameHeader, audioBytes int64) bool {
 	if audioBytes <= 0 {
 		return false
 	}
-
-	// The exact check, when the header offers it. A stream that says how long
-	// it is and then is not that long has been cut; a few hundred bytes of
-	// slack absorbs a trailing ID3v1 tag or a padded final frame.
 	if declaredBytes > 0 && audioBytes < declaredBytes-512 {
 		return false
 	}
-
-	// The bound, for the headers that carry no byte count. A VBR stream's
-	// average bitrate is not the first frame's, so this deliberately spans the
-	// whole legal bitrate range rather than guessing a tighter one: it is meant
-	// to catch a file claiming a duration its bytes could not hold under ANY
-	// encoding, not to second-guess an encoder.
 	ms := int64(durationMs(frames, f))
 	if ms <= 0 {
 		return false

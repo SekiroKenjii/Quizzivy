@@ -1,5 +1,3 @@
-// Package questions owns the §8 question bank: the authored questions and the
-// per-type detail that hangs off them.
 package questions
 
 import (
@@ -22,8 +20,7 @@ const (
 	ShortAnswer    Type = "short_answer"
 )
 
-// choiceTypes are the types whose answer is a set of options. Named once so the
-// validation rules below cannot disagree about which types have options.
+// isChoice reports whether the answer is a set of options.
 func (t Type) isChoice() bool {
 	return t == SingleChoice || t == MultipleChoice || t == TrueFalse
 }
@@ -38,17 +35,14 @@ func (t Type) valid() bool {
 
 var (
 	ErrNotFound = errors.New("questions: not found")
-	// ErrReferenced is a delete refused because a draft test outline still uses
-	// the question. 409, not 403: the teacher has every right to it, it is
-	// simply not deletable while something depends on it.
+	// ErrReferenced is a delete refused because a draft outline still uses it.
 	ErrReferenced = errors.New("questions: referenced by a draft test outline")
 	ErrBadCursor  = errors.New("questions: malformed cursor")
 )
 
-// AudioPolicy is §7's `audio?: AudioPolicy`, present iff the asset is audio.
+// AudioPolicy is present if and only if the attached asset is audio.
 type AudioPolicy struct {
-	// MaxPlays nil means unlimited (§11.4). Nullable rather than absent, which
-	// is why the database constrains it separately from the two booleans.
+	// MaxPlays nil means unlimited.
 	MaxPlays                  *int
 	AllowSeek                 bool
 	ShowTranscriptAfterSubmit bool
@@ -68,8 +62,8 @@ type Blank struct {
 	CaseSensitive   bool
 }
 
-// Question is a bank row with its children. Media is carried as the id and kind
-// pair the composite FK needs [D-05]; the handler resolves the asset itself.
+// Question is a bank row with its children. Media is the id and kind pair the
+// composite FK needs; the handler resolves the asset itself.
 type Question struct {
 	ID             string
 	Type           Type
@@ -116,15 +110,15 @@ type BlankInput struct {
 	CaseSensitive   bool
 }
 
-// FieldError names the field a rule failed on, so the client can put the
-// message next to the input rather than at the top of the form.
+// FieldError names the field a rule failed on, so the client can render the
+// message beside its input.
 type FieldError struct {
 	Field   string
 	Message string
 }
 
-// ValidationError carries every failure at once. Returning the first would make
-// fixing a form a series of round trips.
+// ValidationError carries every failure at once, so fixing a form is not a
+// series of round trips.
 type ValidationError struct{ Fields []FieldError }
 
 func (e *ValidationError) Error() string {
@@ -135,9 +129,7 @@ func (e *ValidationError) Error() string {
 	return "questions: " + strings.Join(parts, "; ")
 }
 
-// placeholderPattern matches `{{1}}`, `{{2}}` -- §7's fill_blank markers, and
-// the resolution recorded in 40-open-items.md. 1-indexed, matching
-// blanks[].ordinal.
+// placeholderPattern matches the 1-indexed {{n}} fill_blank markers.
 var placeholderPattern = regexp.MustCompile(`\{\{(\d+)\}\}`)
 
 // PromptPlaceholders returns the distinct ordinals a prompt refers to, sorted.
@@ -146,8 +138,6 @@ func PromptPlaceholders(prompt string) []int {
 	for _, m := range placeholderPattern.FindAllStringSubmatch(prompt, -1) {
 		n, err := strconv.Atoi(m[1])
 		if err != nil || n < 1 {
-			// Unparseable or 0-indexed: not a placeholder this system defines,
-			// so it is prose that happens to look like one.
 			continue
 		}
 		seen[n] = true
@@ -160,13 +150,9 @@ func PromptPlaceholders(prompt string) []int {
 	return out
 }
 
-// Validate enforces the cross-field rules QuestionInput's description lists --
-// the ones "a single schema cannot express". The request validator has already
-// checked types, lengths and enums by the time this runs.
-//
-// Every rule here is also enforced at publish (§8), on the snapshot rather than
-// the draft. That is not redundancy for its own sake: the bank is editable, so a
-// question can be made invalid after it was accepted.
+// Validate enforces the cross-field rules a schema cannot express. The request
+// validator has already checked types, lengths and enums. Publish re-runs these
+// against the snapshot, because the bank stays editable afterwards.
 func (in Input) Validate(assetKind *string) error {
 	var errs []FieldError
 	add := func(field, msg string) { errs = append(errs, FieldError{Field: field, Message: msg}) }
@@ -183,7 +169,6 @@ func (in Input) Validate(assetKind *string) error {
 	validateBlanks(in, add)
 	validateMedia(in, assetKind, add)
 
-	// §7: short_answer only, and admin-only at read time.
 	if in.SampleAnswer != nil && *in.SampleAnswer != "" && in.Type != ShortAnswer {
 		add("sampleAnswer", "Đáp án mẫu chỉ dùng cho câu trả lời ngắn.")
 	}
@@ -219,9 +204,6 @@ func validateOptions(in Input, add func(string, string)) {
 			correct++
 		}
 	}
-	// The rule that makes a question gradeable at all. Without it the bank
-	// accepts a question no answer can score on, and it is discovered by a
-	// student mid-test.
 	if correct == 0 {
 		add("options", "Cần ít nhất một phương án đúng.")
 	}
@@ -264,9 +246,7 @@ func validateBlanks(in Input, add func(string, string)) {
 		}
 	}
 
-	// The prompt's placeholders and the blank ordinals must be the same set.
-	// A blank with no placeholder is unreachable; a placeholder with no blank
-	// renders as literal `{{2}}` to the student and can never be answered.
+	// The placeholder set and the blank ordinal set must match exactly.
 	inPrompt := PromptPlaceholders(in.Prompt)
 	promptSet := map[int]bool{}
 	for _, n := range inPrompt {
@@ -287,8 +267,6 @@ func validateBlanks(in Input, add func(string, string)) {
 func validateMedia(in Input, assetKind *string, add func(string, string)) {
 	hasAudio := assetKind != nil && *assetKind == "audio"
 
-	// [D-04] in application terms, and the same biconditional the database
-	// enforces: the policy is present exactly when the asset is audio.
 	switch {
 	case hasAudio && in.Audio == nil:
 		add("audio", "Câu hỏi có tệp âm thanh cần thiết lập nghe.")

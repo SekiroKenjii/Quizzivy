@@ -32,8 +32,6 @@ func TestIssueAndVerify(t *testing.T) {
 }
 
 func TestRejectsAShortSigningKey(t *testing.T) {
-	// HMAC-SHA256 with a short key is brute-forceable offline, and a forged
-	// token grants whatever role the attacker writes into it.
 	if _, err := NewTokenIssuer([]byte("too-short"), time.Minute); err == nil {
 		t.Error("a 9-byte signing key was accepted")
 	}
@@ -62,9 +60,6 @@ func TestTokenFromADifferentKeyIsRejected(t *testing.T) {
 }
 
 func TestAlgNoneIsRejected(t *testing.T) {
-	// The classic JWT attack: re-sign with alg "none" and hope the verifier
-	// trusts the header. WithValidMethods is what stops it, so this asserts the
-	// pin is actually in place.
 	i := issuer(t)
 	tok, _ := i.Issue("user-1", "student")
 	parts := strings.Split(tok, ".")
@@ -79,8 +74,6 @@ func TestAlgNoneIsRejected(t *testing.T) {
 }
 
 func TestClaimsCarryNothingBeyondIdentityAndRole(t *testing.T) {
-	// Anything in the token is readable by whoever holds it and cannot be
-	// revoked before expiry, so email and name deliberately stay out.
 	i := issuer(t)
 	tok, _ := i.Issue("user-1", "student")
 	payload := strings.Split(tok, ".")[1]

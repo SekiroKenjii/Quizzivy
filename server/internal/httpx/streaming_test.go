@@ -18,7 +18,7 @@ import (
 const uploadPattern = "POST /admin/media"
 
 func TestStreamingBodyRoutesFindsTheUpload(t *testing.T) {
-	spec, err := gen.GetSwagger()
+	spec, err := gen.GetSpec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,8 +26,6 @@ func TestStreamingBodyRoutesFindsTheUpload(t *testing.T) {
 	if _, ok := streaming[uploadPattern]; !ok {
 		t.Fatalf("%q not detected as a streaming route; got %v", uploadPattern, streaming)
 	}
-	// A JSON route must never be skipped -- that would silently drop validation
-	// from an endpoint that has no other checks.
 	if _, ok := streaming["POST /auth/login"]; ok {
 		t.Error("a JSON route was classified as streaming")
 	}
@@ -38,7 +36,7 @@ func TestStreamingBodyRoutesFindsTheUpload(t *testing.T) {
 // sniffing, but parameter validation has no replacement, so a streaming route
 // that grows a query parameter would lose its only check. Fail here instead.
 func TestStreamingRoutesHaveNoParameters(t *testing.T) {
-	spec, err := gen.GetSwagger()
+	spec, err := gen.GetSpec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +81,7 @@ func newUpload(t *testing.T, size int) (*http.Request, int) {
 
 func validatorUnderTest(t *testing.T) func(http.Handler) http.Handler {
 	t.Helper()
-	spec, err := gen.GetSwagger()
+	spec, err := gen.GetSpec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,9 +116,6 @@ func TestUploadReachesHandlerWithOctetStreamPart(t *testing.T) {
 // which is what the temp-file path in media.Service exists to avoid.
 func TestUploadBodyIsNotBufferedByValidator(t *testing.T) {
 	const bodySize = 10 << 20 // the §11.1 cap
-
-	// The handler drains the body the way the real one does, so the measurement
-	// covers the validator only, not a body left unread.
 	h := validatorUnderTest(t)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	}))
@@ -134,8 +129,6 @@ func TestUploadBodyIsNotBufferedByValidator(t *testing.T) {
 	runtime.ReadMemStats(&after)
 
 	allocated := after.TotalAlloc - before.TotalAlloc
-	// Generous: the point is that it is a small constant, not a multiple of the
-	// body. Before the fix this was ~4.5x the body size.
 	if limit := uint64(wire / 4); allocated > limit {
 		t.Errorf("validator allocated %.1f MB for a %.1f MB upload (limit %.1f MB); "+
 			"it is buffering the body again",

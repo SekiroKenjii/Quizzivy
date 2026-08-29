@@ -37,8 +37,6 @@ func TestLinkingAttachesGoogleToTheSignedInAccount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LinkGoogle: %v", err)
 	}
-	// The response must reflect the link that was just made -- the settings
-	// screen renders linkedProviders from it.
 	if len(user.LinkedProviders) != 1 || user.LinkedProviders[0] != "google" {
 		t.Errorf("linkedProviders = %v, want [google]", user.LinkedProviders)
 	}
@@ -58,8 +56,6 @@ func TestLinkingAttachesGoogleToTheSignedInAccount(t *testing.T) {
 }
 
 func TestLinkingTheSameGoogleAccountAgainIsANoOp(t *testing.T) {
-	// A double submit, or a user who forgot. Reporting a conflict would be
-	// wrong: the requested state already holds.
 	pool := newPool(t)
 	id, email := makeUser(t, pool)
 	svc := linkService(t, pool, verifiedIdentity(email))
@@ -77,15 +73,9 @@ func TestLinkingTheSameGoogleAccountAgainIsANoOp(t *testing.T) {
 }
 
 func TestAGoogleAccountAlreadyBoundToAnotherUserIsRejected(t *testing.T) {
-	// D-08's UNIQUE (provider, provider_user_id). Without it one Google account
-	// would reach two Quizzivy accounts and §5.3's first branch would pick
-	// whichever the query returned.
 	pool := newPool(t)
 	firstID, _ := makeUser(t, pool)
 	secondID, _ := makeUser(t, pool)
-
-	// A Google address that is nobody's Quizzivy email, so the ownership guard
-	// stays out of the way and this reaches the constraint it is about.
 	identity := verifiedIdentity("a-personal-gmail@example.com")
 	svc := linkService(t, pool, identity)
 	if _, err := link(svc, firstID); err != nil {
@@ -99,8 +89,6 @@ func TestAGoogleAccountAlreadyBoundToAnotherUserIsRejected(t *testing.T) {
 }
 
 func TestASecondGoogleAccountCannotBeAddedToOneUser(t *testing.T) {
-	// D-08's UNIQUE (user_id, provider): one per user, so that "unlink Google"
-	// is unambiguous.
 	pool := newPool(t)
 	id, email := makeUser(t, pool)
 
@@ -115,9 +103,6 @@ func TestASecondGoogleAccountCannotBeAddedToOneUser(t *testing.T) {
 }
 
 func TestLinkingAGoogleAddressThatIsAnotherAccountsEmailIsRejected(t *testing.T) {
-	// Refused for where it leads. Linking binds the `sub` to THIS account, and
-	// §5.3 matches on `sub` before email -- so the owner of that address
-	// signing in with their own Google would land here instead.
 	pool := newPool(t)
 	mineID, _ := makeUser(t, pool)
 	_, victimEmail := makeUser(t, pool)
@@ -129,9 +114,6 @@ func TestLinkingAGoogleAddressThatIsAnotherAccountsEmailIsRejected(t *testing.T)
 }
 
 func TestAnUnverifiedAddressCannotBeLinked(t *testing.T) {
-	// §5.1, and the reasoning is stronger here than at sign-in: the account is
-	// already chosen, so an unverified address is a takeover with the target
-	// picked out.
 	pool := newPool(t)
 	id, email := makeUser(t, pool)
 	identity := verifiedIdentity(email)
@@ -152,8 +134,6 @@ func TestAnUnverifiedAddressCannotBeLinked(t *testing.T) {
 }
 
 func TestUnlinkingFromAPasswordlessAccountIsRefused(t *testing.T) {
-	// §15. The account would still exist, still hold its attempts and its
-	// enrolments, and nobody -- including its owner -- could sign into it.
 	pool := newPool(t)
 	id, email := makeUser(t, pool, googleOnly)
 	linkGoogleSubject(t, pool, id, "google-sub-"+email, email)
@@ -208,8 +188,6 @@ func TestUnlinkingWorksWhenAPasswordRemains(t *testing.T) {
 }
 
 func TestUnlinkingWhenNothingIsLinkedSucceeds(t *testing.T) {
-	// The requested state already holds. Reporting an error would invite a
-	// retry that changes nothing.
 	pool := newPool(t)
 	id, _ := makeUser(t, pool)
 	svc := newService(t, pool)

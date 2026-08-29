@@ -36,9 +36,6 @@ export default function ChangePasswordPage() {
     setPending(true);
     try {
       await changePassword(current, next);
-      // Re-read rather than assume: the server clears mustChangePassword, and
-      // the guard reads it from the store. Guessing here would leave the user
-      // on this page after a successful change.
       const user = await fetchCurrentUser();
       setUser(user);
       await navigate(homePathFor(user), { replace: true });

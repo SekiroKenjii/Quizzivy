@@ -20,18 +20,12 @@ func TestSignedURLCacheControlIsDerivedFromTheTTL(t *testing.T) {
 	if seconds := int(media.DefaultSignedURLTTL.Seconds()); seconds != 600 {
 		t.Errorf("DefaultSignedURLTTL = %ds, want 600s (§11.2)", seconds)
 	}
-	// The point of deriving it: a configured TTL moves the header with it,
-	// rather than leaving two independent copies of "ten minutes".
 	if got, want := cacheControlForSignedURL(90*time.Second), "private, max-age=90"; got != want {
 		t.Errorf("a configured TTL gave %q, want %q", got, want)
 	}
 }
 
 func TestGetMediaUrlResponseSendsCacheControl(t *testing.T) {
-	// The 200 path is unreachable end to end while ReachableByStudent denies
-	// everything, so without this the header would go untested until the
-	// version tables land -- and a header that is set but never written is
-	// exactly the kind of thing that stays broken quietly.
 	resp := openapi.GetMediaUrl200JSONResponse{
 		Body: struct {
 			ExpiresAt openapi.Timestamp `json:"expiresAt"`
@@ -70,8 +64,6 @@ func TestListMediaResponseSendsCacheControl(t *testing.T) {
 	if err := resp.VisitListMediaResponse(rec); err != nil {
 		t.Fatalf("writing the response: %v", err)
 	}
-	// no-store rather than max-age: unlike a single asset URL there is nothing
-	// worth re-serving, since the library changes on every upload and delete.
 	if got, want := rec.Header().Get("Cache-Control"), "private, no-store"; got != want {
 		t.Errorf("Cache-Control on the wire = %q, want %q", got, want)
 	}

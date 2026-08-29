@@ -56,11 +56,6 @@ func TestRefreshCookieCarriesExactlyTheDocumentedAttributes(t *testing.T) {
 }
 
 func TestRefreshCookieHasNoDomainAttribute(t *testing.T) {
-	// Host-only, per 00-overview.md §4.1. With `Domain=quizzivy.com` the
-	// browser would attach this token to app.quizzivy.com and every other
-	// subdomain, including anything ever hosted there by accident. The SPA has
-	// no use for it -- it never reads the cookie -- so the blast radius is
-	// pure downside.
 	c := refreshCookie("t", time.Hour, true)
 	if c.Domain != "" {
 		t.Fatalf("Domain = %q, want empty (host-only)", c.Domain)
@@ -81,9 +76,6 @@ func TestRefreshCookieSecureFlagFollowsConfiguration(t *testing.T) {
 }
 
 func TestClearingCookieMatchesTheOneItReplaces(t *testing.T) {
-	// A browser keys a cookie on name + domain + path. If logout sends a
-	// different Path, it stores a SECOND, empty cookie and leaves the real one
-	// in place -- the user stays logged in and nothing looks wrong.
 	live := refreshCookie("t", time.Hour, true)
 	cleared := clearRefreshCookie(true)
 
@@ -103,10 +95,7 @@ func TestClearingCookieMatchesTheOneItReplaces(t *testing.T) {
 }
 
 func TestCookieNameMatchesTheContract(t *testing.T) {
-	// The Go constant and the `refreshCookie` security scheme in
-	// api/openapi.yaml name the same cookie. Renaming one alone compiles
-	// cleanly and silently stops authenticating anybody.
-	spec, err := openapi.GetSwagger()
+	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}
@@ -134,10 +123,6 @@ func TestMiddlewareLiftsTheCookieAndToleratesItsAbsence(t *testing.T) {
 	if seen != "the-token" {
 		t.Errorf("token from context = %q, want the-token", seen)
 	}
-
-	// No cookie: the handler still runs and sees an empty token, rather than
-	// the middleware rejecting a request that some other route may not need a
-	// cookie for at all.
 	seen = "unset"
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/auth/refresh", nil))
 	if seen != "" {

@@ -17,7 +17,7 @@ import (
 // api/openapi.yaml is what creates the obligation -- nobody has to remember.
 
 func TestEveryPublicOperationIsRateLimited(t *testing.T) {
-	spec, err := openapi.GetSwagger()
+	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}
@@ -27,9 +27,7 @@ func TestEveryPublicOperationIsRateLimited(t *testing.T) {
 }
 
 func TestTheAssertionActuallyFails(t *testing.T) {
-	// Without this, AssertPublicRoutesLimited could degrade into `return nil`
-	// and the test above would still pass -- green, and protecting nothing.
-	spec, err := openapi.GetSwagger()
+	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}
@@ -47,13 +45,10 @@ func TestTheAssertionActuallyFails(t *testing.T) {
 }
 
 func TestDroppingOneRouteIsCaught(t *testing.T) {
-	spec, err := openapi.GetSwagger()
+	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}
-
-	// Rebuild the real registry minus one entry, which is what a careless edit
-	// to RateLimits() would look like.
 	partial := ratelimit.NewRegistry()
 	for _, pattern := range RateLimits().Patterns() {
 		if pattern == "POST /join/preview" {
@@ -72,9 +67,7 @@ func TestDroppingOneRouteIsCaught(t *testing.T) {
 }
 
 func TestRegistryHasNoStaleEntries(t *testing.T) {
-	// The inverse drift: a limit left behind for a route that no longer exists,
-	// or was never public. Harmless at runtime but a sign the two have diverged.
-	spec, err := openapi.GetSwagger()
+	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}

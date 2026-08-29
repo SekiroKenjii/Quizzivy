@@ -1,31 +1,13 @@
 /**
  * Google's four-colour "G".
  *
- * A deliberate exception to §12's palette rules, and worth stating why rather
- * than leaving it to look like drift. §12 forbids decorative colour and emoji
- * in UI chrome; this is neither. It is an identifying MARK on a button that
- * hands the user to a third party, and a student scanning a sign-in screen on a
- * phone recognises it faster than they read any label. Google's own branding
- * guidance for sign-in buttons expects the full-colour mark at this size.
+ * A deliberate exception to §12's palette rules: an identifying mark on a
+ * button that hands the user to a third party, which Google's branding
+ * guidance expects in full colour. Inline rather than an asset so it cannot
+ * fail to load on the first screen a new student sees.
  *
- * It is inline rather than an asset: four paths beat a network request that can
- * fail on the one screen a new student sees first, and it inherits nothing from
- * the theme, so dark mode leaves it alone.
- *
- * `aria-hidden` because every caller puts a text label beside it -- announcing
- * "Google" twice is worse than not announcing it once.
- *
- * SIZING IS THE BUTTON'S JOB, and this carries no size class of its own. That
- * is not an omission. `button.tsx` sizes icons with
- * `[&_svg:not([class*='size-'])]:size-4`, dropping to `size-3` on the `xs`
- * variant -- a rule that matches only while the svg has no `size-` class. An
- * earlier version defaulted to `size-4`, which always matched the `:not()` and
- * so opted permanently out of the variant sizing it was trying to agree with:
- * on an `xs` button every other icon shrank and this one did not.
- *
- * The consequence is that a caller OUTSIDE a Button must pass a size, or the
- * browser renders a `viewBox`-only svg at its 300x150 default. All three
- * callers today are buttons.
+ * Carries no size class: `button.tsx` sizes icons by variant, and that rule
+ * only matches an svg without one. A caller outside a Button must pass a size.
  */
 export function GoogleMark({ className }: { className?: string }) {
   return (

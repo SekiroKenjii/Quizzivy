@@ -10,21 +10,11 @@ import (
 	"quizzivy/internal/httpx"
 )
 
-// GoogleAuth implements POST /auth/google (§5.3).
+// GoogleAuth completes the §5.3 sign-in: verify the ID token, then resolve the
+// account by provider identity, then by verified email, then create one.
 //
-// **Leak review.** This endpoint is public and takes a bearer secret, so what it
-// says about each failure matters. Everything before a successful token
-// verification is one answer, 401: a bad code, a replayed code, a mismatched
-// PKCE verifier, a redirect_uri we do not recognise, a forged or expired ID
-// token, and an unverified email all look identical, because at that point the
-// caller has proved nothing and telling them which check failed only helps them
-// pass it next time.
-//
-// AFTER verification the answers become specific, and deliberately so: the
-// caller has proved to Google that they control the address, so
-// "your account is suspended" or "you need a class code" discloses nothing they
-// could not confirm themselves -- and an opaque failure would leave a real
-// student with no idea what to do next.
+// Public, so a join code is required for a new student and the outcome is the
+// same shape whether the code was wrong, expired, revoked or exhausted.
 func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequestObject) (openapi.GoogleAuthResponseObject, error) {
 	if s.Deps.Auth == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -53,9 +43,6 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 		errors.Is(err, google.ErrTokenInvalid):
 		return openapi.GoogleAuth401JSONResponse(authError(ctx, openapi.INVALIDCREDENTIALS,
 			"Đăng nhập bằng Google không thành công. Vui lòng thử lại.")), nil
-
-	// §5.1, non-negotiable. Its own message because it is the one failure the
-	// user can actually fix, and only at Google.
 	case errors.Is(err, google.ErrEmailUnverified):
 		return openapi.GoogleAuth401JSONResponse(authError(ctx, openapi.EMAILNOTVERIFIED,
 			"Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.")), nil
@@ -67,18 +54,12 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 	case errors.Is(err, auth.ErrAccountDisabled):
 		return openapi.GoogleAuth403JSONResponse(authError(ctx, openapi.ACCOUNTDISABLED,
 			"Tài khoản của bạn đã bị vô hiệu hoá. Vui lòng liên hệ giáo viên.")), nil
-
-	// The join code did not pass. No account was created: Enrol validates the
-	// code before creating anything, in one transaction.
 	case errors.As(err, &rejected):
 		return openapi.GoogleAuth404JSONResponse(joinCodeError(ctx, rejected.Outcome)), nil
 
 	case errors.Is(err, auth.ErrIdentityAlreadyLinked):
 		return openapi.GoogleAuth403JSONResponse(authError(ctx, openapi.IDENTITYALREADYLINKED,
 			"Tài khoản này đã được liên kết với một tài khoản Google khác.")), nil
-
-	// Not configured, and not yet built. Both are our problem, not the
-	// caller's, and neither should be dressed up as a failed sign-in.
 	case errors.Is(err, auth.ErrGoogleUnavailable), errors.Is(err, auth.ErrSelfEnrolNotAvailable):
 		return nil, httpx.ErrNotImplemented
 
@@ -127,10 +108,6 @@ func (s *Server) LinkGoogle(ctx context.Context, request openapi.LinkGoogleReque
 	switch {
 	case err == nil:
 		return openapi.LinkGoogle200JSONResponse(toAPIUser(user)), nil
-
-	// Every way the link cannot be made. One code, because the client's move is
-	// the same in all three: tell the user this Google account is not available
-	// for this login.
 	case errors.Is(err, auth.ErrIdentityAlreadyLinked),
 		errors.Is(err, auth.ErrEmailBelongsToAnotherUser):
 		return openapi.LinkGoogle409JSONResponse(authError(ctx, openapi.IDENTITYALREADYLINKED,

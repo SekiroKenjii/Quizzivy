@@ -37,10 +37,6 @@ func (s *Store) SoftDelete(ctx context.Context, in DeleteInput) error {
 		return fmt.Errorf("media: begin delete: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-
-	// Locked before the reference count, not after. Without the lock, a publish
-	// committing between the count and the update would leave a live version
-	// pointing at a deleted asset -- the exact state the 409 exists to prevent.
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.media_assets WHERE id = $1 FOR UPDATE`,
@@ -52,13 +48,8 @@ func (s *Store) SoftDelete(ctx context.Context, in DeleteInput) error {
 		return fmt.Errorf("media: lock asset: %w", err)
 	}
 	if alreadyDeleted {
-		// Already gone. Reported as not-found rather than success, so a client
-		// deleting a stale list entry is told the list is stale.
 		return ErrNotFound
 	}
-
-	// `tx`, not the pool: the count belongs to the same transaction and
-	// snapshot as the lock taken above.
 	refs, err := CountReferences(ctx, tx, in.ID)
 	if err != nil {
 		return err

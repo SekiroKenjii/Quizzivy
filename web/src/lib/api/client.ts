@@ -17,18 +17,10 @@ const BASE_URL: string =
 type HttpMethod = "get" | "post" | "patch" | "put" | "delete";
 
 /**
- * Methods the contract actually declares for a path.
+ * The single fetch wrapper every request goes through (§2).
  *
- * openapi-typescript emits `post?: never` for methods a path does not support,
- * so `keyof` alone still yields "post" and `api("post", "/auth/me")` would
- * type-check against an endpoint that does not exist.
- *
- * Note the NonNullable. The OPTIONAL modifier in `post?: never` makes the
- * property type `never | undefined`, which collapses to `undefined` — not
- * `never` — so a naive `extends never` check silently keeps every unsupported
- * method. client.typecheck.ts asserts this with a @ts-expect-error, which is
- * self-verifying: if the constraint ever loosens, TypeScript reports the
- * directive as unused and the build fails.
+ * Typed against the generated schema, so a path, method or body that is not in
+ * the contract fails to compile rather than 404ing at runtime.
  */
 type MethodsOf<P extends keyof paths> = {
   [M in Extract<keyof paths[P], HttpMethod>]: [NonNullable<paths[P][M]>] extends [never]
@@ -102,10 +94,6 @@ let inFlightRefresh: Promise<boolean> | null = null;
 
 /** Replaced in tests; in the app it sends the user to /login. */
 let onSessionLost: () => void = () => {
-  // Last resort, used only if the app never installed a handler. Public
-  // screens are excluded for the same reason the real handler navigates
-  // nowhere: /join works without a session by design, and bouncing a visitor
-  // off it breaks the only flow that creates student accounts.
   if (typeof window === "undefined") return;
   const path = window.location.pathname;
   const isPublic =
@@ -191,9 +179,6 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
     return fetch(url, {
       method: method.toUpperCase(),
       headers,
-      // The refresh cookie is host-only with Path=/auth (§5.2), so the browser
-      // only actually attaches it to /auth/*. Sending credentials uniformly
-      // keeps one code path; the cookie's own scoping does the restricting.
       credentials: "include",
       ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
       ...(opts.signal ? { signal: opts.signal } : {}),
@@ -209,9 +194,6 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
       onSessionLost();
       throw await toApiError(response);
     }
-
-    // Retry exactly once (§5.2). A second 401 means the fresh token is not
-    // being accepted either, so the session is genuinely gone.
     response = await send();
     if (response.status === 401) {
       authStore.clear();

@@ -38,8 +38,6 @@ func TestHealthzReportsDatabaseReachability(t *testing.T) {
 	if down.Code != http.StatusServiceUnavailable {
 		t.Errorf("unreachable database: status = %d, want 503", down.Code)
 	}
-	// A health check that stays green while the database is down is worse than
-	// none: it makes an outage look like an application bug.
 	var body map[string]string
 	_ = json.NewDecoder(down.Body).Decode(&body)
 	if body["database"] != "unreachable" {
@@ -48,8 +46,6 @@ func TestHealthzReportsDatabaseReachability(t *testing.T) {
 }
 
 func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
-	// Authenticated: every admin route now requires a token, and a 401 would
-	// mask the thing this test is about.
 	issuer := testIssuer(t)
 	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
 	if err != nil {
@@ -109,9 +105,6 @@ func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
 }
 
 func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
-	// /admin/tests/{id} must share one bucket, not create one per test id.
-	// Here the check is the inverse: an unlimited route stays unlimited however
-	// many distinct URLs are hit.
 	router := newTestRouter(t, fakeDB{})
 	for i := 0; i < 30; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/admin/tests", nil)

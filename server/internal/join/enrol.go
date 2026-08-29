@@ -31,9 +31,7 @@ type NewMember struct {
 }
 
 type EnrolInput struct {
-	RawCode string
-	// Exactly one of these. ExistingUserID is the already-authenticated path
-	// (§6.2); NewMember is the Google signup path (§6.3).
+	RawCode        string
 	ExistingUserID string
 	NewMember      *NewMember
 
@@ -63,18 +61,10 @@ type EnrolledClass struct {
 }
 
 // Enrol validates a join code and enrols a student, creating the account first
-// if this is a signup -- all in ONE transaction (§6.3).
+// when there is none, in a single transaction.
 //
-// The transaction opens by locking the CODE row, and that lock is the whole
-// mechanism behind max_uses. Two students redeeming the last seat both read
-// uses_count, both see room, and both enrol -- unless one waits. With the lock
-// the second re-reads after the first commits and finds the code exhausted.
-// D-09's `uses_count <= max_uses` CHECK is the backstop: if this logic is ever
-// wrong, the database refuses the row rather than silently overselling a class.
-//
-// uses_count increments only for a NEW membership. Re-submitting is idempotent
-// (§6.2), and counting a repeat would let a student burn their own class's code
-// by pressing the button twice.
+// uses_count increments only when the membership is new, so a student
+// re-submitting a code they already used does not exhaust it.
 func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 	normalized := Normalize(in.RawCode)
 	if normalized == "" {
@@ -110,9 +100,6 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 	if err != nil {
 		return EnrolResult{}, fmt.Errorf("claim join code: %w", err)
 	}
-
-	// Same order as Preview, for the same reason: a closed class must answer
-	// exactly as a nonexistent one.
 	if !selfJoinEnabled {
 		return EnrolResult{Outcome: PreviewInvalid}, nil
 	}
@@ -124,9 +111,6 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 	case maxUses != nil && usesCount >= *maxUses:
 		return EnrolResult{Outcome: PreviewExhausted}, nil
 	}
-
-	// The account. Created only AFTER the code is known good, so a bad code
-	// leaves no user behind -- E2E 4's backend half.
 	userID := in.ExistingUserID
 	if in.NewMember != nil {
 		userID, err = createMember(ctx, tx, *in.NewMember)
@@ -134,10 +118,6 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 			return EnrolResult{}, err
 		}
 	}
-
-	// ON CONFLICT DO NOTHING is the idempotency (§6.2): a student who submits
-	// twice, or follows a deep link they already used, is already a member and
-	// that is a success.
 	const enrol = `
 		INSERT INTO app.class_members (class_id, user_id, joined_via, joined_at, join_code_id)
 		VALUES ($1, $2, 'join_code', $3, $4)
@@ -155,11 +135,6 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 			// D-09's CHECK fires here if the seat count was somehow wrong.
 			return EnrolResult{}, fmt.Errorf("increment uses_count: %w", err)
 		}
-
-		// §6.5 requires class_id, user_id, ip, user_agent and the time. The
-		// class is the entity and the student is the actor, which covers the
-		// first two; the code is in the diff because after a rotation the
-		// teacher needs "joined via the code that leaked" to be answerable.
 		diff, err := json.Marshal(map[string]string{
 			"class_id": classID, "user_id": userID, "join_code_id": codeID,
 		})
@@ -199,10 +174,6 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 func createMember(ctx context.Context, tx pgx.Tx, m NewMember) (string, error) {
 	name := strings.TrimSpace(m.FullName)
 	if name == "" {
-		// Google can return a profile with no name. An empty full_name would
-		// render as a blank row in the teacher's class list, so fall back to
-		// the part of the address before the @ -- recognisable, and the
-		// student can change it later.
 		name, _, _ = strings.Cut(m.Email, "@")
 	}
 
@@ -218,9 +189,6 @@ func createMember(ctx context.Context, tx pgx.Tx, m NewMember) (string, error) {
 		}
 		return "", fmt.Errorf("create member account: %w", err)
 	}
-
-	// No password_hash: self-join is Google-only (§6.3), so the identity is
-	// the credential and there is nothing to set must_change_password for.
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO app.user_identities (user_id, provider, provider_user_id, email_at_link)
 		 VALUES ($1, $2, $3, $4)`,

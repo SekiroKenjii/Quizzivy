@@ -68,9 +68,6 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 }
 
 func TestAClassCarriesItsCodesMetadataAndNeverTheCode(t *testing.T) {
-	// §13.3: the plaintext exists once, in the response that created it. There
-	// is only a hash stored, so nothing here COULD return it -- this pins that
-	// the panel is given the hint and the counters instead.
 	pool := newPool(t)
 	classID, teacherID, _ := makeClass(t, pool)
 	svc := classes.NewService(classes.NewStore(pool))
@@ -120,9 +117,6 @@ func TestAClassWithNoActiveCodeReportsNone(t *testing.T) {
 }
 
 func TestMembersShowHowEachOneGotIn(t *testing.T) {
-	// §6.4's whole purpose: this is the signal that replaces an approval queue
-	// (§17.2). After a rotation, the hint distinguishes "came in through the
-	// code that leaked" from "came in through the current one" (D-10).
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
 	svc := classes.NewService(classes.NewStore(pool))
@@ -170,9 +164,6 @@ func TestMembersShowHowEachOneGotIn(t *testing.T) {
 }
 
 func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
-	// §6.4: "remove-member revokes access and RETAINS attempts". The membership
-	// grants access; the attempts are the student's work and the teacher's
-	// record of it.
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
 	svc := classes.NewService(classes.NewStore(pool))
@@ -222,8 +213,6 @@ func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testin
 	if err := svc.RemoveMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
 		t.Errorf("removing a non-member: %v", err)
 	}
-	// But a class that does not exist is a 404, so a typo in the URL does not
-	// look like it worked.
 	err := svc.RemoveMember(ctx, "01935000-0000-7000-8000-00000000ffff", studentID, teacherID, "", "")
 	if !errors.Is(err, classes.ErrNotFound) {
 		t.Errorf("error = %v, want ErrNotFound", err)

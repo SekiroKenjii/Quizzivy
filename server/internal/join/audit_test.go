@@ -64,8 +64,6 @@ func TestAnEnrolmentWritesExactlyOneAuditRowWithANonNullIp(t *testing.T) {
 	if e.entityID != classID {
 		t.Errorf("entity_id = %s, want the class %s", e.entityID, classID)
 	}
-	// §6.5 names ip and user_agent specifically: an enrolment with neither is
-	// a record that somebody joined and nothing about who.
 	if e.ip != "203.0.113.201" {
 		t.Errorf("ip = %q, want 203.0.113.201", e.ip)
 	}
@@ -75,9 +73,6 @@ func TestAnEnrolmentWritesExactlyOneAuditRowWithANonNullIp(t *testing.T) {
 	if !e.hasTime {
 		t.Error("occurred_at is null")
 	}
-
-	// The code is in the diff because after a rotation the teacher needs
-	// "joined through the code that leaked" to be answerable.
 	var diff map[string]string
 	if err := json.Unmarshal(e.diff, &diff); err != nil {
 		t.Fatalf("diff is not an object: %v", err)
@@ -91,9 +86,6 @@ func TestAnEnrolmentWritesExactlyOneAuditRowWithANonNullIp(t *testing.T) {
 }
 
 func TestARepeatedEnrolmentDoesNotWriteASecondAuditRow(t *testing.T) {
-	// The membership did not change, so nothing happened to audit. Logging the
-	// repeat would make a student refreshing a page look like an enrolment
-	// event in the teacher's trail.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -123,9 +115,6 @@ func TestARepeatedEnrolmentDoesNotWriteASecondAuditRow(t *testing.T) {
 }
 
 func TestARefusedEnrolmentIsNotAudited(t *testing.T) {
-	// Nothing happened, so nothing is recorded. An audit trail that logs
-	// attempts alongside events makes the events harder to find, and §6.5 asks
-	// for enrolments.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)

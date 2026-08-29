@@ -4,17 +4,9 @@ import type { components } from "@/lib/api/schema";
 type User = components["schemas"]["User"];
 
 /**
- * The access token lives **in memory only** — never localStorage, never
- * sessionStorage (§5.2). That is why this is a Zustand store rather than a
- * persisted one: a token in web storage is readable by any script on the page,
- * and the whole point of the short-lived-token-plus-httpOnly-refresh-cookie
- * design is that an XSS cannot walk away with a durable credential.
- *
- * Losing the token on reload is the intended trade-off. `/auth/refresh` mints a
- * new one from the cookie, which JavaScript cannot read.
- *
- * There is a test asserting the token is absent from both storages. Do not
- * "fix" a reload flash by persisting it.
+ * Session state. The access token lives in memory only -- never localStorage or
+ * sessionStorage (§5.2) -- so a reload drops it and the refresh cookie is what
+ * restores the session.
  */
 interface AuthState {
   accessToken: string | null;

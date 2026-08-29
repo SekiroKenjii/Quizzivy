@@ -10,23 +10,8 @@ import (
 )
 
 var (
-	// ErrAccountNotProvisioned is §5.3 step 4's last branch: a real Google
-	// identity that matches nothing here and arrived without a join code.
-	//
-	// Deliberately explicit rather than opaque. The person has just proved to
-	// Google that they control this address, so telling them "you need a class
-	// code" reveals nothing they could not confirm themselves -- and the
-	// alternative is a sign-in that fails with no way forward.
 	ErrAccountNotProvisioned = errors.New("account not provisioned")
-
-	// ErrGoogleUnavailable means Google sign-in is not configured on this
-	// deployment. Distinct from a failed sign-in: nothing the user does will fix
-	// it, so it must not be reported as their problem.
-	ErrGoogleUnavailable = errors.New("google sign-in is not configured")
-
-	// ErrSelfEnrolNotAvailable marks the branch this task does not own. Creating
-	// and enrolling an account from a join code is T-1.8; until it lands, a
-	// joinCode reaches a seam rather than a wrong answer.
+	ErrGoogleUnavailable     = errors.New("google sign-in is not configured")
 	ErrSelfEnrolNotAvailable = errors.New("join-code signup is not implemented yet")
 )
 
@@ -102,10 +87,6 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 	if err != nil {
 		return GoogleSignInResult{}, err
 	}
-
-	// Before ANY lookup. An unverified email must not be able to reach the
-	// matching branch below, even to be rejected there -- and it must not be
-	// rescued by a join code either.
 	if !identity.EmailVerified {
 		return GoogleSignInResult{}, google.ErrEmailUnverified
 	}
@@ -123,13 +104,9 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 	user, err = s.store.FindUserByEmail(ctx, identity.Email)
 	switch {
 	case err == nil:
-		// Link before checking `disabled`, so a suspended account does not
-		// quietly accumulate a second unlinked Google identity on every attempt.
 		if err := s.store.LinkIdentity(ctx, user.ID, "google", identity.Subject, identity.Email); err != nil {
 			return GoogleSignInResult{}, err
 		}
-		// Re-read: the user we loaded predates the link, so its
-		// linkedProviders is already stale.
 		user, err = s.store.FindUserByID(ctx, user.ID)
 		if err != nil {
 			return GoogleSignInResult{}, fmt.Errorf("reload linked user: %w", err)
@@ -155,8 +132,6 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 			return GoogleSignInResult{}, err
 		}
 		if result.Outcome != join.PreviewOK {
-			// The account is NOT created: Enrol validates the code before it
-			// creates anything, and the whole thing is one transaction.
 			return GoogleSignInResult{}, JoinCodeRejected{Outcome: result.Outcome}
 		}
 
@@ -172,8 +147,6 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 }
 
 func (s *Service) googleSession(ctx context.Context, user User, in GoogleSignInInput, class *join.EnrolledClass) (GoogleSignInResult, error) {
-	// §5.1: a suspended account cannot sign in, by any route. Checked here
-	// rather than in each branch so no branch can forget.
 	if user.Disabled() {
 		return GoogleSignInResult{}, ErrAccountDisabled
 	}

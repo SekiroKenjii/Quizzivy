@@ -93,8 +93,6 @@ func rejectsWith(t *testing.T, tx *sql.Tx, wantConstraint, stmt string, args ...
 // ---------------------------------------------------------------- users
 
 func TestMustChangePasswordRequiresAPassword(t *testing.T) {
-	// [D-16] §5.4: a Google-only account flagged mustChangePassword would be
-	// trapped on a page it cannot complete, since the redirect is global.
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
 		rejectsWith(t, tx, "users_must_change_needs_password",
 			`INSERT INTO app.users (email, full_name, must_change_password)
@@ -111,9 +109,6 @@ func TestMustChangePasswordIsFineWithAPassword(t *testing.T) {
 }
 
 func TestEmailUniquenessIgnoresCase(t *testing.T) {
-	// A plain UNIQUE (email) would let these coexist, which breaks §5.1's rule
-	// that a verified Google email links to "the" existing user -- with two
-	// candidates, §5.3's resolution order has no defined answer.
 	withTx(t, migrated(t), func(tx *sql.Tx, _ fixture) {
 		mustExec(t, tx, `INSERT INTO app.users (email, full_name) VALUES ('Hoc.Vien@Example.com', 'A')`)
 		rejectsWith(t, tx, "users_email_lower_key",
@@ -150,8 +145,6 @@ func TestOneGoogleAccountCannotReachTwoUsers(t *testing.T) {
 // ------------------------------------------------------- refresh_tokens
 
 func TestRefreshTokenHashMustBeSha256Sized(t *testing.T) {
-	// A wrong-length hash would otherwise surface as a token that can never
-	// match -- an unexplained logout rather than an error.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "refresh_tokens_token_hash_check",
 			`INSERT INTO app.refresh_tokens (user_id, family_id, token_hash, expires_at)
@@ -170,8 +163,6 @@ func TestRefreshTokenCannotExpireBeforeItIsIssued(t *testing.T) {
 // ----------------------------------------------------- class_join_codes
 
 func TestJoinCodeCannotExceedMaxUses(t *testing.T) {
-	// [D-09] §6.5 treats the code as a bearer secret. Enforcing exhaustion only
-	// in the handler leaves an over-used code possible and silent.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "class_join_codes_not_over_used",
 			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, uses_count, created_by)
@@ -190,8 +181,6 @@ func TestJoinCodeCannotExpireBeforeItIsCreated(t *testing.T) {
 }
 
 func TestOnlyOneActiveCodePerClass(t *testing.T) {
-	// §6.1. Rotation must revoke before inserting, in one transaction; this is
-	// what makes "must" true rather than advisory.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
@@ -205,8 +194,6 @@ func TestOnlyOneActiveCodePerClass(t *testing.T) {
 }
 
 func TestRevokingFreesTheActiveSlot(t *testing.T) {
-	// The partial index keys on revoked_at IS NULL, so a revoked code must not
-	// block a replacement -- otherwise rotation could never succeed at all.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, revoked_at, created_by)
@@ -220,9 +207,6 @@ func TestRevokingFreesTheActiveSlot(t *testing.T) {
 }
 
 func TestAnExpiredCodeStillOccupiesTheActiveSlot(t *testing.T) {
-	// Deliberate, and easy to misread as a bug: the partial index keys on
-	// revoked_at, not on expiry. §6.1 says only rotation revokes, so an expired
-	// code still holds the slot until it is explicitly revoked.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
@@ -238,8 +222,6 @@ func TestAnExpiredCodeStillOccupiesTheActiveSlot(t *testing.T) {
 // -------------------------------------------------------- class_members
 
 func TestJoinSourceMustMatchTheCodeReference(t *testing.T) {
-	// [D-10] joined_via = 'admin' iff join_code_id IS NULL. Without it the
-	// member list §6.4 relies on could claim a code-based join with no code.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "class_members_source_consistent",
 			`INSERT INTO app.class_members (class_id, user_id, joined_via)
@@ -273,8 +255,6 @@ func TestCodeJoinRecordsWhichCode(t *testing.T) {
 // ------------------------------------------------------------ audit_log
 
 func TestAuditRowsSurviveTheirActor(t *testing.T) {
-	// §13.4. An audit trail that disappears when the actor is deleted is not an
-	// audit trail.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.audit_log (actor_user_id, action, entity, entity_id)
@@ -298,8 +278,6 @@ func TestAuditRowsSurviveTheirActor(t *testing.T) {
 }
 
 func TestDeletingAUserWhoIssuedACodeIsRefused(t *testing.T) {
-	// created_by is ON DELETE RESTRICT: the record of who issued a bearer
-	// secret must not be erasable by deleting the user.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
@@ -317,11 +295,6 @@ func TestDeletingAUserWhoIssuedACodeIsRefused(t *testing.T) {
 // server-side" true when a later code path forgets.
 
 func TestAnAudioAssetMustCarryItsDuration(t *testing.T) {
-	// §7 renders an audio player from `media.kind === 'audio'`, and the take-test
-	// timer budgets against the duration. An audio row with a null duration
-	// would render a player that cannot say how long anything is -- and the
-	// probe is deliberately allowed to REFUSE a file rather than store one
-	// (T-2.2), which only means something if the column cannot be null.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_audio_has_duration",
 			`INSERT INTO app.media_assets
@@ -332,8 +305,6 @@ func TestAnAudioAssetMustCarryItsDuration(t *testing.T) {
 }
 
 func TestANonAudioAssetMustNotCarryADuration(t *testing.T) {
-	// The other direction of the same equality. An image with a duration is a
-	// row nothing knows how to render.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_audio_has_duration",
 			`INSERT INTO app.media_assets
@@ -366,8 +337,6 @@ func TestAnOverlongAssetIsRejected(t *testing.T) {
 }
 
 func TestTheKindMustAgreeWithTheMimeType(t *testing.T) {
-	// Otherwise an 'image' row could carry audio/mpeg and the composite FK that
-	// D-05 exists for would attach an audio policy to something that is not.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_kind_matches_mime",
 			`INSERT INTO app.media_assets
@@ -378,8 +347,6 @@ func TestTheKindMustAgreeWithTheMimeType(t *testing.T) {
 }
 
 func TestAnUnknownMimeTypeIsRejected(t *testing.T) {
-	// §11.1 is an allowlist. §17.3 flags ogg/wav as revisitable, and this is
-	// what makes revisiting it a deliberate migration rather than a surprise.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "media_assets_mime_type_check",
 			`INSERT INTO app.media_assets
@@ -390,10 +357,6 @@ func TestAnUnknownMimeTypeIsRejected(t *testing.T) {
 }
 
 func TestTwoAssetsMayShareAChecksum(t *testing.T) {
-	// [D-06] The checksum index is NOT unique, and that is the whole decision:
-	// §11.1 says a re-upload never overwrites an existing object, so an
-	// identical file uploaded twice must produce two rows. The checksum powers
-	// a warning, not a constraint.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		for _, key := range []string{"media/first.mp3", "media/second.mp3"} {
 			mustExec(t, tx,
@@ -406,8 +369,6 @@ func TestTwoAssetsMayShareAChecksum(t *testing.T) {
 }
 
 func TestAValidAudioAssetIsAccepted(t *testing.T) {
-	// Without this the rejections above could all pass because the INSERT is
-	// malformed for some unrelated reason.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
 			`INSERT INTO app.media_assets
@@ -525,8 +486,6 @@ func TestImageQuestionCannotCarryAnAudioPolicy(t *testing.T) {
 }
 
 func TestMediaPairMustBeCompleteOrAbsent(t *testing.T) {
-	// A half-set pair makes the composite FK vacuous: a NULL component means
-	// the constraint is simply not checked.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		asset := newAudioAsset(t, tx, f.adminID)
 		rejectsWith(t, tx, "questions_media_pair_complete",
@@ -536,8 +495,6 @@ func TestMediaPairMustBeCompleteOrAbsent(t *testing.T) {
 }
 
 func TestSampleAnswerIsShortAnswerOnly(t *testing.T) {
-	// §7 marks sample_answer short_answer-only and ADMIN ONLY. This stops it
-	// being SET on a type whose grading UI would never display it.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "questions_sample_answer_only_short_answer",
 			`INSERT INTO app.questions (type, prompt, points, created_by, sample_answer)
@@ -562,8 +519,6 @@ func TestTranscriptRequiresAudio(t *testing.T) {
 }
 
 func TestBlankOrdinalsStartAtOne(t *testing.T) {
-	// A 0-ordinal blank would be unreachable from the prompt, which addresses
-	// blanks as {{1}}, {{2}}.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		q := newQuestion(t, tx, f.adminID, "fill_blank", "Điền vào {{1}}")
 		rejectsWith(t, tx, "question_blanks_ordinal_check",
@@ -572,8 +527,6 @@ func TestBlankOrdinalsStartAtOne(t *testing.T) {
 }
 
 func TestBlankAnswersAreCaseDistinct(t *testing.T) {
-	// UNIQUE (blank_id, answer) is exact, not lower(answer): a case_sensitive
-	// blank legitimately wants Cat and cat as two accepted answers.
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		q := newQuestion(t, tx, f.adminID, "fill_blank", "Điền vào {{1}}")
 		var blank string

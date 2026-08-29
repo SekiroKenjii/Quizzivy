@@ -40,18 +40,11 @@ export default function AdminLayout() {
   const { t } = useTranslation();
   // §8's breakpoint: at or below 1280px the sidebar collapses by default.
   const isNarrow = useMediaQuery("(max-width: 1280px)");
-
-  // Derived, not synced. `null` means "follow the breakpoint"; once the admin
-  // toggles it, their choice wins and keeps winning across resizes. Mirroring
-  // the breakpoint into state via an effect would fight the user every time the
-  // window crossed 1280px.
   const [override, setOverride] = useState<boolean | null>(null);
   const open = override ?? !isNarrow;
   const toggle = () => setOverride(!open);
 
   return (
-    // 768px is the minimum supported width (§8); below that the admin tree is
-    // allowed to scroll horizontally rather than reflow into a phone layout.
     <div className="flex min-h-svh min-w-[768px] flex-col">
       <header className="bg-background sticky top-0 z-10 border-b">
         <div className="flex h-14 items-center gap-3 px-4">

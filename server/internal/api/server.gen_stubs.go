@@ -23,17 +23,13 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	DB        DB
-	Auth      AuthService
-	Join      JoinService
-	Classes   ClassesService
-	Media     MediaService
-	Questions QuestionsService
-	Tokens    TokenVerifier
-
-	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
-	// is false only for plain-http localhost; everywhere else it must be true,
-	// or the cookie travels in the clear.
+	DB           DB
+	Auth         AuthService
+	Join         JoinService
+	Classes      ClassesService
+	Media        MediaService
+	Questions    QuestionsService
+	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
 	CookieSecure bool
 }

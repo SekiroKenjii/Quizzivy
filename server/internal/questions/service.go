@@ -20,17 +20,11 @@ func NewService(store *Store) *Service {
 	return &Service{store: store, now: time.Now}
 }
 
-// ErrMediaNotFound is a question pointing at an asset that is not there.
-// Separate from a validation failure because the field is well-formed -- the
-// asset simply does not exist, or has been deleted since the picker listed it.
+// ErrMediaNotFound is a well-formed asset id that resolves to nothing.
 var ErrMediaNotFound = errors.New("questions: media asset not found")
 
-// resolveMediaKind reads the asset's kind from the database.
-//
-// The kind is NEVER taken from the request. It is half of the composite FK
-// [D-05], and the whole point of that FK is that "audio policy implies an audio
-// asset" is enforced relationally rather than on the client's word. Accepting a
-// caller-supplied kind would put the lie back in.
+// resolveMediaKind reads the kind from the database rather than the request, so
+// a caller cannot declare an image to be audio.
 func (s *Service) resolveMediaKind(ctx context.Context, assetID *string) (*string, error) {
 	if assetID == nil {
 		return nil, nil
@@ -72,8 +66,6 @@ func (s *Service) write(ctx context.Context, req WriteRequest, update bool) (Que
 	if err != nil {
 		return Question{}, err
 	}
-	// Validated against the RESOLVED kind, so "audio policy iff audio asset"
-	// is decided by what the asset is rather than by what the request says.
 	if err := req.Input.Validate(kind); err != nil {
 		return Question{}, err
 	}
@@ -98,7 +90,7 @@ func (s *Service) Get(ctx context.Context, id string) (Question, error) {
 }
 
 // GetIncludingDeleted resolves a question whether or not it is deleted, for the
-// version snapshot path (§13.2).
+// version snapshot path.
 func (s *Service) GetIncludingDeleted(ctx context.Context, id string) (Question, error) {
 	return s.store.GetIncludingDeleted(ctx, id)
 }

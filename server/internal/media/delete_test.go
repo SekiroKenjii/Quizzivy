@@ -30,9 +30,6 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 	if deletedAt == nil {
 		t.Error("deleted_at is still null")
 	}
-
-	// §15 retains the object deliberately: a frozen version may still point at
-	// it, and lifecycle cleanup is out of v1 scope.
 	if len(objects.deletes) != 0 {
 		t.Errorf("the stored object was removed: %v", objects.deletes)
 	}

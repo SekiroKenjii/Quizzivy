@@ -27,17 +27,12 @@ export default function JoinPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { code: codeParam } = useParams();
-  const user = useAuthStore((s) => s.user);
+  const isSignedIn = useAuthStore((s) => s.user !== null);
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
 
   const [code, setCode] = useState(() => format(codeParam ?? ""));
   const [error, setError] = useState<string | null>(null);
-  // POST /app/classes/join is idempotent, but firing it twice under StrictMode
-  // would still spend two of §6.5's per-code allowance.
   const started = useRef(false);
-
-  // A mutation rather than hand-rolled state: `isPending` replaces a
-  // setState-in-effect, which is both the lint rule and the reason for it.
   const enrol = useMutation({
     mutationFn: (joinCode: string) => joinClass(joinCode),
     onSuccess: () => navigate("/app", { replace: true }),
@@ -45,12 +40,13 @@ export default function JoinPage() {
       setError(cause instanceof ApiError ? cause.message : t("join.failed")),
   });
 
+  const enrolMutate = enrol.mutate;
   useEffect(() => {
-    if (isBootstrapping || !user || !codeParam || started.current) return;
+    if (isBootstrapping || !isSignedIn || !codeParam || started.current) return;
     if (!isComplete(codeParam)) return;
     started.current = true;
-    enrol.mutate(normalize(codeParam));
-  }, [isBootstrapping, user, codeParam, enrol]);
+    enrolMutate(normalize(codeParam));
+  }, [isBootstrapping, isSignedIn, codeParam, enrolMutate]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -81,9 +77,6 @@ export default function JoinPage() {
           <Input
             id="join-code"
             value={code}
-            // Normalized on every keystroke (§6.1): the field only ever holds
-            // characters the alphabet contains, upper case, grouped. A student
-            // reading a code aloud cannot type it into an invalid state.
             onChange={(e) => {
               setCode(format(e.target.value));
               setError(null);

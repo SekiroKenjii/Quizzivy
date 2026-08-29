@@ -92,9 +92,6 @@ describe("§12 design tokens", () => {
   });
 
   it("routes every colour through a variable so dark mode stays addable", () => {
-    // §12: dark mode is out of scope for v1 but must be addable "without
-    // touching components". That only holds if the theme layer maps tokens to
-    // variables rather than to literals.
     const themeBlock = CSS.slice(CSS.indexOf("@theme inline"));
     const literals = [...themeBlock.matchAll(/--color-[a-z-]+:\s*(oklch|#|rgb)/gi)];
     expect(

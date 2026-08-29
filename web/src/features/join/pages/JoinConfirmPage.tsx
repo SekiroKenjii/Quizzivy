@@ -30,14 +30,6 @@ export default function JoinConfirmPage() {
 
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
-
-  // React Query rather than an effect: this is a fetch keyed on the URL, and
-  // it needs cancellation, a loading state and an error state -- which is the
-  // whole job description.
-  //
-  // No retry. Every failure here is a verdict on the code, not a hiccup:
-  // retrying an expired code three times just makes the student wait, and it
-  // spends three of §6.5's per-code allowance to learn nothing.
   const {
     data: preview,
     error: previewError,
@@ -48,12 +40,6 @@ export default function JoinConfirmPage() {
     retry: false,
     staleTime: 30_000,
   });
-
-  // The server already distinguishes invalid / expired / exhausted / revoked,
-  // and its messages are Vietnamese and deliberately say nothing about which
-  // classes exist (§6.5). Rendering them verbatim is what keeps that true: a
-  // client-side lookup keyed on the code would be free to add detail the
-  // server withheld.
   const error =
     joinError ??
     (previewError instanceof ApiError
@@ -64,8 +50,6 @@ export default function JoinConfirmPage() {
 
   async function onConfirm() {
     if (!user) {
-      // Anonymous: §6.3's Google-only signup, carrying the code so the server
-      // creates and enrols in one transaction.
       await google.start({ joinCode: normalize(code) });
       return;
     }
@@ -104,8 +88,6 @@ export default function JoinConfirmPage() {
   return (
     <div className="w-full max-w-sm rounded-lg border p-6 text-center">
       <p className="text-muted-foreground text-sm">{t("join.youAreJoining")}</p>
-      {/* The class name is the largest thing on the screen: it is the one fact
-          the student is being asked to confirm. */}
       <h1 className="mt-2 text-2xl font-semibold tracking-tight text-balance">
         {preview.className}
       </h1>

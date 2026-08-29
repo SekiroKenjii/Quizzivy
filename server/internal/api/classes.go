@@ -41,9 +41,6 @@ func (s *Server) ListClasses(ctx context.Context, _ openapi.ListClassesRequestOb
 	if err != nil {
 		return nil, err
 	}
-	// Never nil: the contract types `items` as an array, and a null would make
-	// every consumer handle a case that only exists because Go's zero slice is
-	// nil.
 	items := make([]openapi.Class, 0, len(found))
 	for _, c := range found {
 		items = append(items, toAPIAdminClass(c))

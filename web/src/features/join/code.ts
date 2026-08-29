@@ -11,6 +11,8 @@
 /** §6.1's alphabet, character for character. `I`, `O`, `0` and `1` are absent. */
 export const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+const ALPHABET_SET = new Set(ALPHABET);
+
 export const CODE_LENGTH = 8;
 
 /**
@@ -22,7 +24,11 @@ export const CODE_LENGTH = 8;
  * being discarded as "not in the alphabet".
  */
 export function normalize(input: string): string {
-  return [...input.toUpperCase()].filter((ch) => ALPHABET.includes(ch)).join("");
+  let out = "";
+  for (const ch of input.toUpperCase()) {
+    if (ALPHABET_SET.has(ch)) out += ch;
+  }
+  return out;
 }
 
 /** Groups for display: `XXXX-XXXX` (§6.1). */

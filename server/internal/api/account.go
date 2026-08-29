@@ -21,8 +21,6 @@ func (s *Server) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserReq
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
 	if !ok {
-		// Unreachable while the route is protected; a 401 rather than a panic
-		// if it ever stops being.
 		return openapi.GetCurrentUser401JSONResponse{
 			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
 		}, nil
@@ -31,8 +29,6 @@ func (s *Server) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserReq
 	user, err := s.Deps.Auth.CurrentUser(ctx, principal.UserID)
 	if err != nil {
 		if errors.Is(err, auth.ErrAccountDisabled) || errors.Is(err, auth.ErrUserNotFound) {
-			// A deleted or suspended account holding a live token. Same answer
-			// as an expired one: the session is over.
 			return openapi.GetCurrentUser401JSONResponse{
 				UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
 			}, nil
@@ -67,11 +63,9 @@ func (s *Server) ChangePassword(ctx context.Context, request openapi.ChangePassw
 
 	meta := httpx.RequestMetaFromContext(ctx)
 	err := s.Deps.Auth.ChangePassword(ctx, auth.ChangePasswordInput{
-		UserID:          principal.UserID,
-		CurrentPassword: request.Body.CurrentPassword,
-		NewPassword:     request.Body.NewPassword,
-		// The refresh cookie reaches this endpoint because it is scoped
-		// Path=/auth. It is how we know which session to spare.
+		UserID:           principal.UserID,
+		CurrentPassword:  request.Body.CurrentPassword,
+		NewPassword:      request.Body.NewPassword,
 		KeepRefreshToken: refreshTokenFromContext(ctx),
 		IP:               meta.IP,
 		UserAgent:        meta.UserAgent,

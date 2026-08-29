@@ -42,6 +42,33 @@ conflict to know: the skill teaches the pre-18
   promise. Parallel rotations trip reuse detection and log the user out on every
   cold load. See `docs/plan/30-risks.md` R-06.
 
+## Code style
+
+**Comments.** Comment abstractions, shared code, common utilities, and
+definitions — types, interfaces, exported functions. Implementation code must
+explain itself; where a comment is genuinely unavoidable inside a function body,
+**one line is the maximum**. This applies to the frontend as well.
+
+The reasoning behind a decision belongs in the commit message or in
+`docs/plan/`, not beside the statement. If a comment is running to a paragraph,
+it is documentation that has been pasted into the wrong file.
+
+- **No comment on the `package` declaration** in Go.
+- Doc comments follow Google's style: start with the identifier's name, state
+  what it is and any non-obvious contract, and stop.
+- **Never use an identifier marked `Deprecated`.** `make lint` runs staticcheck,
+  whose SA1019 fails the build on one.
+
+**Go.** Google's Go Style Guide, strictly. `gofmt`, `go vet` and `staticcheck`
+all have to be clean — `make lint` runs all three.
+
+**React.** Vercel's react-best-practices, strictly:
+<https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices>
+The ones this codebase keeps hitting are narrow effect dependencies (depend on
+primitives and stable callbacks, not objects), subscribing to derived state
+rather than raw objects, and Set/Map for repeated lookups in a keystroke path.
+`web/src/components/ui/**` is vendored shadcn and is exempt.
+
 ## Verified platform facts (PG18)
 
 Checked against the docs, not recalled. Do not re-derive; do not assume otherwise.

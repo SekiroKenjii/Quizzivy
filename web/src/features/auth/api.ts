@@ -11,8 +11,6 @@ export type User = components["schemas"]["User"];
 
 /** §5.4: called on every app load to decide between the app and `/login`. */
 export function fetchCurrentUser(signal?: AbortSignal): Promise<User> {
-  // `exactOptionalPropertyTypes` is on: passing `signal: undefined` is not the
-  // same as omitting it, so the property is only added when there is one.
   return api("get", "/auth/me", signal ? { signal } : {});
 }
 

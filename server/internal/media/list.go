@@ -59,8 +59,6 @@ func decodeCursor(s string) (cursor, error) {
 	if err != nil {
 		return cursor{}, ErrBadCursor
 	}
-	// Parsed rather than pattern-matched: this is interpolated nowhere, but a
-	// non-uuid here means the cursor did not come from us regardless.
 	if _, err := uuid.Parse(id); err != nil {
 		return cursor{}, ErrBadCursor
 	}
@@ -98,10 +96,6 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Asset, string, error)
 		}
 		after = &c
 	}
-
-	// One row beyond the page: having it means there is a next page, and its
-	// absence means there is not. A separate count(*) would be a second query
-	// and could disagree with this one under concurrent inserts.
 	const q = `
 		SELECT id::text, kind::text, storage_key, mime_type, bytes, duration_ms,
 		       original_filename, checksum_sha256, created_at

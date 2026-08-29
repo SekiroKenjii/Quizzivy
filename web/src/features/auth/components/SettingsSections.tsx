@@ -75,9 +75,6 @@ export function PasswordSection() {
       setNext("");
       setStatus({ kind: "ok", message: t("settings.passwordChanged") });
     } catch (cause) {
-      // A wrong current password is a 400, not a 401 -- see the server handler.
-      // A 401 would make the client refresh, retry, and sign the user out over
-      // a typo.
       setStatus({
         kind: "error",
         message: cause instanceof ApiError ? cause.message : t("error.body"),
@@ -88,8 +85,6 @@ export function PasswordSection() {
   }
 
   if (user && !user.hasPassword) {
-    // §6.3: a self-join account signs in with Google and has no password to
-    // change. Offering the form would be offering a flow that cannot succeed.
     return (
       <Section title={t("settings.password")} labelledBy="settings-password">
         <p className="text-muted-foreground text-sm">{t("settings.noPassword")}</p>
@@ -146,10 +141,6 @@ export function GoogleSection() {
   const [pending, setPending] = useState(false);
 
   const linked = user?.linkedProviders.includes("google") ?? false;
-  // §15: unlinking would leave no way in at all. The account would still
-  // exist, still hold its work, and nobody -- including its owner -- could sign
-  // into it. The server refuses this too; the control explains it beforehand
-  // rather than letting them press it and read a 409.
   const wouldLockOut = linked && !(user?.hasPassword ?? false);
 
   async function unlink() {

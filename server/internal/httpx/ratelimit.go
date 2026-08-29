@@ -47,8 +47,6 @@ func writeRateLimited(w http.ResponseWriter, r *http.Request, seconds float64) {
 	if retry < 1 {
 		retry = 1
 	}
-	// §6.5 requires Retry-After on a 429. Without it a client either gives up
-	// or retries immediately, and the immediate retry makes things worse.
 	w.Header().Set("Retry-After", strconv.Itoa(retry))
 	WriteError(w, r, http.StatusTooManyRequests, CodeRateLimited, "Bạn thao tác quá nhanh. Vui lòng thử lại sau.")
 }
