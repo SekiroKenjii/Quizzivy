@@ -234,3 +234,91 @@ func (s *Store) Update(ctx context.Context, classID string, in UpdateInput) (Cla
 	}
 	return s.Get(ctx, classID)
 }
+
+type AddMemberInput struct {
+	ClassID     string
+	UserID      string
+	ActorUserID string
+	Now         time.Time
+	IP          *string
+	UserAgent   *string
+}
+
+var ErrNotAStudent = errors.New("classes: not a student")
+
+// AddMember enrols an existing student directly, as joined_via 'admin'.
+//
+// Idempotent like RemoveMember: adding someone already in the class returns
+// their existing row rather than an error, because the teacher asked for a
+// state and that state already holds. The second add is not audited -- nothing
+// changed, and an audit log that records non-events is one nobody reads.
+func (s *Store) AddMember(ctx context.Context, in AddMemberInput) (Member, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Member{}, fmt.Errorf("begin add member: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var exists bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM app.classes WHERE id = $1::uuid)`,
+		in.ClassID).Scan(&exists); err != nil {
+		return Member{}, fmt.Errorf("add member: %w", err)
+	}
+	if !exists {
+		return Member{}, ErrNotFound
+	}
+
+	// An admin in a roster would be counted in every assignment total and sent
+	// a student's screens. A missing user is the same answer to the caller:
+	// that id is not somebody you can enrol.
+	var role string
+	switch err := tx.QueryRow(ctx,
+		`SELECT role::text FROM app.users WHERE id = $1::uuid AND disabled_at IS NULL`,
+		in.UserID).Scan(&role); {
+	case err == nil && role == "student":
+	case err == nil, errors.Is(err, pgx.ErrNoRows):
+		return Member{}, ErrNotAStudent
+	default:
+		return Member{}, fmt.Errorf("add member: %w", err)
+	}
+
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)
+		ON CONFLICT (class_id, user_id) DO NOTHING`,
+		in.ClassID, in.UserID, in.ActorUserID)
+	if err != nil {
+		return Member{}, fmt.Errorf("add member: %w", err)
+	}
+
+	if tag.RowsAffected() > 0 {
+		if err := audit.Write(ctx, tx, audit.Entry{
+			ActorUserID: &in.ActorUserID,
+			Action:      "class.member_added",
+			Entity:      "class_member",
+			EntityID:    &in.ClassID,
+			OccurredAt:  in.Now,
+			IP:          in.IP,
+			UserAgent:   in.UserAgent,
+		}); err != nil {
+			return Member{}, err
+		}
+	}
+
+	var m Member
+	if err := tx.QueryRow(ctx, `
+		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint
+		  FROM app.class_members m
+		  JOIN app.users u ON u.id = m.user_id
+		  LEFT JOIN app.class_join_codes jc ON jc.id = m.join_code_id
+		 WHERE m.class_id = $1::uuid AND m.user_id = $2::uuid`,
+		in.ClassID, in.UserID).
+		Scan(&m.UserID, &m.FullName, &m.Email, &m.JoinedVia, &m.JoinedAt, &m.JoinCodeHint); err != nil {
+		return Member{}, fmt.Errorf("add member: read back: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Member{}, fmt.Errorf("commit add member: %w", err)
+	}
+	return m, nil
+}

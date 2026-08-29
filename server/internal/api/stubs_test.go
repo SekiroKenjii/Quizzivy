@@ -22,9 +22,7 @@ import (
 // a routine change.
 var unimplemented = []string{
 	// Phase 3 — assignments and taking a test
-	"CreateAssignment",
 	"FlushEvents",
-	"GetAssignment",
 	"GetAttempt",
 	"GetMyAssignment",
 	"ListMyAssignments",
@@ -32,7 +30,6 @@ var unimplemented = []string{
 	"SaveAnswers",
 	"StartOrResumeAttempt",
 	"SubmitAttempt",
-	"UpdateAssignment",
 
 	// Phase 4 — monitoring, grading and results
 	"ExtendAttempt",
@@ -47,12 +44,10 @@ var unimplemented = []string{
 	"VoidAttempt",
 
 	// Classes and students beyond what §6.4 needed in Phase 1
-	"AddClassMember",
 	"CreateClass",
 	"CreateStudent",
 	"GetStudent",
 	"ListMyClasses",
-	"ListStudents",
 	"ResetStudentPassword",
 	"UpdateStudent",
 }

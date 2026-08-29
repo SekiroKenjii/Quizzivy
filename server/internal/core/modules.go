@@ -16,6 +16,7 @@ import (
 	"quizzivy/internal/media"
 	"quizzivy/internal/questions"
 	"quizzivy/internal/storage"
+	"quizzivy/internal/students"
 	"quizzivy/internal/tests"
 	"quizzivy/internal/tests/publish"
 )
@@ -51,6 +52,7 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		Publisher:    publish.NewPublisher(pool.Pool),
 		Dashboard:    dashboard.NewStore(pool.Pool),
 		Assignments:  assignments.NewStore(pool.Pool),
+		Students:     students.NewStore(pool.Pool),
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,

@@ -218,3 +218,89 @@ func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testin
 		t.Errorf("error = %v, want ErrNotFound", err)
 	}
 }
+
+func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+	ctx := context.Background()
+
+	m, err := svc.AddMember(ctx, classID, studentID, teacherID, "203.0.113.9", "go-test")
+	if err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	// The distinction §6.4 relies on: an admin enrolment is not a code join.
+	if m.JoinedVia != "admin" {
+		t.Errorf("joinedVia = %q, want admin", m.JoinedVia)
+	}
+	if m.JoinCodeHint != nil {
+		t.Errorf("joinCodeHint = %v, want nil", m.JoinCodeHint)
+	}
+	if m.UserID != studentID {
+		t.Errorf("userId = %s, want %s", m.UserID, studentID)
+	}
+
+	members, err := svc.Members(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(members) != 1 {
+		t.Fatalf("members = %d, want 1", len(members))
+	}
+}
+
+// Clicking "Thêm" twice on a slow connection is the ordinary way this happens.
+func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+	ctx := context.Background()
+
+	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
+		t.Fatalf("first add: %v", err)
+	}
+	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
+		t.Fatalf("second add: %v", err)
+	}
+
+	members, err := svc.Members(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(members) != 1 {
+		t.Errorf("members = %d, want 1", len(members))
+	}
+
+	var added int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM app.audit_log
+		  WHERE action = 'class.member_added' AND entity_id = $1::uuid`, classID).Scan(&added); err != nil {
+		t.Fatal(err)
+	}
+	if added != 1 {
+		t.Errorf("audit rows = %d, want 1: the second add changed nothing", added)
+	}
+}
+
+func TestOnlyAStudentCanBeEnrolled(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, _ := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+
+	_, err := svc.AddMember(context.Background(), classID, teacherID, teacherID, "", "")
+	if !errors.Is(err, classes.ErrNotAStudent) {
+		t.Fatalf("enrolling an admin: want ErrNotAStudent, got %v", err)
+	}
+}
+
+func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
+	pool := newPool(t)
+	_, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+
+	_, err := svc.AddMember(context.Background(),
+		"00000000-0000-7000-8000-0000000000cc", studentID, teacherID, "", "")
+	if !errors.Is(err, classes.ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}

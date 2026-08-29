@@ -5,10 +5,12 @@ package assignments
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -97,6 +99,76 @@ func decodeCursor(s string) (string, error) {
 	return string(raw), nil
 }
 
+// selectAssignment is shared by List and Get so a row can never mean one thing
+// in the list and another on the detail screen.
+const selectAssignment = `
+		SELECT a.id::text, a.test_id::text, a.test_version_id::text, v.version, t.title,
+		       a.opens_at, a.closes_at, a.closed_at,
+		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
+		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
+		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
+		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
+		       a.integrity_min_away_ms,
+		       coalesce((SELECT array_agg(ac.class_id::text) FROM app.assignment_classes ac
+		                  WHERE ac.assignment_id = a.id), '{}'),
+		       coalesce((SELECT array_agg(ast.user_id::text) FROM app.assignment_students ast
+		                  WHERE ast.assignment_id = a.id), '{}'),
+		       (SELECT count(*) FROM app.attempts at
+		         WHERE at.assignment_id = a.id AND at.status IN ('submitted','graded')),
+		       (SELECT count(*) FROM app.attempts at
+		         WHERE at.assignment_id = a.id AND at.flagged),
+		       -- One roster, not two counts added together: a student reached
+		       -- both through their class and by name is one person, and a
+		       -- total larger than the class can never read 13/13.
+		       (SELECT count(*) FROM (
+		            SELECT m.user_id
+		              FROM app.assignment_classes ac
+		              JOIN app.class_members m ON m.class_id = ac.class_id
+		             WHERE ac.assignment_id = a.id
+		            UNION
+		            SELECT ast.user_id FROM app.assignment_students ast
+		             WHERE ast.assignment_id = a.id
+		        ) roster)
+		  FROM app.assignments a
+		  JOIN app.tests t ON t.id = a.test_id
+		  JOIN app.test_versions v ON v.id = a.test_version_id
+`
+
+type querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func scanAssignment(row pgx.Row) (Assignment, error) {
+	var a Assignment
+	err := row.Scan(&a.ID, &a.TestID, &a.TestVersionID, &a.TestVersion, &a.TestTitle,
+		&a.OpensAt, &a.ClosesAt, &a.ClosedAt,
+		&a.DurationMin, &a.MaxAttempts, &a.ShuffleQ, &a.ShuffleO,
+		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
+		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
+		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
+		&a.ClassIDs, &a.StudentIDs,
+		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
+	return a, err
+}
+
+// Get returns one assignment.
+func (s *Store) Get(ctx context.Context, id string) (Assignment, error) {
+	return s.get(ctx, s.pool, id)
+}
+
+func (s *Store) get(ctx context.Context, q querier, id string) (Assignment, error) {
+	a, err := scanAssignment(q.QueryRow(ctx, selectAssignment+`
+		 WHERE a.id = $1::uuid`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Assignment{}, ErrNotFound
+	}
+	if err != nil {
+		return Assignment{}, fmt.Errorf("assignments: get: %w", err)
+	}
+	return a, nil
+}
+
 // List returns one page of assignments, newest first.
 //
 // The status filter is applied in SQL over the same expression StatusAt
@@ -131,31 +203,7 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, string, e
 		where = append(where, fmt.Sprintf(`a.id < $%d::uuid`, len(args)))
 	}
 
-	sql := `
-		SELECT a.id::text, a.test_id::text, a.test_version_id::text, v.version, t.title,
-		       a.opens_at, a.closes_at, a.closed_at,
-		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
-		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
-		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
-		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
-		       a.integrity_min_away_ms,
-		       coalesce((SELECT array_agg(ac.class_id::text) FROM app.assignment_classes ac
-		                  WHERE ac.assignment_id = a.id), '{}'),
-		       coalesce((SELECT array_agg(ast.user_id::text) FROM app.assignment_students ast
-		                  WHERE ast.assignment_id = a.id), '{}'),
-		       (SELECT count(*) FROM app.attempts at
-		         WHERE at.assignment_id = a.id AND at.status IN ('submitted','graded')),
-		       (SELECT count(*) FROM app.attempts at
-		         WHERE at.assignment_id = a.id AND at.flagged),
-		       (SELECT count(DISTINCT m.user_id)
-		          FROM app.assignment_classes ac
-		          JOIN app.class_members m ON m.class_id = ac.class_id
-		         WHERE ac.assignment_id = a.id)
-		     + (SELECT count(*) FROM app.assignment_students ast
-		         WHERE ast.assignment_id = a.id)
-		  FROM app.assignments a
-		  JOIN app.tests t ON t.id = a.test_id
-		  JOIN app.test_versions v ON v.id = a.test_version_id
+	sql := selectAssignment + `
 		 WHERE ` + join(where) + `
 		 ORDER BY a.id DESC
 		 LIMIT $1`
@@ -168,15 +216,8 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, string, e
 
 	var out []Assignment
 	for rows.Next() {
-		var a Assignment
-		if err := rows.Scan(&a.ID, &a.TestID, &a.TestVersionID, &a.TestVersion, &a.TestTitle,
-			&a.OpensAt, &a.ClosesAt, &a.ClosedAt,
-			&a.DurationMin, &a.MaxAttempts, &a.ShuffleQ, &a.ShuffleO,
-			&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
-			&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
-			&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
-			&a.ClassIDs, &a.StudentIDs,
-			&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount); err != nil {
+		a, err := scanAssignment(rows)
+		if err != nil {
 			return nil, "", fmt.Errorf("assignments: scan: %w", err)
 		}
 		out = append(out, a)

@@ -33,6 +33,11 @@ const testColumns = `
 	          FROM app.test_sections s
 	          JOIN app.test_section_questions sq ON sq.test_section_id = s.id
 	         WHERE s.test_id = t.id),
+	       (SELECT count(*)
+	          FROM app.test_sections s
+	          JOIN app.test_section_questions sq ON sq.test_section_id = s.id
+	          JOIN app.questions q ON q.id = sq.question_id
+	         WHERE s.test_id = t.id AND q.media_asset_kind = 'audio'),
 	       t.created_at, t.updated_at, t.deleted_at`
 
 type querier interface {
@@ -44,7 +49,7 @@ func scanTest(row pgx.Row) (Test, error) {
 	var t Test
 	var status string
 	err := row.Scan(&t.ID, &t.Title, &t.Description, &status, &t.CurrentVersion,
-		&t.TotalPoints, &t.QuestionCount, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
+		&t.TotalPoints, &t.QuestionCount, &t.AudioCount, &t.CreatedAt, &t.UpdatedAt, &t.DeletedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Test{}, ErrNotFound
 	}
