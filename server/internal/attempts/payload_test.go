@@ -1,0 +1,138 @@
+package attempts_test
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+// §13.5's rule, checked the way it actually fails: by value. A key-name walk
+// catches a field someone adds; only a value search catches a grading key that
+// arrives under an innocent name, or embedded in a string.
+func TestThePaperCarriesNoPartOfTheGradingKey(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+
+	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, secret := range []string{secretExplanation, secretSampleAnswer, secretBlankAnswer} {
+		if strings.Contains(string(encoded), secret) {
+			t.Errorf("the payload contains %q", secret)
+		}
+	}
+}
+
+// A guard against a field added later. Nothing in the domain types can carry
+// these today, which is the point -- this fails the moment that stops being
+// true, wherever in the tree it happens.
+func TestNoAnswerBearingFieldAppearsAtAnyDepth(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+
+	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tree any
+	if err := json.Unmarshal(encoded, &tree); err != nil {
+		t.Fatal(err)
+	}
+
+	banned := map[string]bool{
+		"iscorrect": true, "sampleanswer": true, "acceptedanswers": true,
+		"transcript": true, "explanation": true, "casesensitive": true,
+		// The seed and the token hash are the server's, not the student's: the
+		// seed would let a client predict every future paper, and the hash is
+		// the stored form of a live credential.
+		"shuffleseed": true, "seed": true, "beacontokenhash": true,
+	}
+	var walk func(node any, path string)
+	walk = func(node any, path string) {
+		switch v := node.(type) {
+		case map[string]any:
+			for key, child := range v {
+				if banned[strings.ToLower(key)] {
+					t.Errorf("%s.%s is in the student payload", path, key)
+				}
+				walk(child, path+"."+key)
+			}
+		case []any:
+			for i, child := range v {
+				walk(child, path+"["+string(rune('0'+i%10))+"]")
+			}
+		}
+	}
+	walk(tree, "$")
+}
+
+// The blank ids are shown; what may be typed into them is not. Reading the
+// answers table directly is the only way to be sure the projection never
+// touched it.
+func TestBlanksArriveWithoutTheirAcceptedAnswers(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+
+	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	var blanks int
+	for _, q := range session.Questions {
+		blanks += len(q.Blanks)
+		for _, b := range q.Blanks {
+			if b.ID == "" || b.Ordinal < 1 {
+				t.Errorf("blank %+v is not usable by the client", b)
+			}
+		}
+	}
+	if blanks != 2 {
+		t.Fatalf("%d blanks reached the student, want 2", blanks)
+	}
+
+	// Guards the fixture rather than the code: if the accepted answers stopped
+	// being seeded, the value search above would pass for the wrong reason.
+	if got := count(t, pool, `
+		SELECT count(*) FROM app.test_version_blank_answers ba
+		  JOIN app.test_version_blanks b ON b.id = ba.test_version_blank_id
+		 WHERE b.test_version_question_id = $1::uuid`, w.blank); got != 2 {
+		t.Fatalf("the fixture holds %d accepted answers, want 2; this test proves nothing", got)
+	}
+}
+
+// Options are what a student picks between. Which of them is right is the whole
+// secret, and it is not in the type.
+func TestOptionsArriveWithoutTheirCorrectness(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+
+	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	var options int
+	for _, q := range session.Questions {
+		options += len(q.Options)
+	}
+	if options != 4 {
+		t.Fatalf("%d options reached the student, want 4", options)
+	}
+	if got := count(t, pool,
+		`SELECT count(*) FROM app.test_version_options WHERE test_version_question_id = $1::uuid AND is_correct`,
+		w.choice); got != 1 {
+		t.Fatalf("the fixture marks %d options correct, want 1; this test proves nothing", got)
+	}
+}

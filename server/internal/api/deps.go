@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"quizzivy/internal/assignments"
+	"quizzivy/internal/attempts"
 	"quizzivy/internal/auth"
 	"quizzivy/internal/classes"
 	"quizzivy/internal/dashboard"
@@ -100,6 +101,11 @@ type AssignmentsService interface {
 	Get(ctx context.Context, id string) (assignments.Assignment, error)
 	Create(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
 	Update(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
+}
+
+// AttemptsService is the slice of internal/attempts the handlers use.
+type AttemptsService interface {
+	StartOrResume(ctx context.Context, assignmentID, studentID string) (attempts.Session, error)
 }
 
 // StudentsService is the slice of internal/students the handlers use.
