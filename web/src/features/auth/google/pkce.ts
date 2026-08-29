@@ -60,14 +60,30 @@ export function takePending(): PendingAuthorization | null {
   }
 }
 
+/**
+ * Validates what came out of storage before any of it is trusted.
+ *
+ * Every field is load-bearing: `verifier` goes to Google's token endpoint,
+ * `state` is what statesMatch compares against the URL, `mode` decides which
+ * endpoint the code is redeemed at, and `next` has string methods called on it
+ * by destinationAfterSignIn. The optional fields are checked too -- a stored
+ * `next` of `{}` is truthy and has no .startsWith, which would throw inside the
+ * callback effect.
+ */
 function isPendingAuthorization(value: unknown): value is PendingAuthorization {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v["state"] === "string" &&
     typeof v["verifier"] === "string" &&
-    (v["mode"] === "signin" || v["mode"] === "link")
+    (v["mode"] === "signin" || v["mode"] === "link") &&
+    isAbsentOrString(v["next"]) &&
+    isAbsentOrString(v["joinCode"])
   );
+}
+
+function isAbsentOrString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
