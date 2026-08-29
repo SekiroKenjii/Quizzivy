@@ -19,6 +19,7 @@ import (
 	"quizzivy/internal/db"
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
+	"quizzivy/internal/questions"
 	"quizzivy/internal/storage"
 )
 
@@ -90,6 +91,8 @@ func run(logger *slog.Logger) error {
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,
 	}
+
+	deps.Questions = questions.NewService(questions.NewStore(pool.Pool))
 
 	if cfg.MediaEnabled() {
 		objects, err := storage.New(ctx, storage.Config{

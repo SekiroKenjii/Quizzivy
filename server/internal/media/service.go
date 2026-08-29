@@ -295,6 +295,12 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, string, erro
 	return assets, next, nil
 }
 
+// Get resolves one live asset, so another package can render an attachment
+// without reaching into media's store.
+func (s *Service) Get(ctx context.Context, id string) (Asset, error) {
+	return s.store.Get(ctx, id)
+}
+
 // Delete soft-deletes an unreferenced asset.
 func (s *Service) Delete(ctx context.Context, in DeleteInput) error {
 	if in.Now.IsZero() {

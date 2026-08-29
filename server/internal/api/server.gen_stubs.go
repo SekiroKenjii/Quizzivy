@@ -23,12 +23,13 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	DB      DB
-	Auth    AuthService
-	Join    JoinService
-	Classes ClassesService
-	Media   MediaService
-	Tokens  TokenVerifier
+	DB        DB
+	Auth      AuthService
+	Join      JoinService
+	Classes   ClassesService
+	Media     MediaService
+	Questions QuestionsService
+	Tokens    TokenVerifier
 
 	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
 	// is false only for plain-http localhost; everywhere else it must be true,
@@ -104,26 +105,6 @@ func (s *Server) AddClassMember(_ context.Context, _ openapi.AddClassMemberReque
 }
 
 func (s *Server) GetDashboard(_ context.Context, _ openapi.GetDashboardRequestObject) (openapi.GetDashboardResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListQuestions(_ context.Context, _ openapi.ListQuestionsRequestObject) (openapi.ListQuestionsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) CreateQuestion(_ context.Context, _ openapi.CreateQuestionRequestObject) (openapi.CreateQuestionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) DeleteQuestion(_ context.Context, _ openapi.DeleteQuestionRequestObject) (openapi.DeleteQuestionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetQuestion(_ context.Context, _ openapi.GetQuestionRequestObject) (openapi.GetQuestionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateQuestion(_ context.Context, _ openapi.UpdateQuestionRequestObject) (openapi.UpdateQuestionResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

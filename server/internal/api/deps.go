@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/httpx"
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
+	"quizzivy/internal/questions"
 )
 
 // DB is the slice of the pool handlers need. An interface rather than the
@@ -54,9 +55,20 @@ type MediaService interface {
 	List(ctx context.Context, in media.ListInput) ([]media.Asset, string, error)
 	Delete(ctx context.Context, in media.DeleteInput) error
 	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
+	// Get resolves one asset, so a question can render its attachment.
+	Get(ctx context.Context, id string) (media.Asset, error)
 	// SignedURLTTL is what the Cache-Control directive is derived from, so the
 	// header and the signature cannot state different lifetimes.
 	SignedURLTTL() time.Duration
+}
+
+// QuestionsService is the slice of internal/questions the handlers use.
+type QuestionsService interface {
+	List(ctx context.Context, in questions.ListInput) ([]questions.Question, string, error)
+	Get(ctx context.Context, id string) (questions.Question, error)
+	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
+	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
+	Delete(ctx context.Context, req questions.WriteRequest) error
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the
