@@ -48,11 +48,14 @@ export function PublishDialog({ violations, onClose, onGoTo }: PublishDialogProp
                 className="text-destructive mt-0.5 size-4 shrink-0"
                 aria-hidden="true"
               />
-              <p className="min-w-0 flex-1 text-sm">{violation.message}</p>
+              <p id={messageId(index)} className="min-w-0 flex-1 text-sm">
+                {violation.message}
+              </p>
               {violation.questionId ? (
                 <Button
                   variant="outline"
                   size="xs"
+                  aria-describedby={messageId(index)}
                   onClick={() => onGoTo(violation.questionId!)}
                 >
                   {t("builder.goToQuestion")}
@@ -70,4 +73,10 @@ export function PublishDialog({ violations, onClose, onGoTo }: PublishDialogProp
       </DialogContent>
     </Dialog>
   );
+}
+
+// Every row's button reads "Đi tới"; the message beside it is what says where.
+// Linking them is what lets a screen reader announce the two together.
+function messageId(index: number): string {
+  return `publish-violation-${index}`;
 }

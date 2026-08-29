@@ -12,6 +12,14 @@ export function AutosaveStatusLabel({ status }: { status: AutosaveStatus }) {
 
   if (status.kind === "idle") return null;
 
+  if (status.kind === "dirty") {
+    return (
+      <span role="status" aria-live="polite" className="text-muted-foreground text-xs">
+        {t("builder.dirty")}
+      </span>
+    );
+  }
+
   if (status.kind === "saving") {
     return (
       <span role="status" aria-live="polite" className="text-muted-foreground text-xs">

@@ -184,6 +184,12 @@ jobs:
       S3_BUCKET: quizzivy-media
       S3_ACCESS_KEY_ID: quizzivy
       S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+      # MinIO is addressed by path, not by virtual host. Without this the SDK
+      # sends the bucket as a subdomain, MinIO reads the first path segment as
+      # the bucket instead, and every upload fails with NoSuchBucket for a
+      # bucket named "audio". .env sets it for the same reason; only R2 in
+      # production leaves it unset.
+      S3_FORCE_PATH_STYLE: "true"
 
     steps:
       - uses: actions/checkout@v4

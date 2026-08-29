@@ -78,7 +78,7 @@ export function OptionsEditor({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={t("questionEditor.removeOption")}
+                aria-label={t("questionEditor.removeOptionN", { n: index + 1 })}
                 onClick={() => onChange(options.filter((_, i) => i !== index))}
               >
                 <Trash2 aria-hidden="true" />

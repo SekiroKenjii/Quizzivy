@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +12,26 @@ import "@/lib/i18n";
 const BASE = "http://localhost:8080";
 const CLASS_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
 const FULL_CODE = "K7M3-P9QR";
+
+/**
+ * The clock is pinned because the panel compares the fixture's `expiresAt`
+ * against it: `expired` decides whether the primary button says "Tạo mã mới" or
+ * "Mở tham gia bằng mã", so on 27/09/2026 this file would have started failing
+ * eight of its tests, and the expired-code block would have gone green for the
+ * wrong reason.
+ *
+ * Only `Date` is faked. `setTimeout` stays real so `waitFor` and userEvent
+ * behave normally.
+ */
+const NOW = new Date("2026-08-29T00:00:00Z");
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: NOW });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const klass: components["schemas"]["Class"] = {
   id: CLASS_ID,

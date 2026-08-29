@@ -153,7 +153,9 @@
     "stop": "Stop",
     "freshTitle": "A new code for this class",
     "copyCode": "Copy the code",
-    "done": "Done"
+    "done": "Done",
+    "removeNamed": "Remove {{name}} from the class",
+    "noMemberMatches": "No student matches “{{query}}”."
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -219,7 +221,8 @@
     "rejectTitle": "This file cannot be used",
     "rejectRetry": "Choose another file",
     "rejectFolder": "No file arrived. If you dragged a folder, open it and drag the files themselves.",
-    "rejectMany": "One file at a time. Please drag them one by one."
+    "rejectMany": "One file at a time. Please drag them one by one.",
+    "deleteNamed": "Delete {{name}}"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -290,7 +293,11 @@
       "answerRequired": "A blank still has no accepted answer.",
       "placeholderMismatch": "The blank markers do not match."
     },
-    "preview": "What the student sees"
+    "preview": "What the student sees",
+    "removeOptionN": "Remove option {{n}}",
+    "removeBlankN": "Remove blank {{n}}",
+    "acceptedAnswersFor": "Accepted answers for blank {{n}}",
+    "caseSensitiveFor": "Case sensitivity for blank {{n}}"
   },
   "builder": {
     "outline": "Structure",
@@ -333,7 +340,11 @@
     "newSection": "Section {{n}}",
     "addFailed": "Could not add the question. Please try again.",
     "starterPrompt": "New question — type the text here",
-    "starterOption": "Option {{n}}"
+    "starterOption": "Option {{n}}",
+    "dirty": "Not saved",
+    "bankNoMatches": "No question matches.",
+    "bankAllAdded": "Every question found is already in this test.",
+    "outlineQuestionsOnly": "{{questions}} questions"
   },
   "bank": {
     "typeFilter": "Question type",
@@ -352,7 +363,9 @@
     "points": "Points",
     "preview": "Preview",
     "loadMore": "Show more",
-    "previewExpired": "The preview link has expired. Reload the list to play it."
+    "previewExpired": "The preview link has expired. Reload the list to play it.",
+    "previewOf": "Preview: {{prompt}}",
+    "summarySoFar": "{{count}} questions loaded"
   },
   "tests": {
     "summary": "{{count}} tests",
@@ -388,7 +401,8 @@
     "previewFailed": "Could not load the preview.",
     "openBuilder": "Open the builder",
     "detailFailed": "Could not load the test.",
-    "previewNote": "This is what a student receives. Editing the draft does not change the published version."
+    "previewNote": "This is what a student receives. Editing the draft does not change the published version.",
+    "summarySoFar": "{{count}} tests loaded"
   },
   "preview": {
     "questionNumber": "Question {{n}}",

@@ -115,14 +115,29 @@ function Builder({ test }: { test: Test }) {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
+  // The version guard moves with each save.
+  //
+  // `test.updatedAt` is what the builder read when it mounted, and every save
+  // advances it server-side (the tests_set_updated_at trigger fires even on an
+  // outline-only write). Sending the mount-time value again is a STALE_WRITE,
+  // and that is terminal: the badge says the test is open somewhere else, and
+  // every later edit is dropped -- in a single tab, with nobody else editing.
+  //
+  // E2E 1a did not catch it because it types fast enough that every outline
+  // edit coalesces into one save; a teacher working over minutes hits it on
+  // their second edit.
+  const version = useRef(test.updatedAt);
+
   const outline = useAutosave<{ title: string; sections: OutlineSection[] }>({
     save: async (draft) => {
-      await saveOutline(test.id, {
-        expectedUpdatedAt: test.updatedAt,
+      const saved = await saveOutline(test.id, {
+        expectedUpdatedAt: version.current,
         title: draft.title,
         description: test.description ?? null,
         sections: draft.sections,
       });
+      version.current = saved.updatedAt;
+      queryClient.setQueryData(["admin-test", test.id], saved);
     },
   });
 

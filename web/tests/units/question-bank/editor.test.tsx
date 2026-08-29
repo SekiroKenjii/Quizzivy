@@ -119,7 +119,9 @@ describe("the question editor, per question type", () => {
     await user.click(screen.getByRole("button", { name: "Thêm chỗ trống" }));
 
     expect(screen.getByText("Chỗ trống 1")).toBeInTheDocument();
-    expect(screen.getByLabelText("Đáp án được chấp nhận")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Đáp án được chấp nhận cho chỗ trống 1"),
+    ).toBeInTheDocument();
   });
 
   it("short_answer exposes a sample answer labelled as admin-only", () => {

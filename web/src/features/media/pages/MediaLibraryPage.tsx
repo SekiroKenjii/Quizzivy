@@ -72,10 +72,12 @@ export default function MediaLibraryPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{t("media.title")}</h1>
           <p className="text-muted-foreground mt-0.5 text-sm">
-            {t("media.summary", {
-              count: assets.length,
-              size: formatBytes(totalBytes),
-            })}
+            {library.isSuccess
+              ? t("media.summary", {
+                  count: assets.length,
+                  size: formatBytes(totalBytes),
+                })
+              : "\u00a0"}
           </p>
         </div>
         <Button size="sm" onClick={() => uploader.current?.choose()}>
@@ -213,7 +215,7 @@ function AssetTable({
                   size="icon-xs"
                   disabled={used}
                   title={used ? t("media.deleteBlocked") : undefined}
-                  aria-label={t("media.delete")}
+                  aria-label={t("media.deleteNamed", { name: asset.originalFilename })}
                   onClick={() => onDelete(asset)}
                 >
                   <Trash2 aria-hidden="true" />
