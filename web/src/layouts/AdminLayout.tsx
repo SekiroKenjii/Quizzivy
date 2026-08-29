@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Fragment } from "react";
 import { NavLink, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -25,16 +26,41 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
  * fine here; §12 puts admin tables at ~40px rows.
  */
 
-const NAV = [
-  { to: "/admin", end: true, icon: LayoutDashboard, key: "nav.dashboard" },
-  { to: "/admin/tests", icon: FileText, key: "nav.tests" },
-  { to: "/admin/question-bank", icon: Library, key: "nav.questionBank" },
-  { to: "/admin/media", icon: AudioLines, key: "nav.media" },
-  { to: "/admin/assignments", icon: ClipboardList, key: "nav.assignments" },
-  { to: "/admin/students", icon: Users, key: "nav.students" },
-  { to: "/admin/classes", icon: GraduationCap, key: "nav.classes" },
-  { to: "/admin/settings", icon: Settings, key: "nav.settings" },
+// Grouped as the design deck's sidebar template groups them: authoring above,
+// the class-facing work below, settings pinned to the bottom.
+const SECTIONS = [
+  {
+    label: "nav.sectionTeaching",
+    items: [
+      { to: "/admin", end: true, icon: LayoutDashboard, key: "nav.dashboard" },
+      { to: "/admin/tests", icon: FileText, key: "nav.tests" },
+      { to: "/admin/question-bank", icon: Library, key: "nav.questionBank" },
+      { to: "/admin/media", icon: AudioLines, key: "nav.media" },
+    ],
+  },
+  {
+    label: "nav.sectionClasses",
+    items: [
+      { to: "/admin/assignments", icon: ClipboardList, key: "nav.assignments" },
+      { to: "/admin/students", icon: Users, key: "nav.students" },
+      { to: "/admin/classes", icon: GraduationCap, key: "nav.classes" },
+    ],
+  },
 ] as const;
+
+const SETTINGS = {
+  to: "/admin/settings",
+  icon: Settings,
+  key: "nav.settings",
+} as const;
+
+const itemClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    "focus-visible:ring-ring flex items-center gap-2.5 rounded-md px-3 py-[0.4375rem] text-[0.8125rem] transition-colors focus-visible:ring-2 focus-visible:outline-none",
+    isActive
+      ? "bg-secondary text-secondary-foreground font-medium"
+      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+  );
 
 export default function AdminLayout() {
   const { t } = useTranslation();
@@ -72,29 +98,33 @@ export default function AdminLayout() {
           id="admin-sidebar"
           aria-label={t("nav.mainNavigation")}
           hidden={!open}
-          className="w-56 shrink-0 border-r p-2"
+          className="flex w-60 shrink-0 flex-col gap-0.5 border-r p-2"
         >
-          <ul className="space-y-0.5">
-            {NAV.map((item) => (
-              <li key={item.to}>
+          {SECTIONS.map((section) => (
+            <Fragment key={section.label}>
+              <p className="text-muted-foreground px-3 pt-3 pb-1 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase">
+                {t(section.label)}
+              </p>
+              {section.items.map((item) => (
                 <NavLink
+                  key={item.to}
                   to={item.to}
                   end={"end" in item ? item.end : false}
-                  className={({ isActive }) =>
-                    cn(
-                      "focus-visible:ring-ring flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
-                      isActive
-                        ? "bg-secondary text-secondary-foreground font-medium"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-                    )
-                  }
+                  className={itemClass}
                 >
                   <item.icon className="size-4 shrink-0" aria-hidden="true" />
                   {t(item.key)}
                 </NavLink>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </Fragment>
+          ))}
+
+          <div className="mt-auto">
+            <NavLink to={SETTINGS.to} className={itemClass}>
+              <SETTINGS.icon className="size-4 shrink-0" aria-hidden="true" />
+              {t(SETTINGS.key)}
+            </NavLink>
+          </div>
         </nav>
 
         <main className="min-w-0 flex-1 p-6">

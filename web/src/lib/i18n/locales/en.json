@@ -41,7 +41,9 @@
     "settings": "Settings",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "sectionTeaching": "Teaching",
+    "sectionClasses": "Classes"
   },
   "student": {
     "myAssignments": "My assignments",
@@ -166,9 +168,12 @@
     "cancelled": "Upload cancelled.",
     "chooseFile": "Choose a file from your device",
     "columnDuration": "Length",
+    "columnFile": "File",
     "columnName": "File name",
     "columnSize": "Size",
-    "columnUsage": "In use",
+    "columnType": "Type",
+    "columnUploaded": "Uploaded",
+    "columnUsage": "Used in",
     "delete": "Delete",
     "deleteBlocked": "This file is used by a published test and cannot be deleted.",
     "deleteConfirmBody": "It will be removed from the library. Published tests keep working.",
@@ -180,17 +185,21 @@
     "loadFailed": "Could not load the media library.",
     "loading": "Loading the library…",
     "notUsed": "Not used",
+    "notUsedBadge": "not used",
     "pickChange": "Change file",
     "pickClear": "Clear",
     "pickNone": "No file chosen",
     "pickTitle": "Choose a file",
+    "preview": "Preview",
     "rejectDuration": "The file is {{minutes}} minutes, over the 5 minute limit. Please trim it.",
     "rejectSize": "The file is over 10 MB. Please compress or trim it.",
     "rejectType": "Only mp3 and m4a files are accepted.",
+    "summary": "{{count}} files · {{size}}",
     "title": "Media library",
     "upload": "Upload a file",
     "uploadFailed": "Upload failed. Please try again.",
     "uploading": "Uploading…",
-    "usedIn": "{{count}} published test(s)"
+    "usedIn": "{{count}} published test(s)",
+    "usedInPublished": "{{count}} published test(s)"
   }
 }
