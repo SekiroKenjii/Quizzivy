@@ -18,6 +18,12 @@ var ErrUnsupportedType = errors.New("probe: unsupported media type")
 // tell a teacher than "something went wrong".
 var ErrUnmeasurable = errors.New("probe: cannot determine duration")
 
+// The audio MIME types this package identifies, per §11.1's allowlist.
+const (
+	MIMEMP3 = "audio/mpeg"
+	MIMEMP4 = "audio/mp4"
+)
+
 // Audio identifies and measures an audio file.
 //
 // Identification is by MAGIC BYTES, never by extension or by the
@@ -30,19 +36,19 @@ func Audio(r io.ReaderAt, size int64) (mime string, durationMs int, err error) {
 	}
 
 	switch sniff(r, size) {
-	case "audio/mpeg":
+	case MIMEMP3:
 		ms, err := mp3Duration(r, size)
 		if err != nil {
 			return "", 0, fmt.Errorf("%w: %v", ErrUnmeasurable, err)
 		}
-		return "audio/mpeg", ms, nil
+		return MIMEMP3, ms, nil
 
-	case "audio/mp4":
+	case MIMEMP4:
 		ms, err := mp4Duration(r, size)
 		if err != nil {
 			return "", 0, fmt.Errorf("%w: %v", ErrUnmeasurable, err)
 		}
-		return "audio/mp4", ms, nil
+		return MIMEMP4, ms, nil
 
 	default:
 		return "", 0, ErrUnsupportedType
@@ -60,7 +66,7 @@ func sniff(r io.ReaderAt, size int64) string {
 	if len(head) >= 12 && string(head[4:8]) == "ftyp" {
 		switch string(head[8:12]) {
 		case "M4A ", "M4B ", "mp42", "mp41", "isom", "iso2", "dash", "M4V ":
-			return "audio/mp4"
+			return MIMEMP4
 		default:
 			return ""
 		}
@@ -68,11 +74,11 @@ func sniff(r io.ReaderAt, size int64) string {
 
 	// An ID3v2 tag means mp3 in every practical case.
 	if len(head) >= 3 && string(head[0:3]) == "ID3" {
-		return "audio/mpeg"
+		return MIMEMP3
 	}
 	if len(head) >= 4 {
 		if _, err := parseFrameHeader(head[0:4]); err == nil {
-			return "audio/mpeg"
+			return MIMEMP3
 		}
 	}
 	return ""
