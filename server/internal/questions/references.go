@@ -2,6 +2,7 @@ package questions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -26,4 +27,34 @@ func CountDraftReferences(ctx context.Context, q Querier, questionID string) (in
 		return 0, fmt.Errorf("questions: count draft references: %w", err)
 	}
 	return n, nil
+}
+
+// LockForDraftUse takes the row lock that makes the delete check meaningful,
+// and must be called before inserting into app.test_section_questions.
+//
+// SoftDelete locks the question row and then counts draft references, but a
+// FOR UPDATE on app.questions does not block an INSERT into a different table.
+// Without both sides contending on the same row, a draft can claim a question
+// between the count and the update, leaving an outline pointing at a
+// soft-deleted question -- the state the 409 exists to prevent. The foreign
+// key does not cover it either: ON DELETE RESTRICT fires on a real DELETE, and
+// this is a soft delete.
+//
+// Returns ErrNotFound if the question is gone or already deleted, so a caller
+// cannot add a deleted question to a draft either.
+func LockForDraftUse(ctx context.Context, q Querier, questionID string) error {
+	var deleted bool
+	err := q.QueryRow(ctx,
+		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,
+		questionID).Scan(&deleted)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("questions: lock for draft use: %w", err)
+	}
+	if deleted {
+		return ErrNotFound
+	}
+	return nil
 }

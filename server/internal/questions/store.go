@@ -347,7 +347,8 @@ func (s *Store) SoftDelete(ctx context.Context, in WriteInput) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Locked before the reference count, so a draft cannot claim it in between.
+	// Locked before the reference count. On its own this only orders concurrent
+	// deletes -- see LockForDraftUse, which the insert side must call.
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,
