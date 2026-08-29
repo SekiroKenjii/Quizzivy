@@ -168,17 +168,6 @@ jobs:
           --health-timeout 3s
           --health-retries 30
 
-      # bitnami/minio rather than minio/minio: a service container cannot
-      # override the image command, and minio/minio needs `server /data`.
-      # MINIO_DEFAULT_BUCKETS also saves a separate mc step.
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: quizzivy
-          MINIO_ROOT_PASSWORD: quizzivy-dev-secret
-          MINIO_DEFAULT_BUCKETS: quizzivy-media
-        ports: ["9000:9000"]
-
     env:
       PGHOST: localhost
       PGPORT: "5432"
@@ -225,15 +214,15 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-18
 
-      # Checked from the runner rather than as a container healthcheck: the
-      # image has no curl, so `--health-cmd` would fail the container itself.
-      - name: Wait for MinIO
+      # MinIO comes from the repo's own compose file rather than a service
+      # container: a service container cannot override the image command, and
+      # minio/minio needs `server /data`. Reusing compose also means CI and a
+      # developer's machine start the same MinIO with the same bucket, created
+      # and made private by the same minio-init step.
+      - name: Start MinIO
         run: |
-          for _ in $(seq 1 40); do
-            curl -fsS http://localhost:9000/minio/health/live >/dev/null && exit 0
-            sleep 1
-          done
-          echo "MinIO did not become ready"; exit 1
+          docker compose up -d --wait minio minio-init
+          docker compose ps
 
       - name: Provision roles and database
         run: ./scripts/provision-db.sh
