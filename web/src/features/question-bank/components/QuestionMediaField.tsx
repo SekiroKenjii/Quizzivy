@@ -9,6 +9,7 @@ import {
 } from "@/features/media/components/UploadPanel";
 import { useFileDrop } from "@/features/media/useFileDrop";
 import type { MediaAsset } from "@/features/media/api";
+import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { formatBytes, formatDuration } from "@/features/media/format";
 
 interface QuestionMediaFieldProps {
@@ -53,22 +54,37 @@ export function QuestionMediaField({ value, onChange }: QuestionMediaFieldProps)
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-3 rounded-lg border p-3.5">
-          <FileAudio className="text-muted-foreground size-5" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{value.originalFilename}</p>
-            <p className="text-muted-foreground text-xs tabular-nums">
-              {formatDuration(value.durationMs)} · {formatBytes(value.bytes)}
-            </p>
+        <div className="space-y-3 rounded-lg border p-3.5">
+          <div className="flex items-center gap-3">
+            <FileAudio className="text-muted-foreground size-5" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{value.originalFilename}</p>
+              <p className="text-muted-foreground text-xs tabular-nums">
+                {formatDuration(value.durationMs)} · {formatBytes(value.bytes)}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("questionEditor.mediaRemove")}
+              onClick={() => onChange(null)}
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={t("questionEditor.mediaRemove")}
-            onClick={() => onChange(null)}
-          >
-            <Trash2 aria-hidden="true" />
-          </Button>
+
+          {/* A-05 puts a player in this card: the teacher who just attached a
+            file wants to hear that it is the right one, and sending them to the
+            media library to check is the trip the inline preview exists to
+            avoid. */}
+          {value.kind === "audio" ? (
+            <AudioPlayer
+              src={value.url}
+              label={value.originalFilename}
+              durationMs={value.durationMs}
+              size="sm"
+            />
+          ) : null}
         </div>
       )}
 

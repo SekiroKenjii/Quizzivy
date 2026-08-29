@@ -127,7 +127,14 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
   // The server sniffed the bytes and measured the duration. 0:10 is what the
   // pure-Go probe reads out of this fixture (probe_test.go: 10005ms), so the
   // number appearing here is proof the probe ran rather than a mock answering.
-  await expect(page.getByText(/0:10/)).toBeVisible();
+  //
+  // Asserted in both places it now appears -- the file's own meta line and the
+  // player's clock -- because the two read the duration by different routes:
+  // the meta line from the API response, the clock from the audio element once
+  // it has the file. A player showing 0:00 / 0:00 beside a correct meta line is
+  // exactly the failure a single loose /0:10/ would have hidden.
+  await expect(page.getByText(/0:10 · /)).toBeVisible();
+  await expect(page.getByText("0:00 / 0:10")).toBeVisible();
 
   // §11.1's defaults arrive with the asset, visibly.
   await expect(page.getByLabel("Số lần được nghe")).toHaveValue("2");

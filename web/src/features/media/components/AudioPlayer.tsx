@@ -12,6 +12,8 @@ interface AudioPlayerProps {
   allowSeek?: boolean;
   /** Right-hand hint, e.g. "Còn 1 lượt nghe". Read from the server, never counted here. */
   hint?: string | undefined;
+  /** A-05 puts a smaller one inside the question editor's chosen-audio card. */
+  size?: "default" | "sm";
   onError?: (() => void) | undefined;
 }
 
@@ -33,6 +35,7 @@ export function AudioPlayer({
   durationMs,
   allowSeek = true,
   hint,
+  size = "default",
   onError,
 }: AudioPlayerProps) {
   const { t } = useTranslation();
@@ -83,17 +86,25 @@ export function AudioPlayer({
   }
 
   return (
-    <div className="bg-background flex items-center gap-3.5 rounded-lg border p-3.5 px-4">
+    <div
+      className={cn(
+        "bg-background flex items-center gap-3.5 rounded-lg border",
+        size === "sm" ? "px-3 py-2.5" : "p-3.5 px-4",
+      )}
+    >
       <button
         type="button"
         onClick={toggle}
         aria-label={playing ? t("media.pause") : t("media.play")}
-        className="bg-primary text-primary-foreground focus-visible:ring-ring grid size-11 flex-none place-content-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        className={cn(
+          "bg-primary text-primary-foreground focus-visible:ring-ring grid flex-none place-content-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+          size === "sm" ? "size-9" : "size-11",
+        )}
       >
         {playing ? (
-          <Pause className="size-5 fill-current" aria-hidden="true" />
+          <Pause className={iconSize(size)} aria-hidden="true" />
         ) : (
-          <Play className="size-5 fill-current" aria-hidden="true" />
+          <Play className={iconSize(size)} aria-hidden="true" />
         )}
       </button>
 
@@ -134,7 +145,12 @@ export function AudioPlayer({
           ) : null}
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <div
+          className={cn(
+            "flex items-center justify-between gap-3",
+            size === "sm" ? "mt-1.5" : "mt-2",
+          )}
+        >
           <span className="text-muted-foreground text-xs tabular-nums">
             {clock(position)}
             {" / "}
@@ -157,6 +173,10 @@ export function AudioPlayer({
       />
     </div>
   );
+}
+
+function iconSize(size: "default" | "sm"): string {
+  return size === "sm" ? "size-4 fill-current" : "size-5 fill-current";
 }
 
 function clock(seconds: number): string {

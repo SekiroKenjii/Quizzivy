@@ -125,19 +125,26 @@ export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
       ) : null}
 
       {state.status === "uploading" ? (
-        <div className="flex items-center gap-3 rounded-lg border p-3">
-          <progress
-            className="h-2 flex-1"
-            value={state.fraction}
-            max={1}
-            aria-label={t("media.uploading")}
-          />
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {formatPercent(i18n.language, state.fraction)}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => abortRef.current?.abort()}>
-            {t("media.cancel")}
-          </Button>
+        <div className="space-y-2 rounded-lg border p-3">
+          <p className="truncate text-sm font-medium">{state.name}</p>
+          <div className="flex items-center gap-3">
+            <progress
+              className="h-2 flex-1"
+              value={state.fraction}
+              max={1}
+              aria-label={t("media.uploading")}
+            />
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {formatPercent(i18n.language, state.fraction)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => abortRef.current?.abort()}
+            >
+              {t("media.cancel")}
+            </Button>
+          </div>
         </div>
       ) : null}
 

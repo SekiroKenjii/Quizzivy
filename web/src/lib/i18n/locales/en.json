@@ -492,7 +492,8 @@
     },
     "notifications": "Notifications",
     "notificationsWith": "Notifications, {{count}} outstanding",
-    "nothingOutstanding": "Nothing outstanding."
+    "nothingOutstanding": "Nothing outstanding.",
+    "state": "State"
   },
   "assignments": {
     "summary": "{{count}} assignments",

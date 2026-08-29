@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { statusAt } from "@/features/assignments/status";
 import {
   getDashboard,
   listAssignments,
@@ -159,9 +160,14 @@ export default function AdminDashboardPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("dashboard.assignment")}</TableHead>
-                    <TableHead>{t("nav.classes")}</TableHead>
+                    <TableHead>{t("assignments.classes")}</TableHead>
                     <TableHead>{t("dashboard.closesAt")}</TableHead>
-                    <TableHead>{t("dashboard.progress")}</TableHead>
+                    <TableHead className="w-[180px]">
+                      {t("dashboard.progress")}
+                    </TableHead>
+                    <TableHead className="w-24">
+                      <span className="sr-only">{t("dashboard.state")}</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -271,6 +277,7 @@ function AssignmentRow({
   locale: Locale;
 }) {
   const { t } = useTranslation();
+  const status = statusAt(assignment, new Date());
   const submitted = assignment.submittedCount ?? 0;
   const target = assignment.targetCount ?? 0;
   const percent = target === 0 ? 0 : Math.round((submitted / target) * 100);
@@ -283,13 +290,13 @@ function AssignmentRow({
           .map((id) => classNames.get(id) ?? "—")
           .join(", ") || t("dashboard.byStudent")}
       </TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="text-muted-foreground whitespace-nowrap">
         {formatDateTime(assignment.window.closesAt, locale)}
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
           <span
-            className="bg-secondary h-1.5 w-24 overflow-hidden rounded-full"
+            className="bg-secondary h-1.5 flex-1 overflow-hidden rounded-full"
             role="img"
             aria-label={t("dashboard.progressOf", { submitted, target })}
           >
@@ -301,10 +308,15 @@ function AssignmentRow({
           <span className="text-muted-foreground text-xs tabular-nums">
             {submitted}/{target}
           </span>
-          <Badge variant={assignment.status === "open" ? "warning" : "outline"}>
-            {t(`dashboard.assignmentStatus.${assignment.status}`)}
-          </Badge>
         </div>
+      </TableCell>
+      {/* Its own right-aligned column, as A-01 draws it. Folded into the
+        progress cell it widened that column enough to push the table into a
+        horizontal scrollbar at 1440px. */}
+      <TableCell className="text-right">
+        <Badge variant={status === "open" ? "warning" : "outline"}>
+          {t(`dashboard.assignmentStatus.${status}`)}
+        </Badge>
       </TableCell>
     </TableRow>
   );

@@ -492,7 +492,8 @@
     },
     "notifications": "Thông báo",
     "notificationsWith": "Thông báo, {{count}} việc cần xử lý",
-    "nothingOutstanding": "Không có việc nào cần xử lý."
+    "nothingOutstanding": "Không có việc nào cần xử lý.",
+    "state": "Trạng thái"
   },
   "assignments": {
     "summary": "{{count}} bài giao",
