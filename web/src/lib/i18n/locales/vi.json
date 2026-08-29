@@ -204,7 +204,9 @@
     "usedIn": "{{count}} đề đã xuất bản",
     "usedInPublished": "{{count}} đề đã phát hành",
     "rejectTitle": "Không dùng được tệp này",
-    "rejectRetry": "Chọn tệp khác"
+    "rejectRetry": "Chọn tệp khác",
+    "rejectFolder": "Không nhận được tệp nào. Nếu bạn kéo cả thư mục, hãy mở thư mục và kéo từng tệp.",
+    "rejectMany": "Mỗi lần chỉ tải lên được một tệp. Hãy kéo từng tệp một."
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",

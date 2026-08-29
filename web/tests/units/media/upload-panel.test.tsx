@@ -1,8 +1,12 @@
+import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http } from "msw";
-import { UploadPanel } from "@/features/media/components/UploadPanel";
+import {
+  UploadPanel,
+  type UploadHandle,
+} from "@/features/media/components/UploadPanel";
 import { server } from "@tests/support/server";
 import "@/lib/i18n";
 
@@ -107,5 +111,27 @@ describe("the upload panel's client-side pre-check", () => {
     await choose(audioFile("that-bai.mp3", 1024));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("says why a dropped folder produced nothing, instead of swallowing it", async () => {
+    const handle = createRef<UploadHandle>();
+    render(<UploadPanel ref={handle} onUploaded={vi.fn()} />);
+
+    act(() => handle.current?.dropped([]));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/thư mục/);
+    expect(uploadCalls).toBe(0);
+  });
+
+  it("refuses a multi-file drop rather than uploading one and dropping the rest", async () => {
+    const handle = createRef<UploadHandle>();
+    render(<UploadPanel ref={handle} onUploaded={vi.fn()} />);
+
+    act(() =>
+      handle.current?.dropped([audioFile("a.mp3", 16), audioFile("b.mp3", 16)]),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/một tệp/);
+    expect(uploadCalls, "a partial upload reads as the others failing").toBe(0);
   });
 });

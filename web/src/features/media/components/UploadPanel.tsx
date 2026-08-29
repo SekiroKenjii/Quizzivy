@@ -13,10 +13,11 @@ import { formatBytes, formatDuration } from "@/features/media/format";
 import { precheck } from "@/features/media/probe";
 import { ApiError } from "@/lib/api/errors";
 
-/** Lets the page's header button open the file picker this panel owns. */
+/** Lets the page's header button and its drop target reach this panel. */
 export interface UploadHandle {
   choose: () => void;
   accept: (file: File) => void;
+  dropped: (files: File[]) => void;
 }
 
 interface UploadPanelProps {
@@ -49,6 +50,20 @@ export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
   useImperativeHandle(ref, () => ({
     choose: () => inputRef.current?.click(),
     accept: (file: File) => void accept(file),
+    dropped: (files: File[]) => {
+      // A folder reads as a drop with no files at all, and uploading the first
+      // of three looks to the teacher like the other two failed. Both get said
+      // rather than swallowed.
+      if (files.length === 0) {
+        setState({ status: "error", message: t("media.rejectFolder") });
+        return;
+      }
+      if (files.length > 1) {
+        setState({ status: "error", message: t("media.rejectMany") });
+        return;
+      }
+      void accept(files[0]!);
+    },
   }));
 
   async function accept(file: File) {

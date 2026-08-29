@@ -58,7 +58,7 @@ export default function MediaLibraryPage() {
 
   const assets = library.data?.items ?? [];
   const totalBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0);
-  const dragging = useFileDrop((file) => uploader.current?.accept(file));
+  const dragging = useFileDrop((files) => uploader.current?.dropped(files));
 
   return (
     <div className="space-y-4">

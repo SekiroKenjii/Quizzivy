@@ -204,7 +204,9 @@
     "usedIn": "{{count}} published test(s)",
     "usedInPublished": "{{count}} published test(s)",
     "rejectTitle": "This file cannot be used",
-    "rejectRetry": "Choose another file"
+    "rejectRetry": "Choose another file",
+    "rejectFolder": "No file arrived. If you dragged a folder, open it and drag the files themselves.",
+    "rejectMany": "One file at a time. Please drag them one by one."
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
