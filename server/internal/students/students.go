@@ -116,12 +116,13 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Student, string, erro
 
 	var out []Student
 	for rows.Next() {
-		var s Student
-		if err := rows.Scan(&s.ID, &s.Email, &s.FullName, &s.HasPassword,
-			&s.LinkedProviders, &s.MustChangePassword, &s.CreatedAt); err != nil {
+		var student Student
+		if err := rows.Scan(&student.ID, &student.Email, &student.FullName,
+			&student.HasPassword, &student.LinkedProviders,
+			&student.MustChangePassword, &student.CreatedAt); err != nil {
 			return nil, "", fmt.Errorf("students: scan: %w", err)
 		}
-		out = append(out, s)
+		out = append(out, student)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, "", fmt.Errorf("students: list: %w", err)

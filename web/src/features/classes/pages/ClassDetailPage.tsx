@@ -247,7 +247,7 @@ export default function ClassDetailPage() {
                   {removeError}
                 </p>
               ) : null}
-              <p className="text-muted-foreground px-5 pb-4 text-xs">
+              <p className="text-muted-foreground border-t px-5 pt-2 pb-2 text-xs">
                 {t("classDetail.removeKeepsWork")}
               </p>
             </section>
