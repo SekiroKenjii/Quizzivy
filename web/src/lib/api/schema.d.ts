@@ -1257,25 +1257,30 @@ export interface components {
          * @enum {string}
          */
         ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
-        ErrorResponse: {
-            error: {
-                code: components["schemas"]["ErrorCode"];
-                /**
-                 * @description Already localized server-side from `Accept-Language`, `vi` by
-                 *     default. Display it; do not build copy from `code`.
-                 * @example Mã lớp không hợp lệ.
-                 */
-                message: string;
-                /**
-                 * @description Shape depends on `code`. Field-level validation errors land here
-                 *     as `{ field: message }` for react-hook-form.
-                 */
-                details?: {
-                    [key: string]: unknown;
-                };
-                /** @description The copyable error ID shown by the global error boundary (§9). */
-                requestId: components["schemas"]["Uuid"];
+        /**
+         * @description Extracted so a response carrying the envelope AND something else can
+         *     reference it without composing over a closed schema (issue #41).
+         */
+        ErrorDetail: {
+            code: components["schemas"]["ErrorCode"];
+            /**
+             * @description Already localized server-side from `Accept-Language`, `vi` by
+             *     default. Display it; do not build copy from `code`.
+             * @example Mã lớp không hợp lệ.
+             */
+            message: string;
+            /**
+             * @description Shape depends on `code`. Field-level validation errors land here
+             *     as `{ field: message }` for react-hook-form.
+             */
+            details?: {
+                [key: string]: unknown;
             };
+            /** @description The copyable error ID shown by the global error boundary (§9). */
+            requestId: components["schemas"]["Uuid"];
+        };
+        ErrorResponse: {
+            error: components["schemas"]["ErrorDetail"];
         };
         CursorPage: {
             /** @description Pass back as `cursor`. `null` means the last page (§13.8). */
@@ -1299,6 +1304,75 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description AuthSuccess plus the class a join code enrolled the student in.
+         *
+         *     Flat rather than `allOf: [AuthSuccess, ...]`: AuthSuccess is
+         *     `additionalProperties: false`, and in JSON Schema 2020-12 that keyword
+         *     cannot see a sibling allOf branch, so the composed form rejects the very
+         *     body it documents (issue #41).
+         */
+        GoogleSignInSuccess: {
+            accessToken: string;
+            /** @description Seconds. */
+            expiresIn: number;
+            user: components["schemas"]["User"];
+            /** @description Present only when a `joinCode` produced an enrolment. */
+            enrolledClass?: components["schemas"]["Class"] | null;
+        };
+        /**
+         * @description The publish 409: the error envelope plus every blocking violation, so the
+         *     builder marks them all inline rather than surfacing one per attempt (§8).
+         *     Flat for the same reason as GoogleSignInSuccess.
+         */
+        PublishConflict: {
+            error: components["schemas"]["ErrorDetail"];
+            violations?: components["schemas"]["PublishValidationError"][];
+        };
+        /**
+         * @description A MediaAsset as the admin library lists it, with how many published
+         *     versions reference it. Flat for the same reason (issue #41) -- this is
+         *     the site that was actually shipping a body its own contract rejected.
+         */
+        LibraryAsset: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            kind: "image" | "audio";
+            /** @description Short-lived signed URL (§11.2). */
+            url: string;
+            /** @enum {string} */
+            mimeType: "audio/mpeg" | "audio/mp4" | "audio/aac" | "image/png" | "image/jpeg" | "image/webp";
+            bytes: number;
+            /** @description Audio only. */
+            durationMs?: number | null;
+            originalFilename: string;
+            createdAt: components["schemas"]["Timestamp"];
+            /** @description Published-version references. Non-zero blocks delete (§8). */
+            usageCount?: number;
+        };
+        /**
+         * @description The intro screen's card: everything StudentAssignmentCard carries plus
+         *     the policies §10.2 states in plain Vietnamese before the student starts.
+         */
+        StudentAssignmentDetail: {
+            id: components["schemas"]["Uuid"];
+            testTitle: string;
+            status: components["schemas"]["AssignmentStatus"];
+            opensAt: components["schemas"]["Timestamp"];
+            closesAt: components["schemas"]["Timestamp"];
+            durationMinutes: number;
+            attemptsUsed: number;
+            maxAttempts: number;
+            hasLiveAttempt?: boolean;
+            lastAttemptId?: components["schemas"]["Uuid"] | null;
+            score?: components["schemas"]["AttemptScore"] | null;
+            instructions?: string | null;
+            review: components["schemas"]["ReviewPolicy"];
+            integrity: components["schemas"]["IntegrityPolicy"];
+            hasAudio: boolean;
+            /** @description The strictest `maxPlays` across the test, for the intro copy. */
+            audioMaxPlays?: number | null;
         };
         /** @description A class the student is in, with how they got there (§6.4's D-10). */
         StudentClass: {
@@ -2122,6 +2196,15 @@ export interface components {
     parameters: {
         /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
         Cursor: string;
+        /**
+         * @description Page size. The DEFAULT IS PER RESOURCE and is declared on each operation
+         *     — a media grid wants a different page from a table of tests, and one
+         *     shared default could only ever be right for one of them. It used to
+         *     claim 25, which no server used.
+         *
+         *     A client should drive pagination from `nextCursor`, never from an
+         *     assumed page size.
+         */
         Limit: number;
         /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
         Query: string;
@@ -2265,10 +2348,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthSuccess"] & {
-                        /** @description Present only when a `joinCode` produced an enrolment. */
-                        enrolledClass?: components["schemas"]["Class"] | null;
-                    };
+                    "application/json": components["schemas"]["GoogleSignInSuccess"];
                 };
             };
             /** @description Code exchange failed, or `email_verified` was false. */
@@ -2580,7 +2660,7 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2740,9 +2820,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"] & {
-                        violations?: components["schemas"]["PublishValidationError"][];
-                    };
+                    "application/json": components["schemas"]["PublishConflict"];
                 };
             };
         };
@@ -2842,7 +2920,7 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2975,7 +3053,7 @@ export interface operations {
                 kind?: components["schemas"]["MediaKind"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2999,10 +3077,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
-                        items: (components["schemas"]["MediaAsset"] & {
-                            /** @description Published-version references. Non-zero blocks delete (§8). */
-                            usageCount?: number;
-                        })[];
+                        items: components["schemas"]["LibraryAsset"][];
                     };
                 };
             };
@@ -3089,7 +3164,7 @@ export interface operations {
                 status?: components["schemas"]["AssignmentStatus"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -3237,7 +3312,7 @@ export interface operations {
                 pendingGrading?: boolean;
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -3509,7 +3584,7 @@ export interface operations {
                 status?: "active" | "disabled" | "all";
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -4005,14 +4080,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StudentAssignmentCard"] & {
-                        instructions?: string | null;
-                        review: components["schemas"]["ReviewPolicy"];
-                        integrity: components["schemas"]["IntegrityPolicy"];
-                        hasAudio: boolean;
-                        /** @description The strictest `maxPlays` across the test, for the intro copy. */
-                        audioMaxPlays?: number | null;
-                    };
+                    "application/json": components["schemas"]["StudentAssignmentDetail"];
                 };
             };
             403: components["responses"]["Forbidden"];

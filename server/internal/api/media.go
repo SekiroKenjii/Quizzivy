@@ -142,29 +142,22 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 	}
 	var out openapi.ListMedia200JSONResponse
 	out.Headers.CacheControl = cacheControlForSignedURLList
-	out.Body.Items = make([]struct {
-		Bytes            int                                               `json:"bytes"`
-		CreatedAt        openapi.Timestamp                                 `json:"createdAt"`
-		DurationMs       *int                                              `json:"durationMs,omitempty"`
-		Id               openapi.Uuid                                      `json:"id"`
-		Kind             openapi.MediaKind                                 `json:"kind"`
-		MimeType         openapi.ListMedia200JSONResponseBodyItemsMimeType `json:"mimeType"`
-		OriginalFilename string                                            `json:"originalFilename"`
-		Url              string                                            `json:"url"`
-		UsageCount       *int                                              `json:"usageCount,omitempty"`
-	}, len(assets))
-
+	// One named type now that the contract is flat, instead of restating an
+	// anonymous struct the generator inferred (issue #41).
+	out.Body.Items = make([]openapi.LibraryAsset, len(assets))
 	for i, a := range assets {
 		usage := a.UsageCount
-		out.Body.Items[i].Bytes = int(a.Bytes)
-		out.Body.Items[i].CreatedAt = a.CreatedAt
-		out.Body.Items[i].DurationMs = a.DurationMs
-		out.Body.Items[i].Id = parseUUID(a.ID)
-		out.Body.Items[i].Kind = openapi.MediaKind(a.Kind)
-		out.Body.Items[i].MimeType = openapi.ListMedia200JSONResponseBodyItemsMimeType(a.MimeType)
-		out.Body.Items[i].OriginalFilename = a.OriginalFilename
-		out.Body.Items[i].Url = a.URL
-		out.Body.Items[i].UsageCount = &usage
+		out.Body.Items[i] = openapi.LibraryAsset{
+			Bytes:            int(a.Bytes),
+			CreatedAt:        a.CreatedAt,
+			DurationMs:       a.DurationMs,
+			Id:               parseUUID(a.ID),
+			Kind:             openapi.LibraryAssetKind(a.Kind),
+			MimeType:         openapi.LibraryAssetMimeType(a.MimeType),
+			OriginalFilename: a.OriginalFilename,
+			Url:              a.URL,
+			UsageCount:       &usage,
+		}
 	}
 	if next != "" {
 		out.Body.NextCursor = &next

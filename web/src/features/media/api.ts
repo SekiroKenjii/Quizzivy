@@ -5,7 +5,8 @@ export type MediaAsset = components["schemas"]["MediaAsset"];
 export type MediaKind = components["schemas"]["MediaKind"];
 
 /** A library row carries the usage count the list endpoint adds. */
-export type LibraryAsset = MediaAsset & { usageCount?: number };
+/** The library row: a MediaAsset plus how many published versions use it. */
+export type LibraryAsset = components["schemas"]["LibraryAsset"];
 
 export interface ListMediaParams {
   kind?: MediaKind;
