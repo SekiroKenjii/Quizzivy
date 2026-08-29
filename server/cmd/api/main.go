@@ -2,175 +2,17 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	"quizzivy/internal/api"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/auth/google"
-	"quizzivy/internal/classes"
-	"quizzivy/internal/config"
-	"quizzivy/internal/db"
-	"quizzivy/internal/join"
-	"quizzivy/internal/media"
-	"quizzivy/internal/questions"
-	"quizzivy/internal/storage"
+	"quizzivy/internal/core"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	if err := run(logger); err != nil {
+	if err := core.Run(context.Background(), logger); err != nil {
 		logger.Error("startup failed", "err", err)
 		os.Exit(1)
-	}
-}
-
-func run(logger *slog.Logger) error {
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	pool, err := db.Open(ctx, cfg.DatabaseURL)
-	if err != nil {
-		return err
-	}
-	defer pool.Close()
-	if err := pool.WaitReady(ctx, 60*time.Second); err != nil {
-		return err
-	}
-	auth.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
-	logger.Info("password hashing bounded",
-		"max_concurrent", cfg.MaxConcurrentPasswordHashes,
-		"peak_arena_mib", cfg.MaxConcurrentPasswordHashes*64)
-
-	tokens, err := auth.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
-	if err != nil {
-		return err
-	}
-	authService := auth.NewService(auth.NewStore(pool.Pool), tokens, cfg.RefreshTokenTTL)
-	joinService := join.NewService(join.NewStore(pool.Pool))
-
-	if cfg.GoogleEnabled() {
-		keys := google.NewKeySet("", nil)
-		authService.SetGoogle(google.NewProvider(
-			google.NewExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret,
-				cfg.GoogleRedirectURIs, "", nil),
-			google.NewVerifier(cfg.GoogleClientID, keys),
-		), joinService)
-		logger.Info("google sign-in enabled", "redirect_uris", cfg.GoogleRedirectURIs)
-	} else {
-		logger.Info("google sign-in disabled (no credentials configured)")
-	}
-
-	deps := api.Deps{
-		DB:           pool,
-		Auth:         authService,
-		Join:         joinService,
-		Classes:      classes.NewService(classes.NewStore(pool.Pool)),
-		Tokens:       tokens,
-		RefreshTTL:   cfg.RefreshTokenTTL,
-		CookieSecure: cfg.RefreshCookieSecure,
-	}
-
-	deps.Questions = questions.NewService(questions.NewStore(pool.Pool))
-
-	if cfg.MediaEnabled() {
-		objects, err := storage.New(ctx, storage.Config{
-			Endpoint:        cfg.S3Endpoint,
-			Region:          cfg.S3Region,
-			Bucket:          cfg.S3Bucket,
-			AccessKeyID:     cfg.S3AccessKeyID,
-			SecretAccessKey: cfg.S3SecretAccessKey,
-			ForcePathStyle:  cfg.S3ForcePathStyle,
-		})
-		if err != nil {
-			return err
-		}
-		deps.Media = media.NewService(media.NewStore(pool.Pool), objects).
-			WithSignedURLTTL(cfg.SignedURLTTL)
-		logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
-	} else {
-		logger.Info("media storage disabled (no bucket configured)")
-	}
-
-	handler, err := api.NewRouter(deps, logger, cfg.AllowedOrigins, cfg.ClientIPHeader)
-	if err != nil {
-		return err
-	}
-
-	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		// Long enough for a 10 MB media upload on a slow connection (§11.1).
-		WriteTimeout: 120 * time.Second,
-		IdleTimeout:  90 * time.Second,
-	}
-
-	go prunePeriodically(ctx, logger, authService)
-
-	errCh := make(chan error, 1)
-	go func() {
-		logger.Info("listening", "port", cfg.Port, "env", cfg.Env, "origins", cfg.AllowedOrigins)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-	}()
-
-	select {
-	case err := <-errCh:
-		return err
-	case <-ctx.Done():
-		logger.Info("shutting down")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		return srv.Shutdown(shutdownCtx)
-	}
-}
-
-// prunePeriodically deletes refresh-token families whose every token has
-// expired (§5.2's cleanup path).
-//
-// A single machine runs this, so there is no coordination to do; if a second
-// ever runs, the DELETE is idempotent and the loser removes nothing. It runs
-// once at startup so a long-lived deployment is not the only thing that ever
-// prunes, then daily -- a 30-day token means nothing here is urgent.
-func prunePeriodically(ctx context.Context, logger *slog.Logger, svc *auth.Service) {
-	const every = 24 * time.Hour
-
-	prune := func() {
-		runCtx, cancel := context.WithTimeout(ctx, time.Minute)
-		defer cancel()
-		n, err := svc.PruneExpiredTokens(runCtx)
-		if err != nil {
-			logger.Warn("refresh token prune failed", "err", err)
-			return
-		}
-		if n > 0 {
-			logger.Info("pruned expired refresh tokens", "rows", n)
-		}
-	}
-
-	prune()
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			prune()
-		}
 	}
 }

@@ -26,32 +26,46 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 		}
 	}
 
-	const maxAge = 600
-
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			w.Header().Add("Vary", "Origin")
+			permitted := origin != "" && slices.Contains(allowed, origin)
 
-			if origin != "" && slices.Contains(allowed, origin) {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
+			w.Header().Add("Vary", "Origin")
+			if permitted {
+				allowOrigin(w, origin)
 			}
 
-			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
-				w.Header().Add("Vary", "Access-Control-Request-Method")
-				w.Header().Add("Vary", "Access-Control-Request-Headers")
-				if origin != "" && slices.Contains(allowed, origin) {
-					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-					w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
-					w.Header().Set("Access-Control-Max-Age", strconv.Itoa(maxAge))
-				}
-				w.WriteHeader(http.StatusNoContent)
+			if isPreflight(r) {
+				writePreflight(w, permitted)
 				return
 			}
-
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isPreflight(r *http.Request) bool {
+	return r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != ""
+}
+
+func allowOrigin(w http.ResponseWriter, origin string) {
+	h := w.Header()
+	h.Set("Access-Control-Allow-Origin", origin)
+	h.Set("Access-Control-Allow-Credentials", "true")
+	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
+}
+
+func writePreflight(w http.ResponseWriter, permitted bool) {
+	const maxAge = 600
+
+	h := w.Header()
+	h.Add("Vary", "Access-Control-Request-Method")
+	h.Add("Vary", "Access-Control-Request-Headers")
+	if permitted {
+		h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+		h.Set("Access-Control-Max-Age", strconv.Itoa(maxAge))
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
