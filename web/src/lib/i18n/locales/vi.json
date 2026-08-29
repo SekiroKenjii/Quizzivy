@@ -331,7 +331,9 @@
     "bankFailed": "Không tải được ngân hàng câu hỏi.",
     "bankEmpty": "Không còn câu hỏi nào để thêm.",
     "newSection": "Phần {{n}}",
-    "addFailed": "Không thêm được câu hỏi. Vui lòng thử lại."
+    "addFailed": "Không thêm được câu hỏi. Vui lòng thử lại.",
+    "starterPrompt": "Câu hỏi mới — nhập nội dung ở đây",
+    "starterOption": "Lựa chọn {{n}}"
   },
   "bank": {
     "typeFilter": "Loại câu",

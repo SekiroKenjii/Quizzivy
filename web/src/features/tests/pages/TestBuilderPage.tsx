@@ -1,7 +1,17 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
+import type { RefObject } from "react";
+import type { TFunction } from "i18next";
 import { useNavigate, useParams } from "react-router";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,10 +23,7 @@ import {
   toFormValues,
   updateQuestion,
 } from "@/features/question-bank/api";
-import {
-  emptyQuestion,
-  type QuestionValues,
-} from "@/features/question-bank/questionSchema";
+import type { QuestionValues } from "@/features/question-bank/questionSchema";
 import type { MediaAsset } from "@/features/media/api";
 import {
   getTest,
@@ -29,7 +36,11 @@ import {
 import { PublishDialog } from "@/features/tests/components/PublishDialog";
 import { AutosaveStatusLabel } from "@/features/tests/components/AutosaveStatusLabel";
 import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
-import { useAutosave } from "@/features/tests/useAutosave";
+import {
+  mergeAutosave,
+  useAutosave,
+  type AutosaveStatus,
+} from "@/features/tests/useAutosave";
 import type { OutlineSection } from "@/features/tests/outline";
 import type { OutlineQuestion } from "@/features/tests/components/OutlineTree";
 import { ApiError } from "@/lib/api/errors";
@@ -81,6 +92,7 @@ export default function TestBuilderPage() {
 function Builder({ test }: { test: Test }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(test.title);
   const [sections, setSections] = useState<OutlineSection[]>(
@@ -92,6 +104,14 @@ function Builder({ test }: { test: Test }) {
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // The open question editor owns its own autosave, and publishing snapshots
+  // what is SAVED -- so the edit still inside its debounce window has to land
+  // first, exactly like the outline's.
+  const flushQuestion = useRef<(() => Promise<void>) | null>(null);
+  const [questionStatus, setQuestionStatus] = useState<AutosaveStatus>({
+    kind: "idle",
+  });
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
@@ -166,7 +186,7 @@ function Builder({ test }: { test: Test }) {
     setPublishError(null);
     setCreating(true);
     try {
-      const created = await createQuestion(emptyQuestion());
+      const created = await createQuestion(starterQuestion(t));
       appendQuestion(created.id);
     } catch (cause) {
       setPublishError(
@@ -196,8 +216,18 @@ function Builder({ test }: { test: Test }) {
     try {
       // Publishing snapshots what is SAVED, so anything still in the debounce
       // window has to land first or the version misses the last edit.
-      await outline.flush();
+      await Promise.all([outline.flush(), flushQuestion.current?.()]);
       await publishTest(test.id);
+      // The detail page reads the same cached test this builder loaded, and
+      // publishing changed its status, its version and everything autosave
+      // wrote. Without this it renders the draft as it was on open.
+      // refetchType "all": the detail page's query is not mounted yet, and the
+      // default only refetches active observers — so it would land on the
+      // draft as it was when the builder opened.
+      await queryClient.invalidateQueries({
+        queryKey: ["admin-test", test.id],
+        refetchType: "all",
+      });
       await navigate(`/admin/tests/${test.id}`);
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "PUBLISH_VALIDATION_FAILED") {
@@ -232,7 +262,7 @@ function Builder({ test }: { test: Test }) {
           onChange={(event) => updateTitle(event.target.value)}
         />
         <Badge variant="secondary">{t(`builder.${test.status}`)}</Badge>
-        <AutosaveStatusLabel status={outline.status} />
+        <AutosaveStatusLabel status={mergeAutosave([outline.status, questionStatus])} />
 
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -295,7 +325,12 @@ function Builder({ test }: { test: Test }) {
               {questionIds.length === 0 ? t("builder.empty") : t("builder.noSelection")}
             </p>
           ) : (
-            <QuestionPane key={selectedId} questionId={selectedId} />
+            <QuestionPane
+              key={selectedId}
+              questionId={selectedId}
+              flushRef={flushQuestion}
+              onStatus={setQuestionStatus}
+            />
           )}
         </div>
       </div>
@@ -324,7 +359,15 @@ function Builder({ test }: { test: Test }) {
  * model expects: published versions hold their own copy, so a bank edit never
  * reaches a test someone is already sitting.
  */
-function QuestionPane({ questionId }: { questionId: string }) {
+function QuestionPane({
+  questionId,
+  flushRef,
+  onStatus,
+}: {
+  questionId: string;
+  flushRef: RefObject<(() => Promise<void>) | null>;
+  onStatus: (status: AutosaveStatus) => void;
+}) {
   const { t } = useTranslation();
   const question = useQuery({
     queryKey: ["admin-question", questionId],
@@ -346,15 +389,26 @@ function QuestionPane({ questionId }: { questionId: string }) {
     );
   }
 
-  return <QuestionForm questionId={questionId} initial={question.data} />;
+  return (
+    <QuestionForm
+      questionId={questionId}
+      initial={question.data}
+      flushRef={flushRef}
+      onStatus={onStatus}
+    />
+  );
 }
 
 function QuestionForm({
   questionId,
   initial,
+  flushRef,
+  onStatus,
 }: {
   questionId: string;
   initial: Parameters<typeof toFormValues>[0];
+  flushRef: RefObject<(() => Promise<void>) | null>;
+  onStatus: (status: AutosaveStatus) => void;
 }) {
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
@@ -365,9 +419,22 @@ function QuestionForm({
     },
   });
 
+  const { flush, status } = autosave;
+  useEffect(() => {
+    flushRef.current = flush;
+    return () => {
+      flushRef.current = null;
+    };
+  }, [flush, flushRef]);
+
+  // Reported upward rather than rendered here: A-04 has one status, in the
+  // topbar, and it has to speak for the whole screen.
+  useEffect(() => {
+    onStatus(status);
+  }, [onStatus, status]);
+
   return (
-    <div className="space-y-3">
-      <AutosaveStatusLabel status={autosave.status} />
+    <div>
       <QuestionEditor
         value={values}
         asset={asset}
@@ -379,6 +446,34 @@ function QuestionForm({
       />
     </div>
   );
+}
+
+/**
+ * A question the API will accept, not a blank form.
+ *
+ * `emptyQuestion()` is what the bank's own editor starts from: empty fields
+ * showing placeholders, with Save disabled until they are filled. The builder
+ * creates the row first and edits it after, so what it POSTs has to satisfy the
+ * contract's `minLength: 1` on the prompt and on every option — hence text a
+ * teacher overwrites rather than blanks the server refuses.
+ */
+function starterQuestion(t: TFunction): QuestionValues {
+  return {
+    type: "single_choice",
+    prompt: t("builder.starterPrompt"),
+    mediaAssetId: null,
+    audio: null,
+    transcript: null,
+    options: [
+      { id: null, text: t("builder.starterOption", { n: 1 }), isCorrect: true },
+      { id: null, text: t("builder.starterOption", { n: 2 }), isCorrect: false },
+    ],
+    blanks: [],
+    points: 1,
+    explanation: null,
+    sampleAnswer: null,
+    tags: [],
+  };
 }
 
 function problemFor(

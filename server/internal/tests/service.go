@@ -30,6 +30,14 @@ func (s *Service) Get(ctx context.Context, id string) (Test, error) {
 	return s.store.Get(ctx, id)
 }
 
+func (s *Service) ListVersions(ctx context.Context, testID string) ([]Version, error) {
+	return s.store.ListVersions(ctx, testID)
+}
+
+func (s *Service) Preview(ctx context.Context, testID string, version int) (int, []PreviewQuestion, error) {
+	return s.store.Preview(ctx, testID, version)
+}
+
 func (s *Service) Create(ctx context.Context, req Request, title string, description *string) (Test, error) {
 	return s.store.Create(ctx, CreateInput{
 		Title:       title,

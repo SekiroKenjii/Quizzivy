@@ -141,6 +141,144 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+  # --------------------------------------------------------------- e2e-live
+  # E2E 1a (§14) is the one browser test that talks to a real API, because the
+  # phase-2 exit criterion is about the §11.1 audio pipeline running end to end:
+  # magic-byte sniff, size and duration checks, the pure-Go probe, the object
+  # landing in storage. A mocked upload would assert that the frontend renders
+  # whatever the mock returned, which is not the same claim.
+  #
+  # Separate from `e2e` so the stubbed suite stays fast and independent of
+  # postgres, MinIO and a Go build.
+  e2e-live:
+    name: E2E (live API)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+      # bitnami/minio rather than minio/minio: a service container cannot
+      # override the image command, and minio/minio needs `server /data`.
+      # MINIO_DEFAULT_BUCKETS also saves a separate mc step.
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: quizzivy
+          MINIO_ROOT_PASSWORD: quizzivy-dev-secret
+          MINIO_DEFAULT_BUCKETS: quizzivy-media
+        ports: ["9000:9000"]
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      MIGRATE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable
+      DATABASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable
+      APP_ENV: development
+      API_PORT: "8080"
+      CORS_ALLOWED_ORIGINS: http://localhost:4173
+      JWT_SIGNING_KEY: e2e-live-signing-key-not-a-secret-32b
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: quizzivy-media
+      S3_ACCESS_KEY_ID: quizzivy
+      S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install psql 18
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18
+
+      # Checked from the runner rather than as a container healthcheck: the
+      # image has no curl, so `--health-cmd` would fail the container itself.
+      - name: Wait for MinIO
+        run: |
+          for _ in $(seq 1 40); do
+            curl -fsS http://localhost:9000/minio/health/live >/dev/null && exit 0
+            sleep 1
+          done
+          echo "MinIO did not become ready"; exit 1
+
+      - name: Provision roles and database
+        run: ./scripts/provision-db.sh
+
+      - name: Apply migrations and seed
+        run: |
+          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
+            -dir "$PWD/migrations" postgres "$MIGRATE_URL" up
+          for f in seed/*.sql; do psql "$MIGRATE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+
+      # Built rather than `go run`, so a compile error fails here with a clear
+      # message instead of as a connection refused thirty seconds later.
+      - name: Start the API
+        run: |
+          go -C server build -o "$RUNNER_TEMP/api" ./cmd/api
+          "$RUNNER_TEMP/api" > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 40); do
+            curl -fsS http://localhost:8080/healthz >/dev/null && exit 0
+            sleep 1
+          done
+          echo "API did not become healthy"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E 1a
+        working-directory: web
+        run: pnpm e2e:live
+
+      - name: API log
+        if: failure()
+        run: cat "$RUNNER_TEMP/api.log"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-live
+          path: web/playwright-report/
+          retention-days: 7
+
   # ----------------------------------------------------------------- server
   server:
     name: Server
