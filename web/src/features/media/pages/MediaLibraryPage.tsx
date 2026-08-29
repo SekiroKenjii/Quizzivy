@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileAudio, FileImage, Trash2, Upload } from "lucide-react";
@@ -58,9 +58,7 @@ export default function MediaLibraryPage() {
 
   const assets = library.data?.items ?? [];
   const totalBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0);
-  const dragging = useFileDrop(
-    useCallback((file: File) => uploader.current?.accept(file), []),
-  );
+  const dragging = useFileDrop((file) => uploader.current?.accept(file));
 
   return (
     <div className="space-y-4">

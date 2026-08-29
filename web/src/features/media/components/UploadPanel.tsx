@@ -1,6 +1,7 @@
 import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadMedia, type MediaAsset } from "@/features/media/api";
 import {
@@ -8,6 +9,7 @@ import {
   MAX_DURATION_MS,
   type Rejection,
 } from "@/features/media/limits";
+import { formatBytes, formatDuration } from "@/features/media/format";
 import { precheck } from "@/features/media/probe";
 import { ApiError } from "@/lib/api/errors";
 
@@ -125,23 +127,50 @@ export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
       ) : null}
 
       {state.status === "error" ? (
-        <p role="alert" className="text-destructive text-sm">
-          {state.message}
-        </p>
+        <div
+          role="alert"
+          className="border-destructive/25 bg-destructive/5 flex items-start gap-3 rounded-lg border p-3.5"
+        >
+          <CircleAlert
+            className="text-destructive size-5 shrink-0"
+            aria-hidden="true"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-medium">{t("media.rejectTitle")}</p>
+            <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+              {state.message}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2.5"
+              onClick={() => inputRef.current?.click()}
+            >
+              {t("media.rejectRetry")}
+            </Button>
+          </div>
+        </div>
       ) : null}
     </>
   );
 }
 
+// The deck's A-05: "recording.wav dài 6:12" -- a message that gives only the
+// reason forces the teacher to guess which of the rules they broke, and which
+// of the files they dropped broke it.
 function rejectionMessage(t: TFunction, rejection: Rejection): string {
   switch (rejection.reason) {
     case "type":
-      return t("media.rejectType");
+      return t("media.rejectType", { name: rejection.name });
     case "size":
-      return t("media.rejectSize");
+      return t("media.rejectSize", {
+        name: rejection.name,
+        size: formatBytes(rejection.bytes),
+      });
     case "duration":
       return t("media.rejectDuration", {
-        minutes: Math.ceil((rejection.durationMs ?? MAX_DURATION_MS) / 60000),
+        name: rejection.name,
+        duration: formatDuration(rejection.durationMs ?? MAX_DURATION_MS),
       });
     default:
       return t("media.uploadFailed");

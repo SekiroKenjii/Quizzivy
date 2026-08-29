@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Accepts a file dropped anywhere on the window.
@@ -11,9 +11,17 @@ import { useEffect, useState } from "react";
  *
  * dragover must call preventDefault to signal a drop is allowed, so neither
  * listener can be passive.
+ *
+ * The handler is held in a ref so the three window listeners are registered
+ * once for the life of the hook rather than on every render of the caller.
  */
 export function useFileDrop(onFile: (file: File) => void): boolean {
   const [dragging, setDragging] = useState(false);
+  const latest = useRef(onFile);
+
+  useEffect(() => {
+    latest.current = onFile;
+  }, [onFile]);
 
   useEffect(() => {
     const over = (event: DragEvent) => {
@@ -30,7 +38,7 @@ export function useFileDrop(onFile: (file: File) => void): boolean {
       if (!file) return;
       event.preventDefault();
       setDragging(false);
-      onFile(file);
+      latest.current(file);
     };
 
     window.addEventListener("dragover", over);
@@ -41,7 +49,7 @@ export function useFileDrop(onFile: (file: File) => void): boolean {
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("drop", drop);
     };
-  }, [onFile]);
+  }, []);
 
   return dragging;
 }
