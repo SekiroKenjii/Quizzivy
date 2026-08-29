@@ -240,6 +240,20 @@ has the placement rule. `@/` is `src/`, `@tests/` is `tests/`.
 
 Go tests stay beside the code they cover, as is idiomatic.
 
+**One E2E suite talks to a real API: `*.live.spec.ts`, the `live` Playwright
+project, run with `pnpm e2e:live`.** Everything else is stubbed on purpose --
+those tests are about what the browser does, and the server's behaviour is
+covered by Go tests against a real Postgres. The live suite exists for claims
+that are about the two halves meeting: E2E 1a uploads a real mp3 so §11.1's
+sniff, size check and duration probe run rather than being mocked. Adding a case
+there needs a reason of that kind; the default is `pnpm e2e`.
+
+It needs `make up`, `make migrate`, `make seed`, and the API on :8080 with
+`http://localhost:4173` in `CORS_ALLOWED_ORIGINS`. Kill any leftover `vite
+preview` before re-running: `reuseExistingServer` is on outside CI, so
+Playwright reuses it and serves the build that server started with -- which
+looks exactly like your fix not working.
+
 ## Git workflow
 
 Gitflow. `main` is released only and tagged; `develop` is integration.
@@ -336,6 +350,15 @@ fix the cause, never the test:
   would not catch the regression that actually happens.
 
 `docs/plan/30-risks.md` explains what each one is guarding.
+
+**A debounced autosave owes the user two flushes it will not do by itself.**
+`useAutosave` holds an edit for 1.5s. Unmounting has to save what is pending --
+in the builder, "type, then click the next question" swaps the editor inside
+that window, and clearing the timer loses the edit silently while the indicator
+still reports the previous save. Publishing has to flush every autosave on the
+screen first, because a version snapshots what is SAVED. Both were real bugs
+that shipped past every unit test and were caught by E2E 1a; `builder/
+autosave-unmount.test.tsx` pins the first.
 
 ## When you are unsure
 
