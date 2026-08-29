@@ -652,7 +652,7 @@ CREATE TRIGGER tests_set_updated_at BEFORE UPDATE ON app.tests
 `tests_published_has_version` makes §7's `currentVersion` honest: a test cannot
 be `published` or `archived` with no snapshot behind it.
 
-### `00013` (cont.) — draft structure [D-14]
+### `00015` (cont.) — draft structure [D-14]
 
 ```sql
 CREATE TABLE app.test_sections (

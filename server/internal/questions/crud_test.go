@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"quizzivy/internal/questions"
 )
 
@@ -239,30 +241,108 @@ func TestUpdateRejectedByTheDatabaseLeavesTheOldVersion(t *testing.T) {
 	assertOptionOrder(t, after, []string{"A", "B"}, []bool{true, false})
 }
 
-// TestDraftReferenceCheckIsWiredOnceTestTablesExist is a tripwire, the same
-// shape as media's.
-//
-// CountDraftReferences returns a constant because test_section_questions does
-// not exist until migration 00015 (T-2.7). That constant is correct today and
-// becomes a bug the moment the table lands: DELETE would stop returning 409 and
-// silently break a teacher's draft outline.
-func TestDraftReferenceCheckIsWiredOnceTestTablesExist(t *testing.T) {
+// A question a draft outline still uses cannot be deleted: the teacher would
+// otherwise lose part of a test they are in the middle of building, silently.
+func TestDeletingAQuestionADraftUsesIsRefused(t *testing.T) {
 	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	ctx := context.Background()
 
-	var exists bool
-	err := pool.QueryRow(context.Background(),
-		`SELECT EXISTS (
-		    SELECT 1 FROM information_schema.tables
-		     WHERE table_schema = 'app' AND table_name = 'test_section_questions')`).Scan(&exists)
-	if err != nil {
-		t.Fatalf("checking for the draft outline table: %v", err)
+	q := write(t, svc, author, "Câu hỏi đang nằm trong đề nháp")
+	sectionID := newDraftSection(t, pool, author)
+	addToSection(t, pool, sectionID, q.ID)
+
+	err := svc.Delete(ctx, questions.WriteRequest{ID: q.ID, ActorID: author})
+	if !errors.Is(err, questions.ErrReferenced) {
+		t.Fatalf("delete returned %v, want ErrReferenced", err)
 	}
-	if exists {
-		t.Fatal(
-			"app.test_section_questions now exists, so questions.CountDraftReferences must stop " +
-				"returning a constant:\n" +
-				"  SELECT count(*) FROM app.test_section_questions WHERE question_id = $1\n" +
-				"so DELETE /admin/questions/:id returns 409 for a question a draft still uses (§15).\n" +
-				"Then delete this test and replace it with real coverage.")
+
+	// Refused, not half-done: the question is still live and still listed.
+	if _, err := svc.Get(ctx, q.ID); err != nil {
+		t.Errorf("the question was deleted anyway: %v", err)
+	}
+	var audited int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM app.audit_log WHERE action = 'question.deleted' AND entity_id = $1`,
+		q.ID).Scan(&audited); err != nil {
+		t.Fatal(err)
+	}
+	if audited != 0 {
+		t.Errorf("a refused delete wrote %d audit rows", audited)
+	}
+}
+
+// The other side: an unreferenced question deletes normally, so the check does
+// not simply block everything.
+func TestDeletingAnUnusedQuestionStillWorks(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	used := write(t, svc, author, "Câu hỏi có dùng")
+	unused := write(t, svc, author, "Câu hỏi không ai dùng")
+	sectionID := newDraftSection(t, pool, author)
+	addToSection(t, pool, sectionID, used.ID)
+
+	if err := svc.Delete(ctx, questions.WriteRequest{ID: unused.ID, ActorID: author}); err != nil {
+		t.Errorf("an unreferenced question was refused: %v", err)
+	}
+}
+
+// Removing the question from the draft releases it.
+func TestAQuestionBecomesDeletableOnceTheDraftDropsIt(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	q := write(t, svc, author, "Câu hỏi sẽ được gỡ khỏi đề")
+	sectionID := newDraftSection(t, pool, author)
+	addToSection(t, pool, sectionID, q.ID)
+
+	if err := svc.Delete(ctx, questions.WriteRequest{ID: q.ID, ActorID: author}); !errors.Is(err, questions.ErrReferenced) {
+		t.Fatalf("expected the delete to be refused first, got %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`DELETE FROM app.test_section_questions WHERE question_id = $1`, q.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Delete(ctx, questions.WriteRequest{ID: q.ID, ActorID: author}); err != nil {
+		t.Errorf("still refused after the draft dropped it: %v", err)
+	}
+}
+
+// newDraftSection creates a test with one section and returns the section id.
+func newDraftSection(t *testing.T, pool *pgxpool.Pool, author string) string {
+	t.Helper()
+	ctx := context.Background()
+
+	var testID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.tests (title, created_by) VALUES ('Đề nháp', $1) RETURNING id::text`,
+		author).Scan(&testID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.tests WHERE id = $1`, testID)
+	})
+
+	var sectionID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.test_sections (test_id, ordinal, title)
+		 VALUES ($1, 0, 'Phần 1') RETURNING id::text`, testID).Scan(&sectionID); err != nil {
+		t.Fatal(err)
+	}
+	return sectionID
+}
+
+func addToSection(t *testing.T, pool *pgxpool.Pool, sectionID, questionID string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO app.test_section_questions (test_section_id, ordinal, question_id)
+		 VALUES ($1, 0, $2)`, sectionID, questionID); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -2,6 +2,7 @@ package questions
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -14,9 +15,15 @@ type Querier interface {
 // CountDraftReferences reports how many draft test outlines use the question.
 // A non-zero count blocks deletion with a 409.
 //
-// Always 0 until app.test_section_questions exists in T-2.7;
-// TestDraftReferenceCheckIsWiredOnceTestTablesExist fails once it does.
+// Runs on the caller's querier so it can share the transaction that locked the
+// question, and is served by test_section_questions_question_idx.
 func CountDraftReferences(ctx context.Context, q Querier, questionID string) (int, error) {
-	_, _, _ = ctx, q, questionID
-	return 0, nil
+	var n int
+	err := q.QueryRow(ctx,
+		`SELECT count(*) FROM app.test_section_questions WHERE question_id = $1`,
+		questionID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("questions: count draft references: %w", err)
+	}
+	return n, nil
 }
