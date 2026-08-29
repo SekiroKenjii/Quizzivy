@@ -105,7 +105,11 @@ export default function TestsListPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{t("nav.tests")}</h1>
           <p className="text-muted-foreground mt-0.5 text-sm">
-            {t("tests.summary", { count: items.length })}
+            {tests.isSuccess
+              ? t(tests.hasNextPage ? "tests.summarySoFar" : "tests.summary", {
+                  count: items.length,
+                })
+              : "\u00a0"}
           </p>
         </div>
         <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>

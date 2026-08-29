@@ -101,7 +101,7 @@ export default function QuestionBankPage() {
           <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
             {t("bank.tagFilter")}
           </p>
-          {tags.length === 0 ? (
+          {!bank.isSuccess ? null : tags.length === 0 ? (
             <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -127,7 +127,11 @@ export default function QuestionBankPage() {
               {t("nav.questionBank")}
             </h1>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              {t("bank.summary", { count: items.length })}
+              {bank.isSuccess
+                ? t(bank.hasNextPage ? "bank.summarySoFar" : "bank.summary", {
+                    count: items.length,
+                  })
+                : "\u00a0"}
             </p>
           </div>
           <Button asChild size="sm">
@@ -276,7 +280,7 @@ function Row({
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label={t("bank.preview")}
+              aria-label={t("bank.previewOf", { prompt: question.prompt })}
               aria-pressed={playing}
               onClick={onTogglePlay}
             >

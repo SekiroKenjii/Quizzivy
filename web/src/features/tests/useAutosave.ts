@@ -5,6 +5,8 @@ export const AUTOSAVE_DELAY_MS = 1500;
 
 export type AutosaveStatus =
   | { kind: "idle" }
+  /** Edited, inside the debounce window. Nothing has been sent yet. */
+  | { kind: "dirty" }
   | { kind: "saving" }
   | { kind: "saved"; at: Date }
   | { kind: "failed"; message: string }
@@ -16,18 +18,6 @@ interface AutosaveOptions<T> {
   delay?: number;
 }
 
-/**
- * §8's 1.5s debounced autosave.
- *
- * Debounced rather than throttled, and coalescing rather than queueing: typing
- * a title produces one request when the typing stops, not one per keystroke and
- * not a backlog that arrives out of order.
- *
- * A `STALE_WRITE` is terminal for the session. §1.3 says one admin edits at a
- * time, so the second tab has nothing useful to retry -- retrying would
- * overwrite whatever the first tab saved, which is precisely the loss the
- * version guard exists to prevent.
- */
 /**
  * Merges the statuses of several autosaves into the one the topbar shows.
  *
@@ -45,6 +35,10 @@ export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
 
   if (statuses.some((s) => s.kind === "saving")) return { kind: "saving" };
 
+  // Below "saving" because a request already going out is the more informative
+  // answer, but above "saved": one unsent edit makes the whole screen unsaved.
+  if (statuses.some((s) => s.kind === "dirty")) return { kind: "dirty" };
+
   // The most recent save is the honest answer: an older one says less.
   let newest: AutosaveStatus = { kind: "idle" };
   for (const status of statuses) {
@@ -54,6 +48,18 @@ export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
   return newest;
 }
 
+/**
+ * §8's 1.5s debounced autosave.
+ *
+ * Debounced rather than throttled, and coalescing rather than queueing: typing
+ * a title produces one request when the typing stops, not one per keystroke and
+ * not a backlog that arrives out of order.
+ *
+ * A `STALE_WRITE` is terminal for the session. §1.3 says one admin edits at a
+ * time, so the second tab has nothing useful to retry -- retrying would
+ * overwrite whatever the first tab saved, which is precisely the loss the
+ * version guard exists to prevent.
+ */
 export function useAutosave<T>({
   save,
   delay = AUTOSAVE_DELAY_MS,
@@ -104,6 +110,10 @@ export function useAutosave<T>({
     (value: T) => {
       if (stale.current) return;
       pending.current = value;
+      // Reported synchronously: until this lands, "Đã lưu 14:32" would be the
+      // previous save's timestamp, and §8's badge answers "is it safe to close
+      // the tab" -- which during this window it is not.
+      setStatus({ kind: "dirty" });
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => void run(), delay);
     },

@@ -69,7 +69,7 @@ export function BlanksEditor({ prompt, blanks, onChange }: BlanksEditorProps) {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={t("questionEditor.removeBlank")}
+                aria-label={t("questionEditor.removeBlankN", { n: blank.ordinal })}
                 onClick={() => onChange(renumber(blanks.filter((_, i) => i !== index)))}
               >
                 <Trash2 aria-hidden="true" />
@@ -78,7 +78,7 @@ export function BlanksEditor({ prompt, blanks, onChange }: BlanksEditorProps) {
 
             <Textarea
               value={blank.acceptedAnswers.join("\n")}
-              aria-label={t("questionEditor.acceptedAnswers")}
+              aria-label={t("questionEditor.acceptedAnswersFor", { n: blank.ordinal })}
               placeholder={t("questionEditor.acceptedAnswersHint")}
               className="min-h-16"
               onChange={(event) =>
@@ -97,7 +97,7 @@ export function BlanksEditor({ prompt, blanks, onChange }: BlanksEditorProps) {
               <Switch
                 checked={blank.caseSensitive}
                 onCheckedChange={(checked) => update(index, { caseSensitive: checked })}
-                aria-label={t("questionEditor.caseSensitive")}
+                aria-label={t("questionEditor.caseSensitiveFor", { n: blank.ordinal })}
               />
             </div>
           </div>

@@ -159,9 +159,13 @@ export default function ClassDetailPage() {
                   {t("common.loading")}
                 </p>
               ) : items.length === 0 ? (
-                // §12: one short sentence and one action, no illustration.
+                // §12: one short sentence, no illustration. Which sentence
+                // matters: `items` is search-filtered, so an empty result after
+                // typing means "nobody matches", not "the class is empty".
                 <p className="text-muted-foreground px-5 pb-8 text-sm">
-                  {t("classDetail.noMembers")}
+                  {members.data.items.length === 0
+                    ? t("classDetail.noMembers")
+                    : t("classDetail.noMemberMatches", { query: query.trim() })}
                 </p>
               ) : (
                 <Table>
@@ -211,7 +215,10 @@ export default function ClassDetailPage() {
                               setConfirmRemove({ userId: m.userId, name: m.fullName });
                             }}
                           >
-                            {t("classDetail.remove")}
+                            <span aria-hidden="true">{t("classDetail.remove")}</span>
+                            <span className="sr-only">
+                              {t("classDetail.removeNamed", { name: m.fullName })}
+                            </span>
                           </Button>
                         </TableCell>
                       </TableRow>

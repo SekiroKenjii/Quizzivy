@@ -49,7 +49,7 @@ describe("the fill_blank editor's placeholder check", () => {
   it("renumbers the remaining blanks so none is left unaddressable", async () => {
     const user = renderBlanks("She {{1}} here.", [blank(1), blank(2)]);
 
-    await user.click(screen.getAllByRole("button", { name: "Xoá chỗ trống" })[0]!);
+    await user.click(screen.getByRole("button", { name: "Xoá chỗ trống 1" }));
 
     expect(screen.getByText("Chỗ trống 1")).toBeInTheDocument();
     expect(screen.queryByText("Chỗ trống 2")).toBeNull();
@@ -77,7 +77,10 @@ describe("the question editor page, on a fill_blank mismatch", () => {
     await user.click(screen.getByLabelText("Nội dung câu hỏi"));
     await user.paste("She {{1}} and {{3}}.");
     await user.click(screen.getByRole("button", { name: "Thêm chỗ trống" }));
-    await user.type(screen.getByLabelText("Đáp án được chấp nhận"), "lives");
+    await user.type(
+      screen.getByLabelText("Đáp án được chấp nhận cho chỗ trống 1"),
+      "lives",
+    );
 
     expect(screen.getByRole("button", { name: "Lưu" })).toBeDisabled();
     expect(screen.getByText("Ký hiệu chỗ trống chưa khớp.")).toBeInTheDocument();

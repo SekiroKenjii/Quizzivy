@@ -175,7 +175,11 @@ describe("the question bank list", () => {
     );
     const user = renderBank();
 
-    await user.click(await screen.findByRole("button", { name: "Nghe thử" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Nghe thử: Người phụ nữ đề nghị làm gì?",
+      }),
+    );
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByLabelText("unit5-listening-2.mp3")).toBeInTheDocument();
@@ -208,7 +212,11 @@ describe("the question bank list", () => {
     );
     const user = renderBank();
 
-    await user.click(await screen.findByRole("button", { name: "Nghe thử" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Nghe thử: Người phụ nữ đề nghị làm gì?",
+      }),
+    );
     const player = screen.getByLabelText("unit5-listening-2.mp3");
 
     // The signed URL was minted when the list loaded and lives ten minutes

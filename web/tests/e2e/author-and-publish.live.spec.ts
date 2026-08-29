@@ -104,12 +104,24 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
 
   // Waiting on the REMOVE control, not the filename: UploadPanel shows the name
-  // while it pre-checks the file, so the name appearing means the upload has
-  // started, not that it finished. The remove button exists only once an asset
-  // is attached.
-  await expect(page.getByRole("button", { name: "Gỡ" })).toBeVisible({
-    timeout: 60_000,
-  });
+  // while it pre-checks the file AND inside every rejection message, so the name
+  // appearing means the upload started or failed, not that it finished. The
+  // remove button exists only once an asset is attached.
+  //
+  // Raced against the rejection alert so a server-side failure reports the
+  // server's own message in seconds instead of timing out silently a minute
+  // later — which is how a missing S3_FORCE_PATH_STYLE first showed up here.
+  await expect(async () => {
+    const rejected = page
+      .getByRole("alert")
+      .filter({ hasText: "Không dùng được tệp này" });
+    if (await rejected.isVisible()) {
+      throw new Error(`upload rejected: ${await rejected.innerText()}`);
+    }
+    await expect(page.getByRole("button", { name: "Gỡ" })).toBeVisible({
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 60_000 });
   await expect(page.getByText("unit5-listening.mp3")).toBeVisible();
 
   // The server sniffed the bytes and measured the duration. 0:10 is what the

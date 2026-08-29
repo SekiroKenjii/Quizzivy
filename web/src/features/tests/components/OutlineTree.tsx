@@ -102,6 +102,12 @@ export function OutlineTree({
 
   const numbering = numberQuestions(sections);
 
+  // The count comes from local state and is complete immediately; the points
+  // come from per-question queries and fill in one at a time. Showing both
+  // together rendered "6 câu · 0 điểm", then 2, then 6 -- a number that was
+  // never true. The count alone is honest until the rest lands.
+  const settled = [...numbering.keys()].every((id) => questions.has(id));
+
   return (
     <div className="flex w-72 shrink-0 flex-col border-r">
       <div className="flex items-center gap-2 border-b p-3">
@@ -109,10 +115,12 @@ export function OutlineTree({
           {t("builder.outline")}
         </p>
         <p className="text-muted-foreground ml-auto text-xs tabular-nums">
-          {t("builder.outlineSummary", {
-            questions: numbering.size,
-            points: totalPoints(sections, questions),
-          })}
+          {settled
+            ? t("builder.outlineSummary", {
+                questions: numbering.size,
+                points: totalPoints(sections, questions),
+              })
+            : t("builder.outlineQuestionsOnly", { questions: numbering.size })}
         </p>
       </div>
 
@@ -148,10 +156,12 @@ export function OutlineTree({
                     {section.title}
                   </span>
                   <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-                    {t("builder.sectionSummary", {
-                      questions: section.questionIds.length,
-                      points: sectionPoints(section, questions),
-                    })}
+                    {settled
+                      ? t("builder.sectionSummary", {
+                          questions: section.questionIds.length,
+                          points: sectionPoints(section, questions),
+                        })
+                      : section.questionIds.length}
                   </span>
                 </button>
 
@@ -240,6 +250,10 @@ function OutlineRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: questionId });
 
+  // `undefined` is "the query has not resolved", which is not the same claim as
+  // "this question has no text". Collapsing them made a six-question outline
+  // read as six empty questions for the length of six in-flight requests.
+  const loading = question === undefined;
   const label = question?.prompt.trim() ?? "";
 
   return (
@@ -271,12 +285,21 @@ function OutlineRow({
         <CircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
       ) : null}
 
-      <button type="button" className="flex-1 truncate text-left" onClick={onSelect}>
-        {question?.problem ?? (label === "" ? t("builder.untitledQuestion") : label)}
+      <button
+        type="button"
+        className="flex-1 truncate text-left"
+        disabled={loading}
+        onClick={onSelect}
+      >
+        {loading ? (
+          <span className="bg-muted inline-block h-3 w-full animate-pulse rounded" />
+        ) : (
+          (question.problem ?? (label === "" ? t("builder.untitledQuestion") : label))
+        )}
       </button>
 
       <span className="shrink-0 tabular-nums">
-        {t("builder.points", { points: question?.points ?? 0 })}
+        {loading ? "" : t("builder.points", { points: question.points })}
       </span>
 
       {/* The keyboard path, per §14. dnd-kit's keyboard sensor drives the same

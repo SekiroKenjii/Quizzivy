@@ -153,7 +153,9 @@
     "stop": "Ngừng",
     "freshTitle": "Mã mới cho lớp này",
     "copyCode": "Sao chép mã",
-    "done": "Xong"
+    "done": "Xong",
+    "removeNamed": "Xoá {{name}} khỏi lớp",
+    "noMemberMatches": "Không có học viên nào khớp với “{{query}}”."
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -219,7 +221,8 @@
     "rejectTitle": "Không dùng được tệp này",
     "rejectRetry": "Chọn tệp khác",
     "rejectFolder": "Không nhận được tệp nào. Nếu bạn kéo cả thư mục, hãy mở thư mục và kéo từng tệp.",
-    "rejectMany": "Mỗi lần chỉ tải lên được một tệp. Hãy kéo từng tệp một."
+    "rejectMany": "Mỗi lần chỉ tải lên được một tệp. Hãy kéo từng tệp một.",
+    "deleteNamed": "Xoá {{name}}"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -290,7 +293,11 @@
       "answerRequired": "Còn chỗ trống chưa có đáp án.",
       "placeholderMismatch": "Ký hiệu chỗ trống chưa khớp."
     },
-    "preview": "Học viên sẽ thấy"
+    "preview": "Học viên sẽ thấy",
+    "removeOptionN": "Xoá lựa chọn {{n}}",
+    "removeBlankN": "Xoá chỗ trống {{n}}",
+    "acceptedAnswersFor": "Đáp án được chấp nhận cho chỗ trống {{n}}",
+    "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}"
   },
   "builder": {
     "outline": "Cấu trúc",
@@ -333,7 +340,11 @@
     "newSection": "Phần {{n}}",
     "addFailed": "Không thêm được câu hỏi. Vui lòng thử lại.",
     "starterPrompt": "Câu hỏi mới — nhập nội dung ở đây",
-    "starterOption": "Lựa chọn {{n}}"
+    "starterOption": "Lựa chọn {{n}}",
+    "dirty": "Chưa lưu",
+    "bankNoMatches": "Không có câu hỏi nào khớp.",
+    "bankAllAdded": "Mọi câu hỏi tìm được đều đã có trong đề này.",
+    "outlineQuestionsOnly": "{{questions}} câu"
   },
   "bank": {
     "typeFilter": "Loại câu",
@@ -352,7 +363,9 @@
     "points": "Điểm",
     "preview": "Nghe thử",
     "loadMore": "Xem thêm",
-    "previewExpired": "Đường dẫn nghe thử đã hết hạn. Tải lại danh sách để nghe."
+    "previewExpired": "Đường dẫn nghe thử đã hết hạn. Tải lại danh sách để nghe.",
+    "previewOf": "Nghe thử: {{prompt}}",
+    "summarySoFar": "{{count}} câu đã tải"
   },
   "tests": {
     "summary": "{{count}} đề",
@@ -388,7 +401,8 @@
     "previewFailed": "Không tải được bản xem trước.",
     "openBuilder": "Mở trình soạn đề",
     "detailFailed": "Không tải được đề thi.",
-    "previewNote": "Đây là nội dung học viên nhận được. Sửa bản nháp không làm thay đổi bản đã phát hành."
+    "previewNote": "Đây là nội dung học viên nhận được. Sửa bản nháp không làm thay đổi bản đã phát hành.",
+    "summarySoFar": "{{count}} đề đã tải"
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
