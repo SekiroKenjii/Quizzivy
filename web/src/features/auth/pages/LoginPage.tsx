@@ -57,15 +57,16 @@ export default function LoginPage() {
   });
 
   return (
-    <AuthLayout>
-      <h1 className="text-2xl font-semibold tracking-tight">{t("login.title")}</h1>
-      <p className="text-muted-foreground mt-2 text-sm">{t("login.subtitle")}</p>
-      <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4" noValidate>
-        <div className="space-y-2">
+    <AuthLayout footer={t("login.noSignup")}>
+      <h1 className="text-xl font-semibold tracking-tight">{t("login.title")}</h1>
+      <p className="text-muted-foreground mt-1.5 text-sm">{t("login.subtitle")}</p>
+      <form onSubmit={(e) => void onSubmit(e)} className="mt-5 space-y-3" noValidate>
+        <div className="space-y-1.5">
           <Label htmlFor="email">{t("login.email")}</Label>
           <Input
             id="email"
             type="email"
+            className="h-11"
             inputMode="email"
             autoComplete="email"
             autoCapitalize="none"
@@ -81,11 +82,12 @@ export default function LoginPage() {
           ) : null}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="password">{t("login.password")}</Label>
           <Input
             id="password"
             type="password"
+            className="h-11"
             autoComplete="current-password"
             aria-invalid={form.formState.errors.password ? true : undefined}
             aria-describedby={
@@ -106,14 +108,19 @@ export default function LoginPage() {
           </p>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+        <Button
+          type="submit"
+          size="lg"
+          className="mt-4 w-full"
+          disabled={form.formState.isSubmitting}
+        >
           {form.formState.isSubmitting ? t("common.loading") : t("login.submit")}
         </Button>
       </form>
 
       {googleSignInAvailable() ? (
         <>
-          <div className="my-6 flex items-center gap-3">
+          <div className="my-4 flex items-center gap-3">
             <span className="bg-border h-px flex-1" aria-hidden="true" />
             <span className="text-muted-foreground text-xs">{t("login.or")}</span>
             <span className="bg-border h-px flex-1" aria-hidden="true" />
@@ -122,6 +129,7 @@ export default function LoginPage() {
           <Button
             type="button"
             variant="outline"
+            size="lg"
             className="w-full"
             disabled={google.pending}
             onClick={() => void google.start({ next })}
@@ -131,10 +139,6 @@ export default function LoginPage() {
           </Button>
         </>
       ) : null}
-
-      <p className="text-muted-foreground mt-6 text-xs leading-relaxed">
-        {t("login.noSignup")}
-      </p>
     </AuthLayout>
   );
 }

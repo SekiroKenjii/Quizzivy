@@ -60,3 +60,17 @@ test("a teacher's settings screen adds the profile block", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Hồ sơ" })).toBeVisible();
   await expect(page.getByText("Thuong")).toBeVisible();
 });
+
+test("signing out lives on the settings screen, not one mis-tap from the work", async ({
+  page,
+}) => {
+  await stubApi(page, sessionAs(studentUser));
+
+  await page.goto("/app");
+  await expect(page.getByRole("button", { name: "Đăng xuất" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Cài đặt" }).click();
+  await expect(page).toHaveURL(/\/app\/settings$/);
+  await expect(page.getByRole("heading", { name: "Cài đặt" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
+});
