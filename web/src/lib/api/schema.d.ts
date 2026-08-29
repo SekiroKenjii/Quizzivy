@@ -1256,7 +1256,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         ErrorResponse: {
             error: {
                 code: components["schemas"]["ErrorCode"];
@@ -1299,6 +1299,93 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description A class the student is in, with how they got there (§6.4's D-10). */
+        StudentClass: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            /** @enum {string} */
+            joinedVia: "admin" | "join_code";
+            joinedAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description Backs G-07's "Hoạt động" column, which has three renderings and needs
+         *     two facts to pick between them: "đang làm bài" while an attempt is live,
+         *     a relative time when there is a last one, and an em dash when the student
+         *     has never started anything.
+         *
+         *     `live` is not `lastAttemptAt is recent`. Nothing in this system flips an
+         *     attempt when its deadline passes -- assignment status is derived for
+         *     exactly that reason (D-18) -- so a stale in-progress row would read as
+         *     "đang làm bài" forever. The server ANDs the status with `deadline_at`.
+         */
+        StudentActivity: {
+            /** @description An attempt is in progress and inside its deadline. */
+            live: boolean;
+            /** Format: date-time */
+            lastAttemptAt?: string | null;
+        };
+        /**
+         * @description Per-student teaching figures for §8's students table (G-07) and the class
+         *     roster (G-06).
+         *
+         *     Deliberately NOT on `User`. `User` is the `/auth/me`, `/auth/login` and
+         *     `/auth/refresh` payload, so a field added there is shipped to the student
+         *     about themselves on every cold load and every token refresh. §13.5's
+         *     student-projection guard would not catch it either -- it sweeps `/app/*`
+         *     and `/auth/me` is not one.
+         */
+        StudentStats: {
+            /**
+             * @description Distinct ASSIGNMENTS with at least one attempt that reached the
+             *     teacher, not attempts. With `maxAttempts > 1` the two differ, and
+             *     counting attempts would print "14" beside an average taken over 7
+             *     things.
+             */
+            submittedCount: number;
+            /**
+             * @description Weighted: the sum of earned points over the sum of available points,
+             *     across each assignment's best graded attempt. Sent as the pair rather
+             *     than a percentage because every other score in this contract is an
+             *     (earned, total) pair, and the client can render either reading.
+             *
+             *     Null when nothing is graded yet, which is G-07's "—". An unsubmitted
+             *     assignment is never a zero: "chưa nộp" and "—" are different facts,
+             *     and collapsing them is how a gradebook lies.
+             */
+            score?: components["schemas"]["AttemptScore"] | null;
+            flaggedCount: number;
+            activity: components["schemas"]["StudentActivity"];
+        };
+        /**
+         * @description One row of §8's students table. Flat rather than `allOf: [User, ...]`:
+         *     `User` is `additionalProperties: false`, and in JSON Schema 2020-12 that
+         *     keyword cannot see a sibling `allOf` branch, so the composed form
+         *     rejects the very body it documents (see issue #41).
+         */
+        StudentRow: {
+            id: components["schemas"]["Uuid"];
+            /** Format: email */
+            email: string;
+            fullName: string;
+            hasPassword: boolean;
+            linkedProviders: "google"[];
+            mustChangePassword: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+            /** @description All memberships. The table truncates; the drawer lists them. */
+            classes: components["schemas"]["StudentClass"][];
+            stats: components["schemas"]["StudentStats"];
+        };
+        /**
+         * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a cursor page
+         *     cannot express, in the same shape as TestStatusFacets.
+         *
+         *     `active` reuses the dashboard's window verbatim rather than defining a
+         *     second meaning of active on a second screen.
+         */
+        StudentFacets: {
+            total: number;
+            activeLast7Days: number;
         };
         AuthSuccess: {
             /** @description Held in memory only (§5.2). The refresh token is set as a cookie, not returned here. */
@@ -2318,7 +2405,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    currentPassword: string;
+                    /**
+                     * @description Required, EXCEPT while `mustChangePassword` is true.
+                     *
+                     *     In that window the current password is one an admin
+                     *     generated and read aloud, so re-entering it proves nothing
+                     *     the access token has not already proved — and demanding it
+                     *     strands the case G-07 is drawn for: a student whose password
+                     *     was reset, who then signs in with Google and is redirected
+                     *     here without ever having held the temporary one.
+                     */
+                    currentPassword?: string;
                     newPassword: string;
                 };
             };
@@ -3391,7 +3488,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
-                        items: components["schemas"]["User"][];
+                        items: components["schemas"]["StudentRow"][];
+                        facets: components["schemas"]["StudentFacets"];
                     };
                 };
             };
@@ -3423,12 +3521,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        user: components["schemas"]["User"];
+                        user: components["schemas"]["StudentRow"];
                         temporaryPassword: string;
                     };
                 };
             };
-            /** @description Email already in use (case-insensitively). */
+            /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3456,9 +3554,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"] & {
-                        classes?: components["schemas"]["Class"][];
-                    };
+                    "application/json": components["schemas"]["StudentRow"];
                 };
             };
             404: components["responses"]["NotFound"];
@@ -3490,7 +3586,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["StudentRow"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `EMAIL_TAKEN` — another account already uses that address. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3517,6 +3623,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listClasses: {

@@ -192,6 +192,8 @@ components:
         - JOIN_CODE_EXHAUSTED
         - JOIN_CODE_REVOKED
         - ALREADY_ENROLLED
+        # students
+        - EMAIL_TAKEN
         # authoring
         - TEST_NOT_PUBLISHED
         - PUBLISH_VALIDATION_FAILED
@@ -282,6 +284,118 @@ components:
           type: boolean
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+
+    StudentClass:
+      type: object
+      description: A class the student is in, with how they got there (§6.4's D-10).
+      required: [id, name, joinedVia, joinedAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        joinedVia:
+          type: string
+          enum: [admin, join_code]
+        joinedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    StudentActivity:
+      type: object
+      description: |
+        Backs G-07's "Hoạt động" column, which has three renderings and needs
+        two facts to pick between them: "đang làm bài" while an attempt is live,
+        a relative time when there is a last one, and an em dash when the student
+        has never started anything.
+
+        `live` is not `lastAttemptAt is recent`. Nothing in this system flips an
+        attempt when its deadline passes -- assignment status is derived for
+        exactly that reason (D-18) -- so a stale in-progress row would read as
+        "đang làm bài" forever. The server ANDs the status with `deadline_at`.
+      required: [live]
+      additionalProperties: false
+      properties:
+        live: { type: boolean, description: An attempt is in progress and inside its deadline. }
+        lastAttemptAt: { type: [string, 'null'], format: date-time }
+
+    StudentStats:
+      type: object
+      description: |
+        Per-student teaching figures for §8's students table (G-07) and the class
+        roster (G-06).
+
+        Deliberately NOT on `User`. `User` is the `/auth/me`, `/auth/login` and
+        `/auth/refresh` payload, so a field added there is shipped to the student
+        about themselves on every cold load and every token refresh. §13.5's
+        student-projection guard would not catch it either -- it sweeps `/app/*`
+        and `/auth/me` is not one.
+      required: [submittedCount, flaggedCount, activity]
+      additionalProperties: false
+      properties:
+        submittedCount:
+          type: integer
+          minimum: 0
+          description: |
+            Distinct ASSIGNMENTS with at least one attempt that reached the
+            teacher, not attempts. With `maxAttempts > 1` the two differ, and
+            counting attempts would print "14" beside an average taken over 7
+            things.
+        score:
+          description: |
+            Weighted: the sum of earned points over the sum of available points,
+            across each assignment's best graded attempt. Sent as the pair rather
+            than a percentage because every other score in this contract is an
+            (earned, total) pair, and the client can render either reading.
+
+            Null when nothing is graded yet, which is G-07's "—". An unsubmitted
+            assignment is never a zero: "chưa nộp" and "—" are different facts,
+            and collapsing them is how a gradebook lies.
+          oneOf:
+            - $ref: '#/components/schemas/AttemptScore'
+            - type: 'null'
+        flaggedCount: { type: integer, minimum: 0 }
+        activity: { $ref: '#/components/schemas/StudentActivity' }
+
+    StudentRow:
+      type: object
+      description: |
+        One row of §8's students table. Flat rather than `allOf: [User, ...]`:
+        `User` is `additionalProperties: false`, and in JSON Schema 2020-12 that
+        keyword cannot see a sibling `allOf` branch, so the composed form
+        rejects the very body it documents (see issue #41).
+      required:
+        [id, email, fullName, hasPassword, linkedProviders, mustChangePassword,
+         createdAt, classes, stats]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        email: { type: string, format: email, maxLength: 254 }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        hasPassword: { type: boolean }
+        linkedProviders:
+          type: array
+          items: { type: string, enum: [google] }
+          maxItems: 1
+        mustChangePassword: { type: boolean }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        classes:
+          type: array
+          items: { $ref: '#/components/schemas/StudentClass' }
+          description: All memberships. The table truncates; the drawer lists them.
+        stats: { $ref: '#/components/schemas/StudentStats' }
+
+    StudentFacets:
+      type: object
+      description: |
+        G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a cursor page
+        cannot express, in the same shape as TestStatusFacets.
+
+        `active` reuses the dashboard's window verbatim rather than defining a
+        second meaning of active on a second screen.
+      required: [total, activeLast7Days]
+      additionalProperties: false
+      properties:
+        total: { type: integer, minimum: 0 }
+        activeLast7Days: { type: integer, minimum: 0 }
 
     AuthSuccess:
       type: object
@@ -1492,10 +1606,20 @@ paths:
           application/json:
             schema:
               type: object
-              required: [currentPassword, newPassword]
+              required: [newPassword]
               additionalProperties: false
               properties:
-                currentPassword: { type: string }
+                currentPassword:
+                  type: string
+                  description: |
+                    Required, EXCEPT while `mustChangePassword` is true.
+
+                    In that window the current password is one an admin
+                    generated and read aloud, so re-entering it proves nothing
+                    the access token has not already proved — and demanding it
+                    strands the case G-07 is drawn for: a student whose password
+                    was reset, who then signs in with Google and is redirected
+                    here without ever having held the temporary one.
                 newPassword: { type: string, minLength: 8, maxLength: 512 }
       responses:
         '204':
@@ -2390,9 +2514,10 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
-                      items: { type: array, items: { $ref: '#/components/schemas/User' } }
+                      items: { type: array, items: { $ref: '#/components/schemas/StudentRow' } }
+                      facets: { $ref: '#/components/schemas/StudentFacets' }
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createStudent
@@ -2422,10 +2547,10 @@ paths:
                 required: [user, temporaryPassword]
                 additionalProperties: false
                 properties:
-                  user: { $ref: '#/components/schemas/User' }
+                  user: { $ref: '#/components/schemas/StudentRow' }
                   temporaryPassword: { type: string }
         '409':
-          description: Email already in use (case-insensitively).
+          description: '`EMAIL_TAKEN` — already in use, compared case-insensitively.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -2441,12 +2566,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/User'
-                  - type: object
-                    properties:
-                      classes: { type: array, items: { $ref: '#/components/schemas/Class' } }
+              schema: { $ref: '#/components/schemas/StudentRow' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateStudent
@@ -2468,7 +2588,13 @@ paths:
           description: Saved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/User' }
+              schema: { $ref: '#/components/schemas/StudentRow' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`EMAIL_TAKEN` — another account already uses that address.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/students/{id}/reset-password:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2490,6 +2616,7 @@ paths:
                 additionalProperties: false
                 properties:
                   temporaryPassword: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/classes:
     get:

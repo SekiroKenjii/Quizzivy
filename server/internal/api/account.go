@@ -64,7 +64,7 @@ func (s *Server) ChangePassword(ctx context.Context, request openapi.ChangePassw
 	meta := httpx.RequestMetaFromContext(ctx)
 	err := s.Deps.Auth.ChangePassword(ctx, auth.ChangePasswordInput{
 		UserID:           principal.UserID,
-		CurrentPassword:  request.Body.CurrentPassword,
+		CurrentPassword:  derefString(request.Body.CurrentPassword),
 		NewPassword:      request.Body.NewPassword,
 		KeepRefreshToken: refreshTokenFromContext(ctx),
 		IP:               meta.IP,
@@ -103,4 +103,13 @@ func (s *Server) ChangePassword(ctx context.Context, request openapi.ChangePassw
 
 func sessionInvalid(ctx context.Context) openapi.ErrorResponse {
 	return authError(ctx, openapi.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.")
+}
+
+// derefString reads an optional body field. `currentPassword` is absent exactly
+// when the change is a forced one, which auth.ChangePassword handles.
+func derefString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }
