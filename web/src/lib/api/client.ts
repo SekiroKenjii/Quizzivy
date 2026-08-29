@@ -1,5 +1,5 @@
 import type { paths } from "./schema";
-import { ApiError, toApiError } from "./errors";
+import { ApiError, toApiError, type ApiErrorCode } from "./errors";
 import { authStore } from "@/stores/auth";
 
 /**
@@ -208,6 +208,102 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
     return undefined as SuccessOf<paths[P][M]>;
   }
   return (await response.json()) as SuccessOf<paths[P][M]>;
+}
+
+/** Progress and cancellation for an upload, which fetch cannot report. */
+export interface UploadOptions {
+  onProgress?: (fraction: number) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * Uploads one file as multipart/form-data, sharing this module's token and
+ * single-flight refresh.
+ *
+ * XMLHttpRequest rather than fetch, for the one thing fetch cannot do: report
+ * how much of the body has been sent. §11.1 allows 10 MB, which is long enough
+ * on a phone that a progress bar is the difference between "working" and
+ * "broken".
+ */
+export async function uploadFile<T>(
+  path: string,
+  file: File,
+  options: UploadOptions = {},
+): Promise<T> {
+  const url = buildUrl(path);
+
+  const send = () =>
+    new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open("POST", url);
+      request.withCredentials = true;
+      request.setRequestHeader("Accept", "application/json");
+      const token = authStore.getAccessToken();
+      if (token) request.setRequestHeader("Authorization", `Bearer ${token}`);
+
+      if (options.onProgress) {
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable) options.onProgress?.(event.loaded / event.total);
+        };
+      }
+      request.onload = () => resolve({ status: request.status, body: request.responseText });
+      request.onerror = () => reject(new ApiError({ status: 0, code: "UNKNOWN", message: "Không thể kết nối máy chủ." }));
+      request.onabort = () => reject(new DOMException("Aborted", "AbortError"));
+
+      if (options.signal) {
+        if (options.signal.aborted) {
+          request.abort();
+          return;
+        }
+        options.signal.addEventListener("abort", () => request.abort(), { once: true });
+      }
+
+      const form = new FormData();
+      form.append("file", file);
+      request.send(form);
+    });
+
+  let response = await send();
+  if (response.status === 401) {
+    const refreshed = await refreshSession();
+    if (!refreshed) {
+      authStore.clear();
+      onSessionLost();
+      throw toUploadError(response);
+    }
+    response = await send();
+    if (response.status === 401) {
+      authStore.clear();
+      onSessionLost();
+      throw toUploadError(response);
+    }
+  }
+  if (response.status < 200 || response.status >= 300) throw toUploadError(response);
+
+  return JSON.parse(response.body) as T;
+}
+
+function toUploadError(response: { status: number; body: string }): ApiError {
+  try {
+    const parsed = JSON.parse(response.body) as {
+      error?: { code?: string; message?: string; requestId?: string };
+    };
+    if (parsed.error?.code && parsed.error.message) {
+      return new ApiError({
+        status: response.status,
+        code: parsed.error.code as ApiErrorCode,
+        message: parsed.error.message,
+        requestId: parsed.error.requestId,
+      });
+    }
+  } catch {
+    // A non-JSON body means a proxy or a crash, not our error envelope.
+  }
+  return new ApiError({
+    status: response.status,
+    code: "UNKNOWN",
+    message: "Đã xảy ra lỗi. Vui lòng thử lại.",
+  });
 }
 
 export { ApiError };
