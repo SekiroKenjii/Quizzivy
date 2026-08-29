@@ -224,7 +224,15 @@
     "rejectRetry": "Chọn tệp khác",
     "rejectFolder": "Không nhận được tệp nào. Nếu bạn kéo cả thư mục, hãy mở thư mục và kéo từng tệp.",
     "rejectMany": "Mỗi lần chỉ tải lên được một tệp. Hãy kéo từng tệp một.",
-    "deleteNamed": "Xoá {{name}}"
+    "deleteNamed": "Xoá {{name}}",
+    "summarySoFar": "{{count}} tệp đã tải · {{size}}",
+    "view": "Xem",
+    "blockedTitle": "Không xoá được tệp này",
+    "blockedBody": "{{name}} đang được dùng trong {{count}} đề đã phát hành. Học viên đang làm bài vẫn cần nghe được tệp.",
+    "blockedNote": "Tệp đã dùng trong đề đã phát hành thì không xoá được — các bài đang làm vẫn cần nghe nó. Tải bản mới sẽ tạo một tệp mới, không ghi đè.",
+    "understood": "Đã hiểu",
+    "previewNamed": "Nghe thử {{name}}",
+    "viewNamed": "Xem {{name}}"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",

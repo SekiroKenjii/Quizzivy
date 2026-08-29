@@ -224,7 +224,15 @@
     "rejectRetry": "Choose another file",
     "rejectFolder": "No file arrived. If you dragged a folder, open it and drag the files themselves.",
     "rejectMany": "One file at a time. Please drag them one by one.",
-    "deleteNamed": "Delete {{name}}"
+    "deleteNamed": "Delete {{name}}",
+    "summarySoFar": "{{count}} files loaded · {{size}}",
+    "view": "View",
+    "blockedTitle": "This file cannot be deleted",
+    "blockedBody": "{{name}} is used by {{count}} published tests. Students sitting them still need to hear it.",
+    "blockedNote": "A file used by a published test cannot be deleted — attempts in progress still need it. Uploading a new one creates a new file rather than overwriting this.",
+    "understood": "Got it",
+    "previewNamed": "Preview {{name}}",
+    "viewNamed": "View {{name}}"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
