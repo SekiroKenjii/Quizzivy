@@ -106,6 +106,7 @@ type AssignmentsService interface {
 // AttemptsService is the slice of internal/attempts the handlers use.
 type AttemptsService interface {
 	StartOrResume(ctx context.Context, assignmentID, studentID string) (attempts.Session, error)
+	Get(ctx context.Context, attemptID, studentID string) (attempts.Session, error)
 }
 
 // StudentsService is the slice of internal/students the handlers use.

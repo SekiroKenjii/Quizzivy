@@ -96,6 +96,35 @@ func (s *Service) startOrResume(ctx context.Context, assignmentID, studentID str
 	return s.create(ctx, assignmentID, studentID, tally.Next, rules)
 }
 
+// Get is §7's rule that a student fetches test content through exactly one
+// endpoint. It re-reads the paper without disturbing the session: a reload
+// takes the attempt over, a refetch does not.
+func (s *Service) Get(ctx context.Context, attemptID, studentID string) (Session, error) {
+	attempt, err := s.store.ByID(ctx, attemptID, studentID)
+	if err != nil {
+		// A student asking for someone else's attempt gets the same answer as
+		// one asking for an attempt that does not exist. Any other pairing
+		// tells them which ids are real.
+		if errors.Is(err, ErrNotFound) {
+			return Session{}, ErrForbidden
+		}
+		return Session{}, err
+	}
+	rules, err := s.store.RulesFor(ctx, attempt.AssignmentID)
+	if err != nil {
+		return Session{}, err
+	}
+
+	beacon, hash, err := s.newBeacon()
+	if err != nil {
+		return Session{}, err
+	}
+	if err := s.store.Rebeacon(ctx, attempt.ID, hash); err != nil {
+		return Session{}, err
+	}
+	return s.session(ctx, attempt, beacon, rules)
+}
+
 func (s *Service) resumeIfLive(ctx context.Context, assignmentID, studentID string, r Rules) (Session, bool, error) {
 	live, err := s.store.Live(ctx, assignmentID, studentID)
 	if errors.Is(err, ErrNotFound) {

@@ -23,7 +23,6 @@ import (
 var unimplemented = []string{
 	// Phase 3 — assignments and taking a test
 	"FlushEvents",
-	"GetAttempt",
 	"GetMyAssignment",
 	"ListMyAssignments",
 	"RecordAudioPlay",
