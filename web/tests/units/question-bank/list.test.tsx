@@ -48,6 +48,9 @@ beforeEach(() => {
           fill_blank: 0,
           short_answer: 0,
         },
+        tags: [],
+        total: 0,
+        filtered: 0,
         items: [question()],
         nextCursor: null,
       });
@@ -118,6 +121,9 @@ describe("the question bank list", () => {
             fill_blank: 0,
             short_answer: 0,
           },
+          tags: [],
+          total: 0,
+          filtered: 0,
           items: [
             question({
               id: `018f0000-0000-7000-8000-00000000${url.searchParams.get("cursor") ? "0002" : "0001"}`,
@@ -149,6 +155,9 @@ describe("the question bank list", () => {
             fill_blank: 0,
             short_answer: 0,
           },
+          tags: [],
+          total: 0,
+          filtered: 0,
           items: [],
           nextCursor: null,
         }),
@@ -174,6 +183,9 @@ describe("the question bank list", () => {
             fill_blank: 0,
             short_answer: 0,
           },
+          tags: [],
+          total: 0,
+          filtered: 0,
           items: [],
           nextCursor: null,
         }),
@@ -201,6 +213,9 @@ describe("the question bank list", () => {
             fill_blank: 0,
             short_answer: 0,
           },
+          tags: [],
+          total: 0,
+          filtered: 0,
           items: [
             question({
               media: {
@@ -251,6 +266,9 @@ describe("the question bank list", () => {
             fill_blank: 0,
             short_answer: 0,
           },
+          tags: [],
+          total: 0,
+          filtered: 0,
           items: [
             question({
               media: {

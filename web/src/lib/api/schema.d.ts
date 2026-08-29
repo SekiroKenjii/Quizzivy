@@ -2975,6 +2975,27 @@ export interface operations {
                     "application/json": components["schemas"]["CursorPage"] & {
                         items: components["schemas"]["AdminQuestion"][];
                         facets: components["schemas"]["QuestionTypeFacets"];
+                        /**
+                         * @description Every tag reachable through the CURRENT type, audio and
+                         *     search filters, sorted and distinct. Server-derived, not
+                         *     collected from the returned page: a rail built from one
+                         *     page can only offer the tags that page happens to carry,
+                         *     which makes a second chip unselectable and the filter
+                         *     look broken.
+                         *
+                         *     The tag filter itself is not applied, for the same
+                         *     reason the type facets ignore the type filter — picking
+                         *     one chip must not empty the rail.
+                         */
+                        tags: string[];
+                        /** @description Live questions in the bank, before any filter. A-06's "180 câu". */
+                        total: number;
+                        /**
+                         * @description Matching ALL current filters — A-06's "đang lọc 41".
+                         *     Distinct from `facets.all`, which ignores the type
+                         *     filter so the "Tất cả" row can show a total.
+                         */
+                        filtered: number;
                     };
                 };
             };

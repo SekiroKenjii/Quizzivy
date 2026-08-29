@@ -67,11 +67,18 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 func escapeLike(s string) string { return likeEscaper.Replace(s) }
 
 // buildFilters returns the bound arguments and WHERE clauses for one page.
-func buildFilters(in ListInput, limit int, after string) (args []any, where []string) {
-	args = []any{limit + 1}
-	where = []string{`q.deleted_at IS NULL`}
+// appendFilters adds the bank's WHERE clauses onto whatever arguments the
+// caller has already bound, so a paged query and a bare count can share one
+// definition of "what is being filtered" instead of drifting apart.
+//
+// Which filters apply is the caller's choice: the type facets deliberately skip
+// the type filter, and the tag rail deliberately skips the tag filter, because
+// a facet that applies its own dimension zeroes every row the teacher has not
+// picked.
+func appendFilters(in ListInput, args []any, opts filterOpts) ([]any, []string) {
+	where := []string{`q.deleted_at IS NULL`}
 
-	if len(in.Types) > 0 {
+	if opts.types && len(in.Types) > 0 {
 		types := make([]string, len(in.Types))
 		for i, t := range in.Types {
 			types[i] = string(t)
@@ -79,7 +86,7 @@ func buildFilters(in ListInput, limit int, after string) (args []any, where []st
 		args = append(args, types)
 		where = append(where, fmt.Sprintf(`q.type = ANY($%d::app.question_type[])`, len(args)))
 	}
-	if len(in.Tags) > 0 {
+	if opts.tags && len(in.Tags) > 0 {
 		// Overlap, not containment: two ticked chips mean "either", the same
 		// way two ticked types do. `@>` would mean "carries both", which reads
 		// as a filter that gets stricter the more of the rail you touch.
@@ -95,11 +102,27 @@ func buildFilters(in ListInput, limit int, after string) (args []any, where []st
 		args = append(args, escapeLike(q))
 		where = append(where, fmt.Sprintf(searchCondition, len(args)))
 	}
-	if after != "" {
-		args = append(args, after)
+	if opts.after != "" {
+		args = append(args, opts.after)
 		where = append(where, fmt.Sprintf(`q.id < $%d::uuid`, len(args)))
 	}
 	return args, where
+}
+
+type filterOpts struct {
+	types bool
+	tags  bool
+	after string
+}
+
+// allFilters is every dimension: what the page itself is filtered by.
+func allFilters(after string) filterOpts {
+	return filterOpts{types: true, tags: true, after: after}
+}
+
+// buildFilters returns the bound arguments and WHERE clauses for one page.
+func buildFilters(in ListInput, limit int, after string) (args []any, where []string) {
+	return appendFilters(in, []any{limit + 1}, allFilters(after))
 }
 
 // List returns one page of live bank questions, newest first.

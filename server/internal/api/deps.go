@@ -77,6 +77,8 @@ type QuestionsService interface {
 	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Delete(ctx context.Context, req questions.WriteRequest) error
 	AddTags(ctx context.Context, ids []string, tags []string) (int, error)
+	Tags(ctx context.Context, in questions.ListInput) ([]string, error)
+	Counts(ctx context.Context, in questions.ListInput) (int, int, error)
 }
 
 // TestsService is the slice of internal/tests the handlers use.
