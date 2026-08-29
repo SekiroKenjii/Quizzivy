@@ -45,7 +45,8 @@
     "closeMenu": "Đóng menu",
     "mainNavigation": "Điều hướng chính",
     "sectionTeaching": "Giảng dạy",
-    "sectionClasses": "Lớp học"
+    "sectionClasses": "Lớp học",
+    "account": "Tài khoản của {{name}}"
   },
   "student": {
     "myAssignments": "Bài của tôi",
@@ -77,7 +78,8 @@
       "emailRequired": "Vui lòng nhập email.",
       "emailInvalid": "Email không hợp lệ.",
       "passwordRequired": "Vui lòng nhập mật khẩu."
-    }
+    },
+    "panelBlurb": "Nền tảng luyện thi tiếng Anh dành riêng cho lớp học của bạn."
   },
   "join": {
     "title": "Tham gia lớp học",
@@ -344,7 +346,8 @@
     "dirty": "Chưa lưu",
     "bankNoMatches": "Không có câu hỏi nào khớp.",
     "bankAllAdded": "Mọi câu hỏi tìm được đều đã có trong đề này.",
-    "outlineQuestionsOnly": "{{questions}} câu"
+    "outlineQuestionsOnly": "{{questions}} câu",
+    "position": "Câu {{number}} · {{section}}"
   },
   "bank": {
     "typeFilter": "Loại câu",
@@ -365,10 +368,12 @@
     "loadMore": "Xem thêm",
     "previewExpired": "Đường dẫn nghe thử đã hết hạn. Tải lại danh sách để nghe.",
     "previewOf": "Nghe thử: {{prompt}}",
-    "summarySoFar": "{{count}} câu đã tải"
+    "summarySoFar": "{{count}} câu đã tải",
+    "usedIn": "Đang dùng",
+    "usedInCount": "{{count}} đề"
   },
   "tests": {
-    "summary": "{{count}} đề",
+    "summary": "{{count}} đề · {{drafts}} bản nháp",
     "new": "Đề thi mới",
     "untitled": "Đề thi chưa đặt tên",
     "statusFilter": "Lọc theo trạng thái",
@@ -407,5 +412,17 @@
   "preview": {
     "questionNumber": "Câu {{n}}",
     "writtenAnswer": "Học viên viết câu trả lời ở đây"
+  },
+  "palette": {
+    "title": "Tìm kiếm và lệnh",
+    "placeholder": "Tìm hoặc gõ lệnh…",
+    "tests": "Đề thi",
+    "questions": "Câu hỏi",
+    "navigate": "Điều hướng",
+    "noMatches": "Không tìm thấy gì khớp.",
+    "hint": "Gõ để tìm đề thi và câu hỏi, hoặc chọn một trang bên dưới.",
+    "open": "Tìm đề thi, học viên, câu hỏi…",
+    "escape": "esc",
+    "keyK": "K"
   }
 }

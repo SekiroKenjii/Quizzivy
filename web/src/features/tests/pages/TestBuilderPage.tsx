@@ -12,7 +12,7 @@ import type { RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -257,6 +257,10 @@ function Builder({ test }: { test: Test }) {
     }
   }
 
+  // A-04 labels the editor with where the question sits, because "câu 2" is
+  // how a teacher refers to it and the outline is the only thing that knows.
+  const contextLabel = describePosition(sections, selectedId, t);
+
   const saveStatus = mergeAutosave([outline.status, questionStatus]);
   const stale = saveStatus.kind === "stale";
 
@@ -282,10 +286,20 @@ function Builder({ test }: { test: Test }) {
 
         <div className="ml-auto flex items-center gap-2">
           <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => void navigate(`/admin/tests/${test.id}`)}
+          >
+            <History aria-hidden="true" />
+            {t("builder.versions")}
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={() => void navigate(`/admin/tests/${test.id}`)}
           >
+            <Eye aria-hidden="true" />
             {t("builder.previewAsStudent")}
           </Button>
           <Button
@@ -346,6 +360,7 @@ function Builder({ test }: { test: Test }) {
               questionId={selectedId}
               flushRef={flushQuestion}
               onStatus={setQuestionStatus}
+              contextLabel={contextLabel}
             />
           )}
         </div>
@@ -379,10 +394,12 @@ function QuestionPane({
   questionId,
   flushRef,
   onStatus,
+  contextLabel,
 }: {
   questionId: string;
   flushRef: RefObject<(() => Promise<void>) | null>;
   onStatus: (status: AutosaveStatus) => void;
+  contextLabel: string | null;
 }) {
   const { t } = useTranslation();
   const question = useQuery({
@@ -411,6 +428,7 @@ function QuestionPane({
       initial={question.data}
       flushRef={flushRef}
       onStatus={onStatus}
+      contextLabel={contextLabel}
     />
   );
 }
@@ -420,11 +438,13 @@ function QuestionForm({
   initial,
   flushRef,
   onStatus,
+  contextLabel,
 }: {
   questionId: string;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
   onStatus: (status: AutosaveStatus) => void;
+  contextLabel: string | null;
 }) {
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
@@ -454,6 +474,7 @@ function QuestionForm({
       <QuestionEditor
         value={values}
         asset={asset}
+        contextLabel={contextLabel}
         onChange={(next) => {
           setValues(next);
           autosave.schedule(next);
@@ -490,6 +511,24 @@ function starterQuestion(t: TFunction): QuestionValues {
     sampleAnswer: null,
     tags: [],
   };
+}
+
+function describePosition(
+  sections: OutlineSection[],
+  questionId: string | null,
+  t: TFunction,
+): string | null {
+  if (questionId === null) return null;
+  let number = 0;
+  for (const section of sections) {
+    for (const id of section.questionIds) {
+      number += 1;
+      if (id === questionId) {
+        return t("builder.position", { number, section: section.title });
+      }
+    }
+  }
+  return null;
 }
 
 function problemFor(

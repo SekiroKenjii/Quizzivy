@@ -23,7 +23,13 @@ const questionColumns = `
 	       q.media_asset_id::text, q.media_asset_kind::text,
 	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
 	       q.transcript, q.points::text, q.explanation, q.sample_answer,
-	       q.tags, q.created_at, q.updated_at`
+	       q.tags,
+	       (SELECT count(DISTINCT s.test_id)
+	          FROM app.test_section_questions sq
+	          JOIN app.test_sections s ON s.id = sq.test_section_id
+	          JOIN app.tests t ON t.id = s.test_id AND t.deleted_at IS NULL
+	         WHERE sq.question_id = q.id),
+	       q.created_at, q.updated_at`
 
 func scanQuestion(row pgx.Row) (Question, error) {
 	var q Question
@@ -33,7 +39,7 @@ func scanQuestion(row pgx.Row) (Question, error) {
 
 	err := row.Scan(&q.ID, &typ, &q.Prompt, &q.MediaAssetID, &q.MediaAssetKind,
 		&maxPlays, &allowSeek, &showTranscript, &q.Transcript, &q.Points,
-		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.CreatedAt, &q.UpdatedAt)
+		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Question{}, ErrNotFound
 	}

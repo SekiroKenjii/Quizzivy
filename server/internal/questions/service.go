@@ -99,6 +99,10 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Question, string, e
 	return s.store.List(ctx, in)
 }
 
+func (s *Service) Facets(ctx context.Context, in ListInput) (TypeFacets, error) {
+	return s.store.Facets(ctx, in)
+}
+
 func (s *Service) Delete(ctx context.Context, req WriteRequest) error {
 	return s.store.SoftDelete(ctx, WriteInput{
 		ID:        req.ID,

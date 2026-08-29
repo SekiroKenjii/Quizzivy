@@ -98,6 +98,9 @@ export default function TestsListPage() {
   });
 
   const items = tests.data?.pages.flatMap((page) => page.items) ?? [];
+  // Every page carries the same facets (they ignore the cursor), so the first
+  // one is the answer -- and it is the only page guaranteed to exist.
+  const facets = tests.data?.pages[0]?.facets;
 
   return (
     <div className="space-y-4">
@@ -105,10 +108,8 @@ export default function TestsListPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{t("nav.tests")}</h1>
           <p className="text-muted-foreground mt-0.5 text-sm">
-            {tests.isSuccess
-              ? t(tests.hasNextPage ? "tests.summarySoFar" : "tests.summary", {
-                  count: items.length,
-                })
+            {facets
+              ? t("tests.summary", { count: facets.all, drafts: facets.draft })
               : "\u00a0"}
           </p>
         </div>
@@ -124,6 +125,11 @@ export default function TestsListPage() {
             {TABS.map((value) => (
               <TabsTrigger key={value} value={value}>
                 {value === "all" ? t("tests.all") : t(`builder.${value}`)}
+                {facets ? (
+                  <span className="text-muted-foreground ml-1 tabular-nums">
+                    {facets[value]}
+                  </span>
+                ) : null}
               </TabsTrigger>
             ))}
           </TabsList>

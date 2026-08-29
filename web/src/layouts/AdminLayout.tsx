@@ -14,7 +14,15 @@ import {
   PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SignOutButton } from "@/features/auth/SignOutButton";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
+import { AccountMenu } from "@/features/auth/AccountMenu";
+import { CommandPalette } from "@/features/search/CommandPalette";
+import {
+  commandKeyLabel,
+  useCommandPalette,
+} from "@/features/search/useCommandPalette";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 /**
@@ -67,6 +75,7 @@ export default function AdminLayout() {
   // §8's breakpoint: at or below 1280px the sidebar collapses by default.
   const isNarrow = useMediaQuery("(max-width: 1280px)");
   const [override, setOverride] = useState<boolean | null>(null);
+  const palette = useCommandPalette();
   const open = override ?? !isNarrow;
   const toggle = () => setOverride(!open);
 
@@ -87,11 +96,31 @@ export default function AdminLayout() {
           <span className="text-base font-semibold tracking-tight">
             {t("app.name")}
           </span>
+
+          {/* A-02's trigger: the palette is the only navigation model that
+              survives an LMS-sized sidebar, so it sits in the chrome rather
+              than on one screen. */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-muted-foreground ml-4 w-80 justify-start font-normal"
+            onClick={() => palette.setOpen(true)}
+          >
+            <Search aria-hidden="true" />
+            {t("palette.open")}
+            <span className="ml-auto flex items-center gap-0.5">
+              <Kbd>{commandKeyLabel()}</Kbd>
+              <Kbd>{t("palette.keyK")}</Kbd>
+            </span>
+          </Button>
+
           <div className="ml-auto">
-            <SignOutButton />
+            <AccountMenu />
           </div>
         </div>
       </header>
+
+      <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
       <div className="flex flex-1">
         <nav

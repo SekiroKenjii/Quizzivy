@@ -65,6 +65,7 @@ type MediaService interface {
 // QuestionsService is the slice of internal/questions the handlers use.
 type QuestionsService interface {
 	List(ctx context.Context, in questions.ListInput) ([]questions.Question, string, error)
+	Facets(ctx context.Context, in questions.ListInput) (questions.TypeFacets, error)
 	Get(ctx context.Context, id string) (questions.Question, error)
 	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
@@ -74,6 +75,7 @@ type QuestionsService interface {
 // TestsService is the slice of internal/tests the handlers use.
 type TestsService interface {
 	List(ctx context.Context, in tests.ListInput) ([]tests.Test, string, error)
+	Facets(ctx context.Context, in tests.ListInput) (tests.StatusFacets, error)
 	Get(ctx context.Context, id string) (tests.Test, error)
 	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
 	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)

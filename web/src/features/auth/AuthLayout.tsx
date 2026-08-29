@@ -3,13 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 
 /**
- * The shell for /login, per the deck's S-02: a wordmark over a single card, one
- * column at every width.
+ * The shell for /login: a brand panel on the left, the form card on the right.
  *
- * There is no marketing panel beside it. §12 asks for calm and legitimate, and
- * for the student arriving from a join link this is the second screen they have
- * ever seen of the product -- a half-screen of brand copy would be the first
- * thing suggesting they are somewhere they should not be.
+ * The card is the same one S-02 draws; it sits in the right half rather than
+ * centred on the page. Below `lg` the panel is dropped entirely and the card
+ * carries the wordmark itself, because on a phone half a screen of brand is
+ * half a screen the student cannot type into.
  */
 export function AuthLayout({
   children,
@@ -22,18 +21,27 @@ export function AuthLayout({
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-svh p-4 pt-14">
-      <div className="mx-auto w-full max-w-sm">
-        <p className="mb-6 text-center text-lg font-semibold tracking-tight">
-          {t("app.name")}
+    <div className="grid min-h-svh lg:grid-cols-2">
+      <aside className="bg-primary text-primary-foreground hidden flex-col justify-between p-10 lg:flex">
+        <span className="text-lg font-semibold tracking-tight">{t("app.name")}</span>
+        <p className="max-w-sm text-sm leading-relaxed opacity-80">
+          {t("login.panelBlurb")}
         </p>
-        <Card className="gap-0 p-5">{children}</Card>
-        {footer === undefined ? null : (
-          <div className="text-muted-foreground mt-5 px-2 text-center text-xs leading-relaxed">
-            {footer}
-          </div>
-        )}
-      </div>
+      </aside>
+
+      <main className="flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <p className="mb-6 text-center text-lg font-semibold tracking-tight lg:hidden">
+            {t("app.name")}
+          </p>
+          <Card className="gap-0 p-5">{children}</Card>
+          {footer === undefined ? null : (
+            <div className="text-muted-foreground mt-5 px-2 text-center text-xs leading-relaxed">
+              {footer}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

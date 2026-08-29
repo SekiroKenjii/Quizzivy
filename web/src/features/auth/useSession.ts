@@ -28,9 +28,15 @@ export function useBootstrapSession() {
         const user = await fetchCurrentUser(controller.signal);
         setSessionUser(user);
       } catch {
+        // An ABORT says nothing about the session -- it says this component
+        // went away. Treating it as "signed out" is what made a reload land on
+        // /login while the refresh cookie was still perfectly good: React's
+        // double-invoked effect aborts the first call, and the bounce happened
+        // before the second one could answer.
+        if (controller.signal.aborted) return;
         clearSession();
       } finally {
-        finishBootstrap();
+        if (!controller.signal.aborted) finishBootstrap();
       }
     })();
     return () => controller.abort();
