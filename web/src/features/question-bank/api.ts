@@ -5,6 +5,24 @@ import type { QuestionValues } from "@/features/question-bank/questionSchema";
 export type AdminQuestion = components["schemas"]["AdminQuestion"];
 export type QuestionType = components["schemas"]["QuestionType"];
 
+export interface ListQuestionsParams {
+  type?: QuestionType;
+  tag?: string;
+  q?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export function listQuestions(params: ListQuestionsParams = {}, signal?: AbortSignal) {
+  const query: Record<string, unknown> = {};
+  if (params.type) query["type"] = params.type;
+  if (params.tag) query["tag"] = params.tag;
+  if (params.q) query["q"] = params.q;
+  if (params.cursor) query["cursor"] = params.cursor;
+  if (params.limit) query["limit"] = params.limit;
+  return api("get", "/admin/questions", signal ? { query, signal } : { query });
+}
+
 export function getQuestion(id: string, signal?: AbortSignal) {
   return api(
     "get",
