@@ -603,3 +603,143 @@ func TestAnAudioQuestionMaySetMaxPlays(t *testing.T) {
 			f.adminID, asset)
 	})
 }
+
+// ---------------------------------------------------- tests and drafts
+
+// [D-14] §7's `currentVersion` has to mean something: a published or archived
+// test with no snapshot behind it is an assignment pointing at nothing.
+func TestAPublishedTestMustHaveAVersion(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "tests_published_has_version",
+			`INSERT INTO app.tests (title, status, current_version, created_by)
+			 VALUES ('Đề đã xuất bản', 'published', 0, $1)`, f.adminID)
+	})
+}
+
+func TestAnArchivedTestMustAlsoHaveAVersion(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "tests_published_has_version",
+			`INSERT INTO app.tests (title, status, current_version, created_by)
+			 VALUES ('Đề lưu trữ', 'archived', 0, $1)`, f.adminID)
+	})
+}
+
+func TestADraftMayHaveNoVersionYet(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.tests (title, created_by) VALUES ('Đề nháp', $1)`, f.adminID)
+	})
+}
+
+func TestAPublishedTestWithAVersionIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.tests (title, status, current_version, created_by)
+			 VALUES ('Đề đã xuất bản', 'published', 1, $1)`, f.adminID)
+	})
+}
+
+// A draft references a bank question, it does not own one. The bank
+// soft-deletes, so RESTRICT fires only on a hard purge -- which is exactly when
+// someone should be told a draft still uses it.
+func TestHardDeletingAQuestionADraftUsesIsBlocked(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		q := newQuestion(t, tx, f.adminID, "short_answer", "Câu hỏi trong đề nháp")
+		section := newSection(t, tx, f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.test_section_questions (test_section_id, ordinal, question_id)
+			 VALUES ($1, 0, $2)`, section, q)
+
+		rejectsWith(t, tx, "test_section_questions_question_id_fkey",
+			`DELETE FROM app.questions WHERE id = $1`, q)
+	})
+}
+
+// Sections and their question rows ARE owned by the test, so dropping the test
+// takes them with it.
+func TestDeletingATestCascadesToItsDraftStructure(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		q := newQuestion(t, tx, f.adminID, "short_answer", "Câu hỏi bị cuốn theo")
+		section := newSection(t, tx, f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.test_section_questions (test_section_id, ordinal, question_id)
+			 VALUES ($1, 0, $2)`, section, q)
+
+		var testID string
+		if err := tx.QueryRow(
+			`SELECT test_id::text FROM app.test_sections WHERE id = $1`, section).Scan(&testID); err != nil {
+			t.Fatal(err)
+		}
+		mustExec(t, tx, `DELETE FROM app.tests WHERE id = $1`, testID)
+
+		var sections, links int
+		if err := tx.QueryRow(
+			`SELECT (SELECT count(*) FROM app.test_sections WHERE test_id = $1),
+			        (SELECT count(*) FROM app.test_section_questions WHERE test_section_id = $2)`,
+			testID, section).Scan(&sections, &links); err != nil {
+			t.Fatal(err)
+		}
+		if sections != 0 || links != 0 {
+			t.Errorf("%d sections and %d question links survived the test's deletion", sections, links)
+		}
+
+		// The question itself is not owned by the test and must remain.
+		var questions int
+		if err := tx.QueryRow(`SELECT count(*) FROM app.questions WHERE id = $1`, q).Scan(&questions); err != nil {
+			t.Fatal(err)
+		}
+		if questions != 1 {
+			t.Error("deleting a test took a bank question with it")
+		}
+	})
+}
+
+func TestOneQuestionCannotAppearTwiceInASection(t *testing.T) {
+	// Two copies would be indistinguishable to a student and would score twice.
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		q := newQuestion(t, tx, f.adminID, "short_answer", "Câu hỏi lặp")
+		section := newSection(t, tx, f.adminID)
+		mustExec(t, tx,
+			`INSERT INTO app.test_section_questions (test_section_id, ordinal, question_id)
+			 VALUES ($1, 0, $2)`, section, q)
+
+		rejectsWith(t, tx, "test_section_questions_no_dupes",
+			`INSERT INTO app.test_section_questions (test_section_id, ordinal, question_id)
+			 VALUES ($1, 1, $2)`, section, q)
+	})
+}
+
+// [D-13] The draft-editable ordinal uniques are deferrable for the same reason
+// the bank's are: the builder reorders one row at a time.
+func TestSectionOrdinalsAreDeferrable(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newSection(t, tx, f.adminID)
+		var testID string
+		if err := tx.QueryRow(
+			`SELECT test_id::text FROM app.test_sections WHERE id = $1`, section).Scan(&testID); err != nil {
+			t.Fatal(err)
+		}
+		mustExec(t, tx,
+			`INSERT INTO app.test_sections (test_id, ordinal, title) VALUES ($1, 1, 'Phần 2')`, testID)
+
+		rejectsWith(t, tx, "test_sections_ordinal_key",
+			`UPDATE app.test_sections SET ordinal = 1 WHERE test_id = $1 AND ordinal = 0`, testID)
+	})
+}
+
+// newSection creates a draft test with one section and returns the section id.
+func newSection(t *testing.T, tx *sql.Tx, author string) string {
+	t.Helper()
+	var testID, sectionID string
+	if err := tx.QueryRow(
+		`INSERT INTO app.tests (title, created_by) VALUES ('Đề nháp', $1) RETURNING id`,
+		author).Scan(&testID); err != nil {
+		t.Fatalf("test fixture: %v", err)
+	}
+	if err := tx.QueryRow(
+		`INSERT INTO app.test_sections (test_id, ordinal, title)
+		 VALUES ($1, 0, 'Phần 1') RETURNING id`, testID).Scan(&sectionID); err != nil {
+		t.Fatalf("section fixture: %v", err)
+	}
+	return sectionID
+}
