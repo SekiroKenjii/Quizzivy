@@ -154,7 +154,19 @@ components:
 
     Points:
       type: number
-      description: numeric(8,2) — never a float (§13.2).
+      format: double
+      description: |
+        numeric(8,2) — never a float (§13.2). Stored and compared as an exact
+        decimal server-side; this is the wire representation.
+
+        `format: double` is load-bearing rather than decoration. Without it
+        oapi-codegen generates `float32`, which holds about 7 significant
+        decimal digits — and the maximum below needs 8. `999999.99` round-trips
+        through a float32 as `1000000`, a value this very schema rejects, and
+        `12345.67` becomes `12345.669921875`. Points are summed to produce a
+        test's total, so that error accumulates across a paper. `double` gives
+        Go a float64 and leaves TypeScript's `number` unchanged, since a JS
+        number is already a float64.
       minimum: 0
       maximum: 999999.99
 
@@ -184,6 +196,7 @@ components:
         - TEST_NOT_PUBLISHED
         - PUBLISH_VALIDATION_FAILED
         - STALE_WRITE
+        - QUESTION_REFERENCED
         - MEDIA_REFERENCED
         - MEDIA_TYPE_UNSUPPORTED
         - MEDIA_TOO_LARGE
@@ -1759,6 +1772,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestion
       description: Adds a question to the bank. Options and blanks are written in the same transaction, with ordinals normalized dense.
@@ -1804,14 +1818,17 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteQuestion
       tags: [admin-questions]
       description: Soft delete (§13.2). Version snapshots that reference it keep working.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: Still referenced by a draft test outline.
+          description: '`QUESTION_REFERENCED` — still referenced by a draft test outline.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

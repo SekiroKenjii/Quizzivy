@@ -1236,14 +1236,27 @@ export interface components {
          * @description RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
          */
         Timestamp: string;
-        /** @description numeric(8,2) — never a float (§13.2). */
+        /**
+         * Format: double
+         * @description numeric(8,2) — never a float (§13.2). Stored and compared as an exact
+         *     decimal server-side; this is the wire representation.
+         *
+         *     `format: double` is load-bearing rather than decoration. Without it
+         *     oapi-codegen generates `float32`, which holds about 7 significant
+         *     decimal digits — and the maximum below needs 8. `999999.99` round-trips
+         *     through a float32 as `1000000`, a value this very schema rejects, and
+         *     `12345.67` becomes `12345.669921875`. Points are summed to produce a
+         *     test's total, so that error accumulates across a paper. `double` gives
+         *     Go a float64 and leaves TypeScript's `number` unchanged, since a JS
+         *     number is already a float64.
+         */
         Points: number;
         /**
          * @description Stable, machine-readable. **The only thing clients branch on.** Copy is
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         ErrorResponse: {
             error: {
                 code: components["schemas"]["ErrorCode"];
@@ -2679,6 +2692,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createQuestion: {
@@ -2741,7 +2755,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
-            /** @description Still referenced by a draft test outline. */
+            404: components["responses"]["NotFound"];
+            /** @description `QUESTION_REFERENCED` — still referenced by a draft test outline. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2776,6 +2791,8 @@ export interface operations {
                     "application/json": components["schemas"]["AdminQuestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMedia: {
