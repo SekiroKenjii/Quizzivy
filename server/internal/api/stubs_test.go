@@ -54,7 +54,6 @@ var unimplemented = []string{
 	"ListMyClasses",
 	"ListStudents",
 	"ResetStudentPassword",
-	"UpdateClass",
 	"UpdateStudent",
 }
 

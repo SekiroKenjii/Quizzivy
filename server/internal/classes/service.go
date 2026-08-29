@@ -38,3 +38,8 @@ func optional(v string) *string {
 	}
 	return &v
 }
+
+// Update edits a class's own fields.
+func (s *Service) Update(ctx context.Context, classID string, in UpdateInput) (Class, error) {
+	return s.store.Update(ctx, classID, in)
+}

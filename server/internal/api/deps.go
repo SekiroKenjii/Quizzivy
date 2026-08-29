@@ -49,6 +49,7 @@ type ClassesService interface {
 	Get(ctx context.Context, classID string) (classes.Class, error)
 	List(ctx context.Context) ([]classes.Class, error)
 	Members(ctx context.Context, classID string) ([]classes.Member, error)
+	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
 }
 

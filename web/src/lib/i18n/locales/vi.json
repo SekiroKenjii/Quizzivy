@@ -157,7 +157,12 @@
     "copyCode": "Sao chép mã",
     "done": "Xong",
     "removeNamed": "Xoá {{name}} khỏi lớp",
-    "noMemberMatches": "Không có học viên nào khớp với “{{query}}”."
+    "noMemberMatches": "Không có học viên nào khớp với “{{query}}”.",
+    "classSettings": "Lớp",
+    "className": "Tên lớp",
+    "classDescription": "Mô tả",
+    "saveFailed": "Không lưu được thay đổi.",
+    "savedNote": "Đã lưu"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",

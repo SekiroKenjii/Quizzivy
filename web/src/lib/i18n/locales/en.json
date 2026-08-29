@@ -157,7 +157,12 @@
     "copyCode": "Copy the code",
     "done": "Done",
     "removeNamed": "Remove {{name}} from the class",
-    "noMemberMatches": "No student matches “{{query}}”."
+    "noMemberMatches": "No student matches “{{query}}”.",
+    "classSettings": "Class",
+    "className": "Class name",
+    "classDescription": "Description",
+    "saveFailed": "Could not save the change.",
+    "savedNote": "Saved"
   },
   "classes": {
     "loadFailed": "Could not load classes.",

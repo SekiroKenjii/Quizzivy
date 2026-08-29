@@ -92,10 +92,6 @@ func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) UpdateClass(_ context.Context, _ openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) AddClassMember(_ context.Context, _ openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

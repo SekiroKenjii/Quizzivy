@@ -29,6 +29,16 @@ export function fetchMembers(id: string, signal?: AbortSignal) {
  * in component state and never written anywhere -- not to the query cache,
  * which persists across navigations, and not to storage.
  */
+export interface ClassEdit {
+  name?: string;
+  description?: string;
+  selfJoinEnabled?: boolean;
+}
+
+export function updateClass(id: string, body: ClassEdit) {
+  return api("patch", "/admin/classes/{id}", { path: { id }, body });
+}
+
 export function rotateJoinCode(id: string) {
   return api("post", "/admin/classes/{id}/join-code", { path: { id }, body: {} });
 }
