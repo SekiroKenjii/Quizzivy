@@ -2,10 +2,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { previewJoinCode, joinClass, type JoinPreview } from "@/features/join/api";
-import { format, normalize } from "@/features/join/code";
+import { normalize } from "@/features/join/code";
 import { useGoogleSignIn } from "@/features/auth/google/useGoogleSignIn";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
@@ -65,15 +68,15 @@ export default function JoinConfirmPage() {
 
   if (error) {
     return (
-      <div className="w-full max-w-sm rounded-lg border p-6 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">{t("join.cannotJoin")}</h1>
-        <p role="alert" className="text-muted-foreground mt-3 text-sm leading-relaxed">
+      <Card className="gap-0 p-5">
+        <h1 className="text-lg font-semibold tracking-tight">{t("join.cannotJoin")}</h1>
+        <p role="alert" className="text-muted-foreground mt-2 text-sm leading-relaxed">
           {error}
         </p>
-        <Button asChild variant="outline" className="mt-6 w-full">
+        <Button asChild className="mt-4 w-full">
           <Link to="/join">{t("join.tryAnotherCode")}</Link>
         </Button>
-      </div>
+      </Card>
     );
   }
 
@@ -86,42 +89,56 @@ export default function JoinConfirmPage() {
   }
 
   return (
-    <div className="w-full max-w-sm rounded-lg border p-6 text-center">
-      <p className="text-muted-foreground text-sm">{t("join.youAreJoining")}</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight text-balance">
-        {preview.className}
-      </h1>
-      <p className="text-muted-foreground mt-2 text-sm">
-        {t("join.teacher", { name: preview.teacherName })}
-      </p>
-      <p className="text-muted-foreground mt-1 font-mono text-xs">{format(code)}</p>
-
-      {google.error ? (
-        <p role="alert" className="text-destructive mt-4 text-sm">
-          {google.error}
+    <>
+      <Card className="gap-0 p-5 text-center">
+        <p className="text-muted-foreground text-xs tracking-wide uppercase">
+          {t("join.youAreJoining")}
         </p>
-      ) : null}
+        <h1 className="mt-2 text-2xl leading-snug font-semibold tracking-tight text-balance">
+          {preview.className}
+        </h1>
+        <p className="text-muted-foreground mt-2 text-sm">
+          {t("join.teacher", { name: preview.teacherName })}
+        </p>
 
-      <Button
-        className="mt-6 w-full"
-        disabled={joining || google.pending}
-        onClick={() => void onConfirm()}
-      >
-        {user ? (
-          t("join.confirmSignedIn")
-        ) : (
-          <>
-            <GoogleMark />
-            {t("join.confirmWithGoogle")}
-          </>
+        <Separator className="my-5" />
+
+        {google.error ? (
+          <p role="alert" className="text-destructive mb-3 text-sm">
+            {google.error}
+          </p>
+        ) : null}
+
+        <Button
+          variant={user ? "default" : "outline"}
+          size="lg"
+          className="w-full"
+          disabled={joining || google.pending}
+          onClick={() => void onConfirm()}
+        >
+          {user ? (
+            t("join.confirmSignedIn")
+          ) : (
+            <>
+              <GoogleMark />
+              {t("join.confirmWithGoogle")}
+            </>
+          )}
+        </Button>
+
+        {user ? null : (
+          <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+            {t("join.googleExplainer")}
+          </p>
         )}
-      </Button>
+      </Card>
 
-      {!user ? (
-        <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
-          {t("join.googleExplainer")}
-        </p>
-      ) : null}
-    </div>
+      <Button asChild variant="ghost" className="text-muted-foreground mt-3 w-full">
+        <Link to="/join">
+          <ArrowLeft aria-hidden="true" />
+          {t("join.anotherCode")}
+        </Link>
+      </Button>
+    </>
   );
 }

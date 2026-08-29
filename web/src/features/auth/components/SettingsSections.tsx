@@ -1,6 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,12 +27,19 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border p-6" aria-labelledby={labelledBy}>
-      <h2 id={labelledBy} className="text-base font-semibold">
-        {title}
-      </h2>
-      <div className="mt-4">{children}</div>
-    </section>
+    <Card asChild className="gap-0 py-0">
+      <section aria-labelledby={labelledBy}>
+        <div className="px-5 pt-4 pb-3">
+          <h2
+            id={labelledBy}
+            className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
+          >
+            {title}
+          </h2>
+        </div>
+        <div className="px-5 pb-4">{children}</div>
+      </section>
+    </Card>
   );
 }
 
@@ -94,22 +104,24 @@ export function PasswordSection() {
 
   return (
     <Section title={t("settings.password")} labelledBy="settings-password">
-      <form onSubmit={onSubmit} className="max-w-sm space-y-4" noValidate>
-        <div className="space-y-2">
+      <form onSubmit={onSubmit} className="max-w-sm space-y-3" noValidate>
+        <div className="space-y-1.5">
           <Label htmlFor="settings-current">{t("changePassword.current")}</Label>
           <Input
             id="settings-current"
             type="password"
+            className="h-11"
             autoComplete="current-password"
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
           />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="settings-new">{t("changePassword.new")}</Label>
           <Input
             id="settings-new"
             type="password"
+            className="h-11"
             autoComplete="new-password"
             minLength={8}
             value={next}
@@ -160,9 +172,14 @@ export function GoogleSection() {
 
   return (
     <Section title={t("settings.google")} labelledBy="settings-google">
-      <p className="text-muted-foreground text-sm">
-        {linked ? t("settings.googleLinked") : t("settings.googleNotLinked")}
-      </p>
+      {linked ? (
+        <div className="flex items-center gap-2">
+          <CircleCheck className="text-success size-4" aria-hidden="true" />
+          <p className="text-sm">{t("settings.googleLinked")}</p>
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm">{t("settings.googleNotLinked")}</p>
+      )}
 
       {(error ?? google.error) ? (
         <p role="alert" className="text-destructive mt-3 text-sm">
@@ -171,15 +188,16 @@ export function GoogleSection() {
       ) : null}
 
       {wouldLockOut ? (
-        <p className="text-muted-foreground mt-3 text-sm">
+        <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
           {t("settings.googleOnlyExplainer")}
         </p>
       ) : null}
 
-      <div className="mt-4">
+      <div className="mt-3">
         {linked ? (
           <Button
             variant="outline"
+            size="sm"
             onClick={() => void unlink()}
             disabled={pending || wouldLockOut}
           >
@@ -188,6 +206,7 @@ export function GoogleSection() {
         ) : googleSignInAvailable() ? (
           <Button
             variant="outline"
+            size="sm"
             disabled={google.pending}
             onClick={() =>
               void google.start({ mode: "link", next: window.location.pathname })
@@ -211,19 +230,18 @@ export function LanguageSection() {
 
   return (
     <Section title={t("common.language")} labelledBy="settings-language">
-      <div className="flex gap-2">
-        {SUPPORTED_LOCALES.map((locale: Locale) => (
-          <Button
-            key={locale}
-            variant={i18n.language === locale ? "default" : "outline"}
-            size="sm"
-            aria-pressed={i18n.language === locale}
-            onClick={() => void i18n.changeLanguage(locale)}
-          >
-            {t(`settings.locale.${locale}`)}
-          </Button>
-        ))}
-      </div>
+      <Tabs
+        value={i18n.language}
+        onValueChange={(locale) => void i18n.changeLanguage(locale)}
+      >
+        <TabsList aria-label={t("common.language")}>
+          {SUPPORTED_LOCALES.map((locale: Locale) => (
+            <TabsTrigger key={locale} value={locale}>
+              {t(`settings.locale.${locale}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
     </Section>
   );
 }

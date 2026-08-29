@@ -1,23 +1,26 @@
-import { useTranslation } from "react-i18next";
 import {
   GoogleSection,
   LanguageSection,
   PasswordSection,
 } from "@/features/auth/components/SettingsSections";
+import { SignOutButton } from "@/features/auth/SignOutButton";
 
 /**
  * §9's settings: three sections, and no profile block -- a student's name and
  * email come from the teacher or from Google, and there is nothing here for
  * them to edit.
+ *
+ * The deck's S-10 puts signing out at the bottom of this screen rather than in
+ * the nav bar, where it sat one mis-tap away from the two things a student is
+ * actually there to do.
  */
 export default function StudentSettingsPage() {
-  const { t } = useTranslation();
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
+    <div className="space-y-3">
       <PasswordSection />
       <GoogleSection />
       <LanguageSection />
+      <SignOutButton variant="outline" className="text-muted-foreground w-full" />
     </div>
   );
 }

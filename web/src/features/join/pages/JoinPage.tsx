@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format, isComplete, normalize } from "@/features/join/code";
@@ -67,15 +68,16 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="w-full max-w-sm rounded-lg border p-6">
-      <h1 className="text-xl font-semibold tracking-tight">{t("join.title")}</h1>
-      <p className="text-muted-foreground mt-2 text-sm">{t("join.subtitle")}</p>
+    <>
+      <Card className="gap-0 p-5">
+        <h1 className="text-xl font-semibold tracking-tight">{t("join.title")}</h1>
+        <p className="text-muted-foreground mt-1.5 text-sm">{t("join.subtitle")}</p>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-        <div className="space-y-2">
+        <form onSubmit={onSubmit} className="mt-5" noValidate>
           <Label htmlFor="join-code">{t("join.codeLabel")}</Label>
           <Input
             id="join-code"
+            className="mt-1.5 h-11 font-mono text-lg tracking-wide"
             value={code}
             onChange={(e) => {
               setCode(format(e.target.value));
@@ -89,21 +91,33 @@ export default function JoinPage() {
             aria-describedby="join-code-hint"
             aria-invalid={error ? true : undefined}
           />
-          <p id="join-code-hint" className="text-muted-foreground text-xs">
+          <p id="join-code-hint" className="text-muted-foreground mt-1.5 text-xs">
             {t("join.codeHint")}
           </p>
-        </div>
 
-        {error ? (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        ) : null}
+          {error ? (
+            <p role="alert" className="text-destructive mt-1.5 text-xs">
+              {error}
+            </p>
+          ) : null}
 
-        <Button type="submit" className="w-full" disabled={!isComplete(code)}>
-          {t("join.continue")}
-        </Button>
-      </form>
-    </div>
+          <Button
+            type="submit"
+            size="lg"
+            className="mt-5 w-full"
+            disabled={!isComplete(code)}
+          >
+            {t("join.continue")}
+          </Button>
+        </form>
+      </Card>
+
+      <p className="text-muted-foreground mt-5 text-center text-xs leading-relaxed">
+        {t("join.haveAccount")}{" "}
+        <Link to="/login" className="underline">
+          {t("join.signIn")}
+        </Link>
+      </p>
+    </>
   );
 }

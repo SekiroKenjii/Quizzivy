@@ -73,7 +73,6 @@
     "completingGoogle": "Đang hoàn tất đăng nhập…",
     "backToSignIn": "Quay lại đăng nhập",
     "noSignup": "Tài khoản do giáo viên tạo. Nếu bạn có mã lớp, hãy dùng đường dẫn tham gia lớp mà giáo viên gửi.",
-    "panelBlurb": "Nền tảng luyện thi tiếng Anh dành riêng cho lớp học của bạn.",
     "errors": {
       "emailRequired": "Vui lòng nhập email.",
       "emailInvalid": "Email không hợp lệ.",
@@ -97,7 +96,10 @@
     "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
     "errors": {
       "incomplete": "Mã lớp phải có đủ 8 ký tự."
-    }
+    },
+    "haveAccount": "Đã có tài khoản?",
+    "signIn": "Đăng nhập",
+    "anotherCode": "Nhập mã khác"
   },
   "classDetail": {
     "joinCode": "Mã tham gia lớp",

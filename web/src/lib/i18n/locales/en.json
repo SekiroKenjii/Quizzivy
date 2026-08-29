@@ -73,7 +73,6 @@
     "completingGoogle": "Finishing sign-in…",
     "backToSignIn": "Back to sign in",
     "noSignup": "Accounts are created by your teacher. If you have a class code, use the join link they sent you.",
-    "panelBlurb": "An English practice platform built for your class.",
     "errors": {
       "emailRequired": "Enter your email.",
       "emailInvalid": "That email is not valid.",
@@ -97,7 +96,10 @@
     "failed": "Could not join the class. Please try again.",
     "errors": {
       "incomplete": "The class code needs all 8 characters."
-    }
+    },
+    "haveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "anotherCode": "Enter a different code"
   },
   "classDetail": {
     "joinCode": "Class join code",

@@ -1,26 +1,39 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Card } from "@/components/ui/card";
 
 /**
- * The two-column shell for /login and /join, per §12.
+ * The shell for /login, per the deck's S-02: a wordmark over a single card, one
+ * column at every width.
  *
- * The brand panel is hidden below `lg`, so a phone gets the form alone.
+ * There is no marketing panel beside it. §12 asks for calm and legitimate, and
+ * for the student arriving from a join link this is the second screen they have
+ * ever seen of the product -- a half-screen of brand copy would be the first
+ * thing suggesting they are somewhere they should not be.
  */
-export function AuthLayout({ children }: { children: ReactNode }) {
+export function AuthLayout({
+  children,
+  footer,
+}: {
+  children: ReactNode;
+  /** Sits below the card, per the deck: it is about the product, not the form. */
+  footer?: ReactNode;
+}) {
   const { t } = useTranslation();
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
-      <aside className="bg-primary text-primary-foreground hidden flex-col justify-between p-10 lg:flex">
-        <span className="text-lg font-semibold tracking-tight">{t("app.name")}</span>
-        <p className="max-w-sm text-sm leading-relaxed opacity-80">
-          {t("login.panelBlurb")}
+    <div className="min-h-svh p-4 pt-14">
+      <div className="mx-auto w-full max-w-sm">
+        <p className="mb-6 text-center text-lg font-semibold tracking-tight">
+          {t("app.name")}
         </p>
-      </aside>
-
-      <main className="flex items-center justify-center p-6 lg:p-10">
-        <div className="w-full max-w-sm">{children}</div>
-      </main>
+        <Card className="gap-0 p-5">{children}</Card>
+        {footer === undefined ? null : (
+          <div className="text-muted-foreground mt-5 px-2 text-center text-xs leading-relaxed">
+            {footer}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

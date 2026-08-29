@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isRouteErrorResponse, useRouteError } from "react-router";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorScreen } from "@/app/pages/ErrorScreen";
 
 /**
  * The global error boundary from §9: "global error boundary with reload +
@@ -21,7 +23,10 @@ function useErrorId(error: unknown): string {
       const rid = (error as { requestId?: unknown }).requestId;
       if (typeof rid === "string" && rid) return rid;
     }
-    return crypto.randomUUID();
+    // The deck's shape: short enough to read aloud, in two groups.
+    const bytes = crypto.getRandomValues(new Uint8Array(4));
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 4)}-${hex.slice(4)}`;
   });
   return id;
 }
@@ -53,45 +58,32 @@ export function ErrorBoundary() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-lg flex-col justify-center gap-6 p-6">
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight">{t("error.title")}</h1>
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          {t("error.body")}
-        </p>
-      </div>
+    <ErrorScreen title={t("error.title")} body={t("error.body")}>
+      <Button className="mt-5" onClick={() => window.location.reload()}>
+        {t("error.reload")}
+      </Button>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => window.location.reload()}>{t("error.reload")}</Button>
-        <Button variant="outline" onClick={copyId} aria-label={t("error.copyId")}>
+      <div className="mt-6 flex items-center justify-center gap-2">
+        <span className="text-muted-foreground text-xs">{t("error.errorId")}</span>
+        <code className="rounded-sm border px-1.5 py-0.5 font-mono text-xs select-all">
+          {errorId}
+        </code>
+        <Button variant="ghost" size="xs" onClick={() => void copyId()}>
+          <Copy aria-hidden="true" />
           {copied ? t("error.copied") : t("error.copyId")}
         </Button>
       </div>
-
-      <p className="text-muted-foreground font-mono text-xs">
-        {t("error.errorId")}
-        {": "}
-        <span className="select-all">{errorId}</span>
-      </p>
-    </main>
+    </ErrorScreen>
   );
 }
 
 export function NotFound() {
   const { t } = useTranslation();
   return (
-    <main className="mx-auto flex min-h-svh max-w-lg flex-col justify-center gap-6 p-6">
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight">{t("notFound.title")}</h1>
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          {t("notFound.body")}
-        </p>
-      </div>
-      <div>
-        <Button asChild>
-          <a href="/">{t("notFound.action")}</a>
-        </Button>
-      </div>
-    </main>
+    <ErrorScreen title={t("notFound.title")} body={t("notFound.body")}>
+      <Button asChild className="mt-5">
+        <a href="/">{t("notFound.action")}</a>
+      </Button>
+    </ErrorScreen>
   );
 }
