@@ -24,6 +24,9 @@ import {
   useCommandPalette,
 } from "@/features/search/useCommandPalette";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useQuery } from "@tanstack/react-query";
+import { getDashboard } from "@/features/dashboard/api";
+import { NotificationsButton } from "@/features/dashboard/NotificationsButton";
 
 /**
  * §8: "sidebar + top bar. Collapsible sidebar ≤1280px. Minimum supported width
@@ -49,7 +52,12 @@ const SECTIONS = [
   {
     label: "nav.sectionClasses",
     items: [
-      { to: "/admin/assignments", icon: ClipboardList, key: "nav.assignments" },
+      {
+        to: "/admin/assignments",
+        icon: ClipboardList,
+        key: "nav.assignments",
+        count: "openAssignments",
+      },
       { to: "/admin/students", icon: Users, key: "nav.students" },
       { to: "/admin/classes", icon: GraduationCap, key: "nav.classes" },
     ],
@@ -76,6 +84,15 @@ export default function AdminLayout() {
   const isNarrow = useMediaQuery("(max-width: 1280px)");
   const [override, setOverride] = useState<boolean | null>(null);
   const palette = useCommandPalette();
+
+  // A-00 puts a count beside the class-facing items. It is the teacher's queue,
+  // so it comes from the same figures /admin shows rather than a second source
+  // that could disagree with it.
+  const summary = useQuery({
+    queryKey: ["admin-dashboard"],
+    queryFn: ({ signal }) => getDashboard(signal),
+    staleTime: 60_000,
+  });
   const open = override ?? !isNarrow;
   const toggle = () => setOverride(!open);
 
@@ -111,6 +128,11 @@ export default function AdminLayout() {
               >
                 <item.icon className="size-4 shrink-0" aria-hidden="true" />
                 {t(item.key)}
+                {"count" in item && summary.data ? (
+                  <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+                    {summary.data[item.count]}
+                  </span>
+                ) : null}
               </NavLink>
             ))}
           </Fragment>
@@ -159,6 +181,7 @@ export default function AdminLayout() {
             </Button>
 
             <div className="ml-auto flex items-center gap-2">
+              <NotificationsButton />
               <AccountMenu />
             </div>
           </div>

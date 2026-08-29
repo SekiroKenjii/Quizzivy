@@ -470,6 +470,9 @@
       "scheduled": "Scheduled",
       "open": "Open",
       "closed": "Closed"
-    }
+    },
+    "notifications": "Notifications",
+    "notificationsWith": "Notifications, {{count}} outstanding",
+    "nothingOutstanding": "Nothing outstanding."
   }
 }
