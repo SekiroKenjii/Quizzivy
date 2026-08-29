@@ -58,7 +58,8 @@
     "current": "Mật khẩu hiện tại",
     "new": "Mật khẩu mới",
     "hint": "Ít nhất 8 ký tự.",
-    "submit": "Đổi mật khẩu"
+    "submit": "Đổi mật khẩu",
+    "currentHint": "Bỏ trống nếu bạn đăng nhập bằng Google hoặc không nhớ mật khẩu tạm."
   },
   "login": {
     "title": "Đăng nhập",

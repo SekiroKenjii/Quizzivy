@@ -232,3 +232,52 @@ func TestThePasswordChangeIsAudited(t *testing.T) {
 		t.Errorf("audit row = %s/%s", action, entity)
 	}
 }
+
+// A forced change does not ask for the current password.
+//
+// After a teacher-issued reset the password being replaced is one an admin
+// generated and read aloud, so re-entering it proves nothing the access token
+// has not already proved -- and demanding it strands the case G-07 exists for:
+// a student whose password was reset, who signs in with Google and lands on
+// /change-password having never held the temporary one.
+func TestAForcedChangeDoesNotNeedTheCurrentPassword(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, _ := makeUser(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET must_change_password = true WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.ChangePassword(ctx, auth.ChangePasswordInput{
+		UserID: id, CurrentPassword: "", NewPassword: newPassword,
+	}); err != nil {
+		t.Fatalf("a forced change was refused without the current password: %v", err)
+	}
+
+	user, err := svc.CurrentUser(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.MustChangePassword {
+		t.Error("the flag survived the change that cleared it")
+	}
+}
+
+// The exemption is scoped to that window and nothing wider: an ordinary change
+// still has to prove the caller knows the password it is replacing, which is
+// what protects a signed-in session left open on a shared machine.
+func TestAnOrdinaryChangeStillNeedsTheCurrentPassword(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, _ := makeUser(t, pool)
+
+	err := svc.ChangePassword(context.Background(), auth.ChangePasswordInput{
+		UserID: id, CurrentPassword: "", NewPassword: newPassword,
+	})
+	if !errors.Is(err, auth.ErrInvalidCredentials) {
+		t.Fatalf("want ErrInvalidCredentials, got %v", err)
+	}
+}

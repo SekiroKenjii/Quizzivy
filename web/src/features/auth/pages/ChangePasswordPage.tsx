@@ -59,6 +59,12 @@ export default function ChangePasswordPage() {
 
         <form onSubmit={onSubmit} className="mt-5" noValidate>
           <div className="space-y-3">
+            {/* Not required, and that is the point. This page is reached only
+              while `mustChangePassword` is set, which happens after a teacher
+              resets the password — including on a Google-only account, whose
+              owner may sign in with Google and land here having never held the
+              temporary one. Demanding it would strand exactly the person the
+              reset was for. */}
             <div className="space-y-1.5">
               <Label htmlFor="current-password">{t("changePassword.current")}</Label>
               <Input
@@ -66,10 +72,13 @@ export default function ChangePasswordPage() {
                 type="password"
                 className="h-11"
                 autoComplete="current-password"
-                required
                 value={current}
                 onChange={(e) => setCurrent(e.target.value)}
+                aria-describedby="current-password-hint"
               />
+              <p id="current-password-hint" className="text-muted-foreground text-xs">
+                {t("changePassword.currentHint")}
+              </p>
             </div>
             <div>
               <Label htmlFor="new-password">{t("changePassword.new")}</Label>

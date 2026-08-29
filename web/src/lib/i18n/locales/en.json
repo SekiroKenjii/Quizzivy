@@ -58,7 +58,8 @@
     "current": "Current password",
     "new": "New password",
     "hint": "At least 8 characters.",
-    "submit": "Change password"
+    "submit": "Change password",
+    "currentHint": "Leave blank if you signed in with Google, or do not have the temporary password."
   },
   "login": {
     "title": "Sign in",

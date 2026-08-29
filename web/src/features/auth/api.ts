@@ -27,8 +27,18 @@ export function logout() {
   return api("post", "/auth/logout");
 }
 
+/**
+ * Omits `currentPassword` when it is blank rather than sending "".
+ *
+ * The contract makes it optional exactly while `mustChangePassword` is set, and
+ * an empty string is not the same request as an absent field: it would be
+ * compared against the stored hash and fail.
+ */
 export function changePassword(currentPassword: string, newPassword: string) {
   return api("post", "/auth/change-password", {
-    body: { currentPassword, newPassword },
+    body: {
+      newPassword,
+      ...(currentPassword === "" ? {} : { currentPassword }),
+    },
   });
 }
