@@ -265,7 +265,7 @@ function Builder({ test }: { test: Test }) {
   const stale = saveStatus.kind === "stale";
 
   return (
-    <div className="-m-6 flex min-h-full flex-col">
+    <div className="flex min-h-svh flex-col">
       <div className="flex h-14 items-center gap-3 border-b px-4">
         <Button
           variant="ghost"

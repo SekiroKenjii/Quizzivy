@@ -80,81 +80,91 @@ export default function AdminLayout() {
   const toggle = () => setOverride(!open);
 
   return (
-    <div className="flex min-h-svh min-w-[768px] flex-col">
-      <header className="bg-background sticky top-0 z-10 border-b">
-        <div className="flex h-14 items-center gap-3 px-4">
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label={open ? t("nav.closeMenu") : t("nav.openMenu")}
-            aria-expanded={open}
-            aria-controls="admin-sidebar"
-            className="hover:bg-secondary focus-visible:ring-ring rounded-md p-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <PanelLeft className="size-5" aria-hidden="true" />
-          </button>
-          <span className="text-base font-semibold tracking-tight">
-            {t("app.name")}
-          </span>
+    /**
+     * The deck's `.shell`: the sidebar is the FIRST child of a flex row and
+     * runs the full height, with the topbar inset beside it.
+     *
+     * Navigation is the most persistent thing on the screen, so it gets the
+     * viewport edge and never moves; the topbar then belongs to the content
+     * area, which is what its search actually searches. A-04 is the one board
+     * that drops the sidebar entirely — the builder is a focus mode and gets
+     * its own route outside this layout.
+     */
+    <div className="flex min-h-svh min-w-[768px]">
+      <nav
+        id="admin-sidebar"
+        aria-label={t("nav.mainNavigation")}
+        hidden={!open}
+        className="flex w-60 shrink-0 flex-col gap-0.5 border-r p-2"
+      >
+        {SECTIONS.map((section) => (
+          <Fragment key={section.label}>
+            <p className="text-muted-foreground px-3 pt-3 pb-1 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase">
+              {t(section.label)}
+            </p>
+            {section.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={"end" in item ? item.end : false}
+                className={itemClass}
+              >
+                <item.icon className="size-4 shrink-0" aria-hidden="true" />
+                {t(item.key)}
+              </NavLink>
+            ))}
+          </Fragment>
+        ))}
 
-          {/* A-02's trigger: the palette is the only navigation model that
+        <div className="mt-auto">
+          <NavLink to={SETTINGS.to} className={itemClass}>
+            <SETTINGS.icon className="size-4 shrink-0" aria-hidden="true" />
+            {t(SETTINGS.key)}
+          </NavLink>
+        </div>
+      </nav>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="bg-background sticky top-0 z-10 border-b">
+          <div className="flex h-14 items-center gap-3 px-4">
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label={open ? t("nav.closeMenu") : t("nav.openMenu")}
+              aria-expanded={open}
+              aria-controls="admin-sidebar"
+              className="hover:bg-secondary focus-visible:ring-ring rounded-md p-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <PanelLeft className="size-5" aria-hidden="true" />
+            </button>
+            <span className="text-base font-semibold tracking-tight">
+              {t("app.name")}
+            </span>
+
+            {/* A-02's trigger: the palette is the only navigation model that
               survives an LMS-sized sidebar, so it sits in the chrome rather
               than on one screen. */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-muted-foreground ml-4 w-80 justify-start font-normal"
-            onClick={() => palette.setOpen(true)}
-          >
-            <Search aria-hidden="true" />
-            {t("palette.open")}
-            <span className="ml-auto flex items-center gap-0.5">
-              <Kbd>{commandKeyLabel()}</Kbd>
-              <Kbd>{t("palette.keyK")}</Kbd>
-            </span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-muted-foreground ml-4 w-80 justify-start font-normal"
+              onClick={() => palette.setOpen(true)}
+            >
+              <Search aria-hidden="true" />
+              {t("palette.open")}
+              <span className="ml-auto flex items-center gap-0.5">
+                <Kbd>{commandKeyLabel()}</Kbd>
+                <Kbd>{t("palette.keyK")}</Kbd>
+              </span>
+            </Button>
 
-          <div className="ml-auto">
-            <AccountMenu />
+            <div className="ml-auto flex items-center gap-2">
+              <AccountMenu />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
-
-      <div className="flex flex-1">
-        <nav
-          id="admin-sidebar"
-          aria-label={t("nav.mainNavigation")}
-          hidden={!open}
-          className="flex w-60 shrink-0 flex-col gap-0.5 border-r p-2"
-        >
-          {SECTIONS.map((section) => (
-            <Fragment key={section.label}>
-              <p className="text-muted-foreground px-3 pt-3 pb-1 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase">
-                {t(section.label)}
-              </p>
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={"end" in item ? item.end : false}
-                  className={itemClass}
-                >
-                  <item.icon className="size-4 shrink-0" aria-hidden="true" />
-                  {t(item.key)}
-                </NavLink>
-              ))}
-            </Fragment>
-          ))}
-
-          <div className="mt-auto">
-            <NavLink to={SETTINGS.to} className={itemClass}>
-              <SETTINGS.icon className="size-4 shrink-0" aria-hidden="true" />
-              {t(SETTINGS.key)}
-            </NavLink>
-          </div>
-        </nav>
+        <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
         <main className="min-w-0 flex-1 p-6">
           <Outlet />
