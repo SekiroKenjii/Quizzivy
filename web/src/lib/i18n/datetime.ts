@@ -1,4 +1,4 @@
-import { formatInTimeZone, toZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 import { vi, enUS } from "date-fns/locale";
 import type { Locale as AppLocale } from "./index";
 
@@ -55,6 +55,22 @@ export function formatRelative(utc: string | Date, locale: AppLocale = "vi") {
   const hours = Math.round(minutes / 60);
   if (Math.abs(hours) < 24) return relative.format(hours, "hour");
   return relative.format(days, "day");
+}
+
+/**
+ * The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE.
+ *
+ * The input element has no timezone: it hands back "2026-08-29T08:00" and the
+ * browser means it in the device's zone. On a laptop set to UTC that is 15:00
+ * in Vietnam, so a teacher opening a test at 08:00 would open it at 15:00 for
+ * everyone. These two make the field mean the same thing on every machine.
+ */
+export function toDateTimeInput(utc: string | Date): string {
+  return formatInTimeZone(utc, APP_TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
+}
+
+export function fromDateTimeInput(value: string): Date {
+  return fromZonedTime(value, APP_TIME_ZONE);
 }
 
 /** The same instant, expressed in the app's timezone. For date maths in the UI. */

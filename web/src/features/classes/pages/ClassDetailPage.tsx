@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Search } from "lucide-react";
+import { ClipboardList, Search, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
+import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
+import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
@@ -63,6 +66,7 @@ export default function ClassDetailPage() {
   });
 
   const [query, setQuery] = useState("");
+  const [adding, setAdding] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{
     userId: string;
@@ -74,10 +78,7 @@ export default function ClassDetailPage() {
     onSuccess: async () => {
       setRemoveError(null);
       setConfirmRemove(null);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["admin-class-members", id] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-class", id] }),
-      ]);
+      await invalidateClassMembership(queryClient, id);
     },
     onError: (cause) => {
       setConfirmRemove(null);
@@ -104,24 +105,38 @@ export default function ClassDetailPage() {
 
   const items = matching(members.data?.items ?? [], query);
 
-  return (
-    <div className="-m-6">
-      <div className="flex h-14 items-center gap-3 border-b px-4">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("common.back")}
-          onClick={() => void navigate("/admin/classes")}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <h1 className="truncate text-sm font-medium">{klass.data.name}</h1>
-        <Badge>
-          {t("classDetail.studentCount", { count: klass.data.studentCount })}
-        </Badge>
-      </div>
+  const memberIds = new Set((members.data?.items ?? []).map((m) => m.userId));
 
-      <div className="grid gap-5 p-6 lg:grid-cols-3">
+  return (
+    <>
+      <PageHeader
+        title={klass.data.name}
+        backTo="/admin/classes"
+        meta={
+          <Badge>
+            {t("classDetail.studentCount", { count: klass.data.studentCount })}
+          </Badge>
+        }
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+              <UserPlus aria-hidden="true" />
+              {t("classDetail.addStudent")}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() =>
+                void navigate(`/admin/assignments/new?classId=${klass.data.id}`)
+              }
+            >
+              <ClipboardList aria-hidden="true" />
+              {t("classDetail.assignToClass")}
+            </Button>
+          </>
+        }
+      />
+
+      <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card asChild className="gap-0 py-0">
             <section aria-labelledby="members-heading">
@@ -270,7 +285,14 @@ export default function ClassDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      <AddMemberDialog
+        classId={id}
+        memberIds={memberIds}
+        open={adding}
+        onOpenChange={setAdding}
+      />
+    </>
   );
 }
 

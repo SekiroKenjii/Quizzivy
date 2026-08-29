@@ -2,7 +2,15 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Archive, Copy, Ellipsis, Plus, Search, SquarePen } from "lucide-react";
+import {
+  Archive,
+  Copy,
+  Ellipsis,
+  Headphones,
+  Plus,
+  Search,
+  SquarePen,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -201,13 +209,26 @@ export default function TestsListPage() {
                 {items.map((test) => (
                   <TableRow key={test.id}>
                     <TableCell>
-                      <button
-                        type="button"
-                        className="truncate text-left font-medium"
-                        onClick={() => void navigate(`/admin/tests/${test.id}`)}
-                      >
-                        {test.title}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="truncate text-left font-medium"
+                          onClick={() => void navigate(`/admin/tests/${test.id}`)}
+                        >
+                          {test.title}
+                        </button>
+                        {test.audioCount > 0 ? (
+                          <Badge
+                            variant="outline"
+                            aria-label={t("tests.audioCount", {
+                              count: test.audioCount,
+                            })}
+                          >
+                            <Headphones aria-hidden="true" />
+                            {test.audioCount}
+                          </Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[test.status]}>

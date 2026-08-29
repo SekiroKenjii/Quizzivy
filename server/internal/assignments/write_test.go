@@ -91,11 +91,18 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 		 VALUES ($1::uuid,1,'10.00',$2::uuid) RETURNING id::text`,
 		w.testID, w.admin).Scan(&w.versionID))
 
+	// By test, not by version: a test may publish a second version mid-case, and
+	// an attempt against it would block every delete behind an ON DELETE
+	// RESTRICT that these statements ignore -- leaving rows in the dev database
+	// that later show up on a screen as if they were real.
 	t.Cleanup(func() {
 		c := context.Background()
-		_, _ = pool.Exec(c, `DELETE FROM app.attempts WHERE test_version_id = $1::uuid`, w.versionID)
+		_, _ = pool.Exec(c, `
+			DELETE FROM app.attempts
+			 WHERE test_version_id IN (SELECT id FROM app.test_versions WHERE test_id = $1::uuid)`,
+			w.testID)
 		_, _ = pool.Exec(c, `DELETE FROM app.assignments WHERE test_id = $1::uuid`, w.testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE id = $1::uuid`, w.versionID)
+		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, w.testID)
 		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1::uuid`, w.testID)
 		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, w.class)
 		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1::uuid`, w.class)
@@ -332,11 +339,6 @@ func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 		w.testID, w.admin).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(),
-			`DELETE FROM app.test_versions WHERE id = $1::uuid`, second)
-	})
-
 	req := request(w)
 	req.ID = created.ID
 	repointed := legalInput(w)
