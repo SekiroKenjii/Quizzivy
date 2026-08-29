@@ -44,9 +44,6 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
     },
   });
   await stubGoogleConsent(page);
-
-  // The deep link a QR code or a message produces. The code is shown, not
-  // acted on: a student who scanned the wrong poster can see that.
   await page.goto(`/join/${CODE}`);
   await expect(page.getByLabel("Mã lớp")).toHaveValue("K7M3-P9QR");
   await page.getByRole("button", { name: "Tiếp tục" }).click();
@@ -91,20 +88,11 @@ test("E2E 4: an expired code says so plainly, creates nothing, and names no clas
   });
 
   await page.goto(`/join/${CODE}/confirm`);
-
-  // The server's own message, rendered verbatim. §6.5: the four refusals carry
-  // different codes and identical information.
   await expect(page.getByRole("alert")).toHaveText(/đã hết hạn/);
-
-  // Nothing about the class survives a refusal -- not the name, not the
-  // teacher, not the id.
   const body = (await page.textContent("body")) ?? "";
   expect(body).not.toContain(CLASS_NAME);
   expect(body).not.toContain("Thuong");
   expect(body).not.toContain(CLASS_ID);
-
-  // And there is no way to proceed: nothing to consent to means no button to
-  // create an account with.
   await expect(page.getByRole("button", { name: /Google/ })).toHaveCount(0);
   expect(calls).not.toContain("POST /auth/google");
 

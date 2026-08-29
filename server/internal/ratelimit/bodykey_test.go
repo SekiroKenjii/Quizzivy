@@ -20,9 +20,6 @@ func TestExtractsTheField(t *testing.T) {
 }
 
 func TestTheHandlerStillSeesTheWholeBody(t *testing.T) {
-	// The failure this guards against is silent and total: the limiter consumes
-	// the stream, the handler reads an empty body, and every login fails
-	// validation for no visible reason.
 	body := `{"email":"a@b.co","password":"hunter22"}`
 	r := post(body)
 	JSONFieldKey("email", 4096)(r)
@@ -37,8 +34,6 @@ func TestTheHandlerStillSeesTheWholeBody(t *testing.T) {
 }
 
 func TestCaseAndWhitespaceShareABucket(t *testing.T) {
-	// Otherwise changing case alone buys a fresh allowance, and the per-email
-	// limit is trivially escaped.
 	key := JSONFieldKey("email", 4096)
 	a := key(post(`{"email":"  A@B.CO "}`))
 	b := key(post(`{"email":"a@b.co"}`))
@@ -48,8 +43,6 @@ func TestCaseAndWhitespaceShareABucket(t *testing.T) {
 }
 
 func TestOversizedBodyYieldsNoKeyButIsStillReadable(t *testing.T) {
-	// Slurping an unbounded body to read one field would be a
-	// memory-exhaustion vector on exactly the endpoints §6.5 protects.
 	big := `{"email":"a@b.co","pad":"` + strings.Repeat("x", 5000) + `"}`
 	r := post(big)
 	if got := JSONFieldKey("email", 1024)(r); got != "" {

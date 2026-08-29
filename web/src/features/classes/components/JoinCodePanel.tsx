@@ -52,10 +52,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
    * Without this the teacher sees a healthy-looking code with a uses counter
    * while /join turns every student away.
    */
-  // Captured once rather than read during render: `Date.now()` in a render body
-  // is impure, and a value that changes on every re-render for no reason is
-  // exactly what that rule exists to stop. A code does not expire while the
-  // teacher looks at the panel, and a refetch remounts this with fresh data.
   const [openedAt] = useState(() => Date.now());
   const expired = klass.joinCode
     ? new Date(klass.joinCode.expiresAt).getTime() <= openedAt
@@ -75,11 +71,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
       await invalidate();
     },
     onError: (cause) => {
-      // Close the dialog as well as reporting. The error renders in the
-      // panel, and Radix marks everything outside an open dialog
-      // `aria-hidden` -- so leaving it open puts the explanation behind a
-      // dialog that now looks like it simply does nothing, and takes it
-      // out of the accessibility tree entirely.
       setConfirming(null);
       setError(
         cause instanceof ApiError ? cause.message : t("classDetail.rotateFailed"),
@@ -90,23 +81,13 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   const revoke = useMutation({
     mutationFn: () => revokeJoinCode(klass.id),
     onSuccess: async () => {
-      // The old code is gone from the server; keeping it on screen would
-      // invite the teacher to hand out something that no longer works.
       setFreshCode(null);
       setConfirming(null);
       setCopied(false);
-      // Rotate cleared this and revoke did not, so a failed rotate followed by
-      // a successful revoke left a red error describing an operation two steps
-      // back.
       setError(null);
       await invalidate();
     },
     onError: (cause) => {
-      // Close the dialog as well as reporting. The error renders in the
-      // panel, and Radix marks everything outside an open dialog
-      // `aria-hidden` -- so leaving it open puts the explanation behind a
-      // dialog that now looks like it simply does nothing, and takes it
-      // out of the accessibility tree entirely.
       setConfirming(null);
       setError(
         cause instanceof ApiError ? cause.message : t("classDetail.revokeFailed"),
@@ -131,9 +112,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
             {t("classDetail.maskedCode", { hint: klass.joinCode.hint })}
           </dd>
           <dt className="text-muted-foreground">{t("classDetail.expiresAt")}</dt>
-          {/* formatDateTime, not formatDate: this is a bearer secret's expiry,
-              and dd/MM/yyyy renders a code that died at 09:00 identically to
-              one good until 23:59. */}
           <dd>
             {formatDateTime(klass.joinCode.expiresAt, currentLocale(i18n.language))}
             {expired ? (
@@ -160,8 +138,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
           <p className="mt-2 font-mono text-2xl tracking-widest">{freshCode}</p>
           {joinUrl ? (
             <div className="mt-4 flex flex-col items-center gap-3">
-              {/* Encodes the join LINK, not the bare code: a phone camera
-                  opens it, which is the whole point of a QR on a whiteboard. */}
               <QRCodeSVG
                 value={joinUrl}
                 size={144}
@@ -172,13 +148,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  // Both halves fail, and neither is exotic. On a non-secure
-                  // origin `navigator.clipboard` is undefined, so reading
-                  // .writeText throws synchronously; with the permission denied
-                  // the promise rejects. Unguarded, each one gives a button
-                  // that does nothing and says nothing -- and the teacher's
-                  // fallback (select the link and copy it by hand) is only
-                  // obvious once someone says so.
                   const clipboard = navigator.clipboard as Clipboard | undefined;
                   if (!clipboard) {
                     setCopied(false);
@@ -218,8 +187,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
 
       <div className="mt-6 flex flex-wrap gap-2">
         <Button onClick={() => setConfirming("rotate")} disabled={rotate.isPending}>
-          {/* An expired code cannot be rotated INTO anything a student is
-              already using, so the honest verb is "issue". */}
           {klass.joinCode && !expired
             ? t("classDetail.rotate")
             : t("classDetail.issue")}
@@ -234,12 +201,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
           </Button>
         ) : null}
       </div>
-
-      {/* §6.4's confirmation. Both actions get one, because both share the
-          property that earned rotate its dialog: not undoable, and effective
-          immediately for everyone holding the old code -- including a student
-          halfway through joining. Revoking is if anything the harsher of the
-          two, since it issues no replacement. */}
       <Dialog
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}

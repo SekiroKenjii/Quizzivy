@@ -1,4 +1,3 @@
-// Package db owns the connection pool.
 package db
 
 import (

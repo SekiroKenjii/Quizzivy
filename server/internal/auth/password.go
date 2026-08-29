@@ -1,4 +1,3 @@
-// Package auth owns credentials, sessions and the login flow (§5).
 package auth
 
 import (
@@ -35,32 +34,12 @@ const (
 
 // DefaultMaxConcurrentHashes bounds how many Argon2id operations run at once.
 //
-// Argon2id is memory-HARD by design: `defaultMemory` is not a budget, it is an
-// arena allocated for the duration of every single call. Measured on this
-// build, peak RSS is 64 MiB per concurrent hash, essentially exactly:
-//
-//	 1 concurrent ->   67 MiB
-//	 4 concurrent ->  260 MiB
-//	 8 concurrent ->  517 MiB
-//	30 concurrent -> 1927 MiB
-//
-// The production machine is a 512 MB Fly instance, so EIGHT simultaneous
-// logins exceed it before the Go runtime, the pgx pool and HTTP buffers are
-// counted. A class of thirty students signing in at the start of a lesson is
-// an ordinary Tuesday, and the symptom is not slowness -- it is the OOM killer
-// taking the process down mid-request.
-//
-// Rate limiting does not help: §6.5's limits are per-IP and per-email, and
-// thirty students on thirty phones are thirty IPs. Nor is this only an
-// accident. Every failed login for an UNKNOWN email also runs a full hash, on
-// purpose (see dummyHash), so an attacker spending nothing can make the server
-// allocate 64 MiB per request.
-//
-// Four leaves ~256 MiB for hashing and ~256 MiB for everything else. It also
-// costs almost nothing in throughput, because Argon2id is CPU-hard as well as
-// memory-hard: thirty simultaneous logins complete in 1.79s at four slots and
-// 1.57s at eight, so doubling the memory buys 12%. Raise it when the machine
-// grows; the arithmetic is memory / 64 MiB, minus headroom.
+// Each hash holds a 64 MiB arena for its whole duration, so the ceiling is
+// slots x 64 MiB and nothing else bounds it: measured at 517 MiB for 8
+// concurrent against a 512 MB instance. Rate limiting does not help, since the
+// limits are per-IP and a class signs in from a phone each. Four costs about
+// 12% throughput against eight and leaves half the instance for everything
+// else; the arithmetic to raise it is memory / 64 MiB, minus headroom.
 const DefaultMaxConcurrentHashes = 4
 
 var (
@@ -102,12 +81,7 @@ func SetMaxConcurrentHashes(n int) {
 // growing without limit -- a caller whose client has already gone gives its
 // place up instead of allocating 64 MiB for nobody.
 func withHashSlot(ctx context.Context, fn func()) error {
-	// Captured ONCE. Reading the package var again at release time would
-	// return whatever SetMaxConcurrentHashes last installed -- so a resize
-	// between acquire and release makes the release drain a channel this call
-	// never filled, and block forever. Found by the bound test, which resizes
-	// in its cleanup; production only resizes at startup, where it would have
-	// stayed hidden until someone made the limit reloadable.
+	// Captured once: re-reading at release would deadlock across a resize.
 	slots := hashSlots
 
 	select {
@@ -152,10 +126,6 @@ func VerifyPassword(ctx context.Context, password, encoded string) (bool, error)
 	if err != nil {
 		return false, err
 	}
-
-	// Decoding happens outside the slot: it is microseconds of parsing, and
-	// holding a 64 MiB token to do it would shrink the useful concurrency for
-	// no reason. The slot covers exactly the memory-hard part.
 	var got []byte
 	if err := withHashSlot(ctx, func() {
 		got = argon2.IDKey([]byte(password), salt, p.time, p.memory, p.threads, p.keyLen)
@@ -214,8 +184,6 @@ func decodeHash(encoded string) (params, []byte, []byte, error) {
 var dummyHash string
 
 func init() {
-	// context.Background(): this runs at package initialisation, before any
-	// request exists and while every slot is free.
 	h, err := HashPassword(context.Background(), "quizzivy-timing-equaliser")
 	if err != nil {
 		panic("auth: cannot initialise dummy hash: " + err.Error())

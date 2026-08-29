@@ -68,8 +68,6 @@ describe("§13.5: the student-payload boundary", () => {
   });
 
   it("still gives AdminQuestion the grading key", () => {
-    // The inverse failure: if this regressed, grading would break silently
-    // rather than failing to compile.
     const names = propertyNames(doc, doc.components.schemas.AdminQuestion);
     for (const needed of [
       "isCorrect",
@@ -86,17 +84,12 @@ describe("§6.5: public endpoints", () => {
   const publicOps = ops.filter(({ op }) => isPublic(op));
 
   it("finds the public surface", () => {
-    // Guards against a refactor that makes isPublic() always false, which would
-    // make every assertion below pass vacuously.
     expect(publicOps.length).toBeGreaterThanOrEqual(4);
   });
 
   it.each(publicOps.map((o) => [`${o.method.toUpperCase()} ${o.path}`, o] as const))(
     "%s is rate-limited, tagged public and documents a 429",
     (_label, { path, op }) => {
-      // The beacon flush is authenticated by an attempt-scoped token in its
-      // body rather than a session, so it is exempt from the tag but not from
-      // the limiter.
       const isBeacon = path.endsWith("/events");
       expect(op["x-rate-limit"] ?? isBeacon, "missing x-rate-limit").toBeTruthy();
       if (!isBeacon) {

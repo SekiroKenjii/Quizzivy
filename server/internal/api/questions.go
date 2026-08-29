@@ -177,8 +177,6 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 		resp := authError(ctx, openapi.VALIDATIONFAILED, "Dữ liệu câu hỏi không hợp lệ.")
 		details := map[string]interface{}{}
 		for _, f := range invalid.Fields {
-			// First message per field: later ones are usually consequences of
-			// the first, and a field can only show one.
 			if _, seen := details[f.Field]; !seen {
 				details[f.Field] = f.Message
 			}
@@ -292,12 +290,6 @@ func (s *Server) toAPIQuestion(ctx context.Context, q questions.Question) (opena
 		}
 	}
 	out.Blanks = &blanks
-
-	// The asset is resolved through the media service so the URL is signed the
-	// same way it is everywhere else (§11.2). A question whose asset has since
-	// been soft-deleted still renders -- without a preview rather than with a
-	// 500, since the bank row is still valid and the teacher needs to see it to
-	// fix it.
 	if q.MediaAssetID != nil && s.Deps.Media != nil {
 		if asset, err := s.Deps.Media.Get(ctx, *q.MediaAssetID); err == nil {
 			url, err := s.Deps.Media.SignedURL(ctx, asset)

@@ -119,10 +119,6 @@ func TestAValidTokenVerifies(t *testing.T) {
 }
 
 func TestATokenForAnotherAudienceIsRejected(t *testing.T) {
-	// `aud` is what stops a token minted for a DIFFERENT Google client -- any
-	// other site the user has signed into -- from being replayed here as proof
-	// of identity. Without this check, anyone running any Google app could
-	// impersonate any of their users against us.
 	s := newSigner(t, "key-1")
 	v, _ := newVerifier(t, s)
 
@@ -147,9 +143,6 @@ func TestATokenFromAnotherIssuerIsRejected(t *testing.T) {
 }
 
 func TestBothOfGooglesIssuerSpellingsAreAccepted(t *testing.T) {
-	// Google issues ID tokens with `accounts.google.com` AND with the https
-	// form. Accepting only one rejects valid tokens intermittently, which
-	// presents as a flaky login rather than as a bug.
 	s := newSigner(t, "key-1")
 	v, _ := newVerifier(t, s)
 
@@ -185,10 +178,6 @@ func TestATokenSignedByAnotherKeyIsRejected(t *testing.T) {
 }
 
 func TestUnsignedAndSymmetricTokensAreRejected(t *testing.T) {
-	// The classic JWT forgery: an RSA public key is public, so a verifier that
-	// does not pin the algorithm will happily check an HS256 signature against
-	// the modulus as if it were a shared secret. `alg: none` is the same bug
-	// with the work removed.
 	s := newSigner(t, "key-1")
 	v, _ := newVerifier(t, s)
 
@@ -228,9 +217,6 @@ func TestATokenWithNoKidIsRejectedRatherThanTriedAgainstEveryKey(t *testing.T) {
 }
 
 func TestUnverifiedEmailIsReportedRatherThanSwallowed(t *testing.T) {
-	// Verify's job is the token; §5.1's rejection is the caller's branch. What
-	// matters here is that the flag survives the trip intact, and that a value
-	// which is not recognisably true reads as FALSE.
 	s := newSigner(t, "key-1")
 	v, _ := newVerifier(t, s)
 
@@ -253,9 +239,6 @@ func TestUnverifiedEmailIsReportedRatherThanSwallowed(t *testing.T) {
 			}
 		})
 	}
-
-	// Google sends a JSON boolean; its older userinfo responses used a string.
-	// Both mean verified.
 	for _, raw := range []any{true, "true"} {
 		c := validClaims()
 		c.EmailVerified = raw
@@ -270,9 +253,6 @@ func TestUnverifiedEmailIsReportedRatherThanSwallowed(t *testing.T) {
 }
 
 func TestAnUnknownKidTriggersOneRefetchAndThenStopsAsking(t *testing.T) {
-	// Google rotates signing keys without notice, so an unknown kid has to be
-	// able to refresh the cache -- but an attacker can mint unlimited tokens
-	// with invented kids, and each must not become an outbound request.
 	rotated := newSigner(t, "key-2")
 	srv, hits := jwksServer(t, rotated)
 	keys := google.NewKeySet(srv.URL, srv.Client())
@@ -321,8 +301,6 @@ func TestARotatedKeyIsPickedUpOnceTheRateLimitElapses(t *testing.T) {
 }
 
 func TestAnUndersizedKeyIsRefused(t *testing.T) {
-	// A 512-bit RSA key is factorable. Accepting whatever a JWKS document
-	// offers would let anyone who could serve us one forge every token.
 	small, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		t.Fatal(err)
@@ -344,8 +322,6 @@ func TestAnUndersizedKeyIsRefused(t *testing.T) {
 }
 
 func TestAJWKSOutageDoesNotVerifyAnything(t *testing.T) {
-	// Failing open here would mean any token at all is accepted whenever Google
-	// is unreachable.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))

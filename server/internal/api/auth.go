@@ -38,9 +38,6 @@ func (s *Server) Login(ctx context.Context, request openapi.LoginRequestObject) 
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return openapi.Login401JSONResponse(invalidCredentials(ctx)), nil
 		}
-		// Anything else is an operational fault -- a corrupt stored hash, the
-		// database being unreachable. Reporting it as bad credentials would
-		// send the user to reset a password that was never wrong.
 		return nil, err
 	}
 

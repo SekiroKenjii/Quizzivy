@@ -17,15 +17,11 @@ type ErrorCode string
 
 const (
 	CodeValidationFailed ErrorCode = "VALIDATION_FAILED"
-	// 401 and 403 are different answers and the client acts differently on
-	// each: UNAUTHORIZED means log in, FORBIDDEN means you are logged in and
-	// still may not. This used to be one constant spelling both "FORBIDDEN",
-	// which left the SPA guessing from the status line.
-	CodeUnauthorized ErrorCode = "UNAUTHORIZED"
-	CodeForbidden    ErrorCode = "FORBIDDEN"
-	CodeNotFound     ErrorCode = "NOT_FOUND"
-	CodeRateLimited  ErrorCode = "RATE_LIMITED"
-	CodeInternal     ErrorCode = "INTERNAL"
+	CodeUnauthorized     ErrorCode = "UNAUTHORIZED"
+	CodeForbidden        ErrorCode = "FORBIDDEN"
+	CodeNotFound         ErrorCode = "NOT_FOUND"
+	CodeRateLimited      ErrorCode = "RATE_LIMITED"
+	CodeInternal         ErrorCode = "INTERNAL"
 )
 
 // Error is the envelope from docs/plan/00-overview.md §7.

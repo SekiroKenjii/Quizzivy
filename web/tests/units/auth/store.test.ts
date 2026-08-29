@@ -33,9 +33,6 @@ describe("the auth store", () => {
   });
 
   it("finishes bootstrapping once a session is set", () => {
-    // The store is a module singleton, so the precondition is established
-    // here rather than assumed from load order -- an earlier test in this file
-    // has already settled it.
     useAuthStore.setState({ isBootstrapping: true });
 
     useAuthStore.getState().setSession("t", studentUser);
@@ -49,8 +46,6 @@ describe("the auth store", () => {
     const state = useAuthStore.getState();
     expect(state.accessToken).toBeNull();
     expect(state.user).toBeNull();
-    // Not bootstrapping any more: we know there is no session, and a guard
-    // that kept waiting would hang instead of redirecting.
     expect(state.isBootstrapping).toBe(false);
   });
 });

@@ -42,8 +42,6 @@ export default function LoginPage() {
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
-    // Validate on blur rather than on every keystroke: complaining that an
-    // email is invalid while it is still being typed is noise.
     mode: "onTouched",
   });
 
@@ -54,11 +52,6 @@ export default function LoginPage() {
       setSession(result.accessToken, result.user);
       await navigate(destinationAfterSignIn(next, result.user), { replace: true });
     } catch (cause) {
-      // The server's message is already localised and deliberately identical
-      // for every failure -- unknown email, wrong password, disabled account
-      // (§5.1). Rendering it verbatim is what keeps that property; a
-      // client-side lookup keyed on the code would be free to say more than
-      // the server chose to.
       setError(cause instanceof ApiError ? cause.message : t("login.failed"));
     }
   });
@@ -67,9 +60,6 @@ export default function LoginPage() {
     <AuthLayout>
       <h1 className="text-2xl font-semibold tracking-tight">{t("login.title")}</h1>
       <p className="text-muted-foreground mt-2 text-sm">{t("login.subtitle")}</p>
-
-      {/* noValidate hands validation to zod, so the messages are Vietnamese
-          and styled rather than the browser's own. */}
       <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4" noValidate>
         <div className="space-y-2">
           <Label htmlFor="email">{t("login.email")}</Label>

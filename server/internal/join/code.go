@@ -1,6 +1,3 @@
-// Package join owns class join codes: generating them, recognising them, and
-// revoking them. A join code is a BEARER SECRET (§6.1) -- whoever holds it can
-// enrol -- so it is generated, stored and compared like one.
 package join
 
 import (

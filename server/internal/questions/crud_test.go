@@ -41,9 +41,6 @@ func TestSoftDeleteLeavesTheQuestionResolvableByID(t *testing.T) {
 	if _, err := svc.Get(ctx, q.ID); !errors.Is(err, questions.ErrNotFound) {
 		t.Errorf("Get on a deleted question returned %v, want ErrNotFound", err)
 	}
-
-	// But still resolvable for a version snapshot, which is the property that
-	// keeps a published test working.
 	revived, err := svc.GetIncludingDeleted(ctx, q.ID)
 	if err != nil {
 		t.Fatalf("a deleted question must stay resolvable for version snapshots: %v", err)
@@ -135,9 +132,6 @@ func TestReorderingOptionsRoundTrips(t *testing.T) {
 		t.Fatalf("update: %v", err)
 	}
 	assertOptionOrder(t, updated, []string{"Huế", "Đà Nẵng", "Hà Nội"}, []bool{false, false, true})
-
-	// And re-read, so the assertion is about what was STORED rather than what
-	// the write happened to return.
 	reread, err := svc.Get(ctx, created.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -227,10 +221,6 @@ func TestUpdateRejectedByTheDatabaseLeavesTheOldVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// points beyond numeric(8,2)'s CHECK: accepted by validation, refused by
-	// the database, so the failure lands mid-transaction after the children
-	// have already been deleted.
 	bad := choiceInput("Câu đã sửa", "C", "D")
 	bad.Points = "99999999.00"
 	if _, err := svc.Update(ctx, questions.WriteRequest{

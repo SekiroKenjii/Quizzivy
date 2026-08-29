@@ -38,10 +38,6 @@ func TestUsesTheNamedHeader(t *testing.T) {
 }
 
 func TestAClientCannotForgeTheKeyByPresettingXForwardedFor(t *testing.T) {
-	// The regression this test exists for. Cloudflare APPENDS to
-	// X-Forwarded-For, so a client that sends its own value arrives as
-	// "<forged>, <real>". An implementation taking the first entry would hand
-	// the attacker a fresh bucket on every request.
 	key := ClientIP("CF-Connecting-IP")
 
 	forged := req("10.0.0.1:5555", map[string]string{
@@ -63,9 +59,6 @@ func TestAClientCannotForgeTheKeyByPresettingXForwardedFor(t *testing.T) {
 }
 
 func TestSpoofingTheSameHeaderIsHarmlessBecauseTheProxyOverwritesIt(t *testing.T) {
-	// Named headers must be ones the infrastructure OVERWRITES. This documents
-	// the assumption: whatever the client sent is gone by the time we see it.
-	// It is why X-Forwarded-For must never be the configured header.
 	key := ClientIP("Fly-Client-IP")
 	a := key(req("10.0.0.1:5555", map[string]string{"Fly-Client-IP": "203.0.113.9"}))
 	b := key(req("10.0.0.1:5555", map[string]string{"Fly-Client-IP": "203.0.113.9"}))

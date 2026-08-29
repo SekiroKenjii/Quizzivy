@@ -38,9 +38,6 @@ function renderPanel(value = klass) {
 
 describe("the join code panel", () => {
   it("shows no full code until a rotation produces one", () => {
-    // §13.3: the plaintext exists once, in the response that created it. Only
-    // a SHA-256 hash is stored, so there is no endpoint that COULD return it --
-    // this asserts the panel does not pretend otherwise.
     renderPanel();
 
     const body = document.body.textContent ?? "";
@@ -67,8 +64,6 @@ describe("the join code panel", () => {
 
 describe("rotating", () => {
   it("does nothing until the confirmation is accepted", async () => {
-    // §6.4 requires the dialog because rotation is not undoable and it takes
-    // effect for everyone holding the old code, immediately.
     let rotations = 0;
     server.use(
       http.post(`${BASE}/admin/classes/:id/join-code`, () => {
@@ -110,8 +105,6 @@ describe("rotating", () => {
     renderPanel();
 
     await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    // The panel button and the dialog's confirm share a name; scope to the
-    // dialog so the test presses the one that actually rotates.
     await user.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
         name: "Tạo mã mới",
@@ -134,9 +127,6 @@ describe("rotating", () => {
         }),
       ),
     );
-
-    // userEvent.setup() installs a working clipboard stub; reading it back is
-    // simpler and more honest than replacing it with a spy it would overwrite.
     const user = userEvent.setup();
     renderPanel();
     await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
@@ -148,10 +138,6 @@ describe("rotating", () => {
     await screen.findByText(FULL_CODE);
 
     await user.click(screen.getByRole("button", { name: "Sao chép đường dẫn" }));
-
-    // A link a student can follow, with the dash stripped so it matches the URL
-    // shape the router expects -- not the bare code, which is useless in a
-    // message on its own.
     await waitFor(async () => {
       expect(await navigator.clipboard.readText()).toMatch(/\/join\/K7M3P9QR$/);
     });
@@ -159,11 +145,6 @@ describe("rotating", () => {
 });
 
 describe("an expired code", () => {
-  // The server keeps an expired code in the active slot on purpose: the partial
-  // unique index is on `revoked_at IS NULL`, because only rotation revokes
-  // (§6.1). So "there is a code" and "students can use it" are different
-  // questions, and the panel used to answer only the first -- showing a healthy
-  // code with a uses counter while /join turned every student away.
   const expiredClass: components["schemas"]["Class"] = {
     ...klass,
     joinCode: {
@@ -190,8 +171,6 @@ describe("an expired code", () => {
   });
 
   it("shows the time, not just the date", () => {
-    // dd/MM/yyyy renders a code that died at 09:00 identically to one good
-    // until 23:59. This is a bearer secret's expiry.
     renderPanel(expiredClass);
     expect(screen.getByText(/16:00, 01\/01\/2020/)).toBeInTheDocument();
   });
@@ -199,9 +178,6 @@ describe("an expired code", () => {
 
 describe("revoking", () => {
   it("asks first, like rotating does", async () => {
-    // Revoking is the harsher of the two: immediate, not undoable, and it
-    // issues no replacement. One of the three destructive actions on this
-    // screen having a dialog and the others not was an inconsistency.
     let revocations = 0;
     server.use(
       http.delete(`${BASE}/admin/classes/:id/join-code`, () => {
@@ -223,9 +199,6 @@ describe("revoking", () => {
   });
 
   it("stops displaying a code it has just killed", async () => {
-    // The revealed code is dead the moment the server accepts the revoke.
-    // Leaving it on screen invites the teacher to hand out something that no
-    // longer works.
     server.use(
       http.post(`${BASE}/admin/classes/:id/join-code`, () =>
         contractJson("/admin/classes/{id}/join-code", "post", 201, {
@@ -279,10 +252,6 @@ describe("failures", () => {
         name: "Tạo mã mới",
       }),
     );
-
-    // The dialog closes first: Radix marks everything outside an open dialog
-    // aria-hidden, so an error rendered in the panel behind it is invisible to
-    // sighted users and absent from the accessibility tree.
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     // And no code is claimed to exist.
@@ -290,9 +259,6 @@ describe("failures", () => {
   });
 
   it("clears a stale error once something else succeeds", async () => {
-    // rotate.onSuccess cleared the error and revoke.onSuccess did not, so a
-    // failed rotate followed by a successful revoke left a red message on
-    // screen describing an operation two steps back.
     server.use(
       http.post(
         `${BASE}/admin/classes/:id/join-code`,
@@ -327,14 +293,6 @@ describe("failures", () => {
 });
 
 describe("copying the join link", () => {
-  // Both failures are ordinary: a denied permission rejects the promise, and on
-  // a non-secure origin navigator.clipboard is undefined so reading .writeText
-  // throws synchronously. Unguarded, each gives a button that does nothing and
-  // says nothing -- and the fallback (select the link and copy it by hand) is
-  // only obvious once someone says so.
-
-  // Replaces the clipboard AFTER userEvent.setup(), which installs a working
-  // stub of its own that would otherwise win.
   function withClipboard(value: unknown) {
     const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", {

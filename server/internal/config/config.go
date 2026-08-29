@@ -1,4 +1,3 @@
-// Package config reads runtime configuration from the environment.
 package config
 
 import (
@@ -12,39 +11,22 @@ import (
 )
 
 type Config struct {
-	Port           string
-	Env            string
-	DatabaseURL    string
-	AllowedOrigins []string
-
-	// ClientIPHeader names the ONE header that carries the real client address,
-	// or "" to use the socket. Only headers the infrastructure overwrites are
-	// safe here -- CF-Connecting-IP behind Cloudflare, Fly-Client-IP on Fly.
-	// Never X-Forwarded-For: proxies append to it, so a client can prepend its
-	// own value and choose its own rate-limit bucket.
-	ClientIPHeader string
-
-	// Google sign-in (§5.3). Optional as a group: a deployment without it
-	// still serves password login. Partially set is a misconfiguration and
-	// refuses to start.
-	GoogleClientID     string
-	GoogleClientSecret string
-	GoogleRedirectURIs []string
-
-	// MaxConcurrentPasswordHashes bounds Argon2id concurrency. Each in-flight
-	// hash holds a 64 MiB arena, so this is a MEMORY limit wearing a
-	// concurrency limit's clothes -- see auth.DefaultMaxConcurrentHashes.
+	Port                        string
+	Env                         string
+	DatabaseURL                 string
+	AllowedOrigins              []string
+	ClientIPHeader              string
+	GoogleClientID              string
+	GoogleClientSecret          string
+	GoogleRedirectURIs          []string
 	MaxConcurrentPasswordHashes int
-
-	// Object storage (§11.2). MinIO in development, R2 in production, through
-	// the same client -- they differ only in endpoint and addressing style.
-	S3Endpoint        string
-	S3Region          string
-	S3Bucket          string
-	S3AccessKeyID     string
-	S3SecretAccessKey string
-	S3ForcePathStyle  bool
-	SignedURLTTL      time.Duration
+	S3Endpoint                  string
+	S3Region                    string
+	S3Bucket                    string
+	S3AccessKeyID               string
+	S3SecretAccessKey           string
+	S3ForcePathStyle            bool
+	SignedURLTTL                time.Duration
 
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
@@ -77,9 +59,6 @@ func Load() (Config, error) {
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")
 	}
-
-	// A short HMAC key is brute-forceable offline, and a forged token grants
-	// whatever role the attacker writes into it. Refuse rather than warn.
 	cfg.JWTSigningKey = []byte(os.Getenv("JWT_SIGNING_KEY"))
 	if len(cfg.JWTSigningKey) < 32 {
 		return cfg, fmt.Errorf("JWT_SIGNING_KEY must be at least 32 bytes (got %d); generate one with: openssl rand -base64 48",
@@ -92,19 +71,11 @@ func Load() (Config, error) {
 	if cfg.RefreshTokenTTL, err = parseDuration("REFRESH_TOKEN_TTL", "720h"); err != nil {
 		return cfg, err
 	}
-
-	// Defaults to TRUE. The one environment where it is false is plain-http
-	// localhost; defaulting the other way would ship a session cookie in the
-	// clear the first time someone forgot to set it.
 	cfg.RefreshCookieSecure = getenv("REFRESH_COOKIE_SECURE", "true") != "false"
 
 	if err := loadGoogle(&cfg); err != nil {
 		return cfg, err
 	}
-
-	// Deliberately NOT derived from GOMAXPROCS or the CPU count. The binding
-	// constraint is RAM, and a shared-cpu-1x machine reports the host's cores,
-	// not its own memory -- sizing on cores would pick a number that OOMs.
 	cfg.MaxConcurrentPasswordHashes, err = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
 		auth.DefaultMaxConcurrentHashes)
 	if err != nil {
@@ -162,15 +133,9 @@ func loadGoogle(cfg *Config) error {
 		return nil // Google sign-in is simply off.
 	case 3:
 	default:
-		// Half-configured is worse than off: the endpoint would exist and fail
-		// in a way that looks like Google's fault.
 		return fmt.Errorf("google sign-in needs GOOGLE_CLIENT_ID (or VITE_GOOGLE_CLIENT_ID), " +
 			"GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI together, or none of them")
 	}
-
-	// Comma-separated so one build can serve localhost and production. Exact
-	// matching is done at exchange time; prefix matching on redirect URIs is
-	// the classic OAuth mistake.
 	for _, uri := range strings.Split(redirects, ",") {
 		if uri = strings.TrimSpace(uri); uri != "" {
 			cfg.GoogleRedirectURIs = append(cfg.GoogleRedirectURIs, uri)
@@ -212,32 +177,16 @@ func loadMedia(cfg *Config) error {
 	}
 	switch set {
 	case 0:
-		// Media is simply off. Still read the remaining values so a misspelled
-		// boolean is reported rather than ignored.
 	case 4:
 	default:
-		// Half-configured is worse than off, exactly as for Google: the upload
-		// endpoint would exist and fail in a way that looks like R2's fault.
 		return fmt.Errorf("object storage needs S3_ENDPOINT, S3_BUCKET, " +
 			"S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY together, or none of them")
 	}
-
-	// Defaults to FALSE, which is what production wants.
-	//
-	// It used to default to true -- path-style addressing -- while .env.example
-	// said "MinIO needs this; R2 does not", which reads as an instruction to
-	// drop the line for production. Dropping it took the default and broke
-	// every upload against R2, which serves buckets as a subdomain, while dev
-	// against MinIO worked perfectly. The default now matches the deployment
-	// that cannot easily be tested by hand.
 	forcePathStyle, err := getenvBool("S3_FORCE_PATH_STYLE", false)
 	if err != nil {
 		return err
 	}
 	cfg.S3ForcePathStyle = forcePathStyle
-
-	// §11.2's ten minutes, configurable like every other TTL here rather than
-	// documented in .env.example and read by nothing.
 	ttl, err := parseDuration("SIGNED_URL_TTL", "10m")
 	if err != nil {
 		return err

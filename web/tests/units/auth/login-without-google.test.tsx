@@ -50,8 +50,6 @@ describe("/login without Google configured", () => {
     renderLogin();
 
     expect(screen.queryByRole("button", { name: "Tiếp tục với Google" })).toBeNull();
-    // The "hoặc" divider belongs to the Google block. Left behind on its own it
-    // reads as a section that failed to load.
     expect(screen.queryByText(/hoặc/i)).toBeNull();
   });
 });

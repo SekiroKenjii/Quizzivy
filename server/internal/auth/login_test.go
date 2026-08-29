@@ -82,9 +82,6 @@ func makeUser(t *testing.T, pool *pgxpool.Pool, opts ...func(*userSpec)) (id, em
 	t.Cleanup(func() {
 		ctx := context.Background()
 		_, _ = pool.Exec(ctx, `DELETE FROM app.refresh_tokens WHERE user_id = $1`, id)
-		// audit_log survives its actor by design (ON DELETE SET NULL), so a
-		// test that triggers an audit write has to clear it explicitly or it
-		// accumulates orphan rows in the development database.
 		_, _ = pool.Exec(ctx, `DELETE FROM app.audit_log WHERE actor_user_id = $1`, id)
 		_, _ = pool.Exec(ctx, `DELETE FROM app.users WHERE id = $1`, id)
 	})
@@ -211,9 +208,6 @@ func TestDisabledAccountCannotLogInEvenWithTheRightPassword(t *testing.T) {
 }
 
 func TestEmailMatchIsCaseInsensitive(t *testing.T) {
-	// The lookup must use the same lower(email) expression as the unique index,
-	// or a user who types their email with different capitalisation than they
-	// registered with cannot log in at all.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	_, email := makeUser(t, pool)
@@ -226,9 +220,6 @@ func TestEmailMatchIsCaseInsensitive(t *testing.T) {
 }
 
 func TestDisabledCostsTheSameTimeAsAWrongPassword(t *testing.T) {
-	// The check order is what makes this true: the password is verified BEFORE
-	// disabled is examined. Checking disabled first would return in
-	// microseconds and make suspended accounts detectable by timing alone.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	ctx := context.Background()

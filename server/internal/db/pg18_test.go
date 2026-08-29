@@ -74,9 +74,6 @@ func TestUuidV7IsBuiltInAndTimeOrdered(t *testing.T) {
 	if version != 7 {
 		t.Errorf("uuid_extract_version = %d, want 7", version)
 	}
-
-	// §13.2's whole reason for choosing v7: time-ordered keys keep B-tree
-	// inserts local instead of scattering them the way random v4 does.
 	var ordered bool
 	if err := conn.QueryRow(`
 		WITH g AS (SELECT uuidv7() AS u FROM generate_series(1, 500))
@@ -133,9 +130,6 @@ func TestVirtualGeneratedColumns(t *testing.T) {
 			}
 		})
 	})
-
-	// The exact rejection set, verified on 18.6. attempt_answers.final_score is
-	// a virtual column, so this is what may and may not be done to it.
 	t.Run("rejection set", func(t *testing.T) {
 		cases := []struct {
 			name    string
@@ -194,11 +188,6 @@ func TestOldNewInReturningInsideDataModifyingCTE(t *testing.T) {
 		mustExec(t, tx, `CREATE TEMP TABLE att (id int PRIMARY KEY, deadline_at timestamptz)`)
 		mustExec(t, tx, `CREATE TEMP TABLE audit (entity_id int, diff jsonb)`)
 		mustExec(t, tx, `INSERT INTO att VALUES (1, '2026-01-01T10:00:00Z')`)
-
-		// §13.4 wants the audit diff captured in the same statement as the
-		// mutation. A bare UPDATE ... RETURNING followed by an INSERT is still
-		// a read-then-write with a race, so the CTE form is the one that has to
-		// work -- and it is the one T-4.2 uses.
 		mustExec(t, tx, `
 			WITH updated AS (
 			  UPDATE att SET deadline_at = deadline_at + interval '15 min'
@@ -225,8 +214,6 @@ func TestNotNullNotValid(t *testing.T) {
 	conn := openDB(t)
 
 	t.Run("rejected in CREATE TABLE", func(t *testing.T) {
-		// This is why every table in 20-data-model.md declares NOT NULL inline
-		// instead: the construct simply is not available there.
 		scratch(t, conn, func(tx *sql.Tx) {
 			if _, err := tx.Exec(`CREATE TEMP TABLE nn_bad (id int, val text NOT NULL NOT VALID)`); err == nil {
 				t.Error("CREATE TABLE accepted NOT NULL NOT VALID; the plan says it cannot")
@@ -265,9 +252,6 @@ func TestAccentFolding(t *testing.T) {
 	conn := openDB(t)
 
 	t.Run("pg_trgm does NOT fold accents", func(t *testing.T) {
-		// The original D-11 claimed trigram matching handled this. It does not:
-		// pg_trgm is case-insensitive but not accent-insensitive, which is why
-		// app.immutable_unaccent() exists at all.
 		var matches bool
 		if err := conn.QueryRow(`SELECT 'nghé' ILIKE '%nghe%'`).Scan(&matches); err != nil {
 			t.Fatal(err)
@@ -303,10 +287,6 @@ func TestAccentFolding(t *testing.T) {
 			t.Fatal("unaccent extension is not installed")
 		}
 	})
-
-	// Each of the next three runs in its own transaction. A failed statement
-	// aborts the surrounding transaction in Postgres, so a negative assertion
-	// and a positive one cannot share it.
 	t.Run("a bare unaccent() is rejected in an index expression", func(t *testing.T) {
 		scratch(t, conn, func(tx *sql.Tx) {
 			mustExec(t, tx, `CREATE TEMP TABLE q1 (prompt text)`)
@@ -328,8 +308,6 @@ func TestAccentFolding(t *testing.T) {
 	})
 
 	t.Run("the wrapper folds Vietnamese, including the Đ stroke", func(t *testing.T) {
-		// Đ is the one Vietnamese character plain Unicode decomposition misses:
-		// it is a stroke, not a combining diacritic.
 		for _, tc := range []struct{ in, want string }{
 			{"Nghé", "nghe"},
 			{"phát âm", "phat am"},

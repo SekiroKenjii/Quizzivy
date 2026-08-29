@@ -217,6 +217,12 @@ jobs:
         working-directory: server
         run: go vet ./...
 
+      - name: Staticcheck
+        # SA1019 is what enforces AGENTS.md's "never use a deprecated
+        # identifier"; go vet does not check that.
+        working-directory: server
+        run: go tool staticcheck ./...
+
       - name: Check formatting
         working-directory: server
         run: |

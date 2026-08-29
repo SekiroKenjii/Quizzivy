@@ -1,8 +1,3 @@
-// Package audit writes app.audit_log rows.
-//
-// The table is append-only by PRIVILEGE, not by convention: quizzivy_app holds
-// INSERT and SELECT on it and nothing else (migration 00009). So this package
-// only ever inserts, and a caller that wanted to amend a row could not.
 package audit
 
 import (

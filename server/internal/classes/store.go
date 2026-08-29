@@ -1,5 +1,3 @@
-// Package classes serves the teacher's view of a class: who is in it, how they
-// got in, and the state of its join code.
 package classes
 
 import (
@@ -91,8 +89,6 @@ func (s *Store) Get(ctx context.Context, classID string) (Class, error) {
 }
 
 func (s *Store) List(ctx context.Context) ([]Class, error) {
-	// Newest first. uuidv7 is time-ordered (§13.2), so `id DESC` is a valid
-	// recency sort and needs no extra index.
 	rows, err := s.pool.Query(ctx, classProjection+` ORDER BY c.id DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list classes: %w", err)

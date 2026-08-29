@@ -1,13 +1,5 @@
 //go:build ignore
 
-// Generates the probe test corpus.
-//
-// Synthesised rather than encoded, because the thing under test is a HEADER
-// parser: every fixture isolates one structural case and its duration is known
-// by construction rather than by trusting an encoder. That is also the
-// limitation -- see the note in probe_test.go.
-//
-//	go run testdata/generate.go
 package main
 
 import (
@@ -126,9 +118,6 @@ func mp4(timescale, duration uint64, wide bool) []byte {
 		binary.BigEndian.PutUint32(body[16:20], uint32(duration))
 		mvhd = atom("mvhd", body)
 	}
-
-	// mdat placed BEFORE moov, as a file written straight to disk has it --
-	// so the walk cannot rely on moov coming first.
 	mdat := atom("mdat", make([]byte, 2048))
 	return append(append(ftyp, mdat...), atom("moov", mvhd)...)
 }
@@ -152,9 +141,6 @@ func write(name string, data []byte) {
 func main() {
 	// 383 frames x 1152 samples / 44100 Hz = 10.006 s
 	write("cbr-128k.mp3", cbr(9, 383))
-
-	// Same stream, but the Xing count says 383 -- so a parser that trusts the
-	// header and one that counts must agree.
 	write("vbr-xing.mp3", withXing(cbr(9, 383), 9, 383))
 
 	// No Xing: only walking the frames gets this right.

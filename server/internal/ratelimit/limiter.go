@@ -1,9 +1,3 @@
-// Package ratelimit implements the per-IP and per-key limits §6.5 requires on
-// every public endpoint.
-//
-// In-process, because there is one API instance (docs/plan/00-overview.md §4.6).
-// The interface is narrow enough that a distributed backend later is one
-// implementation, not a refactor.
 package ratelimit
 
 import (

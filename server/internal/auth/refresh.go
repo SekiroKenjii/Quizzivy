@@ -108,8 +108,6 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 
 	_, err := s.store.RevokeFamilyByToken(ctx, presented[:], s.now())
 	if errors.Is(err, ErrRefreshTokenNotFound) {
-		// An unknown token means there is nothing to revoke. Still a success:
-		// the client is logged out, which is what it asked for.
 		return nil
 	}
 	if err != nil {

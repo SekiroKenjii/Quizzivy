@@ -40,8 +40,6 @@ export default function GoogleCallbackPage() {
       const state = params.get("state");
 
       if (params.get("error")) {
-        // The user pressed cancel on Google's consent screen. Not an error to
-        // apologise for -- just take them back.
         await navigate("/login", { replace: true });
         return;
       }
@@ -52,19 +50,10 @@ export default function GoogleCallbackPage() {
 
       try {
         if (pending.mode === "link") {
-          // Attaching a credential to the session that already exists (§15).
-          // Sending this to /auth/google instead would REPLACE that session
-          // with whichever Google account was chosen.
           const linked = await api("post", "/auth/google/link", {
             body: { code, codeVerifier: pending.verifier, redirectUri: callbackUrl() },
           });
           setUser(linked);
-          // The SAME guard the sign-in branch uses. `next` reaches us through
-          // the URL, so it is untrusted even though we put it there. Today the
-          // only caller passes window.location.pathname, so nothing hostile
-          // can arrive -- but buildAuthorizationRequest takes an arbitrary
-          // `next`, and "link Google and come back to where you were" is one
-          // feature away from making this a real open redirect.
           await navigate(destinationAfterSignIn(pending.next, linked), {
             replace: true,
           });

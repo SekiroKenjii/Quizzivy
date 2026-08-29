@@ -57,11 +57,6 @@ func (s *Server) UploadMedia(ctx context.Context, request openapi.UploadMediaReq
 	case errors.Is(err, media.ErrTooLong):
 		return openapi.UploadMedia415JSONResponse(authError(ctx, openapi.MEDIATOOLONG,
 			"Tệp âm thanh dài hơn 5 phút. Vui lòng cắt ngắn.")), nil
-
-	// Sniffed as audio but the duration could not be read. Refused rather than
-	// stored with an unknown duration -- media_assets requires one, so storing
-	// it would fail at the database and produce a 500 where an explanation is
-	// the true answer.
 	case errors.Is(err, probe.ErrUnmeasurable):
 		return openapi.UploadMedia415JSONResponse(authError(ctx, openapi.MEDIAUNREADABLE,
 			"Không đọc được tệp âm thanh này. Tệp có thể bị lỗi hoặc chưa tải lên hết.")), nil
@@ -139,18 +134,12 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 
 	assets, next, err := s.Deps.Media.List(ctx, in)
 	if errors.Is(err, media.ErrBadCursor) {
-		// The contract says never to construct a cursor, so a bad one is a
-		// client bug rather than a server fault.
 		return openapi.ListMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			authError(ctx, openapi.VALIDATIONFAILED, "Con trỏ phân trang không hợp lệ."))}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-
-	// The item type is anonymous in the generated response, so it is spelled
-	// once here and filled by index rather than written out a second time as a
-	// composite literal.
 	var out openapi.ListMedia200JSONResponse
 	out.Headers.CacheControl = cacheControlForSignedURLList
 	out.Body.Items = make([]struct {

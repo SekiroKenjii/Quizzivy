@@ -78,9 +78,6 @@ func TestDurationsAreWithinOnePercent(t *testing.T) {
 
 func TestTheTwoRejectsAreRejected(t *testing.T) {
 	t.Run("a WAV renamed to .mp3", func(t *testing.T) {
-		// The whole reason identification is by magic bytes. The extension says
-		// mp3 and the file is RIFF; believing the extension would store a file
-		// no browser will play as audio.
 		r, size := open(t, "wav-renamed.mp3")
 		_, _, err := probe.Audio(r, size)
 		if !errors.Is(err, probe.ErrUnsupportedType) {
@@ -89,11 +86,6 @@ func TestTheTwoRejectsAreRejected(t *testing.T) {
 	})
 
 	t.Run("a truncated MP3", func(t *testing.T) {
-		// It sniffs correctly and its first frames parse, so this is exactly
-		// the "sniffs but cannot be probed" case: REJECT rather than store with
-		// a null duration. media_assets CHECKs that an audio row has one, so
-		// storing it would fail at the database and the teacher would get a
-		// 500 instead of an explanation.
 		r, size := open(t, "truncated.mp3")
 		_, _, err := probe.Audio(r, size)
 		if !errors.Is(err, probe.ErrUnmeasurable) {
@@ -103,8 +95,6 @@ func TestTheTwoRejectsAreRejected(t *testing.T) {
 }
 
 func TestNothingOutsideTheAllowlistIsAccepted(t *testing.T) {
-	// §11.1 is an allowlist, and §17.3 flags widening it as a deliberate
-	// decision. These are the shapes most likely to be handed to an upload.
 	for name, data := range map[string][]byte{
 		"empty":            {},
 		"plain text":       []byte("xin chào, đây không phải là tệp âm thanh"),
@@ -126,8 +116,6 @@ func TestNothingOutsideTheAllowlistIsAccepted(t *testing.T) {
 }
 
 func TestAnExtensionNeverDecidesTheType(t *testing.T) {
-	// Stated as its own case because it is the §11.1 rule, and because probe
-	// takes no filename at all -- which is the design that makes it true.
 	m4a, size := open(t, "mvhd-v0.m4a")
 	mime, _, err := probe.Audio(m4a, size)
 	if err != nil {
@@ -139,8 +127,6 @@ func TestAnExtensionNeverDecidesTheType(t *testing.T) {
 }
 
 func TestACraftedFileCannotMakeTheProberLoop(t *testing.T) {
-	// Bounded work (§14). Two shapes that would otherwise spin: an atom that
-	// declares a size of zero, and a stream of valid-looking syncs.
 	t.Run("an mp4 atom of size zero", func(t *testing.T) {
 		data := []byte{0, 0, 0, 0x18}
 		data = append(data, []byte("ftypM4A \x00\x00\x00\x00M4A ")...)
@@ -154,8 +140,6 @@ func TestACraftedFileCannotMakeTheProberLoop(t *testing.T) {
 	})
 
 	t.Run("a very long run of frame headers", func(t *testing.T) {
-		// Every frame is legal; there are simply far more than five minutes
-		// of them. The prober must give up rather than walk them all.
 		frame := []byte{0xFF, 0xFB, 0x90, 0x00}
 		data := make([]byte, 0, 4*1024*1024)
 		for len(data) < 4*1024*1024 {
@@ -164,8 +148,6 @@ func TestACraftedFileCannotMakeTheProberLoop(t *testing.T) {
 			data = append(data, f...)
 		}
 		_, ms, err := probe.Audio(bytes.NewReader(data), int64(len(data)))
-		// Either answer is acceptable; hanging is not. What is asserted is
-		// that it returns at all, and that any duration it reports is sane.
 		if err == nil && ms <= 0 {
 			t.Errorf("returned a nonsensical duration %d", ms)
 		}
@@ -215,12 +197,6 @@ func TestADeclaredDurationCannotOverflowIntoAPlausibleOne(t *testing.T) {
 		// 73 million years of audio, chosen to wrap to exactly 30_000 ms.
 		crafted = uint64(2305843009213723952)
 	)
-
-	// Assert the premise at RUNTIME, so this cannot pass for the wrong reason --
-	// if it ever stops wrapping to a plausible value, the test is no longer
-	// testing what it says. (Computed through a variable: as a constant
-	// expression Go rejects the overflow at compile time, which is itself a
-	// small demonstration of the problem.)
 	d := crafted
 	if wrapped := (d * 1000) / timescale; wrapped != 30_000 {
 		t.Fatalf("premise broken: the crafted duration wraps to %d ms, not 30000", wrapped)
@@ -255,8 +231,6 @@ func TestAnHonestLongDurationIsStillRejectedAsTooLong(t *testing.T) {
 // header on the first one declaring `declaredFrames`. When the two disagree,
 // the file is lying about its own length -- which is what an uploader controls.
 func mp3WithXing(realFrames, declaredFrames int, declaredBytes uint32) []byte {
-	// 128 kbps, 44.1 kHz, stereo: bitrate index 9, the same shape the corpus
-	// generator uses.
 	const (
 		frameLen            = 417
 		sideInfoStereoMPEG1 = 32
@@ -300,8 +274,6 @@ func TestAXingCountThatTheFileCannotHoldIsNotTrusted(t *testing.T) {
 		t.Errorf("trusted a header claiming %d ms for a file holding ~%d ms of audio",
 			ms, realFrames*1152*1000/44100)
 	}
-	// Falling back to the walk is the intended outcome, so a large honest
-	// duration -- or a refusal -- are both correct. Believing the lie is not.
 }
 
 // TestATruncatedVBRFileIsNotAcceptedAsComplete covers the other half.
@@ -318,9 +290,6 @@ func TestATruncatedVBRFileIsNotAcceptedAsComplete(t *testing.T) {
 		fullBytes = frames * frameLen
 	)
 	full := mp3WithXing(frames, frames, uint32(fullBytes))
-
-	// Cut in half, exactly as an interrupted upload would be. The header still
-	// says 400 frames and fullBytes.
 	cut := full[:len(full)/2]
 
 	_, ms, err := probe.Audio(bytes.NewReader(cut), int64(len(cut)))

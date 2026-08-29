@@ -21,8 +21,6 @@ describe("MSW fixtures are validated against api/openapi.yaml", () => {
   });
 
   it("rejects a field the contract does not define", () => {
-    // Schemas are additionalProperties:false, so an invented field is a drift
-    // signal: usually a mock written against an older shape.
     expect(() =>
       contractJson("/auth/me", "get", 200, { ...studentUser, isCorrect: true }),
     ).toThrow(/isCorrect|additional/i);

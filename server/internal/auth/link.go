@@ -10,19 +10,7 @@ import (
 )
 
 var (
-	// ErrLastLoginMethod is §15's rule: unlinking Google from an account with
-	// no password would leave no way in at all. The account would still exist,
-	// hold its attempts and its enrolments, and be unreachable by its owner.
-	ErrLastLoginMethod = errors.New("google is the account's only login method")
-
-	// ErrEmailBelongsToAnotherUser is a Google account whose verified address
-	// is already some OTHER Quizzivy account's email.
-	//
-	// Refused because of where it leads, not where it starts. Linking would
-	// bind that Google `sub` to this account, and §5.3's first branch matches
-	// on `sub` before email -- so the owner of that address signing in with
-	// their own Google would land in someone else's account. Rare, entirely
-	// silent, and very hard to diagnose from the inside.
+	ErrLastLoginMethod           = errors.New("google is the account's only login method")
 	ErrEmailBelongsToAnotherUser = errors.New("that Google address belongs to another account")
 )
 
@@ -63,22 +51,14 @@ func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (User, err
 		return User{}, err
 	}
 	if !identity.EmailVerified {
-		// §5.1 again. An unverified address is not evidence of anything, and
-		// binding one to an existing account is the same takeover path sign-in
-		// refuses -- with the account already chosen.
 		return User{}, google.ErrEmailUnverified
 	}
-
-	// Already linked to this very account: a double-submit, or a user who
-	// forgot. Nothing to do, and reporting a conflict would be wrong.
 	for _, provider := range user.LinkedProviders {
 		if provider == "google" {
 			existing, err := s.store.FindUserByProviderIdentity(ctx, "google", identity.Subject)
 			if err == nil && existing.ID == user.ID {
 				return user, nil
 			}
-			// A different Google account is already linked here. D-08 allows
-			// one per user so that "unlink Google" is unambiguous.
 			return User{}, ErrIdentityAlreadyLinked
 		}
 	}
@@ -105,9 +85,6 @@ func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (User, err
 	}); err != nil {
 		return User{}, err
 	}
-
-	// Re-read: linkedProviders is what the settings screen renders from, and
-	// the user we loaded predates the link.
 	return s.store.FindUserByID(ctx, user.ID)
 }
 
@@ -134,8 +111,6 @@ func (s *Service) UnlinkGoogle(ctx context.Context, userID, ip, userAgent string
 		return err
 	}
 	if !removed {
-		// Nothing was linked. The requested state -- no Google on this
-		// account -- already holds, so this is a success.
 		return nil
 	}
 

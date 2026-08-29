@@ -62,9 +62,6 @@ func TestConcurrentHashesAreBoundedByTheLimit(t *testing.T) {
 }
 
 func TestAWaiterGivesUpItsPlaceWhenItsCallerIsGone(t *testing.T) {
-	// A queue is only safe if it drains. Without the context, a client that
-	// hung up would still be holding a place in line for a 64 MiB allocation
-	// nobody is waiting for.
 	SetMaxConcurrentHashes(1)
 	t.Cleanup(func() { SetMaxConcurrentHashes(DefaultMaxConcurrentHashes) })
 
@@ -93,8 +90,6 @@ func TestAWaiterGivesUpItsPlaceWhenItsCallerIsGone(t *testing.T) {
 }
 
 func TestTheSlotIsReturnedAfterEachHash(t *testing.T) {
-	// A leaked token is indistinguishable from a hang: the next login waits
-	// forever on a slot nobody holds.
 	SetMaxConcurrentHashes(1)
 	t.Cleanup(func() { SetMaxConcurrentHashes(DefaultMaxConcurrentHashes) })
 
@@ -129,9 +124,6 @@ func currentRSSMiB(t *testing.T) float64 {
 }
 
 func TestTheBoundActuallyCapsMemory(t *testing.T) {
-	// The point of the whole exercise, measured rather than argued. Sixteen
-	// unbounded hashes peak at ~1 GiB; bounded at two they must stay near the
-	// arena size times two.
 	if runtime.GOOS != "linux" {
 		t.Skip("RSS measurement is Linux-specific")
 	}
@@ -174,9 +166,6 @@ func TestTheBoundActuallyCapsMemory(t *testing.T) {
 	close(stop)
 
 	growth := float64(observed.Load()) - baseline
-	// Two arenas is 128 MiB. Allow generous slack for the Go heap and for the
-	// allocator not returning pages instantly -- the unbounded number is
-	// ~1024 MiB, so anything near the limit is unambiguous.
 	const ceiling = 400.0
 	if growth > ceiling {
 		t.Fatalf("RSS grew %.0f MiB for 16 hashes bounded at %d; expected roughly %d arenas, "+

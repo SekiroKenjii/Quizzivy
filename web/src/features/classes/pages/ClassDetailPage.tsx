@@ -56,10 +56,6 @@ export default function ClassDetailPage() {
   });
 
   const [removeError, setRemoveError] = useState<string | null>(null);
-  // Removing a student revokes their access immediately and is not undoable --
-  // the same two properties that earned rotation its dialog (§6.4). One of the
-  // three destructive actions on this screen having a confirmation and the
-  // others not was an inconsistency, not a design.
   const [confirmRemove, setConfirmRemove] = useState<{
     userId: string;
     name: string;
@@ -75,16 +71,6 @@ export default function ClassDetailPage() {
         queryClient.invalidateQueries({ queryKey: ["admin-class", id] }),
       ]);
     },
-    // Without this a failed removal is pixel-identical to the screen before the
-    // click: no message, and the row stays because nothing was invalidated. The
-    // teacher concludes it worked and the student keeps their access.
-    //
-    // Close the dialog as well as reporting, the same way JoinCodePanel does.
-    // removeError renders in the page body, and Radix marks everything outside
-    // an open dialog aria-hidden -- so reporting without closing puts the
-    // explanation behind a dialog that now looks like it simply does nothing,
-    // and takes it out of the accessibility tree entirely. That is the original
-    // failure relocated, not fixed.
     onError: (cause) => {
       setConfirmRemove(null);
       setRemoveError(
@@ -129,9 +115,6 @@ export default function ClassDetailPage() {
         </div>
 
         {members.isError ? (
-          // NOT the empty state. Reusing it here would put "no students yet"
-          // directly under a heading that says "Students (12)", and a teacher
-          // reads that as an enrolment problem rather than a failed request.
           <p role="alert" className="text-destructive px-6 py-8 text-sm">
             {t("classDetail.membersFailed")}
           </p>
@@ -181,9 +164,6 @@ export default function ClassDetailPage() {
                       size="sm"
                       disabled={remove.isPending}
                       onClick={() => {
-                        // A failure describes the attempt it came from. Left
-                        // on screen it reads as a fresh error about the
-                        // removal now being confirmed.
                         setRemoveError(null);
                         setConfirmRemove({ userId: m.userId, name: m.fullName });
                       }}

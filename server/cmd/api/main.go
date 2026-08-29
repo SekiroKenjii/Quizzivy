@@ -1,4 +1,3 @@
-// Command api serves the Quizzivy backend.
 package main
 
 import (
@@ -46,15 +45,9 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	defer pool.Close()
-
-	// Neon resumes a suspended compute on first connect, so the first ping of a
-	// deploy can take seconds. 60s of retries costs nothing on a warm database.
 	if err := pool.WaitReady(ctx, 60*time.Second); err != nil {
 		return err
 	}
-
-	// Before the server starts serving: SetMaxConcurrentHashes is only safe
-	// while no handler goroutine exists yet.
 	auth.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
 	logger.Info("password hashing bounded",
 		"max_concurrent", cfg.MaxConcurrentPasswordHashes,
@@ -76,9 +69,6 @@ func run(logger *slog.Logger) error {
 		), joinService)
 		logger.Info("google sign-in enabled", "redirect_uris", cfg.GoogleRedirectURIs)
 	} else {
-		// Not a warning: a deployment may legitimately run on password login
-		// alone. The endpoint reports itself unavailable rather than failing
-		// in a way that looks like Google's fault.
 		logger.Info("google sign-in disabled (no credentials configured)")
 	}
 
@@ -160,14 +150,10 @@ func prunePeriodically(ctx context.Context, logger *slog.Logger, svc *auth.Servi
 	const every = 24 * time.Hour
 
 	prune := func() {
-		// Its own timeout: a slow prune must not hold anything up, and must not
-		// inherit a request deadline it does not have.
 		runCtx, cancel := context.WithTimeout(ctx, time.Minute)
 		defer cancel()
 		n, err := svc.PruneExpiredTokens(runCtx)
 		if err != nil {
-			// Not fatal. Stale rows are inert -- they cannot authenticate
-			// anything -- so failing to remove them is untidy, not unsafe.
 			logger.Warn("refresh token prune failed", "err", err)
 			return
 		}

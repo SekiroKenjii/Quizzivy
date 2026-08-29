@@ -1,8 +1,3 @@
-// Package storage wraps the S3-compatible object store.
-//
-// One client serves both MinIO in development and R2 in production
-// (00-overview.md §4.7). They differ in two ways that matter, and both are
-// handled here rather than at each call site.
 package storage
 
 import (
@@ -25,9 +20,7 @@ type Config struct {
 	Bucket          string
 	AccessKeyID     string
 	SecretAccessKey string
-	// ForcePathStyle is true for MinIO, which serves buckets as a path
-	// (`/bucket/key`), and false for R2, which serves them as a subdomain.
-	ForcePathStyle bool
+	ForcePathStyle  bool
 }
 
 type Client struct {

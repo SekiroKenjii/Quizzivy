@@ -6,19 +6,11 @@ import { useAuthStore } from "@/stores/auth";
 export const CHANGE_PASSWORD_PATH = "/change-password";
 
 /**
- * Everything behind a session (§5.4).
+ * Pathless guard: renders the tree only for a signed-in user.
  *
- * Three states, in this order, and the order matters:
- *
- *  1. Still bootstrapping -> WAIT. Redirecting here would flash /login on every
- *     reload and throw away the deep link the user actually followed.
- *  2. No session -> /login?next=<path>, so signing in returns them to where
- *     they were going rather than to a generic home.
- *  3. `mustChangePassword` -> /change-password, from every route.
- *
- * A Google-only account never reaches (3): `must_change_password` requires a
- * password at the database level (D-16's CHECK), so the flag cannot be true
- * for an account that has none.
+ * Waits while the session is bootstrapping rather than redirecting, or a
+ * reload would bounce every user to /login before `GET /auth/me` answers.
+ * Carries the attempted path as `?next=` so sign-in can return to it.
  */
 export function RequireSession() {
   const { t } = useTranslation();

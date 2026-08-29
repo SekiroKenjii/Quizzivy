@@ -10,9 +10,6 @@ import (
 // Upload would need a database to reach it.
 
 func TestSanitiseFilenameKeepsValidUTF8(t *testing.T) {
-	// A long Vietnamese name of the kind a careful teacher or an export tool
-	// produces. Truncated by bytes, this ends mid-character and Postgres
-	// refuses it: `invalid byte sequence for encoding "UTF8"`.
 	long := strings.Repeat("Bài nghe tiếng Anh lớp 9 — Unit 3: luyện nghe số ", 6) + ".mp3"
 	if utf8.RuneCountInString(long) <= 200 {
 		t.Fatalf("premise: the fixture must exceed the limit, got %d runes",
@@ -29,8 +26,6 @@ func TestSanitiseFilenameKeepsValidUTF8(t *testing.T) {
 }
 
 func TestSanitiseFilenameLimitIsRunesNotBytes(t *testing.T) {
-	// Every character is 3 bytes, so a byte limit would cut this to ~66
-	// characters while a rune limit keeps 200.
 	name := strings.Repeat("ế", 300)
 	got := sanitiseFilename(name)
 	if n := utf8.RuneCountInString(got); n != 200 {

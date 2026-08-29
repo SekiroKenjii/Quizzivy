@@ -40,9 +40,6 @@ func TestAStudentCannotReachTheAdminTree(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
 	}
-	// 403 and not 404: hiding the admin tree would buy nothing -- it is
-	// documented and the SPA ships routes for it -- while a 404 sends a
-	// teacher whose session downgraded to hunting a broken link.
 	if code := errorCode(t, rec); code != "FORBIDDEN" {
 		t.Errorf("error code = %q, want FORBIDDEN", code)
 	}
@@ -53,18 +50,13 @@ func TestATeacherReachesTheAdminTree(t *testing.T) {
 	router := newAuthTestRouter(t, issuer)
 
 	rec := requestAs(t, router, issuer, http.MethodGet, "/admin/dashboard", "admin")
-	// Deps.Join and Deps.Auth are nil here, so getting through means 501.
-	// Anything but 403 proves the gate opened.
 	if rec.Code == http.StatusForbidden {
 		t.Fatal("an admin token was refused the admin tree")
 	}
 }
 
 func TestEveryAdminOperationIsGated(t *testing.T) {
-	// Driven by the path, because the path IS the contract's structure (§3).
-	// This asserts the derivation actually covers the tree rather than one
-	// example of it.
-	spec, err := openapi.GetSwagger()
+	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}
@@ -92,9 +84,6 @@ func TestEveryAdminOperationIsGated(t *testing.T) {
 }
 
 func TestTheStudentTreeIsNotGatedByRole(t *testing.T) {
-	// /app/* belongs to both roles -- a teacher previewing a test is a
-	// legitimate caller. Gating it on `student` would lock the teacher out of
-	// their own product.
 	issuer := testIssuer(t)
 	router := newAuthTestRouter(t, issuer)
 
@@ -107,8 +96,6 @@ func TestTheStudentTreeIsNotGatedByRole(t *testing.T) {
 }
 
 func TestAnAnonymousCallerToTheAdminTreeGetsAuthenticationNotAuthorization(t *testing.T) {
-	// 401 tells the client to log in; 403 tells it not to bother. Sending 403
-	// to someone who simply has no token would strand them.
 	issuer := testIssuer(t)
 	router := newAuthTestRouter(t, issuer)
 

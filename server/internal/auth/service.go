@@ -28,11 +28,8 @@ type Service struct {
 	tokens     *TokenIssuer
 	refreshTTL time.Duration
 	now        func() time.Time
-
-	// Optional. Nil means Google sign-in is unavailable on this deployment,
-	// which is a different answer from "your sign-in failed".
-	google   GoogleProvider
-	enroller SelfEnroller
+	google     GoogleProvider
+	enroller   SelfEnroller
 }
 
 func NewService(store *Store, tokens *TokenIssuer, refreshTTL time.Duration) *Service {
@@ -59,17 +56,8 @@ type LoginInput struct {
 
 // Login verifies a password and mints a session.
 //
-// The ORDER of the checks is the point. Every failure path performs one full
-// Argon2id verification and returns the same error, so the endpoint reveals
-// nothing through its response or its timing:
-//
-//   - no such user      -> hash against a dummy, then fail
-//   - Google-only       -> hash against a dummy, then fail
-//   - disabled          -> verify the REAL hash, then fail
-//   - wrong password    -> verify the real hash, fail naturally
-//
-// Checking `disabled` before verifying would return in microseconds and make
-// suspended accounts distinguishable from active ones by timing alone.
+// An unknown email still runs a full hash against dummyHash, so the response
+// time does not reveal which accounts exist.
 func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 	user, err := s.store.FindUserByEmail(ctx, in.Email)
 	switch {
@@ -88,8 +76,6 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 
 	ok, err := VerifyPassword(ctx, in.Password, *user.PasswordHash)
 	if err != nil {
-		// A corrupt stored hash is an operational fault, not a user error. It
-		// must not be reported as "wrong password", or the cause is never found.
 		return Session{}, fmt.Errorf("verify password for %s: %w", user.ID, err)
 	}
 	if !ok {
