@@ -4,6 +4,10 @@ import type { components } from "@/lib/api/schema";
 export type Class = components["schemas"]["Class"];
 export type ClassMember = components["schemas"]["ClassMember"];
 
+export function fetchClasses(signal?: AbortSignal) {
+  return api("get", "/admin/classes", signal ? { signal } : {});
+}
+
 export function fetchClass(id: string, signal?: AbortSignal): Promise<Class> {
   return api(
     "get",

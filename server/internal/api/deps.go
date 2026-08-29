@@ -5,8 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"quizzivy/internal/assignments"
 	"quizzivy/internal/auth"
 	"quizzivy/internal/classes"
+	"quizzivy/internal/dashboard"
 	"quizzivy/internal/httpx"
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
@@ -82,6 +84,16 @@ type TestsService interface {
 	Duplicate(ctx context.Context, req tests.Request) (tests.Test, error)
 	ListVersions(ctx context.Context, testID string) ([]tests.Version, error)
 	Preview(ctx context.Context, testID string, version int) (int, []tests.PreviewQuestion, error)
+}
+
+// AssignmentsService is the slice of internal/assignments the handlers use.
+type AssignmentsService interface {
+	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, string, error)
+}
+
+// DashboardService is the slice of internal/dashboard the handlers use.
+type DashboardService interface {
+	Get(ctx context.Context) (dashboard.Summary, error)
 }
 
 // PublishService is the slice of internal/tests/publish the handlers use.

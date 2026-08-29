@@ -432,5 +432,44 @@
     "open": "Search tests, students, questions…",
     "escape": "esc",
     "keyK": "K"
+  },
+  "dashboard": {
+    "assign": "Assign",
+    "needsYou": "Needs you",
+    "awaitingGrading": "Short answers to grade",
+    "awaitingGradingHint": "Submitted, with answers only you can score.",
+    "flagged": "Attempts to review",
+    "flaggedHint": "Signs of leaving the page repeatedly.",
+    "openAssignments": "Open assignments",
+    "openAssignmentsHint": "Inside their window right now.",
+    "grade": "Grade",
+    "review": "Review",
+    "monitor": "Monitor",
+    "openNow": "Open now",
+    "allAssignments": "All assignments",
+    "assignment": "Assignment",
+    "closesAt": "Closes",
+    "progress": "Progress",
+    "progressOf": "{{submitted}} of {{target}} submitted",
+    "byStudent": "By student",
+    "recent": "Recent activity",
+    "noActivity": "Nothing yet.",
+    "noAssignments": "No assignments yet.",
+    "activeStudents": "Active students, 7 days",
+    "inProgress": "in progress",
+    "flaggedShort": "needs review",
+    "loadFailed": "Could not load the overview.",
+    "status": {
+      "in_progress": "started",
+      "submitted": "submitted",
+      "graded": "was graded on",
+      "voided": "had voided",
+      "expired": "ran out of time on"
+    },
+    "assignmentStatus": {
+      "scheduled": "Scheduled",
+      "open": "Open",
+      "closed": "Closed"
+    }
   }
 }

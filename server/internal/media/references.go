@@ -64,10 +64,26 @@ func LockForVersionUse(ctx context.Context, q Querier, assetID string) error {
 // asset, true only when it is used by a question in a version they have an
 // attempt on.
 //
-// Still always false: app.attempts arrives in Phase 3, and without it there is
-// no attempt to join through. Fail-closed, and correct meanwhile since no
-// student can be taking a test yet.
+// Reachability is derived from the student's OWN attempts, never from a
+// parameter the caller supplies: the asset id arrives from the client, so
+// authorising it against anything else would let one student read another
+// class's listening files by guessing (§11.2).
+//
+// A voided attempt still counts. The recording was legitimately part of a test
+// that student sat, and the result screen can still show it; voiding is about
+// the score, not about access.
 func ReachableByStudent(ctx context.Context, q Querier, studentID, assetID string) (bool, error) {
-	_, _, _, _ = ctx, q, studentID, assetID
-	return false, nil
+	var reachable bool
+	err := q.QueryRow(ctx, `
+		SELECT EXISTS (
+		  SELECT 1
+		    FROM app.attempts a
+		    JOIN app.test_version_sections s ON s.test_version_id = a.test_version_id
+		    JOIN app.test_version_questions q ON q.test_version_section_id = s.id
+		   WHERE a.student_id = $1
+		     AND q.media_asset_id = $2)`, studentID, assetID).Scan(&reachable)
+	if err != nil {
+		return false, fmt.Errorf("media: student reachability: %w", err)
+	}
+	return reachable, nil
 }

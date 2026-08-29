@@ -432,5 +432,44 @@
     "open": "Tìm đề thi, học viên, câu hỏi…",
     "escape": "esc",
     "keyK": "K"
+  },
+  "dashboard": {
+    "assign": "Giao bài",
+    "needsYou": "Cần bạn xử lý",
+    "awaitingGrading": "Câu tự luận chờ chấm",
+    "awaitingGradingHint": "Bài đã nộp, còn câu cần bạn chấm tay.",
+    "flagged": "Bài cần xem lại",
+    "flaggedHint": "Có dấu hiệu rời trang nhiều.",
+    "openAssignments": "Bài đang mở",
+    "openAssignmentsHint": "Đang trong thời gian làm bài.",
+    "grade": "Chấm",
+    "review": "Xem",
+    "monitor": "Theo dõi",
+    "openNow": "Bài đang mở",
+    "allAssignments": "Tất cả bài giao",
+    "assignment": "Bài giao",
+    "closesAt": "Đóng lúc",
+    "progress": "Tiến độ",
+    "progressOf": "{{submitted}} trên {{target}} đã nộp",
+    "byStudent": "Theo học viên",
+    "recent": "Hoạt động gần đây",
+    "noActivity": "Chưa có hoạt động nào.",
+    "noAssignments": "Chưa có bài giao nào.",
+    "activeStudents": "Học viên hoạt động 7 ngày",
+    "inProgress": "đang làm",
+    "flaggedShort": "cần xem lại",
+    "loadFailed": "Không tải được tổng quan.",
+    "status": {
+      "in_progress": "đang làm",
+      "submitted": "nộp",
+      "graded": "đã được chấm",
+      "voided": "bị huỷ",
+      "expired": "hết giờ"
+    },
+    "assignmentStatus": {
+      "scheduled": "Đã lên lịch",
+      "open": "Đang mở",
+      "closed": "Đã đóng"
+    }
   }
 }
