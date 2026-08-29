@@ -137,13 +137,49 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Question, string, err
 		next = encodeCursor(questions[len(questions)-1].ID)
 	}
 
-	for i := range questions {
-		if questions[i].Options, err = s.loadOptions(ctx, s.pool, questions[i].ID); err != nil {
-			return nil, "", err
-		}
-		if questions[i].Blanks, err = s.loadBlanks(ctx, s.pool, questions[i].ID); err != nil {
-			return nil, "", err
-		}
+	if err := s.attachChildren(ctx, questions); err != nil {
+		return nil, "", err
 	}
 	return questions, next, nil
+}
+
+// attachChildren fills in the options and blanks for a whole page in two
+// queries rather than two per row.
+//
+// The contract's AdminQuestion carries both, and a list that returned a
+// different shape from the detail endpoint is something a client works around
+// rather than reports -- so the shape stays and the fetching changes. A full
+// page of 100 was 201 round trips, which is paid in network latency against
+// Neon on the teacher's main browsing screen.
+func (s *Store) attachChildren(ctx context.Context, questions []Question) error {
+	if len(questions) == 0 {
+		return nil
+	}
+
+	ids := make([]string, len(questions))
+	for i, q := range questions {
+		ids[i] = q.ID
+	}
+
+	options, err := s.loadOptionsFor(ctx, s.pool, ids)
+	if err != nil {
+		return err
+	}
+	blanks, err := s.loadBlanksFor(ctx, s.pool, ids)
+	if err != nil {
+		return err
+	}
+
+	for i := range questions {
+		// Non-nil even when absent: the contract's arrays are never null.
+		questions[i].Options = []Option{}
+		questions[i].Blanks = []Blank{}
+		if got, ok := options[questions[i].ID]; ok {
+			questions[i].Options = got
+		}
+		if got, ok := blanks[questions[i].ID]; ok {
+			questions[i].Blanks = got
+		}
+	}
+	return nil
 }
