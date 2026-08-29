@@ -160,5 +160,37 @@
       "vi": "Tiếng Việt",
       "en": "English"
     }
+  },
+  "media": {
+    "cancel": "Cancel",
+    "cancelled": "Upload cancelled.",
+    "chooseFile": "Choose a file from your device",
+    "columnDuration": "Length",
+    "columnName": "File name",
+    "columnSize": "Size",
+    "columnUsage": "In use",
+    "delete": "Delete",
+    "deleteBlocked": "This file is used by a published test and cannot be deleted.",
+    "deleteConfirmBody": "It will be removed from the library. Published tests keep working.",
+    "deleteConfirmTitle": "Delete this file?",
+    "deleteFailed": "Could not delete the file.",
+    "dropHere": "Drag a file here, or click to choose one",
+    "dropHint": "mp3 and m4a only, up to 10 MB and 5 minutes",
+    "empty": "No files yet. Upload your first listening file to get started.",
+    "loadFailed": "Could not load the media library.",
+    "loading": "Loading the library…",
+    "notUsed": "Not used",
+    "pickChange": "Change file",
+    "pickClear": "Clear",
+    "pickNone": "No file chosen",
+    "pickTitle": "Choose a file",
+    "rejectDuration": "The file is {{minutes}} minutes, over the 5 minute limit. Please trim it.",
+    "rejectSize": "The file is over 10 MB. Please compress or trim it.",
+    "rejectType": "Only mp3 and m4a files are accepted.",
+    "title": "Media library",
+    "upload": "Upload a file",
+    "uploadFailed": "Upload failed. Please try again.",
+    "uploading": "Uploading…",
+    "usedIn": "{{count}} published test(s)"
   }
 }
