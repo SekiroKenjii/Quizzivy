@@ -250,6 +250,12 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
 - `hotfix/<slug>` off `main`, merged to both.
 - Never commit directly to `main` or `develop`.
 
+**A behavioural change never rides along in a formatting sweep.** A commit that
+reformats or restrips comments across many files must contain nothing else — the
+diff a reviewer opens is thousands of lines, and a real change inside it is
+invisible however carefully the commit message names it. Put it in its own
+commit on the same branch, so the diff for it is the size of the change.
+
 ## Design
 
 Follow spec §12 exactly. Neutral zinc palette, charcoal primary buttons,
