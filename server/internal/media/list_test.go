@@ -40,12 +40,23 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 		want[i], want[j] = want[j], want[i]
 	}
 
+	// The walk covers the whole table, not just this test's rows, so the bound
+	// comes from the live row count rather than from `total`. An earlier version
+	// used total+2 and passed only while the shared table held fewer than seven
+	// assets.
+	var live int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM app.media_assets WHERE deleted_at IS NULL`).Scan(&live); err != nil {
+		t.Fatal(err)
+	}
+	maxPages := live + 10
+
 	var got []string
 	seen := map[string]int{}
 	cursor := ""
 	for pages := 0; ; pages++ {
-		if pages > total+2 {
-			t.Fatal("pagination did not terminate")
+		if pages > maxPages {
+			t.Fatalf("pagination did not terminate after %d pages for %d live assets", pages, live)
 		}
 		assets, next, err := svc.List(context.Background(), media.ListInput{Limit: 1, Cursor: cursor})
 		if err != nil {

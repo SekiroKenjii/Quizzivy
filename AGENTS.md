@@ -314,8 +314,12 @@ real `DELETE`, not a soft one.
 Anything inserting into `app.test_section_questions` must call
 `questions.LockForDraftUse` first, so both operations contend on the same row.
 `TestLockForDraftUseSerialisesAgainstDelete` drives both halves concurrently and
-fails within two attempts without it. The same hazard is open and documented for
-`media_assets` and the publish path — see `media/references.go`.
+fails within two attempts without it.
+
+The same applies to `app.media_assets`: anything inserting into
+`app.test_version_questions` must call `media.LockForVersionUse` first, or a
+publish can freeze a reference to an asset a concurrent delete is removing.
+`TestLockForVersionUseSerialisesAgainstDelete` covers it.
 
 Four tests are canaries. If one starts failing, something load-bearing broke —
 fix the cause, never the test:
