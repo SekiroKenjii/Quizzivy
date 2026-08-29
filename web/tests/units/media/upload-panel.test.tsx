@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http } from "msw";
-import { UploadWidget } from "@/features/media/components/UploadWidget";
+import { UploadPanel } from "@/features/media/components/UploadPanel";
 import { server } from "@tests/support/server";
 import "@/lib/i18n";
 
@@ -46,11 +46,11 @@ beforeEach(() => {
 
 async function choose(file: File) {
   const user = userEvent.setup();
-  render(<UploadWidget onUploaded={vi.fn()} />);
+  render(<UploadPanel onUploaded={vi.fn()} />);
   await user.upload(screen.getByLabelText("Chọn tệp từ máy"), file);
 }
 
-describe("the upload widget's client-side pre-check", () => {
+describe("the upload panel's client-side pre-check", () => {
   // The Done-when case: a teacher is not made to wait for 10 MB to be told the
   // file is too long.
   it("rejects a 6-minute file in Vietnamese without contacting the server", async () => {

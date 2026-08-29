@@ -14,3 +14,15 @@ export function formatBytes(bytes: number): string {
   if (kb < 1024) return `${Math.round(kb)} KB`;
   return `${(kb / 1024).toFixed(1)} MB`;
 }
+
+/**
+ * dd/MM, as the design deck's "Tải lên" column shows it. The year is noise in a
+ * library a teacher scans, and the separator is fixed rather than locale-derived
+ * because Intl renders "29-08" for `vi` where the deck shows "29/08".
+ */
+export function formatUploadedAt(iso: string): string {
+  const date = new Date(iso);
+  const day = date.getDate().toString().padStart(2, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  return `${day}/${month}`;
+}

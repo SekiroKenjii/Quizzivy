@@ -41,7 +41,9 @@
     "settings": "Cài đặt",
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
-    "mainNavigation": "Điều hướng chính"
+    "mainNavigation": "Điều hướng chính",
+    "sectionTeaching": "Giảng dạy",
+    "sectionClasses": "Lớp học"
   },
   "student": {
     "myAssignments": "Bài của tôi",
@@ -166,9 +168,12 @@
     "cancelled": "Đã huỷ tải lên.",
     "chooseFile": "Chọn tệp từ máy",
     "columnDuration": "Thời lượng",
+    "columnFile": "Tệp",
     "columnName": "Tên tệp",
     "columnSize": "Dung lượng",
-    "columnUsage": "Đang dùng",
+    "columnType": "Loại",
+    "columnUploaded": "Tải lên",
+    "columnUsage": "Đang dùng ở",
     "delete": "Xoá",
     "deleteBlocked": "Tệp đang được dùng trong đề đã xuất bản nên không thể xoá.",
     "deleteConfirmBody": "Tệp sẽ bị gỡ khỏi thư viện. Các đề đã xuất bản vẫn dùng được tệp này.",
@@ -180,17 +185,21 @@
     "loadFailed": "Không tải được thư viện tệp.",
     "loading": "Đang tải thư viện…",
     "notUsed": "Chưa dùng",
+    "notUsedBadge": "chưa dùng",
     "pickChange": "Đổi tệp",
     "pickClear": "Bỏ chọn",
     "pickNone": "Chưa chọn tệp",
     "pickTitle": "Chọn tệp",
+    "preview": "Nghe thử",
     "rejectDuration": "Tệp dài {{minutes}} phút, vượt quá giới hạn 5 phút. Vui lòng cắt ngắn.",
     "rejectSize": "Tệp vượt quá 10 MB. Vui lòng nén hoặc cắt ngắn tệp.",
     "rejectType": "Chỉ nhận tệp mp3 hoặc m4a.",
-    "title": "Thư viện tệp",
+    "summary": "{{count}} tệp · {{size}}",
+    "title": "Thư viện media",
     "upload": "Tải tệp lên",
     "uploadFailed": "Tải lên thất bại. Vui lòng thử lại.",
     "uploading": "Đang tải lên…",
-    "usedIn": "{{count}} đề đã xuất bản"
+    "usedIn": "{{count}} đề đã xuất bản",
+    "usedInPublished": "{{count}} đề đã phát hành"
   }
 }
