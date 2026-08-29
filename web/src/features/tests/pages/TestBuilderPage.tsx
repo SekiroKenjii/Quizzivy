@@ -242,7 +242,8 @@ function Builder({ test }: { test: Test }) {
     }
   }
 
-  const stale = outline.status.kind === "stale";
+  const saveStatus = mergeAutosave([outline.status, questionStatus]);
+  const stale = saveStatus.kind === "stale";
 
   return (
     <div className="-m-6 flex min-h-full flex-col">
@@ -262,7 +263,7 @@ function Builder({ test }: { test: Test }) {
           onChange={(event) => updateTitle(event.target.value)}
         />
         <Badge variant="secondary">{t(`builder.${test.status}`)}</Badge>
-        <AutosaveStatusLabel status={mergeAutosave([outline.status, questionStatus])} />
+        <AutosaveStatusLabel status={saveStatus} />
 
         <div className="ml-auto flex items-center gap-2">
           <Button

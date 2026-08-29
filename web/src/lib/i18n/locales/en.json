@@ -351,7 +351,8 @@
     "tags": "Tags",
     "points": "Points",
     "preview": "Preview",
-    "loadMore": "Show more"
+    "loadMore": "Show more",
+    "previewExpired": "The preview link has expired. Reload the list to play it."
   },
   "tests": {
     "summary": "{{count}} tests",

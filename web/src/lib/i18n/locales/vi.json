@@ -351,7 +351,8 @@
     "tags": "Thẻ",
     "points": "Điểm",
     "preview": "Nghe thử",
-    "loadMore": "Xem thêm"
+    "loadMore": "Xem thêm",
+    "previewExpired": "Đường dẫn nghe thử đã hết hạn. Tải lại danh sách để nghe."
   },
   "tests": {
     "summary": "{{count}} đề",
