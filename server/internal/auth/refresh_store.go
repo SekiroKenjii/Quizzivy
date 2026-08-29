@@ -47,68 +47,102 @@ func (s *Store) Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenR
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const claim = `
-		SELECT id::text, user_id::text, family_id::text, expires_at, revoked_at, replaced_by
-		  FROM app.refresh_tokens
-		 WHERE token_hash = $1
-		   FOR UPDATE`
-
-	var predecessorID, userID, familyID string
-	var expiresAt time.Time
-	var revokedAt *time.Time
-	var replacedBy *string
-
-	err = tx.QueryRow(ctx, claim, tokenHash).Scan(
-		&predecessorID, &userID, &familyID, &expiresAt, &revokedAt, &replacedBy)
+	claimed, err := claimToken(ctx, tx, tokenHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return RotateResult{Outcome: RotateUnknown}, nil
 	}
 	if err != nil {
 		return RotateResult{}, fmt.Errorf("claim refresh token: %w", err)
 	}
-	if revokedAt != nil && replacedBy == nil {
-		return RotateResult{Outcome: RotateRevoked, FamilyID: familyID}, nil
-	}
-	if revokedAt != nil {
-		if err := revokeFamily(ctx, tx, familyID, now); err != nil {
-			return RotateResult{}, err
-		}
-		if err := audit.Write(ctx, tx, audit.Entry{
-			ActorUserID: &userID,
-			Action:      "refresh_token.reuse_detected",
-			Entity:      "refresh_token_family",
-			EntityID:    &familyID,
-			OccurredAt:  now,
-			IP:          next.IP,
-			UserAgent:   next.UserAgent,
-		}); err != nil {
-			return RotateResult{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return RotateResult{}, fmt.Errorf("commit family revocation: %w", err)
-		}
-		return RotateResult{Outcome: RotateReused, FamilyID: familyID}, nil
-	}
-	if !expiresAt.After(now) {
-		return RotateResult{Outcome: RotateExpired, FamilyID: familyID}, nil
+
+	switch {
+	case claimed.revokedAt != nil && claimed.replacedBy == nil:
+		return RotateResult{Outcome: RotateRevoked, FamilyID: claimed.familyID}, nil
+	case claimed.revokedAt != nil:
+		return revokeReusedFamily(ctx, tx, claimed, next, now)
+	case !claimed.expiresAt.After(now):
+		return RotateResult{Outcome: RotateExpired, FamilyID: claimed.familyID}, nil
 	}
 
 	user, err := scanUser(tx.QueryRow(ctx, userProjection+`
 		 WHERE u.id = $1
-		 GROUP BY u.id`, userID))
+		 GROUP BY u.id`, claimed.userID))
 	if err != nil {
 		return RotateResult{}, fmt.Errorf("load token owner: %w", err)
 	}
 	if user.Disabled() {
-		if err := revokeFamily(ctx, tx, familyID, now); err != nil {
-			return RotateResult{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return RotateResult{}, fmt.Errorf("commit disabled-user revocation: %w", err)
-		}
-		return RotateResult{Outcome: RotateUserDisabled, FamilyID: familyID}, nil
+		return revokeDisabledFamily(ctx, tx, claimed, now)
 	}
 
+	if err := issueSuccessor(ctx, tx, claimed, next, now); err != nil {
+		return RotateResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return RotateResult{}, fmt.Errorf("commit rotation: %w", err)
+	}
+	return RotateResult{Outcome: RotateOK, User: user, FamilyID: claimed.familyID}, nil
+}
+
+// claimedToken is the presented row, locked FOR UPDATE.
+type claimedToken struct {
+	id         string
+	userID     string
+	familyID   string
+	expiresAt  time.Time
+	revokedAt  *time.Time
+	replacedBy *string
+}
+
+func claimToken(ctx context.Context, tx pgx.Tx, tokenHash []byte) (claimedToken, error) {
+	const claim = `
+		SELECT id::text, user_id::text, family_id::text, expires_at, revoked_at, replaced_by
+		  FROM app.refresh_tokens
+		 WHERE token_hash = $1
+		   FOR UPDATE`
+
+	var c claimedToken
+	err := tx.QueryRow(ctx, claim, tokenHash).Scan(
+		&c.id, &c.userID, &c.familyID, &c.expiresAt, &c.revokedAt, &c.replacedBy)
+	return c, err
+}
+
+// revokeReusedFamily ends every session descended from the same login, because
+// a token that was already exchanged has been presented twice.
+func revokeReusedFamily(ctx context.Context, tx pgx.Tx, claimed claimedToken, next RefreshTokenRecord, now time.Time) (RotateResult, error) {
+	if err := revokeFamily(ctx, tx, claimed.familyID, now); err != nil {
+		return RotateResult{}, err
+	}
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &claimed.userID,
+		Action:      "refresh_token.reuse_detected",
+		Entity:      "refresh_token_family",
+		EntityID:    &claimed.familyID,
+		OccurredAt:  now,
+		IP:          next.IP,
+		UserAgent:   next.UserAgent,
+	}); err != nil {
+		return RotateResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return RotateResult{}, fmt.Errorf("commit family revocation: %w", err)
+	}
+	return RotateResult{Outcome: RotateReused, FamilyID: claimed.familyID}, nil
+}
+
+func revokeDisabledFamily(ctx context.Context, tx pgx.Tx, claimed claimedToken, now time.Time) (RotateResult, error) {
+	if err := revokeFamily(ctx, tx, claimed.familyID, now); err != nil {
+		return RotateResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return RotateResult{}, fmt.Errorf("commit disabled-user revocation: %w", err)
+	}
+	return RotateResult{Outcome: RotateUserDisabled, FamilyID: claimed.familyID}, nil
+}
+
+// issueSuccessor writes the replacement and marks the predecessor consumed,
+// pointing at it. A non-nil replaced_by is what later tells a replay from a
+// logout.
+func issueSuccessor(ctx context.Context, tx pgx.Tx, claimed claimedToken, next RefreshTokenRecord, now time.Time) error {
 	const issue = `
 		INSERT INTO app.refresh_tokens
 		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
@@ -116,22 +150,20 @@ func (s *Store) Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenR
 		RETURNING id`
 	var successorID string
 	if err := tx.QueryRow(ctx, issue,
-		userID, familyID, next.TokenHash, next.IssuedAt, next.ExpiresAt, next.UserAgent, next.IP,
+		claimed.userID, claimed.familyID, next.TokenHash, next.IssuedAt, next.ExpiresAt,
+		next.UserAgent, next.IP,
 	).Scan(&successorID); err != nil {
-		return RotateResult{}, fmt.Errorf("issue successor token: %w", err)
+		return fmt.Errorf("issue successor token: %w", err)
 	}
+
 	const consume = `
 		UPDATE app.refresh_tokens
 		   SET revoked_at = $2, replaced_by = $3
 		 WHERE id = $1`
-	if _, err := tx.Exec(ctx, consume, predecessorID, now, successorID); err != nil {
-		return RotateResult{}, fmt.Errorf("consume predecessor token: %w", err)
+	if _, err := tx.Exec(ctx, consume, claimed.id, now, successorID); err != nil {
+		return fmt.Errorf("consume predecessor token: %w", err)
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return RotateResult{}, fmt.Errorf("commit rotation: %w", err)
-	}
-	return RotateResult{Outcome: RotateOK, User: user, FamilyID: familyID}, nil
+	return nil
 }
 
 // RevokeFamilyByToken ends every session descended from the same login. It is

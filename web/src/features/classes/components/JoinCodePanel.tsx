@@ -98,6 +98,26 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   const joinUrl = freshCode
     ? `${window.location.origin}/join/${freshCode.replace("-", "")}`
     : null;
+  const locale = currentLocale(i18n.language);
+
+  function copyJoinUrl(url: string) {
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (!clipboard) {
+      setCopied(false);
+      setError(t("classDetail.copyFailed"));
+      return;
+    }
+    void clipboard.writeText(url).then(
+      () => {
+        setError(null);
+        setCopied(true);
+      },
+      () => {
+        setCopied(false);
+        setError(t("classDetail.copyFailed"));
+      },
+    );
+  }
 
   return (
     <section className="rounded-lg border p-6" aria-labelledby="join-code-heading">
@@ -106,26 +126,7 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
       </h2>
 
       {klass.joinCode ? (
-        <dl className="mt-4 grid grid-cols-2 gap-y-3 text-sm">
-          <dt className="text-muted-foreground">{t("classDetail.codeHint")}</dt>
-          <dd className="font-mono">
-            {t("classDetail.maskedCode", { hint: klass.joinCode.hint })}
-          </dd>
-          <dt className="text-muted-foreground">{t("classDetail.expiresAt")}</dt>
-          <dd>
-            {formatDateTime(klass.joinCode.expiresAt, currentLocale(i18n.language))}
-            {expired ? (
-              <span className="text-destructive ml-2 text-xs font-medium">
-                {t("classDetail.expiredBadge")}
-              </span>
-            ) : null}
-          </dd>
-          <dt className="text-muted-foreground">{t("classDetail.uses")}</dt>
-          <dd>
-            {klass.joinCode.usesCount}
-            {klass.joinCode.maxUses === null ? "" : ` / ${klass.joinCode.maxUses}`}
-          </dd>
-        </dl>
+        <CodeSummary code={klass.joinCode} expired={expired} locale={locale} />
       ) : (
         <p className="text-muted-foreground mt-4 text-sm">
           {t("classDetail.noActiveCode")}
@@ -133,44 +134,12 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
       )}
 
       {freshCode ? (
-        <div className="mt-6 rounded-md border p-4 text-center">
-          <p className="text-muted-foreground text-xs">{t("classDetail.shownOnce")}</p>
-          <p className="mt-2 font-mono text-2xl tracking-widest">{freshCode}</p>
-          {joinUrl ? (
-            <div className="mt-4 flex flex-col items-center gap-3">
-              <QRCodeSVG
-                value={joinUrl}
-                size={144}
-                level="M"
-                aria-label={t("classDetail.qrAlt")}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const clipboard = navigator.clipboard as Clipboard | undefined;
-                  if (!clipboard) {
-                    setCopied(false);
-                    setError(t("classDetail.copyFailed"));
-                    return;
-                  }
-                  void clipboard.writeText(joinUrl).then(
-                    () => {
-                      setError(null);
-                      setCopied(true);
-                    },
-                    () => {
-                      setCopied(false);
-                      setError(t("classDetail.copyFailed"));
-                    },
-                  );
-                }}
-              >
-                {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
-              </Button>
-            </div>
-          ) : null}
-        </div>
+        <FreshCode
+          code={freshCode}
+          joinUrl={joinUrl}
+          copied={copied}
+          onCopy={copyJoinUrl}
+        />
       ) : klass.joinCode ? (
         <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
           {expired
@@ -201,43 +170,126 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
           </Button>
         ) : null}
       </div>
-      <Dialog
-        open={confirming !== null}
-        onOpenChange={(open) => !open && setConfirming(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {confirming === "revoke"
-                ? t("classDetail.revokeConfirmTitle")
-                : t("classDetail.rotateConfirmTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {confirming === "revoke"
-                ? t("classDetail.revokeConfirmBody")
-                : t("classDetail.rotateConfirmBody")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirming(null)}>
-              {t("common.cancel")}
-            </Button>
-            {confirming === "revoke" ? (
-              <Button onClick={() => revoke.mutate()} disabled={revoke.isPending}>
-                {revoke.isPending
-                  ? t("common.loading")
-                  : t("classDetail.revokeConfirm")}
-              </Button>
-            ) : (
-              <Button onClick={() => rotate.mutate()} disabled={rotate.isPending}>
-                {rotate.isPending
-                  ? t("common.loading")
-                  : t("classDetail.rotateConfirm")}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
+      <ConfirmDialog
+        action={confirming}
+        pending={confirming === "revoke" ? revoke.isPending : rotate.isPending}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => (confirming === "revoke" ? revoke.mutate() : rotate.mutate())}
+      />
     </section>
+  );
+}
+
+function CodeSummary({
+  code,
+  expired,
+  locale,
+}: {
+  code: NonNullable<Class["joinCode"]>;
+  expired: boolean;
+  locale: Locale;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <dl className="mt-4 grid grid-cols-2 gap-y-3 text-sm">
+      <dt className="text-muted-foreground">{t("classDetail.codeHint")}</dt>
+      <dd className="font-mono">{t("classDetail.maskedCode", { hint: code.hint })}</dd>
+      <dt className="text-muted-foreground">{t("classDetail.expiresAt")}</dt>
+      <dd>
+        {formatDateTime(code.expiresAt, locale)}
+        {expired ? (
+          <span className="text-destructive ml-2 text-xs font-medium">
+            {t("classDetail.expiredBadge")}
+          </span>
+        ) : null}
+      </dd>
+      <dt className="text-muted-foreground">{t("classDetail.uses")}</dt>
+      <dd>
+        {code.usesCount}
+        {code.maxUses === null ? "" : ` / ${code.maxUses}`}
+      </dd>
+    </dl>
+  );
+}
+
+function FreshCode({
+  code,
+  joinUrl,
+  copied,
+  onCopy,
+}: {
+  code: string;
+  joinUrl: string | null;
+  copied: boolean;
+  onCopy: (joinUrl: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="mt-6 rounded-md border p-4 text-center">
+      <p className="text-muted-foreground text-xs">{t("classDetail.shownOnce")}</p>
+      <p className="mt-2 font-mono text-2xl tracking-widest">{code}</p>
+      {joinUrl ? (
+        <div className="mt-4 flex flex-col items-center gap-3">
+          <QRCodeSVG
+            value={joinUrl}
+            size={144}
+            level="M"
+            aria-label={t("classDetail.qrAlt")}
+          />
+          <Button variant="outline" size="sm" onClick={() => onCopy(joinUrl)}>
+            {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ConfirmDialog({
+  action,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  action: "rotate" | "revoke" | null;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  const revoking = action === "revoke";
+
+  return (
+    <Dialog open={action !== null} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {revoking
+              ? t("classDetail.revokeConfirmTitle")
+              : t("classDetail.rotateConfirmTitle")}
+          </DialogTitle>
+          <DialogDescription>
+            {revoking
+              ? t("classDetail.revokeConfirmBody")
+              : t("classDetail.rotateConfirmBody")}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={onConfirm} disabled={pending}>
+            {pending
+              ? t("common.loading")
+              : revoking
+                ? t("classDetail.revokeConfirm")
+                : t("classDetail.rotateConfirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

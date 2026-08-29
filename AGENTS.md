@@ -108,6 +108,24 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
 `server/internal/db/pg18_test.go` pins all four. If it fails, the docs changed
 and the plan needs revisiting.
 
+## The composition root
+
+`cmd/api/main.go` is the entry point and nothing else: build a logger, call
+`core.Run`, set the exit code. Everything it used to do lives in
+`internal/core`, which is the composition root:
+
+| file | holds |
+|---|---|
+| `core.go` | `App`, the kernel: config, signals, lifecycle |
+| `modules.go` | wiring each feature module into `api.Deps` |
+| `server.go` | the HTTP server and graceful shutdown |
+| `jobs.go` | background jobs |
+
+A new module is wired in `modules.go`, not in `main`. A module that is optional
+returns a nil service and `buildModules` leaves the interface field unset —
+assigning a typed nil would make `Deps.X == nil` false and turn a 501 into a
+nil-pointer 500.
+
 ## Repository map
 
 ```
