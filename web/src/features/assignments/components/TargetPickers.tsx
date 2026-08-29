@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { TokenField, type Token } from "@/features/assignments/components/TokenField";
-import { listStudents } from "@/features/assignments/api";
+import { listStudents } from "@/features/students/api";
 import { fetchClasses } from "@/features/classes/api";
 import { useDebounced } from "@/lib/useDebounced";
 

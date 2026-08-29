@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { listStudents } from "@/features/assignments/api";
+import { listStudents } from "@/features/students/api";
 import { addMember } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { useDebounced } from "@/lib/useDebounced";

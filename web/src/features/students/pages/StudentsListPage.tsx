@@ -1,6 +1,253 @@
-import { Placeholder } from "@/components/shared/Placeholder";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { Search, UserPlus } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { NewStudentDialog } from "@/features/students/components/NewStudentDialog";
+import { StudentDrawer } from "@/features/students/components/StudentDrawer";
+import { listStudents, scorePercent, type Student } from "@/features/students/api";
+import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { formatRelative } from "@/lib/i18n/datetime";
+import { useDebounced } from "@/lib/useDebounced";
 
-/** Placeholder. Built out in a later phase; the route and its chunk exist now. */
+const PAGE_SIZE = 50;
+
+/** §8's students table, as the deck's G-07. */
 export default function StudentsListPage() {
-  return <Placeholder titleKey="nav.students" />;
+  const { t, i18n } = useTranslation();
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const search = useDebounced(query, 300).trim();
+  const locale = currentLocale(i18n.language);
+
+  // The limit is part of the key on purpose: the two token pickers query
+  // `["admin-students", { q }]` with limit 20, and sharing a cache entry across
+  // two page sizes would truncate whichever screen painted second.
+  const students = useInfiniteQuery({
+    queryKey: ["admin-students", { q: search, limit: PAGE_SIZE }],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      listStudents(
+        {
+          limit: PAGE_SIZE,
+          ...(search === "" ? {} : { q: search }),
+          ...(pageParam ? { cursor: pageParam } : {}),
+        },
+        signal,
+      ),
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+
+  const items = students.data?.pages.flatMap((page) => page.items) ?? [];
+  const facets = students.data?.pages[0]?.facets;
+  // Read from the loaded list rather than held separately, so a refetch cannot
+  // leave the panel describing a student the table has already changed.
+  const selected = items.find((student) => student.id === selectedId) ?? null;
+
+  return (
+    <div className="-m-6 flex">
+      <div className="min-w-0 flex-1 space-y-4 p-6">
+        <div className="flex items-end justify-between">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">
+              {t("nav.students")}
+            </h1>
+            <p className="text-muted-foreground mt-0.5 text-sm">
+              {facets
+                ? t("students.summary", {
+                    count: facets.total,
+                    active: facets.activeLast7Days,
+                  })
+                : " "}
+            </p>
+          </div>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <UserPlus aria-hidden="true" />
+            {t("students.new")}
+          </Button>
+        </div>
+
+        <div className="relative w-72">
+          <Search
+            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
+            aria-hidden="true"
+          />
+          <Input
+            className="pl-9"
+            value={query}
+            placeholder={t("students.searchPlaceholder")}
+            aria-label={t("students.searchPlaceholder")}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+
+        {students.isPending ? (
+          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+            {t("common.loading")}
+          </p>
+        ) : students.isError ? (
+          <div className="space-y-3">
+            <p role="alert" className="text-sm">
+              {t("students.loadFailed")}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => void students.refetch()}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : items.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            {search === "" ? t("students.empty") : t("students.noMatches")}
+          </p>
+        ) : (
+          <>
+            <Card className="gap-0 overflow-hidden py-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[26%]">{t("students.student")}</TableHead>
+                    <TableHead>{t("students.classes")}</TableHead>
+                    <TableHead>{t("students.signInWith")}</TableHead>
+                    <TableHead className="text-right">
+                      {t("students.submitted")}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t("students.average")}
+                    </TableHead>
+                    <TableHead>{t("students.activity")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((student) => (
+                    <Row
+                      key={student.id}
+                      student={student}
+                      locale={locale}
+                      expanded={student.id === selectedId}
+                      onToggle={() =>
+                        setSelectedId(student.id === selectedId ? null : student.id)
+                      }
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+
+            {students.hasNextPage ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={students.isFetchingNextPage}
+                onClick={() => void students.fetchNextPage()}
+              >
+                {students.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {selected === null ? null : (
+        <StudentDrawer student={selected} onClose={() => setSelectedId(null)} />
+      )}
+
+      <NewStudentDialog open={creating} onOpenChange={setCreating} />
+    </div>
+  );
+}
+
+function Row({
+  student,
+  locale,
+  expanded,
+  onToggle,
+}: {
+  student: Student;
+  locale: Locale;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+  const percent = scorePercent(student.stats);
+
+  return (
+    <TableRow>
+      <TableCell>
+        {/* aria-expanded is what tints the row: table.tsx carries
+          `has-aria-expanded:bg-muted/50`, which is the deck's selected-row
+          highlight without a second piece of state to keep in step. */}
+        <button
+          type="button"
+          aria-expanded={expanded}
+          className="flex items-center gap-2 text-left"
+          onClick={onToggle}
+        >
+          <Avatar size="sm" name={student.fullName} />
+          <span className="min-w-0">
+            <span className="block truncate font-medium">{student.fullName}</span>
+            <span className="text-muted-foreground block truncate text-xs">
+              {student.email}
+            </span>
+          </span>
+        </button>
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {student.classes.length === 0
+          ? "—"
+          : student.classes.length === 1
+            ? student.classes[0]!.name
+            : t("students.classesPlus", {
+                name: student.classes[0]!.name,
+                more: student.classes.length - 1,
+              })}
+      </TableCell>
+      <TableCell>
+        <span className="flex flex-wrap gap-1">
+          {student.linkedProviders.includes("google") ? (
+            <Badge variant="outline">{t("students.google")}</Badge>
+          ) : null}
+          {student.hasPassword ? (
+            <Badge variant="outline">{t("students.password")}</Badge>
+          ) : null}
+        </span>
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {student.stats.submittedCount}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {percent === null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          t("students.percent", { value: percent })
+        )}
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {student.stats.activity.live ? (
+          <span className="text-success-ink">{t("students.takingNow")}</span>
+        ) : student.stats.activity.lastAttemptAt ? (
+          formatRelative(student.stats.activity.lastAttemptAt, locale)
+        ) : (
+          "—"
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function currentLocale(language: string): Locale {
+  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
+    ? (language as Locale)
+    : "vi";
 }
