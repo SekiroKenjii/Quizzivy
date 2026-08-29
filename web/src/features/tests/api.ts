@@ -32,6 +32,54 @@ export function saveOutline(id: string, draft: OutlineDraft) {
   return api("patch", "/admin/tests/{id}", { path: { id }, body: draft });
 }
 
+export interface ListTestsParams {
+  status?: TestStatus;
+  q?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export function listTests(params: ListTestsParams = {}, signal?: AbortSignal) {
+  const query: Record<string, unknown> = {};
+  if (params.status) query["status"] = params.status;
+  if (params.q) query["q"] = params.q;
+  if (params.cursor) query["cursor"] = params.cursor;
+  if (params.limit) query["limit"] = params.limit;
+  return api("get", "/admin/tests", signal ? { query, signal } : { query });
+}
+
+export function createTest(title: string) {
+  return api("post", "/admin/tests", { body: { title } });
+}
+
+export function duplicateTest(id: string) {
+  return api("post", "/admin/tests/{id}/duplicate", { path: { id } });
+}
+
+export function archiveTest(test: Test) {
+  return api("patch", "/admin/tests/{id}", {
+    path: { id: test.id },
+    body: { expectedUpdatedAt: test.updatedAt, status: "archived" },
+  });
+}
+
+export function listVersions(id: string, signal?: AbortSignal) {
+  return api(
+    "get",
+    "/admin/tests/{id}/versions",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
+}
+
+export function previewTest(id: string, version?: number, signal?: AbortSignal) {
+  const query = version === undefined ? {} : { version };
+  return api(
+    "get",
+    "/admin/tests/{id}/preview",
+    signal ? { path: { id }, query, signal } : { path: { id }, query },
+  );
+}
+
 export function publishTest(id: string) {
   return api("post", "/admin/tests/{id}/publish", { path: { id } });
 }
