@@ -12,7 +12,8 @@ import (
 	"quizzivy/internal/ratelimit"
 )
 
-// RateLimits declares the policy for every public operation.
+// RateLimits declares the policy for every public operation, plus the one
+// authenticated operation that mints a credential.
 //
 // Numbers are §6.5's. The per-code buckets are wired in T-1.7, when the join
 // endpoints learn how to read a code out of the request; the mechanism is here
@@ -35,6 +36,14 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
 		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
+
+	// Not public -- bearer-protected, so AssertPublicRoutesLimited would never
+	// have asked for it -- but it is the only endpoint that mints a password.
+	// A stolen admin session should not be able to grind out resets across a
+	// roster faster than a teacher would ever need to, and one teacher does not
+	// legitimately reset thirty accounts in an hour.
+	reg.Add("POST /admin/students/{id}/reset-password", capacity,
+		ratelimit.PerMinute(5), ratelimit.PerHour(30))
 
 	return reg
 }

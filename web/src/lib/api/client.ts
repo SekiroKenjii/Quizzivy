@@ -82,6 +82,17 @@ function buildUrl(
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value === undefined || value === null) continue;
+      // Repeated key per element, which is what OpenAPI's `style: form,
+      // explode: true` means and what the Go binder reads. String(array) would
+      // send "a,b" as one value, and the server would look for a question type
+      // literally called "a,b".
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item === undefined || item === null) continue;
+          url.searchParams.append(key, String(item));
+        }
+        continue;
+      }
       url.searchParams.set(key, String(value));
     }
   }

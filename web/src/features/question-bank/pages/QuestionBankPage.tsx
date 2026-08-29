@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Headphones, Play, Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,8 +43,11 @@ export default function QuestionBankPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [type, setType] = useState<QuestionType | null>(null);
-  const [tag, setTag] = useState<string | null>(null);
+  // Sets, not single values: A-06's rail is checkboxes and chips. Within a
+  // group the choices widen the results; the groups narrow each other.
+  const [types, setTypes] = useState<readonly QuestionType[]>([]);
+  const [tags, setTags] = useState<readonly string[]>([]);
+  const [audioOnly, setAudioOnly] = useState(false);
   const [query, setQuery] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
 
@@ -52,14 +56,15 @@ export default function QuestionBankPage() {
   const search = useDebounced(query, 300);
 
   const bank = useInfiniteQuery({
-    queryKey: ["admin-questions", { type, tag, search }],
+    queryKey: ["admin-questions", { types, tags, audioOnly, search }],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       listQuestions(
         {
           limit: 50,
-          ...(type ? { type } : {}),
-          ...(tag ? { tag } : {}),
+          ...(types.length > 0 ? { type: [...types] } : {}),
+          ...(tags.length > 0 ? { tag: [...tags] } : {}),
+          ...(audioOnly ? { hasAudio: true } : {}),
           ...(search.trim() === "" ? {} : { q: search.trim() }),
           ...(pageParam ? { cursor: pageParam } : {}),
         },
@@ -70,11 +75,18 @@ export default function QuestionBankPage() {
 
   const items = bank.data?.pages.flatMap((page) => page.items) ?? [];
   const facets = bank.data?.pages[0]?.facets;
-  const tags = tagsIn(items);
+  // Union of what is loaded and what is selected, so a chip cannot vanish from
+  // the rail because the rows it filtered to no longer mention it.
+  const shownTags = [...new Set([...tags, ...tagsIn(items)])].sort((a, b) =>
+    a.localeCompare(b, "vi"),
+  );
+  const filtering = types.length > 0 || tags.length > 0 || audioOnly;
 
   return (
-    <div className="-m-6 flex">
-      <aside className="w-56 shrink-0 space-y-5 border-r p-4">
+    <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
+      {/* Full height with its own scroll: a filter rail that scrolls away
+        with the results is a rail you cannot reach while reading them. */}
+      <aside className="w-56 shrink-0 space-y-5 overflow-y-auto border-r p-4">
         <div>
           <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
             {t("bank.typeFilter")}
@@ -83,16 +95,16 @@ export default function QuestionBankPage() {
             <FilterOption
               label={t("bank.allTypes")}
               count={facets?.all}
-              checked={type === null}
-              onChange={() => setType(null)}
+              checked={types.length === 0}
+              onChange={() => setTypes([])}
             />
             {TYPES.map((value) => (
               <FilterOption
                 key={value}
                 label={t(`questionEditor.type.${value}`)}
                 count={facets?.[value]}
-                checked={type === value}
-                onChange={() => setType(type === value ? null : value)}
+                checked={types.includes(value)}
+                onChange={() => setTypes(toggle(types, value))}
               />
             ))}
           </div>
@@ -104,26 +116,38 @@ export default function QuestionBankPage() {
           <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
             {t("bank.tagFilter")}
           </p>
-          {!bank.isSuccess ? null : tags.length === 0 ? (
+          {!bank.isSuccess ? null : shownTags.length === 0 ? (
             <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
-              {tags.map((value) => (
+              {shownTags.map((value) => (
                 <button
                   key={value}
                   type="button"
-                  aria-pressed={tag === value}
-                  onClick={() => setTag(tag === value ? null : value)}
+                  aria-pressed={tags.includes(value)}
+                  onClick={() => setTags(toggle(tags, value))}
                 >
-                  <Badge variant={tag === value ? "primary" : "outline"}>{value}</Badge>
+                  <Badge variant={tags.includes(value) ? "primary" : "outline"}>
+                    {value}
+                  </Badge>
                 </button>
               ))}
             </div>
           )}
         </div>
+
+        <Separator />
+
+        <label className="flex items-center gap-2.5 text-sm">
+          <Checkbox
+            checked={audioOnly}
+            onChange={(event) => setAudioOnly(event.target.checked)}
+          />
+          {t("bank.audioOnly")}
+        </label>
       </aside>
 
-      <div className="min-w-0 flex-1 space-y-4 p-6">
+      <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
         <div className="flex items-end justify-between">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">
@@ -172,7 +196,7 @@ export default function QuestionBankPage() {
           // §12: one short sentence and one action, no illustration.
           <div className="space-y-3">
             <p className="text-muted-foreground text-sm">
-              {type !== null || tag !== null || search.trim() !== ""
+              {filtering || search.trim() !== ""
                 ? t("bank.noMatches")
                 : t("bank.empty")}
             </p>
@@ -335,12 +359,7 @@ function FilterOption({
 }) {
   return (
     <label className="flex items-center gap-2.5 text-sm">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="border-input accent-foreground size-4"
-      />
+      <Checkbox checked={checked} onChange={onChange} />
       {label}
       {count === undefined ? null : (
         <span className="text-muted-foreground ml-auto text-xs tabular-nums">
@@ -349,4 +368,11 @@ function FilterOption({
       )}
     </label>
   );
+}
+
+/** Adds or removes one value, keeping the rest. */
+function toggle<T>(values: readonly T[], value: T): readonly T[] {
+  return values.includes(value)
+    ? values.filter((v) => v !== value)
+    : [...values, value];
 }

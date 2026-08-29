@@ -21,9 +21,14 @@ func (s *Store) Facets(ctx context.Context, in ListInput) (TypeFacets, error) {
 	args := []any{}
 	where := []string{`q.deleted_at IS NULL`}
 
-	if in.Tag != "" {
-		args = append(args, []string{in.Tag})
-		where = append(where, fmt.Sprintf(`q.tags @> $%d::text[]`, len(args)))
+	if len(in.Tags) > 0 {
+		args = append(args, in.Tags)
+		where = append(where, fmt.Sprintf(`q.tags && $%d::text[]`, len(args)))
+	}
+	if in.HasAudio != nil {
+		args = append(args, *in.HasAudio)
+		where = append(where, fmt.Sprintf(
+			`(q.media_asset_kind = 'audio') = $%d::boolean`, len(args)))
 	}
 	if search := strings.TrimSpace(in.Query); search != "" {
 		args = append(args, escapeLike(search))

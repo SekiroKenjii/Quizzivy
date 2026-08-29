@@ -69,12 +69,22 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 		return ErrNoPasswordSet
 	}
 
-	ok, err := VerifyPassword(ctx, in.CurrentPassword, *user.PasswordHash)
-	if err != nil {
-		return fmt.Errorf("verify current password for %s: %w", user.ID, err)
-	}
-	if !ok {
-		return ErrInvalidCredentials
+	// A forced change skips the current-password check.
+	//
+	// The password being replaced is one an admin generated and read out, so
+	// re-entering it proves nothing the access token has not already proved.
+	// Demanding it strands exactly the case G-07 exists for: a student whose
+	// password was reset, who signs in with Google and lands here without ever
+	// having held the temporary one. The database CHECK guarantees a hash
+	// exists whenever this flag is set, so the guard above still holds.
+	if !user.MustChangePassword {
+		ok, err := VerifyPassword(ctx, in.CurrentPassword, *user.PasswordHash)
+		if err != nil {
+			return fmt.Errorf("verify current password for %s: %w", user.ID, err)
+		}
+		if !ok {
+			return ErrInvalidCredentials
+		}
 	}
 
 	newHash, err := HashPassword(ctx, in.NewPassword)

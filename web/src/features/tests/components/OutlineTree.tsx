@@ -109,8 +109,8 @@ export function OutlineTree({
   const settled = [...numbering.keys()].every((id) => questions.has(id));
 
   return (
-    <div className="flex w-72 shrink-0 flex-col border-r">
-      <div className="flex items-center gap-2 border-b p-3">
+    <div className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-r">
+      <div className="flex shrink-0 items-center gap-2 border-b p-3">
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           {t("builder.outline")}
         </p>
@@ -196,7 +196,7 @@ export function OutlineTree({
         </div>
       </DndContext>
 
-      <div className="space-y-1 border-t p-2">
+      <div className="shrink-0 space-y-1 border-t p-2">
         <Button
           variant="outline"
           size="sm"

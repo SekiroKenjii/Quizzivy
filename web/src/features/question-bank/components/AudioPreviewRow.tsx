@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { formatDuration } from "@/features/media/format";
+import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { MediaAsset } from "@/features/media/api";
 
 interface AudioPreviewRowProps {
@@ -15,9 +15,9 @@ interface AudioPreviewRowProps {
  * again, forty times, is the difference between a usable bank and an abandoned
  * one -- so the audio plays in the row it belongs to.
  *
- * Native controls, deliberately: §11.1's play limit and seek lock are rules for
- * a STUDENT sitting a test. The teacher who wrote the question is not the person
- * they constrain, and a policy-enforcing player here would be a worse tool.
+ * Seeking is allowed here: §11.1's play limit and seek lock are rules for a
+ * STUDENT sitting a test, and the teacher who wrote the question is not the
+ * person they constrain.
  *
  * The URL was signed when the list loaded and lives ten minutes (§11.2), and
  * `preload="none"` means it is not fetched until play is pressed -- so reviewing
@@ -41,21 +41,15 @@ export function AudioPreviewRow({ asset, onRetry, onClose }: AudioPreviewRowProp
           </Button>
         </>
       ) : (
-        <>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- the
-              transcript is a field on the question, shown in the editor. */}
-          <audio
-            className="h-9 flex-1"
-            controls
-            preload="none"
+        <div className="min-w-0 flex-1">
+          <AudioPlayer
             src={asset.url}
-            aria-label={asset.originalFilename}
+            label={asset.originalFilename}
+            durationMs={asset.durationMs}
+            hint={asset.originalFilename}
             onError={() => setFailed(true)}
           />
-          <p className="text-muted-foreground shrink-0 text-xs tabular-nums">
-            {formatDuration(asset.durationMs)} · {asset.originalFilename}
-          </p>
-        </>
+        </div>
       )}
       <Button
         variant="ghost"

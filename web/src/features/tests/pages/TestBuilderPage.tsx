@@ -265,8 +265,8 @@ function Builder({ test }: { test: Test }) {
   const stale = saveStatus.kind === "stale";
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <div className="flex h-14 items-center gap-3 border-b px-4">
+    <div className="-m-6 flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -313,7 +313,10 @@ function Builder({ test }: { test: Test }) {
       </div>
 
       {stale ? (
-        <div role="alert" className="flex items-center gap-3 border-b px-4 py-2">
+        <div
+          role="alert"
+          className="flex shrink-0 items-center gap-3 border-b px-4 py-2"
+        >
           <p className="text-sm">{t("builder.staleBody")}</p>
           <Button
             variant="outline"
@@ -332,7 +335,7 @@ function Builder({ test }: { test: Test }) {
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Suspense
           fallback={<div className="w-72 shrink-0 border-r" aria-hidden="true" />}
         >
@@ -349,7 +352,7 @@ function Builder({ test }: { test: Test }) {
           />
         </Suspense>
 
-        <div className="min-w-0 flex-1 p-6">
+        <div className="min-w-0 flex-1 overflow-y-auto p-6">
           {selectedId === null ? (
             <p className="text-muted-foreground text-sm">
               {questionIds.length === 0 ? t("builder.empty") : t("builder.noSelection")}

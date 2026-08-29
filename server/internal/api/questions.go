@@ -19,12 +19,14 @@ func (s *Server) ListQuestions(ctx context.Context, request openapi.ListQuestion
 
 	in := questions.ListInput{}
 	if request.Params.Type != nil {
-		t := questions.Type(*request.Params.Type)
-		in.Type = &t
+		for _, t := range *request.Params.Type {
+			in.Types = append(in.Types, questions.Type(t))
+		}
 	}
 	if request.Params.Tag != nil {
-		in.Tag = *request.Params.Tag
+		in.Tags = append(in.Tags, *request.Params.Tag...)
 	}
+	in.HasAudio = request.Params.HasAudio
 	if request.Params.Q != nil {
 		in.Query = string(*request.Params.Q)
 	}

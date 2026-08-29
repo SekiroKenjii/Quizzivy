@@ -35,6 +35,7 @@ type AuthService interface {
 	GoogleSignIn(ctx context.Context, in auth.GoogleSignInInput) (auth.GoogleSignInResult, error)
 	LinkGoogle(ctx context.Context, in auth.LinkGoogleInput) (auth.User, error)
 	UnlinkGoogle(ctx context.Context, userID, ip, userAgent string) error
+	NewTemporaryPassword(ctx context.Context) (password, hash string, err error)
 }
 
 // JoinService is the slice of internal/join the handlers use.
@@ -100,6 +101,11 @@ type AssignmentsService interface {
 // StudentsService is the slice of internal/students the handlers use.
 type StudentsService interface {
 	List(ctx context.Context, in students.ListInput) ([]students.Student, string, error)
+	Facets(ctx context.Context, in students.ListInput) (students.Facets, error)
+	Get(ctx context.Context, id string) (students.Student, error)
+	Create(ctx context.Context, req students.Request, in students.CreateInput) (students.Student, error)
+	Update(ctx context.Context, req students.Request, in students.UpdateInput) (students.Student, error)
+	ResetPassword(ctx context.Context, req students.Request, id, hash string, now time.Time) error
 }
 
 // DashboardService is the slice of internal/dashboard the handlers use.

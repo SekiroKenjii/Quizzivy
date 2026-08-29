@@ -246,7 +246,10 @@
     "blockedNote": "A file used by a published test cannot be deleted — attempts in progress still need it. Uploading a new one creates a new file rather than overwriting this.",
     "understood": "Got it",
     "previewNamed": "Preview {{name}}",
-    "viewNamed": "View {{name}}"
+    "viewNamed": "View {{name}}",
+    "play": "Play",
+    "pause": "Pause",
+    "seek": "Seek"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -392,7 +395,8 @@
     "previewOf": "Preview: {{prompt}}",
     "summarySoFar": "{{count}} questions loaded",
     "usedIn": "Used in",
-    "usedInCount": "{{count}} tests"
+    "usedInCount": "{{count}} tests",
+    "audioOnly": "Audio questions only"
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",
@@ -592,5 +596,52 @@
     "progressValue": "{{submitted}}/{{total}}",
     "windowValue": "{{opens}} → {{closes}}",
     "latestVersion": "latest: v{{version}}"
+  },
+  "students": {
+    "summary": "{{count}} students · {{active}} active in the last 7 days",
+    "new": "Add student",
+    "newHint": "A new account gets a temporary password, shown exactly once after it is created.",
+    "create": "Create account",
+    "created": "Created an account for {{name}}.",
+    "done": "Done",
+    "fullName": "Full name",
+    "email": "Email",
+    "addToClasses": "Add to classes",
+    "createFailed": "Could not create the account. Please try again.",
+    "searchPlaceholder": "Search by name or email",
+    "empty": "No students yet.",
+    "noMatches": "No students match.",
+    "loadFailed": "Could not load students.",
+    "student": "Student",
+    "classes": "Classes",
+    "classesPlus": "{{name}} +{{more}}",
+    "noClasses": "Not in any class.",
+    "signInWith": "Signs in with",
+    "google": "Google",
+    "password": "Password",
+    "submitted": "Submitted",
+    "average": "Average",
+    "percent": "{{value}}%",
+    "activity": "Activity",
+    "takingNow": "taking a test",
+    "flagged": "Flagged",
+    "detailFor": "Details for {{name}}",
+    "closeDetail": "Close",
+    "joinedVia": {
+      "admin": "Added by teacher",
+      "join_code": "Joined with a code"
+    },
+    "removeFromClass": "Remove from class",
+    "removeFailed": "Could not remove them from the class. Please try again.",
+    "signIn": "Sign-in",
+    "googleOnlyHint": "This account signs in with Google only. Set a temporary password if they cannot get into Google.",
+    "passwordHint": "Set a temporary password if they have forgotten theirs. They must change it at their next sign-in.",
+    "resetPassword": "Set a temporary password",
+    "resetFailed": "Could not set a temporary password. Please try again.",
+    "tempOnce": "Temporary password — shown once",
+    "tempWarning": "They must change it at their first sign-in. Send it privately; do not post it in the class chat.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "The browser refused clipboard access. Copy it by hand."
   }
 }

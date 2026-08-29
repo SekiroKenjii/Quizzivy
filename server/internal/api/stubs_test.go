@@ -45,11 +45,7 @@ var unimplemented = []string{
 
 	// Classes and students beyond what §6.4 needed in Phase 1
 	"CreateClass",
-	"CreateStudent",
-	"GetStudent",
 	"ListMyClasses",
-	"ResetStudentPassword",
-	"UpdateStudent",
 }
 
 // stubbedOperations reads the names off server.gen_stubs.go, which is the file

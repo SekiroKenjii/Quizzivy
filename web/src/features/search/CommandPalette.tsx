@@ -28,7 +28,15 @@ interface Entry {
   label: string;
   hint?: string;
   status?: "published" | "draft" | "archived";
-  audio?: boolean;
+  /**
+   * Carried per entry rather than derived at render.
+   *
+   * The row used to pick between exactly two icons, so a test, a question and a
+   * navigation destination all drew the same page glyph — and DESTINATIONS has
+   * always had the right icon per item, which nothing read. Three groups that
+   * look identical defeat the reason A-02 groups them.
+   */
+  Icon: typeof FileText;
   to: string;
 }
 
@@ -89,6 +97,7 @@ export function CommandPalette({
       group: t("palette.tests"),
       label: test.title,
       status: test.status,
+      Icon: FileText,
       to: `/admin/tests/${test.id}`,
     })),
     ...(questions.data?.items ?? []).map((question) => ({
@@ -96,13 +105,14 @@ export function CommandPalette({
       group: t("palette.questions"),
       label: question.prompt,
       hint: question.tags.join(", "),
-      audio: question.media?.kind === "audio",
+      Icon: question.media?.kind === "audio" ? Headphones : Library,
       to: `/admin/question-bank/${question.id}`,
     })),
     ...DESTINATIONS.filter((d) => !searching || matches(t(d.key), search)).map((d) => ({
       id: `nav-${d.to}`,
       group: t("palette.navigate"),
       label: t(d.key),
+      Icon: d.Icon,
       to: d.to,
     })),
   ];
@@ -200,17 +210,10 @@ export function CommandPalette({
                       index === active ? "bg-accent" : "",
                     )}
                   >
-                    {entry.audio ? (
-                      <Headphones
-                        className="text-muted-foreground size-4 shrink-0"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <FileText
-                        className="text-muted-foreground size-4 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
+                    <entry.Icon
+                      className="text-muted-foreground size-4 shrink-0"
+                      aria-hidden="true"
+                    />
                     <span className="truncate">{entry.label}</span>
                     {entry.status ? (
                       <Badge

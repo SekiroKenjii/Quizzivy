@@ -107,12 +107,16 @@ export default function AdminLayout() {
      * that drops the sidebar entirely — the builder is a focus mode and gets
      * its own route outside this layout.
      */
-    <div className="flex min-h-svh min-w-[768px]">
+    <div className="flex h-svh min-w-[768px] overflow-hidden">
       <nav
         id="admin-sidebar"
         aria-label={t("nav.mainNavigation")}
         hidden={!open}
-        className="flex w-60 shrink-0 flex-col gap-0.5 border-r p-2"
+        // Exactly the viewport, never the content: a long page used to stretch
+        // the shell and drag the nav down with it. Its own overflow means a
+        // sidebar that outgrows the screen scrolls by itself rather than
+        // lengthening everything beside it.
+        className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r p-2"
       >
         {SECTIONS.map((section) => (
           <Fragment key={section.label}>
@@ -146,8 +150,9 @@ export default function AdminLayout() {
         </div>
       </nav>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-background sticky top-0 z-10 border-b">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Outside the scroll container now, so it stays put without sticky. */}
+        <header className="bg-background shrink-0 border-b">
           <div className="flex h-14 items-center gap-3 px-4">
             <button
               type="button"
@@ -189,7 +194,7 @@ export default function AdminLayout() {
 
         <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
-        <main className="min-w-0 flex-1 p-6">
+        <main className="min-w-0 flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>
       </div>

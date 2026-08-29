@@ -81,22 +81,6 @@ func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) CreateStudent(_ context.Context, _ openapi.CreateStudentRequestObject) (openapi.CreateStudentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetStudent(_ context.Context, _ openapi.GetStudentRequestObject) (openapi.GetStudentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateStudent(_ context.Context, _ openapi.UpdateStudentRequestObject) (openapi.UpdateStudentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ResetStudentPassword(_ context.Context, _ openapi.ResetStudentPasswordRequestObject) (openapi.ResetStudentPasswordResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) ListMyAssignments(_ context.Context, _ openapi.ListMyAssignmentsRequestObject) (openapi.ListMyAssignmentsResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
