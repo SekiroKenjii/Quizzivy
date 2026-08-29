@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Foundations · Quizzivy design deck</title>
+    <link rel="stylesheet" href="../assets/kit.css" />
+  </head>
+  <body class="deck">
+    <header class="deck-bar">
+      <span class="font-semibold tracking-tight">Quizzivy</span>
+      <span class="text-xs text-muted-foreground">design deck</span>
+      <nav class="flex items-center gap-1 ml-4">
+        <a class="btn btn-sm btn-secondary" href="00-foundations.html">Foundations</a>
+        <a class="btn btn-sm btn-ghost" href="10-student.html">Student</a>
+        <a class="btn btn-sm btn-ghost" href="20-teacher-authoring.html">Authoring</a>
+        <a class="btn btn-sm btn-ghost" href="30-teacher-assign-grade.html">Assign &amp; grade</a>
+        <a class="btn btn-sm btn-ghost" href="40-lms-future.html">LMS vision</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-2">
+        <div class="flex items-center gap-1 border rounded-md px-1 h-8">
+          <button class="btn btn-xs btn-ghost" data-zoom="-0.1" aria-label="Zoom out">−</button>
+          <span class="text-xs text-muted-foreground tabular-nums w-10 text-center" data-zoom-label>100%</span>
+          <button class="btn btn-xs btn-ghost" data-zoom="0.1" aria-label="Zoom in">+</button>
+        </div>
+        <button class="btn btn-sm btn-outline" data-theme-toggle>
+          <svg class="i" aria-hidden="true"><use href="#i-moon" /></svg>
+          <span data-theme-label>Tối</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="deck-wrap">
+      <h1 class="text-2xl font-semibold tracking-tight">Foundations</h1>
+      <p class="deck-sub mt-2">
+        Everything on the other sheets is assembled from this page. The tokens are copied
+        verbatim from <code class="font-mono text-xs">web/src/index.css</code>; the components
+        are the shadcn/ui new-york primitives constrained by spec §12. If a screen needs
+        something that is not here, that is a signal to add it here first — not to invent a
+        one-off.
+      </p>
+
+      <!-- ============================================================ COLOUR -->
+      <section class="deck-section">
+        <h2 class="deck-h">1 · Colour</h2>
+        <p class="deck-sub mt-1">
+          Zinc surfaces, charcoal primary, semantic colour only where it carries meaning.
+          Nothing decorative gets a hue. The token names below are the only way a component
+          may reference a colour — that is what makes the dark theme (P1) a token swap rather
+          than a rewrite. Try the <strong>Tối</strong> toggle above: no rule in the kit changes.
+        </p>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-01</span>
+            <span class="board-name">Surface &amp; text tokens</span>
+          </div>
+          <div class="card p-5">
+            <div class="grid grid-cols-6 gap-4">
+              <div>
+                <div class="swatch bg-background"></div>
+                <p class="text-xs font-medium mt-2">background</p>
+                <p class="text-xs text-muted-foreground">Page. White.</p>
+              </div>
+              <div>
+                <div class="swatch bg-card"></div>
+                <p class="text-xs font-medium mt-2">card</p>
+                <p class="text-xs text-muted-foreground">Panels, dialogs.</p>
+              </div>
+              <div>
+                <div class="swatch bg-muted"></div>
+                <p class="text-xs font-medium mt-2">muted / secondary</p>
+                <p class="text-xs text-muted-foreground">zinc-100. Fills, hover.</p>
+              </div>
+              <div>
+                <div class="swatch bg-border"></div>
+                <p class="text-xs font-medium mt-2">border</p>
+                <p class="text-xs text-muted-foreground">zinc-200. 1px, always.</p>
+              </div>
+              <div>
+                <div class="swatch bg-primary"></div>
+                <p class="text-xs font-medium mt-2">primary</p>
+                <p class="text-xs text-muted-foreground">zinc-900. Charcoal, not blue.</p>
+              </div>
+              <div>
+                <div class="swatch" style="background: var(--muted-foreground)"></div>
+                <p class="text-xs font-medium mt-2">muted-foreground</p>
+                <p class="text-xs text-muted-foreground">zinc-500. Secondary text.</p>
+              </div>
+            </div>
+
+            <hr class="sep my-5" />
+
+            <div class="grid grid-cols-6 gap-4">
+              <div>
+                <div class="swatch bg-success"></div>
+                <p class="text-xs font-medium mt-2">success</p>
+                <p class="text-xs text-muted-foreground">Correct answer. Nothing else.</p>
+              </div>
+              <div>
+                <div class="swatch bg-destructive"></div>
+                <p class="text-xs font-medium mt-2">destructive</p>
+                <p class="text-xs text-muted-foreground">Wrong, error, delete.</p>
+              </div>
+              <div>
+                <div class="swatch bg-warning"></div>
+                <p class="text-xs font-medium mt-2">warning</p>
+                <p class="text-xs text-muted-foreground">Time low, needs attention.</p>
+              </div>
+              <div class="col-span-3">
+                <p class="text-xs font-medium">Forbidden by §12</p>
+                <p class="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Decorative gradients · glassmorphism / backdrop blur · pulsing rings · glow ·
+                  radii above <code class="font-mono">rounded-lg</code> · emoji in UI chrome ·
+                  brand colour on a non-semantic surface. A green badge means the answer was
+                  right, never “this row is nice”.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-02</span>
+            <span class="board-name">Semantic colour in context</span>
+          </div>
+          <p class="board-note">
+            Three places carry colour, and each one answers a question the student or teacher
+            actually asked. Everywhere else is grey.
+          </p>
+          <div class="card p-5 grid grid-cols-3 gap-5">
+            <div>
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Correct / incorrect</p>
+              <div class="space-y-2">
+                <div class="option is-correct">
+                  <span class="option-key">A</span>
+                  <span class="text-sm">has been living</span>
+                  <svg class="i ml-auto text-success" aria-hidden="true"><use href="#i-check" /></svg>
+                </div>
+                <div class="option is-wrong">
+                  <span class="option-key">B</span>
+                  <span class="text-sm">have lived</span>
+                  <svg class="i ml-auto text-destructive" aria-hidden="true"><use href="#i-x" /></svg>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Time running out</p>
+              <div class="card p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-clock" /></svg>
+                  <span class="text-lg font-semibold tabular-nums">18:24</span>
+                  <span class="text-xs text-muted-foreground">còn lại</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <svg class="i text-warning-ink" aria-hidden="true"><use href="#i-clock" /></svg>
+                  <span class="text-lg font-semibold tabular-nums text-warning-ink">04:31</span>
+                  <span class="text-xs text-muted-foreground">còn lại</span>
+                </div>
+                <p class="text-xs text-muted-foreground">
+                  Amber at ≤5 min. It never blinks and never turns red — the student is under
+                  enough pressure already.
+                </p>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Destructive intent</p>
+              <div class="card p-4 space-y-2">
+                <button class="btn btn-sm btn-destructive">Xoá khỏi lớp</button>
+                <p class="text-xs text-muted-foreground">
+                  Red is reserved for the button that ends something. Status text about a
+                  failure uses red ink on a neutral surface, never a red panel.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== TYPOGRAPHY -->
+      <section class="deck-section">
+        <h2 class="deck-h">2 · Type &amp; density</h2>
+        <p class="deck-sub mt-1">
+          One display size for page titles; everything else is 13/14px. Vietnamese runs
+          roughly 15–25% longer than English, so nothing is sized to fit an English string.
+        </p>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-03</span>
+            <span class="board-name">Scale</span>
+          </div>
+          <div class="card p-5">
+            <div class="space-y-4">
+              <div class="flex items-baseline gap-4">
+                <span class="text-xs font-mono text-muted-foreground w-40">text-2xl / 600</span>
+                <span class="text-2xl font-semibold tracking-tight">Ngân hàng câu hỏi</span>
+                <span class="text-xs text-muted-foreground">Page title. One per screen.</span>
+              </div>
+              <div class="flex items-baseline gap-4">
+                <span class="text-xs font-mono text-muted-foreground w-40">text-lg / 600</span>
+                <span class="text-lg font-semibold tracking-tight">Bài kiểm tra giữa kỳ</span>
+                <span class="text-xs text-muted-foreground">Card and dialog titles.</span>
+              </div>
+              <div class="flex items-baseline gap-4">
+                <span class="text-xs font-mono text-muted-foreground w-40">text-base / 400</span>
+                <span class="text-base leading-relaxed">Nội dung câu hỏi và mọi đoạn văn học viên phải đọc.</span>
+              </div>
+              <div class="flex items-baseline gap-4">
+                <span class="text-xs font-mono text-muted-foreground w-40">text-sm / 400</span>
+                <span class="text-sm">Nhãn, ô nhập, bảng dữ liệu, mô tả phụ.</span>
+              </div>
+              <div class="flex items-baseline gap-4">
+                <span class="text-xs font-mono text-muted-foreground w-40">text-xs / 400</span>
+                <span class="text-xs text-muted-foreground">Chú thích, trạng thái, dấu thời gian.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-04</span>
+            <span class="board-name">Two densities, on purpose</span>
+          </div>
+          <p class="board-note">
+            The teacher scans; the student reads. Same tokens, opposite spacing budgets — this
+            is the single biggest reason the two portals should never share a page layout.
+          </p>
+          <div class="grid grid-cols-2 gap-5">
+            <div class="card overflow-hidden">
+              <div class="card-head flex items-center justify-between">
+                <div>
+                  <p class="card-title">Admin — dense</p>
+                  <p class="card-desc">40px rows, 13px text, no row padding beyond 12px.</p>
+                </div>
+                <span class="badge b-outline">≥768px only</span>
+              </div>
+              <table class="table">
+                <thead>
+                  <tr><th>Đề thi</th><th>Trạng thái</th><th class="text-right">Câu</th><th class="text-right">Điểm</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Unit 5 — Present perfect</td><td><span class="badge b-success">Đã phát hành</span></td><td class="text-right num">24</td><td class="text-right num">30</td></tr>
+                  <tr><td>Listening practice 03</td><td><span class="badge b-secondary">Bản nháp</span></td><td class="text-right num">12</td><td class="text-right num">20</td></tr>
+                  <tr><td>Mid-term mock</td><td><span class="badge b-success">Đã phát hành</span></td><td class="text-right num">45</td><td class="text-right num">100</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <p class="card-title">Student — spacious</p>
+                <p class="card-desc">One question centred at 720px, leading-relaxed, 44px targets.</p>
+              </div>
+              <div class="card-body space-y-3">
+                <p class="text-base leading-relaxed">
+                  She <span class="border-b border-dashed px-6 pb-0.5">&nbsp;</span> in Hanoi
+                  since 2019.
+                </p>
+                <div class="option is-selected">
+                  <span class="option-key">A</span>
+                  <span class="text-base">has been living</span>
+                </div>
+                <div class="option">
+                  <span class="option-key">B</span>
+                  <span class="text-base">have lived</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== COMPONENTS -->
+      <section class="deck-section">
+        <h2 class="deck-h">3 · Components</h2>
+        <p class="deck-sub mt-1">
+          The shadcn primitives this product needs, in the variants it actually uses. Anything
+          not shown here is not yet approved for a screen.
+        </p>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-05</span>
+            <span class="board-name">Buttons</span>
+          </div>
+          <div class="card p-5 space-y-5">
+            <div class="flex items-center gap-3 flex-wrap">
+              <button class="btn btn-primary">Lưu thay đổi</button>
+              <button class="btn btn-outline">Huỷ</button>
+              <button class="btn btn-secondary">Xem trước</button>
+              <button class="btn btn-ghost">Bỏ qua</button>
+              <button class="btn btn-destructive">Xoá đề thi</button>
+              <button class="btn btn-primary" disabled>Đang lưu…</button>
+              <span class="text-xs text-muted-foreground">primary · outline · secondary · ghost · destructive · disabled</span>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+              <button class="btn btn-lg btn-primary btn-block max-w-xs">Bắt đầu làm bài</button>
+              <button class="btn btn-primary">Mặc định 36px</button>
+              <button class="btn btn-sm btn-outline">Nhỏ 32px</button>
+              <button class="btn btn-xs btn-outline">Rất nhỏ 28px</button>
+              <button class="btn btn-icon btn-outline" aria-label="Thao tác khác">
+                <svg class="i" aria-hidden="true"><use href="#i-ellipsis" /></svg>
+              </button>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              One primary per view. The large block button exists only on the student’s
+              phone, where it is the thumb target at the bottom of the screen.
+            </p>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-06</span>
+            <span class="board-name">Form controls &amp; their states</span>
+          </div>
+          <div class="card p-5 grid grid-cols-4 gap-6">
+            <div>
+              <label class="label" for="f-a">Tiêu đề đề thi</label>
+              <input class="input" id="f-a" value="Unit 5 — Present perfect" />
+              <p class="hint">Học viên nhìn thấy tên này.</p>
+            </div>
+            <div>
+              <label class="label" for="f-b">Mã lớp</label>
+              <input class="input font-mono tracking-wide" id="f-b" placeholder="XXXX-XXXX" />
+              <p class="hint">8 ký tự. Không phân biệt hoa thường.</p>
+            </div>
+            <div>
+              <label class="label" for="f-c">Thời lượng</label>
+              <select class="select" id="f-c">
+                <option>45 phút</option>
+              </select>
+              <p class="hint">Máy chủ tính giờ, không phải trình duyệt.</p>
+            </div>
+            <div>
+              <label class="label" for="f-d">Điểm</label>
+              <input class="input input-invalid" id="f-d" value="0" aria-invalid="true" />
+              <p class="hint hint-error">Điểm phải lớn hơn 0.</p>
+            </div>
+            <div class="col-span-2">
+              <label class="label" for="f-e">Lời dẫn</label>
+              <textarea class="textarea" id="f-e">Nghe đoạn hội thoại và chọn đáp án đúng.</textarea>
+            </div>
+            <div class="col-span-2 space-y-3">
+              <label class="flex items-center gap-2.5 text-sm">
+                <input type="checkbox" class="checkbox" checked /> Trộn thứ tự câu hỏi
+              </label>
+              <label class="flex items-center gap-2.5 text-sm">
+                <input type="radio" name="r" class="radio" checked /> Cảnh báo học viên
+              </label>
+              <label class="flex items-center gap-2.5 text-sm">
+                <input type="radio" name="r" class="radio" /> Đánh dấu để giáo viên xem lại
+              </label>
+              <label class="flex items-center justify-between gap-3 text-sm max-w-xs">
+                <span>Chặn sao chép / dán</span>
+                <input type="checkbox" class="switch" checked />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-07</span>
+            <span class="board-name">Status vocabulary</span>
+          </div>
+          <p class="board-note">
+            Every state in the domain gets exactly one badge. A teacher should never have to
+            ask what a word means, and the same state must never appear in two colours.
+          </p>
+          <div class="card p-5 space-y-4">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-medium text-muted-foreground w-32">Đề thi</span>
+              <span class="badge b-secondary">Bản nháp</span>
+              <span class="badge b-success">Đã phát hành</span>
+              <span class="badge b-outline">Đã lưu trữ</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-medium text-muted-foreground w-32">Bài giao</span>
+              <span class="badge b-outline">Đã lên lịch</span>
+              <span class="badge b-success">Đang mở</span>
+              <span class="badge b-secondary">Đã đóng</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-medium text-muted-foreground w-32">Lượt làm bài</span>
+              <span class="badge b-outline">Chưa bắt đầu</span>
+              <span class="badge b-primary">Đang làm</span>
+              <span class="badge b-secondary">Đã nộp</span>
+              <span class="badge b-warning">Hết giờ</span>
+              <span class="badge b-success">Đã chấm</span>
+              <span class="badge b-danger">Đã huỷ</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-medium text-muted-foreground w-32">Cần chú ý</span>
+              <span class="badge b-warning"><svg class="i" aria-hidden="true"><use href="#i-flag" /></svg> Cần xem lại</span>
+              <span class="badge b-outline"><svg class="i" aria-hidden="true"><use href="#i-pencil" /></svg> Chờ chấm tay</span>
+              <span class="badge b-outline"><svg class="i" aria-hidden="true"><use href="#i-headphones" /></svg> Có audio</span>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              “Cần xem lại” is the strongest word the integrity system may use. §10.4 forbids
+              accusation: the app reports, the teacher judges.
+            </p>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-08</span>
+            <span class="board-name">Feedback surfaces</span>
+          </div>
+          <div class="grid grid-cols-2 gap-5">
+            <div class="card p-5 space-y-3">
+              <div class="alert alert-muted">
+                <svg class="i i-4.5 shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true"><use href="#i-info" /></svg>
+                <div>
+                  <p class="font-medium">Bài này chấm tay một phần.</p>
+                  <p class="text-muted-foreground">Điểm cuối cùng hiện sau khi giáo viên chấm xong.</p>
+                </div>
+              </div>
+              <div class="alert alert-warning">
+                <svg class="i i-4.5 shrink-0 mt-0.5 text-warning-ink" aria-hidden="true"><use href="#i-triangle-alert" /></svg>
+                <div>
+                  <p class="font-medium">Còn 5 phút.</p>
+                  <p class="text-muted-foreground">Hết giờ bài sẽ tự nộp với những gì bạn đã trả lời.</p>
+                </div>
+              </div>
+              <div class="alert alert-danger">
+                <svg class="i i-4.5 shrink-0 mt-0.5 text-destructive" aria-hidden="true"><use href="#i-circle-alert" /></svg>
+                <div>
+                  <p class="font-medium">Không lưu được câu trả lời.</p>
+                  <p class="text-muted-foreground">Bài của bạn vẫn được giữ trên máy. Đang thử lại…</p>
+                </div>
+              </div>
+              <div class="alert alert-success">
+                <svg class="i i-4.5 shrink-0 mt-0.5 text-success" aria-hidden="true"><use href="#i-circle-check" /></svg>
+                <div>
+                  <p class="font-medium">Đã nộp bài lúc 09:47.</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-5">
+              <div class="card p-5">
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Empty state</p>
+                <div class="border border-dashed rounded-lg p-8 text-center">
+                  <p class="text-sm">Chưa có đề thi nào.</p>
+                  <button class="btn btn-sm btn-primary mt-3">
+                    <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg> Tạo đề thi
+                  </button>
+                </div>
+                <p class="text-xs text-muted-foreground mt-3">
+                  §12: one sentence, one action, no illustration. Never a paragraph explaining
+                  what the feature is.
+                </p>
+              </div>
+              <div class="card p-5">
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Loading</p>
+                <div class="space-y-2">
+                  <div class="skeleton h-9 w-full"></div>
+                  <div class="skeleton h-9 w-full"></div>
+                  <div class="skeleton h-9 w-72"></div>
+                </div>
+                <p class="text-xs text-muted-foreground mt-3">
+                  Skeletons match the final row height so nothing jumps. No spinners on lists;
+                  a spinner is only for a button that is already pressed.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-09</span>
+            <span class="board-name">Domain components</span>
+            <span class="board-route">not in shadcn — ours to build and own</span>
+          </div>
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5">
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">AudioPlayer (§11.3)</p>
+              <div class="player">
+                <button class="player-btn" aria-label="Phát">
+                  <svg class="i i-5" aria-hidden="true"><use href="#i-play" /></svg>
+                </button>
+                <div class="flex-1 min-w-0">
+                  <div class="player-track"><i style="width: 38%"></i></div>
+                  <div class="flex items-center justify-between mt-2">
+                    <span class="text-xs text-muted-foreground tabular-nums">0:42 / 1:50</span>
+                    <span class="text-xs text-muted-foreground">Còn 1 lượt nghe</span>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-muted-foreground mt-3">
+                Monochrome. No waveform, no equaliser. The track is display-only when
+                <code class="font-mono">allowSeek: false</code>, and plays-remaining is read
+                from the server, not a local counter.
+              </p>
+            </div>
+            <div class="card p-5">
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Question navigator</p>
+              <div class="qnav">
+                <span class="qdot is-answered">1</span>
+                <span class="qdot is-answered">2</span>
+                <span class="qdot is-current">3</span>
+                <span class="qdot is-flagged">4</span>
+                <span class="qdot">5</span>
+                <span class="qdot">6</span>
+                <span class="qdot is-answered">7</span>
+                <span class="qdot">8</span>
+              </div>
+              <div class="flex items-center gap-3 mt-3 text-xs text-muted-foreground flex-wrap">
+                <span class="flex items-center gap-1.5"><span class="qdot is-answered size-4"></span> đã trả lời</span>
+                <span class="flex items-center gap-1.5"><span class="qdot is-flagged size-4"></span> đánh dấu</span>
+                <span class="flex items-center gap-1.5"><span class="qdot size-4"></span> chưa làm</span>
+              </div>
+              <p class="text-xs text-muted-foreground mt-3">
+                Shape, not just colour: current carries a ring, flagged an amber edge. Works
+                for a colour-blind student and in the review screen unchanged.
+              </p>
+            </div>
+            <div class="card p-5">
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Save state</p>
+              <div class="space-y-2">
+                <span class="badge b-outline"><svg class="i" aria-hidden="true"><use href="#i-check" /></svg> Đã lưu 09:41</span>
+                <span class="badge b-outline"><svg class="i" aria-hidden="true"><use href="#i-loader-circle" /></svg> Đang lưu…</span>
+                <span class="badge b-warning"><svg class="i" aria-hidden="true"><use href="#i-wifi-off" /></svg> Ngoại tuyến — vẫn giữ bài</span>
+              </div>
+              <p class="text-xs text-muted-foreground mt-3">
+                Offline is a statement of fact, not an error. §10.1 records
+                <code class="font-mono">network_offline</code> precisely so bad wifi does not
+                read as cheating.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ RULES -->
+      <section class="deck-section">
+        <h2 class="deck-h">4 · Motion, focus, and the rules that survive review</h2>
+        <div class="board">
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Motion</p>
+              <p class="text-sm text-muted-foreground">
+                150ms ease-out on state change. No entrance animation — a list that fades in
+                is a list that arrives late. Dialogs appear; they do not spring.
+                <code class="font-mono text-xs">prefers-reduced-motion</code> disables the rest.
+              </p>
+              <p class="text-sm text-muted-foreground">
+                The one exception worth having: the timer’s minute change is not animated at
+                all, because a moving clock pulls the eye away from the question.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Focus &amp; keyboard</p>
+              <p class="text-sm text-muted-foreground">
+                A 2px neutral ring, offset 2px, on every interactive element. Never a coloured
+                glow. Tab order follows reading order.
+              </p>
+              <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                <span class="kbd">⌘</span><span class="kbd">K</span> command palette
+                <span class="kbd">A</span>–<span class="kbd">E</span> chọn đáp án
+                <span class="kbd">←</span><span class="kbd">→</span> chuyển câu
+                <span class="kbd">F</span> đánh dấu
+              </div>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Touch &amp; reach</p>
+              <p class="text-sm text-muted-foreground">
+                Student targets are ≥44px and live in the bottom third of the phone screen.
+                Admin targets may be 28–32px because the teacher has a mouse and a 768px+
+                viewport (§1.1).
+              </p>
+              <p class="text-sm text-muted-foreground">
+                Nothing destructive ever sits next to a frequently-tapped control. “Nộp bài”
+                and “Thoát” are never adjacent.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-10</span>
+            <span class="board-name">shadcn components this deck assumes</span>
+          </div>
+          <div class="card p-5">
+            <p class="text-sm text-muted-foreground mb-4">
+              Already vendored: <code class="font-mono text-xs">button · card · dialog · input · label · table</code>.
+              The screens ahead need these next, roughly in the order the phases need them.
+            </p>
+            <div class="grid grid-cols-4 gap-x-6 gap-y-2 text-sm">
+              <span class="flex items-center gap-2"><span class="badge b-outline">P1</span> badge</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P1</span> select</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P1</span> checkbox</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P1</span> radio-group</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> tabs</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> textarea</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> dropdown-menu</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> switch</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> tooltip</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> skeleton</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> separator</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P2</span> command</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P3</span> sheet</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P3</span> progress</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P3</span> alert</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P3</span> sonner</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P3</span> popover</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P4</span> avatar</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P4</span> accordion</span>
+              <span class="flex items-center gap-2"><span class="badge b-outline">P4</span> calendar</span>
+            </div>
+            <p class="text-xs text-muted-foreground mt-4">
+              Deliberately absent: <code class="font-mono">carousel</code>,
+              <code class="font-mono">chart</code> (until §16’s P1 analytics),
+              <code class="font-mono">navigation-menu</code>, and anything that ships an
+              animation we would have to switch off.
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="../assets/icons.js"></script>
+    <script src="../assets/kit.js"></script>
+  </body>
+</html>
