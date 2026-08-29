@@ -222,10 +222,13 @@ func validateBlanks(in Input, add func(string, string)) {
 		}
 		return
 	}
-
 	if len(in.Blanks) == 0 {
 		add("blanks", "Cần ít nhất một chỗ trống.")
 	}
+	validateBlankOrdinalsMatchPrompt(in, validateEachBlank(in, add), add)
+}
+
+func validateEachBlank(in Input, add func(string, string)) map[int]bool {
 	seen := map[int]bool{}
 	for i, b := range in.Blanks {
 		if b.Ordinal < 1 {
@@ -235,20 +238,25 @@ func validateBlanks(in Input, add func(string, string)) {
 			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống bị trùng.")
 		}
 		seen[b.Ordinal] = true
-		if len(b.AcceptedAnswers) == 0 {
-			add(fmt.Sprintf("blanks[%d].acceptedAnswers", i), "Cần ít nhất một đáp án được chấp nhận.")
-		}
-		for j, a := range b.AcceptedAnswers {
-			if strings.TrimSpace(a) == "" {
-				add(fmt.Sprintf("blanks[%d].acceptedAnswers[%d]", i, j),
-					"Đáp án không được để trống.")
-			}
+		validateBlankAnswers(i, b, add)
+	}
+	return seen
+}
+
+func validateBlankAnswers(i int, b BlankInput, add func(string, string)) {
+	if len(b.AcceptedAnswers) == 0 {
+		add(fmt.Sprintf("blanks[%d].acceptedAnswers", i), "Cần ít nhất một đáp án được chấp nhận.")
+	}
+	for j, a := range b.AcceptedAnswers {
+		if strings.TrimSpace(a) == "" {
+			add(fmt.Sprintf("blanks[%d].acceptedAnswers[%d]", i, j), "Đáp án không được để trống.")
 		}
 	}
+}
 
-	// The placeholder set and the blank ordinal set must match exactly.
+func validateBlankOrdinalsMatchPrompt(in Input, seen map[int]bool, add func(string, string)) {
 	inPrompt := PromptPlaceholders(in.Prompt)
-	promptSet := map[int]bool{}
+	promptSet := make(map[int]bool, len(inPrompt))
 	for _, n := range inPrompt {
 		promptSet[n] = true
 	}

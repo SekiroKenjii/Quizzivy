@@ -61,6 +61,30 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func escapeLike(s string) string { return likeEscaper.Replace(s) }
 
+// buildFilters returns the bound arguments and WHERE clauses for one page.
+func buildFilters(in ListInput, limit int, after string) (args []any, where []string) {
+	args = []any{limit + 1}
+	where = []string{`q.deleted_at IS NULL`}
+
+	if in.Type != nil {
+		args = append(args, string(*in.Type))
+		where = append(where, fmt.Sprintf(`q.type = $%d::app.question_type`, len(args)))
+	}
+	if in.Tag != "" {
+		args = append(args, []string{in.Tag})
+		where = append(where, fmt.Sprintf(`q.tags @> $%d::text[]`, len(args)))
+	}
+	if q := strings.TrimSpace(in.Query); q != "" {
+		args = append(args, escapeLike(q))
+		where = append(where, fmt.Sprintf(searchCondition, len(args)))
+	}
+	if after != "" {
+		args = append(args, after)
+		where = append(where, fmt.Sprintf(`q.id < $%d::uuid`, len(args)))
+	}
+	return args, where
+}
+
 // List returns one page of live bank questions, newest first.
 func (s *Store) List(ctx context.Context, in ListInput) ([]Question, string, error) {
 	limit := in.Limit
@@ -80,25 +104,7 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Question, string, err
 		after = id
 	}
 
-	args := []any{limit + 1}
-	where := []string{`q.deleted_at IS NULL`}
-
-	if in.Type != nil {
-		args = append(args, string(*in.Type))
-		where = append(where, fmt.Sprintf(`q.type = $%d::app.question_type`, len(args)))
-	}
-	if in.Tag != "" {
-		args = append(args, []string{in.Tag})
-		where = append(where, fmt.Sprintf(`q.tags @> $%d::text[]`, len(args)))
-	}
-	if q := strings.TrimSpace(in.Query); q != "" {
-		args = append(args, escapeLike(q))
-		where = append(where, fmt.Sprintf(searchCondition, len(args)))
-	}
-	if after != "" {
-		args = append(args, after)
-		where = append(where, fmt.Sprintf(`q.id < $%d::uuid`, len(args)))
-	}
+	args, where := buildFilters(in, limit, after)
 
 	sql := `SELECT` + questionColumns + `
 		  FROM app.questions q
