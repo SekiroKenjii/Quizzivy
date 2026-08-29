@@ -304,6 +304,19 @@ anything touching `attempts` or `test_versions`. Run the relevant unit
 tests before and after every change to these. Do not refactor them
 opportunistically while doing something else.
 
+**Soft delete and the reference check are two tables, so the lock must be taken
+on both sides.** `SoftDelete` locks the row it is deleting and then counts
+references in another table — and a `FOR UPDATE` on one table does not block an
+`INSERT` into a different one, so on its own that only orders concurrent
+deletes. The foreign key does not help either: `ON DELETE RESTRICT` fires on a
+real `DELETE`, not a soft one.
+
+Anything inserting into `app.test_section_questions` must call
+`questions.LockForDraftUse` first, so both operations contend on the same row.
+`TestLockForDraftUseSerialisesAgainstDelete` drives both halves concurrently and
+fails within two attempts without it. The same hazard is open and documented for
+`media_assets` and the publish path — see `media/references.go`.
+
 Four tests are canaries. If one starts failing, something load-bearing broke —
 fix the cause, never the test:
 
