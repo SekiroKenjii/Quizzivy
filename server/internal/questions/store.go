@@ -89,49 +89,81 @@ func (s *Store) get(ctx context.Context, q querier, id string, includeDeleted bo
 }
 
 func (s *Store) loadOptions(ctx context.Context, q querier, questionID string) ([]Option, error) {
+	byQuestion, err := s.loadOptionsFor(ctx, q, []string{questionID})
+	if err != nil {
+		return nil, err
+	}
+	return byQuestion[questionID], nil
+}
+
+// loadOptionsFor reads the options for a whole page in one query, keyed by
+// question id. Callers must default a missing key to an empty slice.
+func (s *Store) loadOptionsFor(ctx context.Context, q querier, questionIDs []string) (map[string][]Option, error) {
+	byQuestion := make(map[string][]Option, len(questionIDs))
+	if len(questionIDs) == 0 {
+		return byQuestion, nil
+	}
+
 	rows, err := q.Query(ctx,
-		`SELECT id::text, ordinal, text, is_correct
-		   FROM app.question_options WHERE question_id = $1 ORDER BY ordinal`, questionID)
+		`SELECT question_id::text, id::text, ordinal, text, is_correct
+		   FROM app.question_options
+		  WHERE question_id = ANY($1::uuid[])
+		  ORDER BY question_id, ordinal`, questionIDs)
 	if err != nil {
 		return nil, fmt.Errorf("questions: load options: %w", err)
 	}
 	defer rows.Close()
 
-	options := []Option{}
 	for rows.Next() {
+		var questionID string
 		var o Option
-		if err := rows.Scan(&o.ID, &o.Ordinal, &o.Text, &o.IsCorrect); err != nil {
+		if err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect); err != nil {
 			return nil, fmt.Errorf("questions: scan option: %w", err)
 		}
-		options = append(options, o)
+		byQuestion[questionID] = append(byQuestion[questionID], o)
 	}
-	return options, rows.Err()
+	return byQuestion, rows.Err()
 }
 
 func (s *Store) loadBlanks(ctx context.Context, q querier, questionID string) ([]Blank, error) {
+	byQuestion, err := s.loadBlanksFor(ctx, q, []string{questionID})
+	if err != nil {
+		return nil, err
+	}
+	return byQuestion[questionID], nil
+}
+
+// loadBlanksFor reads the blanks for a whole page in one query, with each
+// blank's accepted answers aggregated in SQL rather than fetched per blank.
+func (s *Store) loadBlanksFor(ctx context.Context, q querier, questionIDs []string) (map[string][]Blank, error) {
+	byQuestion := make(map[string][]Blank, len(questionIDs))
+	if len(questionIDs) == 0 {
+		return byQuestion, nil
+	}
+
 	rows, err := q.Query(ctx,
-		`SELECT b.id::text, b.ordinal, b.case_sensitive,
+		`SELECT b.question_id::text, b.id::text, b.ordinal, b.case_sensitive,
 		        coalesce(array_agg(a.answer ORDER BY a.answer)
 		                 FILTER (WHERE a.answer IS NOT NULL), '{}')
 		   FROM app.question_blanks b
 		   LEFT JOIN app.question_blank_answers a ON a.blank_id = b.id
-		  WHERE b.question_id = $1
-		  GROUP BY b.id, b.ordinal, b.case_sensitive
-		  ORDER BY b.ordinal`, questionID)
+		  WHERE b.question_id = ANY($1::uuid[])
+		  GROUP BY b.question_id, b.id, b.ordinal, b.case_sensitive
+		  ORDER BY b.question_id, b.ordinal`, questionIDs)
 	if err != nil {
 		return nil, fmt.Errorf("questions: load blanks: %w", err)
 	}
 	defer rows.Close()
 
-	blanks := []Blank{}
 	for rows.Next() {
+		var questionID string
 		var b Blank
-		if err := rows.Scan(&b.ID, &b.Ordinal, &b.CaseSensitive, &b.AcceptedAnswers); err != nil {
+		if err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.AcceptedAnswers); err != nil {
 			return nil, fmt.Errorf("questions: scan blank: %w", err)
 		}
-		blanks = append(blanks, b)
+		byQuestion[questionID] = append(byQuestion[questionID], b)
 	}
-	return blanks, rows.Err()
+	return byQuestion, rows.Err()
 }
 
 // WriteInput is a create or an update, depending on whether ID is set.
