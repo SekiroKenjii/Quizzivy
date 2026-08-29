@@ -30,7 +30,7 @@ import { StudentRulesPreview } from "@/features/assignments/components/StudentRu
 import { createAssignment } from "@/features/assignments/api";
 import { fetchClasses } from "@/features/classes/api";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, fieldMessages } from "@/lib/api/errors";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 const ATTEMPTS = [1, 2, 3];
@@ -96,7 +96,9 @@ export default function AssignmentFormPage() {
   const [params] = useSearchParams();
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [picking, setPicking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ summary: string; fields: string[] } | null>(
+    null,
+  );
 
   const classes = useQuery({
     queryKey: ["admin-classes"],
@@ -155,9 +157,11 @@ export default function AssignmentFormPage() {
       void navigate("/admin/assignments");
     },
     onError: (cause) =>
-      setError(
-        cause instanceof ApiError ? cause.message : t("assignments.createFailed"),
-      ),
+      setError({
+        summary:
+          cause instanceof ApiError ? cause.message : t("assignments.createFailed"),
+        fields: fieldMessages(cause),
+      }),
   });
 
   const ready =
@@ -493,9 +497,14 @@ export default function AssignmentFormPage() {
           <StudentRulesPreview draft={draft} />
 
           {error === null ? null : (
-            <p role="alert" className="text-destructive text-sm">
-              {error}
-            </p>
+            <div role="alert" className="text-destructive space-y-1 text-sm">
+              <p>{error.summary}</p>
+              {error.fields.map((message) => (
+                <p key={message} className="text-xs">
+                  · {message}
+                </p>
+              ))}
+            </div>
           )}
 
           <Button
