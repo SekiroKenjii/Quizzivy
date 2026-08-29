@@ -1669,6 +1669,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TestVersion' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
             `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,

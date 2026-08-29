@@ -2562,6 +2562,7 @@ export interface operations {
                     "application/json": components["schemas"]["TestVersion"];
                 };
             };
+            404: components["responses"]["NotFound"];
             /**
              * @description `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
              *     each anchored to a question, so the builder marks them inline rather
