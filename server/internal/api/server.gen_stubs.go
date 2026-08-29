@@ -33,6 +33,7 @@ type Deps struct {
 	Publisher    PublishService
 	Dashboard    DashboardService
 	Assignments  AssignmentsService
+	Attempts     AttemptsService
 	Students     StudentsService
 	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
@@ -86,10 +87,6 @@ func (s *Server) ListMyAssignments(_ context.Context, _ openapi.ListMyAssignment
 }
 
 func (s *Server) GetMyAssignment(_ context.Context, _ openapi.GetMyAssignmentRequestObject) (openapi.GetMyAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) StartOrResumeAttempt(_ context.Context, _ openapi.StartOrResumeAttemptRequestObject) (openapi.StartOrResumeAttemptResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

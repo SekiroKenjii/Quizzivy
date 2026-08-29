@@ -6,6 +6,7 @@ import (
 
 	"quizzivy/internal/api"
 	"quizzivy/internal/assignments"
+	"quizzivy/internal/attempts"
 	"quizzivy/internal/auth"
 	"quizzivy/internal/auth/google"
 	"quizzivy/internal/classes"
@@ -52,6 +53,7 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		Publisher:    publish.NewPublisher(pool.Pool),
 		Dashboard:    dashboard.NewStore(pool.Pool),
 		Assignments:  assignments.NewStore(pool.Pool),
+		Attempts:     attempts.NewService(attempts.NewStore(pool.Pool)),
 		Students:     students.NewStore(pool.Pool),
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,

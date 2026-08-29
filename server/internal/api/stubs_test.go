@@ -28,7 +28,6 @@ var unimplemented = []string{
 	"ListMyAssignments",
 	"RecordAudioPlay",
 	"SaveAnswers",
-	"StartOrResumeAttempt",
 	"SubmitAttempt",
 
 	// Phase 4 — monitoring, grading and results
