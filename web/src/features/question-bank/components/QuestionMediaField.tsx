@@ -25,7 +25,7 @@ export function QuestionMediaField({ value, onChange }: QuestionMediaFieldProps)
   const { t } = useTranslation();
   const uploader = useRef<UploadHandle>(null);
   const [picking, setPicking] = useState(false);
-  const dragging = useFileDrop((file) => uploader.current?.accept(file));
+  const dragging = useFileDrop((files) => uploader.current?.dropped(files));
 
   return (
     <div className="space-y-2">
