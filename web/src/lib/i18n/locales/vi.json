@@ -332,5 +332,23 @@
     "bankEmpty": "Không còn câu hỏi nào để thêm.",
     "newSection": "Phần {{n}}",
     "addFailed": "Không thêm được câu hỏi. Vui lòng thử lại."
+  },
+  "bank": {
+    "typeFilter": "Loại câu",
+    "tagFilter": "Thẻ",
+    "allTypes": "Tất cả",
+    "noTags": "Chưa có thẻ nào.",
+    "summary": "{{count}} câu",
+    "newQuestion": "Câu hỏi mới",
+    "searchPlaceholder": "Tìm trong nội dung câu hỏi — gõ không dấu cũng được",
+    "loadFailed": "Không tải được ngân hàng câu hỏi.",
+    "empty": "Ngân hàng chưa có câu hỏi nào.",
+    "noMatches": "Không có câu hỏi nào khớp với bộ lọc này.",
+    "prompt": "Nội dung",
+    "type": "Loại",
+    "tags": "Thẻ",
+    "points": "Điểm",
+    "preview": "Nghe thử",
+    "loadMore": "Xem thêm"
   }
 }
