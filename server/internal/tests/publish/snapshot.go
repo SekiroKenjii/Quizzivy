@@ -3,6 +3,7 @@ package publish
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 
@@ -18,6 +19,10 @@ import (
 // media_asset_id points at the same immutable asset and the file is never
 // copied -- an asset is content-addressed and already immutable (§11.1).
 func snapshot(ctx context.Context, tx pgx.Tx, versionID string, d Draft) error {
+	if err := lockMediaAssets(ctx, tx, d); err != nil {
+		return err
+	}
+
 	for _, section := range d.Sections {
 		sectionID, err := freezeSection(ctx, tx, versionID, section)
 		if err != nil {
@@ -43,16 +48,39 @@ func freezeSection(ctx context.Context, tx pgx.Tx, versionID string, section Sec
 	return id, nil
 }
 
-func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q Question) error {
-	// The asset row is locked before the reference is frozen, so a concurrent
-	// soft delete cannot slip between the delete's reference count and this
-	// insert -- see media.LockForVersionUse.
-	if q.MediaAssetID != nil {
-		if err := media.LockForVersionUse(ctx, tx, *q.MediaAssetID); err != nil {
-			return fmt.Errorf("publish: media asset %s: %w", *q.MediaAssetID, err)
+// lockMediaAssets takes every asset lock the snapshot needs, up front and in
+// sorted order.
+//
+// Up front and sorted for two different reasons. The lock itself closes the
+// window in which a concurrent soft delete could remove an asset between the
+// delete's reference count and the insert that freezes it (media.LockForVersion-
+// Use). The ORDER is what stops two publishes of different tests that share
+// assets in opposite orders from deadlocking -- the same reason
+// tests.lockQuestions sorts, and a cycle spans sections just as easily as it
+// spans one, so sorting per section would not be enough.
+func lockMediaAssets(ctx context.Context, tx pgx.Tx, d Draft) error {
+	seen := map[string]bool{}
+	var ids []string
+	for _, section := range d.Sections {
+		for _, q := range section.Questions {
+			if q.MediaAssetID == nil || seen[*q.MediaAssetID] {
+				continue
+			}
+			seen[*q.MediaAssetID] = true
+			ids = append(ids, *q.MediaAssetID)
 		}
 	}
+	slices.Sort(ids)
 
+	for _, id := range ids {
+		if err := media.LockForVersionUse(ctx, tx, id); err != nil {
+			return fmt.Errorf("publish: media asset %s: %w", id, err)
+		}
+	}
+	return nil
+}
+
+func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q Question) error {
 	var id string
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO app.test_version_questions
