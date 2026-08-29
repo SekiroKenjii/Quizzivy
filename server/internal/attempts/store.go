@@ -466,3 +466,65 @@ func deref(s *string) string {
 	}
 	return *s
 }
+
+// ByID reads one attempt for its owner. The student id is part of the
+// predicate rather than a check afterwards, so a caller cannot forget it and
+// there is no window where the row exists in a variable belonging to nobody.
+func (s *Store) ByID(ctx context.Context, attemptID, studentID string) (row, error) {
+	q := `SELECT ` + attemptColumns + `
+	        FROM app.attempts
+	       WHERE id = $1::uuid AND student_id = $2::uuid`
+	out, err := scanAttempt(s.pool.QueryRow(ctx, q, attemptID, studentID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return row{}, ErrNotFound
+	}
+	if err != nil {
+		return row{}, fmt.Errorf("attempts: read attempt: %w", err)
+	}
+	return out, nil
+}
+
+// RulesFor loads the assignment behind an attempt. Separate from Rules because
+// the attempt already proves which assignment applies -- re-deriving it from a
+// client-supplied id would be a way to render one paper under another's rules.
+func (s *Store) RulesFor(ctx context.Context, assignmentID string) (Rules, error) {
+	var r Rules
+	err := s.pool.QueryRow(ctx, `
+		SELECT test_version_id, opens_at, closes_at, closed_at, published_at,
+		       duration_minutes, max_attempts, shuffle_questions, shuffle_options,
+		       integrity_require_fullscreen, integrity_block_copy_paste,
+		       integrity_max_focus_loss, integrity_on_limit_exceeded,
+		       integrity_min_away_ms
+		  FROM app.assignments WHERE id = $1::uuid`, assignmentID).Scan(
+		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
+		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
+		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
+		&r.Integrity.MaxFocusLoss, &r.Integrity.OnLimitExceeded, &r.Integrity.MinAwayMs,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Rules{}, ErrNotFound
+	}
+	if err != nil {
+		return Rules{}, fmt.Errorf("attempts: read rules for attempt: %w", err)
+	}
+	// Targeting is not re-checked here: the attempt exists, which means it was
+	// already answered once, and removing a student from a class mid-test must
+	// not take the paper out of their hands.
+	r.Targeted = true
+	return r, nil
+}
+
+// Rebeacon issues a fresh append-only token WITHOUT touching session_id.
+//
+// Refetching the payload is not taking the attempt over, so it must not
+// supersede the tab doing it. The token still has to change: it is stored
+// hashed and cannot be read back, so a response that must carry one can only
+// carry a new one.
+func (s *Store) Rebeacon(ctx context.Context, attemptID string, hash []byte) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE app.attempts SET beacon_token_hash = $2 WHERE id = $1::uuid`, attemptID, hash)
+	if err != nil {
+		return fmt.Errorf("attempts: reissue beacon token: %w", err)
+	}
+	return nil
+}

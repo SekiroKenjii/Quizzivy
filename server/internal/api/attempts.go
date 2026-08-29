@@ -49,6 +49,36 @@ func (s *Server) StartOrResumeAttempt(ctx context.Context, request openapi.Start
 	return openapi.StartOrResumeAttempt200JSONResponse(payload), nil
 }
 
+// GetAttempt is the ONLY way a student reaches test content (§7). Its response
+// is the same shape the start returns, so there is one definition of what a
+// student may see rather than two that can drift apart.
+func (s *Server) GetAttempt(ctx context.Context, request openapi.GetAttemptRequestObject) (openapi.GetAttemptResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	session, err := s.Deps.Attempts.Get(ctx, request.Id.String(), principal.UserID)
+	if errors.Is(err, attempts.ErrForbidden) || errors.Is(err, attempts.ErrNotFound) {
+		return openapi.GetAttempt403JSONResponse{
+			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem bài làm này.")),
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	payload, err := s.toAPIAttemptSession(ctx, principal.UserID, session)
+	if err != nil {
+		return nil, err
+	}
+	return openapi.GetAttempt200JSONResponse(payload), nil
+}
+
 func (s *Server) toAPIAttemptSession(ctx context.Context, studentID string, in attempts.Session) (openapi.AttemptSession, error) {
 	questions := make([]openapi.StudentQuestion, len(in.Questions))
 	for i, q := range in.Questions {

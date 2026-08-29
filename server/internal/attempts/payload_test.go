@@ -3,8 +3,11 @@ package attempts_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
+
+	"quizzivy/internal/attempts"
 )
 
 // §13.5's rule, checked the way it actually fails: by value. A key-name walk
@@ -135,4 +138,92 @@ func TestOptionsArriveWithoutTheirCorrectness(t *testing.T) {
 		w.choice); got != 1 {
 		t.Fatalf("the fixture marks %d options correct, want 1; this test proves nothing", got)
 	}
+}
+
+func TestAnotherStudentsAttemptIsNotReadable(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	mine, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	// Refused as forbidden rather than missing. A 404 here would answer "does
+	// this attempt id exist?" for anyone willing to ask, one id at a time.
+	if _, err := svc.Get(ctx, mine.Attempt.ID, w.outsider); !errors.Is(err, attempts.ErrForbidden) {
+		t.Fatalf("got %v, want ErrForbidden", err)
+	}
+	if _, err := svc.Get(ctx, "01935000-0000-7000-8000-0000000000ff", w.student); !errors.Is(err, attempts.ErrForbidden) {
+		t.Fatalf("an attempt that does not exist gave %v, want the same ErrForbidden", err)
+	}
+}
+
+// Refetching the paper is not taking it over. A student reconciling audio plays
+// on the tab they are already sitting in must not supersede themselves.
+func TestFetchingThePayloadDoesNotSupersedeTheSession(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	started, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	fetched, err := svc.Get(ctx, started.Attempt.ID, w.student)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	if fetched.SessionID != started.SessionID {
+		t.Errorf("session changed on a read: %s then %s", started.SessionID, fetched.SessionID)
+	}
+	if got := eventKinds(t, pool, started.Attempt.ID); len(got) != 0 {
+		t.Errorf("a read wrote %v to the timeline", got)
+	}
+}
+
+// The paper is dealt from the stored seed, so it survives a refetch intact.
+// Answers are keyed by question id and would survive either way; a student
+// reading "câu 4" and a teacher reviewing "câu 4" would not.
+func TestRefetchingDealsTheSamePaper(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.assignments SET shuffle_questions = true, shuffle_options = true WHERE id = $1::uuid`,
+		w.assignment); err != nil {
+		t.Fatal(err)
+	}
+
+	started, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	for i := range 5 {
+		fetched, err := svc.Get(ctx, started.Attempt.ID, w.student)
+		if err != nil {
+			t.Fatalf("get %d: %v", i, err)
+		}
+		if got, want := ids(fetched.Questions), ids(started.Questions); got != want {
+			t.Fatalf("fetch %d re-dealt the paper\n got %s\nwant %s", i, got, want)
+		}
+	}
+}
+
+func ids(qs []attempts.Question) string {
+	var b strings.Builder
+	for _, q := range qs {
+		b.WriteString(q.ID)
+		for _, o := range q.Options {
+			b.WriteString("/" + o.ID)
+		}
+		b.WriteString(" ")
+	}
+	return b.String()
 }
