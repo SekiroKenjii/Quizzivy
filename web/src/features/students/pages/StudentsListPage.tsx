@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Search, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,12 @@ import {
 } from "@/components/ui/table";
 import { NewStudentDialog } from "@/features/students/components/NewStudentDialog";
 import { StudentDrawer } from "@/features/students/components/StudentDrawer";
-import { listStudents, scorePercent, type Student } from "@/features/students/api";
+import {
+  getStudent,
+  listStudents,
+  scorePercent,
+  type Student,
+} from "@/features/students/api";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
@@ -53,9 +58,20 @@ export default function StudentsListPage() {
 
   const items = students.data?.pages.flatMap((page) => page.items) ?? [];
   const facets = students.data?.pages[0]?.facets;
-  // Read from the loaded list rather than held separately, so a refetch cannot
-  // leave the panel describing a student the table has already changed.
-  const selected = items.find((student) => student.id === selectedId) ?? null;
+
+  // The drawer fetches its own subject rather than reading it out of the loaded
+  // page. Deriving it from the list tied the panel's lifetime to the search: a
+  // teacher who reset a password and then typed in the search box changed the
+  // query key, emptied `items` while the new page loaded, unmounted the drawer,
+  // and destroyed the one-time password -- which is stored hashed and exists
+  // nowhere else.
+  const detail = useQuery({
+    queryKey: ["admin-student", selectedId],
+    queryFn: ({ signal }) => getStudent(selectedId!, signal),
+    enabled: selectedId !== null,
+    initialData: () => items.find((student) => student.id === selectedId),
+  });
+  const selected = selectedId === null ? null : (detail.data ?? null);
 
   return (
     <div className="-m-6 flex">
@@ -160,7 +176,16 @@ export default function StudentsListPage() {
       </div>
 
       {selected === null ? null : (
-        <StudentDrawer student={selected} onClose={() => setSelectedId(null)} />
+        // Keyed by student: without it React reuses the same fiber when the
+        // teacher clicks the next row, and the drawer keeps its state -- so the
+        // panel showed the NEW student's name above the PREVIOUS student's
+        // one-time password, under a caption telling the teacher to hand it
+        // over.
+        <StudentDrawer
+          key={selected.id}
+          student={selected}
+          onClose={() => setSelectedId(null)}
+        />
       )}
 
       <NewStudentDialog open={creating} onOpenChange={setCreating} />

@@ -45,6 +45,15 @@ export function NewStudentDialog({
     enabled: open,
   });
 
+  // Every close goes through here. Radix does not fire onOpenChange when a
+  // controlled `open` is flipped from outside, so a button that called
+  // onOpenChange(false) directly left `temporary` alive -- and the next "Thêm
+  // học viên" reopened straight onto the previous student's password.
+  function close() {
+    reset();
+    onOpenChange(false);
+  }
+
   function reset() {
     setFullName("");
     setEmail("");
@@ -154,7 +163,7 @@ export function NewStudentDialog({
         <DialogFooter>
           {temporary === null ? (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={close}>
                 {t("common.cancel")}
               </Button>
               <Button
@@ -165,7 +174,7 @@ export function NewStudentDialog({
               </Button>
             </>
           ) : (
-            <Button onClick={() => onOpenChange(false)}>{t("students.done")}</Button>
+            <Button onClick={close}>{t("students.done")}</Button>
           )}
         </DialogFooter>
       </DialogContent>

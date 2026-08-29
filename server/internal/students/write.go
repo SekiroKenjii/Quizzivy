@@ -147,7 +147,9 @@ func (s *Store) Update(ctx context.Context, req Request, in UpdateInput) (Studen
 	if err := tx.Commit(ctx); err != nil {
 		return Student{}, fmt.Errorf("students: commit update: %w", err)
 	}
-	return s.Get(ctx, in.ID)
+	// includeDisabled: a successful disable must return the row it just wrote,
+	// not 404.
+	return s.get(ctx, in.ID, true)
 }
 
 // ResetPassword sets a temporary password and revokes every session the student

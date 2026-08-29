@@ -2581,7 +2581,10 @@ paths:
               additionalProperties: false
               properties:
                 fullName: { type: string, minLength: 1, maxLength: 200 }
-                email: { type: string, format: email }
+                # Bounds match users_email_check and createStudent. Without them
+                # a 260-character address passes validation, violates the column
+                # CHECK, and surfaces as a 500 rather than a 400.
+                email: { type: string, format: email, minLength: 3, maxLength: 254 }
                 disabled: { type: boolean }
       responses:
         '200':

@@ -312,3 +312,35 @@ func TestAnAdminIsNotAStudent(t *testing.T) {
 		t.Fatal("ResetPassword accepted an admin id: that is account takeover")
 	}
 }
+
+// The header must describe what the teacher can see. Counting the whole table
+// while the rows are filtered puts "31 học viên" above a single match.
+func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
+	pool := newPool(t)
+	store := students.NewStore(pool)
+	w := seedWorld(t, pool, "10.00")
+	ctx := context.Background()
+
+	all, err := store.Facets(ctx, students.ListInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	narrowed, err := store.Facets(ctx, students.ListInput{Query: "Thống Kê"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if narrowed.Total != 1 {
+		t.Errorf("searching matched %d, want 1 — the header ignored the search", narrowed.Total)
+	}
+	if all.Total <= narrowed.Total {
+		t.Errorf("unfiltered total %d is not larger than the filtered %d", all.Total, narrowed.Total)
+	}
+
+	byClass, err := store.Facets(ctx, students.ListInput{ClassID: w.class})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if byClass.Total != 1 {
+		t.Errorf("class filter counted %d, want 1", byClass.Total)
+	}
+}

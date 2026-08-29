@@ -102,6 +102,17 @@ func decodeCursor(s string) (string, error) {
 
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
+// searchCondition and classCondition are shared by List and Facets so the
+// header cannot end up counting a different set from the rows beneath it.
+const searchCondition = `(
+		app.immutable_unaccent(lower(u.full_name))
+			LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'
+		OR lower(u.email) LIKE '%%' || lower($%[1]d) || '%%' ESCAPE '\'
+	)`
+
+const classCondition = `EXISTS (SELECT 1 FROM app.class_members m
+		  WHERE m.user_id = u.id AND m.class_id = $%d::uuid)`
+
 // selectStudents is one statement for a whole page: the aggregates are lateral
 // subqueries over the page's rows, never a query per student. N+1 on a list
 // screen is §13.8's named default failure mode.
@@ -177,7 +188,15 @@ const selectStudents = `
 		           -- deadline test an abandoned attempt reads "đang làm bài"
 		           -- for ever.
 		           bool_or(a.status = 'in_progress' AND a.deadline_at > now()) AS live,
-		           max(a.submitted_at) AS last_attempt_at
+		           -- The last time they TOUCHED it, not the last time they
+		           -- submitted. An attempt that was started and abandoned keeps
+		           -- submitted_at NULL for ever (nothing flips it -- D-18), so
+		           -- max(submitted_at) reported that student as having never
+		           -- started anything, while the header counted them active
+		           -- because Facets keys off started_at. One screen, two answers.
+		           -- GREATEST skips NULLs, so a submitted attempt still reports
+		           -- its submission.
+		           max(greatest(a.submitted_at, a.started_at)) AS last_attempt_at
 		      FROM app.attempts a
 		     WHERE a.student_id = u.id AND a.status <> 'voided'
 		  ) act ON TRUE
@@ -248,17 +267,11 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Student, string, erro
 
 	if in.Query != "" {
 		args = append(args, likeEscaper.Replace(in.Query))
-		where = append(where, fmt.Sprintf(`(
-			app.immutable_unaccent(lower(u.full_name))
-				LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'
-			OR lower(u.email) LIKE '%%' || lower($%[1]d) || '%%' ESCAPE '\'
-		)`, len(args)))
+		where = append(where, fmt.Sprintf(searchCondition, len(args)))
 	}
 	if in.ClassID != "" {
 		args = append(args, in.ClassID)
-		where = append(where, fmt.Sprintf(
-			`EXISTS (SELECT 1 FROM app.class_members m
-			          WHERE m.user_id = u.id AND m.class_id = $%d::uuid)`, len(args)))
+		where = append(where, fmt.Sprintf(classCondition, len(args)))
 	}
 	if in.Cursor != "" {
 		id, err := decodeCursor(in.Cursor)
@@ -303,15 +316,29 @@ var (
 	ErrEmailTaken = errors.New("students: email already in use")
 )
 
-// Get returns one student.
+// Get returns one live student.
 //
 // Filtered to role 'student' on purpose, not merely because the screen is
-// called Students: every write path below reaches the same rows, and without
-// this an admin's own id in the URL would let /admin/students disable the only
-// teacher or reset another admin's password.
+// called Students: every write path reaches the same rows, and without this an
+// admin's own id in the URL would let /admin/students disable the only teacher
+// or reset another admin's password.
 func (s *Store) Get(ctx context.Context, id string) (Student, error) {
-	student, err := scanStudent(s.pool.QueryRow(ctx, selectStudents+`
-		 WHERE u.id = $1::uuid AND u.role = 'student' AND u.disabled_at IS NULL`, id))
+	return s.get(ctx, id, false)
+}
+
+// get optionally sees disabled rows.
+//
+// Update needs that: it reads the row back after writing it, and a successful
+// `disabled: true` would otherwise miss its own write and report 404 for an
+// operation that landed -- telling an operator the revocation failed when it
+// did not.
+func (s *Store) get(ctx context.Context, id string, includeDisabled bool) (Student, error) {
+	where := ` WHERE u.id = $1::uuid AND u.role = 'student'`
+	if !includeDisabled {
+		where += ` AND u.disabled_at IS NULL`
+	}
+
+	student, err := scanStudent(s.pool.QueryRow(ctx, selectStudents+where, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Student{}, ErrNotFound
 	}
@@ -323,7 +350,23 @@ func (s *Store) Get(ctx context.Context, id string) (Student, error) {
 
 // Facets backs G-07's header. "Active" is the dashboard's window, not a second
 // definition of the same word on a second screen.
+//
+// Counted over the same filters the page is showing, not over the whole table:
+// a header reading "31 học viên" above a search that matched one is describing
+// something the teacher cannot see.
 func (s *Store) Facets(ctx context.Context, in ListInput) (Facets, error) {
+	args := []any{ActiveWindow}
+	where := []string{`u.role = 'student'`, `u.disabled_at IS NULL`}
+
+	if in.Query != "" {
+		args = append(args, likeEscaper.Replace(in.Query))
+		where = append(where, fmt.Sprintf(searchCondition, len(args)))
+	}
+	if in.ClassID != "" {
+		args = append(args, in.ClassID)
+		where = append(where, fmt.Sprintf(classCondition, len(args)))
+	}
+
 	var f Facets
 	if err := s.pool.QueryRow(ctx, `
 		SELECT count(*),
@@ -333,8 +376,8 @@ func (s *Store) Facets(ctx context.Context, in ListInput) (Facets, error) {
 		            AND a.status <> 'voided'
 		            AND a.started_at > now() - $1::interval))
 		  FROM app.users u
-		 WHERE u.role = 'student' AND u.disabled_at IS NULL`,
-		ActiveWindow).Scan(&f.Total, &f.ActiveLast7Days); err != nil {
+		 WHERE `+strings.Join(where, "\n		   AND "), args...).
+		Scan(&f.Total, &f.ActiveLast7Days); err != nil {
 		return Facets{}, fmt.Errorf("students: facets: %w", err)
 	}
 	return f, nil
