@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -180,5 +180,47 @@ describe("the question bank list", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByLabelText("unit5-listening-2.mp3")).toBeInTheDocument();
     expect(screen.getByText(/1:50 · unit5-listening-2\.mp3/)).toBeInTheDocument();
+  });
+
+  it("says so when a preview URL has expired, rather than a player that will not start", async () => {
+    let listings = 0;
+    server.use(
+      http.get(`${BASE}/admin/questions`, () => {
+        listings += 1;
+        return contractJson("/admin/questions", "get", 200, {
+          items: [
+            question({
+              media: {
+                id: "018f0000-0000-7000-8000-0000000000e1",
+                kind: "audio",
+                url: `https://example.test/a.mp3?sig=${listings}`,
+                mimeType: "audio/mpeg",
+                bytes: 1024,
+                durationMs: 110_000,
+                originalFilename: "unit5-listening-2.mp3",
+                createdAt: "2026-01-01T00:00:00Z",
+              },
+            }),
+          ],
+          nextCursor: null,
+        });
+      }),
+    );
+    const user = renderBank();
+
+    await user.click(await screen.findByRole("button", { name: "Nghe thử" }));
+    const player = screen.getByLabelText("unit5-listening-2.mp3");
+
+    // The signed URL was minted when the list loaded and lives ten minutes
+    // (§11.2); pressing play after that gets a 403 and, without this, silence.
+    fireEvent.error(player);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/hết hạn/);
+
+    await user.click(screen.getByRole("button", { name: "Thử lại" }));
+
+    await waitFor(() => expect(listings).toBe(2));
+    // A fresh URL means a fresh row: the expired state must not stick.
+    expect(await screen.findByLabelText("unit5-listening-2.mp3")).toBeInTheDocument();
   });
 });

@@ -201,6 +201,7 @@ export default function QuestionBankPage() {
                       onOpen={() =>
                         void navigate(`/admin/question-bank/${question.id}`)
                       }
+                      onRetry={() => void bank.refetch()}
                       onTogglePlay={() =>
                         setPlaying(playing === question.id ? null : question.id)
                       }
@@ -231,11 +232,13 @@ function Row({
   question,
   playing,
   onOpen,
+  onRetry,
   onTogglePlay,
 }: {
   question: AdminQuestion;
   playing: boolean;
   onOpen: () => void;
+  onRetry: () => void;
   onTogglePlay: () => void;
 }) {
   const { t } = useTranslation();
@@ -286,7 +289,14 @@ function Row({
       {audio && playing ? (
         <TableRow>
           <TableCell colSpan={5} className="p-0">
-            <AudioPreviewRow asset={audio} onClose={onTogglePlay} />
+            {/* Keyed on the URL: a refetch mints a fresh one, and the row has
+                to forget that the previous one had expired. */}
+            <AudioPreviewRow
+              key={audio.url}
+              asset={audio}
+              onRetry={onRetry}
+              onClose={onTogglePlay}
+            />
           </TableCell>
         </TableRow>
       ) : null}

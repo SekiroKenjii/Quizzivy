@@ -61,6 +61,7 @@ export function useAutosave<T>({
   const [status, setStatus] = useState<AutosaveStatus>({ kind: "idle" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<T | null>(null);
+  const inFlight = useRef<Promise<void> | null>(null);
   const latestSave = useRef(save);
   const stale = useRef(false);
 
@@ -74,19 +75,28 @@ export function useAutosave<T>({
     if (value === null || stale.current) return;
 
     setStatus({ kind: "saving" });
-    try {
-      await latestSave.current(value);
-      setStatus({ kind: "saved", at: new Date() });
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.code === "STALE_WRITE") {
-        stale.current = true;
-        setStatus({ kind: "stale" });
-        return;
+    const attempt = (async () => {
+      try {
+        await latestSave.current(value);
+        setStatus({ kind: "saved", at: new Date() });
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.code === "STALE_WRITE") {
+          stale.current = true;
+          setStatus({ kind: "stale" });
+          return;
+        }
+        setStatus({
+          kind: "failed",
+          message: cause instanceof ApiError ? cause.message : "",
+        });
       }
-      setStatus({
-        kind: "failed",
-        message: cause instanceof ApiError ? cause.message : "",
-      });
+    })();
+
+    inFlight.current = attempt;
+    try {
+      await attempt;
+    } finally {
+      if (inFlight.current === attempt) inFlight.current = null;
     }
   }, []);
 
@@ -100,10 +110,23 @@ export function useAutosave<T>({
     [delay, run],
   );
 
-  /** Saves whatever is pending immediately -- used before publishing. */
+  /**
+   * Resolves once nothing is left to save -- used before publishing.
+   *
+   * Awaiting the in-flight request matters as much as flushing the pending
+   * one. The debounce puts the save exactly where the teacher's hand is going:
+   * they stop typing, it fires at 1.5s, and they reach for Publish. Returning
+   * while that PATCH is still on the wire lets publish overtake it, and a
+   * version that froze without the last edit cannot be repaired -- it is
+   * immutable.
+   */
   const flush = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
-    if (pending.current !== null) await run();
+    if (pending.current !== null) {
+      await run();
+      return;
+    }
+    await inFlight.current;
   }, [run]);
 
   // Unmounting must not drop an edit made inside the debounce window.

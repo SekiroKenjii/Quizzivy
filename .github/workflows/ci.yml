@@ -219,10 +219,13 @@ jobs:
       # minio/minio needs `server /data`. Reusing compose also means CI and a
       # developer's machine start the same MinIO with the same bucket, created
       # and made private by the same minio-init step.
+      # `--wait` on minio only: it treats a one-shot container's clean exit as
+      # a failure, so waiting on minio-init fails the step after it has done
+      # its job. `run --rm` gives its exit code back directly instead.
       - name: Start MinIO
         run: |
-          docker compose up -d --wait minio minio-init
-          docker compose ps
+          docker compose up -d --wait minio
+          docker compose run --rm minio-init
 
       - name: Provision roles and database
         run: ./scripts/provision-db.sh
