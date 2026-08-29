@@ -78,6 +78,8 @@ type TestsService interface {
 	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
 	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)
 	Duplicate(ctx context.Context, req tests.Request) (tests.Test, error)
+	ListVersions(ctx context.Context, testID string) ([]tests.Version, error)
+	Preview(ctx context.Context, testID string, version int) (int, []tests.PreviewQuestion, error)
 }
 
 // PublishService is the slice of internal/tests/publish the handlers use.

@@ -240,3 +240,126 @@ func toAPITest(t tests.Test) (openapi.Test, error) {
 	}
 	return out, nil
 }
+
+func (s *Server) ListTestVersions(ctx context.Context, request openapi.ListTestVersionsRequestObject) (openapi.ListTestVersionsResponseObject, error) {
+	if s.Deps.Tests == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	versions, err := s.Deps.Tests.ListVersions(ctx, request.Id.String())
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]openapi.TestVersion, len(versions))
+	for i, v := range versions {
+		points, err := strconv.ParseFloat(v.TotalPoints, 64)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = openapi.TestVersion{
+			Id:            parseUUID(v.ID),
+			Version:       v.Version,
+			TotalPoints:   points,
+			QuestionCount: v.QuestionCount,
+			PublishedAt:   v.PublishedAt,
+			PublishedBy:   v.PublishedBy,
+		}
+	}
+	return openapi.ListTestVersions200JSONResponse{Items: items}, nil
+}
+
+func (s *Server) PreviewTest(ctx context.Context, request openapi.PreviewTestRequestObject) (openapi.PreviewTestResponseObject, error) {
+	if s.Deps.Tests == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	version := 0
+	if request.Params.Version != nil {
+		version = *request.Params.Version
+	}
+
+	resolved, questions, err := s.Deps.Tests.Preview(ctx, request.Id.String(), version)
+	if errors.Is(err, tests.ErrNotPublished) {
+		return openapi.PreviewTest409JSONResponse(authError(ctx,
+			openapi.TESTNOTPUBLISHED, "Đề này chưa được phát hành.")), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := s.toStudentQuestions(ctx, questions)
+	if err != nil {
+		return nil, err
+	}
+	return openapi.PreviewTest200JSONResponse{Version: resolved, Questions: out}, nil
+}
+
+// toStudentQuestions maps the frozen rows to the student payload.
+//
+// The signed URL is minted here rather than in the store because it is an
+// HTTP-layer concern with its own TTL (§11.2), and because the store
+// deliberately never selects anything a student may not see.
+func (s *Server) toStudentQuestions(
+	ctx context.Context, questions []tests.PreviewQuestion,
+) ([]openapi.StudentQuestion, error) {
+	out := make([]openapi.StudentQuestion, len(questions))
+	for i, q := range questions {
+		points, err := strconv.ParseFloat(q.Points, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		sq := openapi.StudentQuestion{
+			Id:     parseUUID(q.ID),
+			Type:   openapi.QuestionType(q.Type),
+			Prompt: q.Prompt,
+			Points: points,
+		}
+
+		if len(q.Options) > 0 {
+			options := make([]openapi.StudentOption, len(q.Options))
+			for j, o := range q.Options {
+				options[j] = openapi.StudentOption{Id: parseUUID(o.ID), Text: o.Text}
+			}
+			sq.Options = &options
+		}
+		if len(q.Blanks) > 0 {
+			blanks := make([]openapi.StudentBlank, len(q.Blanks))
+			for j, b := range q.Blanks {
+				blanks[j] = openapi.StudentBlank{Id: parseUUID(b.ID), Ordinal: b.Ordinal}
+			}
+			sq.Blanks = &blanks
+		}
+		if q.AllowSeek != nil && q.ShowScript != nil {
+			sq.Audio = &openapi.AudioPolicy{
+				MaxPlays:                  q.MaxPlays,
+				AllowSeek:                 *q.AllowSeek,
+				ShowTranscriptAfterSubmit: *q.ShowScript,
+			}
+		}
+		if asset, err := s.previewAsset(ctx, q.MediaAssetID); err != nil {
+			return nil, err
+		} else if asset != nil {
+			sq.Media = asset
+		}
+
+		out[i] = sq
+	}
+	return out, nil
+}
+
+func (s *Server) previewAsset(ctx context.Context, assetID *string) (*openapi.MediaAsset, error) {
+	if assetID == nil || s.Deps.Media == nil {
+		return nil, nil
+	}
+	asset, err := s.Deps.Media.Get(ctx, *assetID)
+	if err != nil {
+		return nil, err
+	}
+	url, err := s.Deps.Media.SignedURL(ctx, asset)
+	if err != nil {
+		return nil, err
+	}
+	out := toAPIMediaAsset(asset, url)
+	return &out, nil
+}

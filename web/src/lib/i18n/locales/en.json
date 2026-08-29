@@ -331,7 +331,9 @@
     "bankFailed": "Could not load the question bank.",
     "bankEmpty": "No more questions to add.",
     "newSection": "Section {{n}}",
-    "addFailed": "Could not add the question. Please try again."
+    "addFailed": "Could not add the question. Please try again.",
+    "starterPrompt": "New question — type the text here",
+    "starterOption": "Option {{n}}"
   },
   "bank": {
     "typeFilter": "Question type",

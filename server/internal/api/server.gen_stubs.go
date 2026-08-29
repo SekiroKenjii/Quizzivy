@@ -126,14 +126,6 @@ func (s *Server) ResetStudentPassword(_ context.Context, _ openapi.ResetStudentP
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) PreviewTest(_ context.Context, _ openapi.PreviewTestRequestObject) (openapi.PreviewTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListTestVersions(_ context.Context, _ openapi.ListTestVersionsRequestObject) (openapi.ListTestVersionsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) ListMyAssignments(_ context.Context, _ openapi.ListMyAssignmentsRequestObject) (openapi.ListMyAssignmentsResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

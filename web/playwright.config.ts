@@ -29,7 +29,26 @@ export default defineConfig({
   },
 
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /\.live\.spec\.ts$/,
+    },
+    /**
+     * The one suite that talks to a real API.
+     *
+     * E2E 1a uploads an actual mp3 so the §11.1 probe runs in the loop: a
+     * mocked upload would assert that the frontend can display whatever the
+     * mock returns, which is not the thing the phase-2 exit criterion is about.
+     * Everything else stays stubbed -- see tests/e2e/support/api.ts for why.
+     *
+     * Run with `pnpm e2e:live`, which needs postgres, MinIO and the Go API up.
+     */
+    {
+      name: "live",
+      testMatch: /\.live\.spec\.ts$/,
+      use: { ...devices["Desktop Chrome"] },
+    },
     // §16 requires 360px mobile QA and §11.3 calls out iOS Safari specifically.
     // Enabled in T-5.6; declared here so the shape is already right.
     // { name: "mobile-safari", use: { ...devices["iPhone 13"] } },

@@ -28,6 +28,32 @@ interface AutosaveOptions<T> {
  * overwrite whatever the first tab saved, which is precisely the loss the
  * version guard exists to prevent.
  */
+/**
+ * Merges the statuses of several autosaves into the one the topbar shows.
+ *
+ * A-04 has a single "Đã lưu 14:32" in the topbar, and the builder runs two
+ * autosaves -- the outline and the open question. Two badges saying different
+ * things is worse than one: the teacher wants to know whether it is safe to
+ * close the tab, which is a question about all of it.
+ */
+export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
+  const stale = statuses.find((s) => s.kind === "stale");
+  if (stale) return stale;
+
+  const failed = statuses.find((s) => s.kind === "failed");
+  if (failed) return failed;
+
+  if (statuses.some((s) => s.kind === "saving")) return { kind: "saving" };
+
+  // The most recent save is the honest answer: an older one says less.
+  let newest: AutosaveStatus = { kind: "idle" };
+  for (const status of statuses) {
+    if (status.kind !== "saved") continue;
+    if (newest.kind !== "saved" || status.at > newest.at) newest = status;
+  }
+  return newest;
+}
+
 export function useAutosave<T>({
   save,
   delay = AUTOSAVE_DELAY_MS,
@@ -80,9 +106,18 @@ export function useAutosave<T>({
     if (pending.current !== null) await run();
   }, [run]);
 
+  // Unmounting must not drop an edit made inside the debounce window.
+  //
+  // The builder swaps the question editor as soon as another question is
+  // selected, so "type, then click the next question" is the ordinary way to
+  // work — and clearing the timer without saving loses exactly that edit,
+  // silently, while the indicator still says the last thing it saved.
   useEffect(() => {
     return () => {
       if (timer.current) clearTimeout(timer.current);
+      const value = pending.current;
+      pending.current = null;
+      if (value !== null && !stale.current) void latestSave.current(value);
     };
   }, []);
 
