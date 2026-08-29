@@ -1842,6 +1842,17 @@ paths:
       tags: [admin-tests]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/TestStatus' } }
+        # A-03's "Thẻ". Derived from the tags of the questions a test CONTAINS,
+        # not from tags of its own: §7 gives Question a `tags` array and Test
+        # none, and inventing one would need a tag-editing surface no board
+        # draws. Repeatable, OR-ed, like the bank's.
+        - name: tag
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { type: string }
         - $ref: '#/components/parameters/Query'
         - $ref: '#/components/parameters/Cursor'
         # Inline: the default is per resource, and
@@ -1863,10 +1874,17 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items, facets]
+                    required: [items, facets, tags]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/Test' } }
                       facets: { $ref: '#/components/schemas/TestStatusFacets' }
+                      tags:
+                        type: array
+                        items: { type: string }
+                        description: |
+                          Every tag reachable through the CURRENT status and
+                          search, so the filter cannot offer a chip that returns
+                          nothing. Sorted, distinct.
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2126,6 +2144,57 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/questions/tags:
+    post:
+      operationId: tagQuestions
+      tags: [admin-questions]
+      summary: Add tags to several questions at once
+      description: |
+        A-06's "Gắn thẻ". Tagging is the one bank edit that is worth doing to
+        forty questions at a time, and doing it one at a time is what the
+        selection bar exists to avoid.
+
+        Additive and idempotent: a tag a question already carries is a no-op, so
+        a retry after a dropped connection cannot duplicate anything. Removing
+        tags in bulk is deliberately not offered — it is the destructive
+        direction, and A-06 does not draw it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionIds, tags]
+              additionalProperties: false
+              properties:
+                questionIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items: { $ref: '#/components/schemas/Uuid' }
+                tags:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string, minLength: 1, maxLength: 40 }
+      responses:
+        '200':
+          description: Applied.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                additionalProperties: false
+                properties:
+                  updated:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Questions actually changed. Lower than `questionIds` when
+                      some already carried every tag, which is not an error.
         '400': { $ref: '#/components/responses/BadRequest' }
 
   /admin/questions/{id}:

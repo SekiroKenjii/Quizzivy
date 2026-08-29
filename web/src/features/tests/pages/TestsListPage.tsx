@@ -6,6 +6,7 @@ import {
   Archive,
   Copy,
   Ellipsis,
+  Filter,
   Headphones,
   Plus,
   Search,
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -59,18 +61,20 @@ export default function TestsListPage() {
 
   const [tab, setTab] = useState<TestStatus | "all">("all");
   const [query, setQuery] = useState("");
+  const [tags, setTags] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const search = useDebounced(query, 300);
   const locale = currentLocale(i18n.language);
 
   const tests = useInfiniteQuery({
-    queryKey: ["admin-tests", { tab, search }],
+    queryKey: ["admin-tests", { tab, search, tags }],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       listTests(
         {
           limit: 50,
           ...(tab === "all" ? {} : { status: tab }),
+          ...(tags.length > 0 ? { tag: [...tags] } : {}),
           ...(search.trim() === "" ? {} : { q: search.trim() }),
           ...(pageParam ? { cursor: pageParam } : {}),
         },
@@ -109,6 +113,11 @@ export default function TestsListPage() {
   // Every page carries the same facets (they ignore the cursor), so the first
   // one is the answer -- and it is the only page guaranteed to exist.
   const facets = tests.data?.pages[0]?.facets;
+  // Union of what the server offers and what is picked, so a chosen chip cannot
+  // vanish from the row because it is the only thing still matching.
+  const offered = [...new Set([...tags, ...(tests.data?.pages[0]?.tags ?? [])])].sort(
+    (a, b) => a.localeCompare(b, "vi"),
+  );
 
   return (
     <div className="space-y-4">
@@ -156,6 +165,34 @@ export default function TestsListPage() {
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
+
+        {/* A-03's "Thẻ". Filters by the tags of the questions a test contains:
+          §7 gives Test none of its own, and a test is its questions. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={offered.length === 0}>
+              <Filter aria-hidden="true" />
+              {tags.length === 0
+                ? t("tests.tagFilter")
+                : t("tests.tagFilterCount", { count: tags.length })}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {offered.map((tag) => (
+              <DropdownMenuCheckboxItem
+                key={tag}
+                checked={tags.includes(tag)}
+                onCheckedChange={() =>
+                  setTags(
+                    tags.includes(tag) ? tags.filter((x) => x !== tag) : [...tags, tag],
+                  )
+                }
+              >
+                {tag}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {error === null ? null : (
@@ -180,7 +217,7 @@ export default function TestsListPage() {
       ) : items.length === 0 ? (
         <div className="space-y-3">
           <p className="text-muted-foreground text-sm">
-            {tab === "all" && search.trim() === ""
+            {tab === "all" && search.trim() === "" && tags.length === 0
               ? t("tests.empty")
               : t("tests.noMatches")}
           </p>

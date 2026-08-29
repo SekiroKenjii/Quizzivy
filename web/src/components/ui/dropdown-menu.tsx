@@ -1,6 +1,8 @@
 import type * as React from "react";
 import { DropdownMenu as Primitive } from "radix-ui";
 
+import { Check } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
 function DropdownMenu(props: React.ComponentProps<typeof Primitive.Root>) {
@@ -55,4 +57,42 @@ function DropdownMenuItem({
   );
 }
 
-export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem };
+/**
+ * A menu row that toggles rather than closes.
+ *
+ * `onSelect` is prevented so picking a second tag does not shut the menu — the
+ * whole point of a multi-select filter is choosing several without reopening.
+ */
+function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof Primitive.CheckboxItem>) {
+  return (
+    <Primitive.CheckboxItem
+      data-slot="dropdown-menu-checkbox-item"
+      onSelect={(event) => event.preventDefault()}
+      className={cn(
+        "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 text-sm outline-none select-none",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        className,
+      )}
+      {...props}
+    >
+      <span className="absolute left-2 flex size-3.5 items-center justify-center">
+        <Primitive.ItemIndicator>
+          <Check className="size-3.5" aria-hidden="true" />
+        </Primitive.ItemIndicator>
+      </span>
+      {children}
+    </Primitive.CheckboxItem>
+  );
+}
+
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+};

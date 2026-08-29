@@ -398,7 +398,23 @@
     "summarySoFar": "{{count}} câu đã tải",
     "usedIn": "Đang dùng",
     "usedInCount": "{{count}} đề",
-    "audioOnly": "Chỉ câu có audio"
+    "audioOnly": "Chỉ câu có audio",
+    "selectedCount": "Đã chọn {{count}} câu",
+    "clearSelection": "Bỏ chọn",
+    "selectAll": "Chọn tất cả trên trang này",
+    "selectQuestion": "Chọn: {{prompt}}",
+    "bulkTag": "Gắn thẻ",
+    "bulkTagHint": "Thêm thẻ cho {{count}} câu đã chọn. Thẻ cũ được giữ nguyên.",
+    "tagPlaceholder": "nhập thẻ rồi Enter",
+    "removeTag": "Bỏ thẻ {{tag}}",
+    "applyTags": "Gắn thẻ",
+    "tagFailed": "Không gắn được thẻ. Vui lòng thử lại.",
+    "addToTest": "Thêm vào đề thi",
+    "addToTestHint": "Chọn phần muốn thêm {{count}} câu vào.",
+    "addToTestFailed": "Không thêm được vào đề. Vui lòng thử lại.",
+    "noTestsToAddTo": "Chưa có đề nào để thêm vào.",
+    "noSections": "Đề này chưa có phần nào.",
+    "addHere": "đang có {{count}} câu"
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",
@@ -436,7 +452,9 @@
     "detailFailed": "Không tải được đề thi.",
     "previewNote": "Đây là nội dung học viên nhận được. Sửa bản nháp không làm thay đổi bản đã phát hành.",
     "summarySoFar": "{{count}} đề đã tải",
-    "audioCount": "{{count}} câu nghe"
+    "audioCount": "{{count}} câu nghe",
+    "tagFilter": "Thẻ",
+    "tagFilterCount": "Thẻ · {{count}}"
   },
   "preview": {
     "questionNumber": "Câu {{n}}",

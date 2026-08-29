@@ -76,12 +76,14 @@ type QuestionsService interface {
 	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Delete(ctx context.Context, req questions.WriteRequest) error
+	AddTags(ctx context.Context, ids []string, tags []string) (int, error)
 }
 
 // TestsService is the slice of internal/tests the handlers use.
 type TestsService interface {
 	List(ctx context.Context, in tests.ListInput) ([]tests.Test, string, error)
 	Facets(ctx context.Context, in tests.ListInput) (tests.StatusFacets, error)
+	Tags(ctx context.Context, in tests.ListInput) ([]string, error)
 	Get(ctx context.Context, id string) (tests.Test, error)
 	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
 	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)

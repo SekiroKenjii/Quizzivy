@@ -34,6 +34,8 @@ export function saveOutline(id: string, draft: OutlineDraft) {
 
 export interface ListTestsParams {
   status?: TestStatus;
+  /** Repeatable. Matches the tags of the questions a test contains (A-03). */
+  tag?: string[];
   q?: string;
   cursor?: string;
   limit?: number;
@@ -42,6 +44,7 @@ export interface ListTestsParams {
 export function listTests(params: ListTestsParams = {}, signal?: AbortSignal) {
   const query: Record<string, unknown> = {};
   if (params.status) query["status"] = params.status;
+  if (params.tag?.length) query["tag"] = params.tag;
   if (params.q) query["q"] = params.q;
   if (params.cursor) query["cursor"] = params.cursor;
   if (params.limit) query["limit"] = params.limit;

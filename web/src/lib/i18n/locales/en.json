@@ -398,7 +398,23 @@
     "summarySoFar": "{{count}} questions loaded",
     "usedIn": "Used in",
     "usedInCount": "{{count}} tests",
-    "audioOnly": "Audio questions only"
+    "audioOnly": "Audio questions only",
+    "selectedCount": "{{count}} selected",
+    "clearSelection": "Clear",
+    "selectAll": "Select every question on this page",
+    "selectQuestion": "Select: {{prompt}}",
+    "bulkTag": "Tag",
+    "bulkTagHint": "Add tags to the {{count}} selected questions. Existing tags are kept.",
+    "tagPlaceholder": "type a tag, then Enter",
+    "removeTag": "Remove tag {{tag}}",
+    "applyTags": "Add tags",
+    "tagFailed": "Could not add the tags. Please try again.",
+    "addToTest": "Add to a test",
+    "addToTestHint": "Choose the section to add the {{count}} questions to.",
+    "addToTestFailed": "Could not add them to the test. Please try again.",
+    "noTestsToAddTo": "No tests to add to yet.",
+    "noSections": "This test has no sections yet.",
+    "addHere": "{{count}} here now"
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",
@@ -436,7 +452,9 @@
     "detailFailed": "Could not load the test.",
     "previewNote": "This is what a student receives. Editing the draft does not change the published version.",
     "summarySoFar": "{{count}} tests loaded",
-    "audioCount": "{{count}} listening questions"
+    "audioCount": "{{count}} listening questions",
+    "tagFilter": "Tags",
+    "tagFilterCount": "Tags · {{count}}"
   },
   "preview": {
     "questionNumber": "Question {{n}}",

@@ -71,3 +71,8 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
     tags: question.tags,
   };
 }
+
+/** A-06's bulk "Gắn thẻ". Additive and idempotent; see the contract. */
+export function tagQuestions(questionIds: string[], tags: string[]) {
+  return api("post", "/admin/questions/tags", { body: { questionIds, tags } });
+}

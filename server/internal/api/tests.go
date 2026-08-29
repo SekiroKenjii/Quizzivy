@@ -20,6 +20,9 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 		status := tests.Status(*request.Params.Status)
 		in.Status = &status
 	}
+	if request.Params.Tag != nil {
+		in.Tags = append(in.Tags, *request.Params.Tag...)
+	}
 	if request.Params.Q != nil {
 		in.Query = string(*request.Params.Q)
 	}
@@ -44,6 +47,11 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 		return nil, err
 	}
 
+	tagList, err := s.Deps.Tests.Tags(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
 	out := openapi.ListTests200JSONResponse{
 		Items: make([]openapi.Test, len(found)),
 		Facets: openapi.TestStatusFacets{
@@ -52,6 +60,7 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 			Published: facets.Published,
 			Archived:  facets.Archived,
 		},
+		Tags: tagList,
 	}
 	for i, t := range found {
 		if out.Items[i], err = toAPITest(t); err != nil {

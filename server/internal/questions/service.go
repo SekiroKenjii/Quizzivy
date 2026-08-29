@@ -112,3 +112,7 @@ func (s *Service) Delete(ctx context.Context, req WriteRequest) error {
 		UserAgent: req.UserAgent,
 	})
 }
+
+func (s *Service) AddTags(ctx context.Context, ids []string, tags []string) (int, error) {
+	return s.store.AddTags(ctx, ids, tags)
+}

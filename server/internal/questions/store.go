@@ -404,3 +404,37 @@ func optional(v string) *string {
 	}
 	return &v
 }
+
+// AddTags attaches tags to several bank questions at once (A-06's "Gắn thẻ").
+//
+// One statement, and additive by set union rather than by replacing the array:
+// two teachers tagging overlapping selections at the same time would otherwise
+// have the later write erase the earlier one's tags. `tags <> excluded` keeps
+// the count honest -- a question that already carried everything is not
+// "updated", and saying it was would make a retry look like it did work.
+func (s *Store) AddTags(ctx context.Context, ids []string, tags []string) (int, error) {
+	rows, err := s.pool.Query(ctx, `
+		UPDATE app.questions q
+		   SET tags = (
+		         SELECT array_agg(DISTINCT t ORDER BY t)
+		           FROM unnest(q.tags || $2::text[]) AS t
+		       ),
+		       updated_at = now()
+		 WHERE q.id = ANY($1::uuid[])
+		   AND q.deleted_at IS NULL
+		   AND NOT (q.tags @> $2::text[])
+		RETURNING q.id`, ids, tags)
+	if err != nil {
+		return 0, fmt.Errorf("questions: add tags: %w", err)
+	}
+	defer rows.Close()
+
+	n := 0
+	for rows.Next() {
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("questions: add tags: %w", err)
+	}
+	return n, nil
+}

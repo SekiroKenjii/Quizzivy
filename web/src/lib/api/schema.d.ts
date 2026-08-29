@@ -365,6 +365,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/questions/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add tags to several questions at once
+         * @description A-06's "Gắn thẻ". Tagging is the one bank edit that is worth doing to
+         *     forty questions at a time, and doing it one at a time is what the
+         *     selection bar exists to avoid.
+         *
+         *     Additive and idempotent: a tag a question already carries is a no-op, so
+         *     a retry after a dropped connection cannot duplicate anything. Removing
+         *     tags in bulk is deliberately not offered — it is the destructive
+         *     direction, and A-06 does not draw it.
+         */
+        post: operations["tagQuestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/questions/{id}": {
         parameters: {
             query?: never;
@@ -2656,6 +2683,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["TestStatus"];
+                tag?: string[];
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
@@ -2677,6 +2705,12 @@ export interface operations {
                     "application/json": components["schemas"]["CursorPage"] & {
                         items: components["schemas"]["Test"][];
                         facets: components["schemas"]["TestStatusFacets"];
+                        /**
+                         * @description Every tag reachable through the CURRENT status and
+                         *     search, so the filter cannot offer a chip that returns
+                         *     nothing. Sorted, distinct.
+                         */
+                        tags: string[];
                     };
                 };
             };
@@ -2967,6 +3001,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminQuestion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    tagQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    questionIds: components["schemas"]["Uuid"][];
+                    tags: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Questions actually changed. Lower than `questionIds` when
+                         *     some already carried every tag, which is not an error.
+                         */
+                        updated: number;
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];

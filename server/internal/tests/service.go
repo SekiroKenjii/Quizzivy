@@ -26,6 +26,10 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Test, string, error
 	return s.store.List(ctx, in)
 }
 
+func (s *Service) Tags(ctx context.Context, in ListInput) ([]string, error) {
+	return s.store.Tags(ctx, in)
+}
+
 func (s *Service) Facets(ctx context.Context, in ListInput) (StatusFacets, error) {
 	return s.store.Facets(ctx, in)
 }

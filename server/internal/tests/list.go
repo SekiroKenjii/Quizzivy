@@ -17,6 +17,9 @@ const (
 // ListInput selects a page of tests.
 type ListInput struct {
 	Status *Status
+	// Tags filter by the tags of the questions a test CONTAINS. §7 gives Test no
+	// tags of its own, and a test is its questions -- OR-ed, like the bank's.
+	Tags   []string
 	Query  string
 	Cursor string
 	Limit  int
@@ -49,6 +52,18 @@ func decodeCursor(s string) (string, error) {
 const titleSearch = `app.immutable_unaccent(lower(t.title))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
 
+// tagCondition matches a test through its DRAFT outline, which is the copy the
+// list's other numbers already describe -- questionCount and totalPoints are
+// computed the same way. Overlap, not containment: two chips widen, as in the
+// bank.
+const tagCondition = `EXISTS (
+		SELECT 1
+		  FROM app.test_sections s
+		  JOIN app.test_section_questions sq ON sq.test_section_id = s.id
+		  JOIN app.questions q ON q.id = sq.question_id AND q.deleted_at IS NULL
+		 WHERE s.test_id = t.id AND q.tags && $%d::text[]
+	)`
+
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func escapeLike(s string) string { return likeEscaper.Replace(s) }
@@ -77,6 +92,10 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Test, string, error) 
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(`t.status = $%d::app.test_status`, len(args)))
+	}
+	if len(in.Tags) > 0 {
+		args = append(args, in.Tags)
+		where = append(where, fmt.Sprintf(tagCondition, len(args)))
 	}
 	if q := strings.TrimSpace(in.Query); q != "" {
 		args = append(args, escapeLike(q))
@@ -145,4 +164,45 @@ func (s *Store) attachSections(ctx context.Context, list []Test) error {
 		}
 	}
 	return nil
+}
+
+// Tags returns every tag reachable through the current status and search, so
+// A-03's filter cannot offer a chip that returns nothing.
+//
+// The tag filter itself is NOT applied, for the same reason the status facets
+// ignore the status filter: picking one chip must not empty the rail.
+func (s *Store) Tags(ctx context.Context, in ListInput) ([]string, error) {
+	args := []any{}
+	where := []string{`t.deleted_at IS NULL`}
+	if in.Status != nil {
+		args = append(args, string(*in.Status))
+		where = append(where, fmt.Sprintf(`t.status = $%d::app.test_status`, len(args)))
+	}
+	if q := strings.TrimSpace(in.Query); q != "" {
+		args = append(args, escapeLike(q))
+		where = append(where, fmt.Sprintf(titleSearch, len(args)))
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT unnest(q.tags)
+		  FROM app.tests t
+		  JOIN app.test_sections sec ON sec.test_id = t.id
+		  JOIN app.test_section_questions sq ON sq.test_section_id = sec.id
+		  JOIN app.questions q ON q.id = sq.question_id AND q.deleted_at IS NULL
+		 WHERE `+strings.Join(where, " AND ")+`
+		 ORDER BY 1`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("tests: tags: %w", err)
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, fmt.Errorf("tests: scan tag: %w", err)
+		}
+		out = append(out, tag)
+	}
+	return out, rows.Err()
 }

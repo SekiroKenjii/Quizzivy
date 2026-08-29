@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Headphones, Play, Plus, Search } from "lucide-react";
+import { Headphones, Play, Plus, Search, Tag as TagIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
+import { BulkTagDialog } from "@/features/question-bank/components/BulkTagDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -48,6 +50,12 @@ export default function QuestionBankPage() {
   const [types, setTypes] = useState<readonly QuestionType[]>([]);
   const [tags, setTags] = useState<readonly string[]>([]);
   const [audioOnly, setAudioOnly] = useState(false);
+  // Survives filtering on purpose — the deck's section 3 opens with "selection
+  // that survives filtering", because building a paper means gathering from
+  // several searches before committing to any of them.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [tagging, setTagging] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
 
@@ -81,6 +89,7 @@ export default function QuestionBankPage() {
     a.localeCompare(b, "vi"),
   );
   const filtering = types.length > 0 || tags.length > 0 || audioOnly;
+  const allSelected = items.length > 0 && items.every((q) => selected.has(q.id));
 
   return (
     <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
@@ -179,6 +188,32 @@ export default function QuestionBankPage() {
           />
         </div>
 
+        {selected.size === 0 ? null : (
+          <div className="bg-secondary flex h-11 items-center gap-3 rounded-md px-3">
+            <span className="text-sm font-medium">
+              {t("bank.selectedCount", { count: selected.size })}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="outline" size="xs" onClick={() => setAdding(true)}>
+                <Plus aria-hidden="true" />
+                {t("bank.addToTest")}
+              </Button>
+              <Button variant="outline" size="xs" onClick={() => setTagging(true)}>
+                <TagIcon aria-hidden="true" />
+                {t("bank.bulkTag")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="text-muted-foreground"
+                onClick={() => setSelected(new Set())}
+              >
+                {t("bank.clearSelection")}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {bank.isPending ? (
           <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
             {t("common.loading")}
@@ -210,6 +245,25 @@ export default function QuestionBankPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-9">
+                      <Checkbox
+                        aria-label={t("bank.selectAll")}
+                        checked={allSelected}
+                        onChange={(event) =>
+                          setSelected(
+                            event.target.checked
+                              ? new Set([...selected, ...items.map((q) => q.id)])
+                              : // Only this page: a filtered-away selection is
+                                // still a selection the teacher made.
+                                new Set(
+                                  [...selected].filter(
+                                    (id) => !items.some((q) => q.id === id),
+                                  ),
+                                ),
+                          )
+                        }
+                      />
+                    </TableHead>
                     <TableHead className="w-[42%]">{t("bank.prompt")}</TableHead>
                     <TableHead>{t("bank.type")}</TableHead>
                     <TableHead>{t("bank.tags")}</TableHead>
@@ -224,6 +278,14 @@ export default function QuestionBankPage() {
                   {items.map((question) => (
                     <Row
                       key={question.id}
+                      selected={selected.has(question.id)}
+                      onToggleSelect={() =>
+                        setSelected((current) => {
+                          const next = new Set(current);
+                          if (!next.delete(question.id)) next.add(question.id);
+                          return next;
+                        })
+                      }
                       question={question}
                       playing={playing === question.id}
                       onOpen={() =>
@@ -252,6 +314,19 @@ export default function QuestionBankPage() {
           </>
         )}
       </div>
+      <BulkTagDialog
+        questionIds={[...selected]}
+        suggestions={shownTags}
+        open={tagging}
+        onOpenChange={setTagging}
+        onApplied={() => setSelected(new Set())}
+      />
+      <AddToTestDialog
+        questionIds={[...selected]}
+        open={adding}
+        onOpenChange={setAdding}
+        onAdded={() => setSelected(new Set())}
+      />
     </div>
   );
 }
@@ -262,12 +337,16 @@ function Row({
   onOpen,
   onRetry,
   onTogglePlay,
+  selected,
+  onToggleSelect,
 }: {
   question: AdminQuestion;
   playing: boolean;
+  selected: boolean;
   onOpen: () => void;
   onRetry: () => void;
   onTogglePlay: () => void;
+  onToggleSelect: () => void;
 }) {
   const { t } = useTranslation();
   const audio = question.media?.kind === "audio" ? question.media : null;
@@ -275,6 +354,13 @@ function Row({
   return (
     <>
       <TableRow>
+        <TableCell>
+          <Checkbox
+            checked={selected}
+            aria-label={t("bank.selectQuestion", { prompt: question.prompt })}
+            onChange={onToggleSelect}
+          />
+        </TableCell>
         <TableCell>
           <div className="flex items-center gap-2">
             {audio ? (
@@ -323,7 +409,7 @@ function Row({
 
       {audio && playing ? (
         <TableRow>
-          <TableCell colSpan={6} className="p-0">
+          <TableCell colSpan={7} className="p-0">
             {/* Keyed on the URL: a refetch mints a fresh one, and the row has
                 to forget that the previous one had expired. */}
             <AudioPreviewRow

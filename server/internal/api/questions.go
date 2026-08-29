@@ -320,3 +320,21 @@ func (s *Server) toAPIQuestion(ctx context.Context, q questions.Question) (opena
 	}
 	return out, nil
 }
+
+// TagQuestions implements A-06's bulk "Gắn thẻ".
+func (s *Server) TagQuestions(ctx context.Context, request openapi.TagQuestionsRequestObject) (openapi.TagQuestionsResponseObject, error) {
+	if s.Deps.Questions == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	ids := make([]string, len(request.Body.QuestionIds))
+	for i, id := range request.Body.QuestionIds {
+		ids[i] = id.String()
+	}
+
+	updated, err := s.Deps.Questions.AddTags(ctx, ids, request.Body.Tags)
+	if err != nil {
+		return nil, err
+	}
+	return openapi.TagQuestions200JSONResponse{Updated: updated}, nil
+}

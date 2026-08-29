@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -345,5 +346,80 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 	widened := ids(questions.ListInput{Tags: []string{tag, tag + "-b"}})
 	if !widened[single.ID] || !widened[essay.ID] {
 		t.Errorf("a second tag chip removed rows instead of adding them: %v", widened)
+	}
+}
+
+// A-06's bulk "Gắn thẻ".
+func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	store := questions.NewStore(pool)
+	ctx := context.Background()
+	tag := "bulk-" + strings.ReplaceAll(author, "-", "")[:10]
+
+	keeps := write(t, svc, author, "Giữ thẻ cũ", tag+"-old")
+	bare := write(t, svc, author, "Chưa có thẻ")
+
+	updated, err := store.AddTags(ctx, []string{keeps.ID, bare.ID}, []string{tag + "-new"})
+	if err != nil {
+		t.Fatalf("AddTags: %v", err)
+	}
+	if updated != 2 {
+		t.Errorf("updated = %d, want 2", updated)
+	}
+
+	got, err := svc.Get(ctx, keeps.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Union, not replacement: a concurrent tagging of an overlapping selection
+	// would otherwise have the later write erase the earlier one's tags.
+	if !slices.Contains(got.Tags, tag+"-old") {
+		t.Errorf("the existing tag was dropped: %v", got.Tags)
+	}
+	if !slices.Contains(got.Tags, tag+"-new") {
+		t.Errorf("the new tag was not added: %v", got.Tags)
+	}
+
+	// A retry after a dropped connection must not look like it did work.
+	again, err := store.AddTags(ctx, []string{keeps.ID, bare.ID}, []string{tag + "-new"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again != 0 {
+		t.Errorf("re-applying the same tags reported %d updated, want 0", again)
+	}
+
+	after, err := svc.Get(ctx, keeps.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.Tags) != len(got.Tags) {
+		t.Errorf("a repeat run duplicated tags: %v", after.Tags)
+	}
+}
+
+// A soft-deleted question is not in the bank, so a selection that happens to
+// name one must not resurrect it into somebody's tag set.
+func TestBulkTaggingSkipsDeletedQuestions(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	store := questions.NewStore(pool)
+	ctx := context.Background()
+
+	q := write(t, svc, author, "Sắp bị xoá")
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.questions SET deleted_at = now() WHERE id = $1::uuid`, q.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := store.AddTags(ctx, []string{q.ID}, []string{"khong-nen-co"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated != 0 {
+		t.Errorf("updated = %d, want 0 — a deleted question was tagged", updated)
 	}
 }

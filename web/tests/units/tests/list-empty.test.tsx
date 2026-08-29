@@ -41,6 +41,7 @@ beforeEach(() => {
         items: [],
         nextCursor: null,
         facets: { all: 0, draft: 0, published: 0, archived: 0 },
+        tags: [],
       }),
     ),
     http.post(`${BASE}/admin/tests`, () => {
