@@ -46,11 +46,12 @@ export function readDuration(file: File): Promise<number | null> {
  * on a codec the browser happens not to support.
  */
 export async function precheck(file: File): Promise<Rejection | null> {
-  if (!hasAcceptedExtension(file.name)) return { reason: "type" };
-  if (file.size > MAX_BYTES) return { reason: "size" };
+  const about = { name: file.name, bytes: file.size };
+  if (!hasAcceptedExtension(file.name)) return { ...about, reason: "type" };
+  if (file.size > MAX_BYTES) return { ...about, reason: "size" };
 
   const durationMs = await readDuration(file);
   if (durationMs === null) return null;
-  if (durationMs > MAX_DURATION_MS) return { reason: "duration", durationMs };
+  if (durationMs > MAX_DURATION_MS) return { ...about, reason: "duration", durationMs };
   return null;
 }

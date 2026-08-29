@@ -57,8 +57,12 @@ describe("the upload panel's client-side pre-check", () => {
     stubDuration(6 * 60);
     await choose(audioFile("bai-nghe-dai.mp3", 1024));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/6 phút/);
-    expect(await screen.findByRole("alert")).toHaveTextContent(/5 phút/);
+    // The deck's A-05: the rejection names the file and the measured length,
+    // not just the rule, so the teacher knows which file and by how much.
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/bai-nghe-dai\.mp3/);
+    expect(alert).toHaveTextContent(/6:00/);
+    expect(alert).toHaveTextContent(/5 phút/);
     expect(uploadCalls, "an over-length file must not be uploaded").toBe(0);
   });
 
@@ -66,7 +70,9 @@ describe("the upload panel's client-side pre-check", () => {
     stubDuration(10);
     await choose(audioFile("qua-lon.mp3", 11 * 1024 * 1024));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/10 MB/);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/qua-lon\.mp3/);
+    expect(alert).toHaveTextContent(/10 MB/);
     expect(uploadCalls).toBe(0);
   });
 

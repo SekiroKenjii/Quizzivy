@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,52 +9,39 @@ import {
 import { listMedia, type MediaAsset } from "@/features/media/api";
 import { formatBytes, formatDuration } from "@/features/media/format";
 
-interface AssetPickerProps {
-  value: MediaAsset | null;
-  onChange: (asset: MediaAsset | null) => void;
+interface AssetLibraryDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPick: (asset: MediaAsset) => void;
 }
 
 /**
- * Attaches an existing library asset to a question.
+ * Picks an existing library asset.
  *
- * Picking from the library rather than uploading inline is what keeps one file
- * shared across questions: assets are immutable and a re-upload creates a
- * second row pointing at a second object (§11.1).
+ * Picking rather than re-uploading is what keeps one file shared across
+ * questions: assets are immutable and a re-upload creates a second row pointing
+ * at a second object (§11.1).
  */
-export function AssetPicker({ value, onChange }: AssetPickerProps) {
+export function AssetLibraryDialog({
+  open,
+  onOpenChange,
+  onPick,
+}: AssetLibraryDialogProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm">
-        {value ? value.originalFilename : t("media.pickNone")}
-      </span>
-
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        {value ? t("media.pickChange") : t("media.pickTitle")}
-      </Button>
-
-      {value ? (
-        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-          {t("media.pickClear")}
-        </Button>
-      ) : null}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("media.pickTitle")}</DialogTitle>
-          </DialogHeader>
-          <AssetList
-            onPick={(asset) => {
-              onChange(asset);
-              setOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("media.pickTitle")}</DialogTitle>
+        </DialogHeader>
+        <AssetList
+          onPick={(asset) => {
+            onPick(asset);
+            onOpenChange(false);
+          }}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }
 

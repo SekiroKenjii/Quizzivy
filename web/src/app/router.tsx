@@ -67,6 +67,14 @@ const adminTree: RouteObject = {
           lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
         },
         {
+          path: "question-bank/new",
+          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
+        },
+        {
+          path: "question-bank/:id",
+          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
+        },
+        {
           path: "media",
           lazy: page(() => import("@/features/media/pages/MediaLibraryPage")),
         },

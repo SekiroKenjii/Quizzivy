@@ -10,6 +10,9 @@ export type RejectionReason = "type" | "size" | "duration" | "unreadable";
 
 export interface Rejection {
   reason: RejectionReason;
+  /** The deck's A-05 rule: a rejection names the file and the reason together. */
+  name: string;
+  bytes: number;
   /** Filled for a duration rejection, so the message can name the length. */
   durationMs?: number;
 }
