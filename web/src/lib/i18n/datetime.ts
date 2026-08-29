@@ -33,6 +33,30 @@ export function formatTime(utc: string | Date, locale: AppLocale = "vi") {
   });
 }
 
+/**
+ * "2 giờ trước", "hôm qua", then a plain date -- the deck's A-03 column.
+ *
+ * Relative wording earns its keep for about a week; past that "3 tuần trước" is
+ * a worse answer than the date, because the teacher is looking for a specific
+ * test they remember by when they wrote it.
+ */
+export function formatRelative(utc: string | Date, locale: AppLocale = "vi") {
+  const then = new Date(utc).getTime();
+  const seconds = Math.round((then - Date.now()) / 1000);
+  const days = Math.round(seconds / 86_400);
+
+  if (Math.abs(days) > 6) return formatDate(utc, locale);
+
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const minutes = Math.round(seconds / 60);
+  if (Math.abs(minutes) < 1) return relative.format(0, "minute");
+  if (Math.abs(minutes) < 60) return relative.format(minutes, "minute");
+
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return relative.format(hours, "hour");
+  return relative.format(days, "day");
+}
+
 /** The same instant, expressed in the app's timezone. For date maths in the UI. */
 export function inAppZone(utc: string | Date) {
   return toZonedTime(utc, APP_TIME_ZONE);
