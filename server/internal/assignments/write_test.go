@@ -443,3 +443,59 @@ func TestUpdatingSomethingThatIsNotThereIsNotFound(t *testing.T) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }
+
+// Disabling a student must not pin an assignment one short for ever.
+//
+// A suspended account cannot sign in, so it is not a student the teacher is
+// still waiting on. Leaving it in the denominator makes "12/13" a number that
+// nothing can ever close.
+func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
+	pool := newPool(t)
+	store := assignments.NewStore(pool)
+	w := seedWorld(t, pool, "published")
+	ctx := context.Background()
+
+	// A second student in the same class, so the roster is two.
+	var other string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Người Thứ Hai','student')
+		 RETURNING id::text`, "asg-x-"+nonce(t)+"@example.com").Scan(&other); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid,$2::uuid,'admin',$3::uuid)`, w.class, other, w.admin); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE user_id = $1::uuid`, other)
+		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = $1::uuid`, other)
+	})
+
+	created, err := store.Create(ctx, request(w), legalInput(w))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	before, err := store.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.TargetCount != 2 {
+		t.Fatalf("target count = %d, want 2", before.TargetCount)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, other); err != nil {
+		t.Fatal(err)
+	}
+
+	after, err := store.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.TargetCount != 1 {
+		t.Errorf("target count = %d after disabling one of two, want 1", after.TargetCount)
+	}
+}

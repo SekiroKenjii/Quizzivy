@@ -117,11 +117,39 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		t.Fatal("the account was not disabled")
 	}
 
-	// It does leave the listings, which is the one-way door worth naming: Get
-	// and List both hide disabled rows, so nothing in the API can find them
-	// again to set disabled:false.
-	if _, err := store.Get(ctx, w.student); !errors.Is(err, students.ErrNotFound) {
-		t.Errorf("Get on a disabled student = %v, want ErrNotFound", err)
+	// Findable again, which is what makes the disable reversible. The default
+	// listing still hides them; asking for them by status does not.
+	back, err := store.Get(ctx, w.student)
+	if err != nil {
+		t.Fatalf("Get on a disabled student: %v", err)
+	}
+	if back.DisabledAt == nil {
+		t.Error("the row does not report that it is disabled")
+	}
+
+	active, _, err := store.List(ctx, students.ListInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range active {
+		if s.ID == w.student {
+			t.Error("a disabled student appeared in the default listing")
+		}
+	}
+
+	found, _, err := store.List(ctx, students.ListInput{Status: students.Disabled})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen bool
+	for _, s := range found {
+		if s.ID == w.student {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Error("status=disabled did not return the disabled student, so " +
+			"updateStudent's disabled:false is unreachable")
 	}
 
 	// §6.4: revoking access must never touch the attempts.

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -34,6 +35,9 @@ export default function StudentsListPage() {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The default hides suspended accounts, which is right for the everyday
+  // screen -- but without a way to ask for them a disable is a one-way door.
+  const [showDisabled, setShowDisabled] = useState(false);
   const [creating, setCreating] = useState(false);
   const search = useDebounced(query, 300).trim();
   const locale = currentLocale(i18n.language);
@@ -42,12 +46,13 @@ export default function StudentsListPage() {
   // `["admin-students", { q }]` with limit 20, and sharing a cache entry across
   // two page sizes would truncate whichever screen painted second.
   const students = useInfiniteQuery({
-    queryKey: ["admin-students", { q: search, limit: PAGE_SIZE }],
+    queryKey: ["admin-students", { q: search, showDisabled, limit: PAGE_SIZE }],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       listStudents(
         {
           limit: PAGE_SIZE,
+          ...(showDisabled ? { status: "disabled" as const } : {}),
           ...(search === "" ? {} : { q: search }),
           ...(pageParam ? { cursor: pageParam } : {}),
         },
@@ -96,18 +101,30 @@ export default function StudentsListPage() {
           </Button>
         </div>
 
-        <div className="relative w-72">
-          <Search
-            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
-            aria-hidden="true"
-          />
-          <Input
-            className="pl-9"
-            value={query}
-            placeholder={t("students.searchPlaceholder")}
-            aria-label={t("students.searchPlaceholder")}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+        <div className="flex items-center gap-4">
+          <div className="relative w-72">
+            <Search
+              className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
+              aria-hidden="true"
+            />
+            <Input
+              className="pl-9"
+              value={query}
+              placeholder={t("students.searchPlaceholder")}
+              aria-label={t("students.searchPlaceholder")}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <label className="flex items-center gap-2.5 text-sm">
+            <Checkbox
+              checked={showDisabled}
+              onChange={(event) => {
+                setShowDisabled(event.target.checked);
+                setSelectedId(null);
+              }}
+            />
+            {t("students.showDisabled")}
+          </label>
         </div>
 
         {students.isPending ? (
@@ -125,7 +142,11 @@ export default function StudentsListPage() {
           </div>
         ) : items.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            {search === "" ? t("students.empty") : t("students.noMatches")}
+            {showDisabled
+              ? t("students.noneDisabled")
+              : search === ""
+                ? t("students.empty")
+                : t("students.noMatches")}
           </p>
         ) : (
           <>

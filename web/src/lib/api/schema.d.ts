@@ -1372,6 +1372,15 @@ export interface components {
             linkedProviders: "google"[];
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+            /**
+             * Format: date-time
+             * @description Set means the account cannot sign in. Present on the row because
+             *     `updateStudent` accepts `disabled: false` in both directions, and a
+             *     state that can be written but never read is a one-way door: the
+             *     student would vanish from every listing with nothing able to name
+             *     them again.
+             */
+            disabledAt: string | null;
             /** @description All memberships. The table truncates; the drawer lists them. */
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
@@ -3473,6 +3482,12 @@ export interface operations {
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
                 classId?: components["schemas"]["Uuid"];
+                /**
+                 * @description Defaults to `active`. Without `disabled` there is no request that can
+                 *     return a suspended account, so `updateStudent`'s `disabled: false`
+                 *     would be unreachable.
+                 */
+                status?: "active" | "disabled" | "all";
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];

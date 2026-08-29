@@ -304,3 +304,45 @@ func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }
+
+// The same rule on the class screen: a suspended account is not someone the
+// teacher is still teaching, and counting it makes every assignment on the
+// class read one short.
+func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+	ctx := context.Background()
+
+	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	before, err := svc.Get(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.StudentCount != 1 {
+		t.Fatalf("studentCount = %d, want 1", before.StudentCount)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, studentID); err != nil {
+		t.Fatal(err)
+	}
+
+	after, err := svc.Get(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.StudentCount != 0 {
+		t.Errorf("studentCount = %d after disabling the only member, want 0", after.StudentCount)
+	}
+
+	members, err := svc.Members(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(members) != 0 {
+		t.Errorf("the roster still lists %d disabled member(s)", len(members))
+	}
+}

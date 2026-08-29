@@ -64,6 +64,7 @@ type Student struct {
 	LinkedProviders    []string
 	MustChangePassword bool
 	CreatedAt          time.Time
+	DisabledAt         *time.Time
 	Classes            []Membership
 	Stats              Stats
 }
@@ -74,8 +75,19 @@ type Facets struct {
 	ActiveLast7Days int
 }
 
+// Status selects which accounts a listing returns.
+type Status string
+
+const (
+	Active   Status = "active"
+	Disabled Status = "disabled"
+	AnyState Status = "all"
+)
+
 type ListInput struct {
-	Query string
+	// Status defaults to Active when empty.
+	Status Status
+	Query  string
 	// ClassID narrows to one class's roster, which is how the pickers ask "who
 	// is not in this class yet" by diffing against it.
 	ClassID string
@@ -113,6 +125,19 @@ const searchCondition = `(
 const classCondition = `EXISTS (SELECT 1 FROM app.class_members m
 		  WHERE m.user_id = u.id AND m.class_id = $%d::uuid)`
 
+// statusCondition is empty for "all": a listing that can never return a
+// disabled account makes updateStudent's `disabled: false` unreachable.
+func statusCondition(status Status) string {
+	switch status {
+	case Disabled:
+		return `u.disabled_at IS NOT NULL`
+	case AnyState:
+		return `TRUE`
+	default:
+		return `u.disabled_at IS NULL`
+	}
+}
+
 // selectStudents is one statement for a whole page: the aggregates are lateral
 // subqueries over the page's rows, never a query per student. N+1 on a list
 // screen is §13.8's named default failure mode.
@@ -136,7 +161,7 @@ const selectStudents = `
 		       u.password_hash IS NOT NULL,
 		       coalesce((SELECT array_agg(i.provider::text)
 		                   FROM app.user_identities i WHERE i.user_id = u.id), '{}'),
-		       u.must_change_password, u.created_at,
+		       u.must_change_password, u.created_at, u.disabled_at,
 
 		       coalesce((SELECT jsonb_agg(jsonb_build_object(
 		                          'id', c.id, 'name', c.name,
@@ -217,7 +242,7 @@ func scanStudent(row rowScanner) (Student, error) {
 
 	if err := row.Scan(&student.ID, &student.Email, &student.FullName,
 		&student.HasPassword, &student.LinkedProviders,
-		&student.MustChangePassword, &student.CreatedAt,
+		&student.MustChangePassword, &student.CreatedAt, &student.DisabledAt,
 		&classes,
 		&submitted, &student.Stats.ScoreEarned, &student.Stats.ScoreTotal, &pending,
 		&flagged, &live, &student.Stats.LastAttemptAt); err != nil {
@@ -263,7 +288,7 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Student, string, erro
 	}
 
 	args := []any{limit + 1}
-	where := []string{`u.role = 'student'`, `u.disabled_at IS NULL`}
+	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
 
 	if in.Query != "" {
 		args = append(args, likeEscaper.Replace(in.Query))
@@ -316,14 +341,18 @@ var (
 	ErrEmailTaken = errors.New("students: email already in use")
 )
 
-// Get returns one live student.
+// Get returns one student, disabled or not.
+//
+// Disabled included on purpose: the row carries disabledAt, and a detail screen
+// that cannot open a suspended account is a detail screen that cannot re-enable
+// one. Sign-in is blocked by the auth path, not by hiding the record here.
 //
 // Filtered to role 'student' on purpose, not merely because the screen is
 // called Students: every write path reaches the same rows, and without this an
 // admin's own id in the URL would let /admin/students disable the only teacher
 // or reset another admin's password.
 func (s *Store) Get(ctx context.Context, id string) (Student, error) {
-	return s.get(ctx, id, false)
+	return s.get(ctx, id, true)
 }
 
 // get optionally sees disabled rows.
@@ -356,7 +385,7 @@ func (s *Store) get(ctx context.Context, id string, includeDisabled bool) (Stude
 // something the teacher cannot see.
 func (s *Store) Facets(ctx context.Context, in ListInput) (Facets, error) {
 	args := []any{ActiveWindow}
-	where := []string{`u.role = 'student'`, `u.disabled_at IS NULL`}
+	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
 
 	if in.Query != "" {
 		args = append(args, likeEscaper.Replace(in.Query))

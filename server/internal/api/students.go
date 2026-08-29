@@ -26,6 +26,9 @@ func (s *Server) ListStudents(ctx context.Context, request openapi.ListStudentsR
 	if request.Params.ClassId != nil {
 		in.ClassID = request.Params.ClassId.String()
 	}
+	if request.Params.Status != nil {
+		in.Status = students.Status(*request.Params.Status)
+	}
 	if request.Params.Cursor != nil {
 		in.Cursor = *request.Params.Cursor
 	}
@@ -232,6 +235,7 @@ func toAPIStudent(student students.Student) openapi.StudentRow {
 		LinkedProviders:    providers,
 		MustChangePassword: student.MustChangePassword,
 		CreatedAt:          student.CreatedAt,
+		DisabledAt:         student.DisabledAt,
 		Classes:            classes,
 		Stats:              stats,
 	}

@@ -6,9 +6,12 @@ export type StudentClass = components["schemas"]["StudentClass"];
 export type StudentStats = components["schemas"]["StudentStats"];
 export type StudentFacets = components["schemas"]["StudentFacets"];
 
+export type StudentStatus = "active" | "disabled" | "all";
+
 export interface ListStudentsParams {
   q?: string;
   classId?: string;
+  status?: StudentStatus;
   cursor?: string;
   limit?: number;
 }
@@ -17,6 +20,7 @@ export function listStudents(params: ListStudentsParams = {}, signal?: AbortSign
   const query: Record<string, unknown> = {};
   if (params.q) query["q"] = params.q;
   if (params.classId) query["classId"] = params.classId;
+  if (params.status) query["status"] = params.status;
   if (params.cursor) query["cursor"] = params.cursor;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/students", signal ? { query, signal } : { query });

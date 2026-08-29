@@ -645,6 +645,15 @@
     "tempWarning": "Học viên sẽ phải đổi mật khẩu ngay lần đăng nhập đầu tiên. Hãy gửi qua kênh riêng, đừng đăng lên nhóm lớp.",
     "copy": "Sao chép",
     "copied": "Đã chép",
-    "copyFailed": "Trình duyệt không cho phép sao chép. Hãy chép thủ công."
+    "copyFailed": "Trình duyệt không cho phép sao chép. Hãy chép thủ công.",
+    "showDisabled": "Tài khoản đã khoá",
+    "noneDisabled": "Không có tài khoản nào bị khoá.",
+    "access": "Quyền truy cập",
+    "enabledHint": "Tài khoản đang hoạt động. Khoá sẽ chặn đăng nhập nhưng giữ nguyên toàn bộ bài làm.",
+    "disabledHint": "Tài khoản đang bị khoá: không đăng nhập được và không được tính vào sĩ số hay tiến độ bài giao.",
+    "disable": "Khoá tài khoản",
+    "enable": "Mở khoá",
+    "disabledBadge": "đã khoá",
+    "disableFailed": "Không đổi được trạng thái tài khoản. Vui lòng thử lại."
   }
 }

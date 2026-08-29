@@ -27,6 +27,7 @@ function student(id: string, fullName: string, email: string) {
     linkedProviders: [],
     mustChangePassword: false,
     createdAt: "2026-01-01T00:00:00Z",
+    disabledAt: null,
     classes: [],
     stats: {
       submittedCount: 0,
@@ -117,5 +118,51 @@ describe("the one-time password in the student drawer", () => {
       expect(screen.queryByText("Hoàng Tiến Dũng", { selector: "td *" })).toBeNull(),
     );
     expect(screen.getByText("cay-dua-13")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Disabling used to be a one-way door: the student vanished from every listing
+ * and nothing in the API could name them again, so `updateStudent`'s
+ * `disabled: false` was unreachable.
+ */
+describe("suspending and restoring a student", () => {
+  it("finds suspended accounts only when asked, and offers to restore them", async () => {
+    const suspended = {
+      ...student(HAN, "Phạm Gia Hân", "han@example.com"),
+      disabledAt: "2026-08-01T00:00:00Z",
+    };
+    server.use(
+      http.get(`${BASE}/admin/students`, ({ request }) => {
+        const status = new URL(request.url).searchParams.get("status");
+        return contractJson("/admin/students", "get", 200, {
+          items: status === "disabled" ? [suspended] : [DUNG_ROW],
+          nextCursor: null,
+          facets: { total: 1, activeLast7Days: 0 },
+        });
+      }),
+      http.get(`${BASE}/admin/students/:id`, () =>
+        contractJson("/admin/students/{id}", "get", 200, suspended),
+      ),
+    );
+    const user = renderPage();
+
+    // Not in the default listing.
+    const table = await screen.findByRole("table");
+    expect(within(table).queryByText("Phạm Gia Hân")).toBeNull();
+
+    await user.click(screen.getByLabelText("Tài khoản đã khoá"));
+
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("table")).getByText("Phạm Gia Hân"),
+      ).toBeInTheDocument(),
+    );
+
+    await user.click(within(screen.getByRole("table")).getByText("Phạm Gia Hân"));
+    const panel = await screen.findByRole("complementary", { name: /Phạm Gia Hân/ });
+    expect(within(panel).getByText("đã khoá")).toBeInTheDocument();
+    // The way back that did not exist before.
+    expect(within(panel).getByRole("button", { name: "Mở khoá" })).toBeInTheDocument();
   });
 });

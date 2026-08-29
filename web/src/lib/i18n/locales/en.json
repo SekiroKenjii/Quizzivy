@@ -645,6 +645,15 @@
     "tempWarning": "They must change it at their first sign-in. Send it privately; do not post it in the class chat.",
     "copy": "Copy",
     "copied": "Copied",
-    "copyFailed": "The browser refused clipboard access. Copy it by hand."
+    "copyFailed": "The browser refused clipboard access. Copy it by hand.",
+    "showDisabled": "Suspended accounts",
+    "noneDisabled": "No suspended accounts.",
+    "access": "Access",
+    "enabledHint": "This account is active. Suspending it blocks sign-in and keeps every attempt.",
+    "disabledHint": "This account is suspended: it cannot sign in and is not counted in class sizes or assignment progress.",
+    "disable": "Suspend account",
+    "enable": "Restore access",
+    "disabledBadge": "suspended",
+    "disableFailed": "Could not change the account state. Please try again."
   }
 }

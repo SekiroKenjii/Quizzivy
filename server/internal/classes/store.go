@@ -49,7 +49,11 @@ type Member struct {
 
 const classProjection = `
 	SELECT c.id::text, c.name, c.description, c.self_join_enabled, c.created_at,
-	       (SELECT count(*) FROM app.class_members m WHERE m.class_id = c.id),
+	       -- Live members only. A disabled account cannot sign in, so counting
+	       -- it makes every assignment on this class read one short for ever.
+	       (SELECT count(*) FROM app.class_members m
+	          JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
+	         WHERE m.class_id = c.id),
 	       jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count
 	  FROM app.classes c
 	  -- The active code, if there is one. LEFT JOIN because a class with
@@ -116,7 +120,7 @@ func (s *Store) Members(ctx context.Context, classID string) ([]Member, error) {
 	const q = `
 		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint
 		  FROM app.class_members m
-		  JOIN app.users u ON u.id = m.user_id
+		  JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
 		  LEFT JOIN app.class_join_codes jc ON jc.id = m.join_code_id
 		 WHERE m.class_id = $1
 		 ORDER BY m.joined_at DESC`

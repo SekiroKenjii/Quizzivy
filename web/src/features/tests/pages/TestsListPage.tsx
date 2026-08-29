@@ -224,7 +224,7 @@ export default function TestsListPage() {
                               count: test.audioCount,
                             })}
                           >
-                            <Headphones aria-hidden="true" />
+                            <Headphones aria-hidden="true" width="12" height="12" />
                             {test.audioCount}
                           </Badge>
                         ) : null}

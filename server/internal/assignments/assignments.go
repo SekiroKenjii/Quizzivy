@@ -113,9 +113,15 @@ const selectAssignment = `
 		                  WHERE ac.assignment_id = a.id), '{}'),
 		       coalesce((SELECT array_agg(ast.user_id::text) FROM app.assignment_students ast
 		                  WHERE ast.assignment_id = a.id), '{}'),
+		       -- Both sides of submitted/total range over the SAME set: students
+		       -- who are expected to do the work. A disabled account is not, so
+		       -- leaving it in the denominator pinned every assignment at
+		       -- "12/13" with nothing able to close the gap.
 		       (SELECT count(*) FROM app.attempts at
+		          JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
 		         WHERE at.assignment_id = a.id AND at.status IN ('submitted','graded')),
 		       (SELECT count(*) FROM app.attempts at
+		          JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
 		         WHERE at.assignment_id = a.id AND at.flagged),
 		       -- One roster, not two counts added together: a student reached
 		       -- both through their class and by name is one person, and a
@@ -128,7 +134,8 @@ const selectAssignment = `
 		            UNION
 		            SELECT ast.user_id FROM app.assignment_students ast
 		             WHERE ast.assignment_id = a.id
-		        ) roster)
+		        ) roster
+		        JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL)
 		  FROM app.assignments a
 		  JOIN app.tests t ON t.id = a.test_id
 		  JOIN app.test_versions v ON v.id = a.test_version_id

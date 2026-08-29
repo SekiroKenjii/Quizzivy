@@ -364,7 +364,7 @@ components:
         rejects the very body it documents (see issue #41).
       required:
         [id, email, fullName, hasPassword, linkedProviders, mustChangePassword,
-         createdAt, classes, stats]
+         createdAt, disabledAt, classes, stats]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -377,6 +377,15 @@ components:
           maxItems: 1
         mustChangePassword: { type: boolean }
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+        disabledAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Set means the account cannot sign in. Present on the row because
+            `updateStudent` accepts `disabled: false` in both directions, and a
+            state that can be written but never read is a one-way door: the
+            student would vanish from every listing with nothing able to name
+            them again.
         classes:
           type: array
           items: { $ref: '#/components/schemas/StudentClass' }
@@ -2524,6 +2533,16 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Query'
         - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - name: status
+          in: query
+          description: |
+            Defaults to `active`. Without `disabled` there is no request that can
+            return a suspended account, so `updateStudent`'s `disabled: false`
+            would be unreachable.
+          schema:
+            type: string
+            enum: [active, disabled, all]
+            default: active
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, X } from "lucide-react";
+import { Ban, KeyRound, UserCheck, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { TemporaryPasswordCard } from "@/features/students/components/TemporaryP
 import {
   resetStudentPassword,
   scorePercent,
+  updateStudent,
   type Student,
 } from "@/features/students/api";
 import { removeMember } from "@/features/classes/api";
@@ -49,6 +50,19 @@ export function StudentDrawer({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  const setDisabled = useMutation({
+    mutationFn: (disabled: boolean) => updateStudent(student.id, { disabled }),
+    onSuccess: async () => {
+      setError(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-student", student.id] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
+    },
+    onError: (cause) =>
+      setError(cause instanceof ApiError ? cause.message : t("students.disableFailed")),
+  });
 
   const reset = useMutation({
     mutationFn: () => resetStudentPassword(student.id),
@@ -91,6 +105,11 @@ export function StudentDrawer({
             ) : null}
             {student.hasPassword ? (
               <Badge variant="outline">{t("students.password")}</Badge>
+            ) : null}
+            {student.disabledAt ? (
+              <Badge variant="outline" className="text-destructive-ink">
+                {t("students.disabledBadge")}
+              </Badge>
             ) : null}
           </div>
         </div>
@@ -181,6 +200,33 @@ export function StudentDrawer({
       </div>
 
       {temporary === null ? null : <TemporaryPasswordCard password={temporary} />}
+
+      <Separator />
+
+      <div>
+        <p className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+          {t("students.access")}
+        </p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {student.disabledAt === null || student.disabledAt === undefined
+            ? t("students.enabledHint")
+            : t("students.disabledHint")}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2.5"
+          disabled={setDisabled.isPending}
+          onClick={() => setDisabled.mutate(!student.disabledAt)}
+        >
+          {student.disabledAt ? (
+            <UserCheck aria-hidden="true" />
+          ) : (
+            <Ban aria-hidden="true" />
+          )}
+          {student.disabledAt ? t("students.enable") : t("students.disable")}
+        </Button>
+      </div>
     </aside>
   );
 }
