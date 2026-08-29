@@ -32,8 +32,8 @@ export default function ClassesListPage() {
   const items = classes.data.items;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.classes")}</h1>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold tracking-tight">{t("nav.classes")}</h1>
 
       {items.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("classes.empty")}</p>

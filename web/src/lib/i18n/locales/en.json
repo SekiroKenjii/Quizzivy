@@ -142,7 +142,18 @@
     "revokeConfirm": "Stop accepting joins",
     "removeConfirmTitle": "Remove this student from the class?",
     "removeConfirmBody": "They lose access to this class immediately. Their work is kept.",
-    "removeConfirm": "Remove from class"
+    "removeConfirm": "Remove from class",
+    "studentCount": "{{count}} students",
+    "searchMembers": "Find a student",
+    "codeMaskedNote": "The code is shown in full once, when it is created. Only a hash is stored.",
+    "expiresIn": "({{count}} days left)",
+    "expiresToday": "(expires today)",
+    "unlimited": "unlimited",
+    "codeShareHint": "Anyone with the code can join. Create a new one if you think it has been shared outside the class.",
+    "stop": "Stop",
+    "freshTitle": "A new code for this class",
+    "copyCode": "Copy the code",
+    "done": "Done"
   },
   "classes": {
     "loadFailed": "Could not load classes.",

@@ -142,7 +142,18 @@
     "revokeConfirm": "Ngừng cho tham gia",
     "removeConfirmTitle": "Xoá học viên khỏi lớp?",
     "removeConfirmBody": "Học viên sẽ mất quyền truy cập lớp này ngay. Bài làm của họ vẫn được giữ lại.",
-    "removeConfirm": "Xoá khỏi lớp"
+    "removeConfirm": "Xoá khỏi lớp",
+    "studentCount": "{{count}} học viên",
+    "searchMembers": "Tìm học viên",
+    "codeMaskedNote": "Mã chỉ hiện đầy đủ một lần khi tạo. Hệ thống chỉ lưu bản mã hoá.",
+    "expiresIn": "(còn {{count}} ngày)",
+    "expiresToday": "(hết hạn hôm nay)",
+    "unlimited": "không giới hạn",
+    "codeShareHint": "Ai có mã đều vào được lớp. Tạo mã mới khi bạn nghi mã đã bị chia sẻ ra ngoài.",
+    "stop": "Ngừng",
+    "freshTitle": "Mã mới cho lớp này",
+    "copyCode": "Sao chép mã",
+    "done": "Xong"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
