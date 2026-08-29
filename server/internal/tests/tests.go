@@ -48,6 +48,7 @@ type Test struct {
 	CurrentVersion int
 	TotalPoints    string
 	QuestionCount  int
+	AudioCount     int
 	Sections       []Section
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

@@ -12,6 +12,8 @@ type Version struct {
 	Version       int
 	TotalPoints   string
 	QuestionCount int
+	AudioCount    int
+	ManualCount   int
 	PublishedAt   time.Time
 	PublishedBy   string
 }
@@ -32,6 +34,18 @@ func (s *Store) ListVersions(ctx context.Context, testID string) ([]Version, err
 		          JOIN app.test_version_questions vq
 		            ON vq.test_version_section_id = vs.id
 		         WHERE vs.test_version_id = v.id),
+		       (SELECT count(*)
+		          FROM app.test_version_sections vs
+		          JOIN app.test_version_questions vq
+		            ON vq.test_version_section_id = vs.id
+		         WHERE vs.test_version_id = v.id
+		           AND vq.media_asset_kind = 'audio'),
+		       (SELECT count(*)
+		          FROM app.test_version_sections vs
+		          JOIN app.test_version_questions vq
+		            ON vq.test_version_section_id = vs.id
+		         WHERE vs.test_version_id = v.id
+		           AND vq.type = 'short_answer'),
 		       v.published_at,
 		       u.full_name
 		  FROM app.test_versions v
@@ -46,7 +60,7 @@ func (s *Store) ListVersions(ctx context.Context, testID string) ([]Version, err
 	var out []Version
 	for rows.Next() {
 		var v Version
-		if err := rows.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount,
+		if err := rows.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount, &v.AudioCount, &v.ManualCount,
 			&v.PublishedAt, &v.PublishedBy); err != nil {
 			return nil, fmt.Errorf("tests: scan version: %w", err)
 		}

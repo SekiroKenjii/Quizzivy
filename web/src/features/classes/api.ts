@@ -52,3 +52,10 @@ export function removeMember(id: string, userId: string) {
     path: { id, userId },
   });
 }
+
+export function addMember(classId: string, userId: string) {
+  return api("post", "/admin/classes/{id}/members", {
+    path: { id: classId },
+    body: { userId },
+  });
+}

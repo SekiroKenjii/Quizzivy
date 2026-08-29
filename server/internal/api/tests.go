@@ -233,6 +233,7 @@ func toAPITest(t tests.Test) (openapi.Test, error) {
 		CurrentVersion: t.CurrentVersion,
 		TotalPoints:    points,
 		QuestionCount:  t.QuestionCount,
+		AudioCount:     t.AudioCount,
 		CreatedAt:      t.CreatedAt,
 		UpdatedAt:      t.UpdatedAt,
 		DeletedAt:      t.DeletedAt,
@@ -274,6 +275,8 @@ func (s *Server) ListTestVersions(ctx context.Context, request openapi.ListTestV
 			Version:       v.Version,
 			TotalPoints:   points,
 			QuestionCount: v.QuestionCount,
+			AudioCount:    v.AudioCount,
+			ManualCount:   v.ManualCount,
 			PublishedAt:   v.PublishedAt,
 			PublishedBy:   v.PublishedBy,
 		}

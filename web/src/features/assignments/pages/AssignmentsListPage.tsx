@@ -1,6 +1,245 @@
-import { Placeholder } from "@/components/shared/Placeholder";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { Flag, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  listAssignments,
+  type Assignment,
+  type AssignmentStatus,
+} from "@/features/assignments/api";
+import { statusAt } from "@/features/assignments/status";
+import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/i18n/datetime";
 
-/** Placeholder. Built out in a later phase; the route and its chunk exist now. */
+const TABS: (AssignmentStatus | "all")[] = ["all", "open", "scheduled", "closed"];
+
+const STATUS_VARIANT: Record<AssignmentStatus, "success" | "secondary" | "outline"> = {
+  open: "success",
+  scheduled: "secondary",
+  closed: "outline",
+};
+
+/**
+ * §8's assignments list.
+ *
+ * The deck has no board for this route -- it goes straight from G-01 to the
+ * monitor -- so the columns are §8's list verbatim and the shape is A-03's,
+ * which is the deck's answer for every other list screen.
+ */
 export default function AssignmentsListPage() {
-  return <Placeholder titleKey="nav.assignments" />;
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<AssignmentStatus | "all">("all");
+  const locale = currentLocale(i18n.language);
+  const now = new Date();
+
+  const assignments = useInfiniteQuery({
+    queryKey: ["admin-assignments", { tab }],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      listAssignments(
+        {
+          limit: 50,
+          ...(tab === "all" ? {} : { status: tab }),
+          ...(pageParam ? { cursor: pageParam } : {}),
+        },
+        signal,
+      ),
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+
+  const items = assignments.data?.pages.flatMap((page) => page.items) ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {t("nav.assignments")}
+          </h1>
+          <p className="text-muted-foreground mt-0.5 text-sm">
+            {assignments.isSuccess
+              ? t("assignments.summary", { count: items.length })
+              : " "}
+          </p>
+        </div>
+        <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
+          <Plus aria-hidden="true" />
+          {t("assignments.new")}
+        </Button>
+      </div>
+
+      <Tabs
+        value={tab}
+        onValueChange={(next) => setTab(next as AssignmentStatus | "all")}
+      >
+        <TabsList aria-label={t("assignments.statusFilter")}>
+          {TABS.map((value) => (
+            <TabsTrigger key={value} value={value}>
+              {value === "all"
+                ? t("assignments.all")
+                : t(`assignments.status.${value}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {assignments.isPending ? (
+        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+          {t("common.loading")}
+        </p>
+      ) : assignments.isError ? (
+        <div className="space-y-3">
+          <p role="alert" className="text-sm">
+            {t("assignments.loadFailed")}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void assignments.refetch()}
+          >
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="space-y-3">
+          <p className="text-muted-foreground text-sm">
+            {tab === "all" ? t("assignments.empty") : t("assignments.noneWithStatus")}
+          </p>
+          <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
+            {t("assignments.new")}
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Card className="gap-0 overflow-hidden py-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[34%]">{t("assignments.test")}</TableHead>
+                  <TableHead>{t("assignments.targets")}</TableHead>
+                  <TableHead>{t("assignments.window")}</TableHead>
+                  <TableHead>{t("assignments.statusColumn")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("assignments.progress")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("assignments.flagged")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((assignment) => (
+                  <Row
+                    key={assignment.id}
+                    assignment={assignment}
+                    locale={locale}
+                    now={now}
+                    onOpen={() => void navigate(`/admin/assignments/${assignment.id}`)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+
+          {assignments.hasNextPage ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={assignments.isFetchingNextPage}
+              onClick={() => void assignments.fetchNextPage()}
+            >
+              {assignments.isFetchingNextPage
+                ? t("common.loading")
+                : t("bank.loadMore")}
+            </Button>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Row({
+  assignment,
+  locale,
+  now,
+  onOpen,
+}: {
+  assignment: Assignment;
+  locale: Locale;
+  now: Date;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation();
+  const status = statusAt(assignment, now);
+  const submitted = assignment.submittedCount ?? 0;
+  const total = assignment.targetCount ?? 0;
+  const flagged = assignment.flaggedCount ?? 0;
+
+  return (
+    <TableRow>
+      <TableCell>
+        <button
+          type="button"
+          className="truncate text-left font-medium"
+          onClick={onOpen}
+        >
+          {assignment.testTitle}
+        </button>
+        <span className="text-muted-foreground ml-2 text-xs tabular-nums">
+          {t("tests.versionNumber", { n: assignment.testVersion })}
+        </span>
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {t("assignments.targetSummary", {
+          classes: assignment.targets.classIds.length,
+          students: assignment.targets.studentIds.length,
+        })}
+      </TableCell>
+      <TableCell className="text-muted-foreground text-xs">
+        {t("assignments.windowValue", {
+          opens: formatDateTime(assignment.window.opensAt, locale),
+          closes: formatDateTime(assignment.window.closesAt, locale),
+        })}
+      </TableCell>
+      <TableCell>
+        <Badge variant={STATUS_VARIANT[status]}>
+          {t(`assignments.status.${status}`)}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {t("assignments.progressValue", { submitted, total })}
+      </TableCell>
+      <TableCell className="text-right">
+        {flagged === 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <span className="text-warning-ink inline-flex items-center gap-1 tabular-nums">
+            <Flag className="size-3.5" aria-hidden="true" />
+            {flagged}
+          </span>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function currentLocale(language: string): Locale {
+  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
+    ? (language as Locale)
+    : "vi";
 }

@@ -33,24 +33,13 @@ type Deps struct {
 	Publisher    PublishService
 	Dashboard    DashboardService
 	Assignments  AssignmentsService
+	Students     StudentsService
 	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
 	CookieSecure bool
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)
-
-func (s *Server) CreateAssignment(_ context.Context, _ openapi.CreateAssignmentRequestObject) (openapi.CreateAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetAssignment(_ context.Context, _ openapi.GetAssignmentRequestObject) (openapi.GetAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateAssignment(_ context.Context, _ openapi.UpdateAssignmentRequestObject) (openapi.UpdateAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
 
 func (s *Server) GetAssignmentMonitor(_ context.Context, _ openapi.GetAssignmentMonitorRequestObject) (openapi.GetAssignmentMonitorResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
@@ -89,14 +78,6 @@ func (s *Server) VoidAttempt(_ context.Context, _ openapi.VoidAttemptRequestObje
 }
 
 func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObject) (openapi.CreateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) AddClassMember(_ context.Context, _ openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListStudents(_ context.Context, _ openapi.ListStudentsRequestObject) (openapi.ListStudentsResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

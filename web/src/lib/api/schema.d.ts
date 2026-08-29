@@ -1543,6 +1543,8 @@ export interface components {
             currentVersion: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
+            /** @description Questions carrying an audio asset. Backs A-03's headphone badge. */
+            audioCount: number;
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
             createdAt: components["schemas"]["Timestamp"];
@@ -1556,6 +1558,14 @@ export interface components {
             version: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
+            /** @description Listening questions, shown when picking a version to assign (G-01). */
+            audioCount: number;
+            /**
+             * @description Questions needing manual grading. G-01 multiplies it by the roster to
+             *     show the teacher what they are committing to marking before they
+             *     commit to it.
+             */
+            manualCount: number;
             publishedAt: components["schemas"]["Timestamp"];
             /** @description Display name. */
             publishedBy: string;
@@ -2995,6 +3005,7 @@ export interface operations {
                     "application/json": components["schemas"]["Assignment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
                 headers: {
@@ -3053,6 +3064,8 @@ export interface operations {
                     "application/json": components["schemas"]["Assignment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             /** @description `VERSION_LOCKED` — attempts exist, so the version cannot be changed. */
             409: {
                 headers: {
@@ -3382,6 +3395,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createStudent: {
@@ -3657,6 +3671,8 @@ export interface operations {
                     "application/json": components["schemas"]["ClassMember"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     removeClassMember: {

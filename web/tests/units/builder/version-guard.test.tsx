@@ -37,6 +37,7 @@ function testBody() {
     currentVersion: 0,
     totalPoints: 1,
     questionCount: 1,
+    audioCount: 0,
     sections: [
       {
         id: "018f0000-0000-7000-8000-0000000000c1",

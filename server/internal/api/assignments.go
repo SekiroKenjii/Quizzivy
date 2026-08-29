@@ -96,3 +96,136 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 	out.Window.ClosedAt = a.ClosedAt
 	return out
 }
+
+func (s *Server) GetAssignment(ctx context.Context, request openapi.GetAssignmentRequestObject) (openapi.GetAssignmentResponseObject, error) {
+	if s.Deps.Assignments == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	a, err := s.Deps.Assignments.Get(ctx, request.Id.String())
+	if errors.Is(err, assignments.ErrNotFound) {
+		return openapi.GetAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			notFound(ctx, "Không tìm thấy bài giao."))}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return openapi.GetAssignment200JSONResponse(toAPIAssignment(a)), nil
+}
+
+func (s *Server) CreateAssignment(ctx context.Context, request openapi.CreateAssignmentRequestObject) (openapi.CreateAssignmentResponseObject, error) {
+	if s.Deps.Assignments == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := assignmentRequest(ctx, "")
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	a, err := s.Deps.Assignments.Create(ctx, req, toWriteInput(*request.Body))
+	var invalid *assignments.ValidationError
+	switch {
+	case err == nil:
+	case errors.As(err, &invalid):
+		return openapi.CreateAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			assignmentValidationError(ctx, invalid))}, nil
+	case errors.Is(err, assignments.ErrTestNotPublished):
+		return openapi.CreateAssignment409JSONResponse(authError(ctx, openapi.TESTNOTPUBLISHED,
+			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
+	default:
+		return nil, err
+	}
+	return openapi.CreateAssignment201JSONResponse(toAPIAssignment(a)), nil
+}
+
+func (s *Server) UpdateAssignment(ctx context.Context, request openapi.UpdateAssignmentRequestObject) (openapi.UpdateAssignmentResponseObject, error) {
+	if s.Deps.Assignments == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := assignmentRequest(ctx, request.Id.String())
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	a, err := s.Deps.Assignments.Update(ctx, req, toWriteInput(*request.Body))
+	var invalid *assignments.ValidationError
+	switch {
+	case err == nil:
+	case errors.As(err, &invalid):
+		return openapi.UpdateAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			assignmentValidationError(ctx, invalid))}, nil
+	case errors.Is(err, assignments.ErrNotFound):
+		return openapi.UpdateAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			notFound(ctx, "Không tìm thấy bài giao."))}, nil
+	case errors.Is(err, assignments.ErrTestNotPublished):
+		return openapi.UpdateAssignment409JSONResponse(authError(ctx, openapi.TESTNOTPUBLISHED,
+			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
+	case errors.Is(err, assignments.ErrVersionLocked):
+		return openapi.UpdateAssignment409JSONResponse(authError(ctx, openapi.VERSIONLOCKED,
+			"Đã có học viên làm bài, không thể đổi phiên bản đề.")), nil
+	default:
+		return nil, err
+	}
+	return openapi.UpdateAssignment200JSONResponse(toAPIAssignment(a)), nil
+}
+
+func assignmentRequest(ctx context.Context, id string) (assignments.Request, bool) {
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return assignments.Request{}, false
+	}
+	meta := httpx.RequestMetaFromContext(ctx)
+	return assignments.Request{
+		ID: id, ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent,
+	}, true
+}
+
+func assignmentValidationError(ctx context.Context, invalid *assignments.ValidationError) openapi.ErrorResponse {
+	resp := authError(ctx, openapi.VALIDATIONFAILED, "Dữ liệu bài giao không hợp lệ.")
+	details := map[string]interface{}{}
+	for _, f := range invalid.Fields {
+		if _, seen := details[f.Field]; !seen {
+			details[f.Field] = f.Message
+		}
+	}
+	resp.Error.Details = &details
+	return resp
+}
+
+func toWriteInput(body openapi.AssignmentInput) assignments.WriteInput {
+	in := assignments.WriteInput{
+		TestVersionID: body.TestVersionId.String(),
+		OpensAt:       body.Window.OpensAt,
+		ClosesAt:      body.Window.ClosesAt,
+		DurationMin:   body.DurationMinutes,
+		MaxAttempts:   body.MaxAttempts,
+		Review: assignments.Review{
+			ShowScore:          body.Review.ShowScore,
+			ShowCorrectAnswers: body.Review.ShowCorrectAnswers,
+			ShowExplanations:   body.Review.ShowExplanations,
+		},
+		Integrity: assignments.Integrity{
+			RequireFullscreen: body.Integrity.RequireFullscreen,
+			BlockCopyPaste:    body.Integrity.BlockCopyPaste,
+			MaxFocusLoss:      body.Integrity.MaxFocusLoss,
+			OnLimitExceeded:   string(body.Integrity.OnLimitExceeded),
+			MinAwayMs:         body.Integrity.MinAwayMs,
+		},
+		Now: time.Now(),
+	}
+	if body.ShuffleQuestions != nil {
+		in.ShuffleQ = *body.ShuffleQuestions
+	}
+	if body.ShuffleOptions != nil {
+		in.ShuffleO = *body.ShuffleOptions
+	}
+	if body.CloseNow != nil {
+		in.CloseNow = *body.CloseNow
+	}
+	for _, id := range body.Targets.ClassIds {
+		in.ClassIDs = append(in.ClassIDs, id.String())
+	}
+	for _, id := range body.Targets.StudentIds {
+		in.StudentIDs = append(in.StudentIDs, id.String())
+	}
+	return in
+}

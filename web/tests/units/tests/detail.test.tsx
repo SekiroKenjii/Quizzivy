@@ -21,6 +21,7 @@ let draft = {
   currentVersion: 1,
   totalPoints: 2,
   questionCount: 1,
+  audioCount: 0,
   sections: [
     {
       id: "018f0000-0000-7000-8000-0000000000c1",
@@ -49,6 +50,7 @@ beforeEach(() => {
     currentVersion: 1,
     totalPoints: 2,
     questionCount: 1,
+    audioCount: 0,
     sections: [
       {
         id: "018f0000-0000-7000-8000-0000000000c1",
@@ -70,6 +72,8 @@ beforeEach(() => {
             version: 1,
             totalPoints: 2,
             questionCount: 1,
+            audioCount: 0,
+            manualCount: 0,
             publishedAt: "2026-01-02T03:00:00Z",
             publishedBy: "Cô Thương",
           },

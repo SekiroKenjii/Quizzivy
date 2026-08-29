@@ -13,6 +13,7 @@ import (
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
 	"quizzivy/internal/questions"
+	"quizzivy/internal/students"
 	"quizzivy/internal/tests"
 	"quizzivy/internal/tests/publish"
 )
@@ -51,6 +52,7 @@ type ClassesService interface {
 	Members(ctx context.Context, classID string) ([]classes.Member, error)
 	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
+	AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (classes.Member, error)
 }
 
 // MediaService is the slice of internal/media the handlers use.
@@ -90,6 +92,14 @@ type TestsService interface {
 // AssignmentsService is the slice of internal/assignments the handlers use.
 type AssignmentsService interface {
 	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, string, error)
+	Get(ctx context.Context, id string) (assignments.Assignment, error)
+	Create(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
+	Update(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
+}
+
+// StudentsService is the slice of internal/students the handlers use.
+type StudentsService interface {
+	List(ctx context.Context, in students.ListInput) ([]students.Student, string, error)
 }
 
 // DashboardService is the slice of internal/dashboard the handlers use.

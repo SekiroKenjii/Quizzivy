@@ -32,6 +32,13 @@ func (s *Service) RemoveMember(ctx context.Context, classID, userID, actorID, ip
 	})
 }
 
+func (s *Service) AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (Member, error) {
+	return s.store.AddMember(ctx, AddMemberInput{
+		ClassID: classID, UserID: userID, ActorUserID: actorID,
+		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+	})
+}
+
 func optional(v string) *string {
 	if v == "" {
 		return nil

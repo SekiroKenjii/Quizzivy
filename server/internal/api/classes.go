@@ -100,6 +100,40 @@ func (s *Server) ListClassMembers(ctx context.Context, request openapi.ListClass
 	return openapi.ListClassMembers200JSONResponse{Items: items}, nil
 }
 
+func (s *Server) AddClassMember(ctx context.Context, request openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
+	if s.Deps.Classes == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	meta := httpx.RequestMetaFromContext(ctx)
+
+	m, err := s.Deps.Classes.AddMember(ctx, request.Id.String(), request.Body.UserId.String(),
+		principal.UserID, meta.IP, meta.UserAgent)
+	switch {
+	case err == nil:
+	case errors.Is(err, classes.ErrNotFound):
+		return openapi.AddClassMember404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			notFound(ctx, "Không tìm thấy lớp học."))}, nil
+	case errors.Is(err, classes.ErrNotAStudent):
+		return openapi.AddClassMember400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			authError(ctx, openapi.VALIDATIONFAILED, "Chỉ có thể thêm tài khoản học viên vào lớp."))}, nil
+	default:
+		return nil, err
+	}
+
+	return openapi.AddClassMember201JSONResponse{
+		UserId:       parseUUID(m.UserID),
+		FullName:     m.FullName,
+		Email:        openapi_types.Email(m.Email),
+		JoinedVia:    openapi.ClassMemberJoinedVia(m.JoinedVia),
+		JoinedAt:     m.JoinedAt,
+		JoinCodeHint: m.JoinCodeHint,
+	}, nil
+}
+
 // RemoveClassMember implements DELETE /admin/classes/{id}/members/{userId}.
 //
 // Revokes access and RETAINS attempts (§6.4). The membership grants access;

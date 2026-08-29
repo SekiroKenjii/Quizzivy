@@ -646,7 +646,7 @@ components:
 
     Test:
       type: object
-      required: [id, title, status, currentVersion, totalPoints, questionCount, sections, createdAt, updatedAt]
+      required: [id, title, status, currentVersion, totalPoints, questionCount, audioCount, sections, createdAt, updatedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -659,6 +659,10 @@ components:
           description: 0 while never published. A `published` test always has ≥ 1.
         totalPoints: { $ref: '#/components/schemas/Points' }
         questionCount: { type: integer, minimum: 0 }
+        audioCount:
+          type: integer
+          minimum: 0
+          description: Questions carrying an audio asset. Backs A-03's headphone badge.
         sections:
           type: array
           items: { $ref: '#/components/schemas/TestSection' }
@@ -671,13 +675,26 @@ components:
     TestVersion:
       type: object
       description: Immutable. Editing a published test creates a new one; in-flight attempts keep theirs (§7).
-      required: [id, version, totalPoints, questionCount, publishedAt, publishedBy]
+      required:
+        [id, version, totalPoints, questionCount, audioCount, manualCount,
+         publishedAt, publishedBy]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         version: { type: integer, minimum: 1 }
         totalPoints: { $ref: '#/components/schemas/Points' }
         questionCount: { type: integer, minimum: 0 }
+        audioCount:
+          type: integer
+          minimum: 0
+          description: Listening questions, shown when picking a version to assign (G-01).
+        manualCount:
+          type: integer
+          minimum: 0
+          description: |
+            Questions needing manual grading. G-01 multiplies it by the roster to
+            show the teacher what they are committing to marking before they
+            commit to it.
         publishedAt: { $ref: '#/components/schemas/Timestamp' }
         publishedBy: { type: string, description: Display name. }
 
@@ -2028,6 +2045,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
           content:
@@ -2066,6 +2084,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`VERSION_LOCKED` — attempts exist, so the version cannot be changed.'
           content:
@@ -2373,6 +2393,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/User' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createStudent
       tags: [admin-students]
@@ -2583,6 +2604,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ClassMember' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/classes/{id}/members/{userId}:
     parameters:
