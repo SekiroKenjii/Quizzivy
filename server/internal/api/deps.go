@@ -12,6 +12,7 @@ import (
 	"quizzivy/internal/media"
 	"quizzivy/internal/questions"
 	"quizzivy/internal/tests"
+	"quizzivy/internal/tests/publish"
 )
 
 // DB is the slice of the pool handlers need. An interface rather than the
@@ -77,6 +78,11 @@ type TestsService interface {
 	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
 	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)
 	Duplicate(ctx context.Context, req tests.Request) (tests.Test, error)
+}
+
+// PublishService is the slice of internal/tests/publish the handlers use.
+type PublishService interface {
+	Publish(ctx context.Context, req publish.Request) (publish.Version, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

@@ -30,6 +30,7 @@ type Deps struct {
 	Media        MediaService
 	Questions    QuestionsService
 	Tests        TestsService
+	Publisher    PublishService
 	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
 	CookieSecure bool
@@ -126,10 +127,6 @@ func (s *Server) ResetStudentPassword(_ context.Context, _ openapi.ResetStudentP
 }
 
 func (s *Server) PreviewTest(_ context.Context, _ openapi.PreviewTestRequestObject) (openapi.PreviewTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) PublishTest(_ context.Context, _ openapi.PublishTestRequestObject) (openapi.PublishTestResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 

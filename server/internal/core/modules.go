@@ -15,6 +15,7 @@ import (
 	"quizzivy/internal/questions"
 	"quizzivy/internal/storage"
 	"quizzivy/internal/tests"
+	"quizzivy/internal/tests/publish"
 )
 
 // buildModules wires every feature module into the handler's dependencies.
@@ -45,6 +46,7 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		Classes:      classes.NewService(classes.NewStore(pool.Pool)),
 		Questions:    questions.NewService(questions.NewStore(pool.Pool)),
 		Tests:        tests.NewService(tests.NewStore(pool.Pool)),
+		Publisher:    publish.NewPublisher(pool.Pool),
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,
