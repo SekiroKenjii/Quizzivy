@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
 	"quizzivy/internal/questions"
+	"quizzivy/internal/tests"
 )
 
 // DB is the slice of the pool handlers need. An interface rather than the
@@ -67,6 +68,15 @@ type QuestionsService interface {
 	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Delete(ctx context.Context, req questions.WriteRequest) error
+}
+
+// TestsService is the slice of internal/tests the handlers use.
+type TestsService interface {
+	List(ctx context.Context, in tests.ListInput) ([]tests.Test, string, error)
+	Get(ctx context.Context, id string) (tests.Test, error)
+	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
+	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)
+	Duplicate(ctx context.Context, req tests.Request) (tests.Test, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

@@ -1557,6 +1557,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/Test' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
@@ -1638,6 +1639,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`.'
           content:
@@ -1695,6 +1697,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/tests/{id}/versions:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
