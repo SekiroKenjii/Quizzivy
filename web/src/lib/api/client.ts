@@ -246,8 +246,16 @@ export async function uploadFile<T>(
           if (event.lengthComputable) options.onProgress?.(event.loaded / event.total);
         };
       }
-      request.onload = () => resolve({ status: request.status, body: request.responseText });
-      request.onerror = () => reject(new ApiError({ status: 0, code: "UNKNOWN", message: "Không thể kết nối máy chủ." }));
+      request.onload = () =>
+        resolve({ status: request.status, body: request.responseText });
+      request.onerror = () =>
+        reject(
+          new ApiError({
+            status: 0,
+            code: "UNKNOWN",
+            message: "Không thể kết nối máy chủ.",
+          }),
+        );
       request.onabort = () => reject(new DOMException("Aborted", "AbortError"));
 
       if (options.signal) {
