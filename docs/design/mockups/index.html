@@ -83,6 +83,17 @@
           </p>
           <p class="text-xs text-muted-foreground mt-3">6 boards</p>
         </a>
+        <a class="card p-5" href="sheets/50-brand-and-errors.html">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-sparkles" /></svg>
+            <p class="card-title">Brand &amp; errors</p>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Thuong's brand kit — variants, palette, app icons — placed on the surfaces this
+            product actually has, plus 404 / unexpected error / no-access on the login layout.
+          </p>
+          <p class="text-xs text-muted-foreground mt-3">9 boards</p>
+        </a>
         <div class="card p-5 bg-muted/30">
           <div class="flex items-center gap-2.5">
             <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-keyboard" /></svg>
@@ -141,7 +152,7 @@
       <div class="deck-section">
         <h2 class="deck-h">Where the deck proposes something the spec does not have</h2>
         <p class="deck-sub mt-1">
-          Six additions, each small, each with the reason it earns its place. Everything else on
+          Nine additions, each small, each with the reason it earns its place. Everything else on
           these sheets implements §8 and §9 as written.
         </p>
         <div class="card mt-4">
@@ -176,6 +187,21 @@
                 <td class="text-muted-foreground">“19 × 2 = 38 câu bạn sẽ phải chấm”, shown at the moment of commitment rather than discovered on Sunday night.</td>
               </tr>
               <tr>
+                <td class="font-medium">Two-panel error screens</td>
+                <td class="text-muted-foreground">E-01…03</td>
+                <td class="text-muted-foreground">404, the error boundary and 403 move onto the login layout. One <code class="font-mono text-xs">ErrorScreen</code> gains an art slot; no route changes.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">The failed path on the 404</td>
+                <td class="text-muted-foreground">E-01</td>
+                <td class="text-muted-foreground">“nó báo lỗi” is unactionable; the path tells the teacher whether the assignment was deleted or the link was mistyped.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">The signed-in account on the 403</td>
+                <td class="text-muted-foreground">E-03</td>
+                <td class="text-muted-foreground">The commonest real cause is the wrong Google account. Naming the address turns a dead end into a two-second fix.</td>
+              </tr>
+              <tr>
                 <td class="font-medium">Saveable comment snippets</td>
                 <td class="text-muted-foreground">G-03</td>
                 <td class="text-muted-foreground">The same four sentences get typed all term. A tiny table and a chip row.</td>
@@ -195,6 +221,7 @@
     </div>
 
     <script src="assets/icons.js"></script>
+    <script src="assets/brand.js"></script>
     <script src="assets/kit.js"></script>
   </body>
 </html>

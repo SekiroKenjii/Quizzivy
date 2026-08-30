@@ -30,6 +30,9 @@ network, and there is a system-stack fallback.
 | `mockups/sheets/20-teacher-authoring.html` | Navigation, dashboard, palette, tests, builder, publish gate, audio, bank, media |
 | `mockups/sheets/30-teacher-assign-grade.html` | Assignment creation, monitor, grading, integrity timeline, classes, students |
 | `mockups/sheets/40-lms-future.html` | Test → activity, navigation over three releases, course/lesson/vocabulary/gradebook, sequencing |
+| `mockups/sheets/50-brand-and-errors.html` | The brand kit placed on this product's surfaces; 404 / unexpected error / no-access on the two-panel login shape |
+| `brand/` | **Thuong's brand kit, copied verbatim.** Source of truth for every logo, icon and colour |
+| `mockups/assets/brand.js` | The kit's SVGs as an injected sprite, generated from `brand/svg/` — do not hand-edit |
 | `mockups/sheets/_head.html`, `_foot.html`, `_sidebar.html` | Templates for a new sheet — `__TITLE__`, `__N0__`…`__N4__` (nav active state), `__A_*__` (sidebar active state) |
 | `mockups/assets/kit.css` | The design kit — see below |
 | `mockups/assets/icons.js` | Lucide sprite; `assets/README.md` has the regeneration recipe |
@@ -102,8 +105,38 @@ These came out of drawing the screens and cannot be answered from the spec.
    Zalo message, which is why the QR is downloadable. If it is usually a printed sheet, the QR
    needs a print layout instead.
 
+## The brand
+
+`docs/design/brand/` is Thuong's kit, copied byte-for-byte from
+`~/Developer/designs/quizzivy-brand`. **Nothing in the deck redraws it.** Every logo on every
+sheet is a `<use>` of a symbol in `mockups/assets/brand.js`, which is generated from
+`brand/svg/` — so a change to the kit reaches the whole deck by regenerating one file, and the
+deck can never quietly diverge from the kit.
+
+| | |
+|---|---|
+| `brand/svg/quizzivy-mark-*.svg` | Symbol alone — `color`, `on-dark`, `black`, `white` |
+| `brand/svg/quizzivy-logo-horizontal-*.svg` | Lockup with the wordmark — same four variants |
+| `brand/svg/quizzivy-logo-vertical-*.svg` | Stacked lockup — `color`, `on-dark`, `white` |
+| `brand/svg/quizzivy-appicon-{light,dark}.svg` | 1024 app icons, corner radius already applied |
+| `brand/svg/quizzivy-favicon.svg` | Square favicon; copy to `web/public/favicon.svg` |
+| `brand/png/` | Pre-exported PNGs, and `brand/README.md` is the kit's own documentation |
+
+Rules that come from the kit itself: light ground → `color`, dark ground → `on-dark` or
+`white`, one-colour printing → `black` / `white`; symbol never below 24px tall, horizontal
+lockup never below 120px wide. The wordmark is Quicksand Bold converted to paths — **never
+re-set it in Inter**; Inter is the interface's typeface, not the logo's.
+
+One decision the deck surfaces but does not make (board B-04): in the teacher's top bar the
+`color` lockup sits about 40px from a green "Đã phát hành" badge, and green means "đúng" inside
+this product (§12). The board draws that top bar both ways — `color` per the kit's rule, and
+`black` — so the trade-off is visible. Both are the kit's own variants; neither recolours
+anything.
+
 ## Maintenance
 
+- After changing anything in `brand/svg/`, regenerate the sprite so the deck follows:
+  `node docs/design/mockups/build-brand-sprite.mjs docs/design/brand/svg docs/design/mockups/assets/brand.js`
 - `node docs/design/mockups/check.mjs` after any edit. It fails on an undefined class or a
   missing icon, which are the two ways a static mockup silently renders wrong.
 - New screens go on the sheet for their audience, with an id, a name, and the route. A board
