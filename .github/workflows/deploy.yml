@@ -1,0 +1,193 @@
+name: Deploy
+
+# Merging release/* into main is what ships. This runs AFTER CI concludes on
+# main rather than on the push itself, so a merge that breaks something is not
+# deployed while its own test run is still red.
+#
+# It is a separate workflow, not a job inside CI, for one reason worth stating:
+# a deploy that fails for an infrastructure reason -- an expired token, a Fly
+# region hiccup -- can be re-run on its own from workflow_dispatch, without
+# paying for twenty minutes of tests that already passed on the same commit.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        default: all
+        options: [all, api, web]
+
+# Never cancel a deploy in flight. A cancelled `flyctl deploy` can leave the app
+# mid-rollout, and a cancelled release_command can leave migrations half applied
+# -- both far worse than one queued run waiting its turn.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  PNPM_VERSION: "11.12.0"
+  # Where the SPA is told to find the API. Baked into the bundle at build time,
+  # so it is a build input rather than runtime configuration.
+  API_ORIGIN: https://api.quizzivy.com
+  PAGES_PROJECT: quizzivy-web
+
+jobs:
+  # The commit CI validated, resolved once so both jobs deploy the same thing.
+  #
+  # workflow_run does NOT check out the triggering commit by default -- it
+  # checks out the default branch's tip. On a quiet repo those are the same
+  # commit and the difference never shows; on a busy afternoon it silently
+  # deploys something CI never saw.
+  resolve:
+    name: Resolve
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      api: ${{ steps.pick.outputs.api }}
+      web: ${{ steps.pick.outputs.web }}
+    steps:
+      - id: pick
+        run: |
+          sha="${{ github.event.workflow_run.head_sha || github.sha }}"
+          target="${{ inputs.target || 'all' }}"
+          echo "sha=$sha"                                    >> "$GITHUB_OUTPUT"
+          echo "api=${{ inputs.target == 'web' && 'false' || 'true' }}" >> "$GITHUB_OUTPUT"
+          echo "web=${{ inputs.target == 'api' && 'false' || 'true' }}" >> "$GITHUB_OUTPUT"
+          echo "Deploying $target at $sha"
+
+  # ------------------------------------------------------------------- api
+  api:
+    name: API → Fly
+    needs: resolve
+    if: needs.resolve.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      # Fail before touching production rather than half way through it. A
+      # missing token otherwise surfaces as an auth error from flyctl after the
+      # image has already been built.
+      - name: Check the token is present
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::FLY_API_TOKEN is not set. Create a deploy token with"
+            echo "::error::  fly tokens create deploy -a quizzivy-api"
+            echo "::error::then add it with: gh secret set FLY_API_TOKEN"
+            exit 1
+          fi
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # --remote-only builds on Fly's builders, so this runner needs no Docker
+      # layer cache and the image is built next to where it will run.
+      #
+      # fly.toml's release_command applies migrations before the new version
+      # takes traffic and rolls the deploy back if they fail, which is why the
+      # schema change and the code that needs it ship as one action.
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --wait-timeout 10m
+
+      # Fly reports a deploy as successful once health checks pass; this asks
+      # the app the one question the health check exists to answer.
+      - name: Verify the API answers
+        run: |
+          for attempt in 1 2 3 4 5; do
+            body=$(curl -fsS --max-time 10 "$API_ORIGIN/healthz") && break
+            echo "attempt $attempt failed; retrying in 6s"; sleep 6
+          done
+          echo "$body"
+          echo "$body" | grep -q '"database":"ok"' || {
+            echo "::error::/healthz did not report database:ok"; exit 1; }
+
+  # ------------------------------------------------------------------- web
+  # After the API, deliberately. The SPA is the half that calls the other, so
+  # the window between the two deploys is old-SPA-against-new-API rather than
+  # the reverse -- and the contract only ever grows, so that direction is safe.
+  web:
+    name: Web → Cloudflare Pages
+    needs: [resolve, api]
+    if: ${{ !cancelled() && needs.resolve.outputs.web == 'true' && (needs.api.result == 'success' || needs.api.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Check the credentials are present
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          missing=
+          [ -n "$CLOUDFLARE_API_TOKEN" ]  || missing="$missing CLOUDFLARE_API_TOKEN(secret)"
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID(secret)"
+          # Not a secret -- it travels in the authorization URL the browser
+          # follows -- but it IS environment-specific, and a build without it
+          # simply hides the Google button rather than failing, which is the
+          # kind of breakage nobody reports.
+          [ -n "$VITE_GOOGLE_CLIENT_ID" ] || missing="$missing VITE_GOOGLE_CLIENT_ID(variable)"
+          if [ -n "$missing" ]; then
+            echo "::error::not configured:$missing"
+            echo "::error::see docs/setup/deploy.md"
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      # VITE_ values are inlined at build time, so this is the step that decides
+      # which API the deployed SPA talks to. There is no runtime override.
+      - name: Build
+        working-directory: web
+        env:
+          VITE_API_BASE_URL: ${{ env.API_ORIGIN }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_DEFAULT_LOCALE: vi
+        run: pnpm build
+
+      # The check that stops the whole point of the deploy going wrong quietly.
+      # client.ts falls back to http://localhost:8080 when VITE_API_BASE_URL is
+      # unset, so a mis-scoped variable produces a bundle that builds, uploads,
+      # serves, and cannot reach anything.
+      - name: Assert the bundle points at production
+        working-directory: web
+        run: |
+          grep -rq "$API_ORIGIN" dist/assets/*.js || {
+            echo "::error::$API_ORIGIN is not in the bundle -- VITE_API_BASE_URL did not reach the build"
+            exit 1; }
+          echo "bundle targets $API_ORIGIN"
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: web
+          command: pages deploy dist --project-name=${{ env.PAGES_PROJECT }} --branch=main
