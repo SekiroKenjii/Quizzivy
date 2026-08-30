@@ -1,31 +1,51 @@
 import type { ReactNode } from "react";
+import { AuthLayout } from "@/features/auth/AuthLayout";
 
 /**
- * The deck's S-11 shape for a screen that reports a failure: centred, high on
- * the page, an optional muted glyph, then what happened and what to do next.
+ * The shape all three failure screens share (E-01..E-03): the same two-panel
+ * layout login uses, with the drawing in the panel and the answer in the card.
  *
- * Shared by 403, 404 and the error boundary because the deck draws them as one
- * shape — a student who hits two of them should not have to re-read the layout.
+ * One shape for three screens is the whole argument. A student who has read the
+ * 404 can read the 403 without re-learning where anything is, and below `lg`
+ * all three collapse the same way because `AuthLayout` collapses.
+ *
+ * The status number never appears. It means nothing to a fifteen-year-old and
+ * everything to us, so it stays in the console and out of the copy.
  */
 export function ErrorScreen({
-  icon,
+  art,
   title,
   body,
+  footer,
   children,
 }: {
-  icon?: ReactNode;
+  /** The panel drawing from `errorArt`. */
+  art: ReactNode;
   title: string;
   body: string;
+  /** The line under the card explaining what to do about it. */
+  footer?: ReactNode;
+  /** Evidence and actions: what this particular failure can offer. */
   children?: ReactNode;
 }) {
   return (
-    <main className="mx-auto max-w-sm p-4 pt-16 text-center">
-      {icon}
-      <h1 className={`text-lg font-semibold tracking-tight ${icon ? "mt-4" : ""}`}>
-        {title}
-      </h1>
+    <AuthLayout art={art} footer={footer}>
+      <h1 className="text-lg font-semibold tracking-tight lg:text-xl">{title}</h1>
       <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{body}</p>
       {children}
-    </main>
+    </AuthLayout>
   );
+}
+
+/**
+ * The actions block. Ranked, stacked, full width — never side by side, because
+ * on a phone two half-width buttons are two small targets and the ranking stops
+ * being visible.
+ *
+ * Taller on a phone and default height from `lg` up, which is what E-01 and
+ * E-04 draw: 44px clears the touch target on the screen where these are pressed
+ * with a thumb.
+ */
+export function ErrorActions({ children }: { children: ReactNode }) {
+  return <div className="mt-5 space-y-2 *:h-11 *:w-full lg:*:h-9">{children}</div>;
 }

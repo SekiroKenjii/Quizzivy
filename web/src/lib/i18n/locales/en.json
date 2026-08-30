@@ -20,17 +20,24 @@
     "reload": "Reload the page",
     "errorId": "Error ID",
     "copyId": "Copy error ID",
-    "copied": "Copied"
+    "copied": "Copied",
+    "home": "Go home",
+    "footnote": "If reloading does not help, send this code to your teacher — it says exactly which request failed."
   },
   "notFound": {
     "title": "Page not found",
     "body": "This address does not exist, or it has changed.",
-    "action": "Go home"
+    "action": "Go home",
+    "back": "Go back",
+    "footnote": "If you got here from a link your teacher sent, tell them so they can send a new one."
   },
   "forbidden": {
     "title": "You do not have access",
     "body": "Your account is not permitted to view this page. If you think this is a mistake, contact your teacher.",
-    "action": "Go to my page"
+    "action": "Go to my page",
+    "signedInAs": "Signed in as",
+    "switchAccount": "Sign in with a different account",
+    "footnote": "Students and teachers use separate areas. This page belongs to the teacher area."
   },
   "nav": {
     "dashboard": "Dashboard",

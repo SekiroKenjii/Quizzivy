@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryRouter,
   Outlet,
@@ -57,7 +58,14 @@ function renderAt(path: string) {
     },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [path] });
-  render(<RouterProvider router={router} />);
+  // The 403 page can sign you out, so it reads the query client -- which
+  // AppProviders wraps the router in for every route in the real tree.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
   return router;
 }
 
@@ -188,7 +196,14 @@ describe("losing the session", () => {
     const router = createMemoryRouter(routes, {
       initialEntries: ["/join/K7M3P9QR/confirm"],
     });
-    render(<RouterProvider router={router} />);
+    // The 403 page can sign you out, so it reads the query client -- which
+    // AppProviders wraps the router in for every route in the real tree.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
     expect(await screen.findByText("confirm page")).toBeInTheDocument();
 
     // What the API client does when a session turns out not to exist.

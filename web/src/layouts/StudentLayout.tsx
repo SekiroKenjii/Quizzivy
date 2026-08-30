@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router";
 import { User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/shared/Brand";
 
 /**
  * §9: "minimal top bar, no sidebar, mobile-first, safe-area padding."
@@ -26,7 +27,7 @@ export default function StudentLayout() {
     <div className="flex min-h-svh flex-col">
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-4 px-4">
-          <span className="text-sm font-semibold tracking-tight">{t("app.name")}</span>
+          <BrandMark height={24} />
           <nav aria-label={t("nav.mainNavigation")} className="flex items-center gap-1">
             <NavLink to="/app" end className={link}>
               {t("student.myAssignments")}
