@@ -14,6 +14,7 @@ const PANELS = [
   { id: "authoring", label: "Authoring", file: "sheets/20-teacher-authoring.html" },
   { id: "grading", label: "Assign & grade", file: "sheets/30-teacher-assign-grade.html" },
   { id: "lms", label: "LMS vision", file: "sheets/40-lms-future.html" },
+  { id: "brand", label: "Brand & errors", file: "sheets/50-brand-and-errors.html" },
 ];
 
 /** The `<div class="deck-wrap">…</div>` body of a sheet, without the deck chrome around it. */
@@ -49,6 +50,9 @@ css += `
 const icons = readFileSync(join(root, "assets/icons.js"), "utf8");
 const sprite = JSON.parse(icons.match(/const QUIZZIVY_ICON_SPRITE = (".*?");\n/s)[1]);
 
+const brandJs = readFileSync(join(root, "assets/brand.js"), "utf8");
+const brandSprite = JSON.parse(brandJs.match(/const QUIZZIVY_BRAND_SPRITE = (".*?");\n/s)[1]);
+
 const nav = PANELS.map(
   (p, i) =>
     `<button class="btn btn-sm ${i === 0 ? "btn-secondary" : "btn-ghost"}" data-goto="${p.id}">${p.label}</button>`,
@@ -71,6 +75,7 @@ body { background: var(--deck-canvas); }
 .panel[hidden] { display: none; }
 </style>
 ${sprite}
+${brandSprite}
 <div class="deck-bar">
   <span class="font-semibold tracking-tight">Quizzivy</span>
   <span class="text-xs text-muted-foreground">design deck</span>
