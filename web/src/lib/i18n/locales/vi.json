@@ -20,17 +20,24 @@
     "reload": "Tải lại trang",
     "errorId": "Mã lỗi",
     "copyId": "Sao chép mã lỗi",
-    "copied": "Đã sao chép"
+    "copied": "Đã sao chép",
+    "home": "Về trang chủ",
+    "footnote": "Nếu tải lại vẫn lỗi, gửi mã này cho giáo viên — mã cho biết chính xác yêu cầu nào đã hỏng."
   },
   "notFound": {
     "title": "Không tìm thấy trang",
     "body": "Đường dẫn này không tồn tại hoặc đã bị thay đổi.",
-    "action": "Về trang chủ"
+    "action": "Về trang chủ",
+    "back": "Quay lại",
+    "footnote": "Nếu bạn tới đây từ đường dẫn giáo viên gửi, hãy báo lại để giáo viên gửi lại link mới."
   },
   "forbidden": {
     "title": "Bạn không có quyền truy cập",
     "body": "Tài khoản của bạn không được phép xem trang này. Nếu bạn nghĩ đây là nhầm lẫn, hãy liên hệ giáo viên.",
-    "action": "Về trang của tôi"
+    "action": "Về trang của tôi",
+    "signedInAs": "Đang đăng nhập bằng",
+    "switchAccount": "Đăng nhập bằng tài khoản khác",
+    "footnote": "Học viên và giáo viên dùng hai khu vực khác nhau. Trang này thuộc khu vực của giáo viên."
   },
   "nav": {
     "dashboard": "Tổng quan",

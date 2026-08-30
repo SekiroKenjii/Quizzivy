@@ -27,6 +27,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useQuery } from "@tanstack/react-query";
 import { getDashboard } from "@/features/dashboard/api";
 import { NotificationsButton } from "@/features/dashboard/NotificationsButton";
+import { BrandLockup } from "@/components/shared/Brand";
 
 /**
  * §8: "sidebar + top bar. Collapsible sidebar ≤1280px. Minimum supported width
@@ -164,9 +165,7 @@ export default function AdminLayout() {
             >
               <PanelLeft className="size-5" aria-hidden="true" />
             </button>
-            <span className="text-base font-semibold tracking-tight">
-              {t("app.name")}
-            </span>
+            <BrandLockup height={28} />
 
             {/* A-02's trigger: the palette is the only navigation model that
               survives an LMS-sized sidebar, so it sits in the chrome rather

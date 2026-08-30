@@ -1,25 +1,55 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { Ban } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ErrorScreen } from "@/app/pages/ErrorScreen";
+import { ErrorActions, ErrorScreen } from "@/app/pages/ErrorScreen";
+import { ForbiddenArt } from "@/app/pages/errorArt";
+import { homePathFor } from "@/features/auth/home";
+import { useLogout } from "@/features/auth/useSession";
+import { useAuthStore } from "@/stores/auth";
 
 /**
  * §5.4: a `student` reaching `/admin/*` gets a 403 PAGE, not a redirect — "a
- * redirect hides the misconfiguration". The deck's S-11 gives it a muted glyph
- * rather than an alarm one: the account is in the wrong place, not in trouble.
+ * redirect hides the misconfiguration".
+ *
+ * E-03 makes the point that the page is only useful if it names WHICH account
+ * is being refused. The commonest real cause is a student signed in with the
+ * wrong Google account, or a teacher on their personal one; showing the address
+ * turns a dead end into a two-second fix.
  */
 export default function ForbiddenPage() {
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const logout = useLogout();
+
   return (
     <ErrorScreen
-      icon={<Ban className="text-muted-foreground mx-auto size-8" aria-hidden="true" />}
+      art={<ForbiddenArt />}
       title={t("forbidden.title")}
       body={t("forbidden.body")}
+      footer={t("forbidden.footnote")}
     >
-      <Button asChild className="mt-5">
-        <Link to="/app">{t("forbidden.action")}</Link>
-      </Button>
+      {user ? (
+        <div className="mt-4 flex items-center gap-2.5 rounded-md border p-3">
+          <Avatar name={user.fullName} size="sm" />
+          <div className="min-w-0">
+            <p className="text-muted-foreground text-xs">{t("forbidden.signedInAs")}</p>
+            <p className="truncate text-sm">{user.email}</p>
+          </div>
+        </div>
+      ) : null}
+
+      <ErrorActions>
+        <Button asChild>
+          <Link to={homePathFor(user)}>{t("forbidden.action")}</Link>
+        </Button>
+        {/* "Sign in with another account", not "Sign out". The same call to
+            POST /auth/logout, but it states what it gets them rather than what
+            it takes away — and switching accounts is the actual fix. */}
+        <Button variant="outline" onClick={() => void logout()}>
+          {t("forbidden.switchAccount")}
+        </Button>
+      </ErrorActions>
     </ErrorScreen>
   );
 }
