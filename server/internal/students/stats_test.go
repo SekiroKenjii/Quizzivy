@@ -323,6 +323,26 @@ func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 
+	// A second student this search cannot match, so "unfiltered is larger" is
+	// true because of what this test seeded rather than because of whatever
+	// else happens to be in the database.
+	//
+	// It read as passing for months on the strength of other packages' rows:
+	// `go test ./...` ran packages in parallel against one database, so
+	// somebody else's fixture was always inflating the unfiltered count. Once
+	// the suite went serial (-p 1) this was the only student in the table and
+	// unfiltered equalled filtered.
+	var other string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.users (email, full_name, role)
+		 VALUES ($1,'Nguyễn Văn Khác','student') RETURNING id::text`,
+		"stat-other-"+nonce(t)+"@example.com").Scan(&other); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1::uuid`, other)
+	})
+
 	all, err := store.Facets(ctx, students.ListInput{})
 	if err != nil {
 		t.Fatal(err)
