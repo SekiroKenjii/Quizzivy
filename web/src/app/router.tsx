@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
 import { ErrorBoundary, NotFound } from "@/app/ErrorBoundary";
+import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
@@ -187,7 +188,12 @@ export const router = createBrowserRouter([
       authTree,
       publicTree,
       protectedTree,
-      { path: "403", lazy: page(() => import("@/app/pages/ForbiddenPage")) },
+      // Eager, like the guard that also renders it. Asking for a chunk here
+      // while RequireRole imports it statically only produced an
+      // INEFFECTIVE_DYNAMIC_IMPORT warning: Rollup cannot split a module that
+      // something else needs up front, so the "lazy" route was paying the
+      // ceremony and getting the eager module anyway.
+      { path: "403", element: <ForbiddenPage /> },
       { path: "*", element: <NotFound /> },
     ],
   },
