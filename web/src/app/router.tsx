@@ -4,6 +4,7 @@ import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
+import StudentLayout from "@/layouts/StudentLayout";
 
 /**
  * §3's three route trees: public, /admin for the teacher, /app for students.
@@ -122,7 +123,12 @@ const studentTree: RouteObject = {
   element: <StudentArea />,
   children: [
     {
-      lazy: page(() => import("@/layouts/StudentLayout")),
+      // Eager. It wraps every student route, so it is fetched on the way to
+      // all of them, and splitting it only buys a SECOND serial round trip on
+      // the coldest entry there is -- a student opening a QR-code link, who
+      // waits for this chunk and then for the page's before seeing anything.
+      // That wait is also what made E2E 3 flaky under load (#50).
+      Component: StudentLayout,
       children: [
         {
           index: true,

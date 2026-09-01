@@ -10,14 +10,14 @@ import { Outlet } from "react-router";
  * layout, because it depends on attempt state.
  */
 export default function FocusLayout() {
+  // The column and nothing else. S-05's header and footer run edge to edge
+  // while only the question body is centred at 720px, so the centring belongs
+  // to the screen rather than to the shell -- a `main` here wrapped the header
+  // and footer too, and left the footer stranded mid-page instead of at the
+  // bottom of the viewport.
   return (
     <div className="bg-background flex min-h-svh flex-col leading-relaxed">
-      <main
-        className="mx-auto w-full max-w-[720px] flex-1 px-4 py-6"
-        style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
-      >
-        <Outlet />
-      </main>
+      <Outlet />
     </div>
   );
 }

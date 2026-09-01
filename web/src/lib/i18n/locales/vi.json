@@ -684,5 +684,29 @@
     "enable": "Mở khoá",
     "disabledBadge": "đã khoá",
     "disableFailed": "Không đổi được trạng thái tài khoản. Vui lòng thử lại."
+  },
+  "takeTest": {
+    "answerOptions": "Các phương án",
+    "blankLabel": "Chỗ trống {{n}}",
+    "yourAnswer": "Bài làm của bạn",
+    "wordCount_one": "{{count}} từ",
+    "wordCount_other": "{{count}} từ",
+    "exit": "Thoát",
+    "questionCounter": "Câu {{n}}/{{total}}",
+    "saved": "Đã lưu {{time}}",
+    "saving": "Đang lưu…",
+    "unsaved": "Chưa lưu",
+    "previous": "Câu trước",
+    "next": "Câu sau",
+    "questionList": "Danh sách câu",
+    "reviewAndSubmit": "Xem lại & nộp",
+    "loading": "Đang mở bài…",
+    "loadFailed": "Không mở được bài làm. Hãy tải lại trang.",
+    "empty": "Đề này chưa có câu hỏi nào.",
+    "lockedSuperseded": "Bài này đang mở ở thiết bị khác. Bạn không thể sửa ở đây nữa.",
+    "lockedDeadline": "Đã hết giờ làm bài.",
+    "lockedClosed": "Bài làm này đã kết thúc.",
+    "manualGrading": "giáo viên chấm tay",
+    "savedNothingYet": "Chưa có gì để lưu"
   }
 }

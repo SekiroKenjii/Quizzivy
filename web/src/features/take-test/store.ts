@@ -49,6 +49,8 @@ interface TakeTestState {
   submitState: SubmitState;
   flushInFlight: boolean;
   retryDelayMs: number;
+  /** When the server last confirmed a save, per its clock. Null until one lands. */
+  lastSavedAt: string | null;
 
   hydrate: (session: AttemptSession) => void;
   setAnswer: (questionId: string, answer: Answer) => void;
@@ -80,6 +82,7 @@ const initial = {
   submitState: "idle" as SubmitState,
   flushInFlight: false,
   retryDelayMs: RETRY_BASE_MS,
+  lastSavedAt: null,
 };
 
 export const useTakeTestStore = create<TakeTestState>((set, get) => ({
@@ -174,6 +177,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
           flushInFlight: false,
           retryDelayMs: RETRY_BASE_MS,
           offsetMs: Date.parse(saved.serverTime) - Date.now(),
+          lastSavedAt: saved.savedAt,
         };
       });
     } catch (error) {
