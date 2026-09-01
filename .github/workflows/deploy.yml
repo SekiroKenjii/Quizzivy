@@ -102,6 +102,31 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only --wait-timeout 10m
 
+      # What Fly's own failure output does not give you.
+      #
+      # A crash-on-boot is reported as "the app appears to be crashing" followed
+      # by "here's the last lines below" and then nothing at all -- the machine
+      # died before Fly attached to its log stream. The actual cause was one
+      # line on the app's stderr, and finding it took reproducing the production
+      # environment locally. This prints that line in the run that failed.
+      #
+      # Names only from `secrets list`: Fly does not print values, and the
+      # question a boot failure raises is almost always which name is missing.
+      - name: Why it crashed
+        if: failure()
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          echo "::group::app logs"
+          flyctl logs -a quizzivy-api --no-tail | tail -80 || echo "(no logs available)"
+          echo "::endgroup::"
+          echo "::group::configured secret names (values are never printed)"
+          flyctl secrets list -a quizzivy-api || true
+          echo "::endgroup::"
+          echo "::group::env baked into fly.toml"
+          flyctl config env -a quizzivy-api || true
+          echo "::endgroup::"
+
       # Fly reports a deploy as successful once health checks pass; this asks
       # the app the one question the health check exists to answer.
       - name: Verify the API answers

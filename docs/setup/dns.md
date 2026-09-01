@@ -184,8 +184,33 @@ DATABASE_URL           postgres://quizzivy_app:...@<neon-host>/quizzivy?sslmode=
 MIGRATE_DATABASE_URL   postgres://quizzivy_migrate:...@<neon-host>/quizzivy?sslmode=require
 JWT_SIGNING_KEY        openssl rand -base64 48
 GOOGLE_CLIENT_SECRET   from the OAuth client
-R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
+S3_ENDPOINT            https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com
+S3_BUCKET              quizzivy-media
+S3_ACCESS_KEY_ID       the R2 access key id
+S3_SECRET_ACCESS_KEY   the R2 secret
 ```
+
+**Object storage uses the `S3_*` names, not `R2_*`.** This list said `R2_ACCOUNT_ID
+/ R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY` until 2026-09-01, and those three are
+read by `make verify-r2` and by nothing else — `.env.example` says so directly:
+"The server reads the S3_* names above and does not derive anything from
+R2_ACCOUNT_ID."
+
+Setting only the `R2_*` names does not fail. `MediaEnabled()` sees zero of four
+set, treats object storage as simply not configured, and the API serves
+everything else — so the deployment comes up healthy, passes `/healthz`, and
+audio upload is dead. On a listening-test product that is the feature, and the
+only sign is one line at startup: `media storage disabled (no bucket
+configured)`. Check for it after a deploy.
+
+Leave `S3_FORCE_PATH_STYLE` unset in production. R2 addresses buckets by
+subdomain and needs it false, which is the default; only MinIO locally needs it
+true.
+
+**`GOOGLE_CLIENT_ID` is NOT a secret and is not set here.** It lives in
+`fly.toml`'s `[env]`, because it is a public identifier that already ships
+inside a JS bundle any visitor can read. Setting it as a secret as well gives
+one value two homes, and they drift.
 
 Two roles, two URLs, deliberately (§13.5). `MIGRATE_DATABASE_URL` is used only
 by the release command; the running API connects as `quizzivy_app`, which cannot
