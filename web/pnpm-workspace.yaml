@@ -2,6 +2,13 @@
 # not from package.json.
 #   esbuild -- places the platform binary Vite's bundler needs
 #   msw     -- writes the service worker used by browser-mode mocking
+#   workerd -- wrangler's runtime, pulled in only by the Pages deploy in CI
+#
+# workerd is not a dependency of this project and never appears in the lockfile.
+# cloudflare/wrangler-action installs wrangler into this directory at deploy
+# time, and pnpm reads approvals from here, so an unlisted postinstall is a hard
+# ERR_PNPM_IGNORED_BUILDS and the deploy stops after a successful build.
 allowBuilds:
   esbuild: true
   msw: true
+  workerd: true
