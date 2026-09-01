@@ -1,14 +1,3 @@
-// Command migrate applies the SQL migrations.
-//
-// This exists instead of shipping the goose CLI, which links drivers for MySQL,
-// SQLite, Turso, Vertica, YDB and several others -- a dozen dependencies this
-// project does not use, in a binary that runs against a public deployment. The
-// goose LIBRARY is already a dependency, so this is the same migration engine
-// at the same version with only the Postgres driver attached.
-//
-// Run by Fly's release_command before a new version takes traffic, using the
-// quizzivy_migrate role. The API itself connects as quizzivy_app and cannot run
-// DDL (§13.5), so this is the only path by which the schema changes.
 package main
 
 import (
@@ -42,9 +31,6 @@ func main() {
 		log.Fatalf("open: %v", err)
 	}
 	defer func() { _ = conn.Close() }()
-
-	// Same reason as the API: Neon may be resuming a suspended compute, and the
-	// release command is often the very first connection after a quiet period.
 	if err := waitReady(conn, 60*time.Second); err != nil {
 		log.Fatalf("connect: %v", err)
 	}
@@ -84,8 +70,6 @@ func run(conn *sql.DB, dir, command string) error {
 	case "version":
 		return goose.Version(conn, dir)
 	case "reset":
-		// Destructive. Deliberately not reachable from the release command;
-		// available for local and CI use only.
 		return goose.Reset(conn, dir)
 	default:
 		return fmt.Errorf("unknown command %q (up, down, status, version, reset)", command)

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { Button } from "@/components/ui/button";
+import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "@/features/auth/api";
@@ -41,8 +42,6 @@ export default function LoginPage() {
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
-    // Validate on blur rather than on every keystroke: complaining that an
-    // email is invalid while it is still being typed is noise.
     mode: "onTouched",
   });
 
@@ -53,28 +52,21 @@ export default function LoginPage() {
       setSession(result.accessToken, result.user);
       await navigate(destinationAfterSignIn(next, result.user), { replace: true });
     } catch (cause) {
-      // The server's message is already localised and deliberately identical
-      // for every failure -- unknown email, wrong password, disabled account
-      // (§5.1). Rendering it verbatim is what keeps that property; a
-      // client-side lookup keyed on the code would be free to say more than
-      // the server chose to.
       setError(cause instanceof ApiError ? cause.message : t("login.failed"));
     }
   });
 
   return (
-    <AuthLayout>
-      <h1 className="text-2xl font-semibold tracking-tight">{t("login.title")}</h1>
-      <p className="text-muted-foreground mt-2 text-sm">{t("login.subtitle")}</p>
-
-      {/* noValidate hands validation to zod, so the messages are Vietnamese
-          and styled rather than the browser's own. */}
-      <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4" noValidate>
-        <div className="space-y-2">
+    <AuthLayout footer={t("login.noSignup")}>
+      <h1 className="text-xl font-semibold tracking-tight">{t("login.title")}</h1>
+      <p className="text-muted-foreground mt-1.5 text-sm">{t("login.subtitle")}</p>
+      <form onSubmit={(e) => void onSubmit(e)} className="mt-5 space-y-3" noValidate>
+        <div className="space-y-1.5">
           <Label htmlFor="email">{t("login.email")}</Label>
           <Input
             id="email"
             type="email"
+            className="h-11"
             inputMode="email"
             autoComplete="email"
             autoCapitalize="none"
@@ -90,11 +82,12 @@ export default function LoginPage() {
           ) : null}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="password">{t("login.password")}</Label>
           <Input
             id="password"
             type="password"
+            className="h-11"
             autoComplete="current-password"
             aria-invalid={form.formState.errors.password ? true : undefined}
             aria-describedby={
@@ -115,14 +108,19 @@ export default function LoginPage() {
           </p>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+        <Button
+          type="submit"
+          size="lg"
+          className="mt-4 w-full"
+          disabled={form.formState.isSubmitting}
+        >
           {form.formState.isSubmitting ? t("common.loading") : t("login.submit")}
         </Button>
       </form>
 
       {googleSignInAvailable() ? (
         <>
-          <div className="my-6 flex items-center gap-3">
+          <div className="my-4 flex items-center gap-3">
             <span className="bg-border h-px flex-1" aria-hidden="true" />
             <span className="text-muted-foreground text-xs">{t("login.or")}</span>
             <span className="bg-border h-px flex-1" aria-hidden="true" />
@@ -131,18 +129,16 @@ export default function LoginPage() {
           <Button
             type="button"
             variant="outline"
+            size="lg"
             className="w-full"
             disabled={google.pending}
             onClick={() => void google.start({ next })}
           >
+            <GoogleMark />
             {t("login.continueWithGoogle")}
           </Button>
         </>
       ) : null}
-
-      <p className="text-muted-foreground mt-6 text-xs leading-relaxed">
-        {t("login.noSignup")}
-      </p>
     </AuthLayout>
   );
 }

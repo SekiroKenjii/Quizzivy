@@ -50,9 +50,6 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
-  // Localised rather than left as shadcn's English "Close": this is the label a
-  // screen-reader user actually hears, and §14 admits no English-only text.
-  // shadcn components are copy-paste-and-own, so editing them is expected.
   const { t } = useTranslation();
 
   return (

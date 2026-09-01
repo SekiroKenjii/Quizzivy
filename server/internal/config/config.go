@@ -1,4 +1,3 @@
-// Package config reads runtime configuration from the environment.
 package config
 
 import (
@@ -12,29 +11,22 @@ import (
 )
 
 type Config struct {
-	Port           string
-	Env            string
-	DatabaseURL    string
-	AllowedOrigins []string
-
-	// ClientIPHeader names the ONE header that carries the real client address,
-	// or "" to use the socket. Only headers the infrastructure overwrites are
-	// safe here -- CF-Connecting-IP behind Cloudflare, Fly-Client-IP on Fly.
-	// Never X-Forwarded-For: proxies append to it, so a client can prepend its
-	// own value and choose its own rate-limit bucket.
-	ClientIPHeader string
-
-	// Google sign-in (§5.3). Optional as a group: a deployment without it
-	// still serves password login. Partially set is a misconfiguration and
-	// refuses to start.
-	GoogleClientID     string
-	GoogleClientSecret string
-	GoogleRedirectURIs []string
-
-	// MaxConcurrentPasswordHashes bounds Argon2id concurrency. Each in-flight
-	// hash holds a 64 MiB arena, so this is a MEMORY limit wearing a
-	// concurrency limit's clothes -- see auth.DefaultMaxConcurrentHashes.
+	Port                        string
+	Env                         string
+	DatabaseURL                 string
+	AllowedOrigins              []string
+	ClientIPHeader              string
+	GoogleClientID              string
+	GoogleClientSecret          string
+	GoogleRedirectURIs          []string
 	MaxConcurrentPasswordHashes int
+	S3Endpoint                  string
+	S3Region                    string
+	S3Bucket                    string
+	S3AccessKeyID               string
+	S3SecretAccessKey           string
+	S3ForcePathStyle            bool
+	SignedURLTTL                time.Duration
 
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
@@ -67,9 +59,6 @@ func Load() (Config, error) {
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")
 	}
-
-	// A short HMAC key is brute-forceable offline, and a forged token grants
-	// whatever role the attacker writes into it. Refuse rather than warn.
 	cfg.JWTSigningKey = []byte(os.Getenv("JWT_SIGNING_KEY"))
 	if len(cfg.JWTSigningKey) < 32 {
 		return cfg, fmt.Errorf("JWT_SIGNING_KEY must be at least 32 bytes (got %d); generate one with: openssl rand -base64 48",
@@ -82,23 +71,22 @@ func Load() (Config, error) {
 	if cfg.RefreshTokenTTL, err = parseDuration("REFRESH_TOKEN_TTL", "720h"); err != nil {
 		return cfg, err
 	}
-
-	// Defaults to TRUE. The one environment where it is false is plain-http
-	// localhost; defaulting the other way would ship a session cookie in the
-	// clear the first time someone forgot to set it.
 	cfg.RefreshCookieSecure = getenv("REFRESH_COOKIE_SECURE", "true") != "false"
 
 	if err := loadGoogle(&cfg); err != nil {
 		return cfg, err
 	}
-
-	// Deliberately NOT derived from GOMAXPROCS or the CPU count. The binding
-	// constraint is RAM, and a shared-cpu-1x machine reports the host's cores,
-	// not its own memory -- sizing on cores would pick a number that OOMs.
-	cfg.MaxConcurrentPasswordHashes = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
+	cfg.MaxConcurrentPasswordHashes, err = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
 		auth.DefaultMaxConcurrentHashes)
+	if err != nil {
+		return cfg, err
+	}
 	if cfg.MaxConcurrentPasswordHashes < 1 {
 		return cfg, fmt.Errorf("MAX_CONCURRENT_PASSWORD_HASHES must be at least 1")
+	}
+
+	if err := loadMedia(&cfg); err != nil {
+		return cfg, err
 	}
 
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
@@ -145,15 +133,9 @@ func loadGoogle(cfg *Config) error {
 		return nil // Google sign-in is simply off.
 	case 3:
 	default:
-		// Half-configured is worse than off: the endpoint would exist and fail
-		// in a way that looks like Google's fault.
 		return fmt.Errorf("google sign-in needs GOOGLE_CLIENT_ID (or VITE_GOOGLE_CLIENT_ID), " +
 			"GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI together, or none of them")
 	}
-
-	// Comma-separated so one build can serve localhost and production. Exact
-	// matching is done at exchange time; prefix matching on redirect URIs is
-	// the classic OAuth mistake.
 	for _, uri := range strings.Split(redirects, ",") {
 		if uri = strings.TrimSpace(uri); uri != "" {
 			cfg.GoogleRedirectURIs = append(cfg.GoogleRedirectURIs, uri)
@@ -162,21 +144,101 @@ func loadGoogle(cfg *Config) error {
 	return nil
 }
 
+// MediaEnabled reports whether object storage is configured. Media upload is
+// optional as a group, like Google sign-in: a deployment without it serves
+// everything else rather than refusing to start.
+//
+// The ENDPOINT counts. Without it the SDK has no BaseEndpoint and resolves
+// against real AWS S3 -- so a deployment holding a bucket and R2 credentials
+// but no S3_ENDPOINT used to report media as enabled and then talk to the wrong
+// provider entirely. loadMedia now refuses that at startup, so by the time this
+// is asked the four are all set or all empty.
+func (c Config) MediaEnabled() bool {
+	return c.S3Endpoint != "" && c.S3Bucket != "" &&
+		c.S3AccessKeyID != "" && c.S3SecretAccessKey != ""
+}
+
+// loadMedia reads the object-storage group, all-or-nothing, the same way
+// loadGoogle reads Google's.
+func loadMedia(cfg *Config) error {
+	cfg.S3Endpoint = os.Getenv("S3_ENDPOINT")
+	cfg.S3Region = getenv("S3_REGION", "auto")
+	cfg.S3Bucket = os.Getenv("S3_BUCKET")
+	cfg.S3AccessKeyID = os.Getenv("S3_ACCESS_KEY_ID")
+	cfg.S3SecretAccessKey = os.Getenv("S3_SECRET_ACCESS_KEY")
+
+	set := 0
+	for _, v := range []string{
+		cfg.S3Endpoint, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey,
+	} {
+		if strings.TrimSpace(v) != "" {
+			set++
+		}
+	}
+	switch set {
+	case 0:
+	case 4:
+	default:
+		return fmt.Errorf("object storage needs S3_ENDPOINT, S3_BUCKET, " +
+			"S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY together, or none of them")
+	}
+	forcePathStyle, err := getenvBool("S3_FORCE_PATH_STYLE", false)
+	if err != nil {
+		return err
+	}
+	cfg.S3ForcePathStyle = forcePathStyle
+	ttl, err := parseDuration("SIGNED_URL_TTL", "10m")
+	if err != nil {
+		return err
+	}
+	cfg.SignedURLTTL = ttl
+	return nil
+}
+
 // GoogleEnabled reports whether §5.3 sign-in is configured.
 func (c Config) GoogleEnabled() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && len(c.GoogleRedirectURIs) > 0
 }
 
-func getenvInt(key string, fallback int) int {
+// getenvInt reads an integer setting. An ABSENT value takes the fallback; a
+// PRESENT but unparseable one is an error.
+//
+// The two are not the same thing and used to be treated as such. Every other
+// input here fails loudly -- a non-numeric API_PORT, X-Forwarded-For as the
+// client-IP header, a `*` in the CORS origins, a half-configured Google block --
+// and this was the one that quietly substituted the default. Its only caller
+// bounds Argon2id concurrency on a 512 MB machine, so "8 slots" instead of "8"
+// would start the process on 4 and say nothing, and whoever raised it after
+// resizing the machine would never learn it had not applied.
+func getenvInt(key string, fallback int) (int, error) {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
-		return fallback
+		return fallback, nil
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		return fallback
+		return 0, fmt.Errorf("%s must be an integer, got %q", key, v)
 	}
-	return n
+	return n, nil
+}
+
+// getenvBool parses a boolean the way getenvInt parses an integer: anything
+// unparseable is an error, not a silent fallback.
+//
+// The previous form was `getenv(key, "true") != "false"`, under which `0`,
+// `False`, `FALSE` and `no` all quietly meant true -- the same shape that was
+// fixed for getenvInt one commit earlier, and for the same reason: every other
+// input here fails loudly.
+func getenvBool(key string, fallback bool) (bool, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean such as true or false, got %q", key, v)
+	}
+	return b, nil
 }
 
 func parseDuration(key, fallback string) (time.Duration, error) {

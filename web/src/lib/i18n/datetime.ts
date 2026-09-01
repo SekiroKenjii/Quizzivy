@@ -1,4 +1,4 @@
-import { formatInTimeZone, toZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 import { vi, enUS } from "date-fns/locale";
 import type { Locale as AppLocale } from "./index";
 
@@ -31,6 +31,46 @@ export function formatTime(utc: string | Date, locale: AppLocale = "vi") {
   return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm", {
     locale: dateFnsLocale[locale],
   });
+}
+
+/**
+ * "2 giờ trước", "hôm qua", then a plain date -- the deck's A-03 column.
+ *
+ * Relative wording earns its keep for about a week; past that "3 tuần trước" is
+ * a worse answer than the date, because the teacher is looking for a specific
+ * test they remember by when they wrote it.
+ */
+export function formatRelative(utc: string | Date, locale: AppLocale = "vi") {
+  const then = new Date(utc).getTime();
+  const seconds = Math.round((then - Date.now()) / 1000);
+  const days = Math.round(seconds / 86_400);
+
+  if (Math.abs(days) > 6) return formatDate(utc, locale);
+
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const minutes = Math.round(seconds / 60);
+  if (Math.abs(minutes) < 1) return relative.format(0, "minute");
+  if (Math.abs(minutes) < 60) return relative.format(minutes, "minute");
+
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return relative.format(hours, "hour");
+  return relative.format(days, "day");
+}
+
+/**
+ * The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE.
+ *
+ * The input element has no timezone: it hands back "2026-08-29T08:00" and the
+ * browser means it in the device's zone. On a laptop set to UTC that is 15:00
+ * in Vietnam, so a teacher opening a test at 08:00 would open it at 15:00 for
+ * everyone. These two make the field mean the same thing on every machine.
+ */
+export function toDateTimeInput(utc: string | Date): string {
+  return formatInTimeZone(utc, APP_TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
+}
+
+export function fromDateTimeInput(value: string): Date {
+  return fromZonedTime(value, APP_TIME_ZONE);
 }
 
 /** The same instant, expressed in the app's timezone. For date maths in the UI. */

@@ -62,8 +62,6 @@ func TestSaltIsPerHash(t *testing.T) {
 }
 
 func TestRejectsMalformedHashesRatherThanReturningFalse(t *testing.T) {
-	// Returning (false, nil) for a corrupt hash would look like a wrong
-	// password, and a storage problem would be diagnosed as a user error.
 	for name, encoded := range map[string]string{
 		"empty":            "",
 		"not PHC":          "just-a-string",
@@ -87,9 +85,6 @@ func TestRejectsMalformedHashesRatherThanReturningFalse(t *testing.T) {
 }
 
 func TestParametersTravelWithTheHash(t *testing.T) {
-	// The whole point of PHC format: a hash derived with parameters this
-	// package would never choose must still verify. Tuning the constants above
-	// must not invalidate every stored password.
 	salt := []byte("sixteen-byte-slt")
 	weakKey := argon2.IDKey([]byte("x"), salt, 1, 8*1024, 1, 32)
 	weak := fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
@@ -104,9 +99,6 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 	if !ok {
 		t.Error("a hash with non-default parameters did not verify")
 	}
-
-	// And new hashes carry the current parameters, so a future reader can tell
-	// which cost each stored password was made with.
 	fresh, err := HashPassword(context.Background(), "x")
 	if err != nil {
 		t.Fatal(err)
@@ -120,34 +112,79 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 // accounts exist. A missing user that returns instantly, while a real one
 // spends ~50ms hashing, is a user-enumeration oracle measurable over a handful
 // of requests.
-func TestUnknownUserCostsTheSameAsAWrongPassword(t *testing.T) {
+//
+// This WAS a wall-clock comparison of the two paths, requiring their ratio to
+// land in [0.5, 2.0]. It turned develop red on a push that touched neither
+// file, at 68ms against 157ms for two operations that differ only in which
+// 64 MiB arena they touch. The property is real; a stopwatch on a shared runner
+// was not measuring it.
+//
+// It is now tested where it can actually decay, in two parts.
+
+// TestDummyHashUsesTheCurrentCostParameters covers parameter drift.
+//
+// The equal-cost property holds structurally: BurnPasswordTime IS
+// VerifyPassword against dummyHash, and dummyHash is produced at init by
+// HashPassword, so raising the cost raises both paths together. This asserts
+// that construction has not been undone -- by a hardcoded literal, say, or a
+// dummyHash built with parameters of its own.
+func TestDummyHashUsesTheCurrentCostParameters(t *testing.T) {
+	p, _, _, err := decodeHash(dummyHash)
+	if err != nil {
+		t.Fatalf("dummyHash does not parse as Argon2id: %v", err)
+	}
+	if p.memory != defaultMemory || p.time != defaultTime || p.threads != defaultThreads {
+		t.Errorf("dummyHash is m=%d,t=%d,p=%d but the current parameters are m=%d,t=%d,p=%d; "+
+			"an unknown email would cost less than a real one and login would be a "+
+			"user-enumeration oracle",
+			p.memory, p.time, p.threads, defaultMemory, defaultTime, defaultThreads)
+	}
+}
+
+// TestBurnPasswordTimeDoesRealWork covers the regression the structural
+// argument does not reach: someone reading BurnPasswordTime as pointless work
+// and optimising it away. Asserting dummyHash's parameters says nothing about
+// whether anything still uses it.
+//
+// A FLOOR, not a ratio, and that is the whole point. Contention can only make
+// an operation slower, so a lower bound cannot be crossed by a busy runner --
+// only by the work genuinely not happening. The margin is five orders of
+// magnitude: one Argon2id at 64 MiB is tens of milliseconds on any machine that
+// can run this suite, and a no-op measured 190ns when this was checked by
+// mutation. 5ms sits far below the real cost and far above any plausible noise.
+func TestBurnPasswordTimeDoesRealWork(t *testing.T) {
+	// Untimed: the first Argon2id call faults in a fresh 64 MiB arena.
+	BurnPasswordTime(context.Background(), "warm-up")
+
+	start := time.Now()
+	BurnPasswordTime(context.Background(), "wrong")
+	elapsed := time.Since(start)
+
+	const floor = 5 * time.Millisecond
+	if elapsed < floor {
+		t.Errorf("BurnPasswordTime returned in %v, under the %v floor: it is no longer doing "+
+			"the Argon2id work that makes an unknown email cost the same as a real one, "+
+			"so login is a user-enumeration oracle", elapsed, floor)
+	}
+}
+
+// BenchmarkPasswordPathsAreEqualCost keeps the number visible without gating CI
+// on it. `go test -bench PasswordPaths ./internal/auth/` prints both; they
+// should be within noise of each other, and a real divergence would show as a
+// difference no amount of noise explains.
+func BenchmarkPasswordPathsAreEqualCost(b *testing.B) {
 	hash, err := HashPassword(context.Background(), "correct-horse")
 	if err != nil {
-		t.Fatal(err)
+		b.Fatal(err)
 	}
-
-	median := func(fn func()) time.Duration {
-		const runs = 7
-		samples := make([]time.Duration, runs)
-		for i := range samples {
-			start := time.Now()
-			fn()
-			samples[i] = time.Since(start)
+	b.Run("wrong-password", func(b *testing.B) {
+		for b.Loop() {
+			_, _ = VerifyPassword(context.Background(), "wrong", hash)
 		}
-		for i := 1; i < len(samples); i++ {
-			for j := i; j > 0 && samples[j] < samples[j-1]; j-- {
-				samples[j], samples[j-1] = samples[j-1], samples[j]
-			}
+	})
+	b.Run("no-such-user", func(b *testing.B) {
+		for b.Loop() {
+			BurnPasswordTime(context.Background(), "wrong")
 		}
-		return samples[runs/2]
-	}
-
-	wrongPassword := median(func() { _, _ = VerifyPassword(context.Background(), "wrong", hash) })
-	noSuchUser := median(func() { BurnPasswordTime(context.Background(), "wrong") })
-
-	ratio := float64(noSuchUser) / float64(wrongPassword)
-	if ratio < 0.5 || ratio > 2.0 {
-		t.Errorf("timing differs too much: no-such-user %v vs wrong-password %v (ratio %.2f); "+
-			"login would be a user-enumeration oracle", noSuchUser, wrongPassword, ratio)
-	}
+	})
 }

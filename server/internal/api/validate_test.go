@@ -60,9 +60,6 @@ func TestTheContractsConstraintsAreEnforced(t *testing.T) {
 }
 
 func TestAWellFormedRequestReachesTheHandler(t *testing.T) {
-	// The validator must not reject what the contract permits. `Deps.Auth` is
-	// nil in this router, so a request that gets through is answered 501 --
-	// anything other than 400 means validation let it pass.
 	router := newAuthTestRouter(t, testIssuer(t))
 	rec := postJSON(t, router, "/auth/login", `{"email":"a@b.com","password":"long-enough"}`)
 	if rec.Code == http.StatusBadRequest {
@@ -71,9 +68,6 @@ func TestAWellFormedRequestReachesTheHandler(t *testing.T) {
 }
 
 func TestValidationMessagesDoNotEchoTheSchema(t *testing.T) {
-	// kin-openapi's default rendering embeds the whole failing schema. That is
-	// unreadable, it is not in Vietnamese, and on a public endpoint it hands an
-	// anonymous caller the internals of the contract.
 	router := newAuthTestRouter(t, testIssuer(t))
 	rec := postJSON(t, router, "/auth/login", `{"email":"a@b.com","password":"short"}`)
 
@@ -86,9 +80,6 @@ func TestValidationMessagesDoNotEchoTheSchema(t *testing.T) {
 }
 
 func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
-	// An anonymous caller gets "log in", not a critique of their request body.
-	// The reverse order would let anyone probe the contract's shape without a
-	// credential, and would answer 400 to a request whose real problem is 401.
 	router := newAuthTestRouter(t, testIssuer(t))
 	rec := postJSON(t, router, "/auth/change-password", `{"nonsense":true}`)
 
@@ -98,11 +89,6 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 }
 
 func TestMiddlewareRunsInTheOrderItIsWritten(t *testing.T) {
-	// oapi-codegen wraps middlewares so the LAST entry runs FIRST. NewRouter
-	// compensates with inExecutionOrder, and this pins the direction: if
-	// upstream ever changes how the generated wrapper applies them, the chain
-	// would silently invert -- rate limiting after authentication, validation
-	// before it -- and every other test would still pass.
 	var order []string
 	mark := func(name string) openapi.MiddlewareFunc {
 		return func(next http.Handler) http.Handler {
@@ -127,8 +113,6 @@ func TestMiddlewareRunsInTheOrderItIsWritten(t *testing.T) {
 }
 
 func TestPathParametersAreValidatedToo(t *testing.T) {
-	// A uuid-typed path parameter that is not a uuid must not reach a handler
-	// that will hand it to the database.
 	issuer := testIssuer(t)
 	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
 	if err != nil {

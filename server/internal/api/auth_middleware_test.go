@@ -33,7 +33,7 @@ var theOpenFive = []string{
 }
 
 func TestOnlyFiveOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
-	spec, err := openapi.GetSwagger()
+	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}
@@ -96,9 +96,6 @@ func TestAProtectedRouteRefusesAnAnonymousCaller(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	// UNAUTHORIZED, not FORBIDDEN: the client's move is "log in", not "you may
-	// not". They used to be the same constant and the SPA could not tell them
-	// apart except by reading the status line.
 	if code := body["error"]["code"]; code != "UNAUTHORIZED" {
 		t.Errorf("error code = %v, want UNAUTHORIZED", code)
 	}
@@ -150,8 +147,6 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 }
 
 func TestALowercaseBearerSchemeIsAccepted(t *testing.T) {
-	// RFC 7235 makes the scheme case-insensitive, and clients do send "bearer".
-	// Rejecting it would be a bug that only shows up against one HTTP library.
 	issuer := testIssuer(t)
 	router := newAuthTestRouter(t, issuer)
 	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
@@ -163,10 +158,6 @@ func TestALowercaseBearerSchemeIsAccepted(t *testing.T) {
 	req.Header.Set("Authorization", "bearer "+token)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-
-	// Deps.Auth is nil in this router, so a token that PASSES the middleware
-	// reaches the handler and is answered 501. That is the signal: anything
-	// other than 401 means authentication succeeded.
 	if rec.Code == http.StatusUnauthorized {
 		t.Fatal("a lowercase `bearer` scheme was rejected")
 	}
@@ -186,9 +177,6 @@ func TestAnOpenRouteIsReachableWithoutTheHeader(t *testing.T) {
 }
 
 func TestHealthzIsNotBehindAuthentication(t *testing.T) {
-	// It is registered on the base mux rather than through the generated
-	// wrapper, so it never meets the middleware. Asserted because a load
-	// balancer probing a 401 marks the service down.
 	router := newAuthTestRouter(t, testIssuer(t))
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
@@ -198,8 +186,6 @@ func TestHealthzIsNotBehindAuthentication(t *testing.T) {
 }
 
 func TestAMisconfiguredVerifierRefusesEveryoneRatherThanNobody(t *testing.T) {
-	// Deps.Tokens unset is a wiring mistake. Failing open would hand every
-	// protected endpoint to anyone sending any string.
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	router, err := NewRouter(Deps{DB: fakeDB{}}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {

@@ -2,11 +2,35 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "api",
+      "runtimeExecutable": "make",
+      "runtimeArgs": [
+        "dev-api"
+      ],
+      "port": 8080
+    },
+    {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "web", "dev"],
+      "runtimeArgs": [
+        "--dir",
+        "web",
+        "dev"
+      ],
       "port": 5173,
       "url": "http://localhost:5173"
+    },
+    {
+      "name": "design-deck",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5175",
+        "--directory",
+        "docs/design/mockups"
+      ],
+      "port": 5175
     }
   ]
 }

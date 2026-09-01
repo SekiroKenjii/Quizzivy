@@ -24,7 +24,7 @@ export async function _valid() {
   await api("post", "/auth/login", { body: { email: "a@b.c", password: "hunter22" } });
 
   // Query params are optional but typed.
-  await api("get", "/admin/questions", { query: { type: "short_answer" } });
+  await api("get", "/admin/questions", { query: { type: ["short_answer"] } });
 
   // 204 endpoints resolve to void.
   const nothing: void = await api("post", "/auth/logout");

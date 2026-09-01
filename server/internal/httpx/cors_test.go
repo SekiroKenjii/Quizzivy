@@ -76,9 +76,6 @@ func TestPreflightIsAnswered(t *testing.T) {
 }
 
 func TestWildcardIsNeverEmitted(t *testing.T) {
-	// `*` is illegal with credentials, so a wildcard would not loosen security
-	// -- it would break every authenticated request. Configuring one must be a
-	// no-op rather than a foot-gun.
 	h := CORS([]string{"*"})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
 	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
 	req.Header.Set("Origin", "https://anything.example")

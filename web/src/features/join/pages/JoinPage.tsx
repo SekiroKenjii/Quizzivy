@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format, isComplete, normalize } from "@/features/join/code";
@@ -27,17 +28,12 @@ export default function JoinPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { code: codeParam } = useParams();
-  const user = useAuthStore((s) => s.user);
+  const isSignedIn = useAuthStore((s) => s.user !== null);
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
 
   const [code, setCode] = useState(() => format(codeParam ?? ""));
   const [error, setError] = useState<string | null>(null);
-  // POST /app/classes/join is idempotent, but firing it twice under StrictMode
-  // would still spend two of §6.5's per-code allowance.
   const started = useRef(false);
-
-  // A mutation rather than hand-rolled state: `isPending` replaces a
-  // setState-in-effect, which is both the lint rule and the reason for it.
   const enrol = useMutation({
     mutationFn: (joinCode: string) => joinClass(joinCode),
     onSuccess: () => navigate("/app", { replace: true }),
@@ -45,12 +41,13 @@ export default function JoinPage() {
       setError(cause instanceof ApiError ? cause.message : t("join.failed")),
   });
 
+  const enrolMutate = enrol.mutate;
   useEffect(() => {
-    if (isBootstrapping || !user || !codeParam || started.current) return;
+    if (isBootstrapping || !isSignedIn || !codeParam || started.current) return;
     if (!isComplete(codeParam)) return;
     started.current = true;
-    enrol.mutate(normalize(codeParam));
-  }, [isBootstrapping, user, codeParam, enrol]);
+    enrolMutate(normalize(codeParam));
+  }, [isBootstrapping, isSignedIn, codeParam, enrolMutate]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -71,19 +68,17 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="w-full max-w-sm rounded-lg border p-6">
-      <h1 className="text-xl font-semibold tracking-tight">{t("join.title")}</h1>
-      <p className="text-muted-foreground mt-2 text-sm">{t("join.subtitle")}</p>
+    <>
+      <Card className="gap-0 p-5">
+        <h1 className="text-xl font-semibold tracking-tight">{t("join.title")}</h1>
+        <p className="text-muted-foreground mt-1.5 text-sm">{t("join.subtitle")}</p>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-        <div className="space-y-2">
+        <form onSubmit={onSubmit} className="mt-5" noValidate>
           <Label htmlFor="join-code">{t("join.codeLabel")}</Label>
           <Input
             id="join-code"
+            className="mt-1.5 h-11 font-mono text-lg tracking-wide"
             value={code}
-            // Normalized on every keystroke (§6.1): the field only ever holds
-            // characters the alphabet contains, upper case, grouped. A student
-            // reading a code aloud cannot type it into an invalid state.
             onChange={(e) => {
               setCode(format(e.target.value));
               setError(null);
@@ -96,21 +91,33 @@ export default function JoinPage() {
             aria-describedby="join-code-hint"
             aria-invalid={error ? true : undefined}
           />
-          <p id="join-code-hint" className="text-muted-foreground text-xs">
+          <p id="join-code-hint" className="text-muted-foreground mt-1.5 text-xs">
             {t("join.codeHint")}
           </p>
-        </div>
 
-        {error ? (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        ) : null}
+          {error ? (
+            <p role="alert" className="text-destructive mt-1.5 text-xs">
+              {error}
+            </p>
+          ) : null}
 
-        <Button type="submit" className="w-full" disabled={!isComplete(code)}>
-          {t("join.continue")}
-        </Button>
-      </form>
-    </div>
+          <Button
+            type="submit"
+            size="lg"
+            className="mt-5 w-full"
+            disabled={!isComplete(code)}
+          >
+            {t("join.continue")}
+          </Button>
+        </form>
+      </Card>
+
+      <p className="text-muted-foreground mt-5 text-center text-xs leading-relaxed">
+        {t("join.haveAccount")}{" "}
+        <Link to="/login" className="underline">
+          {t("join.signIn")}
+        </Link>
+      </p>
+    </>
   );
 }

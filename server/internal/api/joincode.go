@@ -31,8 +31,6 @@ func (s *Server) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 		IP:          meta.IP,
 		UserAgent:   meta.UserAgent,
 	}
-	// The whole body is optional: "give me a code" with no options is the
-	// common case, and the defaults are §6.1's and O-06's.
 	if request.Body != nil {
 		req.ExpiresInDays = request.Body.ExpiresInDays
 		req.MaxUses = request.Body.MaxUses
@@ -91,23 +89,10 @@ func notFound(ctx context.Context, message string) openapi.ErrorResponse {
 	return authError(ctx, openapi.NOTFOUND, message)
 }
 
-// PreviewJoinCode implements POST /join/preview (§6.2).
+// PreviewJoinCode resolves a join code for an anonymous caller.
 //
-// **Leak review.** Public, unauthenticated, and it takes a bearer secret, so
-// what it returns and what it refuses both matter.
-//
-// The success body is exactly three fields, enforced structurally by the
-// generated type and by a test that reads the wire bytes rather than the Go
-// struct. No student names, no counts, no member list -- §6.5 is explicit, and
-// this is the endpoint a stranger reaches with a forwarded code.
-//
-// The four refusals carry DIFFERENT codes and the SAME information. "Expired"
-// versus "wrong code" does confirm that a code once existed, which is accepted:
-// the alternative is a student with a stale code being told they typed it wrong
-// and giving up, and at 40 bits of entropy behind two rate limits, enumeration
-// is not the threat -- forwarding is (R-02). None of the four messages names a
-// class, and a class with self-join switched off answers exactly as a
-// nonexistent one does.
+// Public and rate-limited by IP and by normalised code. Every rejection returns
+// the same shape so the endpoint cannot enumerate which classes exist.
 func (s *Server) PreviewJoinCode(ctx context.Context, request openapi.PreviewJoinCodeRequestObject) (openapi.PreviewJoinCodeResponseObject, error) {
 	if s.Deps.Join == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented

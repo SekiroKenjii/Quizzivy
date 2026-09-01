@@ -365,6 +365,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/questions/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add tags to several questions at once
+         * @description A-06's "Gắn thẻ". Tagging is the one bank edit that is worth doing to
+         *     forty questions at a time, and doing it one at a time is what the
+         *     selection bar exists to avoid.
+         *
+         *     Additive and idempotent: a tag a question already carries is a no-op, so
+         *     a retry after a dropped connection cannot duplicate anything. Removing
+         *     tags in bulk is deliberately not offered — it is the destructive
+         *     direction, and A-06 does not draw it.
+         */
+        post: operations["tagQuestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/questions/{id}": {
         parameters: {
             query?: never;
@@ -1236,33 +1263,51 @@ export interface components {
          * @description RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
          */
         Timestamp: string;
-        /** @description numeric(8,2) — never a float (§13.2). */
+        /**
+         * Format: double
+         * @description numeric(8,2) — never a float (§13.2). Stored and compared as an exact
+         *     decimal server-side; this is the wire representation.
+         *
+         *     `format: double` is load-bearing rather than decoration. Without it
+         *     oapi-codegen generates `float32`, which holds about 7 significant
+         *     decimal digits — and the maximum below needs 8. `999999.99` round-trips
+         *     through a float32 as `1000000`, a value this very schema rejects, and
+         *     `12345.67` becomes `12345.669921875`. Points are summed to produce a
+         *     test's total, so that error accumulates across a paper. `double` gives
+         *     Go a float64 and leaves TypeScript's `number` unchanged, since a JS
+         *     number is already a float64.
+         */
         Points: number;
         /**
          * @description Stable, machine-readable. **The only thing clients branch on.** Copy is
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
-        ErrorResponse: {
-            error: {
-                code: components["schemas"]["ErrorCode"];
-                /**
-                 * @description Already localized server-side from `Accept-Language`, `vi` by
-                 *     default. Display it; do not build copy from `code`.
-                 * @example Mã lớp không hợp lệ.
-                 */
-                message: string;
-                /**
-                 * @description Shape depends on `code`. Field-level validation errors land here
-                 *     as `{ field: message }` for react-hook-form.
-                 */
-                details?: {
-                    [key: string]: unknown;
-                };
-                /** @description The copyable error ID shown by the global error boundary (§9). */
-                requestId: components["schemas"]["Uuid"];
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        /**
+         * @description Extracted so a response carrying the envelope AND something else can
+         *     reference it without composing over a closed schema (issue #41).
+         */
+        ErrorDetail: {
+            code: components["schemas"]["ErrorCode"];
+            /**
+             * @description Already localized server-side from `Accept-Language`, `vi` by
+             *     default. Display it; do not build copy from `code`.
+             * @example Mã lớp không hợp lệ.
+             */
+            message: string;
+            /**
+             * @description Shape depends on `code`. Field-level validation errors land here
+             *     as `{ field: message }` for react-hook-form.
+             */
+            details?: {
+                [key: string]: unknown;
             };
+            /** @description The copyable error ID shown by the global error boundary (§9). */
+            requestId: components["schemas"]["Uuid"];
+        };
+        ErrorResponse: {
+            error: components["schemas"]["ErrorDetail"];
         };
         CursorPage: {
             /** @description Pass back as `cursor`. `null` means the last page (§13.8). */
@@ -1286,6 +1331,171 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description AuthSuccess plus the class a join code enrolled the student in.
+         *
+         *     Flat rather than `allOf: [AuthSuccess, ...]`: AuthSuccess is
+         *     `additionalProperties: false`, and in JSON Schema 2020-12 that keyword
+         *     cannot see a sibling allOf branch, so the composed form rejects the very
+         *     body it documents (issue #41).
+         */
+        GoogleSignInSuccess: {
+            accessToken: string;
+            /** @description Seconds. */
+            expiresIn: number;
+            user: components["schemas"]["User"];
+            /** @description Present only when a `joinCode` produced an enrolment. */
+            enrolledClass?: components["schemas"]["Class"] | null;
+        };
+        /**
+         * @description The publish 409: the error envelope plus every blocking violation, so the
+         *     builder marks them all inline rather than surfacing one per attempt (§8).
+         *     Flat for the same reason as GoogleSignInSuccess.
+         */
+        PublishConflict: {
+            error: components["schemas"]["ErrorDetail"];
+            violations?: components["schemas"]["PublishValidationError"][];
+        };
+        /**
+         * @description A MediaAsset as the admin library lists it, with how many published
+         *     versions reference it. Flat for the same reason (issue #41) -- this is
+         *     the site that was actually shipping a body its own contract rejected.
+         */
+        LibraryAsset: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            kind: "image" | "audio";
+            /** @description Short-lived signed URL (§11.2). */
+            url: string;
+            /** @enum {string} */
+            mimeType: "audio/mpeg" | "audio/mp4" | "audio/aac" | "image/png" | "image/jpeg" | "image/webp";
+            bytes: number;
+            /** @description Audio only. */
+            durationMs?: number | null;
+            originalFilename: string;
+            createdAt: components["schemas"]["Timestamp"];
+            /** @description Published-version references. Non-zero blocks delete (§8). */
+            usageCount?: number;
+        };
+        /**
+         * @description The intro screen's card: everything StudentAssignmentCard carries plus
+         *     the policies §10.2 states in plain Vietnamese before the student starts.
+         */
+        StudentAssignmentDetail: {
+            id: components["schemas"]["Uuid"];
+            testTitle: string;
+            status: components["schemas"]["AssignmentStatus"];
+            opensAt: components["schemas"]["Timestamp"];
+            closesAt: components["schemas"]["Timestamp"];
+            durationMinutes: number;
+            attemptsUsed: number;
+            maxAttempts: number;
+            hasLiveAttempt?: boolean;
+            lastAttemptId?: components["schemas"]["Uuid"] | null;
+            score?: components["schemas"]["AttemptScore"] | null;
+            instructions?: string | null;
+            review: components["schemas"]["ReviewPolicy"];
+            integrity: components["schemas"]["IntegrityPolicy"];
+            hasAudio: boolean;
+            /** @description The strictest `maxPlays` across the test, for the intro copy. */
+            audioMaxPlays?: number | null;
+        };
+        /** @description A class the student is in, with how they got there (§6.4's D-10). */
+        StudentClass: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            /** @enum {string} */
+            joinedVia: "admin" | "join_code";
+            joinedAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description Backs G-07's "Hoạt động" column, which has three renderings and needs
+         *     two facts to pick between them: "đang làm bài" while an attempt is live,
+         *     a relative time when there is a last one, and an em dash when the student
+         *     has never started anything.
+         *
+         *     `live` is not `lastAttemptAt is recent`. Nothing in this system flips an
+         *     attempt when its deadline passes -- assignment status is derived for
+         *     exactly that reason (D-18) -- so a stale in-progress row would read as
+         *     "đang làm bài" forever. The server ANDs the status with `deadline_at`.
+         */
+        StudentActivity: {
+            /** @description An attempt is in progress and inside its deadline. */
+            live: boolean;
+            /** Format: date-time */
+            lastAttemptAt?: string | null;
+        };
+        /**
+         * @description Per-student teaching figures for §8's students table (G-07) and the class
+         *     roster (G-06).
+         *
+         *     Deliberately NOT on `User`. `User` is the `/auth/me`, `/auth/login` and
+         *     `/auth/refresh` payload, so a field added there is shipped to the student
+         *     about themselves on every cold load and every token refresh. §13.5's
+         *     student-projection guard would not catch it either -- it sweeps `/app/*`
+         *     and `/auth/me` is not one.
+         */
+        StudentStats: {
+            /**
+             * @description Distinct ASSIGNMENTS with at least one attempt that reached the
+             *     teacher, not attempts. With `maxAttempts > 1` the two differ, and
+             *     counting attempts would print "14" beside an average taken over 7
+             *     things.
+             */
+            submittedCount: number;
+            /**
+             * @description Weighted: the sum of earned points over the sum of available points,
+             *     across each assignment's best graded attempt. Sent as the pair rather
+             *     than a percentage because every other score in this contract is an
+             *     (earned, total) pair, and the client can render either reading.
+             *
+             *     Null when nothing is graded yet, which is G-07's "—". An unsubmitted
+             *     assignment is never a zero: "chưa nộp" and "—" are different facts,
+             *     and collapsing them is how a gradebook lies.
+             */
+            score?: components["schemas"]["AttemptScore"] | null;
+            flaggedCount: number;
+            activity: components["schemas"]["StudentActivity"];
+        };
+        /**
+         * @description One row of §8's students table. Flat rather than `allOf: [User, ...]`:
+         *     `User` is `additionalProperties: false`, and in JSON Schema 2020-12 that
+         *     keyword cannot see a sibling `allOf` branch, so the composed form
+         *     rejects the very body it documents (see issue #41).
+         */
+        StudentRow: {
+            id: components["schemas"]["Uuid"];
+            /** Format: email */
+            email: string;
+            fullName: string;
+            hasPassword: boolean;
+            linkedProviders: "google"[];
+            mustChangePassword: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+            /**
+             * Format: date-time
+             * @description Set means the account cannot sign in. Present on the row because
+             *     `updateStudent` accepts `disabled: false` in both directions, and a
+             *     state that can be written but never read is a one-way door: the
+             *     student would vanish from every listing with nothing able to name
+             *     them again.
+             */
+            disabledAt: string | null;
+            /** @description All memberships. The table truncates; the drawer lists them. */
+            classes: components["schemas"]["StudentClass"][];
+            stats: components["schemas"]["StudentStats"];
+        };
+        /**
+         * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a cursor page
+         *     cannot express, in the same shape as TestStatusFacets.
+         *
+         *     `active` reuses the dashboard's window verbatim rather than defining a
+         *     second meaning of active on a second screen.
+         */
+        StudentFacets: {
+            total: number;
+            activeLast7Days: number;
         };
         AuthSuccess: {
             /** @description Held in memory only (§5.2). The refresh token is set as a cookie, not returned here. */
@@ -1382,6 +1592,29 @@ export interface components {
             acceptedAnswers: string[];
             caseSensitive: boolean;
         };
+        /**
+         * @description How many tests each status holds for the CURRENT search, ignoring the
+         *     status filter itself — selecting one tab must not zero the others.
+         *     Backs A-03's "Tất cả 12 · Bản nháp 3 · Đã phát hành 8".
+         */
+        TestStatusFacets: {
+            all: number;
+            draft: number;
+            published: number;
+            archived: number;
+        };
+        /**
+         * @description How many questions each type holds for the CURRENT tag and search,
+         *     ignoring the type filter itself. Backs A-06's rail counts.
+         */
+        QuestionTypeFacets: {
+            all: number;
+            single_choice: number;
+            multiple_choice: number;
+            true_false: number;
+            fill_blank: number;
+            short_answer: number;
+        };
         AdminQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
@@ -1404,6 +1637,14 @@ export interface components {
              */
             sampleAnswer?: string | null;
             tags: string[];
+            /**
+             * @description How many DRAFT test outlines reference this question. Editing the
+             *     bank copy changes every one of them, which is a versioning event the
+             *     teacher deserves to know about before they type (A-06). Published
+             *     versions are deliberately not counted: they hold their own snapshot
+             *     and a bank edit cannot reach them (§7).
+             */
+            usedInTests?: number;
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
         };
@@ -1499,6 +1740,8 @@ export interface components {
             currentVersion: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
+            /** @description Questions carrying an audio asset. Backs A-03's headphone badge. */
+            audioCount: number;
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
             createdAt: components["schemas"]["Timestamp"];
@@ -1512,6 +1755,14 @@ export interface components {
             version: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
+            /** @description Listening questions, shown when picking a version to assign (G-01). */
+            audioCount: number;
+            /**
+             * @description Questions needing manual grading. G-01 multiplies it by the roster to
+             *     show the teacher what they are committing to marking before they
+             *     commit to it.
+             */
+            manualCount: number;
             publishedAt: components["schemas"]["Timestamp"];
             /** @description Display name. */
             publishedBy: string;
@@ -1530,12 +1781,17 @@ export interface components {
             questionId?: string | null;
         };
         /**
-         * @description **Derived**, never stored (D-18). A pure function of `opensAt`,
-         *     `closesAt` and an optional early `closedAt`, so it cannot go stale and
-         *     needs no scheduler.
+         * @description **Derived**, never stored (D-18). A pure function of `publishedAt`,
+         *     `opensAt`, `closesAt` and an optional early `closedAt`, so it cannot go
+         *     stale and needs no scheduler.
+         *
+         *     `draft` is what an unpublished assignment reads as. It does not weaken
+         *     D-18: publishing is an explicit act by the teacher, not a timestamp
+         *     arriving, so nothing has to flip a row on a schedule. A draft is
+         *     invisible to students and counts towards nothing.
          * @enum {string}
          */
-        AssignmentStatus: "scheduled" | "open" | "closed";
+        AssignmentStatus: "draft" | "scheduled" | "open" | "closed";
         ReviewPolicy: {
             /** @default true */
             showScore: boolean;
@@ -1582,6 +1838,11 @@ export interface components {
                 classIds: components["schemas"]["Uuid"][];
                 studentIds: components["schemas"]["Uuid"][];
             };
+            /**
+             * Format: date-time
+             * @description Null while the assignment is a draft.
+             */
+            publishedAt: string | null;
             window: {
                 opensAt: components["schemas"]["Timestamp"];
                 closesAt: components["schemas"]["Timestamp"];
@@ -1886,6 +2147,15 @@ export interface components {
             shuffleOptions: boolean;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /**
+             * @description Save without giving it out — G-01's "Lưu nháp". Saving again with
+             *     `false` publishes it, which is what the "Giao bài" button sends.
+             *
+             *     A draft is the only assignment allowed to have no targets: the point
+             *     of saving one is to come back to it.
+             * @default false
+             */
+            draft: boolean;
             /** @description PATCH only. Sets `closedAt`, closing the assignment before `closesAt`. */
             closeNow?: boolean;
         };
@@ -1953,6 +2223,15 @@ export interface components {
     parameters: {
         /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
         Cursor: string;
+        /**
+         * @description Page size. The DEFAULT IS PER RESOURCE and is declared on each operation
+         *     — a media grid wants a different page from a table of tests, and one
+         *     shared default could only ever be right for one of them. It used to
+         *     claim 25, which no server used.
+         *
+         *     A client should drive pagination from `nextCursor`, never from an
+         *     assumed page size.
+         */
         Limit: number;
         /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
         Query: string;
@@ -2096,10 +2375,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthSuccess"] & {
-                        /** @description Present only when a `joinCode` produced an enrolment. */
-                        enrolledClass?: components["schemas"]["Class"] | null;
-                    };
+                    "application/json": components["schemas"]["GoogleSignInSuccess"];
                 };
             };
             /** @description Code exchange failed, or `email_verified` was false. */
@@ -2264,7 +2540,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    currentPassword: string;
+                    /**
+                     * @description Required, EXCEPT while `mustChangePassword` is true.
+                     *
+                     *     In that window the current password is one an admin
+                     *     generated and read aloud, so re-entering it proves nothing
+                     *     the access token has not already proved — and demanding it
+                     *     strands the case G-07 is drawn for: a student whose password
+                     *     was reset, who then signs in with Google and is redirected
+                     *     here without ever having held the temporary one.
+                     */
+                    currentPassword?: string;
                     newPassword: string;
                 };
             };
@@ -2397,11 +2683,12 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["TestStatus"];
+                tag?: string[];
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2417,9 +2704,17 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
                         items: components["schemas"]["Test"][];
+                        facets: components["schemas"]["TestStatusFacets"];
+                        /**
+                         * @description Every tag reachable through the CURRENT status and
+                         *     search, so the filter cannot offer a chip that returns
+                         *     nothing. Sorted, distinct.
+                         */
+                        tags: string[];
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };
@@ -2516,6 +2811,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             /** @description `STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`. */
             409: {
                 headers: {
@@ -2547,6 +2843,7 @@ export interface operations {
                     "application/json": components["schemas"]["TestVersion"];
                 };
             };
+            404: components["responses"]["NotFound"];
             /**
              * @description `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
              *     each anchored to a question, so the builder marks them inline rather
@@ -2557,9 +2854,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"] & {
-                        violations?: components["schemas"]["PublishValidationError"][];
-                    };
+                    "application/json": components["schemas"]["PublishConflict"];
                 };
             };
         };
@@ -2584,6 +2879,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listTestVersions: {
@@ -2650,13 +2946,15 @@ export interface operations {
     listQuestions: {
         parameters: {
             query?: {
-                type?: components["schemas"]["QuestionType"];
-                tag?: string;
+                type?: components["schemas"]["QuestionType"][];
+                tag?: string[];
+                /** @description A-06's "Chỉ câu có audio". */
+                hasAudio?: boolean;
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2676,9 +2974,32 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
                         items: components["schemas"]["AdminQuestion"][];
+                        facets: components["schemas"]["QuestionTypeFacets"];
+                        /**
+                         * @description Every tag reachable through the CURRENT type, audio and
+                         *     search filters, sorted and distinct. Server-derived, not
+                         *     collected from the returned page: a rail built from one
+                         *     page can only offer the tags that page happens to carry,
+                         *     which makes a second chip unselectable and the filter
+                         *     look broken.
+                         *
+                         *     The tag filter itself is not applied, for the same
+                         *     reason the type facets ignore the type filter — picking
+                         *     one chip must not empty the rail.
+                         */
+                        tags: string[];
+                        /** @description Live questions in the bank, before any filter. A-06's "180 câu". */
+                        total: number;
+                        /**
+                         * @description Matching ALL current filters — A-06's "đang lọc 41".
+                         *     Distinct from `facets.all`, which ignores the type
+                         *     filter so the "Tất cả" row can show a total.
+                         */
+                        filtered: number;
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createQuestion: {
@@ -2701,6 +3022,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminQuestion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    tagQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    questionIds: components["schemas"]["Uuid"][];
+                    tags: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Questions actually changed. Lower than `questionIds` when
+                         *     some already carried every tag, which is not an error.
+                         */
+                        updated: number;
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -2741,7 +3096,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
-            /** @description Still referenced by a draft test outline. */
+            404: components["responses"]["NotFound"];
+            /** @description `QUESTION_REFERENCED` — still referenced by a draft test outline. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2776,6 +3132,8 @@ export interface operations {
                     "application/json": components["schemas"]["AdminQuestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMedia: {
@@ -2784,7 +3142,7 @@ export interface operations {
                 kind?: components["schemas"]["MediaKind"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2795,17 +3153,24 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    /**
+                     * @description `private, no-store`. Every item carries a signed URL with the
+                     *     same ten-minute life as `/app/media/{assetId}/url`, so a cached
+                     *     page would keep showing URLs that stopped working — and unlike
+                     *     the single-URL response there is nothing worth re-serving, since
+                     *     the library changes on every upload and delete. `no-store`
+                     *     rather than `max-age` for that reason (§11.2).
+                     */
+                    "Cache-Control": string;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
-                        items: (components["schemas"]["MediaAsset"] & {
-                            /** @description Published-version references. Non-zero blocks delete (§8). */
-                            usageCount?: number;
-                        })[];
+                        items: components["schemas"]["LibraryAsset"][];
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     uploadMedia: {
@@ -2870,6 +3235,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            404: components["responses"]["NotFound"];
             /** @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15). */
             409: {
                 headers: {
@@ -2887,7 +3253,7 @@ export interface operations {
                 status?: components["schemas"]["AssignmentStatus"];
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2930,6 +3296,7 @@ export interface operations {
                     "application/json": components["schemas"]["Assignment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
                 headers: {
@@ -2988,6 +3355,8 @@ export interface operations {
                     "application/json": components["schemas"]["Assignment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             /** @description `VERSION_LOCKED` — attempts exist, so the version cannot be changed. */
             409: {
                 headers: {
@@ -3032,7 +3401,7 @@ export interface operations {
                 pendingGrading?: boolean;
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -3296,9 +3665,15 @@ export interface operations {
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
                 classId?: components["schemas"]["Uuid"];
+                /**
+                 * @description Defaults to `active`. Without `disabled` there is no request that can
+                 *     return a suspended account, so `updateStudent`'s `disabled: false`
+                 *     would be unreachable.
+                 */
+                status?: "active" | "disabled" | "all";
                 /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -3313,10 +3688,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CursorPage"] & {
-                        items: components["schemas"]["User"][];
+                        items: components["schemas"]["StudentRow"][];
+                        facets: components["schemas"]["StudentFacets"];
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createStudent: {
@@ -3344,12 +3721,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        user: components["schemas"]["User"];
+                        user: components["schemas"]["StudentRow"];
                         temporaryPassword: string;
                     };
                 };
             };
-            /** @description Email already in use (case-insensitively). */
+            /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3377,9 +3754,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"] & {
-                        classes?: components["schemas"]["Class"][];
-                    };
+                    "application/json": components["schemas"]["StudentRow"];
                 };
             };
             404: components["responses"]["NotFound"];
@@ -3411,7 +3786,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["StudentRow"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `EMAIL_TAKEN` — another account already uses that address. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3438,6 +3823,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listClasses: {
@@ -3592,6 +3978,8 @@ export interface operations {
                     "application/json": components["schemas"]["ClassMember"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     removeClassMember: {
@@ -3781,14 +4169,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StudentAssignmentCard"] & {
-                        instructions?: string | null;
-                        review: components["schemas"]["ReviewPolicy"];
-                        integrity: components["schemas"]["IntegrityPolicy"];
-                        hasAudio: boolean;
-                        /** @description The strictest `maxPlays` across the test, for the intro copy. */
-                        audioMaxPlays?: number | null;
-                    };
+                    "application/json": components["schemas"]["StudentAssignmentDetail"];
                 };
             };
             403: components["responses"]["Forbidden"];
@@ -4052,6 +4433,13 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
+                    /**
+                     * @description `private, max-age=600` (§11.2) — long enough to survive a replay,
+                     *     short enough that the cache entry cannot outlive the signature it
+                     *     holds. The TTL and this max-age are the same number on purpose;
+                     *     they are set from one constant server-side.
+                     */
+                    "Cache-Control": string;
                     [name: string]: unknown;
                 };
                 content: {

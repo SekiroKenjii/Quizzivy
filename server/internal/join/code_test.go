@@ -12,10 +12,6 @@ import (
 // it must survive being read aloud, written down, and typed back in.
 
 func TestNormalizeAcceptsHoweverItWasTypedBack(t *testing.T) {
-	// §6.1: with or without the dash, any case. In practice people also paste
-	// it with spaces, or with the typographic dash a phone keyboard
-	// substituted, so anything outside the alphabet is dropped rather than
-	// enumerated.
 	canonical := join.Normalize("K7M3P9QR")
 	if canonical != "K7M3P9QR" {
 		t.Fatalf("canonical form changed: %q", canonical)
@@ -37,11 +33,6 @@ func TestNormalizeAcceptsHoweverItWasTypedBack(t *testing.T) {
 }
 
 func TestNormalizeIsIdempotentAcrossThePlansThreeSpellings(t *testing.T) {
-	// The three the plan names. Note `1` is NOT in the alphabet and is dropped,
-	// so all three collapse to the same seven-character string -- which then
-	// matches no code, exactly as a wrong code does. Normalizing does not
-	// validate, and it must not: a code that fails to parse and a code that is
-	// simply wrong have to be indistinguishable (§6.5).
 	first := join.Normalize("abcd-1234")
 	for _, typed := range []string{"abcd-1234", "ABCD1234", "abcd 1234"} {
 		if got := join.Normalize(typed); got != first {
@@ -59,13 +50,6 @@ func TestNormalizeIsIdempotentAcrossThePlansThreeSpellings(t *testing.T) {
 }
 
 func TestGeneratedCodesAvoidTheAmbiguousCharacters(t *testing.T) {
-	// §6.1 excludes the two confusion GROUPS: {0, O} and {1, I}. `L` stays --
-	// with `1` and `I` both absent there is nothing left for it to be mistaken
-	// for, and dropping it would make the alphabet 31 characters, which is
-	// worse: no longer a power of two, so uniform selection needs rejection
-	// sampling for no gain in legibility.
-	//
-	// This matters because a teacher reads these out loud.
 	const runs = 100_000
 	seen := map[rune]int{}
 
@@ -87,10 +71,6 @@ func TestGeneratedCodesAvoidTheAmbiguousCharacters(t *testing.T) {
 			seen[r]++
 		}
 	}
-
-	// Every character should turn up. A generator that silently used only part
-	// of its alphabet -- an off-by-one in the mask, say -- would still pass
-	// every check above while quietly shedding entropy.
 	if len(seen) != len(join.Alphabet) {
 		t.Errorf("only %d of %d alphabet characters were ever produced", len(seen), len(join.Alphabet))
 	}
@@ -104,9 +84,6 @@ func TestGeneratedCodesAvoidTheAmbiguousCharacters(t *testing.T) {
 }
 
 func TestCodesDoNotRepeat(t *testing.T) {
-	// 40 bits of entropy. A collision in ten thousand draws would mean the
-	// CSPRNG is not being consulted -- a sequential or time-derived generator,
-	// which §6.1 forbids by name.
 	seen := make(map[string]struct{}, 10_000)
 	for range 10_000 {
 		code, err := join.Generate()
@@ -136,8 +113,6 @@ func TestFormatGroupsForDisplayAndSurvivesTheRoundTrip(t *testing.T) {
 }
 
 func TestTheHintIsTheLastFourCharacters(t *testing.T) {
-	// All that survives the one-time reveal (§13.3): enough for the teacher to
-	// recognise which code is active, not enough to use.
 	if got := join.Hint("K7M3P9QR"); got != "P9QR" {
 		t.Errorf("Hint = %q, want P9QR", got)
 	}
@@ -164,9 +139,6 @@ func TestHashingIsStableAndTheCodeIsNotRecoverableFromIt(t *testing.T) {
 }
 
 func TestDifferentSpellingsOfOneCodeHashAlike(t *testing.T) {
-	// The property the whole normalize-then-hash order exists for: a teacher
-	// dictating "kay seven em three, dash, pee nine cue arr" must reach the
-	// same row as a copy-paste.
 	want := join.Hash(join.Normalize("K7M3P9QR"))
 	for _, typed := range []string{"k7m3-p9qr", "K7M3 P9QR", " k7m3p9qr "} {
 		if !join.Equal(want, join.Hash(join.Normalize(typed))) {

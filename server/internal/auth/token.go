@@ -35,8 +35,6 @@ type TokenIssuer struct {
 }
 
 func NewTokenIssuer(signingKey []byte, ttl time.Duration) (*TokenIssuer, error) {
-	// HMAC-SHA256 with a short key is brute-forceable offline; a forged token
-	// then grants whatever role the attacker writes into it.
 	if len(signingKey) < 32 {
 		return nil, fmt.Errorf("JWT signing key must be at least 32 bytes, got %d", len(signingKey))
 	}

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +12,26 @@ import "@/lib/i18n";
 const BASE = "http://localhost:8080";
 const CLASS_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
 const FULL_CODE = "K7M3-P9QR";
+
+/**
+ * The clock is pinned because the panel compares the fixture's `expiresAt`
+ * against it: `expired` decides whether the primary button says "Tạo mã mới" or
+ * "Mở tham gia bằng mã", so on 27/09/2026 this file would have started failing
+ * eight of its tests, and the expired-code block would have gone green for the
+ * wrong reason.
+ *
+ * Only `Date` is faked. `setTimeout` stays real so `waitFor` and userEvent
+ * behave normally.
+ */
+const NOW = new Date("2026-08-29T00:00:00Z");
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: NOW });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const klass: components["schemas"]["Class"] = {
   id: CLASS_ID,
@@ -38,9 +58,6 @@ function renderPanel(value = klass) {
 
 describe("the join code panel", () => {
   it("shows no full code until a rotation produces one", () => {
-    // §13.3: the plaintext exists once, in the response that created it. Only
-    // a SHA-256 hash is stored, so there is no endpoint that COULD return it --
-    // this asserts the panel does not pretend otherwise.
     renderPanel();
 
     const body = document.body.textContent ?? "";
@@ -49,13 +66,13 @@ describe("the join code panel", () => {
     // The hint is all that survives, and it is masked.
     expect(screen.getByText(/••••-P9QR/)).toBeInTheDocument();
     // And there is no QR to scan, because there is no link to encode.
-    expect(document.querySelector("svg")).toBeNull();
+    expect(screen.queryByLabelText("Mã QR dẫn tới trang tham gia lớp")).toBeNull();
   });
 
   it("shows the counters the teacher needs to judge a code", () => {
     renderPanel();
     expect(screen.getByText("3 / 40")).toBeInTheDocument();
-    expect(screen.getByText("27/09/2026")).toBeInTheDocument();
+    expect(screen.getByText(/07:00, 27\/09\/2026/)).toBeInTheDocument();
   });
 
   it("says the class is closed when there is no active code", () => {
@@ -67,8 +84,6 @@ describe("the join code panel", () => {
 
 describe("rotating", () => {
   it("does nothing until the confirmation is accepted", async () => {
-    // §6.4 requires the dialog because rotation is not undoable and it takes
-    // effect for everyone holding the old code, immediately.
     let rotations = 0;
     server.use(
       http.post(`${BASE}/admin/classes/:id/join-code`, () => {
@@ -110,8 +125,6 @@ describe("rotating", () => {
     renderPanel();
 
     await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    // The panel button and the dialog's confirm share a name; scope to the
-    // dialog so the test presses the one that actually rotates.
     await user.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
         name: "Tạo mã mới",
@@ -134,9 +147,6 @@ describe("rotating", () => {
         }),
       ),
     );
-
-    // userEvent.setup() installs a working clipboard stub; reading it back is
-    // simpler and more honest than replacing it with a spy it would overwrite.
     const user = userEvent.setup();
     renderPanel();
     await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
@@ -148,12 +158,229 @@ describe("rotating", () => {
     await screen.findByText(FULL_CODE);
 
     await user.click(screen.getByRole("button", { name: "Sao chép đường dẫn" }));
-
-    // A link a student can follow, with the dash stripped so it matches the URL
-    // shape the router expects -- not the bare code, which is useless in a
-    // message on its own.
     await waitFor(async () => {
       expect(await navigator.clipboard.readText()).toMatch(/\/join\/K7M3P9QR$/);
     });
+  });
+});
+
+describe("an expired code", () => {
+  const expiredClass: components["schemas"]["Class"] = {
+    ...klass,
+    joinCode: {
+      hint: "P9QR",
+      expiresAt: "2020-01-01T09:00:00Z",
+      maxUses: 40,
+      usesCount: 3,
+    },
+  };
+
+  it("is labelled expired rather than shown as active", () => {
+    renderPanel(expiredClass);
+    expect(screen.getByText("đã hết hạn")).toBeInTheDocument();
+    expect(screen.getByText(/Mã này đã hết hạn/)).toBeInTheDocument();
+  });
+
+  it("offers to ISSUE a code, not to rotate one", () => {
+    // Rotating implies replacing something in use. There is nothing in use.
+    renderPanel(expiredClass);
+    expect(
+      screen.getByRole("button", { name: "Mở tham gia bằng mã" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tạo mã mới" })).toBeNull();
+  });
+
+  it("shows the time, not just the date", () => {
+    renderPanel(expiredClass);
+    expect(screen.getByText(/16:00, 01\/01\/2020/)).toBeInTheDocument();
+  });
+});
+
+describe("revoking", () => {
+  it("asks first, like rotating does", async () => {
+    let revocations = 0;
+    server.use(
+      http.delete(`${BASE}/admin/classes/:id/join-code`, () => {
+        revocations += 1;
+        return new Response(null, { status: 204 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "Ngừng cho tham gia" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(revocations, "opening the dialog must not revoke anything").toBe(0);
+
+    await user.click(screen.getByRole("button", { name: "Huỷ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(revocations).toBe(0);
+  });
+
+  it("stops displaying a code it has just killed", async () => {
+    server.use(
+      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
+        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+          code: FULL_CODE,
+          expiresAt: "2026-09-27T00:00:00Z",
+          maxUses: 40,
+        }),
+      ),
+      http.delete(
+        `${BASE}/admin/classes/:id/join-code`,
+        () => new Response(null, { status: 204 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Tạo mã mới",
+      }),
+    );
+    expect(await screen.findByText(FULL_CODE)).toBeInTheDocument();
+
+    // Dismissing is the last time anyone sees it: there is no endpoint that
+    // could return it and it was never put in the query cache.
+    await user.click(screen.getByRole("button", { name: "Xong" }));
+    await waitFor(() => expect(screen.queryByText(FULL_CODE)).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Ngừng cho tham gia" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Ngừng cho tham gia",
+      }),
+    );
+
+    await waitFor(() => expect(screen.queryByText(FULL_CODE)).not.toBeInTheDocument());
+    expect(document.body.textContent).not.toContain("K7M3");
+  });
+});
+
+describe("failures", () => {
+  it("tells the teacher when a rotation fails", async () => {
+    server.use(
+      http.post(
+        `${BASE}/admin/classes/:id/join-code`,
+        () => new Response(null, { status: 500 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Tạo mã mới",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    // And no code is claimed to exist.
+    expect(screen.queryByText(FULL_CODE)).toBeNull();
+  });
+
+  it("clears a stale error once something else succeeds", async () => {
+    server.use(
+      http.post(
+        `${BASE}/admin/classes/:id/join-code`,
+        () => new Response(null, { status: 500 }),
+      ),
+      http.delete(
+        `${BASE}/admin/classes/:id/join-code`,
+        () => new Response(null, { status: 204 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Tạo mã mới",
+      }),
+    );
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ngừng cho tham gia" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Ngừng cho tham gia",
+      }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+});
+
+describe("copying the join link", () => {
+  function withClipboard(value: unknown) {
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      value,
+      configurable: true,
+      writable: true,
+    });
+    return () => {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+    };
+  }
+
+  // The copy button exists only once a rotation has produced a plaintext code.
+  async function rotateThenGetCopyButton(user: ReturnType<typeof userEvent.setup>) {
+    server.use(
+      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
+        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+          code: FULL_CODE,
+          expiresAt: "2026-09-27T00:00:00Z",
+          maxUses: 40,
+        }),
+      ),
+    );
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Tạo mã mới",
+      }),
+    );
+    await screen.findByText(FULL_CODE);
+    return screen.getByRole("button", { name: "Sao chép đường dẫn" });
+  }
+
+  it("explains a rejected clipboard write instead of going quiet", async () => {
+    const user = userEvent.setup();
+    const copy = await rotateThenGetCopyButton(user);
+
+    const restore = withClipboard({
+      writeText: () => Promise.reject(new Error("denied")),
+    });
+    try {
+      await user.click(copy);
+      expect(await screen.findByText(/Không sao chép được/i)).toBeInTheDocument();
+      // And it must not claim success at the same time.
+      expect(screen.queryByRole("button", { name: "Đã sao chép" })).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it("survives a non-secure origin, where navigator.clipboard is undefined", async () => {
+    const user = userEvent.setup();
+    const copy = await rotateThenGetCopyButton(user);
+
+    const restore = withClipboard(undefined);
+    try {
+      // The unguarded version threw synchronously reading .writeText.
+      await user.click(copy);
+      expect(await screen.findByText(/Không sao chép được/i)).toBeInTheDocument();
+    } finally {
+      restore();
+    }
   });
 });

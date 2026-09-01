@@ -85,10 +85,6 @@ func TestSelfJoinCreatesTheAccountAndEnrolsIt(t *testing.T) {
 	if result.Class.StudentCount != before+1 {
 		t.Errorf("studentCount = %d, want %d", result.Class.StudentCount, before+1)
 	}
-
-	// D-10: the membership records HOW they joined and through WHICH code, so
-	// after a rotation the teacher can tell "came in through the code that
-	// leaked" from "came in through the current one".
 	var joinedVia string
 	var codeID *string
 	if err := pool.QueryRow(context.Background(),
@@ -105,11 +101,6 @@ func TestSelfJoinCreatesTheAccountAndEnrolsIt(t *testing.T) {
 }
 
 func TestConcurrentEnrolmentsAgainstALastSeatProduceExactlyOneMember(t *testing.T) {
-	// max_uses is enforced by a row lock on the CODE, backed by D-09's
-	// `uses_count <= max_uses` CHECK. Without the lock, several students read
-	// the same uses_count, all see room, and all enrol -- overselling the seat
-	// and, because the CHECK is there, doing it as a constraint violation
-	// rather than silently.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -178,9 +169,6 @@ func TestConcurrentEnrolmentsAgainstALastSeatProduceExactlyOneMember(t *testing.
 }
 
 func TestAnExpiredCodeCreatesNoUser(t *testing.T) {
-	// E2E 4's backend half. The code is validated before anything is created,
-	// and the whole enrolment is one transaction -- so a stale code leaves no
-	// orphan account for the teacher to wonder about later.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -218,9 +206,6 @@ func TestAnExpiredCodeCreatesNoUser(t *testing.T) {
 }
 
 func TestEnrollingTwiceIsIdempotentAndDoesNotBurnAUse(t *testing.T) {
-	// §6.2: a deep link gets followed twice. The second time is a success --
-	// and it must NOT consume a seat, or a student could exhaust their own
-	// class's code by tapping the button.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, studentID := makeClass(t, pool)
@@ -281,8 +266,6 @@ func TestAnAlreadySignedInStudentCanEnrol(t *testing.T) {
 }
 
 func TestABadCodeRefusesEveryEnrolmentPathAlike(t *testing.T) {
-	// The same taxonomy as /join/preview, so the two cannot drift into
-	// disagreeing about what a code's state means.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)

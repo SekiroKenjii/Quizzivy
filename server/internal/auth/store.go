@@ -94,11 +94,6 @@ func (s *Store) FindUserByID(ctx context.Context, id string) (User, error) {
 // live sessions. `familyID` chains rotations so §5.2's reuse detection can
 // revoke an entire lineage at once — T-1.3 uses it.
 func (s *Store) CreateRefreshToken(ctx context.Context, in RefreshTokenRecord) error {
-	// issued_at is written explicitly rather than left to its DEFAULT now().
-	// expires_at comes from the application clock, so letting the database
-	// supply the other half means two clocks decide one row -- and the
-	// `expires_at > issued_at` CHECK is what notices, at insert time, on a
-	// machine whose clock drifted.
 	const q = `
 		INSERT INTO app.refresh_tokens
 		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)

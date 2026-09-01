@@ -14,34 +14,26 @@ import (
 
 // ValidateRequests checks every incoming request against api/openapi.yaml.
 //
-// Without this, the contract's constraints are decorative on the server side.
-// oapi-codegen generates types and binds JSON; it does not enforce minLength,
-// maxLength, format, enum, required, or additionalProperties. A `password` with
-// `minLength: 8` accepted an empty string, and `email` with `format: email`
-// accepted anything at all -- every endpoint had to re-state its own rules in
-// Go, or silently not have any.
-//
-// Authentication is deliberately NOT delegated here. The validator will happily
-// enforce security requirements, but it knows nothing about our tokens, so it
-// would either reject everything or need a second copy of RequireAuth. The
-// AuthenticationFunc therefore always succeeds: by the time a request reaches
-// the validator, RequireAuth has already run.
+// Without it the contract's constraints are decorative server-side: oapi-codegen
+// binds types but enforces no minLength, format, enum or additionalProperties.
+// Authentication is not delegated here -- RequireAuth has already run, so the
+// AuthenticationFunc always succeeds. File-upload routes are skipped; see
+// StreamingBodyRoutes.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
-	// The spec's `servers` block describes production URLs. Left in place, the
-	// router refuses every request whose host is not one of them -- which is
-	// every request in development and in tests.
 	stripped := *spec
 	stripped.Servers = nil
-
-	// Built here only to turn a bad spec into a returned error. The middleware
-	// constructor builds its own and PANICS on failure, which would surface as
-	// a crash at the first request rather than a refusal to start.
 	if _, err := gorillamux.NewRouter(&stripped); err != nil {
 		return nil, err
 	}
 
+	streaming := StreamingBodyRoutes(&stripped)
+
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(&stripped,
 		&nethttpmiddleware.Options{
+			Skipper: func(r *http.Request) bool {
+				_, isStreaming := streaming[r.Pattern]
+				return isStreaming
+			},
 			Options: openapi3filter.Options{
 				AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error {
 					return nil
@@ -49,9 +41,6 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 			},
 			ErrorHandlerWithOpts: func(_ context.Context, err error, w http.ResponseWriter, r *http.Request, opts nethttpmiddleware.ErrorHandlerOpts) {
 				if opts.StatusCode == http.StatusNotFound {
-					// The mux already matched a route, so a 404 here means the
-					// two routers disagree. Say so rather than pretending the
-					// endpoint does not exist.
 					WriteError(w, r, http.StatusNotFound, CodeNotFound, "Không tìm thấy đường dẫn.")
 					return
 				}
@@ -95,8 +84,6 @@ func failingField(reqErr *openapi3filter.RequestError) string {
 			return strings.Join(pointer, ".")
 		}
 	}
-	// A MultiError arrives when several fields fail at once. Naming the first
-	// is more useful than naming none, and the client re-submits anyway.
 	var multi openapi3.MultiError
 	if errors.As(reqErr.Err, &multi) {
 		for _, e := range multi {
@@ -109,4 +96,30 @@ func failingField(reqErr *openapi3filter.RequestError) string {
 		}
 	}
 	return ""
+}
+
+// StreamingBodyRoutes lists the file-upload operations, keyed by the
+// `METHOD /path` pattern the mux matches on. The validator skips them: it
+// buffers and decodes the whole body, which defeats the handler's streaming,
+// and it would gate on a Content-Type the endpoint must not trust.
+//
+// Nothing is lost. Auth runs earlier, these operations declare no parameters
+// (TestStreamingRoutesHaveNoParameters), and the handler's own checks are
+// stronger than anything a `format: binary` schema can express.
+func StreamingBodyRoutes(spec *openapi3.T) map[string]struct{} {
+	streaming := map[string]struct{}{}
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+				continue
+			}
+			for mediaType := range op.RequestBody.Value.Content {
+				if strings.HasPrefix(mediaType, "multipart/") {
+					streaming[method+" "+path] = struct{}{}
+					break
+				}
+			}
+		}
+	}
+	return streaming
 }

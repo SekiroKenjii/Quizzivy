@@ -60,8 +60,6 @@ const FOCUS = /\/layouts\/FocusLayout\./;
 
 describe("route-level code splitting (§2)", () => {
   it("produces more than one chunk", () => {
-    // If lazy() were removed entirely everything would collapse into the entry
-    // and every assertion below would pass vacuously.
     expect(chunks().length).toBeGreaterThan(3);
   });
 
@@ -81,21 +79,12 @@ describe("route-level code splitting (§2)", () => {
   });
 
   it("still builds the admin tree, in non-entry chunks", () => {
-    // Guards against the inverse failure: a broken import path would ALSO
-    // produce an entry chunk with no admin code in it, and every assertion
-    // above would pass while the app was simply broken.
-    //
-    // The count is not asserted. AdminLayout and routes/admin are separate
-    // dynamic imports, so Rollup is free to emit one chunk or two; what matters
-    // is that neither is the entry.
     const owning = chunks().filter((c) => matches(c.moduleIds, ADMIN).length > 0);
     expect(owning.length, "admin modules must be built somewhere").toBeGreaterThan(0);
     expect(owning.map((c) => c.isEntry)).not.toContain(true);
   });
 
   it("does not let the admin and student trees share a chunk", () => {
-    // They would only merge if something imported both statically — which would
-    // mean a student downloading the admin tree.
     for (const c of chunks()) {
       const hasAdmin = matches(c.moduleIds, ADMIN).length > 0;
       const hasStudent = matches(c.moduleIds, STUDENT).length > 0;

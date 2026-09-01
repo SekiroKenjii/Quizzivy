@@ -68,9 +68,6 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 }
 
 func TestAClassCarriesItsCodesMetadataAndNeverTheCode(t *testing.T) {
-	// §13.3: the plaintext exists once, in the response that created it. There
-	// is only a hash stored, so nothing here COULD return it -- this pins that
-	// the panel is given the hint and the counters instead.
 	pool := newPool(t)
 	classID, teacherID, _ := makeClass(t, pool)
 	svc := classes.NewService(classes.NewStore(pool))
@@ -120,9 +117,6 @@ func TestAClassWithNoActiveCodeReportsNone(t *testing.T) {
 }
 
 func TestMembersShowHowEachOneGotIn(t *testing.T) {
-	// §6.4's whole purpose: this is the signal that replaces an approval queue
-	// (§17.2). After a rotation, the hint distinguishes "came in through the
-	// code that leaked" from "came in through the current one" (D-10).
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
 	svc := classes.NewService(classes.NewStore(pool))
@@ -170,9 +164,6 @@ func TestMembersShowHowEachOneGotIn(t *testing.T) {
 }
 
 func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
-	// §6.4: "remove-member revokes access and RETAINS attempts". The membership
-	// grants access; the attempts are the student's work and the teacher's
-	// record of it.
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
 	svc := classes.NewService(classes.NewStore(pool))
@@ -222,10 +213,136 @@ func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testin
 	if err := svc.RemoveMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
 		t.Errorf("removing a non-member: %v", err)
 	}
-	// But a class that does not exist is a 404, so a typo in the URL does not
-	// look like it worked.
 	err := svc.RemoveMember(ctx, "01935000-0000-7000-8000-00000000ffff", studentID, teacherID, "", "")
 	if !errors.Is(err, classes.ErrNotFound) {
 		t.Errorf("error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+	ctx := context.Background()
+
+	m, err := svc.AddMember(ctx, classID, studentID, teacherID, "203.0.113.9", "go-test")
+	if err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	// The distinction §6.4 relies on: an admin enrolment is not a code join.
+	if m.JoinedVia != "admin" {
+		t.Errorf("joinedVia = %q, want admin", m.JoinedVia)
+	}
+	if m.JoinCodeHint != nil {
+		t.Errorf("joinCodeHint = %v, want nil", m.JoinCodeHint)
+	}
+	if m.UserID != studentID {
+		t.Errorf("userId = %s, want %s", m.UserID, studentID)
+	}
+
+	members, err := svc.Members(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(members) != 1 {
+		t.Fatalf("members = %d, want 1", len(members))
+	}
+}
+
+// Clicking "Thêm" twice on a slow connection is the ordinary way this happens.
+func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+	ctx := context.Background()
+
+	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
+		t.Fatalf("first add: %v", err)
+	}
+	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
+		t.Fatalf("second add: %v", err)
+	}
+
+	members, err := svc.Members(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(members) != 1 {
+		t.Errorf("members = %d, want 1", len(members))
+	}
+
+	var added int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM app.audit_log
+		  WHERE action = 'class.member_added' AND entity_id = $1::uuid`, classID).Scan(&added); err != nil {
+		t.Fatal(err)
+	}
+	if added != 1 {
+		t.Errorf("audit rows = %d, want 1: the second add changed nothing", added)
+	}
+}
+
+func TestOnlyAStudentCanBeEnrolled(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, _ := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+
+	_, err := svc.AddMember(context.Background(), classID, teacherID, teacherID, "", "")
+	if !errors.Is(err, classes.ErrNotAStudent) {
+		t.Fatalf("enrolling an admin: want ErrNotAStudent, got %v", err)
+	}
+}
+
+func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
+	pool := newPool(t)
+	_, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+
+	_, err := svc.AddMember(context.Background(),
+		"00000000-0000-7000-8000-0000000000cc", studentID, teacherID, "", "")
+	if !errors.Is(err, classes.ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}
+
+// The same rule on the class screen: a suspended account is not someone the
+// teacher is still teaching, and counting it makes every assignment on the
+// class read one short.
+func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, studentID := makeClass(t, pool)
+	svc := classes.NewService(classes.NewStore(pool))
+	ctx := context.Background()
+
+	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	before, err := svc.Get(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.StudentCount != 1 {
+		t.Fatalf("studentCount = %d, want 1", before.StudentCount)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, studentID); err != nil {
+		t.Fatal(err)
+	}
+
+	after, err := svc.Get(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.StudentCount != 0 {
+		t.Errorf("studentCount = %d after disabling the only member, want 0", after.StudentCount)
+	}
+
+	members, err := svc.Members(ctx, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(members) != 0 {
+		t.Errorf("the roster still lists %d disabled member(s)", len(members))
 	}
 }

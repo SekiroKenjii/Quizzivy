@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { callbackUrl, statesMatch, takePending } from "@/features/auth/google/pkce";
-import { destinationAfterSignIn, homePathFor } from "@/features/auth/home";
+import { destinationAfterSignIn } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 
@@ -40,8 +40,6 @@ export default function GoogleCallbackPage() {
       const state = params.get("state");
 
       if (params.get("error")) {
-        // The user pressed cancel on Google's consent screen. Not an error to
-        // apologise for -- just take them back.
         await navigate("/login", { replace: true });
         return;
       }
@@ -52,14 +50,13 @@ export default function GoogleCallbackPage() {
 
       try {
         if (pending.mode === "link") {
-          // Attaching a credential to the session that already exists (§15).
-          // Sending this to /auth/google instead would REPLACE that session
-          // with whichever Google account was chosen.
           const linked = await api("post", "/auth/google/link", {
             body: { code, codeVerifier: pending.verifier, redirectUri: callbackUrl() },
           });
           setUser(linked);
-          await navigate(pending.next ?? homePathFor(linked), { replace: true });
+          await navigate(destinationAfterSignIn(pending.next, linked), {
+            replace: true,
+          });
           return;
         }
 

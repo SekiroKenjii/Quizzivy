@@ -17,9 +17,6 @@ type PreviewOutcome int
 
 const (
 	PreviewOK PreviewOutcome = iota
-	// PreviewInvalid covers an unrecognised code AND a class whose self-join is
-	// switched off. The two are deliberately indistinguishable: a teacher who
-	// closed their class should not have that fact confirmed to strangers.
 	PreviewInvalid
 	PreviewRevoked
 	PreviewExpired
@@ -58,12 +55,6 @@ func (s *Service) Preview(ctx context.Context, rawCode string) (PreviewResult, e
 	if row == nil {
 		return PreviewResult{Outcome: PreviewInvalid}, nil
 	}
-
-	// §6.5 names a constant-time comparison. The b-tree probe above is the step
-	// that actually finds the row and is not constant-time, so this does not
-	// make the lookup constant-time -- nothing short of scanning every code
-	// would. What it does is keep the Go-side comparison constant-time, which
-	// is the part a future refactor could quietly turn into `bytes.Equal`.
 	if !Equal(row.CodeHash, Hash(normalized)) {
 		return PreviewResult{Outcome: PreviewInvalid}, nil
 	}
@@ -112,11 +103,6 @@ type codeRow struct {
 // student their code was cancelled is the difference between them asking for a
 // new one and concluding the app is broken.
 func (s *Store) LookupByCodeHash(ctx context.Context, hash []byte) (*codeRow, error) {
-	// The teacher name comes from the single admin account (§1). app.classes
-	// has no teacher column because there is one teacher, so recording which
-	// one owns a class would be a column with one value in it forever. If a
-	// second teacher is ever added, this is the query that has to change, and
-	// `classes.teacher_id` is the change.
 	const q = `
 		SELECT c.id::text, c.name, c.self_join_enabled,
 		       jc.code_hash, jc.revoked_at, jc.expires_at, jc.max_uses, jc.uses_count,

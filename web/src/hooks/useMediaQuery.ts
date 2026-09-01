@@ -19,9 +19,6 @@ export function useMediaQuery(query: string): boolean {
   );
 
   const getSnapshot = useCallback(() => window.matchMedia(query).matches, [query]);
-
-  // Server/prerender snapshot. Nothing prerenders today (SPA mode, §2), but
-  // useSyncExternalStore requires it and `false` matches the wider layout.
   const getServerSnapshot = useCallback(() => false, []);
 
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

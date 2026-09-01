@@ -12,10 +12,6 @@ import (
 const newPassword = "mật-khẩu-mới-dài-hơn"
 
 func TestChangingPasswordKillsASecondDevice(t *testing.T) {
-	// The reason to change a password is that someone else may know the old
-	// one. If the sessions it authorised survive, the change accomplishes
-	// nothing -- the intruder keeps refreshing indefinitely and never needs the
-	// password again.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	id, email := makeUser(t, pool)
@@ -38,9 +34,6 @@ func TestChangingPasswordKillsASecondDevice(t *testing.T) {
 	if _, err := svc.Refresh(ctx, auth.RefreshInput{Token: theirs}); err == nil {
 		t.Error("the second device can still refresh after the password change")
 	}
-
-	// ...and the device that made the change stays signed in. Logging the user
-	// out of the tab they are typing in is a bug, not extra safety.
 	if _, err := svc.Refresh(ctx, auth.RefreshInput{Token: mine}); err != nil {
 		t.Errorf("the changing device was signed out too: %v", err)
 	}
@@ -67,9 +60,6 @@ func TestTheNewPasswordWorksAndTheOldOneDoesNot(t *testing.T) {
 }
 
 func TestChangingPasswordClearsMustChangePassword(t *testing.T) {
-	// §5.1's first-login flow: the teacher sets a temporary password and the
-	// student is forced to change it. If the flag survives the change, the
-	// student is trapped on that screen forever.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool)
@@ -134,8 +124,6 @@ func TestAGoogleOnlyAccountCannotChangeAPasswordItDoesNotHave(t *testing.T) {
 }
 
 func TestAShortNewPasswordIsRejectedBeforeAnyHashingHappens(t *testing.T) {
-	// Length is checked first so a typo costs nothing, and so the endpoint is
-	// not a way to make an authenticated caller burn Argon2id time at will.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool)
@@ -151,8 +139,6 @@ func TestAShortNewPasswordIsRejectedBeforeAnyHashingHappens(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := svc.ChangePassword(context.Background(), auth.ChangePasswordInput{
-				// Deliberately the WRONG current password: length must be
-				// rejected before credentials are even consulted.
 				UserID: id, CurrentPassword: "wrong", NewPassword: tc.pw,
 			})
 			if !errors.Is(err, tc.want) {
@@ -176,9 +162,6 @@ func TestEightCharactersIsAccepted(t *testing.T) {
 }
 
 func TestAnUnknownKeepTokenRevokesEverySession(t *testing.T) {
-	// If we cannot identify the caller's session we cannot spare it, and
-	// sparing the wrong one -- or sparing none by accident -- are not equally
-	// bad. Signing everyone out is the safe direction.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	id, email := makeUser(t, pool)
@@ -202,9 +185,6 @@ func TestAnUnknownKeepTokenRevokesEverySession(t *testing.T) {
 }
 
 func TestAnotherUsersRefreshTokenCannotSpareASession(t *testing.T) {
-	// KeepRefreshToken is attacker-influenced only in the sense that a caller
-	// could present a token they hold from another account. Scoping the lookup
-	// to the changing user is what stops that from meaning anything.
 	pool := newPool(t)
 	svc := newService(t, pool)
 	victimID, victimEmail := makeUser(t, pool)
@@ -250,5 +230,54 @@ func TestThePasswordChangeIsAudited(t *testing.T) {
 	}
 	if action != "user.password_changed" || entity != "user" {
 		t.Errorf("audit row = %s/%s", action, entity)
+	}
+}
+
+// A forced change does not ask for the current password.
+//
+// After a teacher-issued reset the password being replaced is one an admin
+// generated and read aloud, so re-entering it proves nothing the access token
+// has not already proved -- and demanding it strands the case G-07 exists for:
+// a student whose password was reset, who signs in with Google and lands on
+// /change-password having never held the temporary one.
+func TestAForcedChangeDoesNotNeedTheCurrentPassword(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, _ := makeUser(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET must_change_password = true WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.ChangePassword(ctx, auth.ChangePasswordInput{
+		UserID: id, CurrentPassword: "", NewPassword: newPassword,
+	}); err != nil {
+		t.Fatalf("a forced change was refused without the current password: %v", err)
+	}
+
+	user, err := svc.CurrentUser(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.MustChangePassword {
+		t.Error("the flag survived the change that cleared it")
+	}
+}
+
+// The exemption is scoped to that window and nothing wider: an ordinary change
+// still has to prove the caller knows the password it is replacing, which is
+// what protects a signed-in session left open on a shared machine.
+func TestAnOrdinaryChangeStillNeedsTheCurrentPassword(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, _ := makeUser(t, pool)
+
+	err := svc.ChangePassword(context.Background(), auth.ChangePasswordInput{
+		UserID: id, CurrentPassword: "", NewPassword: newPassword,
+	})
+	if !errors.Is(err, auth.ErrInvalidCredentials) {
+		t.Fatalf("want ErrInvalidCredentials, got %v", err)
 	}
 }

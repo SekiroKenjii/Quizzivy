@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryRouter,
   Outlet,
@@ -57,7 +58,14 @@ function renderAt(path: string) {
     },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [path] });
-  render(<RouterProvider router={router} />);
+  // The 403 page can sign you out, so it reads the query client -- which
+  // AppProviders wraps the router in for every route in the real tree.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
   return router;
 }
 
@@ -69,9 +77,6 @@ describe("RequireSession", () => {
   it("waits while the session is still being restored", async () => {
     useAuthStore.setState({ isBootstrapping: true, user: null, accessToken: null });
     renderAt("/app");
-
-    // Not /login. Redirecting here would flash the sign-in screen on every
-    // reload and throw away the URL the user actually followed.
     expect(await screen.findByRole("status")).toBeInTheDocument();
     expect(screen.queryByText("login page")).not.toBeInTheDocument();
   });
@@ -98,9 +103,6 @@ describe("RequireSession", () => {
   });
 
   it("does not trap a Google-only account on the password change", () => {
-    // `must_change_password` requires a password at the database level (D-16's
-    // CHECK), so the flag cannot be true for an account that has none. This
-    // pins the consequence: a passwordless user reaches the app normally.
     useAuthStore.setState({
       isBootstrapping: false,
       accessToken: "t",
@@ -124,9 +126,6 @@ describe("role guards", () => {
       user: studentUser,
     });
     const router = renderAt("/admin");
-
-    // The page, not a redirect. §5.4: a redirect hides the misconfiguration,
-    // and the person who has to diagnose it is the teacher.
     expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
     expect(screen.queryByText("admin home")).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/admin");
@@ -167,10 +166,6 @@ describe("role guards", () => {
 
 describe("signing out", () => {
   it("does not leave a ?next= pointing at the previous user's page", async () => {
-    // Clearing the session while still on a guarded route makes RequireSession
-    // redirect with `?next=<that route>`, and the next person to sign in on the
-    // device inherits it. Found in the browser: a student signed in after a
-    // teacher signed out of /admin/classes and landed on a 403.
     useAuthStore.setState({
       isBootstrapping: false,
       accessToken: "t",
@@ -190,14 +185,6 @@ describe("signing out", () => {
 
 describe("losing the session", () => {
   it("leaves a visitor on a public screen where they are", async () => {
-    // The bootstrap `GET /auth/me` 401s for everyone without an account --
-    // which is the normal answer, not a failure. When that used to trigger a
-    // navigation to /login, an anonymous student following a join link was
-    // thrown off /join before ever seeing which class invited them. That is
-    // the one flow §6.2 exists for.
-    //
-    // The rule now: losing a session CLEARS state; the guards decide where
-    // anyone goes. A public route has no guard, so nobody is moved.
     const routes: RouteObject[] = [
       { path: "/login", element: <p>login page</p> },
       { path: "/join/:code/confirm", element: <p>confirm page</p> },
@@ -209,7 +196,14 @@ describe("losing the session", () => {
     const router = createMemoryRouter(routes, {
       initialEntries: ["/join/K7M3P9QR/confirm"],
     });
-    render(<RouterProvider router={router} />);
+    // The 403 page can sign you out, so it reads the query client -- which
+    // AppProviders wraps the router in for every route in the real tree.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
     expect(await screen.findByText("confirm page")).toBeInTheDocument();
 
     // What the API client does when a session turns out not to exist.

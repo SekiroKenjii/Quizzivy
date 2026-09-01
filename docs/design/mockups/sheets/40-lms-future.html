@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LMS vision · Quizzivy design deck</title>
+    <link rel="stylesheet" href="../assets/kit.css" />
+  </head>
+  <body class="deck">
+    <header class="deck-bar">
+      <span class="font-semibold tracking-tight">Quizzivy</span>
+      <span class="text-xs text-muted-foreground">design deck</span>
+      <nav class="flex items-center gap-1 ml-4">
+        <a class="btn btn-sm btn-ghost" href="00-foundations.html">Foundations</a>
+        <a class="btn btn-sm btn-ghost" href="10-student.html">Student</a>
+        <a class="btn btn-sm btn-ghost" href="20-teacher-authoring.html">Authoring</a>
+        <a class="btn btn-sm btn-ghost" href="30-teacher-assign-grade.html">Assign &amp; grade</a>
+        <a class="btn btn-sm btn-secondary" href="40-lms-future.html">LMS vision</a>
+        <a class="btn btn-sm btn-ghost" href="50-brand-and-errors.html">Brand &amp; errors</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-2">
+        <div class="flex items-center gap-1 border rounded-md px-1 h-8">
+          <button class="btn btn-xs btn-ghost" data-zoom="-0.1" aria-label="Zoom out">−</button>
+          <span class="text-xs text-muted-foreground tabular-nums w-10 text-center" data-zoom-label>100%</span>
+          <button class="btn btn-xs btn-ghost" data-zoom="0.1" aria-label="Zoom in">+</button>
+        </div>
+        <button class="btn btn-sm btn-outline" data-theme-toggle>
+          <svg class="i" aria-hidden="true"><use href="#i-moon" /></svg>
+          <span data-theme-label>Tối</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="deck-wrap">
+      <h1 class="text-2xl font-semibold tracking-tight">LMS vision</h1>
+      <p class="deck-sub mt-2">
+        §1.2’s fourth goal: “the next feature is a new folder under
+        <code class="font-mono">features/</code>, not a rewrite”. This sheet is what that
+        sentence looks like as pictures. Nothing here is v1 scope — the value of drawing it now
+        is that it names the three or four decisions v1 must not accidentally close, and the
+        two it should deliberately close in its favour.
+      </p>
+
+      <!-- ================================================== MODEL -->
+      <section class="deck-section">
+        <h2 class="deck-h">1 · One structural idea does all the work</h2>
+        <p class="deck-sub mt-1">
+          Everything an LMS adds — vocabulary sets, homework, pronunciation drills, readings,
+          videos — is a thing a student is asked to do, that produces a record, that may carry a
+          score. v1 already has that shape; it just calls it a <em>test</em>. Widening the noun
+          from <strong>test</strong> to <strong>activity</strong> is the whole migration, and it
+          costs almost nothing while there is exactly one kind.
+        </p>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">L-01</span>
+            <span class="board-name">Today → the shape it grows into</span>
+          </div>
+          <div class="grid grid-cols-2 gap-5">
+            <div class="card p-5">
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-4">v1 today</p>
+              <div class="space-y-2">
+                <div class="border rounded-md p-3 flex items-center gap-2.5">
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-file-text" /></svg>
+                  <span class="text-sm font-medium">Test</span>
+                  <span class="text-xs text-muted-foreground ml-auto">sections → questions</span>
+                </div>
+                <p class="text-center text-muted-foreground text-xs">↓ giao cho lớp</p>
+                <div class="border rounded-md p-3 flex items-center gap-2.5">
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-clipboard-list" /></svg>
+                  <span class="text-sm font-medium">Assignment</span>
+                  <span class="text-xs text-muted-foreground ml-auto">window · policy · targets</span>
+                </div>
+                <p class="text-center text-muted-foreground text-xs">↓ học viên làm</p>
+                <div class="border rounded-md p-3 flex items-center gap-2.5">
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-square-pen" /></svg>
+                  <span class="text-sm font-medium">Attempt</span>
+                  <span class="text-xs text-muted-foreground ml-auto">answers · events · score</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card p-5">
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-4">LMS · same spine, one wider noun</p>
+              <div class="space-y-2">
+                <div class="border rounded-md p-3">
+                  <div class="flex items-center gap-2.5">
+                    <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-book-open" /></svg>
+                    <span class="text-sm font-medium">Course → Module → Lesson</span>
+                    <span class="badge b-outline ml-auto">mới</span>
+                  </div>
+                  <p class="text-xs text-muted-foreground mt-1.5">Chỗ để sắp xếp nội dung theo thời gian, thay cho một danh sách đề phẳng.</p>
+                </div>
+                <p class="text-center text-muted-foreground text-xs">↓ chứa</p>
+                <div class="border rounded-md p-3 border-foreground/20">
+                  <div class="flex items-center gap-2.5">
+                    <svg class="i" aria-hidden="true"><use href="#i-layers" /></svg>
+                    <span class="text-sm font-medium">Activity</span>
+                    <span class="badge b-secondary ml-auto">test là một loại</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5 mt-2">
+                    <span class="badge b-outline">test</span>
+                    <span class="badge b-outline">vocabulary_set</span>
+                    <span class="badge b-outline">homework</span>
+                    <span class="badge b-outline">reading</span>
+                    <span class="badge b-outline">listening_drill</span>
+                    <span class="badge b-outline">pronunciation</span>
+                  </div>
+                </div>
+                <p class="text-center text-muted-foreground text-xs">↓ giao cho lớp — không đổi</p>
+                <div class="border rounded-md p-3 flex items-center gap-2.5">
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-clipboard-list" /></svg>
+                  <span class="text-sm font-medium">Assignment</span>
+                  <span class="text-xs text-muted-foreground ml-auto">window · policy · targets</span>
+                </div>
+                <p class="text-center text-muted-foreground text-xs">↓ học viên làm — không đổi</p>
+                <div class="border rounded-md p-3 flex items-center gap-2.5">
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-square-pen" /></svg>
+                  <span class="text-sm font-medium">Attempt</span>
+                  <span class="text-xs text-muted-foreground ml-auto">answers · events · score</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-5 mt-5">
+            <p class="card-title mb-3">What v1 should do now — and what it should not</p>
+            <div class="grid grid-cols-2 gap-6">
+              <div>
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2.5">Cheap now, expensive later</p>
+                <ul class="space-y-2.5 text-sm">
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-success" aria-hidden="true"><use href="#i-check" /></svg>
+                    <span>Keep the <strong>frontend route and folder names generic where they already are</strong> — <code class="font-mono text-xs">features/assignments</code>, <code class="font-mono text-xs">features/take-test</code>. The second is the only one that names a type; a later rename to <code class="font-mono text-xs">features/activity-player</code> is a folder move, not a redesign.</span>
+                  </li>
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-success" aria-hidden="true"><use href="#i-check" /></svg>
+                    <span>Keep <strong>role as an enum with room</strong>. §1.1 already asks for this so a limited <code class="font-mono text-xs">teacher</code> can appear later; the guards must never test <code class="font-mono text-xs">role === 'admin'</code> where they mean “may grade”.</span>
+                  </li>
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-success" aria-hidden="true"><use href="#i-check" /></svg>
+                    <span>Keep <strong>the class as the unit of assignment</strong>. Courses attach to classes later; a design that assigns to individuals only would have to be undone.</span>
+                  </li>
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-success" aria-hidden="true"><use href="#i-check" /></svg>
+                    <span>Keep <strong>media immutable and referenced, never copied</strong> (§11.1). A vocabulary set reusing a listening clip depends on exactly that property.</span>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2.5">Do not build now</p>
+                <ul class="space-y-2.5 text-sm">
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true"><use href="#i-x" /></svg>
+                    <span>An <strong>activity type column with one value</strong>. A polymorphic table with a single member is speculative complexity; the rename is a migration when there are two, and it is a cheap one.</span>
+                  </li>
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true"><use href="#i-x" /></svg>
+                    <span>A <strong>course hierarchy nobody fills in</strong>. Twelve tests do not need modules. The teacher will tell you when they do, by asking for it.</span>
+                  </li>
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true"><use href="#i-x" /></svg>
+                    <span>A <strong>plugin architecture for question types</strong>. Five types, one switch statement, and a folder per type is faster to read and faster to change than a registry.</span>
+                  </li>
+                  <li class="flex gap-2.5">
+                    <svg class="i shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true"><use href="#i-x" /></svg>
+                    <span><strong>Multi-tenant scoping</strong> (§1.3). One practice, one teacher. Adding an org id “just in case” costs every query for years.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">L-02</span>
+            <span class="board-name">Navigation over three releases</span>
+          </div>
+          <p class="board-note">
+            The sidebar is the product’s table of contents, and rearranging it is the change
+            users feel most. Growing it by <em>adding groups</em> rather than reordering items
+            keeps the muscle memory intact — which is why the group headings exist in v1 while
+            they are arguably still unnecessary.
+          </p>
+          <div class="frame-row">
+            <div class="frame" style="width: 250px">
+              <div class="px-3 py-2 border-b bg-muted/30"><p class="text-xs font-medium">v1 — test-taking</p></div>
+              <nav class="shell-side" style="width: auto">
+                <p class="side-label">Giảng dạy</p>
+                <span class="side-item is-active"><svg class="i" aria-hidden="true"><use href="#i-layout-dashboard" /></svg> Tổng quan</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-file-text" /></svg> Đề thi</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-library" /></svg> Ngân hàng câu hỏi</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-audio-lines" /></svg> Thư viện media</span>
+                <p class="side-label">Lớp học</p>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-clipboard-list" /></svg> Bài giao</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-square-pen" /></svg> Chờ chấm</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-users" /></svg> Học viên</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-graduation-cap" /></svg> Lớp học</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-settings" /></svg> Cài đặt</span>
+              </nav>
+            </div>
+
+            <div class="frame" style="width: 250px">
+              <div class="px-3 py-2 border-b bg-muted/30"><p class="text-xs font-medium">v2 — content &amp; schedule</p></div>
+              <nav class="shell-side" style="width: auto">
+                <p class="side-label">Giảng dạy</p>
+                <span class="side-item is-active"><svg class="i" aria-hidden="true"><use href="#i-layout-dashboard" /></svg> Tổng quan</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-book-open" /></svg> Khoá học <span class="badge b-outline">mới</span></span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-file-text" /></svg> Đề thi</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-library" /></svg> Ngân hàng câu hỏi</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-bookmark" /></svg> Bộ từ vựng <span class="badge b-outline">mới</span></span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-audio-lines" /></svg> Thư viện media</span>
+                <p class="side-label">Lớp học</p>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-clipboard-list" /></svg> Bài giao</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-square-pen" /></svg> Chờ chấm</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-calendar" /></svg> Lịch <span class="badge b-outline">mới</span></span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-megaphone" /></svg> Thông báo <span class="badge b-outline">mới</span></span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-users" /></svg> Học viên</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-graduation-cap" /></svg> Lớp học</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-settings" /></svg> Cài đặt</span>
+              </nav>
+            </div>
+
+            <div class="frame" style="width: 250px">
+              <div class="px-3 py-2 border-b bg-muted/30"><p class="text-xs font-medium">v3 — a full LMS</p></div>
+              <nav class="shell-side" style="width: auto">
+                <p class="side-label">Giảng dạy</p>
+                <span class="side-item is-active"><svg class="i" aria-hidden="true"><use href="#i-layout-dashboard" /></svg> Tổng quan</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-book-open" /></svg> Khoá học</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-layers" /></svg> Thư viện nội dung</span>
+                <p class="side-label">Lớp học</p>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-clipboard-list" /></svg> Bài giao</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-square-pen" /></svg> Chờ chấm</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-calendar" /></svg> Lịch</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-megaphone" /></svg> Thông báo</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-users" /></svg> Học viên</span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-graduation-cap" /></svg> Lớp học</span>
+                <p class="side-label">Theo dõi</p>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-chart-column" /></svg> Sổ điểm <span class="badge b-outline">mới</span></span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-target" /></svg> Báo cáo kỹ năng <span class="badge b-outline">mới</span></span>
+                <p class="side-label">Hệ thống</p>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-shield-check" /></svg> Vai trò &amp; quyền <span class="badge b-outline">mới</span></span>
+                <span class="side-item"><svg class="i" aria-hidden="true"><use href="#i-settings" /></svg> Cài đặt</span>
+              </nav>
+            </div>
+
+            <div class="max-w-sm space-y-3 pt-2">
+              <div class="callout">
+                <strong>“Đề thi” and “Ngân hàng câu hỏi” merge into “Thư viện nội dung” at v3</strong>,
+                once there are six content types and a separate nav item for each would be
+                absurd. That is the one planned disruption — worth flagging early so it is a
+                decision rather than an accident.
+              </div>
+              <div class="callout">
+                <strong>Every new item lands inside an existing group</strong> until v3 adds two
+                groups at the bottom. Nothing above ever moves down. A teacher who learned
+                “Học viên is the seventh item” stays right for two releases.
+              </div>
+              <div class="callout">
+                <strong>Above roughly twelve items the palette carries the load.</strong> That is
+                the threshold where the sidebar stops being a menu and becomes a shortcut bar for
+                the five destinations someone actually uses.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================== SCREENS -->
+      <section class="deck-section">
+        <h2 class="deck-h">2 · What the new screens look like</h2>
+        <p class="deck-sub mt-1">
+          Drawn in the same kit, with the same rules. The point of showing them is to prove the
+          design system does not run out — an LMS built on these tokens looks like the same
+          product, not a second one bolted on.
+        </p>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">L-03</span>
+            <span class="board-name">Course builder</span>
+            <span class="board-route">v2 · /admin/courses/:id</span>
+          </div>
+          <p class="board-note">
+            The same three-column shape as the test builder, one level up: outline of modules and
+            lessons, a lesson editor in the middle, scheduling on the right. A teacher who has
+            built a test already knows this screen.
+          </p>
+          <div class="board-scroll">
+            <div class="frame frame-wide">
+              <div class="shell">
+                <div class="flex-1 min-w-0">
+                  <div class="topbar">
+                    <button class="btn btn-icon btn-sm btn-ghost" aria-label="Quay lại"><svg class="i" aria-hidden="true"><use href="#i-arrow-left" /></svg></button>
+                    <input class="input h-8 w-80 font-medium border-transparent shadow-none" value="IELTS Foundation — Khoá 12 tuần" />
+                    <span class="badge b-success">Đang dạy</span>
+                    <span class="badge b-outline">Tuần 5 / 12</span>
+                    <div class="ml-auto flex items-center gap-2">
+                      <button class="btn btn-sm btn-outline"><svg class="i" aria-hidden="true"><use href="#i-eye" /></svg> Xem như học viên</button>
+                      <button class="btn btn-sm btn-primary">Lưu</button>
+                    </div>
+                  </div>
+                  <div class="flex" style="min-height: 560px">
+                    <div class="w-80 shrink-0 border-r flex flex-col">
+                      <div class="p-3 border-b flex items-center">
+                        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Chương trình</p>
+                        <span class="text-xs text-muted-foreground ml-auto">12 tuần · 34 hoạt động</span>
+                      </div>
+                      <div class="flex-1 p-2 space-y-2 overflow-y-auto">
+                        <div>
+                          <div class="flex items-center gap-1.5 px-1.5 py-1">
+                            <svg class="i i-3.5 text-muted-foreground" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                            <span class="text-xs font-semibold text-muted-foreground">Tuần 1–4 · Nền tảng</span>
+                            <span class="badge b-success ml-auto">xong</span>
+                          </div>
+                        </div>
+                        <div>
+                          <div class="flex items-center gap-1.5 px-1.5 py-1">
+                            <svg class="i i-3.5 text-muted-foreground" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                            <span class="text-xs font-semibold">Tuần 5 · Present perfect</span>
+                            <span class="text-xs text-muted-foreground ml-auto">4 mục</span>
+                          </div>
+                          <div class="space-y-0.5 pl-1">
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs bg-secondary font-medium">
+                              <svg class="i i-3.5 opacity-40" aria-hidden="true"><use href="#i-grip-vertical" /></svg>
+                              <svg class="i i-3.5" aria-hidden="true"><use href="#i-book-open" /></svg>
+                              <span class="truncate flex-1">Bài giảng · Present perfect</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground">
+                              <svg class="i i-3.5 opacity-40" aria-hidden="true"><use href="#i-grip-vertical" /></svg>
+                              <svg class="i i-3.5" aria-hidden="true"><use href="#i-bookmark" /></svg>
+                              <span class="truncate flex-1">Từ vựng · 24 từ</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground">
+                              <svg class="i i-3.5 opacity-40" aria-hidden="true"><use href="#i-grip-vertical" /></svg>
+                              <svg class="i i-3.5" aria-hidden="true"><use href="#i-headphones" /></svg>
+                              <span class="truncate flex-1">Luyện nghe · Hội thoại 2</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground">
+                              <svg class="i i-3.5 opacity-40" aria-hidden="true"><use href="#i-grip-vertical" /></svg>
+                              <svg class="i i-3.5" aria-hidden="true"><use href="#i-file-text" /></svg>
+                              <span class="truncate flex-1">Kiểm tra Unit 5</span>
+                              <span class="badge b-outline">đã giao</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 px-1.5 py-1">
+                          <svg class="i i-3.5 text-muted-foreground" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                          <span class="text-xs font-semibold text-muted-foreground">Tuần 6 · Passive voice</span>
+                        </div>
+                      </div>
+                      <div class="p-2 border-t">
+                        <button class="btn btn-sm btn-outline btn-block justify-start">
+                          <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg> Thêm hoạt động
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="flex-1 min-w-0 p-6">
+                      <div class="max-w-2xl space-y-5">
+                        <div>
+                          <label class="label" for="ln">Tên bài giảng</label>
+                          <input class="input" id="ln" value="Present perfect — dùng khi nào" />
+                        </div>
+                        <div>
+                          <label class="label">Nội dung</label>
+                          <div class="space-y-2">
+                            <div class="border rounded-md p-3 flex items-center gap-3">
+                              <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-scroll-text" /></svg>
+                              <span class="text-sm flex-1">Đoạn giải thích · 320 từ</span>
+                              <button class="btn btn-xs btn-ghost text-muted-foreground">Sửa</button>
+                            </div>
+                            <div class="border rounded-md p-3 flex items-center gap-3">
+                              <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-headphones" /></svg>
+                              <span class="text-sm flex-1">Ví dụ nghe · dialogue-2.mp3 · 1:12</span>
+                              <button class="btn btn-xs btn-ghost text-muted-foreground">Sửa</button>
+                            </div>
+                            <div class="border rounded-md p-3 flex items-center gap-3">
+                              <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-list-checks" /></svg>
+                              <span class="text-sm flex-1">Bài tập nhanh · 5 câu, không tính điểm</span>
+                              <button class="btn btn-xs btn-ghost text-muted-foreground">Sửa</button>
+                            </div>
+                            <button class="btn btn-sm btn-ghost text-muted-foreground justify-start">
+                              <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg> Thêm khối nội dung
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <aside class="w-72 shrink-0 border-l p-4 space-y-4">
+                      <div>
+                        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2.5">Mở cho học viên</p>
+                        <div class="space-y-2.5">
+                          <label class="flex items-center justify-between gap-3 text-sm">
+                            Theo lịch tuần <input type="checkbox" class="switch" checked />
+                          </label>
+                          <div>
+                            <label class="label" for="op">Mở lúc</label>
+                            <input class="input" id="op" value="29/08 · 08:00" />
+                          </div>
+                          <label class="flex items-center justify-between gap-3 text-sm leading-snug">
+                            Phải xong bài trước mới mở
+                            <input type="checkbox" class="switch" />
+                          </label>
+                        </div>
+                      </div>
+                      <hr class="sep" />
+                      <div>
+                        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2.5">Tiến độ lớp</p>
+                        <div class="space-y-2">
+                          <div class="flex items-center gap-2">
+                            <div class="progress flex-1"><i style="width: 61%"></i></div>
+                            <span class="text-xs text-muted-foreground num">11/18</span>
+                          </div>
+                          <p class="text-xs text-muted-foreground">11 học viên đã xem bài giảng này.</p>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">L-04</span>
+            <span class="board-name">Student · course home · lesson · vocabulary drill</span>
+            <span class="board-route">v2 · /app/courses/*</span>
+          </div>
+          <p class="board-note">
+            The student’s home stops being a list of due dates and becomes a place in a course —
+            but the “what do I do next” card survives unchanged, because that is still the only
+            question they open the app with.
+          </p>
+          <div class="frame-row">
+            <div class="frame frame-phone">
+              <div class="px-4 h-14 border-b flex items-center justify-between">
+                <span class="flex items-center gap-2"><svg width="31" height="22" aria-hidden="true"><use href="#qz-mark-color"/></svg><span class="text-sm font-semibold tracking-tight">Quizzivy</span></span>
+                <div class="flex items-center gap-1">
+                  <span class="btn btn-sm btn-secondary">Khoá học</span>
+                  <span class="btn btn-sm btn-ghost text-muted-foreground">Bài</span>
+                </div>
+              </div>
+              <div class="p-4 space-y-5">
+                <div>
+                  <p class="text-xs text-muted-foreground">IELTS Foundation</p>
+                  <p class="text-lg font-semibold tracking-tight mt-0.5">Tuần 5 · Present perfect</p>
+                  <div class="flex items-center gap-2 mt-2">
+                    <div class="progress flex-1"><i style="width: 40%"></i></div>
+                    <span class="text-xs text-muted-foreground num">2/5</span>
+                  </div>
+                </div>
+
+                <div class="card border-foreground/20">
+                  <div class="card-body">
+                    <p class="text-xs text-muted-foreground">Tiếp theo</p>
+                    <p class="text-base font-semibold mt-1">Từ vựng · 24 từ</p>
+                    <p class="text-xs text-muted-foreground mt-1">Khoảng 6 phút · 8 từ cần ôn lại</p>
+                    <button class="btn btn-lg btn-primary btn-block mt-3.5">Học tiếp</button>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="card p-3.5 flex items-center gap-3">
+                    <svg class="i text-success shrink-0" aria-hidden="true"><use href="#i-circle-check" /></svg>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm">Bài giảng · Present perfect</p>
+                      <p class="text-xs text-muted-foreground">Đã xem 27/08</p>
+                    </div>
+                  </div>
+                  <div class="card p-3.5 flex items-center gap-3">
+                    <svg class="i text-success shrink-0" aria-hidden="true"><use href="#i-circle-check" /></svg>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm">Luyện nghe · Hội thoại 2</p>
+                      <p class="text-xs text-muted-foreground">Đã xong 28/08</p>
+                    </div>
+                  </div>
+                  <div class="card p-3.5 flex items-center gap-3 border-foreground/20">
+                    <svg class="i shrink-0" aria-hidden="true"><use href="#i-bookmark" /></svg>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium">Từ vựng · 24 từ</p>
+                      <p class="text-xs text-muted-foreground">Đang học</p>
+                    </div>
+                  </div>
+                  <div class="card p-3.5 flex items-center gap-3">
+                    <svg class="i text-muted-foreground shrink-0" aria-hidden="true"><use href="#i-file-text" /></svg>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm">Kiểm tra Unit 5</p>
+                      <p class="text-xs text-muted-foreground">Đóng 21:00 hôm nay</p>
+                    </div>
+                    <span class="badge b-warning">Còn 3 giờ</span>
+                  </div>
+                  <div class="card p-3.5 flex items-center gap-3 opacity-60">
+                    <svg class="i text-muted-foreground shrink-0" aria-hidden="true"><use href="#i-lock" /></svg>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm">Bài viết · Thói quen của tôi</p>
+                      <p class="text-xs text-muted-foreground">Mở 01/09</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="frame frame-phone">
+              <div class="px-4 h-12 border-b flex items-center gap-3">
+                <span class="btn btn-icon btn-sm btn-ghost"><svg class="i" aria-hidden="true"><use href="#i-x" /></svg></span>
+                <div class="progress flex-1"><i style="width: 55%"></i></div>
+                <span class="text-xs text-muted-foreground tabular-nums">3/5</span>
+              </div>
+              <div class="p-5 space-y-5">
+                <p class="text-xs text-muted-foreground">Bài giảng · Present perfect</p>
+                <h1 class="text-xl font-semibold tracking-tight leading-snug">Dùng present perfect khi nào?</h1>
+                <p class="text-base leading-relaxed">
+                  Thì hiện tại hoàn thành nối quá khứ với hiện tại. Ta dùng nó khi việc đã xảy ra
+                  nhưng <strong>vẫn còn liên quan tới bây giờ</strong> — thời điểm cụ thể không
+                  quan trọng bằng kết quả.
+                </p>
+                <div class="rounded-md border p-4 space-y-2">
+                  <p class="text-sm leading-relaxed">She <strong>has lived</strong> in Hanoi since 2019.</p>
+                  <p class="text-xs text-muted-foreground">→ Bây giờ cô ấy vẫn ở Hà Nội.</p>
+                </div>
+                <div class="player py-2.5">
+                  <button class="player-btn" style="width: 2.25rem; height: 2.25rem" aria-label="Nghe ví dụ">
+                    <svg class="i" aria-hidden="true"><use href="#i-play" /></svg>
+                  </button>
+                  <div class="flex-1 min-w-0">
+                    <div class="player-track"><i style="width: 0%"></i></div>
+                    <p class="text-xs text-muted-foreground mt-1.5">Nghe ví dụ · 1:12</p>
+                  </div>
+                </div>
+              </div>
+              <div class="border-t p-3 flex items-center gap-2 sticky bottom-0 bg-background">
+                <button class="btn btn-outline btn-icon" aria-label="Trước"><svg class="i" aria-hidden="true"><use href="#i-chevron-left" /></svg></button>
+                <button class="btn btn-primary flex-1">Tiếp tục</button>
+              </div>
+            </div>
+
+            <div class="frame frame-phone">
+              <div class="px-4 h-12 border-b flex items-center gap-3">
+                <span class="btn btn-icon btn-sm btn-ghost"><svg class="i" aria-hidden="true"><use href="#i-x" /></svg></span>
+                <div class="progress flex-1"><i style="width: 33%"></i></div>
+                <span class="text-xs text-muted-foreground tabular-nums">8/24</span>
+              </div>
+              <div class="p-5 space-y-5" style="min-height: 480px">
+                <div class="text-center pt-8">
+                  <p class="text-xs text-muted-foreground uppercase tracking-wide">Từ này nghĩa là gì?</p>
+                  <p class="text-3xl font-semibold tracking-tight mt-4">commute</p>
+                  <button class="btn btn-sm btn-ghost text-muted-foreground mt-2">
+                    <svg class="i" aria-hidden="true"><use href="#i-volume-2" /></svg> Nghe phát âm
+                  </button>
+                </div>
+                <div class="space-y-2.5 pt-4">
+                  <div class="option"><span class="option-key">A</span><span class="text-base">đi làm hằng ngày</span></div>
+                  <div class="option"><span class="option-key">B</span><span class="text-base">giao tiếp</span></div>
+                  <div class="option"><span class="option-key">C</span><span class="text-base">cam kết</span></div>
+                </div>
+              </div>
+              <div class="border-t p-3 flex items-center justify-between">
+                <span class="text-xs text-muted-foreground">Chuỗi đúng: 6</span>
+                <button class="btn btn-sm btn-ghost text-muted-foreground">Không nhớ từ này</button>
+              </div>
+            </div>
+
+            <div class="max-w-sm space-y-3 pt-2">
+              <div class="callout">
+                <strong>Locked items are shown, not hidden.</strong> “Mở 01/09” at 60% opacity tells
+                the student the week has five things in it. Hiding future work makes a course feel
+                like a series of surprises.
+              </div>
+              <div class="callout">
+                <strong>The vocabulary drill reuses the option row verbatim.</strong> Same
+                component, same key hints, same 44px target. A student who has taken one test
+                already knows how to answer.
+              </div>
+              <div class="callout">
+                <strong>“Không nhớ từ này” is a first-class button.</strong> Spaced repetition
+                needs an honest signal, and a student who guesses to avoid admitting they forgot
+                poisons their own schedule.
+              </div>
+              <div class="callout">
+                <strong>No streak flames, no confetti, no XP.</strong> §12 forbids the decoration,
+                and a private practice with one teacher does not need a slot machine — “Chuỗi
+                đúng: 6” is the honest version of the same information.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">L-05</span>
+            <span class="board-name">Gradebook</span>
+            <span class="board-route">v3 · /admin/gradebook</span>
+          </div>
+          <p class="board-note">
+            Students down, activities across. Reading a row tells you about a person; reading a
+            column tells you about your teaching. The cell is a number and nothing else — no
+            heat map, because a wall of colour is exactly the “rich analytics dashboard” §1.3
+            rules out, and it makes the one number that matters harder to find.
+          </p>
+          <div class="board-scroll">
+            <div class="frame frame-wide">
+              <div class="shell">
+                <div class="flex-1 min-w-0">
+                  <div class="topbar">
+                    <span class="text-base font-semibold tracking-tight">Sổ điểm</span>
+                    <select class="select h-8 w-64 ml-3"><option>IELTS Foundation — Khoá 12 tuần</option></select>
+                    <div class="tabs ml-3">
+                      <button class="tab is-active">Điểm</button>
+                      <button class="tab">Tiến độ</button>
+                    </div>
+                    <div class="ml-auto flex items-center gap-2">
+                      <button class="btn btn-sm btn-outline"><svg class="i" aria-hidden="true"><use href="#i-download" /></svg> Xuất CSV</button>
+                    </div>
+                  </div>
+                  <div class="p-6">
+                    <div class="card overflow-hidden">
+                      <table class="table">
+                        <thead>
+                          <tr>
+                            <th style="width: 200px">Học viên</th>
+                            <th class="text-right">U4 Passive</th>
+                            <th class="text-right">Nghe 02</th>
+                            <th class="text-right">U5 Present pf.</th>
+                            <th class="text-right">Từ vựng U5</th>
+                            <th class="text-right">Bài viết 3</th>
+                            <th class="text-right">Giữa kỳ</th>
+                            <th class="text-right">Trung bình</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td><div class="flex items-center gap-2"><span class="avatar avatar-sm">LV</span> <span class="font-medium">Lê Khánh Vy</span></div></td>
+                            <td class="text-right num">29/30</td>
+                            <td class="text-right num">19/20</td>
+                            <td class="text-right num">29/30</td>
+                            <td class="text-right num">24/24</td>
+                            <td class="text-right num">9/10</td>
+                            <td class="text-right num">46/50</td>
+                            <td class="text-right num font-semibold">95%</td>
+                          </tr>
+                          <tr>
+                            <td><div class="flex items-center gap-2"><span class="avatar avatar-sm">NM</span> <span class="font-medium">Nguyễn Đức Minh</span></div></td>
+                            <td class="text-right num">27/30</td>
+                            <td class="text-right num">16/20</td>
+                            <td class="text-right num">26/30</td>
+                            <td class="text-right num">21/24</td>
+                            <td class="text-right num">7/10</td>
+                            <td class="text-right num">42/50</td>
+                            <td class="text-right num font-semibold">86%</td>
+                          </tr>
+                          <tr>
+                            <td><div class="flex items-center gap-2"><span class="avatar avatar-sm">TL</span> <span class="font-medium">Trần Bảo Linh</span></div></td>
+                            <td class="text-right num">24/30</td>
+                            <td class="text-right num">11/20</td>
+                            <td class="text-right num">22/30</td>
+                            <td class="text-right num">18/24</td>
+                            <td class="text-right num">6/10</td>
+                            <td class="text-right num">33/50</td>
+                            <td class="text-right num font-semibold">72%</td>
+                          </tr>
+                          <tr>
+                            <td><div class="flex items-center gap-2"><span class="avatar avatar-sm">PH</span> <span class="font-medium">Phạm Gia Hân</span></div></td>
+                            <td class="text-right text-muted-foreground">—</td>
+                            <td class="text-right text-muted-foreground">—</td>
+                            <td class="text-right"><span class="badge b-outline">đang làm</span></td>
+                            <td class="text-right text-muted-foreground">—</td>
+                            <td class="text-right text-muted-foreground">—</td>
+                            <td class="text-right text-muted-foreground">—</td>
+                            <td class="text-right text-muted-foreground">—</td>
+                          </tr>
+                          <tr>
+                            <td><div class="flex items-center gap-2"><span class="avatar avatar-sm">HD</span> <span class="font-medium">Hoàng Tiến Dũng</span></div></td>
+                            <td class="text-right num">21/30</td>
+                            <td class="text-right num text-destructive-ink">8/20</td>
+                            <td class="text-right text-muted-foreground">chưa nộp</td>
+                            <td class="text-right num">14/24</td>
+                            <td class="text-right num">5/10</td>
+                            <td class="text-right num">28/50</td>
+                            <td class="text-right num font-semibold">58%</td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr class="bg-muted/30">
+                            <td class="font-medium">Trung bình lớp</td>
+                            <td class="text-right num">25.3</td>
+                            <td class="text-right num text-warning-ink">13.5</td>
+                            <td class="text-right num">25.7</td>
+                            <td class="text-right num">19.3</td>
+                            <td class="text-right num">6.8</td>
+                            <td class="text-right num">37.3</td>
+                            <td class="text-right num font-semibold">78%</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                    <div class="alert alert-muted mt-4 max-w-3xl">
+                      <svg class="i i-4.5 shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true"><use href="#i-info" /></svg>
+                      <p class="leading-relaxed">
+                        Cột “Nghe 02” trung bình 13.5/20 — thấp hơn hẳn các cột khác. Đây thường là
+                        dấu hiệu của đề, không phải của lớp.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-4 mt-4">
+            <div class="callout">
+              <strong>The class-average row is the point of the screen.</strong> One weak column
+              across every student is a question about the test; one weak row across every column
+              is a question about a student. Making both readable in one glance is the whole
+              design.
+            </div>
+            <div class="callout">
+              <strong>Red appears exactly once</strong>, on a score far below the rest. If every
+              below-average cell were tinted, nothing would stand out and the teacher would learn
+              to ignore the colour.
+            </div>
+            <div class="callout">
+              <strong>“chưa nộp” and “—” are different facts.</strong> One is a missing piece of
+              work; the other is an activity that was never assigned to that student. Collapsing
+              them into a zero is how a gradebook lies.
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">L-06</span>
+            <span class="board-name">Schedule · announcements · skills report · roles</span>
+            <span class="board-route">v2–v3</span>
+          </div>
+          <div class="frame-row">
+            <div class="frame" style="width: 460px">
+              <div class="px-4 h-12 border-b flex items-center gap-2">
+                <span class="text-sm font-medium">Lịch</span>
+                <div class="tabs ml-auto">
+                  <button class="tab is-active">Tuần</button>
+                  <button class="tab">Tháng</button>
+                </div>
+              </div>
+              <div class="p-4 space-y-3">
+                <p class="text-xs text-muted-foreground">Tuần 24–30 tháng 8</p>
+                <div class="space-y-2">
+                  <div class="flex gap-3">
+                    <div class="w-12 shrink-0 text-center">
+                      <p class="text-xs text-muted-foreground">T5</p>
+                      <p class="text-lg font-semibold num">29</p>
+                    </div>
+                    <div class="flex-1 space-y-1.5">
+                      <div class="card p-2.5 flex items-center gap-2">
+                        <span class="badge b-warning">21:00</span>
+                        <span class="text-sm truncate">Đóng · Kiểm tra Unit 5</span>
+                      </div>
+                      <div class="card p-2.5 flex items-center gap-2">
+                        <span class="badge b-outline">19:30</span>
+                        <span class="text-sm truncate">Buổi học · IELTS Foundation</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3">
+                    <div class="w-12 shrink-0 text-center">
+                      <p class="text-xs text-muted-foreground">T6</p>
+                      <p class="text-lg font-semibold num">30</p>
+                    </div>
+                    <div class="flex-1">
+                      <div class="border border-dashed rounded-md p-2.5 text-center">
+                        <p class="text-xs text-muted-foreground">Không có gì</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-3">
+                    <div class="w-12 shrink-0 text-center">
+                      <p class="text-xs text-muted-foreground">T2</p>
+                      <p class="text-lg font-semibold num">01</p>
+                    </div>
+                    <div class="flex-1 space-y-1.5">
+                      <div class="card p-2.5 flex items-center gap-2">
+                        <span class="badge b-outline">08:00</span>
+                        <span class="text-sm truncate">Mở · Bài viết 3</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground leading-relaxed">
+                  Lịch chỉ hiển thị lại những mốc đã có trong bài giao — không phải một nơi thứ
+                  hai để nhập ngày.
+                </p>
+              </div>
+            </div>
+
+            <div class="frame" style="width: 420px">
+              <div class="px-4 h-12 border-b flex items-center gap-2">
+                <span class="text-sm font-medium">Thông báo lớp</span>
+                <button class="btn btn-xs btn-primary ml-auto">Viết thông báo</button>
+              </div>
+              <div class="p-4 space-y-3">
+                <div class="card">
+                  <div class="card-body space-y-2">
+                    <div class="flex items-center gap-2">
+                      <span class="avatar avatar-sm">TT</span>
+                      <span class="text-sm font-medium">Cô Thương</span>
+                      <span class="text-xs text-muted-foreground ml-auto">2 giờ trước</span>
+                    </div>
+                    <p class="text-sm leading-relaxed">
+                      Bài kiểm tra Unit 5 đóng 21:00 tối nay. Em nào chưa làm nhớ dành đủ 45 phút
+                      liền mạch nhé.
+                    </p>
+                    <div class="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span class="flex items-center gap-1.5"><svg class="i i-3.5" aria-hidden="true"><use href="#i-eye" /></svg> 14/18 đã đọc</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="card-body space-y-2">
+                    <div class="flex items-center gap-2">
+                      <span class="avatar avatar-sm">TT</span>
+                      <span class="text-sm font-medium">Cô Thương</span>
+                      <span class="text-xs text-muted-foreground ml-auto">27/08</span>
+                    </div>
+                    <p class="text-sm leading-relaxed">
+                      Buổi thứ năm tuần này học bù ở phòng 2 nhé cả lớp.
+                    </p>
+                    <div class="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span class="flex items-center gap-1.5"><svg class="i i-3.5" aria-hidden="true"><use href="#i-eye" /></svg> 18/18 đã đọc</span>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground leading-relaxed">
+                  Một chiều, có xác nhận đã đọc. Không bình luận, không nhắn riêng — chat giữa
+                  học viên là một sản phẩm khác, với nghĩa vụ trông coi mà một lớp học tư không
+                  gánh được.
+                </p>
+              </div>
+            </div>
+
+            <div class="frame" style="width: 420px">
+              <div class="px-4 h-12 border-b flex items-center">
+                <span class="text-sm font-medium">Báo cáo kỹ năng · Trần Bảo Linh</span>
+              </div>
+              <div class="p-4 space-y-4">
+                <div class="space-y-3">
+                  <div>
+                    <div class="flex items-center justify-between text-sm mb-1.5">
+                      <span>Ngữ pháp</span><span class="num text-muted-foreground">82%</span>
+                    </div>
+                    <div class="progress"><i style="width: 82%"></i></div>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between text-sm mb-1.5">
+                      <span>Từ vựng</span><span class="num text-muted-foreground">75%</span>
+                    </div>
+                    <div class="progress"><i style="width: 75%"></i></div>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between text-sm mb-1.5">
+                      <span>Nghe</span><span class="num text-warning-ink">54%</span>
+                    </div>
+                    <div class="progress progress-warning"><i style="width: 54%"></i></div>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between text-sm mb-1.5">
+                      <span>Viết</span><span class="num text-muted-foreground">68%</span>
+                    </div>
+                    <div class="progress"><i style="width: 68%"></i></div>
+                  </div>
+                </div>
+                <hr class="sep" />
+                <div>
+                  <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Thẻ yếu nhất</p>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span class="badge b-outline">listening · 54%</span>
+                    <span class="badge b-outline">present-perfect · 61%</span>
+                    <span class="badge b-outline">prepositions · 63%</span>
+                  </div>
+                  <p class="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    Số liệu lấy từ thẻ đã gắn cho câu hỏi — không phải một hệ thống chấm kỹ năng
+                    riêng. Đây là lý do việc gắn thẻ khi soạn câu hỏi có giá trị về sau.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="frame" style="width: 460px">
+              <div class="px-4 h-12 border-b flex items-center">
+                <span class="text-sm font-medium">Vai trò &amp; quyền</span>
+              </div>
+              <div class="p-4 space-y-3">
+                <table class="table">
+                  <thead>
+                    <tr><th>Quyền</th><th class="text-center">Chủ</th><th class="text-center">Giáo viên</th><th class="text-center">Trợ giảng</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Soạn &amp; phát hành đề</td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center text-muted-foreground">—</td></tr>
+                    <tr><td>Giao bài</td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center text-muted-foreground">—</td></tr>
+                    <tr><td>Chấm bài</td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td></tr>
+                    <tr><td>Xem bảng tính toàn vẹn</td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center text-muted-foreground">—</td></tr>
+                    <tr><td>Quản lý học viên &amp; mã lớp</td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center text-muted-foreground">—</td><td class="text-center text-muted-foreground">—</td></tr>
+                    <tr><td>Đặt lại mật khẩu</td><td class="text-center"><svg class="i mx-auto text-success" aria-hidden="true"><use href="#i-check" /></svg></td><td class="text-center text-muted-foreground">—</td><td class="text-center text-muted-foreground">—</td></tr>
+                  </tbody>
+                </table>
+                <p class="text-xs text-muted-foreground leading-relaxed">
+                  Ba vai trò cố định, không phải trình tạo quyền tuỳ ý. §1.1 đã yêu cầu chừa chỗ
+                  cho vai trò thứ ba; đây là hình dạng nó nên có — một bảng đọc trong mười giây,
+                  không phải một ma trận ai cũng ngại đụng vào.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="deck-section">
+        <h2 class="deck-h">3 · Sequencing</h2>
+        <div class="board">
+          <div class="card p-5">
+            <table class="table table-roomy">
+              <thead>
+                <tr><th style="width: 90px">Khi nào</th><th style="width: 26%">Thêm gì</th><th>Vì sao lúc đó, và cái gì phải có trước</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="badge b-secondary">v1.1</span></td>
+                  <td class="font-medium">Chấm theo câu hỏi · mẫu nhận xét</td>
+                  <td class="text-muted-foreground">Không cần dữ liệu mới, tiết kiệm nhiều giờ nhất trên mỗi giờ code. Làm ngay khi lớp đầu tiên chạy hết một chu kỳ chấm.</td>
+                </tr>
+                <tr>
+                  <td><span class="badge b-secondary">v1.1</span></td>
+                  <td class="font-medium">Dark mode</td>
+                  <td class="text-muted-foreground">Đã là P1 trong §16 và chi phí gần bằng không nếu token giữ kỷ luật. Học viên làm bài buổi tối là ca dùng thật.</td>
+                </tr>
+                <tr>
+                  <td><span class="badge b-outline">v2</span></td>
+                  <td class="font-medium">Khoá học → tuần → hoạt động</td>
+                  <td class="text-muted-foreground">Cần khi số đề vượt khoảng 20 và giáo viên bắt đầu dạy theo giáo trình chứ không theo từng bài. Trước đó là cấu trúc rỗng.</td>
+                </tr>
+                <tr>
+                  <td><span class="badge b-outline">v2</span></td>
+                  <td class="font-medium">Bộ từ vựng · lặp ngắt quãng</td>
+                  <td class="text-muted-foreground">Loại hoạt động thứ hai — đây là lúc đổi tên <code class="font-mono text-xs">test</code> thành <code class="font-mono text-xs">activity</code>, khi đã có hai thành viên thật.</td>
+                </tr>
+                <tr>
+                  <td><span class="badge b-outline">v2</span></td>
+                  <td class="font-medium">Lịch · thông báo lớp</td>
+                  <td class="text-muted-foreground">Chỉ hiển thị lại dữ liệu đã có (mốc bài giao) cộng một bảng thông báo. Rẻ, và cắt hẳn kênh nhắn tin ngoài app.</td>
+                </tr>
+                <tr>
+                  <td><span class="badge b-outline">v3</span></td>
+                  <td class="font-medium">Sổ điểm · báo cáo kỹ năng</td>
+                  <td class="text-muted-foreground">Cần đủ nhiều hoạt động đã chấm mới có nghĩa. Phụ thuộc vào việc gắn thẻ câu hỏi từ v1 — thẻ là dữ liệu duy nhất không thể lấp ngược.</td>
+                </tr>
+                <tr>
+                  <td><span class="badge b-outline">v3</span></td>
+                  <td class="font-medium">Vai trò giáo viên &amp; trợ giảng</td>
+                  <td class="text-muted-foreground">Khi có người thứ hai dạy. Guard phải hỏi “được phép làm gì” chứ không hỏi “có phải admin không” — điều này phải đúng từ v1.</td>
+                </tr>
+                <tr>
+                  <td><span class="badge b-outline">sau</span></td>
+                  <td class="font-medium">Luyện phát âm (ghi âm)</td>
+                  <td class="text-muted-foreground">§1.3 loại khỏi v1 có lý do: lưu trữ giọng nói, đồng ý của phụ huynh với học viên vị thành niên, và một mô hình chấm hoàn toàn khác. Đây là một sản phẩm nhỏ, không phải một loại câu hỏi.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="../assets/icons.js"></script>
+    <script src="../assets/brand.js"></script>
+    <script src="../assets/kit.js"></script>
+  </body>
+</html>

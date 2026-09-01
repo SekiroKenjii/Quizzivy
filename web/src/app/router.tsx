@@ -5,18 +5,10 @@ import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
 
 /**
- * Three route trees (§2): `/admin/*`, `/app/*`, and a small public tree.
+ * §3's three route trees: public, /admin for the teacher, /app for students.
  *
- * Every component is behind its own `lazy` import, so "a student never
- * downloads admin code and an anonymous visitor downloads neither" is a
- * property of the bundle, not an intention. router.chunks.test.ts checks that
- * against the real build output.
- *
- * Note what `lazy` can and cannot do. It supplies `Component`, `loader`,
- * `action` and `ErrorBoundary` — but NOT `children`: the route tree has to be
- * statically matchable, so paths are declared here and only the components are
- * deferred. An earlier version of this file returned `children` from `lazy`; it
- * type-checked, rendered the layout, and 404'd on every child route.
+ * Guards are pathless routes so the tree structure states who may see what,
+ * rather than each page re-checking.
  */
 
 /** `lazy` for a module whose default export is the route component. */
@@ -34,8 +26,6 @@ const page = (load: () => Promise<{ default: React.ComponentType }>) => async ()
 const authTree: RouteObject = {
   children: [
     { path: "login", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
-    // Where Google returns the browser (§5.3). Public: the session does not
-    // exist yet -- creating it is what this page is for.
     {
       path: "auth/google/callback",
       lazy: page(() => import("@/features/auth/pages/GoogleCallbackPage")),
@@ -51,9 +41,6 @@ const authTree: RouteObject = {
 const publicTree: RouteObject = {
   lazy: page(() => import("@/layouts/PublicLayout")),
   children: [
-    // §6.2's three steps. `/join` and `/join/:code` are the same screen --
-    // they differ only in whether the code arrives prefilled -- and the
-    // confirm step is mandatory: nothing before it creates an account.
     { path: "join", lazy: page(() => import("@/features/join/pages/JoinPage")) },
     { path: "join/:code", lazy: page(() => import("@/features/join/pages/JoinPage")) },
     {
@@ -76,8 +63,25 @@ const adminTree: RouteObject = {
           lazy: page(() => import("@/features/tests/pages/TestsListPage")),
         },
         {
+          path: "tests/:id",
+          lazy: page(() => import("@/features/tests/pages/TestDetailPage")),
+        },
+
+        {
+          path: "tests/:id/edit",
+          lazy: page(() => import("@/features/tests/pages/TestBuilderPage")),
+        },
+        {
           path: "question-bank",
           lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
+        },
+        {
+          path: "question-bank/new",
+          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
+        },
+        {
+          path: "question-bank/:id",
+          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
         },
         {
           path: "media",
@@ -86,6 +90,10 @@ const adminTree: RouteObject = {
         {
           path: "assignments",
           lazy: page(() => import("@/features/assignments/pages/AssignmentsListPage")),
+        },
+        {
+          path: "assignments/new",
+          lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
         },
         {
           path: "students",
@@ -123,8 +131,14 @@ const studentTree: RouteObject = {
           path: "classes",
           lazy: page(() => import("@/features/classes/pages/StudentClassesPage")),
         },
+      ],
+    },
+    {
+      lazy: page(() => import("@/layouts/StudentDetailLayout")),
+      children: [
         {
           path: "settings",
+          handle: { titleKey: "nav.settings" },
           lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),
         },
       ],

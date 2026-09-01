@@ -23,11 +23,7 @@ const (
 	RotateUnknown
 	// RotateExpired: issued by us, but aged out. Not an attack.
 	RotateExpired
-	// RotateReused: this token had already been rotated. §5.2 -- the family
-	// is now revoked.
 	RotateReused
-	// RotateRevoked: revoked wholesale rather than rotated -- by a logout, or
-	// by the cascade from someone else's reuse. Not this caller's doing.
 	RotateRevoked
 	// RotateUserDisabled: the account was suspended after the token was issued.
 	RotateUserDisabled
@@ -41,42 +37,17 @@ type RotateResult struct {
 
 // Rotate consumes one refresh token and issues its successor, atomically.
 //
-// The whole operation runs in one transaction opened by SELECT ... FOR UPDATE
-// on the presented token. That lock is what makes reuse detection correct under
-// concurrency. Two simultaneous refreshes of the same token both reach the
-// SELECT; one takes the row lock and proceeds, the other blocks. When the first
-// commits, READ COMMITTED re-reads the row for the waiter, which now sees
-// revoked_at set and is classified as a reuse.
-//
-// The alternative -- read, decide, then write -- is a read-then-write race in
-// which both callers see a live token and both rotate it, leaving two valid
-// successors in one family and reuse detection that never fires.
-//
-// `next` supplies the successor's token hash, expiry, and request metadata.
-// Its UserID and FamilyID are ignored: both are inherited from the predecessor,
-// because a rotation that could change either would not be a rotation.
+// The outcome distinguishes a replay from an ordinary logout by replaced_by:
+// set means the token was already exchanged, so the family is revoked; nil with
+// revoked_at set means the user logged out.
 func (s *Store) Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenRecord, now time.Time) (RotateResult, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return RotateResult{}, fmt.Errorf("begin rotation: %w", err)
 	}
-	// Safe after Commit: pgx treats rollback of a finished transaction as a
-	// no-op, so this covers every early return without guarding each one.
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const claim = `
-		SELECT id::text, user_id::text, family_id::text, expires_at, revoked_at, replaced_by
-		  FROM app.refresh_tokens
-		 WHERE token_hash = $1
-		   FOR UPDATE`
-
-	var predecessorID, userID, familyID string
-	var expiresAt time.Time
-	var revokedAt *time.Time
-	var replacedBy *string
-
-	err = tx.QueryRow(ctx, claim, tokenHash).Scan(
-		&predecessorID, &userID, &familyID, &expiresAt, &revokedAt, &replacedBy)
+	claimed, err := claimToken(ctx, tx, tokenHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return RotateResult{Outcome: RotateUnknown}, nil
 	}
@@ -84,68 +55,94 @@ func (s *Store) Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenR
 		return RotateResult{}, fmt.Errorf("claim refresh token: %w", err)
 	}
 
-	// A revoked token is not automatically a reused one, and the difference is
-	// visible in replaced_by. Set means THIS token was consumed by a rotation,
-	// so presenting it again is a replay. Null means it was revoked wholesale
-	// -- by a logout, or by the cascade from someone else's replay -- which the
-	// present caller did not do and must not be accused of.
-	//
-	// Collapsing the two would tell a student who simply logged out that
-	// someone else had used their session.
-	if revokedAt != nil && replacedBy == nil {
-		return RotateResult{Outcome: RotateRevoked, FamilyID: familyID}, nil
-	}
-
-	// §5.2 reuse detection. Someone is presenting a token we already consumed:
-	// either an attacker replaying a stolen copy, or the legitimate client
-	// racing itself. We cannot tell the two apart, so we assume the worse one
-	// and end every session in the lineage.
-	if revokedAt != nil {
-		if err := revokeFamily(ctx, tx, familyID, now); err != nil {
-			return RotateResult{}, err
-		}
-		if err := audit.Write(ctx, tx, audit.Entry{
-			ActorUserID: &userID,
-			Action:      "refresh_token.reuse_detected",
-			Entity:      "refresh_token_family",
-			EntityID:    &familyID,
-			OccurredAt:  now,
-			IP:          next.IP,
-			UserAgent:   next.UserAgent,
-		}); err != nil {
-			return RotateResult{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return RotateResult{}, fmt.Errorf("commit family revocation: %w", err)
-		}
-		return RotateResult{Outcome: RotateReused, FamilyID: familyID}, nil
-	}
-
-	// Expiry is not reuse. The family is already dead -- this was its live
-	// token -- so there is nothing to revoke and nothing to record.
-	if !expiresAt.After(now) {
-		return RotateResult{Outcome: RotateExpired, FamilyID: familyID}, nil
+	switch {
+	case claimed.revokedAt != nil && claimed.replacedBy == nil:
+		return RotateResult{Outcome: RotateRevoked, FamilyID: claimed.familyID}, nil
+	case claimed.revokedAt != nil:
+		return revokeReusedFamily(ctx, tx, claimed, next, now)
+	case !claimed.expiresAt.After(now):
+		return RotateResult{Outcome: RotateExpired, FamilyID: claimed.familyID}, nil
 	}
 
 	user, err := scanUser(tx.QueryRow(ctx, userProjection+`
 		 WHERE u.id = $1
-		 GROUP BY u.id`, userID))
+		 GROUP BY u.id`, claimed.userID))
 	if err != nil {
 		return RotateResult{}, fmt.Errorf("load token owner: %w", err)
 	}
-
-	// A refresh token outlives a suspension by up to 30 days. Re-reading the
-	// user is what stops a disabled account from renewing itself indefinitely.
 	if user.Disabled() {
-		if err := revokeFamily(ctx, tx, familyID, now); err != nil {
-			return RotateResult{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return RotateResult{}, fmt.Errorf("commit disabled-user revocation: %w", err)
-		}
-		return RotateResult{Outcome: RotateUserDisabled, FamilyID: familyID}, nil
+		return revokeDisabledFamily(ctx, tx, claimed, now)
 	}
 
+	if err := issueSuccessor(ctx, tx, claimed, next, now); err != nil {
+		return RotateResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return RotateResult{}, fmt.Errorf("commit rotation: %w", err)
+	}
+	return RotateResult{Outcome: RotateOK, User: user, FamilyID: claimed.familyID}, nil
+}
+
+// claimedToken is the presented row, locked FOR UPDATE.
+type claimedToken struct {
+	id         string
+	userID     string
+	familyID   string
+	expiresAt  time.Time
+	revokedAt  *time.Time
+	replacedBy *string
+}
+
+func claimToken(ctx context.Context, tx pgx.Tx, tokenHash []byte) (claimedToken, error) {
+	const claim = `
+		SELECT id::text, user_id::text, family_id::text, expires_at, revoked_at, replaced_by
+		  FROM app.refresh_tokens
+		 WHERE token_hash = $1
+		   FOR UPDATE`
+
+	var c claimedToken
+	err := tx.QueryRow(ctx, claim, tokenHash).Scan(
+		&c.id, &c.userID, &c.familyID, &c.expiresAt, &c.revokedAt, &c.replacedBy)
+	return c, err
+}
+
+// revokeReusedFamily ends every session descended from the same login, because
+// a token that was already exchanged has been presented twice.
+func revokeReusedFamily(ctx context.Context, tx pgx.Tx, claimed claimedToken, next RefreshTokenRecord, now time.Time) (RotateResult, error) {
+	if err := revokeFamily(ctx, tx, claimed.familyID, now); err != nil {
+		return RotateResult{}, err
+	}
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &claimed.userID,
+		Action:      "refresh_token.reuse_detected",
+		Entity:      "refresh_token_family",
+		EntityID:    &claimed.familyID,
+		OccurredAt:  now,
+		IP:          next.IP,
+		UserAgent:   next.UserAgent,
+	}); err != nil {
+		return RotateResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return RotateResult{}, fmt.Errorf("commit family revocation: %w", err)
+	}
+	return RotateResult{Outcome: RotateReused, FamilyID: claimed.familyID}, nil
+}
+
+func revokeDisabledFamily(ctx context.Context, tx pgx.Tx, claimed claimedToken, now time.Time) (RotateResult, error) {
+	if err := revokeFamily(ctx, tx, claimed.familyID, now); err != nil {
+		return RotateResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return RotateResult{}, fmt.Errorf("commit disabled-user revocation: %w", err)
+	}
+	return RotateResult{Outcome: RotateUserDisabled, FamilyID: claimed.familyID}, nil
+}
+
+// issueSuccessor writes the replacement and marks the predecessor consumed,
+// pointing at it. A non-nil replaced_by is what later tells a replay from a
+// logout.
+func issueSuccessor(ctx context.Context, tx pgx.Tx, claimed claimedToken, next RefreshTokenRecord, now time.Time) error {
 	const issue = `
 		INSERT INTO app.refresh_tokens
 		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
@@ -153,27 +150,20 @@ func (s *Store) Rotate(ctx context.Context, tokenHash []byte, next RefreshTokenR
 		RETURNING id`
 	var successorID string
 	if err := tx.QueryRow(ctx, issue,
-		userID, familyID, next.TokenHash, next.IssuedAt, next.ExpiresAt, next.UserAgent, next.IP,
+		claimed.userID, claimed.familyID, next.TokenHash, next.IssuedAt, next.ExpiresAt,
+		next.UserAgent, next.IP,
 	).Scan(&successorID); err != nil {
-		return RotateResult{}, fmt.Errorf("issue successor token: %w", err)
+		return fmt.Errorf("issue successor token: %w", err)
 	}
 
-	// Consume the predecessor. Both columns are set in ONE update: replaced_by
-	// carries a foreign key to the successor, so this cannot run before the
-	// insert above, and splitting it into two updates would write two row
-	// versions for no gain.
 	const consume = `
 		UPDATE app.refresh_tokens
 		   SET revoked_at = $2, replaced_by = $3
 		 WHERE id = $1`
-	if _, err := tx.Exec(ctx, consume, predecessorID, now, successorID); err != nil {
-		return RotateResult{}, fmt.Errorf("consume predecessor token: %w", err)
+	if _, err := tx.Exec(ctx, consume, claimed.id, now, successorID); err != nil {
+		return fmt.Errorf("consume predecessor token: %w", err)
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return RotateResult{}, fmt.Errorf("commit rotation: %w", err)
-	}
-	return RotateResult{Outcome: RotateOK, User: user, FamilyID: familyID}, nil
+	return nil
 }
 
 // RevokeFamilyByToken ends every session descended from the same login. It is
@@ -211,9 +201,6 @@ func (s *Store) RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now t
 	if familyID != "" {
 		return familyID, nil
 	}
-
-	// No rows updated: either the token is unknown, or its family was already
-	// fully revoked. Those are different answers to the caller.
 	const lookup = `SELECT family_id::text FROM app.refresh_tokens WHERE token_hash = $1`
 	err = s.pool.QueryRow(ctx, lookup, tokenHash).Scan(&familyID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -238,27 +225,11 @@ func revokeFamily(ctx context.Context, tx pgx.Tx, familyID string, now time.Time
 	return nil
 }
 
-// DeleteExpired prunes rotation chains that can no longer authenticate
-// anything. It deletes by FAMILY, and only once every token in that family has
-// expired.
+// DeleteExpired prunes refresh-token families whose every member has expired.
 //
-// Deleting individual expired rows looks equivalent and is not. replaced_by is
-// ON DELETE SET NULL, and Rotate reads replaced_by to tell a token that was
-// ROTATED (a replay -- revoke the family) from one revoked wholesale (a logout
-// -- just refuse). Pruning a successor therefore nulls its predecessor's
-// replaced_by and silently downgrades reuse detection on that predecessor to a
-// plain rejection: the family stays alive and nothing is audited.
-//
-// Usually harmless, because a successor is issued later than its predecessor
-// and so expires later, and both go in the same statement. It stops being
-// harmless the moment REFRESH_TOKEN_TTL is REDUCED: tokens minted just after
-// the change expire before their own predecessors, and the predecessors are
-// left behind with a nulled link. Pruning whole families removes the ordering
-// assumption instead of relying on it.
-//
-// This does not use refresh_tokens_expiry_idx -- the aggregate scans the table.
-// At one family per login for fifty students that is not a cost worth shaping
-// the correctness around.
+// By family, not by row: replaced_by is ON DELETE SET NULL, and a NULL
+// replaced_by is how Rotate tells a logout from a replay. Pruning row by row
+// would turn a detected reuse into an ordinary logout weeks later.
 func (s *Store) DeleteExpired(ctx context.Context, before time.Time) (int64, error) {
 	const q = `
 		DELETE FROM app.refresh_tokens
@@ -277,10 +248,8 @@ func (s *Store) DeleteExpired(ctx context.Context, before time.Time) (int64, err
 // ChangePasswordRecord is what the store needs to swap a password and prune the
 // sessions that the old one authorised.
 type ChangePasswordRecord struct {
-	UserID  string
-	NewHash string
-	// KeepTokenHash identifies the CALLER's session, whose family survives.
-	// Nil revokes every family, including the caller's.
+	UserID        string
+	NewHash       string
 	KeepTokenHash []byte
 	Now           time.Time
 	IP            *string
@@ -299,9 +268,6 @@ func (s *Store) ChangePassword(ctx context.Context, in ChangePasswordRecord) err
 		return fmt.Errorf("begin password change: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-
-	// Resolve the surviving family inside the transaction, scoped to this user
-	// so another account's token cannot be presented to spare a family.
 	var keepFamily *string
 	if len(in.KeepTokenHash) > 0 {
 		var family string
@@ -311,9 +277,6 @@ func (s *Store) ChangePassword(ctx context.Context, in ChangePasswordRecord) err
 			in.KeepTokenHash, in.UserID).Scan(&family)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			// Unknown token: keep nothing. Deliberately not an error -- the
-			// change still has to happen, and the caller is signed out with
-			// everyone else.
 		case err != nil:
 			return fmt.Errorf("resolve surviving family: %w", err)
 		default:
@@ -332,11 +295,6 @@ func (s *Store) ChangePassword(ctx context.Context, in ChangePasswordRecord) err
 	if tag.RowsAffected() == 0 {
 		return ErrUserNotFound
 	}
-
-	// `$2::uuid IS NULL OR family_id <> $2` rather than a subquery against the
-	// token: a subquery that finds nothing yields NULL, `family_id <> NULL` is
-	// NULL, and the UPDATE would then revoke NOTHING. That failure is silent
-	// and points the wrong way -- an unknown token must revoke everything.
 	const revokeOthers = `
 		UPDATE app.refresh_tokens
 		   SET revoked_at = $3

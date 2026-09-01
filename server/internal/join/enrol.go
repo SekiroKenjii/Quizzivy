@@ -31,9 +31,7 @@ type NewMember struct {
 }
 
 type EnrolInput struct {
-	RawCode string
-	// Exactly one of these. ExistingUserID is the already-authenticated path
-	// (§6.2); NewMember is the Google signup path (§6.3).
+	RawCode        string
 	ExistingUserID string
 	NewMember      *NewMember
 
@@ -63,18 +61,10 @@ type EnrolledClass struct {
 }
 
 // Enrol validates a join code and enrols a student, creating the account first
-// if this is a signup -- all in ONE transaction (§6.3).
+// when there is none, in a single transaction.
 //
-// The transaction opens by locking the CODE row, and that lock is the whole
-// mechanism behind max_uses. Two students redeeming the last seat both read
-// uses_count, both see room, and both enrol -- unless one waits. With the lock
-// the second re-reads after the first commits and finds the code exhausted.
-// D-09's `uses_count <= max_uses` CHECK is the backstop: if this logic is ever
-// wrong, the database refuses the row rather than silently overselling a class.
-//
-// uses_count increments only for a NEW membership. Re-submitting is idempotent
-// (§6.2), and counting a repeat would let a student burn their own class's code
-// by pressing the button twice.
+// uses_count increments only when the membership is new, so a student
+// re-submitting a code they already used does not exhaust it.
 func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 	normalized := Normalize(in.RawCode)
 	if normalized == "" {
@@ -87,46 +77,17 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const claim = `
-		SELECT jc.id::text, jc.class_id::text, jc.revoked_at, jc.expires_at,
-		       jc.max_uses, jc.uses_count, c.self_join_enabled
-		  FROM app.class_join_codes jc
-		  JOIN app.classes c ON c.id = jc.class_id
-		 WHERE jc.code_hash = $1
-		   FOR UPDATE OF jc`
-
-	var codeID, classID string
-	var revokedAt *time.Time
-	var expiresAt time.Time
-	var maxUses *int
-	var usesCount int
-	var selfJoinEnabled bool
-
-	err = tx.QueryRow(ctx, claim, Hash(normalized)).Scan(
-		&codeID, &classID, &revokedAt, &expiresAt, &maxUses, &usesCount, &selfJoinEnabled)
+	code, err := claimCode(ctx, tx, Hash(normalized))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return EnrolResult{Outcome: PreviewInvalid}, nil
 	}
 	if err != nil {
 		return EnrolResult{}, fmt.Errorf("claim join code: %w", err)
 	}
-
-	// Same order as Preview, for the same reason: a closed class must answer
-	// exactly as a nonexistent one.
-	if !selfJoinEnabled {
-		return EnrolResult{Outcome: PreviewInvalid}, nil
-	}
-	switch {
-	case revokedAt != nil:
-		return EnrolResult{Outcome: PreviewRevoked}, nil
-	case !expiresAt.After(in.Now):
-		return EnrolResult{Outcome: PreviewExpired}, nil
-	case maxUses != nil && usesCount >= *maxUses:
-		return EnrolResult{Outcome: PreviewExhausted}, nil
+	if outcome := code.usable(in.Now); outcome != PreviewOK {
+		return EnrolResult{Outcome: outcome}, nil
 	}
 
-	// The account. Created only AFTER the code is known good, so a bad code
-	// leaves no user behind -- E2E 4's backend half.
 	userID := in.ExistingUserID
 	if in.NewMember != nil {
 		userID, err = createMember(ctx, tx, *in.NewMember)
@@ -135,56 +96,20 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 		}
 	}
 
-	// ON CONFLICT DO NOTHING is the idempotency (§6.2): a student who submits
-	// twice, or follows a deep link they already used, is already a member and
-	// that is a success.
-	const enrol = `
-		INSERT INTO app.class_members (class_id, user_id, joined_via, joined_at, join_code_id)
-		VALUES ($1, $2, 'join_code', $3, $4)
-		ON CONFLICT (class_id, user_id) DO NOTHING`
-	tag, err := tx.Exec(ctx, enrol, classID, userID, in.Now, codeID)
+	alreadyMember, err := addMember(ctx, tx, code, userID, in.Now)
 	if err != nil {
-		return EnrolResult{}, fmt.Errorf("enrol member: %w", err)
+		return EnrolResult{}, err
 	}
-	alreadyMember := tag.RowsAffected() == 0
-
 	if !alreadyMember {
-		if _, err := tx.Exec(ctx,
-			`UPDATE app.class_join_codes SET uses_count = uses_count + 1 WHERE id = $1`,
-			codeID); err != nil {
-			// D-09's CHECK fires here if the seat count was somehow wrong.
-			return EnrolResult{}, fmt.Errorf("increment uses_count: %w", err)
-		}
-
-		// §6.5 requires class_id, user_id, ip, user_agent and the time. The
-		// class is the entity and the student is the actor, which covers the
-		// first two; the code is in the diff because after a rotation the
-		// teacher needs "joined via the code that leaked" to be answerable.
-		diff, err := json.Marshal(map[string]string{
-			"class_id": classID, "user_id": userID, "join_code_id": codeID,
-		})
-		if err != nil {
-			return EnrolResult{}, fmt.Errorf("encode audit diff: %w", err)
-		}
-		if err := audit.Write(ctx, tx, audit.Entry{
-			ActorUserID: &userID,
-			Action:      "class.member_enrolled",
-			Entity:      "class_member",
-			EntityID:    &classID,
-			OccurredAt:  in.Now,
-			IP:          in.IP,
-			UserAgent:   in.UserAgent,
-			Diff:        diff,
-		}); err != nil {
+		if err := countUse(ctx, tx, code, userID, in); err != nil {
 			return EnrolResult{}, err
 		}
 	}
 
-	class, err := loadClass(ctx, tx, classID)
+	class, err := loadClass(ctx, tx, code.classID)
 	if err != nil {
 		return EnrolResult{}, err
 	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return EnrolResult{}, fmt.Errorf("commit enrol: %w", err)
 	}
@@ -196,13 +121,94 @@ func (s *Store) Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error) {
 	}, nil
 }
 
+// claimedCode is a join code row locked FOR UPDATE, with its class's self-join
+// setting.
+type claimedCode struct {
+	id              string
+	classID         string
+	revokedAt       *time.Time
+	expiresAt       time.Time
+	maxUses         *int
+	usesCount       int
+	selfJoinEnabled bool
+}
+
+// usable reports PreviewOK, or the reason the code cannot be redeemed. A class
+// with self-join closed is reported as invalid rather than as its own outcome,
+// so the endpoint cannot be used to discover which classes exist.
+func (c claimedCode) usable(now time.Time) PreviewOutcome {
+	switch {
+	case !c.selfJoinEnabled:
+		return PreviewInvalid
+	case c.revokedAt != nil:
+		return PreviewRevoked
+	case !c.expiresAt.After(now):
+		return PreviewExpired
+	case c.maxUses != nil && c.usesCount >= *c.maxUses:
+		return PreviewExhausted
+	}
+	return PreviewOK
+}
+
+func claimCode(ctx context.Context, tx pgx.Tx, codeHash []byte) (claimedCode, error) {
+	const claim = `
+		SELECT jc.id::text, jc.class_id::text, jc.revoked_at, jc.expires_at,
+		       jc.max_uses, jc.uses_count, c.self_join_enabled
+		  FROM app.class_join_codes jc
+		  JOIN app.classes c ON c.id = jc.class_id
+		 WHERE jc.code_hash = $1
+		   FOR UPDATE OF jc`
+
+	var c claimedCode
+	err := tx.QueryRow(ctx, claim, codeHash).Scan(
+		&c.id, &c.classID, &c.revokedAt, &c.expiresAt, &c.maxUses, &c.usesCount, &c.selfJoinEnabled)
+	return c, err
+}
+
+// addMember reports whether the student was already in the class.
+func addMember(ctx context.Context, tx pgx.Tx, code claimedCode, userID string, now time.Time) (bool, error) {
+	const enrol = `
+		INSERT INTO app.class_members (class_id, user_id, joined_via, joined_at, join_code_id)
+		VALUES ($1, $2, 'join_code', $3, $4)
+		ON CONFLICT (class_id, user_id) DO NOTHING`
+
+	tag, err := tx.Exec(ctx, enrol, code.classID, userID, now, code.id)
+	if err != nil {
+		return false, fmt.Errorf("enrol member: %w", err)
+	}
+	return tag.RowsAffected() == 0, nil
+}
+
+// countUse spends a seat and audits the enrolment. Only called for a new
+// membership, so re-submitting a code does not exhaust it.
+func countUse(ctx context.Context, tx pgx.Tx, code claimedCode, userID string, in EnrolInput) error {
+	if _, err := tx.Exec(ctx,
+		`UPDATE app.class_join_codes SET uses_count = uses_count + 1 WHERE id = $1`,
+		code.id); err != nil {
+		return fmt.Errorf("increment uses_count: %w", err)
+	}
+
+	diff, err := json.Marshal(map[string]string{
+		"class_id": code.classID, "user_id": userID, "join_code_id": code.id,
+	})
+	if err != nil {
+		return fmt.Errorf("encode audit diff: %w", err)
+	}
+	return audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &userID,
+		Action:      "class.member_enrolled",
+		Entity:      "class_member",
+		EntityID:    &code.classID,
+		OccurredAt:  in.Now,
+		IP:          in.IP,
+		UserAgent:   in.UserAgent,
+		Diff:        diff,
+	})
+}
+
 func createMember(ctx context.Context, tx pgx.Tx, m NewMember) (string, error) {
 	name := strings.TrimSpace(m.FullName)
 	if name == "" {
-		// Google can return a profile with no name. An empty full_name would
-		// render as a blank row in the teacher's class list, so fall back to
-		// the part of the address before the @ -- recognisable, and the
-		// student can change it later.
 		name, _, _ = strings.Cut(m.Email, "@")
 	}
 
@@ -218,9 +224,6 @@ func createMember(ctx context.Context, tx pgx.Tx, m NewMember) (string, error) {
 		}
 		return "", fmt.Errorf("create member account: %w", err)
 	}
-
-	// No password_hash: self-join is Google-only (§6.3), so the identity is
-	// the credential and there is nothing to set must_change_password for.
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO app.user_identities (user_id, provider, provider_user_id, email_at_link)
 		 VALUES ($1, $2, $3, $4)`,

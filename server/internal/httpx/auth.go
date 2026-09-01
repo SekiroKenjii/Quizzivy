@@ -42,10 +42,6 @@ func RequireAuth(open map[string]struct{}, verify func(bearer string) (Principal
 			}
 			principal, err := verify(token)
 			if err != nil {
-				// Expired and forged are the same answer. The client's move is
-				// identical either way -- refresh once, then log out -- and
-				// telling a forger which half of the token was wrong helps only
-				// the forger.
 				writeUnauthenticated(w, r)
 				return
 			}
@@ -79,8 +75,6 @@ func bearerToken(r *http.Request) (string, bool) {
 }
 
 func writeUnauthenticated(w http.ResponseWriter, r *http.Request) {
-	// RFC 7235 requires this header on a 401. Browsers ignore it for Bearer,
-	// but proxies and API clients do not.
 	w.Header().Set("WWW-Authenticate", `Bearer realm="quizzivy"`)
 	WriteError(w, r, http.StatusUnauthorized, CodeUnauthorized,
 		"Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.")
@@ -110,9 +104,6 @@ func OpenRoutes(spec *openapi3.T, scheme string) map[string]struct{} {
 func requiresScheme(opSecurity *openapi3.SecurityRequirements, global openapi3.SecurityRequirements, scheme string) bool {
 	reqs := global
 	if opSecurity != nil {
-		// An override replaces the global requirement rather than adding to it,
-		// which is how `security: [refreshCookie: []]` on /auth/refresh takes
-		// that route out of bearer authentication entirely.
 		reqs = *opSecurity
 	}
 	for _, req := range reqs {
@@ -129,19 +120,11 @@ const RoleAdmin = "admin"
 // AdminPathPrefix is spec §3's teacher route tree.
 const AdminPathPrefix = "/admin/"
 
-// RequireRole enforces §3's route trees: everything under /admin/ belongs to
-// the teacher, and a student holding a perfectly valid access token may not
-// have it.
+// RequireRole gates the /admin/ tree on the admin role.
 //
-// Driven by the path rather than a per-operation annotation, because the path
-// IS the contract's structure -- §3 defines three trees and every admin
-// operation lives under one of them. An annotation would be a second thing to
-// remember, and the failure mode of forgetting is a student reading every
-// attempt in the school.
-//
-// Fail-closed twice over: an /admin path with no authenticated principal is
-// refused rather than passed on, even though RequireAuth should already have
-// stopped it.
+// Driven by the path rather than a per-operation annotation, because the path is
+// the contract's own structure and the cost of forgetting an annotation is a
+// student reading every attempt in the school.
 func RequireRole(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !IsAdminPattern(r.Pattern) {
@@ -155,10 +138,6 @@ func RequireRole(next http.Handler) http.Handler {
 			return
 		}
 		if principal.Role != RoleAdmin {
-			// 403, not 404. Hiding the existence of the admin tree would buy
-			// nothing -- it is documented, and the SPA ships routes for it --
-			// while a 404 would send a teacher whose session downgraded to
-			// hunting a broken link instead of signing in again.
 			WriteError(w, r, http.StatusForbidden, CodeForbidden,
 				"Bạn không có quyền truy cập chức năng này.")
 			return
@@ -172,8 +151,6 @@ func RequireRole(next http.Handler) http.Handler {
 func IsAdminPattern(pattern string) bool {
 	_, path, found := strings.Cut(pattern, " ")
 	if !found {
-		// No method prefix means this did not come from the generated mux.
-		// Treat the whole string as the path rather than assuming it is safe.
 		path = pattern
 	}
 	return strings.HasPrefix(path, AdminPathPrefix)

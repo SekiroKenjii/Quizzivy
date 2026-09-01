@@ -82,10 +82,6 @@ func TestBranch1AKnownIdentitySignsIn(t *testing.T) {
 }
 
 func TestBranch1MatchesOnSubjectNotEmail(t *testing.T) {
-	// A Google account's email can change; its `sub` cannot. Matching on the
-	// subject is what keeps a returning user attached to their own account
-	// after they change their Gmail address -- and, more importantly, what
-	// stops a NEW owner of a recycled address from inheriting one.
 	pool := newPool(t)
 	id, email := makeUser(t, pool, googleOnly)
 	linkGoogleSubject(t, pool, id, "the-stable-subject", email)
@@ -107,8 +103,6 @@ func TestBranch1MatchesOnSubjectNotEmail(t *testing.T) {
 }
 
 func TestBranch2AVerifiedEmailLinksToAnExistingAccount(t *testing.T) {
-	// The teacher creates the account; the student signs in with Google for the
-	// first time. This is the only path that ever creates a link.
 	pool := newPool(t)
 	id, email := makeUser(t, pool)
 	identity := verifiedIdentity(email)
@@ -121,9 +115,6 @@ func TestBranch2AVerifiedEmailLinksToAnExistingAccount(t *testing.T) {
 	if result.Session.User.ID != id {
 		t.Fatalf("signed in as %s, want %s", result.Session.User.ID, id)
 	}
-
-	// The response must reflect the link that was just made, not the state
-	// before it -- the settings screen reads linkedProviders from here.
 	providers := result.Session.User.LinkedProviders
 	if len(providers) != 1 || providers[0] != "google" {
 		t.Errorf("linkedProviders = %v, want [google]", providers)
@@ -166,9 +157,6 @@ func TestBranch3AJoinCodeCreatesAndEnrols(t *testing.T) {
 }
 
 func TestBranch3RejectsABadJoinCodeWithoutCreatingAnyone(t *testing.T) {
-	// E2E 4's backend half. The code is validated before anything is created,
-	// inside one transaction, so a stale code leaves no orphan account behind
-	// for the teacher to wonder about.
 	pool := newPool(t)
 	svc, _ := googleServiceWithEnroller(t, pool, verifiedIdentity("never-created@example.com"))
 
@@ -197,10 +185,6 @@ func TestBranch4NoMatchAndNoJoinCodeIsNotProvisioned(t *testing.T) {
 }
 
 func TestAnUnverifiedEmailIsRejectedEvenWhenItMatchesAUser(t *testing.T) {
-	// §5.1, non-negotiable. Anyone who can get Google to issue a token for an
-	// address they have not proved they own could otherwise claim the matching
-	// Quizzivy account. The check runs BEFORE any lookup, so the matching
-	// branch is never even reached.
 	pool := newPool(t)
 	id, email := makeUser(t, pool)
 
@@ -248,8 +232,6 @@ func TestASuspendedAccountCannotSignInWithGoogle(t *testing.T) {
 }
 
 func TestAnAccountLinkedToADifferentGoogleAccountIsRefused(t *testing.T) {
-	// D-08 allows one Google identity per user, so that "unlink Google" is
-	// unambiguous. A second one is refused rather than silently added.
 	pool := newPool(t)
 	id, email := makeUser(t, pool)
 	linkGoogleSubject(t, pool, id, "the-first-google-account", email)
@@ -274,8 +256,6 @@ func TestAFailedExchangeNeverReachesTheDatabase(t *testing.T) {
 }
 
 func TestGoogleSignInIsUnavailableWhenUnconfigured(t *testing.T) {
-	// A deployment may legitimately run on password login alone. That is not a
-	// failed sign-in and must not be reported as one.
 	pool := newPool(t)
 	svc := newService(t, pool)
 

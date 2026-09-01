@@ -9,6 +9,7 @@ import {
   resolveRef,
   type Json,
 } from "@tests/support/openapi";
+import { MAX_BYTES, MAX_DURATION_MS } from "@/features/media/limits";
 
 /**
  * Structural invariants of api/openapi.yaml. Ported from api/contract_check.py,
@@ -68,8 +69,6 @@ describe("§13.5: the student-payload boundary", () => {
   });
 
   it("still gives AdminQuestion the grading key", () => {
-    // The inverse failure: if this regressed, grading would break silently
-    // rather than failing to compile.
     const names = propertyNames(doc, doc.components.schemas.AdminQuestion);
     for (const needed of [
       "isCorrect",
@@ -86,17 +85,12 @@ describe("§6.5: public endpoints", () => {
   const publicOps = ops.filter(({ op }) => isPublic(op));
 
   it("finds the public surface", () => {
-    // Guards against a refactor that makes isPublic() always false, which would
-    // make every assertion below pass vacuously.
     expect(publicOps.length).toBeGreaterThanOrEqual(4);
   });
 
   it.each(publicOps.map((o) => [`${o.method.toUpperCase()} ${o.path}`, o] as const))(
     "%s is rate-limited, tagged public and documents a 429",
     (_label, { path, op }) => {
-      // The beacon flush is authenticated by an attempt-scoped token in its
-      // body rather than a session, so it is exempt from the tag but not from
-      // the limiter.
       const isBeacon = path.endsWith("/events");
       expect(op["x-rate-limit"] ?? isBeacon, "missing x-rate-limit").toBeTruthy();
       if (!isBeacon) {
@@ -200,5 +194,32 @@ describe("the checkers themselves", () => {
       paths: { "/x": { parameters: [{ name: "id" }], get: { operationId: "getX" } } },
     });
     expect(found.map((o) => o.method)).toEqual(["get"]);
+  });
+});
+
+describe("§11.1's upload limits agree across the layers", () => {
+  // The contract carries the numbers, but openapi-typescript cannot express a
+  // JSON-Schema `maximum` as a TypeScript type, so schema.d.ts does not carry
+  // them and limits.ts genuinely has to restate them. That is what makes this
+  // pin necessary rather than redundant.
+  //
+  // Drift in either direction costs something. Raise the server without the
+  // client and the widget refuses a file the server would accept. Raise the
+  // client without the database -- the likelier order, since the user-facing
+  // check is the one someone edits first -- and the upload runs, the object
+  // lands in R2, and the INSERT fails on the CHECK: expensive work, then a
+  // refusal, which is the shape of #15.
+  const asset = resolveRef(doc, "#/components/schemas/MediaAsset") as Record<
+    string,
+    Json
+  >;
+  const properties = asset["properties"] as Record<string, Record<string, Json>>;
+
+  it("MAX_BYTES matches MediaAsset.bytes.maximum", () => {
+    expect(properties["bytes"]?.["maximum"]).toBe(MAX_BYTES);
+  });
+
+  it("MAX_DURATION_MS matches MediaAsset.durationMs.maximum", () => {
+    expect(properties["durationMs"]?.["maximum"]).toBe(MAX_DURATION_MS);
   });
 });

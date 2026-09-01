@@ -42,6 +42,33 @@ conflict to know: the skill teaches the pre-18
   promise. Parallel rotations trip reuse detection and log the user out on every
   cold load. See `docs/plan/30-risks.md` R-06.
 
+## Code style
+
+**Comments.** Comment abstractions, shared code, common utilities, and
+definitions — types, interfaces, exported functions. Implementation code must
+explain itself; where a comment is genuinely unavoidable inside a function body,
+**one line is the maximum**. This applies to the frontend as well.
+
+The reasoning behind a decision belongs in the commit message or in
+`docs/plan/`, not beside the statement. If a comment is running to a paragraph,
+it is documentation that has been pasted into the wrong file.
+
+- **No comment on the `package` declaration** in Go.
+- Doc comments follow Google's style: start with the identifier's name, state
+  what it is and any non-obvious contract, and stop.
+- **Never use an identifier marked `Deprecated`.** `make lint` runs staticcheck,
+  whose SA1019 fails the build on one.
+
+**Go.** Google's Go Style Guide, strictly. `gofmt`, `go vet` and `staticcheck`
+all have to be clean — `make lint` runs all three.
+
+**React.** Vercel's react-best-practices, strictly:
+<https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices>
+The ones this codebase keeps hitting are narrow effect dependencies (depend on
+primitives and stable callbacks, not objects), subscribing to derived state
+rather than raw objects, and Set/Map for repeated lookups in a keystroke path.
+`web/src/components/ui/**` is vendored shadcn and is exempt.
+
 ## Verified platform facts (PG18)
 
 Checked against the docs, not recalled. Do not re-derive; do not assume otherwise.
@@ -80,6 +107,24 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
 
 `server/internal/db/pg18_test.go` pins all four. If it fails, the docs changed
 and the plan needs revisiting.
+
+## The composition root
+
+`cmd/api/main.go` is the entry point and nothing else: build a logger, call
+`core.Run`, set the exit code. Everything it used to do lives in
+`internal/core`, which is the composition root:
+
+| file | holds |
+|---|---|
+| `core.go` | `App`, the kernel: config, signals, lifecycle |
+| `modules.go` | wiring each feature module into `api.Deps` |
+| `server.go` | the HTTP server and graceful shutdown |
+| `jobs.go` | background jobs |
+
+A new module is wired in `modules.go`, not in `main`. A module that is optional
+returns a nil service and `buildModules` leaves the interface field unset —
+assigning a typed nil would make `Deps.X == nil` false and turn a 501 into a
+nil-pointer 500.
 
 ## Repository map
 
@@ -175,7 +220,7 @@ Two database roles: `quizzivy_migrate` owns the schema and runs goose;
 ## Migrations
 
 - goose, SQL, forward-only, **one concern per file**, sequential zero-padded
-  names (`00015_create_test_versions.sql`).
+  names (`00016_create_test_versions.sql`).
 - Every file has a `-- +goose Down` that actually works. CI runs up/down/up.
 - Every task that touches the DB names its migration file in the PR.
 - `CREATE INDEX CONCURRENTLY` cannot run in a transaction — mark those files
@@ -195,6 +240,20 @@ has the placement rule. `@/` is `src/`, `@tests/` is `tests/`.
 
 Go tests stay beside the code they cover, as is idiomatic.
 
+**One E2E suite talks to a real API: `*.live.spec.ts`, the `live` Playwright
+project, run with `pnpm e2e:live`.** Everything else is stubbed on purpose --
+those tests are about what the browser does, and the server's behaviour is
+covered by Go tests against a real Postgres. The live suite exists for claims
+that are about the two halves meeting: E2E 1a uploads a real mp3 so §11.1's
+sniff, size check and duration probe run rather than being mocked. Adding a case
+there needs a reason of that kind; the default is `pnpm e2e`.
+
+It needs `make up`, `make migrate`, `make seed`, and the API on :8080 with
+`http://localhost:4173` in `CORS_ALLOWED_ORIGINS`. Kill any leftover `vite
+preview` before re-running: `reuseExistingServer` is on outside CI, so
+Playwright reuses it and serves the build that server started with -- which
+looks exactly like your fix not working.
+
 ## Git workflow
 
 Gitflow. `main` is released only and tagged; `develop` is integration.
@@ -205,6 +264,12 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
 - `hotfix/<slug>` off `main`, merged to both.
 - Never commit directly to `main` or `develop`.
 
+**A behavioural change never rides along in a formatting sweep.** A commit that
+reformats or restrips comments across many files must contain nothing else — the
+diff a reviewer opens is thousands of lines, and a real change inside it is
+invisible however carefully the commit message names it. Put it in its own
+commit on the same branch, so the diff for it is the size of the change.
+
 ## Design
 
 Follow spec §12 exactly. Neutral zinc palette, charcoal primary buttons,
@@ -213,7 +278,10 @@ glassmorphism, no pulse rings, no glow, no emoji in UI chrome. If a
 design choice feels like it needs a new color, it probably needs a
 different layout instead.
 
-Colors come from CSS variables / Tailwind tokens, never hard-coded. Dark mode is
+Colors come from CSS variables / Tailwind tokens, never hard-coded. The one
+exception is `GoogleMark` — a provider's identifying mark on a button that hands
+the user to that provider. It is not decorative colour and not theme-aware on
+purpose. Do not add a second exception without the same argument. Dark mode is
 not in v1 but must remain addable without touching components.
 
 Integrity UI is calm: plain dialogs, plain text, no alarm iconography, no red
@@ -250,6 +318,23 @@ anything touching `attempts` or `test_versions`. Run the relevant unit
 tests before and after every change to these. Do not refactor them
 opportunistically while doing something else.
 
+**Soft delete and the reference check are two tables, so the lock must be taken
+on both sides.** `SoftDelete` locks the row it is deleting and then counts
+references in another table — and a `FOR UPDATE` on one table does not block an
+`INSERT` into a different one, so on its own that only orders concurrent
+deletes. The foreign key does not help either: `ON DELETE RESTRICT` fires on a
+real `DELETE`, not a soft one.
+
+Anything inserting into `app.test_section_questions` must call
+`questions.LockForDraftUse` first, so both operations contend on the same row.
+`TestLockForDraftUseSerialisesAgainstDelete` drives both halves concurrently and
+fails within two attempts without it.
+
+The same applies to `app.media_assets`: anything inserting into
+`app.test_version_questions` must call `media.LockForVersionUse` first, or a
+publish can freeze a reference to an asset a concurrent delete is removing.
+`TestLockForVersionUseSerialisesAgainstDelete` covers it.
+
 Four tests are canaries. If one starts failing, something load-bearing broke —
 fix the cause, never the test:
 
@@ -265,6 +350,15 @@ fix the cause, never the test:
   would not catch the regression that actually happens.
 
 `docs/plan/30-risks.md` explains what each one is guarding.
+
+**A debounced autosave owes the user two flushes it will not do by itself.**
+`useAutosave` holds an edit for 1.5s. Unmounting has to save what is pending --
+in the builder, "type, then click the next question" swaps the editor inside
+that window, and clearing the timer loses the edit silently while the indicator
+still reports the previous save. Publishing has to flush every autosave on the
+screen first, because a version snapshots what is SAVED. Both were real bugs
+that shipped past every unit test and were caught by E2E 1a; `builder/
+autosave-unmount.test.tsx` pins the first.
 
 ## When you are unsure
 

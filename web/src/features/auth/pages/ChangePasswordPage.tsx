@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, fetchCurrentUser } from "@/features/auth/api";
@@ -36,9 +37,6 @@ export default function ChangePasswordPage() {
     setPending(true);
     try {
       await changePassword(current, next);
-      // Re-read rather than assume: the server clears mustChangePassword, and
-      // the guard reads it from the store. Guessing here would leave the user
-      // on this page after a successful change.
       const user = await fetchCurrentUser();
       setUser(user);
       await navigate(homePathFor(user), { replace: true });
@@ -50,53 +48,71 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">
+    <main className="min-h-svh p-4 pt-14">
+      <Card className="mx-auto w-full max-w-sm gap-0 p-5">
+        <h1 className="text-xl font-semibold tracking-tight">
           {t("changePassword.title")}
         </h1>
-        <p className="text-muted-foreground mt-2 text-sm">{t("changePassword.body")}</p>
+        <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">
+          {t("changePassword.body")}
+        </p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-          <div className="space-y-2">
-            <Label htmlFor="current-password">{t("changePassword.current")}</Label>
-            <Input
-              id="current-password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-password">{t("changePassword.new")}</Label>
-            <Input
-              id="new-password"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              required
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-              aria-describedby="new-password-hint"
-            />
-            <p id="new-password-hint" className="text-muted-foreground text-xs">
-              {t("changePassword.hint")}
-            </p>
+        <form onSubmit={onSubmit} className="mt-5" noValidate>
+          <div className="space-y-3">
+            {/* Not required, and that is the point. This page is reached only
+              while `mustChangePassword` is set, which happens after a teacher
+              resets the password — including on a Google-only account, whose
+              owner may sign in with Google and land here having never held the
+              temporary one. Demanding it would strand exactly the person the
+              reset was for. */}
+            <div className="space-y-1.5">
+              <Label htmlFor="current-password">{t("changePassword.current")}</Label>
+              <Input
+                id="current-password"
+                type="password"
+                className="h-11"
+                autoComplete="current-password"
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+                aria-describedby="current-password-hint"
+              />
+              <p id="current-password-hint" className="text-muted-foreground text-xs">
+                {t("changePassword.currentHint")}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="new-password">{t("changePassword.new")}</Label>
+              <Input
+                id="new-password"
+                type="password"
+                className="mt-1.5 h-11"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                aria-describedby="new-password-hint"
+              />
+              <p
+                id="new-password-hint"
+                className="text-muted-foreground mt-1.5 text-xs"
+              >
+                {t("changePassword.hint")}
+              </p>
+            </div>
           </div>
 
           {error ? (
-            <p role="alert" className="text-destructive text-sm">
+            <p role="alert" className="text-destructive mt-3 text-sm">
               {error}
             </p>
           ) : null}
 
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" size="lg" className="mt-5 w-full" disabled={pending}>
             {pending ? t("common.loading") : t("changePassword.submit")}
           </Button>
         </form>
-      </div>
+      </Card>
     </main>
   );
 }

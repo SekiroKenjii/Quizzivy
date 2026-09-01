@@ -26,37 +26,46 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 		}
 	}
 
-	const maxAge = 600
-
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
+			permitted := origin != "" && slices.Contains(allowed, origin)
 
-			// Always vary, even when the origin is not allowed: the response
-			// still differs by origin, and a cache must not conflate them.
 			w.Header().Add("Vary", "Origin")
-
-			if origin != "" && slices.Contains(allowed, origin) {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
+			if permitted {
+				allowOrigin(w, origin)
 			}
 
-			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
-				w.Header().Add("Vary", "Access-Control-Request-Method")
-				w.Header().Add("Vary", "Access-Control-Request-Headers")
-				if origin != "" && slices.Contains(allowed, origin) {
-					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-					w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
-					w.Header().Set("Access-Control-Max-Age", strconv.Itoa(maxAge))
-				}
-				// A disallowed origin gets 204 with no allow headers, which is
-				// what makes the browser block the real request.
-				w.WriteHeader(http.StatusNoContent)
+			if isPreflight(r) {
+				writePreflight(w, permitted)
 				return
 			}
-
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isPreflight(r *http.Request) bool {
+	return r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != ""
+}
+
+func allowOrigin(w http.ResponseWriter, origin string) {
+	h := w.Header()
+	h.Set("Access-Control-Allow-Origin", origin)
+	h.Set("Access-Control-Allow-Credentials", "true")
+	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
+}
+
+func writePreflight(w http.ResponseWriter, permitted bool) {
+	const maxAge = 600
+
+	h := w.Header()
+	h.Add("Vary", "Access-Control-Request-Method")
+	h.Add("Vary", "Access-Control-Request-Headers")
+	if permitted {
+		h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+		h.Set("Access-Control-Max-Age", strconv.Itoa(maxAge))
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

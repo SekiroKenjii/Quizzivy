@@ -61,11 +61,6 @@ func previewFrom(t *testing.T, router http.Handler, ip, code string) *httptest.R
 }
 
 func TestTheSuccessBodyHasExactlyThreeKeys(t *testing.T) {
-	// §6.5 names them: class name and teacher name, plus the classId the
-	// confirm step needs as an idempotency key. Asserted over the decoded JSON
-	// rather than the Go type, because the Go type is generated FROM the same
-	// contract this is meant to be checking -- a field added to the schema
-	// would appear in both and neither would notice.
 	fake := &fakeJoin{result: join.PreviewResult{
 		Outcome:     join.PreviewOK,
 		ClassID:     "01935000-0000-7000-8000-0000000000c1",
@@ -122,8 +117,6 @@ func TestTheFourRefusalsCarryFourCodesAndNoClassName(t *testing.T) {
 }
 
 func TestNoRefusalEchoesAnythingIdentifying(t *testing.T) {
-	// Even if the service were ever changed to populate the class on a
-	// refusal, the wire must not carry it.
 	for _, outcome := range []join.PreviewOutcome{
 		join.PreviewInvalid, join.PreviewRevoked, join.PreviewExpired, join.PreviewExhausted,
 	} {
@@ -165,9 +158,6 @@ func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
 }
 
 func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
-	// The per-IP bucket does not stop a distributed probe of a single code,
-	// which is what a forwarded code invites (R-02). Every request here comes
-	// from a different address, so only the per-code bucket can fire.
 	fake := &fakeJoin{result: join.PreviewResult{Outcome: join.PreviewInvalid}}
 	router := joinRouter(t, fake)
 
@@ -181,11 +171,6 @@ func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
 }
 
 func TestRespellingACodeDoesNotBuyAFreshAllowance(t *testing.T) {
-	// §6.1 accepts a code with or without the dash and in any case, so
-	// `K7M3-P9QR` and `k7m3p9qr` are ONE code. Keyed on the raw body value they
-	// would be two buckets, and an attacker gets a new allowance for every
-	// spelling of the same secret. The key has to be what the lookup
-	// canonicalises to, not what was typed.
 	fake := &fakeJoin{result: join.PreviewResult{Outcome: join.PreviewInvalid}}
 	router := joinRouter(t, fake)
 

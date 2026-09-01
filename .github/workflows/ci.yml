@@ -141,6 +141,142 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+  # --------------------------------------------------------------- e2e-live
+  # E2E 1a (§14) is the one browser test that talks to a real API, because the
+  # phase-2 exit criterion is about the §11.1 audio pipeline running end to end:
+  # magic-byte sniff, size and duration checks, the pure-Go probe, the object
+  # landing in storage. A mocked upload would assert that the frontend renders
+  # whatever the mock returned, which is not the same claim.
+  #
+  # Separate from `e2e` so the stubbed suite stays fast and independent of
+  # postgres, MinIO and a Go build.
+  e2e-live:
+    name: E2E (live API)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      MIGRATE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable
+      DATABASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable
+      APP_ENV: development
+      API_PORT: "8080"
+      CORS_ALLOWED_ORIGINS: http://localhost:4173
+      JWT_SIGNING_KEY: e2e-live-signing-key-not-a-secret-32b
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: quizzivy-media
+      S3_ACCESS_KEY_ID: quizzivy
+      S3_SECRET_ACCESS_KEY: quizzivy-dev-secret
+      # MinIO is addressed by path, not by virtual host. Without this the SDK
+      # sends the bucket as a subdomain, MinIO reads the first path segment as
+      # the bucket instead, and every upload fails with NoSuchBucket for a
+      # bucket named "audio". .env sets it for the same reason; only R2 in
+      # production leaves it unset.
+      S3_FORCE_PATH_STYLE: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install psql 18
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18
+
+      # MinIO comes from the repo's own compose file rather than a service
+      # container: a service container cannot override the image command, and
+      # minio/minio needs `server /data`. Reusing compose also means CI and a
+      # developer's machine start the same MinIO with the same bucket, created
+      # and made private by the same minio-init step.
+      # `--wait` on minio only: it treats a one-shot container's clean exit as
+      # a failure, so waiting on minio-init fails the step after it has done
+      # its job. `run --rm` gives its exit code back directly instead.
+      - name: Start MinIO
+        run: |
+          docker compose up -d --wait minio
+          docker compose run --rm minio-init
+
+      - name: Provision roles and database
+        run: ./scripts/provision-db.sh
+
+      - name: Apply migrations and seed
+        run: |
+          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
+            -dir "$PWD/migrations" postgres "$MIGRATE_URL" up
+          for f in seed/*.sql; do psql "$MIGRATE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+
+      # Built rather than `go run`, so a compile error fails here with a clear
+      # message instead of as a connection refused thirty seconds later.
+      - name: Start the API
+        run: |
+          go -C server build -o "$RUNNER_TEMP/api" ./cmd/api
+          "$RUNNER_TEMP/api" > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 40); do
+            curl -fsS http://localhost:8080/healthz >/dev/null && exit 0
+            sleep 1
+          done
+          echo "API did not become healthy"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E 1a
+        working-directory: web
+        run: pnpm e2e:live
+
+      - name: API log
+        if: failure()
+        run: cat "$RUNNER_TEMP/api.log"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-live
+          path: web/playwright-report/
+          retention-days: 7
+
   # ----------------------------------------------------------------- server
   server:
     name: Server
@@ -196,9 +332,32 @@ jobs:
       - name: Provision roles and database
         run: ./scripts/provision-db.sh
 
+      # Migrations run BEFORE the tests, not by one of them.
+      #
+      # `go test ./...` runs packages in parallel, and only internal/db applies
+      # migrations -- every other DB-backed package (classes, join, media, auth)
+      # opens a pool and assumes the tables are there. That worked only because
+      # internal/db usually won the race to goose.Up, which is not a guarantee
+      # and is invisible until it loses: "relation app.users does not exist" in
+      # whichever package happened to query first.
+      #
+      # Applying them here makes the schema a precondition of the step rather
+      # than a side effect of one package's tests, and matches what a developer
+      # does locally (`make migrate` before `make test-api`).
+      - name: Apply migrations
+        run: |
+          go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
+            -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" up
+
       - name: Vet
         working-directory: server
         run: go vet ./...
+
+      - name: Staticcheck
+        # SA1019 is what enforces AGENTS.md's "never use a deprecated
+        # identifier"; go vet does not check that.
+        working-directory: server
+        run: go tool staticcheck ./...
 
       - name: Check formatting
         working-directory: server
@@ -212,7 +371,12 @@ jobs:
       # reversibility check, both of which need TEST_DATABASE_URL.
       - name: Test
         working-directory: server
-        run: go test ./... -count=1
+        # -coverprofile feeds the sonar job. atomic rather than set because
+        # some of these tests run in parallel, and set mode miscounts there.
+        # -p 1: these packages share one database and the dashboard asserts on
+        # global aggregates by diffing two readings, so a package creating an
+        # attempt in between moves the number. See the Makefile's test-api.
+        run: go test ./... -count=1 -p 1 -covermode=atomic -coverprofile=coverage.out
 
       # Explicitly re-run the round trip against a database that has never seen
       # these migrations, which is the state that matters for a first deploy.
@@ -224,3 +388,63 @@ jobs:
             -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" reset
           go -C server run github.com/pressly/goose/v3/cmd/goose@v3.27.3 \
             -dir "$PWD/migrations" postgres "$TEST_DATABASE_URL" up
+
+      - name: Upload Go coverage
+        # always(): a failing test still produced a profile for everything that
+        # did run, and that is exactly the run where Sonar's view is worth most.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: server/coverage.out
+          retention-days: 1
+
+  # --------------------------------------------------------------------- sonar
+  # Static analysis on top of the language-specific jobs above, not instead of
+  # them: `go vet`, eslint and tsc stay authoritative for their own languages
+  # and fail fast. This adds the cross-cutting things they do not look for --
+  # duplication, complexity, and coverage on new code.
+  sonar:
+    name: Sonar
+    runs-on: ubuntu-latest
+    # needs: only to order this after the coverage upload -- NOT to make the
+    # analysis conditional on the tests passing. Without !cancelled() a failing
+    # Server job skips this one, which is backwards: a red build is when static
+    # analysis has the most to say, and `develop` can stay red for a long time.
+    needs: [server]
+    # develop only, until the plan allows reading non-main branches.
+    # SonarCloud's main branch is the only one this organization can read, so
+    # `develop` is set as the main branch there -- and an analysis submitted
+    # for any OTHER branch lands somewhere nobody can open. A push to `main`
+    # would do exactly that, so it does not run here rather than filling the
+    # project with branches that cannot be read.
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Sonar reads git history to decide what counts as new code and to
+          # attribute issues. A shallow clone silently makes every line look new.
+          fetch-depth: 0
+
+      - name: Download Go coverage
+        # Coverage is an input to the scan, not a precondition for it. If the
+        # Server job died before producing a profile, analyse without it.
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: go-coverage
+          path: server
+
+      # Skips rather than fails while SONAR_TOKEN is unset, so this job can be
+      # merged before the SonarCloud project exists.
+      - name: Scan
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v6
+
+      - name: Say why it was skipped
+        if: env.SONAR_TOKEN == ''
+        run: |
+          echo "SONAR_TOKEN is not set, so no analysis ran."
+          echo "See the setup steps at the top of sonar-project.properties."

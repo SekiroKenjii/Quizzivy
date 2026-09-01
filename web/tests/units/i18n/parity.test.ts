@@ -16,8 +16,6 @@ describe("locale parity", () => {
   const enKeys = keyPaths(en).sort();
 
   it("has the same keys in vi and en", () => {
-    // AGENTS.md: "No English-only user-facing text ever reaches a commit."
-    // The inverse matters too -- a vi-only key renders as a raw key path in en.
     expect(
       enKeys.filter((k) => !viKeys.includes(k)),
       "keys in en but missing from vi",
@@ -43,8 +41,6 @@ describe("locale parity", () => {
 
 describe("datetime", () => {
   it("renders UTC in Asia/Ho_Chi_Minh, not the device timezone", () => {
-    // 2026-01-15T03:30:00Z is 10:30 in UTC+7. This assertion holds wherever
-    // the test runs, which is the whole point (§13.2).
     expect(APP_TIME_ZONE).toBe("Asia/Ho_Chi_Minh");
     expect(formatDateTime("2026-01-15T03:30:00Z")).toBe("10:30, 15/01/2026");
   });

@@ -3,11 +3,20 @@ package api
 import (
 	"context"
 	"errors"
+	"time"
 
+	"quizzivy/internal/assignments"
+	"quizzivy/internal/attempts"
 	"quizzivy/internal/auth"
 	"quizzivy/internal/classes"
+	"quizzivy/internal/dashboard"
 	"quizzivy/internal/httpx"
 	"quizzivy/internal/join"
+	"quizzivy/internal/media"
+	"quizzivy/internal/questions"
+	"quizzivy/internal/students"
+	"quizzivy/internal/tests"
+	"quizzivy/internal/tests/publish"
 )
 
 // DB is the slice of the pool handlers need. An interface rather than the
@@ -27,6 +36,7 @@ type AuthService interface {
 	GoogleSignIn(ctx context.Context, in auth.GoogleSignInInput) (auth.GoogleSignInResult, error)
 	LinkGoogle(ctx context.Context, in auth.LinkGoogleInput) (auth.User, error)
 	UnlinkGoogle(ctx context.Context, userID, ip, userAgent string) error
+	NewTemporaryPassword(ctx context.Context) (password, hash string, err error)
 }
 
 // JoinService is the slice of internal/join the handlers use.
@@ -42,7 +52,81 @@ type ClassesService interface {
 	Get(ctx context.Context, classID string) (classes.Class, error)
 	List(ctx context.Context) ([]classes.Class, error)
 	Members(ctx context.Context, classID string) ([]classes.Member, error)
+	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
+	AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (classes.Member, error)
+}
+
+// MediaService is the slice of internal/media the handlers use.
+type MediaService interface {
+	Upload(ctx context.Context, in media.UploadInput) (media.Asset, error)
+	SignedURL(ctx context.Context, asset media.Asset) (string, error)
+	List(ctx context.Context, in media.ListInput) ([]media.Asset, string, error)
+	Delete(ctx context.Context, in media.DeleteInput) error
+	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
+	// Get resolves one asset, so a question can render its attachment.
+	Get(ctx context.Context, id string) (media.Asset, error)
+	SignedURLTTL() time.Duration
+}
+
+// QuestionsService is the slice of internal/questions the handlers use.
+type QuestionsService interface {
+	List(ctx context.Context, in questions.ListInput) ([]questions.Question, string, error)
+	Facets(ctx context.Context, in questions.ListInput) (questions.TypeFacets, error)
+	Get(ctx context.Context, id string) (questions.Question, error)
+	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
+	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
+	Delete(ctx context.Context, req questions.WriteRequest) error
+	AddTags(ctx context.Context, ids []string, tags []string) (int, error)
+	Tags(ctx context.Context, in questions.ListInput) ([]string, error)
+	Counts(ctx context.Context, in questions.ListInput) (int, int, error)
+}
+
+// TestsService is the slice of internal/tests the handlers use.
+type TestsService interface {
+	List(ctx context.Context, in tests.ListInput) ([]tests.Test, string, error)
+	Facets(ctx context.Context, in tests.ListInput) (tests.StatusFacets, error)
+	Tags(ctx context.Context, in tests.ListInput) ([]string, error)
+	Get(ctx context.Context, id string) (tests.Test, error)
+	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
+	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)
+	Duplicate(ctx context.Context, req tests.Request) (tests.Test, error)
+	ListVersions(ctx context.Context, testID string) ([]tests.Version, error)
+	Preview(ctx context.Context, testID string, version int) (int, []tests.PreviewQuestion, error)
+}
+
+// AssignmentsService is the slice of internal/assignments the handlers use.
+type AssignmentsService interface {
+	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, string, error)
+	Get(ctx context.Context, id string) (assignments.Assignment, error)
+	Create(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
+	Update(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
+}
+
+// AttemptsService is the slice of internal/attempts the handlers use.
+type AttemptsService interface {
+	StartOrResume(ctx context.Context, assignmentID, studentID string) (attempts.Session, error)
+	Get(ctx context.Context, attemptID, studentID string) (attempts.Session, error)
+}
+
+// StudentsService is the slice of internal/students the handlers use.
+type StudentsService interface {
+	List(ctx context.Context, in students.ListInput) ([]students.Student, string, error)
+	Facets(ctx context.Context, in students.ListInput) (students.Facets, error)
+	Get(ctx context.Context, id string) (students.Student, error)
+	Create(ctx context.Context, req students.Request, in students.CreateInput) (students.Student, error)
+	Update(ctx context.Context, req students.Request, in students.UpdateInput) (students.Student, error)
+	ResetPassword(ctx context.Context, req students.Request, id, hash string, now time.Time) error
+}
+
+// DashboardService is the slice of internal/dashboard the handlers use.
+type DashboardService interface {
+	Get(ctx context.Context) (dashboard.Summary, error)
+}
+
+// PublishService is the slice of internal/tests/publish the handlers use.
+type PublishService interface {
+	Publish(ctx context.Context, req publish.Request) (publish.Version, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the

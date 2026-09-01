@@ -23,13 +23,17 @@ func (s *Service) Members(ctx context.Context, classID string) ([]Member, error)
 }
 
 func (s *Service) RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error {
-	// The class is checked first so removing from a class that does not exist
-	// is a 404 rather than a silent success -- the member delete is idempotent
-	// by design, and without this a typo in the URL would look like it worked.
 	if _, err := s.store.Get(ctx, classID); err != nil {
 		return err
 	}
 	return s.store.RemoveMember(ctx, RemoveMemberInput{
+		ClassID: classID, UserID: userID, ActorUserID: actorID,
+		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+	})
+}
+
+func (s *Service) AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (Member, error) {
+	return s.store.AddMember(ctx, AddMemberInput{
 		ClassID: classID, UserID: userID, ActorUserID: actorID,
 		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
 	})
@@ -40,4 +44,9 @@ func optional(v string) *string {
 		return nil
 	}
 	return &v
+}
+
+// Update edits a class's own fields.
+func (s *Service) Update(ctx context.Context, classID string, in UpdateInput) (Class, error) {
+	return s.store.Update(ctx, classID, in)
 }

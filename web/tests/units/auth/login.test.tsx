@@ -34,17 +34,10 @@ describe("/login", () => {
     await user.type(screen.getByLabelText("Email"), "not-an-email");
     await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
-
-    // `type="email"` + `required` means the browser blocks it before any
-    // request. The assertion is that no session was established.
     expect(useAuthStore.getState().accessToken).toBeNull();
   });
 
   it("renders the server's message verbatim on a failure", async () => {
-    // §5.1: the server returns the SAME message for an unknown email, a wrong
-    // password and a disabled account, already in Vietnamese. Rendering it
-    // as-is is what preserves that -- a client-side lookup keyed on the code
-    // would be free to say more than the server chose to.
     server.use(
       http.post(`${BASE}/auth/login`, () =>
         contractJson("/auth/login", "post", 401, {
@@ -81,8 +74,6 @@ describe("/login", () => {
   });
 
   it("refuses an off-site ?next=", async () => {
-    // `next` is ours, but it arrives through the URL. Without the check,
-    // /login?next=https://evil.test makes sign-in an open redirect.
     const user = userEvent.setup();
     const router = renderLogin("/login?next=https://evil.test/steal");
 
@@ -99,8 +90,6 @@ describe("/login", () => {
     renderLogin();
 
     const google = screen.getByRole("button", { name: "Tiếp tục với Google" });
-    // Tab from the last field: password -> submit -> Google. Nothing in
-    // between traps focus, and the divider is aria-hidden.
     screen.getByLabelText("Mật khẩu").focus();
     await user.tab();
     await user.tab();
@@ -108,10 +97,6 @@ describe("/login", () => {
   });
 
   it("offers no way to create an account", () => {
-    // Password accounts are teacher-created and self-signup is Google-only
-    // with a class code (§6.3). A signup form here would advertise a flow that
-    // does not exist. This is the one substantive departure from the shadcn
-    // authentication example the layout is modelled on.
     renderLogin();
     expect(screen.queryByRole("button", { name: /đăng ký|tạo tài khoản/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /đăng ký|tạo tài khoản/i })).toBeNull();

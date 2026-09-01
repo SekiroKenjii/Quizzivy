@@ -58,10 +58,6 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 		"student-"+n+"@example.com").Scan(&studentID); err != nil {
 		t.Fatalf("insert student: %v", err)
 	}
-	// Registered before the remaining inserts, not after. Cleanup at the END of
-	// a fixture only runs if the fixture finishes: an earlier version of this
-	// helper failed on the class insert and left nine orphan teachers in the
-	// development database, which the single-teacher lookup then picked up.
 	t.Cleanup(func() {
 		c := context.Background()
 		_, _ = pool.Exec(c, `DELETE FROM app.audit_log WHERE actor_user_id IN ($1, $2)`, teacherID, studentID)
@@ -70,8 +66,6 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1`, classID)
 		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1, $2)`, teacherID, studentID)
 	})
-	// app.classes has no created_by: there is one teacher (§1), so recording
-	// which one made a class would be a column with one value in it forever.
 	if err := pool.QueryRow(ctx,
 		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
 		"Lớp "+n).Scan(&classID); err != nil {
@@ -113,8 +107,6 @@ func selfJoinEnabled(t *testing.T, pool *pgxpool.Pool, classID string) bool {
 }
 
 func TestRotationRetiresTheOldCodeAndLeavesMembersAlone(t *testing.T) {
-	// §6.1's promise. A teacher rotates because a code leaked; if that also
-	// unenrolled the class, nobody would ever rotate.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, studentID := makeClass(t, pool)
@@ -197,8 +189,6 @@ func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
 }
 
 func TestTheDefaultsAreThirtyDaysAndFortyUses(t *testing.T) {
-	// §6.1 for the expiry; O-06 for the cap, which deliberately departs from
-	// §6.1's `null = unlimited`.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -211,16 +201,13 @@ func TestTheDefaultsAreThirtyDaysAndFortyUses(t *testing.T) {
 	if rotated.MaxUses == nil || *rotated.MaxUses != join.DefaultMaxUses {
 		t.Errorf("maxUses = %v, want %d", rotated.MaxUses, join.DefaultMaxUses)
 	}
-	days := rotated.ExpiresAt.Sub(time.Now()).Hours() / 24
+	days := time.Until(rotated.ExpiresAt).Hours() / 24
 	if days < 29 || days > 31 {
 		t.Errorf("expiry is %.1f days away, want about %d", days, join.DefaultExpiryDays)
 	}
 }
 
 func TestRevokingClosesTheClassCompletely(t *testing.T) {
-	// §6.4: both halves. A revoked code with self-join still on advertises a
-	// flow that cannot succeed; a cleared flag without the revocation leaves a
-	// live bearer secret the teacher believes they cancelled.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -245,9 +232,6 @@ func TestRevokingClosesTheClassCompletely(t *testing.T) {
 }
 
 func TestRotatingAfterARevokeReopensTheClass(t *testing.T) {
-	// Otherwise the teacher is handed a code that silently does nothing --
-	// §6.4 turned the flag off, and issuing a code is the action that means
-	// "let students in again".
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -294,11 +278,6 @@ func TestAMissingClassIsReportedRatherThanCreatingAnOrphanCode(t *testing.T) {
 }
 
 func TestConcurrentRotationsNeverLeaveTwoActiveCodes(t *testing.T) {
-	// class_join_codes_one_active is a partial unique index. Inserting before
-	// revoking violates it; revoking before inserting leaves a window with no
-	// code at all. The transaction plus the row lock on the class is what makes
-	// neither state observable -- without them this test produces either a
-	// constraint violation or two live bearer secrets for one class.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -330,8 +309,6 @@ func TestConcurrentRotationsNeverLeaveTwoActiveCodes(t *testing.T) {
 }
 
 func TestIssuingRotatingAndRevokingAreAudited(t *testing.T) {
-	// §13.4. A join code is a bearer secret; who issued one, and when it was
-	// cancelled, is exactly what an audit trail is for.
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClass(t, pool)
@@ -362,9 +339,6 @@ func TestIssuingRotatingAndRevokingAreAudited(t *testing.T) {
 		}
 		actions = append(actions, a)
 	}
-
-	// The first issue and the rotation are distinguished: "there was no code
-	// before" and "a live code was retired" are different events.
 	want := []string{"class.join_code_issued", "class.join_code_rotated", "class.join_code_revoked"}
 	if len(actions) != len(want) {
 		t.Fatalf("audit actions = %v, want %v", actions, want)

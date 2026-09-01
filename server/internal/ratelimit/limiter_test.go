@@ -64,8 +64,6 @@ func TestKeysAreIndependent(t *testing.T) {
 }
 
 func TestBothWindowsApply(t *testing.T) {
-	// §6.5 stacks 10/min and 60/hour. The hourly cap must bite even when the
-	// per-minute one keeps refilling.
 	l := New(100, PerMinute(10), PerHour(60))
 	now := time.Now()
 	l.SetClock(func() time.Time { return now })
@@ -89,8 +87,6 @@ func TestBothWindowsApply(t *testing.T) {
 }
 
 func TestRejectionDoesNotDrainTheOtherBucket(t *testing.T) {
-	// A request blocked by the minute rule must not also spend an hourly token,
-	// or a burst would eat the hour's budget without ever being served.
 	l := New(100, PerMinute(2), PerHour(100))
 	now := time.Now()
 	l.SetClock(func() time.Time { return now })
@@ -114,8 +110,6 @@ func TestRejectionDoesNotDrainTheOtherBucket(t *testing.T) {
 }
 
 func TestMemoryIsBounded(t *testing.T) {
-	// An unbounded map keyed by client IP is a memory-exhaustion vector on
-	// exactly the endpoints §6.5 protects.
 	l := New(50, PerMinute(10))
 	for i := 0; i < 500; i++ {
 		l.Allow(string(rune('a'+i%26)) + string(rune('0'+i/26)))

@@ -12,11 +12,7 @@ import (
 )
 
 var (
-	ErrTokenInvalid = errors.New("google: id token invalid")
-	// ErrEmailUnverified is separate because §5.1 makes it non-negotiable and a
-	// caller must not be able to lump it in with "some token problem" and carry
-	// on. An unverified Google email means anyone who can register that address
-	// with Google can take over the matching Quizzivy account.
+	ErrTokenInvalid    = errors.New("google: id token invalid")
 	ErrEmailUnverified = errors.New("google: email is not verified")
 )
 
@@ -62,13 +58,11 @@ type idTokenClaims struct {
 func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (Identity, error) {
 	claims := &idTokenClaims{}
 
-	_, err := jwt.ParseWithClaims(rawIDToken, claims, func(t *jwt.Token) (any, error) {
-		kid, _ := t.Header["kid"].(string)
-		return v.keys.Key(ctx, kid)
-	},
-		// Pinned. Without this, a token presenting `alg: none` or a symmetric
-		// algorithm would be verified against the RSA modulus as if it were an
-		// HMAC secret -- the classic JWT forgery, and the modulus is public.
+	_, err := jwt.ParseWithClaims(
+		rawIDToken, claims, func(t *jwt.Token) (any, error) {
+			kid, _ := t.Header["kid"].(string)
+			return v.keys.Key(ctx, kid)
+		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
 		jwt.WithAudience(v.clientID),
 		jwt.WithIssuedAt(),

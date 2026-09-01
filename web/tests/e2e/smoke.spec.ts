@@ -10,8 +10,6 @@ test("the app boots and lands on /login", async ({ page }) => {
   await stubApi(page, anonymous);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
-  // The h1 is the ACTION, not the brand: since T-1.11 the product name lives
-  // in the side panel and the heading names what this screen is for.
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Đăng nhập");
 });
 
@@ -36,10 +34,11 @@ test("admin sidebar is open by default above 1280px", async ({ page }) => {
   await stubApi(page, sessionAs(adminUser));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/admin");
-  await expect(
-    page.getByRole("navigation", { name: "Điều hướng chính" }),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Đề thi" })).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Điều hướng chính" });
+  await expect(nav).toBeVisible();
+  // Scoped and exact: the dashboard also links "Đề thi mới", which a loose
+  // substring match picks up as well.
+  await expect(nav.getByRole("link", { name: "Đề thi", exact: true })).toBeVisible();
 });
 
 test("admin sidebar collapses at 1280px and the toggle reopens it", async ({
@@ -79,16 +78,9 @@ test("admin sidebar toggle is keyboard operable", async ({ page }) => {
 });
 
 test("no console errors on a cold load", async ({ page }) => {
-  // Stubbed, or the bootstrap `GET /auth/me` fails with ERR_CONNECTION_REFUSED
-  // and the assertion would be about the harness rather than the app.
   await stubApi(page, anonymous);
   const errors: string[] = [];
   page.on("console", (m) => {
-    // Chromium logs every non-2xx fetch as a console error. An anonymous
-    // bootstrap SHOULD 401 -- that is the app working, not failing -- and
-    // counting it here would mean the test passed only while /login made no
-    // network calls at all. Real faults are unhandled exceptions and React
-    // warnings, and those still land.
     if (m.type() === "error" && !m.text().startsWith("Failed to load resource:")) {
       errors.push(m.text());
     }

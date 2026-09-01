@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quizzivy design deck</title>
+    <link rel="stylesheet" href="assets/kit.css" />
+  </head>
+  <body class="deck">
+    <header class="deck-bar">
+      <span class="font-semibold tracking-tight">Quizzivy</span>
+      <span class="text-xs text-muted-foreground">design deck</span>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="btn btn-sm btn-outline" data-theme-toggle>
+          <svg class="i" aria-hidden="true"><use href="#i-moon" /></svg>
+          <span data-theme-label>Tối</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="deck-wrap" style="max-width: 68rem">
+      <h1 class="text-3xl font-semibold tracking-tight">Quizzivy — UI/UX deck</h1>
+      <p class="deck-sub mt-3 text-md leading-relaxed">
+        High-fidelity mockups for every screen in the v1 spec, plus the shape the product takes
+        as it grows into a full LMS. Built in shadcn/ui new-york on the zinc scale, against the
+        design guidelines in <code class="font-mono text-xs">docs/quizzivy-spec-v0.3.md</code> §12
+        — which are strict, deliberate, and treated here as constraints rather than suggestions.
+      </p>
+
+      <div class="grid grid-cols-3 gap-4 mt-8">
+        <a class="card p-5" href="sheets/00-foundations.html">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-layers" /></svg>
+            <p class="card-title">Foundations</p>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Tokens, type, density, every component and its states, and the shadcn parts still to
+            be added.
+          </p>
+          <p class="text-xs text-muted-foreground mt-3">10 boards</p>
+        </a>
+        <a class="card p-5" href="sheets/10-student.html">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-smartphone" /></svg>
+            <p class="card-title">Student</p>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Join, login, home, the assignment contract, the test engine, integrity, results, and
+            every way it can go wrong. Phone first.
+          </p>
+          <p class="text-xs text-muted-foreground mt-3">11 boards · 29 screens</p>
+        </a>
+        <a class="card p-5" href="sheets/20-teacher-authoring.html">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-file-text" /></svg>
+            <p class="card-title">Teacher · authoring</p>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Navigation, dashboard, command palette, tests, the builder, the publish gate, audio,
+            question bank, media library.
+          </p>
+          <p class="text-xs text-muted-foreground mt-3">8 boards</p>
+        </a>
+        <a class="card p-5" href="sheets/30-teacher-assign-grade.html">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-clipboard-list" /></svg>
+            <p class="card-title">Teacher · assign &amp; grade</p>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Creating an assignment, the live monitor, grading, grade-by-question, the integrity
+            timeline, classes, join codes, students.
+          </p>
+          <p class="text-xs text-muted-foreground mt-3">7 boards</p>
+        </a>
+        <a class="card p-5" href="sheets/40-lms-future.html">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-book-open" /></svg>
+            <p class="card-title">LMS vision</p>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Test → activity, three releases of navigation, course builder, lesson player,
+            vocabulary, gradebook, schedule, roles, and the sequencing.
+          </p>
+          <p class="text-xs text-muted-foreground mt-3">6 boards</p>
+        </a>
+        <a class="card p-5" href="sheets/50-brand-and-errors.html">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-sparkles" /></svg>
+            <p class="card-title">Brand &amp; errors</p>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Thuong's brand kit — variants, palette, app icons — placed on the surfaces this
+            product actually has, plus 404 / unexpected error / no-access on the login layout.
+          </p>
+          <p class="text-xs text-muted-foreground mt-3">9 boards</p>
+        </a>
+        <div class="card p-5 bg-muted/30">
+          <div class="flex items-center gap-2.5">
+            <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-keyboard" /></svg>
+            <p class="card-title">How to read these</p>
+          </div>
+          <ul class="text-sm text-muted-foreground mt-2 space-y-1.5 leading-relaxed">
+            <li>Each board has an id, a name, and the route it implements.</li>
+            <li>The grey notes below a board are design rationale, not copy.</li>
+            <li>Zoom in the header shrinks the 1360px desktop boards to fit a laptop.</li>
+            <li>The theme toggle proves the dark palette is a token swap (P1, not v1).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="deck-section">
+        <h2 class="deck-h">The five rules everything here follows</h2>
+        <div class="grid grid-cols-5 gap-4 mt-4">
+          <div class="card p-4">
+            <p class="text-sm font-semibold">Neutral by default</p>
+            <p class="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              Zinc, white, 1px borders, charcoal primary. Colour appears only where it means
+              correct, wrong, or running out of time.
+            </p>
+          </div>
+          <div class="card p-4">
+            <p class="text-sm font-semibold">Two densities</p>
+            <p class="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              40px rows and 13px text for the teacher; 720px measure, relaxed leading and 44px
+              targets for the student.
+            </p>
+          </div>
+          <div class="card p-4">
+            <p class="text-sm font-semibold">Say the rule before it bites</p>
+            <p class="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              Timers, play limits, focus monitoring and review policy are all stated in plain
+              Vietnamese before the student can be affected by them.
+            </p>
+          </div>
+          <div class="card p-4">
+            <p class="text-sm font-semibold">Report, do not accuse</p>
+            <p class="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              Integrity signals are evidence for a conversation. Neutral words, no alarm
+              iconography, no automatic penalty.
+            </p>
+          </div>
+          <div class="card p-4">
+            <p class="text-sm font-semibold">Vietnamese first</p>
+            <p class="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              Every string is written in Vietnamese first and laid out for its length. No
+              fixed-width labels, no truncation of a verb.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="deck-section">
+        <h2 class="deck-h">Where the deck proposes something the spec does not have</h2>
+        <p class="deck-sub mt-1">
+          Nine additions, each small, each with the reason it earns its place. Everything else on
+          these sheets implements §8 and §9 as written.
+        </p>
+        <div class="card mt-4">
+          <table class="table table-roomy">
+            <thead>
+              <tr><th style="width: 22%">Proposal</th><th style="width: 14%">Where</th><th>Why</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="font-medium">Command palette (⌘K)</td>
+                <td class="text-muted-foreground">A-02</td>
+                <td class="text-muted-foreground">The only navigation model that survives an LMS-sized sidebar. Cheap now, and it lets nav items be judged on use rather than findability.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">“Chờ chấm” as a nav item</td>
+                <td class="text-muted-foreground">A-00</td>
+                <td class="text-muted-foreground">Grading is the teacher’s recurring queue and §8 reaches it only via a monitor screen. One route, and the count is visible everywhere.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Grade by question</td>
+                <td class="text-muted-foreground">G-04</td>
+                <td class="text-muted-foreground">Same endpoints, one extra query. Decides a rubric once instead of nineteen times — the largest time win available in the product.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Live “học viên sẽ đọc” preview</td>
+                <td class="text-muted-foreground">G-01</td>
+                <td class="text-muted-foreground">Integrity policy is set three screens away from the words it produces. Rendering them next to the switches is what makes §10.2 actually true.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Manual-grading cost estimate</td>
+                <td class="text-muted-foreground">G-01</td>
+                <td class="text-muted-foreground">“19 × 2 = 38 câu bạn sẽ phải chấm”, shown at the moment of commitment rather than discovered on Sunday night.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Two-panel error screens</td>
+                <td class="text-muted-foreground">E-01…03</td>
+                <td class="text-muted-foreground">404, the error boundary and 403 move onto the login layout. One <code class="font-mono text-xs">ErrorScreen</code> gains an art slot; no route changes.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">The failed path on the 404</td>
+                <td class="text-muted-foreground">E-01</td>
+                <td class="text-muted-foreground">“nó báo lỗi” is unactionable; the path tells the teacher whether the assignment was deleted or the link was mistyped.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">The signed-in account on the 403</td>
+                <td class="text-muted-foreground">E-03</td>
+                <td class="text-muted-foreground">The commonest real cause is the wrong Google account. Naming the address turns a dead end into a two-second fix.</td>
+              </tr>
+              <tr>
+                <td class="font-medium">Saveable comment snippets</td>
+                <td class="text-muted-foreground">G-03</td>
+                <td class="text-muted-foreground">The same four sentences get typed all term. A tiny table and a chip row.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p class="text-xs text-muted-foreground mt-10 leading-relaxed">
+        Static HTML, no build step, no network dependency beyond the Inter webfont.
+        <code class="font-mono">assets/kit.css</code> reuses the exact tokens from
+        <code class="font-mono">web/src/index.css</code> and names its utilities after their
+        Tailwind equivalents, so markup here transfers into a React component with little more
+        than a rename.
+      </p>
+    </div>
+
+    <script src="assets/icons.js"></script>
+    <script src="assets/brand.js"></script>
+    <script src="assets/kit.js"></script>
+  </body>
+</html>

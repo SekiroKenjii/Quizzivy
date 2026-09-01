@@ -28,12 +28,15 @@ export function useBootstrapSession() {
         const user = await fetchCurrentUser(controller.signal);
         setSessionUser(user);
       } catch {
-        // Any failure means "no session": a 401 after the single refresh
-        // attempt, or the API being unreachable. Both send the user to /login,
-        // which is the only screen that works without one.
+        // An ABORT says nothing about the session -- it says this component
+        // went away. Treating it as "signed out" is what made a reload land on
+        // /login while the refresh cookie was still perfectly good: React's
+        // double-invoked effect aborts the first call, and the bounce happened
+        // before the second one could answer.
+        if (controller.signal.aborted) return;
         clearSession();
       } finally {
-        finishBootstrap();
+        if (!controller.signal.aborted) finishBootstrap();
       }
     })();
     return () => controller.abort();
@@ -57,16 +60,8 @@ export function useLogout() {
     try {
       await logoutRequest();
     } catch {
-      // The server call failing must not strand the user in a session they
-      // asked to leave. The refresh token may outlive this, which is a smaller
-      // problem than a logout button that does nothing.
+      // A failed server logout must not strand the user in a signed-in shell.
     }
-    // Leave the guarded route BEFORE forgetting the session. Clearing first
-    // re-renders the page the user is still on, RequireSession sees no user,
-    // and it redirects to `/login?next=<that page>` -- so the next person to
-    // sign in on this device inherits the previous user's destination. Seen
-    // for real: a student signed in after a teacher signed out of
-    // /admin/classes and was sent straight to a 403.
     await navigate("/login", { replace: true });
     clearSession();
     queryClient.clear();

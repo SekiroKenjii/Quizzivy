@@ -23,36 +23,24 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	DB      DB
-	Auth    AuthService
-	Join    JoinService
-	Classes ClassesService
-	Tokens  TokenVerifier
-
-	// RefreshTTL and CookieSecure shape the §5.2 refresh cookie. CookieSecure
-	// is false only for plain-http localhost; everywhere else it must be true,
-	// or the cookie travels in the clear.
+	DB           DB
+	Auth         AuthService
+	Join         JoinService
+	Classes      ClassesService
+	Media        MediaService
+	Questions    QuestionsService
+	Tests        TestsService
+	Publisher    PublishService
+	Dashboard    DashboardService
+	Assignments  AssignmentsService
+	Attempts     AttemptsService
+	Students     StudentsService
+	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
 	CookieSecure bool
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)
-
-func (s *Server) ListAssignments(_ context.Context, _ openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) CreateAssignment(_ context.Context, _ openapi.CreateAssignmentRequestObject) (openapi.CreateAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetAssignment(_ context.Context, _ openapi.GetAssignmentRequestObject) (openapi.GetAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateAssignment(_ context.Context, _ openapi.UpdateAssignmentRequestObject) (openapi.UpdateAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
 
 func (s *Server) GetAssignmentMonitor(_ context.Context, _ openapi.GetAssignmentMonitorRequestObject) (openapi.GetAssignmentMonitorResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
@@ -94,115 +82,11 @@ func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) UpdateClass(_ context.Context, _ openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) AddClassMember(_ context.Context, _ openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetDashboard(_ context.Context, _ openapi.GetDashboardRequestObject) (openapi.GetDashboardResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListMedia(_ context.Context, _ openapi.ListMediaRequestObject) (openapi.ListMediaResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UploadMedia(_ context.Context, _ openapi.UploadMediaRequestObject) (openapi.UploadMediaResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) DeleteMedia(_ context.Context, _ openapi.DeleteMediaRequestObject) (openapi.DeleteMediaResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListQuestions(_ context.Context, _ openapi.ListQuestionsRequestObject) (openapi.ListQuestionsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) CreateQuestion(_ context.Context, _ openapi.CreateQuestionRequestObject) (openapi.CreateQuestionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) DeleteQuestion(_ context.Context, _ openapi.DeleteQuestionRequestObject) (openapi.DeleteQuestionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetQuestion(_ context.Context, _ openapi.GetQuestionRequestObject) (openapi.GetQuestionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateQuestion(_ context.Context, _ openapi.UpdateQuestionRequestObject) (openapi.UpdateQuestionResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListStudents(_ context.Context, _ openapi.ListStudentsRequestObject) (openapi.ListStudentsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) CreateStudent(_ context.Context, _ openapi.CreateStudentRequestObject) (openapi.CreateStudentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetStudent(_ context.Context, _ openapi.GetStudentRequestObject) (openapi.GetStudentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateStudent(_ context.Context, _ openapi.UpdateStudentRequestObject) (openapi.UpdateStudentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ResetStudentPassword(_ context.Context, _ openapi.ResetStudentPasswordRequestObject) (openapi.ResetStudentPasswordResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListTests(_ context.Context, _ openapi.ListTestsRequestObject) (openapi.ListTestsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) CreateTest(_ context.Context, _ openapi.CreateTestRequestObject) (openapi.CreateTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetTest(_ context.Context, _ openapi.GetTestRequestObject) (openapi.GetTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) UpdateTest(_ context.Context, _ openapi.UpdateTestRequestObject) (openapi.UpdateTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) DuplicateTest(_ context.Context, _ openapi.DuplicateTestRequestObject) (openapi.DuplicateTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) PreviewTest(_ context.Context, _ openapi.PreviewTestRequestObject) (openapi.PreviewTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) PublishTest(_ context.Context, _ openapi.PublishTestRequestObject) (openapi.PublishTestResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListTestVersions(_ context.Context, _ openapi.ListTestVersionsRequestObject) (openapi.ListTestVersionsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) ListMyAssignments(_ context.Context, _ openapi.ListMyAssignmentsRequestObject) (openapi.ListMyAssignmentsResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 
 func (s *Server) GetMyAssignment(_ context.Context, _ openapi.GetMyAssignmentRequestObject) (openapi.GetMyAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) StartOrResumeAttempt(_ context.Context, _ openapi.StartOrResumeAttemptRequestObject) (openapi.StartOrResumeAttemptResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetAttempt(_ context.Context, _ openapi.GetAttemptRequestObject) (openapi.GetAttemptResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
 
@@ -227,9 +111,5 @@ func (s *Server) SubmitAttempt(_ context.Context, _ openapi.SubmitAttemptRequest
 }
 
 func (s *Server) ListMyClasses(_ context.Context, _ openapi.ListMyClassesRequestObject) (openapi.ListMyClassesResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetMediaUrl(_ context.Context, _ openapi.GetMediaUrlRequestObject) (openapi.GetMediaUrlResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

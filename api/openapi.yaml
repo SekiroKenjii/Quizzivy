@@ -87,7 +87,15 @@ components:
       name: limit
       in: query
       required: false
-      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      description: |
+        Page size. The DEFAULT IS PER RESOURCE and is declared on each operation
+        — a media grid wants a different page from a table of tests, and one
+        shared default could only ever be right for one of them. It used to
+        claim 25, which no server used.
+
+        A client should drive pagination from `nextCursor`, never from an
+        assumed page size.
+      schema: { type: integer, minimum: 1, maximum: 100 }
     Query:
       name: q
       in: query
@@ -154,7 +162,19 @@ components:
 
     Points:
       type: number
-      description: numeric(8,2) — never a float (§13.2).
+      format: double
+      description: |
+        numeric(8,2) — never a float (§13.2). Stored and compared as an exact
+        decimal server-side; this is the wire representation.
+
+        `format: double` is load-bearing rather than decoration. Without it
+        oapi-codegen generates `float32`, which holds about 7 significant
+        decimal digits — and the maximum below needs 8. `999999.99` round-trips
+        through a float32 as `1000000`, a value this very schema rejects, and
+        `12345.67` becomes `12345.669921875`. Points are summed to produce a
+        test's total, so that error accumulates across a paper. `double` gives
+        Go a float64 and leaves TypeScript's `number` unchanged, since a JS
+        number is already a float64.
       minimum: 0
       maximum: 999999.99
 
@@ -180,10 +200,13 @@ components:
         - JOIN_CODE_EXHAUSTED
         - JOIN_CODE_REVOKED
         - ALREADY_ENROLLED
+        # students
+        - EMAIL_TAKEN
         # authoring
         - TEST_NOT_PUBLISHED
         - PUBLISH_VALIDATION_FAILED
         - STALE_WRITE
+        - QUESTION_REFERENCED
         - MEDIA_REFERENCED
         - MEDIA_TYPE_UNSUPPORTED
         - MEDIA_TOO_LARGE
@@ -205,32 +228,37 @@ components:
         - RATE_LIMITED
         - INTERNAL
 
+    ErrorDetail:
+      type: object
+      description: |
+        Extracted so a response carrying the envelope AND something else can
+        reference it without composing over a closed schema (issue #41).
+      required: [code, message, requestId]
+      additionalProperties: false
+      properties:
+        code: { $ref: '#/components/schemas/ErrorCode' }
+        message:
+          type: string
+          description: |
+            Already localized server-side from `Accept-Language`, `vi` by
+            default. Display it; do not build copy from `code`.
+          examples: ['Mã lớp không hợp lệ.']
+        details:
+          type: object
+          additionalProperties: true
+          description: |
+            Shape depends on `code`. Field-level validation errors land here
+            as `{ field: message }` for react-hook-form.
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: The copyable error ID shown by the global error boundary (§9).
+
     ErrorResponse:
       type: object
       required: [error]
       additionalProperties: false
       properties:
-        error:
-          type: object
-          required: [code, message, requestId]
-          additionalProperties: false
-          properties:
-            code: { $ref: '#/components/schemas/ErrorCode' }
-            message:
-              type: string
-              description: |
-                Already localized server-side from `Accept-Language`, `vi` by
-                default. Display it; do not build copy from `code`.
-              examples: ['Mã lớp không hợp lệ.']
-            details:
-              type: object
-              additionalProperties: true
-              description: |
-                Shape depends on `code`. Field-level validation errors land here
-                as `{ field: message }` for react-hook-form.
-            requestId:
-              $ref: '#/components/schemas/Uuid'
-              description: The copyable error ID shown by the global error boundary (§9).
+        error: { $ref: '#/components/schemas/ErrorDetail' }
 
     CursorPage:
       type: object
@@ -269,6 +297,215 @@ components:
           type: boolean
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+
+
+    GoogleSignInSuccess:
+      type: object
+      description: |
+        AuthSuccess plus the class a join code enrolled the student in.
+
+        Flat rather than `allOf: [AuthSuccess, ...]`: AuthSuccess is
+        `additionalProperties: false`, and in JSON Schema 2020-12 that keyword
+        cannot see a sibling allOf branch, so the composed form rejects the very
+        body it documents (issue #41).
+      required: [accessToken, expiresIn, user]
+      additionalProperties: false
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, description: Seconds. }
+        user: { $ref: '#/components/schemas/User' }
+        enrolledClass:
+          description: Present only when a `joinCode` produced an enrolment.
+          oneOf: [{ $ref: '#/components/schemas/Class' }, { type: 'null' }]
+
+    PublishConflict:
+      type: object
+      description: |
+        The publish 409: the error envelope plus every blocking violation, so the
+        builder marks them all inline rather than surfacing one per attempt (§8).
+        Flat for the same reason as GoogleSignInSuccess.
+      required: [error]
+      additionalProperties: false
+      properties:
+        error: { $ref: '#/components/schemas/ErrorDetail' }
+        violations:
+          type: array
+          items: { $ref: '#/components/schemas/PublishValidationError' }
+
+    LibraryAsset:
+      type: object
+      description: |
+        A MediaAsset as the admin library lists it, with how many published
+        versions reference it. Flat for the same reason (issue #41) -- this is
+        the site that was actually shipping a body its own contract rejected.
+      required: [id, kind, url, mimeType, bytes, originalFilename, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, enum: [image, audio] }
+        url: { type: string, description: Short-lived signed URL (§11.2). }
+        # The same closed set as MediaAsset: flattening must not quietly widen
+        # what the server may claim it stored.
+        mimeType:
+          type: string
+          enum: [audio/mpeg, audio/mp4, audio/aac, image/png, image/jpeg, image/webp]
+        bytes: { type: integer, minimum: 0 }
+        durationMs: { type: [integer, 'null'], description: Audio only. }
+        originalFilename: { type: string }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        usageCount:
+          type: integer
+          description: Published-version references. Non-zero blocks delete (§8).
+
+    StudentAssignmentDetail:
+      type: object
+      description: |
+        The intro screen's card: everything StudentAssignmentCard carries plus
+        the policies §10.2 states in plain Vietnamese before the student starts.
+      required:
+        [id, testTitle, status, opensAt, closesAt, durationMinutes,
+         attemptsUsed, maxAttempts, review, integrity, hasAudio]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        testTitle: { type: string }
+        status: { $ref: '#/components/schemas/AssignmentStatus' }
+        opensAt: { $ref: '#/components/schemas/Timestamp' }
+        closesAt: { $ref: '#/components/schemas/Timestamp' }
+        durationMinutes: { type: integer, minimum: 1 }
+        attemptsUsed: { type: integer, minimum: 0 }
+        maxAttempts: { type: integer, minimum: 1 }
+        hasLiveAttempt: { type: boolean }
+        lastAttemptId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
+        instructions: { type: [string, 'null'] }
+        review: { $ref: '#/components/schemas/ReviewPolicy' }
+        integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        hasAudio: { type: boolean }
+        audioMaxPlays:
+          type: [integer, 'null']
+          description: The strictest `maxPlays` across the test, for the intro copy.
+
+    StudentClass:
+      type: object
+      description: A class the student is in, with how they got there (§6.4's D-10).
+      required: [id, name, joinedVia, joinedAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        joinedVia:
+          type: string
+          enum: [admin, join_code]
+        joinedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    StudentActivity:
+      type: object
+      description: |
+        Backs G-07's "Hoạt động" column, which has three renderings and needs
+        two facts to pick between them: "đang làm bài" while an attempt is live,
+        a relative time when there is a last one, and an em dash when the student
+        has never started anything.
+
+        `live` is not `lastAttemptAt is recent`. Nothing in this system flips an
+        attempt when its deadline passes -- assignment status is derived for
+        exactly that reason (D-18) -- so a stale in-progress row would read as
+        "đang làm bài" forever. The server ANDs the status with `deadline_at`.
+      required: [live]
+      additionalProperties: false
+      properties:
+        live: { type: boolean, description: An attempt is in progress and inside its deadline. }
+        lastAttemptAt: { type: [string, 'null'], format: date-time }
+
+    StudentStats:
+      type: object
+      description: |
+        Per-student teaching figures for §8's students table (G-07) and the class
+        roster (G-06).
+
+        Deliberately NOT on `User`. `User` is the `/auth/me`, `/auth/login` and
+        `/auth/refresh` payload, so a field added there is shipped to the student
+        about themselves on every cold load and every token refresh. §13.5's
+        student-projection guard would not catch it either -- it sweeps `/app/*`
+        and `/auth/me` is not one.
+      required: [submittedCount, flaggedCount, activity]
+      additionalProperties: false
+      properties:
+        submittedCount:
+          type: integer
+          minimum: 0
+          description: |
+            Distinct ASSIGNMENTS with at least one attempt that reached the
+            teacher, not attempts. With `maxAttempts > 1` the two differ, and
+            counting attempts would print "14" beside an average taken over 7
+            things.
+        score:
+          description: |
+            Weighted: the sum of earned points over the sum of available points,
+            across each assignment's best graded attempt. Sent as the pair rather
+            than a percentage because every other score in this contract is an
+            (earned, total) pair, and the client can render either reading.
+
+            Null when nothing is graded yet, which is G-07's "—". An unsubmitted
+            assignment is never a zero: "chưa nộp" and "—" are different facts,
+            and collapsing them is how a gradebook lies.
+          oneOf:
+            - $ref: '#/components/schemas/AttemptScore'
+            - type: 'null'
+        flaggedCount: { type: integer, minimum: 0 }
+        activity: { $ref: '#/components/schemas/StudentActivity' }
+
+    StudentRow:
+      type: object
+      description: |
+        One row of §8's students table. Flat rather than `allOf: [User, ...]`:
+        `User` is `additionalProperties: false`, and in JSON Schema 2020-12 that
+        keyword cannot see a sibling `allOf` branch, so the composed form
+        rejects the very body it documents (see issue #41).
+      required:
+        [id, email, fullName, hasPassword, linkedProviders, mustChangePassword,
+         createdAt, disabledAt, classes, stats]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        email: { type: string, format: email, maxLength: 254 }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        hasPassword: { type: boolean }
+        linkedProviders:
+          type: array
+          items: { type: string, enum: [google] }
+          maxItems: 1
+        mustChangePassword: { type: boolean }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        disabledAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Set means the account cannot sign in. Present on the row because
+            `updateStudent` accepts `disabled: false` in both directions, and a
+            state that can be written but never read is a one-way door: the
+            student would vanish from every listing with nothing able to name
+            them again.
+        classes:
+          type: array
+          items: { $ref: '#/components/schemas/StudentClass' }
+          description: All memberships. The table truncates; the drawer lists them.
+        stats: { $ref: '#/components/schemas/StudentStats' }
+
+    StudentFacets:
+      type: object
+      description: |
+        G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a cursor page
+        cannot express, in the same shape as TestStatusFacets.
+
+        `active` reuses the dashboard's window verbatim rather than defining a
+        second meaning of active on a second screen.
+      required: [total, activeLast7Days]
+      additionalProperties: false
+      properties:
+        total: { type: integer, minimum: 0 }
+        activeLast7Days: { type: integer, minimum: 0 }
 
     AuthSuccess:
       type: object
@@ -439,6 +676,35 @@ components:
           minItems: 1
         caseSensitive: { type: boolean }
 
+    TestStatusFacets:
+      type: object
+      description: |
+        How many tests each status holds for the CURRENT search, ignoring the
+        status filter itself — selecting one tab must not zero the others.
+        Backs A-03's "Tất cả 12 · Bản nháp 3 · Đã phát hành 8".
+      required: [all, draft, published, archived]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        draft: { type: integer, minimum: 0 }
+        published: { type: integer, minimum: 0 }
+        archived: { type: integer, minimum: 0 }
+
+    QuestionTypeFacets:
+      type: object
+      description: |
+        How many questions each type holds for the CURRENT tag and search,
+        ignoring the type filter itself. Backs A-06's rail counts.
+      required: [all, single_choice, multiple_choice, true_false, fill_blank, short_answer]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        single_choice: { type: integer, minimum: 0 }
+        multiple_choice: { type: integer, minimum: 0 }
+        true_false: { type: integer, minimum: 0 }
+        fill_blank: { type: integer, minimum: 0 }
+        short_answer: { type: integer, minimum: 0 }
+
     AdminQuestion:
       type: object
       required: [id, type, prompt, points, tags, createdAt, updatedAt]
@@ -472,6 +738,15 @@ components:
             `short_answer` only. **Admin-only, shown during grading.** Never
             appears in any `/app/*` schema, including the result endpoint.
         tags: { type: array, items: { type: string } }
+        usedInTests:
+          type: integer
+          minimum: 0
+          description: |
+            How many DRAFT test outlines reference this question. Editing the
+            bank copy changes every one of them, which is a versioning event the
+            teacher deserves to know about before they type (A-06). Published
+            versions are deliberately not counted: they hold their own snapshot
+            and a bank edit cannot reach them (§7).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
         updatedAt: { $ref: '#/components/schemas/Timestamp' }
 
@@ -595,7 +870,7 @@ components:
 
     Test:
       type: object
-      required: [id, title, status, currentVersion, totalPoints, questionCount, sections, createdAt, updatedAt]
+      required: [id, title, status, currentVersion, totalPoints, questionCount, audioCount, sections, createdAt, updatedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -608,6 +883,10 @@ components:
           description: 0 while never published. A `published` test always has ≥ 1.
         totalPoints: { $ref: '#/components/schemas/Points' }
         questionCount: { type: integer, minimum: 0 }
+        audioCount:
+          type: integer
+          minimum: 0
+          description: Questions carrying an audio asset. Backs A-03's headphone badge.
         sections:
           type: array
           items: { $ref: '#/components/schemas/TestSection' }
@@ -620,13 +899,26 @@ components:
     TestVersion:
       type: object
       description: Immutable. Editing a published test creates a new one; in-flight attempts keep theirs (§7).
-      required: [id, version, totalPoints, questionCount, publishedAt, publishedBy]
+      required:
+        [id, version, totalPoints, questionCount, audioCount, manualCount,
+         publishedAt, publishedBy]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         version: { type: integer, minimum: 1 }
         totalPoints: { $ref: '#/components/schemas/Points' }
         questionCount: { type: integer, minimum: 0 }
+        audioCount:
+          type: integer
+          minimum: 0
+          description: Listening questions, shown when picking a version to assign (G-01).
+        manualCount:
+          type: integer
+          minimum: 0
+          description: |
+            Questions needing manual grading. G-01 multiplies it by the roster to
+            show the teacher what they are committing to marking before they
+            commit to it.
         publishedAt: { $ref: '#/components/schemas/Timestamp' }
         publishedBy: { type: string, description: Display name. }
 
@@ -655,11 +947,16 @@ components:
 
     AssignmentStatus:
       type: string
-      enum: [scheduled, open, closed]
+      enum: [draft, scheduled, open, closed]
       description: |
-        **Derived**, never stored (D-18). A pure function of `opensAt`,
-        `closesAt` and an optional early `closedAt`, so it cannot go stale and
-        needs no scheduler.
+        **Derived**, never stored (D-18). A pure function of `publishedAt`,
+        `opensAt`, `closesAt` and an optional early `closedAt`, so it cannot go
+        stale and needs no scheduler.
+
+        `draft` is what an unpublished assignment reads as. It does not weaken
+        D-18: publishing is an explicit act by the teacher, not a timestamp
+        arriving, so nothing has to flip a row on a schedule. A draft is
+        invisible to students and counts towards nothing.
 
     ReviewPolicy:
       type: object
@@ -699,8 +996,8 @@ components:
       type: object
       required:
         [id, testId, testVersionId, testVersion, testTitle, targets, window,
-         durationMinutes, maxAttempts, shuffleQuestions, shuffleOptions,
-         review, integrity, status]
+         publishedAt, durationMinutes, maxAttempts, shuffleQuestions,
+         shuffleOptions, review, integrity, status]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -715,6 +1012,10 @@ components:
           properties:
             classIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
             studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        publishedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Null while the assignment is a draft.
         window:
           type: object
           required: [opensAt, closesAt]
@@ -1090,6 +1391,15 @@ components:
         shuffleOptions: { type: boolean, default: false }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        draft:
+          type: boolean
+          default: false
+          description: |
+            Save without giving it out — G-01's "Lưu nháp". Saving again with
+            `false` publishes it, which is what the "Giao bài" button sends.
+
+            A draft is the only assignment allowed to have no targets: the point
+            of saving one is to come back to it.
         closeNow:
           type: boolean
           description: PATCH only. Sets `closedAt`, closing the assignment before `closesAt`.
@@ -1260,14 +1570,7 @@ paths:
               description: '`quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth` — §5.3 step 5. Without it the sign-in has no session.'
           content:
             application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/AuthSuccess'
-                  - type: object
-                    properties:
-                      enrolledClass:
-                        oneOf: [{ $ref: '#/components/schemas/Class' }, { type: 'null' }]
-                        description: Present only when a `joinCode` produced an enrolment.
+              schema: { $ref: '#/components/schemas/GoogleSignInSuccess' }
         '401':
           description: Code exchange failed, or `email_verified` was false.
           content:
@@ -1424,10 +1727,20 @@ paths:
           application/json:
             schema:
               type: object
-              required: [currentPassword, newPassword]
+              required: [newPassword]
               additionalProperties: false
               properties:
-                currentPassword: { type: string }
+                currentPassword:
+                  type: string
+                  description: |
+                    Required, EXCEPT while `mustChangePassword` is true.
+
+                    In that window the current password is one an admin
+                    generated and read aloud, so re-entering it proves nothing
+                    the access token has not already proved — and demanding it
+                    strands the case G-07 is drawn for: a student whose password
+                    was reset, who then signs in with Google and is redirected
+                    here without ever having held the temporary one.
                 newPassword: { type: string, minLength: 8, maxLength: 512 }
       responses:
         '204':
@@ -1529,9 +1842,29 @@ paths:
       tags: [admin-tests]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/TestStatus' } }
+        # A-03's "Thẻ". Derived from the tags of the questions a test CONTAINS,
+        # not from tags of its own: §7 gives Question a `tags` array and Test
+        # none, and inventing one would need a tag-editing surface no board
+        # draws. Repeatable, OR-ed, like the bank's.
+        - name: tag
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { type: string }
         - $ref: '#/components/parameters/Query'
         - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: OK
@@ -1541,9 +1874,18 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items]
+                    required: [items, facets, tags]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/Test' } }
+                      facets: { $ref: '#/components/schemas/TestStatusFacets' }
+                      tags:
+                        type: array
+                        items: { type: string }
+                        description: |
+                          Every tag reachable through the CURRENT status and
+                          search, so the filter cannot offer a chip that returns
+                          nothing. Sorted, distinct.
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
@@ -1625,6 +1967,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`.'
           content:
@@ -1654,6 +1997,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TestVersion' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
             `PUBLISH_VALIDATION_FAILED`. **Every** problem is returned at once,
@@ -1661,14 +2005,7 @@ paths:
             than surfacing one per attempt (§8).
           content:
             application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/ErrorResponse'
-                  - type: object
-                    properties:
-                      violations:
-                        type: array
-                        items: { $ref: '#/components/schemas/PublishValidationError' }
+              schema: { $ref: '#/components/schemas/PublishConflict' }
 
   /admin/tests/{id}/duplicate:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -1682,6 +2019,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/tests/{id}/versions:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -1739,11 +2077,41 @@ paths:
       description: The §8 question bank, with type and tag filters plus search.
       tags: [admin-questions]
       parameters:
-        - { name: type, in: query, schema: { $ref: '#/components/schemas/QuestionType' } }
-        - { name: tag, in: query, schema: { type: string } }
+        # Repeatable, because A-06's rail is checkboxes and tag chips, not a
+        # radio group. Within a group the values are OR-ed; the groups are
+        # AND-ed with each other and with `q` -- the ordinary faceted-search
+        # reading, and the only one where ticking a second type can never
+        # shrink the result set.
+        - name: type
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/QuestionType' }
+        - name: tag
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { type: string }
+        - name: hasAudio
+          in: query
+          description: A-06's "Chỉ câu có audio".
+          schema: { type: boolean }
         - $ref: '#/components/parameters/Query'
         - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: |
@@ -1756,9 +2124,36 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items]
+                    required: [items, facets, tags, total, filtered]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
+                      facets: { $ref: '#/components/schemas/QuestionTypeFacets' }
+                      tags:
+                        type: array
+                        items: { type: string }
+                        description: |
+                          Every tag reachable through the CURRENT type, audio and
+                          search filters, sorted and distinct. Server-derived, not
+                          collected from the returned page: a rail built from one
+                          page can only offer the tags that page happens to carry,
+                          which makes a second chip unselectable and the filter
+                          look broken.
+
+                          The tag filter itself is not applied, for the same
+                          reason the type facets ignore the type filter — picking
+                          one chip must not empty the rail.
+                      total:
+                        type: integer
+                        minimum: 0
+                        description: Live questions in the bank, before any filter. A-06's "180 câu".
+                      filtered:
+                        type: integer
+                        minimum: 0
+                        description: |
+                          Matching ALL current filters — A-06's "đang lọc 41".
+                          Distinct from `facets.all`, which ignores the type
+                          filter so the "Tất cả" row can show a total.
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestion
       description: Adds a question to the bank. Options and blanks are written in the same transaction, with ordinals normalized dense.
@@ -1774,6 +2169,57 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/questions/tags:
+    post:
+      operationId: tagQuestions
+      tags: [admin-questions]
+      summary: Add tags to several questions at once
+      description: |
+        A-06's "Gắn thẻ". Tagging is the one bank edit that is worth doing to
+        forty questions at a time, and doing it one at a time is what the
+        selection bar exists to avoid.
+
+        Additive and idempotent: a tag a question already carries is a no-op, so
+        a retry after a dropped connection cannot duplicate anything. Removing
+        tags in bulk is deliberately not offered — it is the destructive
+        direction, and A-06 does not draw it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionIds, tags]
+              additionalProperties: false
+              properties:
+                questionIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items: { $ref: '#/components/schemas/Uuid' }
+                tags:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string, minLength: 1, maxLength: 40 }
+      responses:
+        '200':
+          description: Applied.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                additionalProperties: false
+                properties:
+                  updated:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Questions actually changed. Lower than `questionIds` when
+                      some already carried every tag, which is not an error.
         '400': { $ref: '#/components/responses/BadRequest' }
 
   /admin/questions/{id}:
@@ -1804,14 +2250,17 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteQuestion
       tags: [admin-questions]
       description: Soft delete (§13.2). Version snapshots that reference it keep working.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: Still referenced by a draft test outline.
+          description: '`QUESTION_REFERENCED` — still referenced by a draft test outline.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -1826,7 +2275,16 @@ paths:
       parameters:
         - { name: kind, in: query, schema: { $ref: '#/components/schemas/MediaKind' } }
         - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 24
       responses:
         '200':
           description: OK
@@ -1840,14 +2298,19 @@ paths:
                     properties:
                       items:
                         type: array
-                        items:
-                          allOf:
-                            - $ref: '#/components/schemas/MediaAsset'
-                            - type: object
-                              properties:
-                                usageCount:
-                                  type: integer
-                                  description: Published-version references. Non-zero blocks delete (§8).
+                        items: { $ref: '#/components/schemas/LibraryAsset' }
+          headers:
+            Cache-Control:
+              description: |
+                `private, no-store`. Every item carries a signed URL with the
+                same ten-minute life as `/app/media/{assetId}/url`, so a cached
+                page would keep showing URLs that stopped working — and unlike
+                the single-URL response there is nothing worth re-serving, since
+                the library changes on every upload and delete. `no-store`
+                rather than `max-age` for that reason (§11.2).
+              required: true
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: uploadMedia
       tags: [admin-media]
@@ -1875,9 +2338,12 @@ paths:
               required: [file]
               properties:
                 file: { type: string, format: binary }
-            encoding:
-              file:
-                contentType: audio/mpeg, audio/mp4, audio/aac, image/png, image/jpeg, image/webp
+            # Deliberately no `encoding.file.contentType`. That would make the
+            # part's Content-Type header a gate, and this endpoint must never
+            # trust it (§11.1) -- the accepted types below are decided by
+            # sniffing the bytes. It would also reject honest clients that send
+            # `application/octet-stream` (curl, Go's multipart writer) or
+            # `audio/x-m4a` (macOS), with a 400 instead of the 415 below.
       responses:
         '201':
           description: Stored.
@@ -1907,6 +2373,7 @@ paths:
       tags: [admin-media]
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`MEDIA_REFERENCED` — a published version still uses it (§8, §15).'
           content:
@@ -1923,7 +2390,16 @@ paths:
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AssignmentStatus' } }
         - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: OK
@@ -1951,6 +2427,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
           content:
@@ -1989,6 +2466,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`VERSION_LOCKED` — attempts exist, so the version cannot be changed.'
           content:
@@ -2038,7 +2517,16 @@ paths:
         - { name: flagged, in: query, schema: { type: boolean } }
         - { name: pendingGrading, in: query, schema: { type: boolean } }
         - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: OK
@@ -2282,8 +2770,27 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Query'
         - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - name: status
+          in: query
+          description: |
+            Defaults to `active`. Without `disabled` there is no request that can
+            return a suspended account, so `updateStudent`'s `disabled: false`
+            would be unreachable.
+          schema:
+            type: string
+            enum: [active, disabled, all]
+            default: active
         - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: OK
@@ -2293,9 +2800,11 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/CursorPage'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
-                      items: { type: array, items: { $ref: '#/components/schemas/User' } }
+                      items: { type: array, items: { $ref: '#/components/schemas/StudentRow' } }
+                      facets: { $ref: '#/components/schemas/StudentFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createStudent
       tags: [admin-students]
@@ -2324,10 +2833,10 @@ paths:
                 required: [user, temporaryPassword]
                 additionalProperties: false
                 properties:
-                  user: { $ref: '#/components/schemas/User' }
+                  user: { $ref: '#/components/schemas/StudentRow' }
                   temporaryPassword: { type: string }
         '409':
-          description: Email already in use (case-insensitively).
+          description: '`EMAIL_TAKEN` — already in use, compared case-insensitively.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -2343,12 +2852,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/User'
-                  - type: object
-                    properties:
-                      classes: { type: array, items: { $ref: '#/components/schemas/Class' } }
+              schema: { $ref: '#/components/schemas/StudentRow' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateStudent
@@ -2363,14 +2867,23 @@ paths:
               additionalProperties: false
               properties:
                 fullName: { type: string, minLength: 1, maxLength: 200 }
-                email: { type: string, format: email }
+                # Bounds match users_email_check and createStudent. Without them
+                # a 260-character address passes validation, violates the column
+                # CHECK, and surfaces as a 500 rather than a 400.
+                email: { type: string, format: email, minLength: 3, maxLength: 254 }
                 disabled: { type: boolean }
       responses:
         '200':
           description: Saved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/User' }
+              schema: { $ref: '#/components/schemas/StudentRow' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`EMAIL_TAKEN` — another account already uses that address.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/students/{id}/reset-password:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2392,6 +2905,7 @@ paths:
                 additionalProperties: false
                 properties:
                   temporaryPassword: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/classes:
     get:
@@ -2506,6 +3020,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ClassMember' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/classes/{id}/members/{userId}:
     parameters:
@@ -2694,19 +3210,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StudentAssignmentCard'
-                  - type: object
-                    required: [review, integrity, hasAudio]
-                    properties:
-                      instructions: { type: [string, 'null'] }
-                      review: { $ref: '#/components/schemas/ReviewPolicy' }
-                      integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
-                      hasAudio: { type: boolean }
-                      audioMaxPlays:
-                        type: [integer, 'null']
-                        description: The strictest `maxPlays` across the test, for the intro copy.
+              schema: { $ref: '#/components/schemas/StudentAssignmentDetail' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -2989,6 +3493,15 @@ paths:
       responses:
         '200':
           description: OK
+          headers:
+            Cache-Control:
+              description: |
+                `private, max-age=600` (§11.2) — long enough to survive a replay,
+                short enough that the cache entry cannot outlive the signature it
+                holds. The TTL and this max-age are the same number on purpose;
+                they are set from one constant server-side.
+              required: true
+              schema: { type: string }
           content:
             application/json:
               schema:

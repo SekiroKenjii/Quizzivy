@@ -105,12 +105,25 @@ test: contract test-api test-web ## Run all tests
 test-web:
 	cd web && pnpm test
 
-test-api: ## Go tests, including the DB-backed ones
+test-api: migrate ## Go tests, including the DB-backed ones
 	# The DB tests skip themselves when TEST_DATABASE_URL is unset, so a bare
 	# `go test ./...` passes without ever touching Postgres. The Makefile knows
 	# the DSN, so wire it up -- a green run here means the DB tests really ran.
 	# TEST_DESTRUCTIVE stays off: `make test` must not wipe a seeded database.
-	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./...
+	#
+	# Depends on `migrate` because only internal/db applies migrations, and
+	# `go test ./...` runs packages in parallel -- so every other DB-backed
+	# package was relying on winning a race it does not control. CI applies them
+	# in its own step for the same reason.
+	#
+	# -p 1 because these packages share one database and the dashboard asserts
+	# on GLOBAL aggregates -- "active students", "open assignments" -- by taking
+	# a reading, changing something, and taking another. Any package inserting
+	# an attempt in between moves the number, so the counts were only ever
+	# right while nothing else created attempts concurrently. internal/attempts
+	# is the first package that does, which is what surfaced it; running the
+	# packages one at a time removes the class rather than this instance.
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./... -p 1
 
 e2e: ## Playwright, against a real production build
 	cd web && pnpm e2e
@@ -118,3 +131,5 @@ e2e: ## Playwright, against a real production build
 lint: ## Lint both sides
 	cd web && pnpm lint
 	cd server && go vet ./...
+	# staticcheck's SA1019 is what enforces "never use a deprecated identifier".
+	cd server && go tool staticcheck ./...

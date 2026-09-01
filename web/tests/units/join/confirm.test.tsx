@@ -58,8 +58,6 @@ afterEach(() => {
 
 describe("the confirm step", () => {
   it("shows the class name before anything authenticates", async () => {
-    // The whole point of the screen. If this ever needed a session first, the
-    // student would be asked to create an account to find out what for.
     let sawAuthCall = false;
     server.use(
       http.post(`${BASE}/auth/google`, () => {
@@ -115,9 +113,6 @@ describe("the confirm step", () => {
   });
 
   it("renders the server's refusal and names no class", async () => {
-    // §6.5: the four refusals carry different codes and identical information.
-    // The client shows what the server said, and nothing more -- a lookup keyed
-    // on the code here would be free to add detail the server withheld.
     server.use(
       http.post(`${BASE}/join/preview`, () =>
         contractJson("/join/preview", "post", 404, {
@@ -139,8 +134,6 @@ describe("the confirm step", () => {
   });
 
   it("does not retry a refused code", async () => {
-    // Every failure here is a verdict on the code, not a hiccup. Retrying
-    // spends §6.5's per-code allowance to learn the same thing again.
     let attempts = 0;
     server.use(
       http.post(`${BASE}/join/preview`, () => {

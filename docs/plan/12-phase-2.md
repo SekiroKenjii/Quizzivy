@@ -174,7 +174,7 @@ next depends on it.
 **Depends on:** T-2.5
 **Touches:** `migrations/`
 **Size:** S
-**Migrations:** `00014_create_tests.sql`
+**Migrations:** `00015_create_tests.sql`
 **Done when:**
 - [ ] Creates `tests`, `test_sections`, `test_section_questions` per
       `20-data-model.md` §8, including the draft tables added as D-14
@@ -210,8 +210,8 @@ next depends on it.
 **Depends on:** T-2.7
 **Touches:** `migrations/`
 **Size:** M
-**Migrations:** `00015_create_test_versions.sql`,
-`00016_create_test_version_content.sql`
+**Migrations:** `00016_create_test_versions.sql`,
+`00017_create_test_version_content.sql`
 **Done when:**
 - [ ] Creates all six version tables per `20-data-model.md` §8, including
       `UNIQUE (id, test_id)` (D-17), `tvq_media_idx`, and
