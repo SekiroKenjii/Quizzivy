@@ -24,7 +24,6 @@ var unimplemented = []string{
 	// Phase 3 — assignments and taking a test
 	"GetMyAssignment",
 	"ListMyAssignments",
-	"SubmitAttempt",
 
 	// Phase 4 — monitoring, grading and results
 	"ExtendAttempt",

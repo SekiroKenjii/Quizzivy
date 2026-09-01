@@ -14,6 +14,7 @@ type Status string
 const (
 	InProgress Status = "in_progress"
 	Submitted  Status = "submitted"
+	TimedOut   Status = "timed_out"
 	Graded     Status = "graded"
 	Voided     Status = "voided"
 )

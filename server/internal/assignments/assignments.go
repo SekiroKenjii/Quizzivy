@@ -128,7 +128,11 @@ const selectAssignment = `
 		       -- "12/13" with nothing able to close the gap.
 		       (SELECT count(*) FROM app.attempts at
 		          JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
-		         WHERE at.assignment_id = a.id AND at.status IN ('submitted','graded')),
+		         -- timed_out counts as handed in: the student is done, whatever
+		         -- ended it, and 12/13 must not read 11/13 because one ran out
+		         -- of time. Matches students.go's submitted_count.
+		         WHERE at.assignment_id = a.id
+		           AND at.status IN ('submitted','timed_out','graded')),
 		       (SELECT count(*) FROM app.attempts at
 		          JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
 		         WHERE at.assignment_id = a.id AND at.flagged),

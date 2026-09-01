@@ -94,10 +94,6 @@ func (s *Server) GetAttemptResult(_ context.Context, _ openapi.GetAttemptResultR
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) SubmitAttempt(_ context.Context, _ openapi.SubmitAttemptRequestObject) (openapi.SubmitAttemptResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) ListMyClasses(_ context.Context, _ openapi.ListMyClassesRequestObject) (openapi.ListMyClassesResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }
