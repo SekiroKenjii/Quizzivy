@@ -215,16 +215,20 @@ func (s *Service) session(ctx context.Context, a row, beacon string, r Rules) (S
 	if err != nil {
 		return Session{}, err
 	}
+	plays, err := s.store.AudioPlays(ctx, a.ID)
+	if err != nil {
+		return Session{}, err
+	}
 	return Session{
 		Attempt:     a.Attempt,
 		Questions:   present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, questions),
 		SessionID:   a.SessionID,
 		BeaconToken: beacon,
 		ServerTime:  s.now(),
-		// [T-3.7] Server-authoritative, and empty until the counting table
-		// exists. Nothing can have played yet, so an empty map is the truth
-		// here rather than a placeholder.
-		AudioPlays: map[string]int{},
+		// Server-authoritative (§11.4). The client decrements optimistically and
+		// reconciles against this, because whatever it was counting locally did
+		// not survive the reload that brought it back here.
+		AudioPlays: plays,
 		Answers:    answers,
 		Integrity:  r.Integrity,
 	}, nil

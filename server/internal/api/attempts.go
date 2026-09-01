@@ -297,3 +297,35 @@ func toDomainEvents(in *[]openapi.IntegrityEventInput) ([]attempts.Event, error)
 	}
 	return out, nil
 }
+
+// RecordAudioPlay increments the server-authoritative counter (§11.4).
+//
+// It never refuses a play on count. The client plays first and posts after, so
+// a failure here costs a number rather than the audio, and a limit enforced
+// over a round trip would punish bad wifi far more often than it would catch
+// anyone.
+func (s *Server) RecordAudioPlay(ctx context.Context, request openapi.RecordAudioPlayRequestObject) (openapi.RecordAudioPlayResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	plays, err := s.Deps.Attempts.RecordPlay(ctx,
+		request.Id.String(), principal.UserID, request.Body.QuestionId.String())
+	if errors.Is(err, attempts.ErrForbidden) {
+		return openapi.RecordAudioPlay403JSONResponse{
+			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền nghe câu hỏi này.")),
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return openapi.RecordAudioPlay200JSONResponse{
+		Plays:    plays.Plays,
+		MaxPlays: plays.MaxPlays,
+	}, nil
+}
