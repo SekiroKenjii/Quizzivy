@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
+import { recordAudioEvent } from "@/features/integrity/useIntegrityMonitor";
 import { useTakeTestStore } from "../store";
 import type { StudentQuestion } from "../api";
 
@@ -28,6 +29,7 @@ export function QuestionAudio({
   const { t } = useTranslation();
   const played = useTakeTestStore((s) => s.audioPlays[question.id] ?? 0);
   const notePlay = useTakeTestStore((s) => s.notePlay);
+  const attemptId = useTakeTestStore((s) => s.attemptId);
 
   if (question.media?.kind !== "audio") return null;
   const maxPlays = question.audio?.maxPlays ?? null;
@@ -40,7 +42,12 @@ export function QuestionAudio({
       allowSeek={question.audio?.allowSeek ?? false}
       preload="metadata"
       hint={playsHint(t, played, maxPlays)}
-      onPlay={() => notePlay(question.id)}
+      onPlay={() => {
+        notePlay(question.id);
+        // The count and the timeline are different things: one is how many
+        // listens are left, the other is when they happened (§10.1).
+        if (attemptId !== null) recordAudioEvent(attemptId, "audio_play", question.id);
+      }}
       onRetry={onExpired}
     />
   );

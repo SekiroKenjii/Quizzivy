@@ -1,4 +1,9 @@
 import { create } from "zustand";
+import {
+  drain as drainEvents,
+  pending as pendingEvents,
+  restore as restoreEvents,
+} from "@/features/integrity/buffer";
 import { ApiError } from "@/lib/api/errors";
 import {
   getAttempt,
@@ -32,6 +37,13 @@ export type SubmitState = "idle" | "inFlight" | "done";
 interface TakeTestState {
   attemptId: string | null;
   sessionId: string | null;
+  /**
+   * Append-only event access for the pagehide beacon (D-03). Reissued on every
+   * resume and on every refetch, so it is kept in state rather than captured:
+   * a stale one is refused, and the flush it was needed for is the one that
+   * cannot be retried.
+   */
+  beaconToken: string;
   /** Already in presentation order; the server shuffled it and it must not move. */
   questions: StudentQuestion[];
   answers: Record<string, Answer>;
@@ -72,6 +84,7 @@ export const FLUSH_DEBOUNCE_MS = 1_500;
 const initial = {
   attemptId: null,
   sessionId: null,
+  beaconToken: "",
   questions: [] as StudentQuestion[],
   answers: {} as Record<string, Answer>,
   dirty: new Set<string>(),
@@ -113,6 +126,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
       return {
         attemptId: session.attempt.id,
         sessionId: session.sessionId,
+        beaconToken: session.beaconToken,
         questions: session.questions,
         answers,
         audioPlays: session.audioPlays,
@@ -185,8 +199,13 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     const state = get();
     const { attemptId, sessionId } = state;
     if (attemptId === null || sessionId === null) return;
-    if (state.lock !== null || state.flushInFlight || state.dirty.size === 0) return;
+    if (state.lock !== null || state.flushInFlight) return;
+    if (state.dirty.size === 0 && pendingEvents().length === 0) return;
 
+    // Events ride with the answers, in the same request and therefore the same
+    // transaction (§10.6). A separate flush could record a `paste` for an
+    // answer that failed to save.
+    const events = drainEvents(attemptId);
     const sending = [...state.dirty];
     const sentAt = Date.now();
     const answers: Record<string, Answer> = {};
@@ -197,7 +216,11 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
 
     set({ flushInFlight: true });
     try {
-      const saved = await saveAnswers(attemptId, { sessionId, answers });
+      const saved = await saveAnswers(attemptId, {
+        sessionId,
+        answers,
+        ...(events.length === 0 ? {} : { events }),
+      });
       set((current) => {
         const dirty = new Set(current.dirty);
         for (const questionId of sending) {
@@ -212,6 +235,12 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         };
       });
     } catch (error) {
+      // Back in the buffer for the next attempt. Fire-and-forget means the
+      // flush must not block anything, not that the timeline is worth losing --
+      // and the server deduplicates on (attempt, session, clientSeq) if some of
+      // them did land.
+      restoreEvents(attemptId, events);
+
       set((current) => ({
         flushInFlight: false,
         lock: lockForError(error) ?? current.lock,
