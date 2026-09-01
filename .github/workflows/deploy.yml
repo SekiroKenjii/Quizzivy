@@ -91,6 +91,72 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      # Ask, before building anything, whether the configuration this app will
+      # boot with is one it accepts.
+      #
+      # config.Load has two all-or-nothing groups -- Google and object storage --
+      # and refuses a partial set by exiting 1. Both have now shipped partial,
+      # and each cost a full build, a migration, a rollout and a health check to
+      # discover, with the cause visible only in the app's own stderr. The names
+      # are knowable up front: fly.toml is in this checkout and `secrets list`
+      # prints the rest.
+      #
+      # Names only, never values. A secret set to the wrong string still gets
+      # through here, and that is a different failure with a different symptom.
+      - name: Preflight the production configuration
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          have=$( {
+            sed -n '/^\[env\]/,/^\[[a-z]/p' fly.toml | grep -oE '^ *[A-Z0-9_]+' | tr -d ' '
+            flyctl secrets list -a quizzivy-api --json | jq -r '.[] | (.Name // .name)'
+          } | sort -u )
+          echo "configured names:"; echo "$have" | sed 's/^/  /'
+
+          fail=0
+          has() { echo "$have" | grep -qx "$1"; }
+          need() { has "$1" || { echo "::error::$1 is required and is not set"; fail=1; }; }
+
+          # Configured as a set or not at all, never in between.
+          group() {
+            label=$1; shift
+            present=0; total=0; missing=
+            for name in "$@"; do
+              total=$((total + 1))
+              if has "$name"; then present=$((present + 1)); else missing="$missing $name"; fi
+            done
+            if [ "$present" -ne 0 ] && [ "$present" -ne "$total" ]; then
+              echo "::error::$label is $present of $total configured — the app refuses this and exits. Missing:$missing"
+              fail=1
+            fi
+          }
+
+          need DATABASE_URL
+          need JWT_SIGNING_KEY
+          need CORS_ALLOWED_ORIGINS
+
+          # loadGoogle takes the client id from either name, so the group is
+          # satisfied by whichever is present.
+          if has GOOGLE_CLIENT_ID || has VITE_GOOGLE_CLIENT_ID; then
+            for name in GOOGLE_CLIENT_SECRET GOOGLE_REDIRECT_URI; do
+              has "$name" || { echo "::error::google sign-in is partly configured; $name is missing"; fail=1; }
+            done
+          fi
+
+          group "object storage" S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY
+
+          # R2_* are read by `make verify-r2` and by nothing else. Setting those
+          # instead of the S3_* names is what docs/setup/dns.md used to instruct,
+          # and it looks like storage is configured when none of it reaches the
+          # server.
+          if has R2_ACCESS_KEY_ID && ! has S3_ACCESS_KEY_ID; then
+            echo "::error::R2_ACCESS_KEY_ID is set but S3_ACCESS_KEY_ID is not. The server reads the S3_* names and derives nothing from R2_*; see docs/setup/dns.md"
+            fail=1
+          fi
+
+          [ "$fail" -eq 0 ] || exit 1
+          echo "configuration is complete"
+
       # --remote-only builds on Fly's builders, so this runner needs no Docker
       # layer cache and the image is built next to where it will run.
       #

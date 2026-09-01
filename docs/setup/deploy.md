@@ -58,6 +58,22 @@ Check what is set:
 gh secret list && gh variable list
 ```
 
+## The preflight
+
+Before anything is built, the API job unions `fly.toml`'s `[env]` with
+`flyctl secrets list` and checks that the result is a configuration the app
+accepts. It reports missing names in seconds instead of after a build, a
+migration, a rollout and a health check.
+
+It exists because `config.Load` has two all-or-nothing groups — Google sign-in
+and object storage — and each exits 1 on a partial set. Both shipped partial,
+one after the other, and the cause was legible only in the app's own stderr:
+Fly reports it as "the app appears to be crashing" and prints an empty log tail,
+because the machine is gone before it attaches.
+
+Names only. A secret set to the wrong *value* passes here; that is a different
+failure with a different symptom.
+
 ## The build-time trap this guards against
 
 `VITE_*` values are inlined into the bundle at build time; there is no runtime
