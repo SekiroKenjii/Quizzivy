@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { QuestionAudio } from "./QuestionAudio";
 import { QuestionBody } from "./QuestionBody";
 import { useTakeTestStore } from "../store";
 import type { StudentQuestion } from "../api";
@@ -12,7 +13,14 @@ import type { StudentQuestion } from "../api";
  * reused by the teacher's review screen in Phase 4, which renders the same
  * question against an answer nobody is editing.
  */
-export function QuestionCard({ question }: { question: StudentQuestion }) {
+export function QuestionCard({
+  question,
+  onAudioExpired,
+}: {
+  question: StudentQuestion;
+  /** Refetches the attempt when a signed URL has expired (§11.2). */
+  onAudioExpired: () => void;
+}) {
   const { t } = useTranslation();
   const answer = useTakeTestStore((s) => s.answers[question.id]);
   const setAnswer = useTakeTestStore((s) => s.setAnswer);
@@ -20,6 +28,7 @@ export function QuestionCard({ question }: { question: StudentQuestion }) {
 
   return (
     <div className="space-y-4">
+      <QuestionAudio question={question} onExpired={onAudioExpired} />
       <QuestionBody
         question={question}
         answer={answer}

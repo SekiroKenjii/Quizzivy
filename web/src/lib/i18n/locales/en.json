@@ -709,6 +709,9 @@
     "manualGrading": "graded by your teacher",
     "savedNothingYet": "Nothing to save yet",
     "points": "{{points}} points",
-    "perBlank": "{{points}} per blank"
+    "perBlank": "{{points}} per blank",
+    "audioLabel": "Question audio",
+    "playsLeft_one": "{{count}} play left",
+    "playsLeft_other": "{{count}} plays left"
   }
 }

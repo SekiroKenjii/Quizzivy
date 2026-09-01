@@ -32,6 +32,11 @@ export default function TakeTestPage() {
   const hydrate = useTakeTestStore((s) => s.hydrate);
   const reset = useTakeTestStore((s) => s.reset);
 
+  // Also the recovery from an expired signed URL: §11.2 says treat it as
+  // expiring and refetch rather than failing, and the payload is where a fresh
+  // one comes from.
+  const [reloads, reload] = useReducer((n: number) => n + 1, 0);
+
   useEffect(() => {
     if (attemptId === undefined) return;
     const abort = new AbortController();
@@ -47,7 +52,7 @@ export default function TakeTestPage() {
       abort.abort();
       reset();
     };
-  }, [attemptId, hydrate, reset]);
+  }, [attemptId, reloads, hydrate, reset]);
 
   if (status === "loading") {
     return <Notice>{t("takeTest.loading")}</Notice>;
@@ -73,7 +78,7 @@ export default function TakeTestPage() {
       <SaveStrip dirty={dirty} inFlight={inFlight} lock={lock} />
 
       <main className="mx-auto w-full max-w-[720px] flex-1 px-4 py-5">
-        <QuestionCard question={question} />
+        <QuestionCard question={question} onAudioExpired={reload} />
       </main>
 
       <footer
