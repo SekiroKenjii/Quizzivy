@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { ApiError } from "@/lib/api/errors";
 import {
   getAttempt,
+  recordAudioPlay,
   saveAnswers,
   submitAttempt,
   type Answer,
@@ -54,6 +55,7 @@ interface TakeTestState {
 
   hydrate: (session: AttemptSession) => void;
   setAnswer: (questionId: string, answer: Answer) => void;
+  notePlay: (questionId: string) => void;
   flush: () => Promise<void>;
   submit: (reason?: "manual" | "timer_expired" | "auto_submit") => Promise<void>;
   lockNow: (reason: LockReason) => void;
@@ -136,6 +138,35 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
       };
     });
     scheduleFlush();
+  },
+
+  /**
+   * Counts a play the moment it starts, then lets the server correct it.
+   *
+   * Optimistic in both directions §11.4 asks for: the number on screen moves
+   * immediately, because a student watching "còn 2 lượt nghe" not change has no
+   * way to tell a slow network from a lost play; and a failed POST is NOT
+   * rolled back, because the play really did happen and the next fetch is what
+   * settles the count. Nothing here can block playback -- it is called after
+   * .play(), returns nothing, and swallows its own failure.
+   */
+  notePlay: (questionId) => {
+    const { attemptId, audioPlays } = get();
+    if (attemptId === null) return;
+
+    set({
+      audioPlays: { ...audioPlays, [questionId]: (audioPlays[questionId] ?? 0) + 1 },
+    });
+    recordAudioPlay(attemptId, questionId)
+      .then((counted) =>
+        set((state) => ({
+          audioPlays: { ...state.audioPlays, [questionId]: counted.plays },
+        })),
+      )
+      .catch(() => {
+        // The count is the server's, and it will be right on the next fetch.
+        // There is nothing to tell the student here that is not noise.
+      });
   },
 
   /**

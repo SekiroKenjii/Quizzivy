@@ -16,6 +16,32 @@ interface AudioPlayerProps {
   /** A-05 puts a smaller one inside the question editor's chosen-audio card. */
   size?: "default" | "sm";
   /**
+   * §11.3 asks for `metadata` so the duration renders without downloading the
+   * file. `durationMs` already supplies that from the API, so the default here
+   * is the cheaper `none` -- the media library shows twenty of these at once,
+   * and twenty range requests against signed R2 URLs is a real cost for a
+   * number we were handed anyway.
+   *
+   * The take-test player opts into `metadata` for a different reason: the first
+   * play starts sooner, and a student on a limited number of plays is spending
+   * one of them on that wait.
+   */
+  preload?: "none" | "metadata";
+  /**
+   * Fired synchronously as playback starts, inside the gesture.
+   *
+   * The count it feeds is server-authoritative, and this is optimistic: §11.4
+   * is explicit that a failed POST must not block the audio, so this returns
+   * nothing and nothing waits on it.
+   */
+  onPlay?: (() => void) | undefined;
+  /**
+   * Fired when a seek is refused. OS-level media controls can still seek in
+   * some browsers, so §11.3 asks that it be RECORDED rather than treated as
+   * impossible.
+   */
+  onSeekBlocked?: (() => void) | undefined;
+  /**
    * Refetches whatever owns the asset, minting a fresh signed URL.
    *
    * Optional only because not every caller can refetch — never because the
@@ -43,6 +69,9 @@ export function AudioPlayer({
   allowSeek = true,
   hint,
   size = "default",
+  preload = "none",
+  onPlay,
+  onSeekBlocked,
   onRetry,
 }: AudioPlayerProps) {
   const { t } = useTranslation();
@@ -72,15 +101,24 @@ export function AudioPlayer({
       setPlaying(false);
       setPosition(0);
     };
+    const onPause = () => setPlaying(false);
+    const onPlaying = () => setPlaying(true);
+
     element.addEventListener("timeupdate", onTime);
     element.addEventListener("loadedmetadata", onMeta);
     element.addEventListener("ended", onEnd);
-    element.addEventListener("pause", () => setPlaying(false));
-    element.addEventListener("play", () => setPlaying(true));
+    element.addEventListener("pause", onPause);
+    element.addEventListener("play", onPlaying);
     return () => {
       element.removeEventListener("timeupdate", onTime);
       element.removeEventListener("loadedmetadata", onMeta);
       element.removeEventListener("ended", onEnd);
+      element.removeEventListener("pause", onPause);
+      element.removeEventListener("play", onPlaying);
+      // §11.3: one instance per question, and navigating away releases it.
+      // Without this the element keeps playing through a route change, which
+      // on iOS means the next question's audio cannot start at all.
+      element.pause();
     };
   }, []);
 
@@ -89,8 +127,12 @@ export function AudioPlayer({
     if (!element) return;
     if (element.paused) {
       // Called straight out of the click, not from a promise: iOS Safari only
-      // honours play() inside the gesture that triggered it (§11.3).
-      void element.play().catch(() => setFailedFor(src));
+      // honours play() inside the gesture that triggered it (§11.3). Nothing
+      // may be awaited above this line, including the play count -- which is
+      // why onPlay returns nothing and is called after, not before.
+      const started = element.play();
+      onPlay?.();
+      void started.catch(() => setFailedFor(src));
     } else {
       element.pause();
     }
@@ -194,7 +236,11 @@ export function AudioPlayer({
             {clock(total)}
           </span>
           {hint === undefined ? null : (
-            <span className="text-muted-foreground truncate text-xs">{hint}</span>
+            // Announced, because the number that matters most here -- how many
+            // listens are left -- is otherwise only visible (§11.3).
+            <span aria-live="polite" className="text-muted-foreground truncate text-xs">
+              {hint}
+            </span>
           )}
         </div>
       </div>
@@ -204,9 +250,19 @@ export function AudioPlayer({
       <audio
         ref={audio}
         src={src}
-        preload="none"
+        preload={preload}
         aria-label={label}
         onError={() => setFailedFor(src)}
+        onSeeking={(event) => {
+          if (allowSeek) return;
+          // Put it back and say so. The UI offers no seek control, but OS media
+          // controls and some keyboards reach the element directly, and §11.3
+          // asks that this be recorded rather than assumed away.
+          const element = event.currentTarget;
+          if (Math.abs(element.currentTime - position) < 0.5) return;
+          element.currentTime = position;
+          onSeekBlocked?.();
+        }}
       />
     </div>
   );

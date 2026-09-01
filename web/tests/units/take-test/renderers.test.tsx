@@ -245,7 +245,8 @@ describe("blank ordering", () => {
  * one rule and the server applies another.
  */
 describe("what the question says it is worth", () => {
-  const render1 = (q: StudentQuestion) => render(<QuestionCard question={q} />);
+  const render1 = (q: StudentQuestion) =>
+    render(<QuestionCard question={q} onAudioExpired={vi.fn()} />);
 
   it("names the per-blank share, as S-05 writes it", () => {
     render1(

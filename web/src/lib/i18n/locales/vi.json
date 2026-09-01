@@ -709,6 +709,9 @@
     "manualGrading": "giáo viên chấm tay",
     "savedNothingYet": "Chưa có gì để lưu",
     "points": "{{points}} điểm",
-    "perBlank": "mỗi chỗ trống {{points}} điểm"
+    "perBlank": "mỗi chỗ trống {{points}} điểm",
+    "audioLabel": "Đoạn ghi âm của câu hỏi",
+    "playsLeft_one": "Còn {{count}} lượt nghe",
+    "playsLeft_other": "Còn {{count}} lượt nghe"
   }
 }
