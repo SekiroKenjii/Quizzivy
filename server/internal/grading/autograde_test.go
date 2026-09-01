@@ -158,9 +158,9 @@ func TestACaseSensitiveBlankSaysSo(t *testing.T) {
 	}
 }
 
-// [O-17] Every blank or nothing, following O-09's rule for the other multi-part
-// type. Change this and the open item together.
-func TestAPartlyCorrectFillBlankScoresZero(t *testing.T) {
+// [O-17] Each blank earns its share, which is what the question tells the
+// student before they answer: "2 điểm · mỗi chỗ trống 1 điểm".
+func TestFillBlankPaysPerBlank(t *testing.T) {
 	q := grading.Question{
 		Type: "fill_blank", Points: 6,
 		Blanks: []grading.Blank{
@@ -168,17 +168,48 @@ func TestAPartlyCorrectFillBlankScoresZero(t *testing.T) {
 			{ID: "b2", Accepted: []string{"2019"}},
 		},
 	}
-	both := `{"type":"fill_blank","values":{"b1":"has lived","b2":"2019"}}`
-	if got := grading.Grade(q, []byte(both)).Score; got != 6 {
-		t.Errorf("both blanks right scored %v, want 6", got)
+
+	for _, c := range []struct {
+		name    string
+		payload string
+		want    float64
+	}{
+		{"both blanks", `{"type":"fill_blank","values":{"b1":"has lived","b2":"2019"}}`, 6},
+		{"the first only", `{"type":"fill_blank","values":{"b1":"has lived","b2":"2020"}}`, 3},
+		{"the second only", `{"type":"fill_blank","values":{"b1":"lived","b2":"2019"}}`, 3},
+		{"one left empty", `{"type":"fill_blank","values":{"b1":"has lived"}}`, 3},
+		{"neither", `{"type":"fill_blank","values":{"b1":"x","b2":"y"}}`, 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := grading.Grade(q, []byte(c.payload)).Score; got != c.want {
+				t.Errorf("score %v, want %v", got, c.want)
+			}
+		})
 	}
-	one := `{"type":"fill_blank","values":{"b1":"has lived","b2":"2020"}}`
-	if got := grading.Grade(q, []byte(one)).Score; got != 0 {
-		t.Errorf("one of two blanks right scored %v, want 0", got)
+}
+
+// The share comes off the total rather than being accumulated per blank, so a
+// paper that divides unevenly still adds up to exactly what it is worth.
+func TestEveryBlankRightIsExactlyTheQuestionsPoints(t *testing.T) {
+	q := grading.Question{
+		Type: "fill_blank", Points: 2,
+		Blanks: []grading.Blank{
+			{ID: "b1", Accepted: []string{"a"}},
+			{ID: "b2", Accepted: []string{"b"}},
+			{ID: "b3", Accepted: []string{"c"}},
+		},
 	}
-	missing := `{"type":"fill_blank","values":{"b1":"has lived"}}`
-	if got := grading.Grade(q, []byte(missing)).Score; got != 0 {
-		t.Errorf("a blank left empty scored %v, want 0", got)
+
+	all := `{"type":"fill_blank","values":{"b1":"a","b2":"b","b3":"c"}}`
+	if got := grading.Grade(q, []byte(all)).Score; got != 2 {
+		// Rounding each blank to 0.67 and adding would give 2.01 -- more than
+		// the question is worth, on the commonest answer there is.
+		t.Errorf("all three blanks scored %v, want exactly 2", got)
+	}
+
+	two := `{"type":"fill_blank","values":{"b1":"a","b2":"b","b3":"z"}}`
+	if got := grading.Grade(q, []byte(two)).Score; got != 1.33 {
+		t.Errorf("two of three scored %v, want 1.33", got)
 	}
 }
 

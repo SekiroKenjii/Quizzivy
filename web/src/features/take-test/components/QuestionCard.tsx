@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { QuestionBody } from "./QuestionBody";
 import { useTakeTestStore } from "../store";
@@ -25,10 +26,32 @@ export function QuestionCard({ question }: { question: StudentQuestion }) {
         onAnswer={(next) => setAnswer(question.id, next)}
         disabled={locked}
       />
-      <p className="text-muted-foreground text-xs">
-        {t("builder.points", { points: question.points })}
-        {question.type === "short_answer" ? ` · ${t("takeTest.manualGrading")}` : ""}
-      </p>
+      <p className="text-muted-foreground text-xs">{worth(question, t)}</p>
     </div>
   );
+}
+
+/**
+ * What the question is worth, and how it is divided (S-05).
+ *
+ * fill_blank names the per-blank share because that is how it is graded
+ * (O-17) -- the line is a promise about scoring, so it has to match
+ * grading.gradeFillBlank rather than merely sit near it.
+ */
+function worth(question: StudentQuestion, t: TFunction): string {
+  const parts = [t("takeTest.points", { points: decimal(question.points) })];
+
+  const blanks = question.blanks?.length ?? 0;
+  if (question.type === "fill_blank" && blanks > 0) {
+    parts.push(t("takeTest.perBlank", { points: decimal(question.points / blanks) }));
+  }
+  if (question.type === "short_answer") {
+    parts.push(t("takeTest.manualGrading"));
+  }
+  return parts.join(" · ");
+}
+
+/** Two decimals at most, and none when the number is whole: "1", not "1.00". */
+function decimal(value: number): string {
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
 }

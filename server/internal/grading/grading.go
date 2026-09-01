@@ -7,6 +7,7 @@ package grading
 
 import (
 	"encoding/json"
+	"math"
 	"strings"
 )
 
@@ -63,7 +64,8 @@ func Grade(q Question, payload []byte) Result {
 	case "true_false":
 		correct = gradeTrueFalse(q, payload)
 	case "fill_blank":
-		correct = gradeFillBlank(q, payload)
+		// The one type that is not all-or-nothing. See gradeFillBlank.
+		return Result{Score: gradeFillBlank(q, payload)}
 	default:
 		return Result{}
 	}
@@ -137,30 +139,40 @@ func gradeTrueFalse(q Question, payload []byte) bool {
 	return false
 }
 
-// gradeFillBlank requires every blank to match one of its accepted answers.
+// gradeFillBlank awards each blank its share (O-17).
 //
-// All-or-nothing, following O-09's rule for the other multi-part type. It is a
-// judgement rather than a quotation -- neither §7 nor the open items settle a
-// two-blank sentence -- and it is the conservative direction: relaxing to a
-// proportion later only ever raises a score, where tightening would lower one
-// already reported. See O-17.
-func gradeFillBlank(q Question, payload []byte) bool {
+// Two blanks on a two-point question are worth one point each, which is what
+// the design deck states on the question itself -- "2 điểm · mỗi chỗ trống 1
+// điểm" -- and therefore what the student is told before answering. An
+// all-or-nothing rule would have made that line a lie, and the line is the part
+// they read.
+//
+// The share is computed from the total rather than accumulated per blank, so
+// three blanks on a two-point question cannot round to 0.67 x 3 = 2.01. All
+// blanks right is exactly the question's points, always.
+func gradeFillBlank(q Question, payload []byte) float64 {
 	var answer struct {
 		Values map[string]string `json:"values"`
 	}
 	if json.Unmarshal(payload, &answer) != nil {
-		return false
+		return 0
 	}
 	if len(q.Blanks) == 0 {
-		return false
+		return 0
 	}
 
+	matched := 0
 	for _, blank := range q.Blanks {
-		if !matches(blank, answer.Values[blank.ID]) {
-			return false
+		if matches(blank, answer.Values[blank.ID]) {
+			matched++
 		}
 	}
-	return true
+	if matched == 0 {
+		return 0
+	}
+	// numeric(8,2) in the column, so the value that reaches it is already the
+	// value it will store.
+	return math.Round(q.Points*float64(matched)/float64(len(q.Blanks))*100) / 100
 }
 
 func matches(blank Blank, given string) bool {

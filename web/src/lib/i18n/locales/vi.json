@@ -707,6 +707,8 @@
     "lockedDeadline": "Đã hết giờ làm bài.",
     "lockedClosed": "Bài làm này đã kết thúc.",
     "manualGrading": "giáo viên chấm tay",
-    "savedNothingYet": "Chưa có gì để lưu"
+    "savedNothingYet": "Chưa có gì để lưu",
+    "points": "{{points}} điểm",
+    "perBlank": "mỗi chỗ trống {{points}} điểm"
   }
 }
