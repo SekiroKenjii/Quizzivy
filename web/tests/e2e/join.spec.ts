@@ -58,7 +58,15 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
   await page.getByRole("button", { name: "Tiếp tục với Google" }).click();
 
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole("heading", { name: "Bài của tôi" })).toBeVisible();
+  // Longer than the default on purpose. The URL settles as soon as the router
+  // navigates, but rendering /app needs two dynamic imports to land first --
+  // StudentLayout, then the page inside it, nested and therefore sequential.
+  // Under a loaded runner that can outlast 5s, which is what made this flaky
+  // (#50). Both stay split: §2 says an anonymous visitor downloads neither
+  // tree, and tests/integration/router-chunks.test.ts enforces it.
+  await expect(page.getByRole("heading", { name: "Bài của tôi" })).toBeVisible({
+    timeout: 20_000,
+  });
 
   const exchange = calls.filter((c) => c === "POST /auth/google");
   expect(exchange, "the authorization code is exchanged exactly once").toHaveLength(1);
