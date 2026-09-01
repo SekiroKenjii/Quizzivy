@@ -60,7 +60,9 @@ func (s *Store) Get(ctx context.Context) (Summary, error) {
 		     FROM app.attempt_answers ans
 		     JOIN app.attempts at ON at.id = ans.attempt_id
 		    WHERE ans.requires_manual AND ans.manual_score IS NULL
-		      AND at.status = 'submitted'),
+		      -- Both closed-but-ungraded states. An attempt that ran out of
+		      -- time still has essays in it (00025).
+		      AND at.status IN ('submitted', 'timed_out')),
 		  (SELECT count(DISTINCT at.student_id) FROM app.attempts at
 		    WHERE at.started_at >= now() - $1::interval),
 		  (SELECT count(*) FROM app.attempts at WHERE at.flagged)

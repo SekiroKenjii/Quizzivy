@@ -409,3 +409,39 @@ func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {
 			authError(ctx, openapi.FORBIDDEN, "Không ghi được nhật ký cho bài làm này.")),
 	}
 }
+
+// SubmitAttempt closes an attempt and grades everything a machine can.
+//
+// `sessionId` is accepted and not checked. The contract gives this operation no
+// SESSION_SUPERSEDED, and rightly: a student on the tab that lost the race is
+// still the student, and refusing their submit would strand finished work
+// behind a technicality about which tab it came from.
+func (s *Server) SubmitAttempt(ctx context.Context, request openapi.SubmitAttemptRequestObject) (openapi.SubmitAttemptResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	reason := attempts.Manual
+	if request.Body != nil && request.Body.Reason != nil {
+		reason = attempts.Reason(*request.Body.Reason)
+	}
+
+	closed, err := s.Deps.Attempts.Submit(ctx, request.Id.String(), principal.UserID, reason)
+	switch {
+	case errors.Is(err, attempts.ErrForbidden):
+		return openapi.SubmitAttempt403JSONResponse{
+			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền nộp bài làm này.")),
+		}, nil
+	case errors.Is(err, attempts.ErrAttemptClosed):
+		return openapi.SubmitAttempt409JSONResponse(authError(ctx, openapi.ATTEMPTCLOSED,
+			"Bài làm này đã được nộp.")), nil
+	case err != nil:
+		return nil, err
+	}
+	return openapi.SubmitAttempt200JSONResponse(toAPIAttempt(closed)), nil
+}

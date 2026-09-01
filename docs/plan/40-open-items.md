@@ -153,6 +153,26 @@ after Phase 4 touches three layers.
 
 ---
 
+### O-17 — `fill_blank` scoring with more than one blank · Phase 3
+**Default:** all-or-nothing, like O-09. Every blank matched, or zero points.
+
+Neither §7 nor O-09 settles this. O-09 rules on `multiple_choice`, where the
+selection is arguably one answer; a two-blank sentence is arguably two, and a
+teacher may well expect half marks for one of them.
+
+Implemented as all-or-nothing because it is the conservative direction: relaxing
+to a proportion later only ever raises a score, where tightening one already
+reported to a student lowers it. It is one function --
+`grading.gradeFillBlank` -- and one test, so changing it is cheap while nothing
+has been graded for real.
+
+Diacritics are deliberately not folded, and that is NOT open. This is an English
+test written for Vietnamese students; "ha noi" is not "Hà Nội" the way
+"hanoi " is "Hanoi", and folding accents would make a class of answer
+unmarkable.
+
+---
+
 ### O-10 — Diacritic-insensitive search scope · Phase 5
 **Default:** accent-insensitive **matching** ships in Phase 2. Accent-aware
 **ranking** is deferred to P1.

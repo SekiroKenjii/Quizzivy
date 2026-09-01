@@ -100,6 +100,12 @@ func (s *Service) startOrResume(ctx context.Context, assignmentID, studentID str
 // endpoint. It re-reads the paper without disturbing the session: a reload
 // takes the attempt over, a refetch does not.
 func (s *Service) Get(ctx context.Context, attemptID, studentID string) (Session, error) {
+	// Before reading, not after: the payload has to report the status the
+	// attempt actually has, and a deadline that passed while nobody was looking
+	// has still passed.
+	if err := s.store.ExpireIfDue(ctx, attemptID, s.now()); err != nil {
+		return Session{}, err
+	}
 	attempt, err := s.store.ByID(ctx, attemptID, studentID)
 	if err != nil {
 		// A student asking for someone else's attempt gets the same answer as
@@ -133,6 +139,18 @@ func (s *Service) resumeIfLive(ctx context.Context, assignmentID, studentID stri
 	if err != nil {
 		return Session{}, false, err
 	}
+
+	// An attempt whose time ran out is not resumable, however in_progress the
+	// row still says it is. Closing it here is what lets the student fall
+	// through to a fresh attempt if they have one left, rather than being
+	// handed back a paper with a deadline in the past.
+	if s.now().After(live.DeadlineAt) {
+		if err := s.store.ExpireIfDue(ctx, live.ID, s.now()); err != nil {
+			return Session{}, false, err
+		}
+		return Session{}, false, nil
+	}
+
 	session, err := s.resume(ctx, live, r)
 	return session, err == nil, err
 }
