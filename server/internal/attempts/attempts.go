@@ -45,7 +45,50 @@ var (
 	ErrForbidden        = errors.New("attempts: not yours")
 	ErrAssignmentClosed = errors.New("attempts: assignment is not open")
 	ErrLimitReached     = errors.New("attempts: attempt limit reached")
+
+	// ErrSessionSuperseded is how the tab that lost finds out. It learns on its
+	// next write rather than being told at the moment it happened, because
+	// there is nothing pushing to it -- §10.1, E2E 7.
+	ErrSessionSuperseded = errors.New("attempts: session superseded")
+	ErrDeadlinePassed    = errors.New("attempts: deadline passed")
+	ErrAttemptClosed     = errors.New("attempts: attempt is no longer in progress")
 )
+
+// Answer is one saved answer, kept as the raw JSON the contract defines.
+//
+// The server has no reason to understand a choice from a text answer until
+// grading, and decoding it here would be a second place for the shape to drift
+// from api/openapi.yaml. The column is jsonb, so Postgres validates that it is
+// an object and the CHECK on the table enforces the rest.
+type Answer struct {
+	QuestionID string
+	Payload    []byte
+}
+
+// Event is one client-sourced integrity event (§10.1). Kind is deliberately not
+// an enum here for the same reason it is not one in the column.
+type Event struct {
+	Kind       string
+	OccurredAt time.Time
+	ClientSeq  int
+	QuestionID *string
+	Meta       []byte
+}
+
+type SaveInput struct {
+	AttemptID string
+	StudentID string
+	SessionID string
+	Answers   []Answer
+	Events    []Event
+}
+
+// SaveResult reports what actually landed. Saved can be lower than the number
+// of answers submitted -- see Store.Save for why that is not an error.
+type SaveResult struct {
+	SavedAt time.Time
+	Saved   int
+}
 
 type Integrity struct {
 	RequireFullscreen bool

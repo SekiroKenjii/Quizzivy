@@ -3313,6 +3313,7 @@ paths:
                 properties:
                   serverTime: { $ref: '#/components/schemas/Timestamp' }
                   savedAt: { $ref: '#/components/schemas/Timestamp' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
             `SESSION_SUPERSEDED` — opened elsewhere; the client goes read-only
@@ -3366,6 +3367,7 @@ paths:
       responses:
         '202':
           description: Accepted. Always 202 — the client cannot act on the outcome anyway.
+        '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /app/attempts/{id}/audio-play:
@@ -3405,6 +3407,7 @@ paths:
                 properties:
                   plays: { type: integer, minimum: 1 }
                   maxPlays: { type: [integer, 'null'] }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /app/attempts/{id}/submit:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -3436,6 +3439,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: '`ATTEMPT_CLOSED`.'
           content:

@@ -1,11 +1,15 @@
-import { lazy, Suspense } from "react";
 import { Navigate, Outlet } from "react-router";
 import { useAuthStore } from "@/stores/auth";
-
-const ForbiddenPage = lazy(() => import("@/app/pages/ForbiddenPage"));
+import ForbiddenPage from "@/app/pages/ForbiddenPage";
 
 /**
  * The teacher's tree (§3).
+ *
+ * Imported eagerly, unlike most pages. Everything heavy it renders --
+ * AuthLayout, the drawings, the brand kit -- is already in the eager graph via
+ * ErrorBoundary, so splitting it saved almost nothing and cost a blank screen:
+ * `Suspense fallback={null}` while a chunk loads, at the exact moment a student
+ * is trying to work out why a page will not open.
  *
  * A student here gets a 403 PAGE, not a redirect. §5.4 is explicit and the
  * reason is diagnosis: a redirect makes a permissions mistake look like a
@@ -16,11 +20,7 @@ const ForbiddenPage = lazy(() => import("@/app/pages/ForbiddenPage"));
 export function AdminOnly() {
   const role = useAuthStore((s) => s.user?.role);
   if (role !== "admin") {
-    return (
-      <Suspense fallback={null}>
-        <ForbiddenPage />
-      </Suspense>
-    );
+    return <ForbiddenPage />;
   }
   return <Outlet />;
 }
