@@ -15,15 +15,27 @@ export function Markdown({
   children,
   className,
   plugins = [],
+  components,
 }: {
   children: string;
   className?: string;
   /** Run after sanitising, so a plugin adds only markup this app authored. */
   plugins?: Options["rehypePlugins"];
+  /**
+   * Element overrides, for the markup a plugin above introduced.
+   *
+   * Only reachable for elements that survived the sanitiser, so this cannot be
+   * used to render something a teacher wrote -- it renders something this app
+   * put in the tree after sanitising.
+   */
+  components?: Options["components"];
 }) {
   return (
     <div className={cn("space-y-2 leading-relaxed", className)}>
-      <ReactMarkdown rehypePlugins={[rehypeSanitize, ...(plugins ?? [])]}>
+      <ReactMarkdown
+        rehypePlugins={[rehypeSanitize, ...(plugins ?? [])]}
+        {...(components ? { components } : {})}
+      >
         {children}
       </ReactMarkdown>
     </div>

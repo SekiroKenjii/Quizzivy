@@ -684,5 +684,29 @@
     "enable": "Restore access",
     "disabledBadge": "suspended",
     "disableFailed": "Could not change the account state. Please try again."
+  },
+  "takeTest": {
+    "answerOptions": "Answer options",
+    "blankLabel": "Blank {{n}}",
+    "yourAnswer": "Your answer",
+    "wordCount_one": "{{count}} word",
+    "wordCount_other": "{{count}} words",
+    "exit": "Exit",
+    "questionCounter": "Question {{n}}/{{total}}",
+    "saved": "Saved {{time}}",
+    "saving": "Saving…",
+    "unsaved": "Not saved",
+    "previous": "Previous",
+    "next": "Next",
+    "questionList": "Question list",
+    "reviewAndSubmit": "Review & submit",
+    "loading": "Opening your test…",
+    "loadFailed": "This attempt could not be opened. Please reload the page.",
+    "empty": "This paper has no questions.",
+    "lockedSuperseded": "This attempt is open on another device. You can no longer edit it here.",
+    "lockedDeadline": "Time is up.",
+    "lockedClosed": "This attempt has ended.",
+    "manualGrading": "graded by your teacher",
+    "savedNothingYet": "Nothing to save yet"
   }
 }
