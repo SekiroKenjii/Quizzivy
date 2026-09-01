@@ -9,7 +9,9 @@ import { authStore } from "@/stores/auth";
  * The interesting part is refresh. See `refreshSession` below.
  */
 
-const BASE_URL: string =
+// Exported for the one caller that cannot go through `api()`: the pagehide
+// beacon, which is a navigator.sendBeacon and not a fetch (D-03).
+export const BASE_URL: string =
   import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:8080";
 
 // ---------------------------------------------------------------- typing

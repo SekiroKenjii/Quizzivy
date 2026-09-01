@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, ChevronRight, Check, List, LoaderCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuestionCard } from "../components/QuestionCard";
+import { clearSession } from "@/features/integrity/buffer";
+import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { getAttempt } from "../api";
 import { remainingMs, useTakeTestStore } from "../store";
 
@@ -26,6 +28,9 @@ export default function TakeTestPage() {
   const [index, setIndex] = useState(0);
 
   const questions = useTakeTestStore((s) => s.questions);
+  const sessionId = useTakeTestStore((s) => s.sessionId);
+  const beaconToken = useTakeTestStore((s) => s.beaconToken);
+  const integrity = useTakeTestStore((s) => s.integrity);
   const lock = useTakeTestStore((s) => s.lock);
   const dirty = useTakeTestStore((s) => s.dirty.size);
   const inFlight = useTakeTestStore((s) => s.flushInFlight);
@@ -36,6 +41,16 @@ export default function TakeTestPage() {
   // expiring and refetch rather than failing, and the payload is where a fresh
   // one comes from.
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
+
+  // Every §10 listener, in one place. It returns the strike count, which T-3.14
+  // renders; mounted here because this is the screen being watched, and it
+  // stops watching when the screen goes away.
+  useIntegrityMonitor({
+    attemptId: attemptId ?? null,
+    sessionId,
+    beaconToken,
+    policy: integrity,
+  });
 
   useEffect(() => {
     if (attemptId === undefined) return;
@@ -50,6 +65,7 @@ export default function TakeTestPage() {
       });
     return () => {
       abort.abort();
+      clearSession(attemptId);
       reset();
     };
   }, [attemptId, reloads, hydrate, reset]);
