@@ -203,3 +203,34 @@ func TestAnotherStudentCannotSubmitThisAttempt(t *testing.T) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}
 }
+
+// The deck's promise, all the way through: two blanks, one right, half marks.
+func TestSubmittingHalfAFillBlankEarnsHalfItsPoints(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	blanks := blankIDs(t, pool, w.blank)
+	only := `{"type":"fill_blank","values":{"` + blanks[0] + `":"` + secretBlankAnswer + `","` + blanks[1] + `":"sai"}}`
+	if _, err := svc.Save(ctx, attempts.SaveInput{
+		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
+		Answers: []attempts.Answer{{QuestionID: w.blank, Payload: []byte(only)}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Submit(ctx, session.Attempt.ID, w.student, attempts.Manual); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+
+	var score float64
+	if err := pool.QueryRow(ctx, `
+		SELECT auto_score FROM app.attempt_answers
+		 WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
+		session.Attempt.ID, w.blank).Scan(&score); err != nil {
+		t.Fatal(err)
+	}
+	// The fixture's fill_blank is worth 5 points over two blanks.
+	if score != 2.5 {
+		t.Errorf("auto_score %v, want 2.5 — one of two blanks right", score)
+	}
+}

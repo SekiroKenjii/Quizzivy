@@ -153,23 +153,30 @@ after Phase 4 touches three layers.
 
 ---
 
-### O-17 — `fill_blank` scoring with more than one blank · Phase 3
-**Default:** all-or-nothing, like O-09. Every blank matched, or zero points.
+### O-17 — `fill_blank` scoring with more than one blank · Phase 3 — **RESOLVED**
+**Resolved 2026-09-01: per blank.** Each blank earns its share of the question's
+points. Thuong's call, following the design deck.
 
-Neither §7 nor O-09 settles this. O-09 rules on `multiple_choice`, where the
-selection is arguably one answer; a two-blank sentence is arguably two, and a
-teacher may well expect half marks for one of them.
+I shipped all-or-nothing first, reasoning from O-09's rule for the other
+multi-part type and recording the disagreement here. That was the wrong place to
+look: S-05 already answers it, on the question itself, in the line the student
+reads before answering —
 
-Implemented as all-or-nothing because it is the conservative direction: relaxing
-to a proportion later only ever raises a score, where tightening one already
-reported to a student lowers it. It is one function --
-`grading.gradeFillBlank` -- and one test, so changing it is cheap while nothing
-has been graded for real.
+> 2 điểm · mỗi chỗ trống 1 điểm
 
-Diacritics are deliberately not folded, and that is NOT open. This is an English
-test written for Vietnamese students; "ha noi" is not "Hà Nội" the way
-"hanoi " is "Hanoi", and folding accents would make a class of answer
-unmarkable.
+An all-or-nothing rule would have made that sentence a lie, and the sentence is
+the part they see. Worth remembering as a research failure rather than a
+judgement one: the answer existed in the deck and I searched the spec and this
+file for it.
+
+The share is computed off the total (`points × matched ÷ blanks`) rather than
+accumulated per blank, so a question that divides unevenly still adds up. Three
+blanks worth two points would otherwise round to 0.67 each and pay 2.01 for a
+perfect answer — more than the question is worth, on the commonest answer there
+is.
+
+Diacritics are still not folded, and that remains closed. "ha noi" is not
+"Hà Nội" the way "hanoi " is "Hanoi".
 
 ---
 

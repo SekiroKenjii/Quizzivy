@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuestionBody } from "@/features/take-test/components/QuestionBody";
+import { QuestionCard } from "@/features/take-test/components/QuestionCard";
 import type { Answer, StudentQuestion } from "@/features/take-test/api";
 import "@/lib/i18n";
 
@@ -235,5 +236,55 @@ describe("blank ordering", () => {
       type: "fill_blank",
       values: { second: "x" },
     });
+  });
+});
+
+/**
+ * The points line is a promise about scoring, so it has to match what grading
+ * actually does (O-17). If these two ever drift, the question tells the student
+ * one rule and the server applies another.
+ */
+describe("what the question says it is worth", () => {
+  const render1 = (q: StudentQuestion) => render(<QuestionCard question={q} />);
+
+  it("names the per-blank share, as S-05 writes it", () => {
+    render1(
+      question({
+        type: "fill_blank",
+        points: 2,
+        prompt: "If it {{1}} tomorrow, we {{2}} the trip.",
+        blanks: [
+          { id: "b1", ordinal: 1 },
+          { id: "b2", ordinal: 2 },
+        ],
+      }),
+    );
+    expect(screen.getByText("2 điểm · mỗi chỗ trống 1 điểm")).toBeInTheDocument();
+  });
+
+  it("rounds an uneven share rather than inventing precision", () => {
+    render1(
+      question({
+        type: "fill_blank",
+        points: 2,
+        prompt: "{{1}} {{2}} {{3}}",
+        blanks: [
+          { id: "b1", ordinal: 1 },
+          { id: "b2", ordinal: 2 },
+          { id: "b3", ordinal: 3 },
+        ],
+      }),
+    );
+    expect(screen.getByText("2 điểm · mỗi chỗ trống 0,67 điểm")).toBeInTheDocument();
+  });
+
+  it("says who grades a short answer, and claims no share", () => {
+    render1(question({ type: "short_answer", points: 5 }));
+    expect(screen.getByText("5 điểm · giáo viên chấm tay")).toBeInTheDocument();
+  });
+
+  it("says only the total for a choice question", () => {
+    render1(question({ type: "single_choice", points: 1, options }));
+    expect(screen.getByText("1 điểm")).toBeInTheDocument();
   });
 });

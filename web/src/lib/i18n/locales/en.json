@@ -707,6 +707,8 @@
     "lockedDeadline": "Time is up.",
     "lockedClosed": "This attempt has ended.",
     "manualGrading": "graded by your teacher",
-    "savedNothingYet": "Nothing to save yet"
+    "savedNothingYet": "Nothing to save yet",
+    "points": "{{points}} points",
+    "perBlank": "{{points}} per blank"
   }
 }
