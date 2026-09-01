@@ -72,21 +72,32 @@ func TestAppRoleCanReadAndWriteEveryTable(t *testing.T) {
 	t.Logf("checked SELECT and INSERT for %s on %d tables", appRole, len(tables))
 }
 
-// TestAuditLogIsAppendOnlyForTheAppRole makes §13.4's claim a privilege rather
-// than a promise. An audit trail the application can rewrite is not one.
-func TestAuditLogIsAppendOnlyForTheAppRole(t *testing.T) {
+// TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole makes §13.4's claim a
+// privilege rather than a promise. A record the application can rewrite is not
+// evidence, and both of these tables exist to be evidence: audit_log is what
+// the teacher's actions are reconstructed from, attempt_events is what a
+// student's session is.
+//
+// The REVOKE is what makes it true, and it lives beside each table -- audit_log
+// in 00009, attempt_events in 00023 -- so a table is never briefly writable
+// between being created and being locked down.
+func TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole(t *testing.T) {
 	conn := migrated(t)
 
-	for _, priv := range []string{"SELECT", "INSERT"} {
-		if !hasTablePrivilege(t, conn, appRole, "app.audit_log", priv) {
-			t.Errorf("%s cannot %s app.audit_log; it has to be able to write entries", appRole, priv)
-		}
-	}
-	for _, priv := range []string{"UPDATE", "DELETE"} {
-		if hasTablePrivilege(t, conn, appRole, "app.audit_log", priv) {
-			t.Errorf("%s can %s app.audit_log -- §13.4 says append-only, and the REVOKE in "+
-				"00009 is what makes that true", appRole, priv)
-		}
+	for _, table := range []string{"app.audit_log", "app.attempt_events"} {
+		t.Run(table, func(t *testing.T) {
+			for _, priv := range []string{"SELECT", "INSERT"} {
+				if !hasTablePrivilege(t, conn, appRole, table, priv) {
+					t.Errorf("%s cannot %s %s; it has to be able to write entries", appRole, priv, table)
+				}
+			}
+			for _, priv := range []string{"UPDATE", "DELETE"} {
+				if hasTablePrivilege(t, conn, appRole, table, priv) {
+					t.Errorf("%s can %s %s -- append-only is the point, and the REVOKE "+
+						"in the migration that creates it is what makes that true", appRole, priv, table)
+				}
+			}
+		})
 	}
 }
 

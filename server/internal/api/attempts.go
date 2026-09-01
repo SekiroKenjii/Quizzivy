@@ -329,3 +329,83 @@ func (s *Server) RecordAudioPlay(ctx context.Context, request openapi.RecordAudi
 		MaxPlays: plays.MaxPlays,
 	}, nil
 }
+
+// beaconFlush is the text/plain body, which the contract types only as a
+// string because navigator.sendBeacon has nowhere else to put a credential.
+//
+// text/plain is CORS-safelisted, so the request skips preflight. That matters
+// specifically on unload: a preflight fired from `pagehide` is not reliably
+// delivered, and an event log that loses the last thing that happened loses the
+// part the teacher most wants (§10.6, D-03).
+type beaconFlush struct {
+	BeaconToken string                        `json:"beaconToken"`
+	SessionID   openapi.Uuid                  `json:"sessionId"`
+	Events      []openapi.IntegrityEventInput `json:"events"`
+}
+
+// FlushEvents accepts the ordinary authenticated flush and the beacon one.
+//
+// Always 202, whatever happened, unless the credential is bad. §10.6 makes this
+// fire-and-forget: the client cannot act on the outcome, and a flush that
+// blocks answering or submitting is worse than a flush that silently did
+// nothing.
+func (s *Server) FlushEvents(ctx context.Context, request openapi.FlushEventsRequestObject) (openapi.FlushEventsResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	in := attempts.FlushInput{AttemptID: request.Id.String()}
+	switch {
+	case request.JSONBody != nil:
+		// The route is open in the contract, so the middleware attaches a
+		// principal when a token verifies and leaves it absent otherwise. No
+		// principal on this path means no credential at all.
+		principal, ok := httpx.PrincipalFromContext(ctx)
+		if !ok {
+			return forbiddenFlush(ctx), nil
+		}
+		in.StudentID = principal.UserID
+		in.SessionID = request.JSONBody.SessionId.String()
+		events, err := toDomainEvents(&request.JSONBody.Events)
+		if err != nil {
+			return nil, err
+		}
+		in.Events = events
+
+	case request.TextBody != nil:
+		var body beaconFlush
+		if err := json.Unmarshal([]byte(*request.TextBody), &body); err != nil {
+			// Unparseable is refused rather than 202'd. 202 means "recorded, do
+			// not worry about it", which would be a lie.
+			return forbiddenFlush(ctx), nil
+		}
+		in.BeaconToken = body.BeaconToken
+		in.SessionID = body.SessionID.String()
+		events, err := toDomainEvents(&body.Events)
+		if err != nil {
+			return nil, err
+		}
+		in.Events = events
+
+	default:
+		return forbiddenFlush(ctx), nil
+	}
+
+	err := s.Deps.Attempts.Flush(ctx, in)
+	if errors.Is(err, attempts.ErrForbidden) || errors.Is(err, attempts.ErrBeaconExpired) {
+		// One answer for a wrong token and a spent one: which it was tells a
+		// caller whether the token it holds is real.
+		return forbiddenFlush(ctx), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return openapi.FlushEvents202Response{}, nil
+}
+
+func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {
+	return openapi.FlushEvents403JSONResponse{
+		ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+			authError(ctx, openapi.FORBIDDEN, "Không ghi được nhật ký cho bài làm này.")),
+	}
+}

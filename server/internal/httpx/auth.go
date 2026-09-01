@@ -31,6 +31,19 @@ func RequireAuth(open map[string]struct{}, verify func(bearer string) (Principal
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if _, isOpen := open[r.Pattern]; isOpen {
+				// Open means authentication is not REQUIRED, not that it is
+				// ignored. An operation offering `security: [bearerAuth, {}]`
+				// -- the event flush, which also accepts an unauthenticated
+				// beacon -- still needs to know who is calling when a token is
+				// there. Attached best-effort: a token that does not verify
+				// leaves the route open rather than refusing it, or "open"
+				// would not mean open.
+				if token, ok := bearerToken(r); ok {
+					if principal, err := verify(token); err == nil {
+						r = r.WithContext(
+							context.WithValue(r.Context(), principalKey, principal))
+					}
+				}
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -101,17 +114,34 @@ func OpenRoutes(spec *openapi3.T, scheme string) map[string]struct{} {
 	return open
 }
 
+// requiresScheme reports whether the caller CANNOT satisfy the operation
+// without the named scheme.
+//
+// A security list is an OR of alternatives, each an AND of schemes, so the
+// scheme is required only when EVERY alternative names it. One alternative that
+// does not -- `- {}` -- is an operation that accepts the credential and does
+// not insist on it.
+//
+// This read "any alternative names it", which made the event flush 401 on the
+// one path it exists for: `security: [bearerAuth: [], {}]` is bearer OR
+// nothing, and navigator.sendBeacon has nothing. The two helpers over this same
+// field disagreed -- AssertPublicRoutesLimited already treated the operation as
+// public and demanded a rate limit for it -- so the contract said open, the
+// limiter agreed, and the middleware alone said no.
 func requiresScheme(opSecurity *openapi3.SecurityRequirements, global openapi3.SecurityRequirements, scheme string) bool {
 	reqs := global
 	if opSecurity != nil {
 		reqs = *opSecurity
 	}
+	if len(reqs) == 0 {
+		return false
+	}
 	for _, req := range reqs {
-		if _, ok := req[scheme]; ok {
-			return true
+		if _, ok := req[scheme]; !ok {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // RoleAdmin is the app.user_role value the /admin tree requires.
