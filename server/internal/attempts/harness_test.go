@@ -57,6 +57,7 @@ type world struct {
 	assignment string
 	choice     string
 	blank      string
+	essay      string
 }
 
 type worldOpts struct {
@@ -154,6 +155,14 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		exec(`INSERT INTO app.test_version_blank_answers (test_version_blank_id, answer)
 		      VALUES ($1::uuid,$2)`, blankID, secretBlankAnswer)
 	}
+
+	// The one type §7 grades by hand, so requires_manual has something to be
+	// true about.
+	must(pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_questions
+		  (test_version_section_id, ordinal, type, prompt, points, sample_answer)
+		VALUES ($1::uuid,2,'short_answer','Viết 2-3 câu tả thói quen buổi sáng.','5.00',$2)
+		RETURNING id::text`, section, secretSampleAnswer).Scan(&w.essay))
 
 	published := "now()"
 	if o.draft {

@@ -200,3 +200,100 @@ func toAPIAnswers(stored map[string][]byte) (map[string]openapi.Answer, error) {
 	}
 	return out, nil
 }
+
+// SaveAnswers is §9's autosave: answers and the events that accompanied them,
+// in one call and one transaction.
+func (s *Server) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRequestObject) (openapi.SaveAnswersResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	in := attempts.SaveInput{
+		AttemptID: request.Id.String(),
+		StudentID: principal.UserID,
+		SessionID: request.Body.SessionId.String(),
+	}
+	var err error
+	if in.Answers, err = toDomainAnswers(request.Body.Answers); err != nil {
+		return nil, err
+	}
+	if in.Events, err = toDomainEvents(request.Body.Events); err != nil {
+		return nil, err
+	}
+
+	saved, err := s.Deps.Attempts.Save(ctx, in)
+	switch {
+	case errors.Is(err, attempts.ErrForbidden):
+		return openapi.SaveAnswers403JSONResponse{
+			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền ghi vào bài làm này.")),
+		}, nil
+	case errors.Is(err, attempts.ErrSessionSuperseded):
+		return openapi.SaveAnswers409JSONResponse(authError(ctx, openapi.SESSIONSUPERSEDED,
+			"Bài làm này đã được mở ở nơi khác.")), nil
+	case errors.Is(err, attempts.ErrDeadlinePassed):
+		return openapi.SaveAnswers409JSONResponse(authError(ctx, openapi.DEADLINEPASSED,
+			"Đã hết giờ làm bài.")), nil
+	case errors.Is(err, attempts.ErrAttemptClosed):
+		return openapi.SaveAnswers409JSONResponse(authError(ctx, openapi.ATTEMPTCLOSED,
+			"Bài làm này đã kết thúc.")), nil
+	case err != nil:
+		return nil, err
+	}
+
+	// serverTime comes back on every save, not only on the first fetch, so the
+	// client's clock offset self-corrects over a long test rather than drifting
+	// from whatever it measured once at the start.
+	return openapi.SaveAnswers200JSONResponse{
+		ServerTime: saved.SavedAt,
+		SavedAt:    saved.SavedAt,
+	}, nil
+}
+
+// toDomainAnswers re-encodes each answer through the generated union, so a
+// payload that does not match the contract is refused here rather than stored
+// and discovered at grading.
+func toDomainAnswers(in *map[string]openapi.Answer) ([]attempts.Answer, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]attempts.Answer, 0, len(*in))
+	for questionID, answer := range *in {
+		payload, err := json.Marshal(answer)
+		if err != nil {
+			return nil, fmt.Errorf("encode answer for %s: %w", questionID, err)
+		}
+		out = append(out, attempts.Answer{QuestionID: questionID, Payload: payload})
+	}
+	return out, nil
+}
+
+func toDomainEvents(in *[]openapi.IntegrityEventInput) ([]attempts.Event, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]attempts.Event, len(*in))
+	for i, e := range *in {
+		out[i] = attempts.Event{
+			Kind:       e.Kind,
+			OccurredAt: e.OccurredAt,
+			ClientSeq:  e.ClientSeq,
+		}
+		if e.QuestionId != nil {
+			id := e.QuestionId.String()
+			out[i].QuestionID = &id
+		}
+		if e.Meta != nil {
+			meta, err := json.Marshal(e.Meta)
+			if err != nil {
+				return nil, fmt.Errorf("encode event meta: %w", err)
+			}
+			out[i].Meta = meta
+		}
+	}
+	return out, nil
+}

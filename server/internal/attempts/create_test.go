@@ -29,8 +29,8 @@ func TestStartingAnAttemptDealsThePaperAndOpensASession(t *testing.T) {
 		t.Error("no session id")
 	case got.BeaconToken == "":
 		t.Error("no beacon token")
-	case len(got.Questions) != 2:
-		t.Errorf("%d questions, want 2", len(got.Questions))
+	case len(got.Questions) != 3:
+		t.Errorf("%d questions, want 3", len(got.Questions))
 	}
 
 	if d := got.Attempt.DeadlineAt.Sub(got.Attempt.StartedAt); d < 59*time.Minute || d > 61*time.Minute {

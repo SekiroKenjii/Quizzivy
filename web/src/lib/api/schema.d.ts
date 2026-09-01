@@ -4265,6 +4265,7 @@ export interface operations {
                     };
                 };
             };
+            403: components["responses"]["Forbidden"];
             /**
              * @description `SESSION_SUPERSEDED` — opened elsewhere; the client goes read-only
              *     with a plain explanation rather than throwing.
@@ -4307,6 +4308,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["Forbidden"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -4339,6 +4341,7 @@ export interface operations {
                     };
                 };
             };
+            403: components["responses"]["Forbidden"];
         };
     };
     submitAttempt: {
@@ -4372,6 +4375,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            403: components["responses"]["Forbidden"];
             /** @description `ATTEMPT_CLOSED`. */
             409: {
                 headers: {
