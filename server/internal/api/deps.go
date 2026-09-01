@@ -109,6 +109,7 @@ type AttemptsService interface {
 	Get(ctx context.Context, attemptID, studentID string) (attempts.Session, error)
 	Save(ctx context.Context, in attempts.SaveInput) (attempts.SaveResult, error)
 	RecordPlay(ctx context.Context, attemptID, studentID, questionID string) (attempts.Plays, error)
+	Flush(ctx context.Context, in attempts.FlushInput) error
 }
 
 // StudentsService is the slice of internal/students the handlers use.

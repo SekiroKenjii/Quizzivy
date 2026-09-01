@@ -22,7 +22,6 @@ import (
 // a routine change.
 var unimplemented = []string{
 	// Phase 3 — assignments and taking a test
-	"FlushEvents",
 	"GetMyAssignment",
 	"ListMyAssignments",
 	"SubmitAttempt",

@@ -52,6 +52,12 @@ var (
 	ErrSessionSuperseded = errors.New("attempts: session superseded")
 	ErrDeadlinePassed    = errors.New("attempts: deadline passed")
 	ErrAttemptClosed     = errors.New("attempts: attempt is no longer in progress")
+
+	// ErrBeaconExpired is separate from ErrForbidden so the difference between
+	// a wrong token and a spent one stays legible here. Both answer 403 on the
+	// wire -- telling a caller which one it was is telling it whether the token
+	// it holds is real.
+	ErrBeaconExpired = errors.New("attempts: beacon token has expired")
 )
 
 // Answer is one saved answer, kept as the raw JSON the contract defines.

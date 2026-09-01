@@ -30,7 +30,7 @@ func (s *Store) Save(ctx context.Context, in SaveInput, now time.Time) (SaveResu
 	if err != nil {
 		return SaveResult{}, err
 	}
-	if err := insertEvents(ctx, tx, in, versionID); err != nil {
+	if err := insertEvents(ctx, tx, in.AttemptID, in.SessionID, in.Events, versionID); err != nil {
 		return SaveResult{}, err
 	}
 
@@ -131,16 +131,16 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID strin
 // rejected. The column means "what was on screen", it is already nullable for
 // the events that have no question, and an event is telemetry -- worth less
 // than the answers travelling with it in the same transaction.
-func insertEvents(ctx context.Context, tx pgx.Tx, in SaveInput, versionID string) error {
-	if len(in.Events) == 0 {
+func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, events []Event, versionID string) error {
+	if len(events) == 0 {
 		return nil
 	}
-	kinds := make([]string, len(in.Events))
-	occurred := make([]time.Time, len(in.Events))
-	seqs := make([]int32, len(in.Events))
-	questions := make([]*string, len(in.Events))
-	metas := make([]*string, len(in.Events))
-	for i, e := range in.Events {
+	kinds := make([]string, len(events))
+	occurred := make([]time.Time, len(events))
+	seqs := make([]int32, len(events))
+	questions := make([]*string, len(events))
+	metas := make([]*string, len(events))
+	for i, e := range events {
 		kinds[i] = e.Kind
 		occurred[i] = e.OccurredAt
 		seqs[i] = int32(e.ClientSeq)
@@ -151,7 +151,7 @@ func insertEvents(ctx context.Context, tx pgx.Tx, in SaveInput, versionID string
 		}
 	}
 
-	_, err := tx.Exec(ctx, `
+	_, err := q.Exec(ctx, `
 		INSERT INTO app.attempt_events
 		  (attempt_id, session_id, kind, occurred_at, client_seq, question_id, meta)
 		SELECT $1::uuid, $2::uuid, submitted.kind, submitted.occurred_at, submitted.client_seq,
@@ -165,7 +165,7 @@ func insertEvents(ctx context.Context, tx pgx.Tx, in SaveInput, versionID string
 		          WHERE s.id = q.test_version_section_id AND s.test_version_id = $8::uuid)
 		ON CONFLICT (attempt_id, session_id, client_seq) DO NOTHING
 `,
-		in.AttemptID, in.SessionID, kinds, occurred, seqs, questions, metas, versionID)
+		attemptID, sessionID, kinds, occurred, seqs, questions, metas, versionID)
 	if err != nil {
 		return fmt.Errorf("attempts: insert events: %w", err)
 	}
