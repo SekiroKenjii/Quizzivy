@@ -90,10 +90,6 @@ func (s *Server) GetMyAssignment(_ context.Context, _ openapi.GetMyAssignmentReq
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) RecordAudioPlay(_ context.Context, _ openapi.RecordAudioPlayRequestObject) (openapi.RecordAudioPlayResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) FlushEvents(_ context.Context, _ openapi.FlushEventsRequestObject) (openapi.FlushEventsResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

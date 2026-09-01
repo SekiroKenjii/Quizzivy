@@ -19,6 +19,7 @@ const (
 	secretExplanation  = "GIAI-THICH-KHONG-DANH-CHO-HOC-VIEN"
 	secretSampleAnswer = "DAP-AN-MAU-KHONG-DANH-CHO-HOC-VIEN"
 	secretBlankAnswer  = "DAP-AN-CHO-TRONG-KHONG-DANH-CHO-HOC-VIEN"
+	secretTranscript   = "LOI-THOAI-KHONG-DANH-CHO-HOC-VIEN"
 )
 
 func newPool(t *testing.T) *pgxpool.Pool {
@@ -58,6 +59,8 @@ type world struct {
 	choice     string
 	blank      string
 	essay      string
+	listening  string
+	asset      string
 }
 
 type worldOpts struct {
@@ -156,6 +159,33 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		      VALUES ($1::uuid,$2)`, blankID, secretBlankAnswer)
 	}
 
+	// An audio question with a real asset behind it. The CHECK constraints on
+	// test_version_questions only permit an audio policy when the attached
+	// asset really is audio, so a listening question cannot be faked with a
+	// bare column.
+	must(pool.QueryRow(ctx, `
+		INSERT INTO app.media_assets
+		  (kind, storage_key, mime_type, bytes, duration_ms, original_filename,
+		   checksum_sha256, uploaded_by)
+		VALUES ('audio', $1, 'audio/mpeg', 159711, 10004, 'nghe-'||$2||'.mp3',
+		        sha256(convert_to($1, 'UTF8')), $3::uuid)
+		RETURNING id::text`, "audio/att-"+id+".mp3", id, w.admin).Scan(&w.asset))
+	must(pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_questions
+		  (test_version_section_id, ordinal, type, prompt, points,
+		   media_asset_id, media_asset_kind, audio_allow_seek, audio_show_transcript_after,
+		   transcript)
+		VALUES ($1::uuid,3,'single_choice','Người phụ nữ đề nghị làm gì?','5.00',
+		        $2::uuid,'audio',false,true,$3)
+		RETURNING id::text`, section, w.asset, secretTranscript).Scan(&w.listening))
+	for i, opt := range []struct {
+		text    string
+		correct bool
+	}{{"Đi bộ", true}, {"Đi xe buýt", false}} {
+		exec(`INSERT INTO app.test_version_options (test_version_question_id, ordinal, text, is_correct)
+		      VALUES ($1::uuid,$2,$3,$4)`, w.listening, i, opt.text, opt.correct)
+	}
+
 	// The one type §7 grades by hand, so requires_manual has something to be
 	// true about.
 	must(pool.QueryRow(ctx, `
@@ -194,6 +224,7 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 			_, _ = pool.Exec(c, q, w.assignment)
 		}
 		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, w.testID)
+		_, _ = pool.Exec(c, `DELETE FROM app.media_assets WHERE id = $1::uuid`, w.asset)
 		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1::uuid`, w.testID)
 		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, w.class)
 		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1::uuid`, w.class)

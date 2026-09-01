@@ -25,7 +25,6 @@ var unimplemented = []string{
 	"FlushEvents",
 	"GetMyAssignment",
 	"ListMyAssignments",
-	"RecordAudioPlay",
 	"SubmitAttempt",
 
 	// Phase 4 — monitoring, grading and results
