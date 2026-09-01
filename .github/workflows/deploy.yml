@@ -102,6 +102,46 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only --wait-timeout 10m
 
+      # `flyctl deploy` updated the config of a machine that was already
+      # stopped, logged "reached stopped state" followed by "is now in a good
+      # state", and exited 0. Nothing was started and no smoke check ran, so the
+      # deploy reported success on a version that had never executed.
+      #
+      # A machine is left stopped by the PREVIOUS deploy failing, which makes
+      # this the exact path a recovery deploy takes -- the one run where the
+      # difference matters most.
+      - name: Make sure the machine is actually running
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl machines list -a quizzivy-api
+          stopped=$(flyctl machines list -a quizzivy-api --json \
+            | jq -r '.[] | select(.state != "started") | .id')
+          for id in $stopped; do
+            echo "starting $id"
+            flyctl machine start "$id" -a quizzivy-api
+          done
+          # Started is not serving. Give the process a moment to bind before the
+          # health check below decides.
+          sleep 10
+          flyctl machines list -a quizzivy-api
+          running=$(flyctl machines list -a quizzivy-api --json \
+            | jq -r '[.[] | select(.state == "started")] | length')
+          echo "machines started: $running"
+          [ "$running" -ge 1 ] || { echo "::error::no machine is running"; exit 1; }
+
+      # Fly reports a deploy as successful once health checks pass; this asks
+      # the app the one question the health check exists to answer.
+      - name: Verify the API answers
+        run: |
+          for attempt in 1 2 3 4 5; do
+            body=$(curl -fsS --max-time 10 "$API_ORIGIN/healthz") && break
+            echo "attempt $attempt failed; retrying in 6s"; sleep 6
+          done
+          echo "$body"
+          echo "$body" | grep -q '"database":"ok"' || {
+            echo "::error::/healthz did not report database:ok"; exit 1; }
+
       # What Fly's own failure output does not give you.
       #
       # A crash-on-boot is reported as "the app appears to be crashing" followed
@@ -126,18 +166,6 @@ jobs:
           echo "::group::env baked into fly.toml"
           flyctl config env -a quizzivy-api || true
           echo "::endgroup::"
-
-      # Fly reports a deploy as successful once health checks pass; this asks
-      # the app the one question the health check exists to answer.
-      - name: Verify the API answers
-        run: |
-          for attempt in 1 2 3 4 5; do
-            body=$(curl -fsS --max-time 10 "$API_ORIGIN/healthz") && break
-            echo "attempt $attempt failed; retrying in 6s"; sleep 6
-          done
-          echo "$body"
-          echo "$body" | grep -q '"database":"ok"' || {
-            echo "::error::/healthz did not report database:ok"; exit 1; }
 
   # ------------------------------------------------------------------- web
   # After the API, deliberately. The SPA is the half that calls the other, so
