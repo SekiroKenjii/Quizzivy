@@ -27,9 +27,21 @@ primary_region = "sin"
   # prefix matching on redirect URIs is the classic OAuth mistake. Not a secret:
   # it travels in the authorization URL the browser follows.
   #
-  # Google config is all-or-nothing on purpose. The client id and secret were
-  # already set, so WITHOUT this the server refuses to start rather than serve
-  # an /auth/google that fails in a way that looks like Google's fault.
+  # Google config is all-or-nothing on purpose, and this is the half that was
+  # missing. The comment above used to claim "the client id and secret were
+  # already set" -- the secret was, via `fly secrets`, but the CLIENT ID was set
+  # nowhere: not here, not in secrets, and the SPA's VITE_GOOGLE_CLIENT_ID is a
+  # build input for the frontend that never reaches this process. Two of three
+  # present is exactly the case loadGoogle refuses, so the API exited before it
+  # could listen and Fly's smoke check reported only "the app appears to be
+  # crashing".
+  #
+  # It belongs here rather than in secrets for the same reason the redirect does:
+  # it is a public identifier that already ships inside a JS bundle any visitor
+  # can read. Storing a public value as a secret is how it drifts out of sync
+  # with the one the frontend bundles, and the failure then is every Google
+  # sign-in rejected for a bad audience.
+  GOOGLE_CLIENT_ID = "825841392899-8aaqpsf9nt94usmovva6pifsqopk3dab.apps.googleusercontent.com"
   GOOGLE_REDIRECT_URI = "https://app.quizzivy.com/auth/google/callback"
 
   # Argon2id holds a 64 MiB arena for the duration of every hash and this
