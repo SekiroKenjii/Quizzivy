@@ -120,7 +120,7 @@ function Editor({
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <>
       <PageHeader
         title={
           question === null
@@ -150,20 +150,18 @@ function Editor({
         </p>
       )}
 
-      <div className="flex-1">
-        <QuestionEditor
-          value={values}
-          asset={asset}
-          onRefresh={() => {
-            void onRefreshAsset().then((fresh) => {
-              if (fresh) setAsset(fresh);
-            });
-          }}
-          onChange={setValues}
-          onAssetChange={setAsset}
-        />
-      </div>
-    </div>
+      <QuestionEditor
+        value={values}
+        asset={asset}
+        onRefresh={() => {
+          void onRefreshAsset().then((fresh) => {
+            if (fresh) setAsset(fresh);
+          });
+        }}
+        onChange={setValues}
+        onAssetChange={setAsset}
+      />
+    </>
   );
 }
 

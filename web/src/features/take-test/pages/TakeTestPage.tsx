@@ -179,7 +179,7 @@ export default function TakeTestPage() {
     question.type === "single_choice" || question.type === "multiple_choice";
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <Header
         index={index}
         total={questions.length}
@@ -196,42 +196,47 @@ export default function TakeTestPage() {
       {watching && integrity.requireFullscreen && !fullscreen && <FullscreenBar />}
       {strikeDialog}
 
-      <div className="flex flex-1">
-        <main className="mx-auto w-full max-w-[720px] min-w-0 flex-1 px-4 py-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-muted-foreground text-xs">
-              {t("takeTest.questionCounter", { n: index + 1, total: questions.length })}
+      <div className="flex min-h-0 flex-1">
+        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5">
+          <div className="mx-auto w-full max-w-[720px]">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-muted-foreground text-xs">
+                {t("takeTest.questionCounter", {
+                  n: index + 1,
+                  total: questions.length,
+                })}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                aria-pressed={flagged}
+                aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
+                disabled={lock !== null}
+                onClick={() => toggleFlag(question.id)}
+              >
+                <Flag
+                  className={flagged ? "fill-current" : undefined}
+                  aria-hidden="true"
+                />
+                <span className="hidden lg:inline">{t("takeTest.flag")}</span>
+              </Button>
+            </div>
+            <QuestionCard question={question} onAudioExpired={reload} />
+            <p className="text-muted-foreground mt-6 hidden items-center gap-1 text-xs lg:flex">
+              {t("takeTest.shortcuts")}
+              {choice && (
+                <>
+                  {" "}
+                  <Kbd>{KEY.a}</Kbd>
+                  {KEY.dash}
+                  <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
+                </>
+              )}{" "}
+              <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd> {t("takeTest.shortcutMove")}{" "}
+              {KEY.dot} <Kbd>{KEY.f}</Kbd> {t("takeTest.shortcutFlag")}
             </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              aria-pressed={flagged}
-              aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
-              disabled={lock !== null}
-              onClick={() => toggleFlag(question.id)}
-            >
-              <Flag
-                className={flagged ? "fill-current" : undefined}
-                aria-hidden="true"
-              />
-              <span className="hidden lg:inline">{t("takeTest.flag")}</span>
-            </Button>
           </div>
-          <QuestionCard question={question} onAudioExpired={reload} />
-          <p className="text-muted-foreground mt-6 hidden items-center gap-1 text-xs lg:flex">
-            {t("takeTest.shortcuts")}
-            {choice && (
-              <>
-                {" "}
-                <Kbd>{KEY.a}</Kbd>
-                {KEY.dash}
-                <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
-              </>
-            )}{" "}
-            <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd> {t("takeTest.shortcutMove")}{" "}
-            {KEY.dot} <Kbd>{KEY.f}</Kbd> {t("takeTest.shortcutFlag")}
-          </p>
         </main>
         <NavigatorRail
           dots={dots}
@@ -242,7 +247,7 @@ export default function TakeTestPage() {
       </div>
 
       <footer
-        className="bg-background sticky bottom-0 flex items-center gap-2 border-t p-3"
+        className="flex shrink-0 items-center gap-2 border-t p-3"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
         <Button

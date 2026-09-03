@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { PageAside } from "@/components/shared/PageAside";
 import { cn } from "@/lib/utils";
 
 /** What one dot needs to know. Computed once by the page, read by every view. */
@@ -151,7 +152,7 @@ export function NavigatorRail({
   const answered = dots.filter((d) => d.answered).length;
   const flagged = dots.filter((d) => d.flagged).length;
   return (
-    <aside className="hidden w-72 shrink-0 space-y-4 border-l p-5 lg:block">
+    <PageAside label={t("takeTest.navTitle")} hideBelow="lg">
       <QuestionDots dots={dots} current={current} onJump={onJump} />
       <Separator />
       <div className="text-muted-foreground space-y-1.5 text-xs">
@@ -169,6 +170,6 @@ export function NavigatorRail({
       <Button className="w-full" onClick={onReview}>
         {t("takeTest.reviewAndSubmit")}
       </Button>
-    </aside>
+    </PageAside>
   );
 }

@@ -82,118 +82,114 @@ export default function StudentsListPage() {
   const selected = selectedId === null ? null : (detail.data ?? null);
 
   return (
-    <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
-      <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
-        <PageHeader
-          variant="title"
-          title={t("nav.students")}
-          subtitle={
-            facets
-              ? t("students.summary", {
-                  count: facets.total,
-                  active: facets.activeLast7Days,
-                })
-              : " "
-          }
-          actions={
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <UserPlus aria-hidden="true" />
-              {t("students.new")}
-            </Button>
-          }
-        />
+    <div className="space-y-4">
+      <PageHeader
+        variant="title"
+        title={t("nav.students")}
+        subtitle={
+          facets
+            ? t("students.summary", {
+                count: facets.total,
+                active: facets.activeLast7Days,
+              })
+            : " "
+        }
+        actions={
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <UserPlus aria-hidden="true" />
+            {t("students.new")}
+          </Button>
+        }
+      />
 
-        <div className="flex items-center gap-4">
-          <div className="relative w-72">
-            <Search
-              className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
-              aria-hidden="true"
-            />
-            <Input
-              className="pl-9"
-              value={query}
-              placeholder={t("students.searchPlaceholder")}
-              aria-label={t("students.searchPlaceholder")}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-          <label className="flex items-center gap-2.5 text-sm">
-            <Checkbox
-              checked={showDisabled}
-              onChange={(event) => {
-                setShowDisabled(event.target.checked);
-                setSelectedId(null);
-              }}
-            />
-            {t("students.showDisabled")}
-          </label>
+      <div className="flex items-center gap-4">
+        <div className="relative w-72">
+          <Search
+            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
+            aria-hidden="true"
+          />
+          <Input
+            className="pl-9"
+            value={query}
+            placeholder={t("students.searchPlaceholder")}
+            aria-label={t("students.searchPlaceholder")}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </div>
-
-        {students.isPending ? (
-          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-            {t("common.loading")}
-          </p>
-        ) : students.isError ? (
-          <div className="space-y-3">
-            <p role="alert" className="text-sm">
-              {t("students.loadFailed")}
-            </p>
-            <Button variant="outline" size="sm" onClick={() => void students.refetch()}>
-              {t("common.retry")}
-            </Button>
-          </div>
-        ) : items.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {showDisabled
-              ? t("students.noneDisabled")
-              : search === ""
-                ? t("students.empty")
-                : t("students.noMatches")}
-          </p>
-        ) : (
-          <>
-            <Card className="gap-0 overflow-hidden py-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[26%]">{t("students.student")}</TableHead>
-                    <TableHead>{t("students.classes")}</TableHead>
-                    <TableHead>{t("students.signInWith")}</TableHead>
-                    <TableHead className="text-right">
-                      {t("students.submitted")}
-                    </TableHead>
-                    <TableHead className="text-right">
-                      {t("students.average")}
-                    </TableHead>
-                    <TableHead>{t("students.activity")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((student) => (
-                    <Row
-                      key={student.id}
-                      student={student}
-                      locale={locale}
-                      expanded={student.id === selectedId}
-                      onToggle={() =>
-                        setSelectedId(student.id === selectedId ? null : student.id)
-                      }
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-
-            {students.data && (
-              <Pager
-                page={students.data.page}
-                pageSize={students.data.pageSize}
-                total={students.data.total}
-              />
-            )}
-          </>
-        )}
+        <label className="flex items-center gap-2.5 text-sm">
+          <Checkbox
+            checked={showDisabled}
+            onChange={(event) => {
+              setShowDisabled(event.target.checked);
+              setSelectedId(null);
+            }}
+          />
+          {t("students.showDisabled")}
+        </label>
       </div>
+
+      {students.isPending ? (
+        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+          {t("common.loading")}
+        </p>
+      ) : students.isError ? (
+        <div className="space-y-3">
+          <p role="alert" className="text-sm">
+            {t("students.loadFailed")}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void students.refetch()}>
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          {showDisabled
+            ? t("students.noneDisabled")
+            : search === ""
+              ? t("students.empty")
+              : t("students.noMatches")}
+        </p>
+      ) : (
+        <>
+          <Card className="gap-0 overflow-hidden py-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[26%]">{t("students.student")}</TableHead>
+                  <TableHead>{t("students.classes")}</TableHead>
+                  <TableHead>{t("students.signInWith")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("students.submitted")}
+                  </TableHead>
+                  <TableHead className="text-right">{t("students.average")}</TableHead>
+                  <TableHead>{t("students.activity")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((student) => (
+                  <Row
+                    key={student.id}
+                    student={student}
+                    locale={locale}
+                    expanded={student.id === selectedId}
+                    onToggle={() =>
+                      setSelectedId(student.id === selectedId ? null : student.id)
+                    }
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+
+          {students.data && (
+            <Pager
+              page={students.data.page}
+              pageSize={students.data.pageSize}
+              total={students.data.total}
+            />
+          )}
+        </>
+      )}
 
       {selected === null ? null : (
         // Keyed by student: without it React reuses the same fiber when the

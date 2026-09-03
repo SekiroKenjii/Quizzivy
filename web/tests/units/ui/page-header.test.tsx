@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { PageBarSlot } from "@/layouts/pageBar";
+import { PageBarSlot } from "@/layouts/slots";
 import "@/lib/i18n";
 
 /** A shell the way AdminLayout builds one: a slot above the scrolling main. */

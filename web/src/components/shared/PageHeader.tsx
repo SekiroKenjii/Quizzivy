@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageBarSlot } from "@/layouts/pageBar";
+import { PageBarSlot } from "@/layouts/slots";
 
 interface BarProps {
   variant?: "bar";

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
+import { PageAside } from "@/components/shared/PageAside";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,8 +74,8 @@ export function QuestionEditor({
   }
 
   return (
-    <div className="flex items-start gap-6">
-      <div className="min-w-0 flex-1 space-y-5">
+    <>
+      <div className="space-y-5">
         <div className="flex items-center gap-2">
           {contextLabel === null ? null : (
             <span className="text-muted-foreground text-xs">{contextLabel}</span>
@@ -168,7 +169,7 @@ export function QuestionEditor({
         </div>
       </div>
 
-      <aside className="w-80 shrink-0 space-y-5 border-l p-4">
+      <PageAside label={t("questionEditor.settings")}>
         <div>
           <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
             {t("questionEditor.settings")}
@@ -246,8 +247,8 @@ export function QuestionEditor({
             ? t("questionEditor.manualGraded")
             : t("questionEditor.autoGraded")}
         </p>
-      </aside>
-    </div>
+      </PageAside>
+    </>
   );
 }
 

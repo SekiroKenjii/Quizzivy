@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { PageAside } from "@/components/shared/PageAside";
 import { TemporaryPasswordCard } from "@/features/students/components/TemporaryPasswordCard";
 import {
   resetStudentPassword,
@@ -90,10 +91,7 @@ export function StudentDrawer({
   const googleOnly = !student.hasPassword && student.linkedProviders.includes("google");
 
   return (
-    <aside
-      aria-label={t("students.detailFor", { name: student.fullName })}
-      className="w-96 shrink-0 space-y-5 overflow-y-auto border-l p-5"
-    >
+    <PageAside label={t("students.detailFor", { name: student.fullName })}>
       <div className="flex items-start gap-3">
         <Avatar size="lg" name={student.fullName} />
         <div className="min-w-0 flex-1">
@@ -227,7 +225,7 @@ export function StudentDrawer({
           {student.disabledAt ? t("students.enable") : t("students.disable")}
         </Button>
       </div>
-    </aside>
+    </PageAside>
   );
 }
 
