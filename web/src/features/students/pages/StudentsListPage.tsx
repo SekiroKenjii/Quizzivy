@@ -27,6 +27,7 @@ import {
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 const PAGE_SIZE = 50;
 
@@ -81,25 +82,24 @@ export default function StudentsListPage() {
   return (
     <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
       <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              {t("nav.students")}
-            </h1>
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {facets
-                ? t("students.summary", {
-                    count: facets.total,
-                    active: facets.activeLast7Days,
-                  })
-                : " "}
-            </p>
-          </div>
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <UserPlus aria-hidden="true" />
-            {t("students.new")}
-          </Button>
-        </div>
+        <PageHeader
+          variant="title"
+          title={t("nav.students")}
+          subtitle={
+            facets
+              ? t("students.summary", {
+                  count: facets.total,
+                  active: facets.activeLast7Days,
+                })
+              : " "
+          }
+          actions={
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <UserPlus aria-hidden="true" />
+              {t("students.new")}
+            </Button>
+          }
+        />
 
         <div className="flex items-center gap-4">
           <div className="relative w-72">

@@ -5,13 +5,16 @@ import {
   PasswordSection,
   ProfileSection,
 } from "@/features/auth/components/SettingsSections";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /** §8's settings: profile, password, Google, language. */
 export default function AdminSettingsPage() {
   const { t } = useTranslation();
   return (
     <div className="max-w-3xl space-y-3">
-      <h1 className="mb-4 text-xl font-semibold tracking-tight">{t("nav.settings")}</h1>
+      <div className="mb-4">
+        <PageHeader variant="title" title={t("nav.settings")} />
+      </div>
       <ProfileSection />
       <PasswordSection />
       <GoogleSection />

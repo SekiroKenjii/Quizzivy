@@ -44,6 +44,7 @@ import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { ApiError } from "@/lib/api/errors";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 const TABS: (TestStatus | "all")[] = ["all", "draft", "published", "archived"];
 
@@ -121,20 +122,21 @@ export default function TestsListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("nav.tests")}</h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {facets
-              ? t("tests.summary", { count: facets.all, drafts: facets.draft })
-              : "\u00a0"}
-          </p>
-        </div>
-        <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>
-          <Plus aria-hidden="true" />
-          {t("tests.new")}
-        </Button>
-      </div>
+      <PageHeader
+        variant="title"
+        title={t("nav.tests")}
+        subtitle={
+          facets
+            ? t("tests.summary", { count: facets.all, drafts: facets.draft })
+            : "\u00a0"
+        }
+        actions={
+          <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>
+            <Plus aria-hidden="true" />
+            {t("tests.new")}
+          </Button>
+        }
+      />
 
       <div className="flex items-center gap-2">
         <Tabs value={tab} onValueChange={(next) => setTab(next as TestStatus | "all")}>

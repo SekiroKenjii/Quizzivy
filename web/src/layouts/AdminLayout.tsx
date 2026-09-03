@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { NavLink, Outlet } from "react-router";
+import { PageBarSlot } from "@/layouts/pageBar";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -97,6 +97,8 @@ export default function AdminLayout() {
   const open = override ?? !isNarrow;
   const toggle = () => setOverride(!open);
 
+  // The element a screen's PageHeader bar portals into; see pageBar.ts.
+  const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
   return (
     /**
      * The deck's `.shell`: the sidebar is the FIRST child of a flex row and
@@ -191,10 +193,16 @@ export default function AdminLayout() {
           </div>
         </header>
 
+        {/* G-01's contextual bar lands here, under the topbar and outside the
+            scroll container, so it stays put the way the topbar does. */}
+        <div ref={setBarSlot} className="shrink-0" />
+
         <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
         <main className="min-w-0 flex-1 overflow-y-auto p-6">
-          <Outlet />
+          <PageBarSlot.Provider value={barSlot}>
+            <Outlet />
+          </PageBarSlot.Provider>
         </main>
       </div>
     </div>

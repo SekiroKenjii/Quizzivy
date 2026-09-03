@@ -29,6 +29,7 @@ import { useFileDrop } from "@/features/media/useFileDrop";
 import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api";
 import { formatBytes, formatDuration, formatUploadedAt } from "@/features/media/format";
 import { ApiError } from "@/lib/api/errors";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default function MediaLibraryPage() {
   const { t } = useTranslation();
@@ -77,23 +78,24 @@ export default function MediaLibraryPage() {
         </p>
       ) : null}
 
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("media.title")}</h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {library.isSuccess
-              ? t(library.hasNextPage ? "media.summarySoFar" : "media.summary", {
-                  count: assets.length,
-                  size: formatBytes(totalBytes),
-                })
-              : "\u00a0"}
-          </p>
-        </div>
-        <Button size="sm" onClick={() => uploader.current?.choose()}>
-          <Upload aria-hidden="true" />
-          {t("media.upload")}
-        </Button>
-      </div>
+      <PageHeader
+        variant="title"
+        title={t("media.title")}
+        subtitle={
+          library.isSuccess
+            ? t(library.hasNextPage ? "media.summarySoFar" : "media.summary", {
+                count: assets.length,
+                size: formatBytes(totalBytes),
+              })
+            : "\u00a0"
+        }
+        actions={
+          <Button size="sm" onClick={() => uploader.current?.choose()}>
+            <Upload aria-hidden="true" />
+            {t("media.upload")}
+          </Button>
+        }
+      />
 
       <UploadPanel
         ref={uploader}

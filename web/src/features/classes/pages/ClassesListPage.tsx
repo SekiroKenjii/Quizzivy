@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { api } from "@/lib/api/client";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * The teacher's classes. Deliberately thin: it exists so the §6.4 panel is
@@ -33,7 +34,7 @@ export default function ClassesListPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold tracking-tight">{t("nav.classes")}</h1>
+      <PageHeader variant="title" title={t("nav.classes")} />
 
       {items.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("classes.empty")}</p>

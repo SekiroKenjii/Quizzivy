@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
 import {
@@ -23,6 +22,7 @@ import {
 } from "@/features/question-bank/placeholders";
 import type { MediaAsset } from "@/features/media/api";
 import { ApiError } from "@/lib/api/errors";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default function QuestionEditorPage() {
   const { t } = useTranslation();
@@ -120,42 +120,37 @@ function Editor({
   }
 
   return (
-    <div className="-m-6 flex min-h-full flex-col">
-      <div className="flex h-12 items-center gap-2 border-b px-4">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("common.back")}
-          onClick={() => void navigate("/admin/question-bank")}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <h1 className="text-sm font-medium">
-          {question === null
+    <div className="flex min-h-full flex-col">
+      <PageHeader
+        title={
+          question === null
             ? t("questionEditor.newTitle")
-            : t("questionEditor.editTitle")}
-        </h1>
-        <div className="ml-auto flex items-center gap-2">
-          {blocked === null ? null : (
-            <span className="text-muted-foreground text-xs">{t(blocked)}</span>
-          )}
-          <Button
-            size="sm"
-            disabled={save.isPending || blocked !== null}
-            onClick={submit}
-          >
-            {save.isPending ? t("common.saving") : t("common.save")}
-          </Button>
-        </div>
-      </div>
+            : t("questionEditor.editTitle")
+        }
+        backTo="/admin/question-bank"
+        actions={
+          <>
+            {blocked === null ? null : (
+              <span className="text-muted-foreground text-xs">{t(blocked)}</span>
+            )}
+            <Button
+              size="sm"
+              disabled={save.isPending || blocked !== null}
+              onClick={submit}
+            >
+              {save.isPending ? t("common.saving") : t("common.save")}
+            </Button>
+          </>
+        }
+      />
 
       {error === null ? null : (
-        <p role="alert" className="text-destructive border-b px-4 py-2 text-sm">
+        <p role="alert" className="text-destructive mb-4 text-sm">
           {error}
         </p>
       )}
 
-      <div className="flex-1 p-6">
+      <div className="flex-1">
         <QuestionEditor
           value={values}
           asset={asset}
