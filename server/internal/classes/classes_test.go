@@ -346,3 +346,45 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 		t.Errorf("the roster still lists %d disabled member(s)", len(members))
 	}
 }
+
+// §9's /app/classes: what a student belongs to, and never the code's hint --
+// four characters of it are four more than a student should have.
+func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+	otherClass, _, outsider := makeClass(t, pool)
+
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, classID, studentID, teacherID); err != nil {
+		t.Fatal(err)
+	}
+	// An active code, so the blanking is tested against something.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
+		 VALUES ($1::uuid, sha256('secret'::bytea), 'P9QR', now() + interval '1 day', $2::uuid)`,
+		classID, teacherID); err != nil {
+		t.Fatal(err)
+	}
+
+	mine, err := store.ListMine(ctx, studentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != 1 || mine[0].ID != classID {
+		t.Fatalf("classes %+v, want exactly the one joined", mine)
+	}
+	if mine[0].JoinCode != nil {
+		t.Errorf("a student's class carries a join code hint: %+v", *mine[0].JoinCode)
+	}
+
+	theirs, err := store.ListMine(ctx, outsider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(theirs) != 0 {
+		t.Errorf("a student in no class sees %d classes (%s is not theirs)", len(theirs), otherClass)
+	}
+}

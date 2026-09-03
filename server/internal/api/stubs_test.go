@@ -21,10 +21,6 @@ import (
 // Delete a name here when you implement it. Adding one is a phase boundary, not
 // a routine change.
 var unimplemented = []string{
-	// Phase 3 — assignments and taking a test
-	"GetMyAssignment",
-	"ListMyAssignments",
-
 	// Phase 4 — monitoring, grading and results
 	"ExtendAttempt",
 	"FinishGrading",
@@ -39,7 +35,6 @@ var unimplemented = []string{
 
 	// Classes and students beyond what §6.4 needed in Phase 1
 	"CreateClass",
-	"ListMyClasses",
 }
 
 // stubbedOperations reads the names off server.gen_stubs.go, which is the file

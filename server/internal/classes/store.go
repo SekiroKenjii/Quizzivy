@@ -111,6 +111,31 @@ func (s *Store) List(ctx context.Context) ([]Class, error) {
 	return out, rows.Err()
 }
 
+// ListMine is §9's /app/classes: the classes this student belongs to, most
+// recently joined first. The join code is never populated -- its hint is the
+// teacher's, and a student who can read four characters of it has four
+// characters more than they should.
+func (s *Store) ListMine(ctx context.Context, userID string) ([]Class, error) {
+	rows, err := s.pool.Query(ctx, classProjection+`
+	  JOIN app.class_members me ON me.class_id = c.id AND me.user_id = $1::uuid
+	 ORDER BY me.joined_at DESC, c.id DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list my classes: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Class
+	for rows.Next() {
+		c, err := scanClass(rows)
+		if err != nil {
+			return nil, fmt.Errorf("list my classes: %w", err)
+		}
+		c.JoinCode = nil
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // Members lists who is in the class and HOW they got in.
 //
 // joined_via and the code hint are the point (§6.4): they are what lets a
