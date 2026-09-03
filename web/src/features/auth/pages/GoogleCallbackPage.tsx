@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { callbackUrl, statesMatch, takePending } from "@/features/auth/google/pkce";
-import { destinationAfterSignIn } from "@/features/auth/home";
+import { destinationAfterSignIn, preloadStudentHome } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 
@@ -59,6 +59,10 @@ export default function GoogleCallbackPage() {
           });
           return;
         }
+
+        // A visitor holding a class code is a student, whatever the exchange
+        // says next. Their home can start downloading now, alongside it.
+        if (pending.joinCode) preloadStudentHome();
 
         const result = await api("post", "/auth/google", {
           body: {

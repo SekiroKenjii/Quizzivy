@@ -27,3 +27,23 @@ export function destinationAfterSignIn(
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
   return homePathFor(user);
 }
+
+/**
+ * Starts fetching the student home's chunks while the authorization code is
+ * still out being exchanged.
+ *
+ * Rendering /app needs two lazy chunks -- the layout, then the page inside
+ * it -- and they are nested, so a cold entry fetches them one after the other.
+ * A student arriving from a QR code waits for both before the first screen
+ * they ever see. Overlapping that with the round trip is the only thing that
+ * makes the wait shorter rather than merely tolerated; the alternative,
+ * folding a boundary into the entry chunk, hands student code to every
+ * anonymous visitor, which §2 forbids and router-chunks.test.ts enforces.
+ *
+ * Fire-and-forget. A failed prefetch changes nothing: the router's own lazy
+ * import fetches again.
+ */
+export function preloadStudentHome(): void {
+  void import("@/layouts/StudentLayout").catch(() => undefined);
+  void import("@/features/assignments/pages/StudentHomePage").catch(() => undefined);
+}
