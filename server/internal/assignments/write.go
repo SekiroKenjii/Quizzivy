@@ -158,6 +158,23 @@ func (s *Store) Create(ctx context.Context, req Request, in WriteInput) (Assignm
 	return created, nil
 }
 
+// versionStillFree refuses a version change once anyone has started.
+func versionStillFree(ctx context.Context, tx pgx.Tx, assignmentID, next, current string) error {
+	if next == current {
+		return nil
+	}
+	var started bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM app.attempts WHERE assignment_id = $1::uuid)`,
+		assignmentID).Scan(&started); err != nil {
+		return fmt.Errorf("assignments: attempt check: %w", err)
+	}
+	if started {
+		return ErrVersionLocked
+	}
+	return nil
+}
+
 func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignment, error) {
 	if err := validate(in); err != nil {
 		return Assignment{}, err
@@ -188,16 +205,8 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 	if err != nil {
 		return Assignment{}, err
 	}
-	if in.TestVersionID != currentVersionID {
-		var started bool
-		if err := tx.QueryRow(ctx,
-			`SELECT EXISTS (SELECT 1 FROM app.attempts WHERE assignment_id = $1::uuid)`,
-			req.ID).Scan(&started); err != nil {
-			return Assignment{}, fmt.Errorf("assignments: attempt check: %w", err)
-		}
-		if started {
-			return Assignment{}, ErrVersionLocked
-		}
+	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, currentVersionID); err != nil {
+		return Assignment{}, err
 	}
 	if err := checkTargets(ctx, tx, in); err != nil {
 		return Assignment{}, err

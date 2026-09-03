@@ -143,43 +143,16 @@ export default function StudentsListPage() {
         </div>
       ) : items.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          {showDisabled
-            ? t("students.noneDisabled")
-            : search === ""
-              ? t("students.empty")
-              : t("students.noMatches")}
+          {t(emptyMessage(showDisabled, search))}
         </p>
       ) : (
         <>
-          <Card className="gap-0 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[26%]">{t("students.student")}</TableHead>
-                  <TableHead>{t("students.classes")}</TableHead>
-                  <TableHead>{t("students.signInWith")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("students.submitted")}
-                  </TableHead>
-                  <TableHead className="text-right">{t("students.average")}</TableHead>
-                  <TableHead>{t("students.activity")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((student) => (
-                  <Row
-                    key={student.id}
-                    student={student}
-                    locale={locale}
-                    expanded={student.id === selectedId}
-                    onToggle={() =>
-                      setSelectedId(student.id === selectedId ? null : student.id)
-                    }
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+          <StudentTable
+            items={items}
+            locale={locale}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
 
           {students.data && (
             <Pager
@@ -207,6 +180,52 @@ export default function StudentsListPage() {
       <NewStudentDialog open={creating} onOpenChange={setCreating} />
     </div>
   );
+}
+
+function StudentTable({
+  items,
+  locale,
+  selectedId,
+  onSelect,
+}: {
+  items: Student[];
+  locale: Locale;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[26%]">{t("students.student")}</TableHead>
+            <TableHead>{t("students.classes")}</TableHead>
+            <TableHead>{t("students.signInWith")}</TableHead>
+            <TableHead className="text-right">{t("students.submitted")}</TableHead>
+            <TableHead className="text-right">{t("students.average")}</TableHead>
+            <TableHead>{t("students.activity")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((student) => (
+            <Row
+              key={student.id}
+              student={student}
+              locale={locale}
+              expanded={student.id === selectedId}
+              onToggle={() => onSelect(student.id === selectedId ? null : student.id)}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
+function emptyMessage(showDisabled: boolean, search: string): string {
+  if (showDisabled) return "students.noneDisabled";
+  return search === "" ? "students.empty" : "students.noMatches";
 }
 
 function Row({

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -126,45 +126,58 @@ export default function TestDetailPage() {
               </h2>
             </div>
             <div className="px-5 pb-4">
-              {versions.isPending ? (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="text-muted-foreground text-sm"
-                >
-                  {t("common.loading")}
-                </p>
-              ) : versions.isError ? (
-                <p role="alert" className="text-destructive text-sm">
-                  {t("tests.loadFailed")}
-                </p>
-              ) : versions.data.items.length === 0 ? (
-                <p className="text-muted-foreground text-sm">{t("tests.noVersions")}</p>
-              ) : (
-                <ol className="space-y-3">
-                  {versions.data.items.map((version) => (
-                    <li key={version.id} className="text-sm">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-medium tabular-nums">
-                          {t("tests.versionNumber", { n: version.version })}
-                        </span>
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {version.questionCount} · {version.totalPoints}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground text-xs">
-                        {formatDateTime(version.publishedAt, locale)} ·{" "}
-                        {version.publishedBy}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              )}
+              <VersionHistory query={versions} locale={locale} />
             </div>
           </section>
         </Card>
       </div>
     </>
+  );
+}
+
+function VersionHistory({
+  query,
+  locale,
+}: {
+  query: UseQueryResult<Awaited<ReturnType<typeof listVersions>>>;
+  locale: Locale;
+}) {
+  const { t } = useTranslation();
+  if (query.isPending) {
+    return (
+      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+        {t("common.loading")}
+      </p>
+    );
+  }
+  if (query.isError) {
+    return (
+      <p role="alert" className="text-destructive text-sm">
+        {t("tests.loadFailed")}
+      </p>
+    );
+  }
+  if (query.data.items.length === 0) {
+    return <p className="text-muted-foreground text-sm">{t("tests.noVersions")}</p>;
+  }
+  return (
+    <ol className="space-y-3">
+      {query.data.items.map((version) => (
+        <li key={version.id} className="text-sm">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="font-medium tabular-nums">
+              {t("tests.versionNumber", { n: version.version })}
+            </span>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {version.questionCount} · {version.totalPoints}
+            </span>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {formatDateTime(version.publishedAt, locale)} · {version.publishedBy}
+          </p>
+        </li>
+      ))}
+    </ol>
   );
 }
 
