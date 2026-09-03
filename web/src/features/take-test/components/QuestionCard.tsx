@@ -8,10 +8,6 @@ import type { StudentQuestion } from "../api";
 /**
  * The store-connected renderer: the one place a question is joined to the
  * answer being written into it.
- *
- * QuestionBody itself takes props, so it can be tested one type at a time and
- * reused by the teacher's review screen in Phase 4, which renders the same
- * question against an answer nobody is editing.
  */
 export function QuestionCard({
   question,

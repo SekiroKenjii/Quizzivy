@@ -1,15 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/errors";
 
-/**
- * §2: "All API reads/writes go through query/mutation hooks."
- *
- * The retry policy matters more than it looks. Retrying a 4xx is pointless and
- * actively harmful for two of ours: a 429 retried immediately makes the rate
- * limit worse (§6.5), and a 401 is already handled inside the client by
- * refresh-and-retry, so a Query-level retry would multiply attempts against a
- * session that is already being repaired.
- */
+/** §2: "All API reads/writes go through query/mutation hooks." */
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -52,11 +52,6 @@ export function moveQuestion(
 /**
  * One step up or down in reading order, crossing a section boundary rather than
  * stopping at it.
- *
- * The keyboard path has to reach every position the pointer can, or the
- * move-up/move-down buttons are a worse version of drag rather than an equal
- * one -- and moving a question between sections is the reason the outline is
- * draggable at all.
  */
 export function stepQuestion(
   sections: OutlineSection[],

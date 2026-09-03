@@ -238,8 +238,6 @@ func TestEveryBlankRightIsExactlyTheQuestionsPoints(t *testing.T) {
 
 	all := `{"type":"fill_blank","values":{"b1":"a","b2":"b","b3":"c"}}`
 	if got := grading.Grade(q, []byte(all)).Score; got != 2 {
-		// Rounding each blank to 0.67 and adding would give 2.01 -- more than
-		// the question is worth, on the commonest answer there is.
 		t.Errorf("all three blanks scored %v, want exactly 2", got)
 	}
 

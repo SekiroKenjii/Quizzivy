@@ -137,8 +137,7 @@ describe("the monitor itself", () => {
     expect(pending().map((e) => e.kind)).toContain("paste");
   });
 
-  // §10.1: recorded, never blocked. Blocking it breaks assistive tooling and
-  // the spell-check a language learner has every right to.
+  // §10.1: recorded, never blocked.
   it("never blocks the context menu", () => {
     mount({ blockCopyPaste: true });
     const menu = new Event("contextmenu", { bubbles: true, cancelable: true });

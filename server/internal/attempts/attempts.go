@@ -30,34 +30,20 @@ const (
 // sessionLiveWindow decides whether a resume supersedes a tab that was still
 // open (`session_takeover`) or merely re-enters one that had gone -- a reload,
 // a crash, a closed laptop -- which is `resume` alone.
-//
-// There is no heartbeat to ask, so recency of the session's last CLIENT write
-// stands in for liveness. Two minutes is several autosave debounces: long
-// enough that a brief network stall does not read as a departed tab, short
-// enough that reopening a test an hour later is not reported to the teacher as
-// a second device.
 const sessionLiveWindow = 2 * time.Minute
 
 var (
 	ErrNotFound = errors.New("attempts: not found")
 	// ErrForbidden covers both "not your attempt" and "not assigned to you".
-	// They are one answer to the caller and deliberately indistinguishable to
-	// the student: which assignments exist is not theirs to enumerate.
 	ErrForbidden        = errors.New("attempts: not yours")
 	ErrAssignmentClosed = errors.New("attempts: assignment is not open")
 	ErrLimitReached     = errors.New("attempts: attempt limit reached")
 
-	// ErrSessionSuperseded is how the tab that lost finds out. It learns on its
-	// next write rather than being told at the moment it happened, because
-	// there is nothing pushing to it -- §10.1, E2E 7.
+	// ErrSessionSuperseded is how the tab that lost finds out.
 	ErrSessionSuperseded = errors.New("attempts: session superseded")
 	ErrDeadlinePassed    = errors.New("attempts: deadline passed")
 	ErrAttemptClosed     = errors.New("attempts: attempt is no longer in progress")
 
-	// ErrBeaconExpired is separate from ErrForbidden so the difference between
-	// a wrong token and a spent one stays legible here. Both answer 403 on the
-	// wire -- telling a caller which one it was is telling it whether the token
-	// it holds is real.
 	ErrBeaconExpired = errors.New("attempts: beacon token has expired")
 )
 

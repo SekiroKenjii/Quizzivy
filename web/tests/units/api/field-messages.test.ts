@@ -34,8 +34,6 @@ describe("the per-field reasons behind a validation failure", () => {
     expect(fieldMessages(validationError())).toEqual([]);
   });
 
-  // details is `additionalProperties: true` in the contract, so a nested object
-  // is legal and must not reach the DOM as "[object Object]".
   it("drops anything that is not a sentence", () => {
     expect(
       fieldMessages(validationError({ a: "real", b: { nested: 1 }, c: 7 })),

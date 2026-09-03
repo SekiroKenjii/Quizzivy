@@ -1,14 +1,7 @@
 import { useEffect, useReducer } from "react";
 import { remainingMs, useTakeTestStore } from "../store";
 
-/**
- * The clock, read from the server's time rather than the device's.
- *
- * Derived during render rather than held in state. The interval's only job is
- * to ask for a repaint; keeping the number in state as well would be a second
- * copy of the truth, synchronised by an effect that sets state on mount --
- * which is the cascade react-hooks/set-state-in-effect exists to stop.
- */
+/** The clock, read from the server's time rather than the device's. */
 export function Clock() {
   const deadlineAt = useTakeTestStore((s) => s.deadlineAt);
   const offsetMs = useTakeTestStore((s) => s.offsetMs);

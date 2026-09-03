@@ -330,10 +330,6 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in Input) 
 			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
 			return fmt.Errorf("questions: write blank: %w", err)
 		}
-		// UNIQUE (blank_id, answer) is exact, so a repeated answer would abort --
-		// and "repeated" includes one word in two Unicode compositions, which
-		// the constraint cannot tell apart from two words and grading treats as
-		// one. Stored as NFC, so the bank holds each answer once.
 		seen := map[string]bool{}
 		for _, answer := range b.AcceptedAnswers {
 			answer = norm.NFC.String(answer)
@@ -359,8 +355,7 @@ func (s *Store) SoftDelete(ctx context.Context, in WriteInput) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Locked before the reference count. On its own this only orders concurrent
-	// deletes -- see LockForDraftUse, which the insert side must call.
+	// Locked before the reference count.
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,

@@ -18,8 +18,6 @@ type TypeFacets struct {
 // list: A-06 shows every type's count at once, and applying the filter would
 // zero the rows the teacher has not selected.
 func (s *Store) Facets(ctx context.Context, in ListInput) (TypeFacets, error) {
-	// types: false -- applying the type filter would zero every row the teacher
-	// has not ticked, which is the whole point of showing all five counts.
 	args, where := appendFilters(in, nil, filterOpts{tags: true})
 
 	sql := `SELECT q.type::text, count(*)

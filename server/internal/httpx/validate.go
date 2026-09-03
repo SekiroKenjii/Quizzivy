@@ -52,11 +52,6 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 // validationMessage turns kin-openapi's error into something a person can act
 // on. Its default rendering embeds the whole failing schema, which is both
 // unreadable and hands an anonymous caller the internals of the contract.
-//
-// Every field here is optional in practice: a body error has no Parameter, a
-// parameter error has no schema pointer, and an unparseable body has neither.
-// Dereferencing without checking turns a malformed request into a panic, which
-// is a denial of service that any anonymous caller can trigger at will.
 func validationMessage(err error) string {
 	const generic = "Dữ liệu gửi lên không hợp lệ."
 
@@ -102,10 +97,6 @@ func failingField(reqErr *openapi3filter.RequestError) string {
 // `METHOD /path` pattern the mux matches on. The validator skips them: it
 // buffers and decodes the whole body, which defeats the handler's streaming,
 // and it would gate on a Content-Type the endpoint must not trust.
-//
-// Nothing is lost. Auth runs earlier, these operations declare no parameters
-// (TestStreamingRoutesHaveNoParameters), and the handler's own checks are
-// stronger than anything a `format: binary` schema can express.
 func StreamingBodyRoutes(spec *openapi3.T) map[string]struct{} {
 	streaming := map[string]struct{}{}
 	for path, item := range spec.Paths.Map() {

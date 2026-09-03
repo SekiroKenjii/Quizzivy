@@ -5,11 +5,6 @@ import { anonymous, stubApi, stubGoogleConsent, studentUser } from "./support/ap
  * §14's E2E 3 and E2E 4 — the self-join flow, which is the only way a student
  * account comes into existence (§6.3) and the first Quizzivy screen anyone new
  * ever sees.
- *
- * Google itself is replaced; everything else is the real thing. The browser
- * really does navigate to the authorization endpoint, the redirect really does
- * come back to our callback, and the `state` is echoed from the request rather
- * than invented — so a broken state check fails here rather than passing.
  */
 
 const CODE = "K7M3P9QR";
@@ -73,12 +68,7 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
   await page.getByRole("button", { name: "Tiếp tục với Google" }).click();
 
   await expect(page).toHaveURL(/\/app$/);
-  // Longer than the default on purpose. The URL settles as soon as the router
-  // navigates, but rendering /app needs two dynamic imports to land first --
-  // StudentLayout, then the page inside it, nested and therefore sequential.
-  // Under a loaded runner that can outlast 5s, which is what made this flaky
-  // (#50). Both stay split: §2 says an anonymous visitor downloads neither
-  // tree, and tests/integration/router-chunks.test.ts enforces it.
+  // Longer than the default on purpose.
   await expect(page.getByRole("heading", { name: /^Chào / })).toBeVisible({
     timeout: 20_000,
   });

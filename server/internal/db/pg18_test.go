@@ -11,19 +11,6 @@ import (
 )
 
 // Pins the PostgreSQL 18 behaviour spec §13 depends on.
-//
-// §13.1 requires version-specific behaviour to be checked against the docs
-// rather than recalled. This is the executable form of that check: if an
-// assumption ever stops holding -- a minor upgrade, a different image, a
-// misconfigured server -- it fails here in Phase 0 rather than in Phase 3 with
-// a schema already built on it.
-//
-// Two of these exist because the first draft of the plan got them WRONG:
-//   - pg_trgm was assumed to fold accents. It does not.
-//   - Virtual generated columns were assumed to reject NOT NULL and CHECK.
-//     They accept both.
-//
-// Each assertion names the docs section it encodes.
 
 func openDB(t *testing.T) *sql.DB {
 	t.Helper()

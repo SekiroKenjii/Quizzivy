@@ -123,8 +123,6 @@ func TestResumingAnExpiredAttemptClosesItRatherThanReopeningIt(t *testing.T) {
 
 	expire(t, pool, session.Attempt.ID)
 
-	// max_attempts is 1 in the fixture, so the student has none left and the
-	// refusal proves the old one was closed rather than resumed.
 	_, err := svc.StartOrResume(ctx, w.assignment, w.student)
 	if err == nil {
 		t.Fatal("StartOrResume handed back an attempt whose deadline had passed")

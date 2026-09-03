@@ -89,11 +89,6 @@ describe("A-06's bulk selection", () => {
     expect(screen.queryByText(/Đã chọn/)).toBeNull();
   });
 
-  /**
-   * The deck opens section 3 with "selection that survives filtering", because
-   * building a paper means gathering from several searches before committing to
-   * any of them. A selection cleared by typing would make that impossible.
-   */
   it("keeps a selection when the search filters the row away", async () => {
     const user = renderBank();
 
@@ -141,14 +136,7 @@ describe("the bulk tag dialog", () => {
   });
 });
 
-/**
- * The rail's chips come from the SERVER, not from the returned page.
- *
- * Derived from `items`, a rail can only offer the tags that page happens to
- * carry: with 72 questions and a page of 50, two of the bank's three tags were
- * invisible — so a second chip could not be picked and multi-tag filtering
- * looked unbuilt when the server had supported it all along.
- */
+/** The rail's chips come from the SERVER, not from the returned page. */
 describe("A-06's tag rail", () => {
   it("offers tags no row on this page carries", async () => {
     server.use(
@@ -181,8 +169,7 @@ describe("A-06's tag rail", () => {
       ).toBeInTheDocument();
     }
 
-    // And several can be held at once, which is what the page-derived rail
-    // made impossible.
+    // And several can be held at once, which is what the page-derived rail made impossible.
     await user.click(screen.getByRole("button", { name: "unit-5", pressed: false }));
     await user.click(screen.getByRole("button", { name: "unit-9", pressed: false }));
     expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(2);

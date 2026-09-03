@@ -136,8 +136,6 @@ describe("the test detail preview", () => {
     await screen.findByText(publishedPrompt);
     expect(screen.getByRole("heading", { name: "Unit 5" })).toBeInTheDocument();
 
-    // The teacher edits the draft in the builder: a new title, a reordered
-    // outline, a question swapped out. None of it has been published.
     draft = {
       ...draft,
       title: "Unit 5 (đang sửa)",
@@ -158,8 +156,6 @@ describe("the test detail preview", () => {
       await screen.findByRole("heading", { name: "Unit 5 (đang sửa)" }),
     ).toBeInTheDocument();
 
-    // The preview does not: §7's version holds its own snapshot, so what a
-    // student receives is whatever was published.
     expect(screen.getByText(publishedPrompt)).toBeInTheDocument();
     expect(screen.getByText("Bản đang phát hành · v1")).toBeInTheDocument();
 

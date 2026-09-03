@@ -1,18 +1,6 @@
 import type { IntegrityEventInput } from "@/features/take-test/api";
 
-/**
- * The event buffer, and the sequence number that makes a retry safe.
- *
- * Module-level rather than React state for two reasons. The listeners that fill
- * it fire outside React -- `pagehide` most of all, where there is no render
- * left to schedule -- and the autosave flush that drains it lives in the store,
- * which is not a component either.
- *
- * Backed by sessionStorage, so a same-tab reload continues the sequence rather
- * than restarting it and colliding with what was already sent. Not
- * localStorage: a buffer that outlives the tab would flush a dead session's
- * events into a live one.
- */
+/** The event buffer, and the sequence number that makes a retry safe. */
 export interface Buffered {
   sessionId: string;
   nextSeq: number;
@@ -52,14 +40,7 @@ function write(attemptId: string, next: Buffered): void {
   }
 }
 
-/**
- * Starts or resumes a session's buffer.
- *
- * A NEW session id resets the sequence to zero, which is safe precisely because
- * the server's uniqueness key includes session_id (D-01): the same clientSeq
- * from two sessions is two rows, not a collision. The same session id keeps
- * counting, so a reload does not re-send seq 1 as something new.
- */
+/** Starts or resumes a session's buffer. */
 export function beginSession(attemptId: string, sessionId: string): void {
   const stored = read(attemptId);
   if (stored !== null && stored.sessionId === sessionId) {

@@ -23,10 +23,6 @@ import { ApiError } from "@/lib/api/errors";
  * G-06's "Thêm học viên": enrols someone who already has an account, which is
  * the path for a student who joined before the class existed or who lost the
  * code.
- *
- * Members already in the class stay in the list, marked, rather than being
- * filtered out. Vanishing rows make a teacher wonder whether the search is
- * broken; "đã trong lớp" answers the question they actually had.
  */
 export function AddMemberDialog({
   classId,
@@ -89,9 +85,6 @@ export function AddMemberDialog({
             className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
             aria-hidden="true"
           />
-          {/* The dialog exists to type a name into, so focus belongs in the
-              box; landing anywhere else costs a keystroke and tells a screen
-              reader user nothing extra. */}
           <Input
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus

@@ -21,9 +21,6 @@ interface PublishDialogProps {
  * A-05's publish gate. §8 lists rules a test can fail in several places at
  * once, and a toast cannot express five failures with locations -- so every
  * blocking issue is a line with a jump link.
- *
- * Publish stays visible and disabled behind this rather than hidden: hiding it
- * would leave the teacher looking for the button instead of reading the reasons.
  */
 export function PublishDialog({ violations, onClose, onGoTo }: PublishDialogProps) {
   const { t } = useTranslation();

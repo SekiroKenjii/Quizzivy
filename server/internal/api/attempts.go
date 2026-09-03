@@ -26,8 +26,6 @@ func (s *Server) StartOrResumeAttempt(ctx context.Context, request openapi.Start
 	switch {
 	case errors.Is(err, attempts.ErrForbidden), errors.Is(err, attempts.ErrNotFound):
 		// One answer for "not yours", "no such assignment" and "still a draft".
-		// Which assignments exist is not a student's to enumerate, and a
-		// distinct 404 would enumerate them.
 		return openapi.StartOrResumeAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
 				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền làm bài này.")),
@@ -166,9 +164,6 @@ func (s *Server) toAPIStudentQuestion(ctx context.Context, studentID string, q a
 		return out, nil
 	}
 
-	// Minted per response rather than stored: the URL expires, and one cached
-	// alongside the row would hand a student a dead player halfway through a
-	// listening question (§11.2).
 	signed, err := s.Deps.Media.MintForStudent(ctx, studentID, q.Media.ID)
 	if err != nil {
 		return openapi.StudentQuestion{}, fmt.Errorf("sign attempt media: %w", err)
@@ -256,9 +251,6 @@ func (s *Server) SaveAnswers(ctx context.Context, request openapi.SaveAnswersReq
 			"submitted", len(in.Answers))
 	}
 
-	// serverTime comes back on every save, not only on the first fetch, so the
-	// client's clock offset self-corrects over a long test rather than drifting
-	// from whatever it measured once at the start.
 	return openapi.SaveAnswers200JSONResponse{
 		ServerTime: saved.SavedAt,
 		SavedAt:    saved.SavedAt,
@@ -368,9 +360,6 @@ func (s *Server) FlushEvents(ctx context.Context, request openapi.FlushEventsReq
 	in := attempts.FlushInput{AttemptID: request.Id.String()}
 	switch {
 	case request.JSONBody != nil:
-		// The route is open in the contract, so the middleware attaches a
-		// principal when a token verifies and leaves it absent otherwise. No
-		// principal on this path means no credential at all.
 		principal, ok := httpx.PrincipalFromContext(ctx)
 		if !ok {
 			return forbiddenFlush(ctx), nil
@@ -386,8 +375,7 @@ func (s *Server) FlushEvents(ctx context.Context, request openapi.FlushEventsReq
 	case request.TextBody != nil:
 		var body beaconFlush
 		if err := json.Unmarshal([]byte(*request.TextBody), &body); err != nil {
-			// Unparseable is refused rather than 202'd. 202 means "recorded, do
-			// not worry about it", which would be a lie.
+			// Unparseable is refused rather than 202'd.
 			return forbiddenFlush(ctx), nil
 		}
 		in.BeaconToken = body.BeaconToken
@@ -404,8 +392,6 @@ func (s *Server) FlushEvents(ctx context.Context, request openapi.FlushEventsReq
 
 	err := s.Deps.Attempts.Flush(ctx, in)
 	if errors.Is(err, attempts.ErrForbidden) || errors.Is(err, attempts.ErrBeaconExpired) {
-		// One answer for a wrong token and a spent one: which it was tells a
-		// caller whether the token it holds is real.
 		return forbiddenFlush(ctx), nil
 	}
 	if err != nil {

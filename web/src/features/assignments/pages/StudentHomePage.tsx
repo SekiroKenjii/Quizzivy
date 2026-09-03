@@ -24,16 +24,7 @@ import {
   weekdayDate,
 } from "../studentTime";
 
-/**
- * S-03: what to do next, in the order it matters.
- *
- * A live attempt outranks everything, including a nearer deadline -- it is
- * burning a server-side clock the student cannot see from anywhere else. Then
- * what is due, what is coming, what is done. Sections with nothing in them
- * are not drawn; the whole-page empties are two different truths (no work
- * yet, or no class yet), and a student who has a class is never offered a
- * join code as if something had gone wrong.
- */
+/** S-03: what to do next, in the order it matters. */
 export default function StudentHomePage() {
   const { t, i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
@@ -50,8 +41,6 @@ export default function StudentHomePage() {
 
   const name = givenName(user?.fullName ?? "");
 
-  // The greeting is the student's, not the data's: it stays put while the
-  // list loads, and when it fails.
   if (!assignments.isSuccess) {
     return (
       <div className="space-y-5">
@@ -248,8 +237,6 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
       const session = await startOrResumeAttempt(card.id);
       await navigate(`/app/attempts/${session.attempt.id}`);
     } catch (cause) {
-      // The server's own sentence when it has one -- "hết lượt" is an answer,
-      // "thử lại" is not.
       setError(
         cause instanceof ApiError ? cause.message : t("student.intro.startFailed"),
       );

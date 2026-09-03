@@ -17,9 +17,6 @@ import (
 // simultaneous logins exceed the entire instance, and a class of thirty
 // students signing in together is an ordinary Tuesday. The failure mode is not
 // slowness -- it is the OOM killer.
-//
-// Rate limiting does not bound this: §6.5's buckets are per-IP and per-email,
-// and thirty students on thirty phones are thirty IPs.
 
 func TestConcurrentHashesAreBoundedByTheLimit(t *testing.T) {
 	const limit = 2

@@ -93,10 +93,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 	w.attempt(t, pool, attempt{assignment: a, no: 1, status: "graded", earned: p("6.00"), total: p("10.00")})
 
 	yes := true
-	// The contract declares 200 with a StudentRow for this exact request. An
-	// earlier version read the row back through the live-students query and so
-	// answered 404 for a write that had already committed, which tells an
-	// operator the revocation failed when it did not.
+	// The contract declares 200 with a StudentRow for this exact request.
 	disabled, err := store.Update(ctx, students.Request{ActorID: w.admin}, students.UpdateInput{
 		ID: w.student, Disabled: &yes, Now: time.Now(),
 	})
@@ -117,8 +114,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		t.Fatal("the account was not disabled")
 	}
 
-	// Findable again, which is what makes the disable reversible. The default
-	// listing still hides them; asking for them by status does not.
+	// Findable again, which is what makes the disable reversible.
 	back, err := store.Get(ctx, w.student)
 	if err != nil {
 		t.Fatalf("Get on a disabled student: %v", err)
@@ -191,8 +187,6 @@ func TestResettingAPasswordRevokesEverySession(t *testing.T) {
 		  WHERE user_id = $1::uuid AND revoked_at IS NULL`, w.student).Scan(&live); err != nil {
 		t.Fatal(err)
 	}
-	// All of them: the admin is acting, so there is no caller session to keep,
-	// and a reset that leaves the attacker's family alive achieves nothing.
 	if live != 0 {
 		t.Errorf("%d refresh families survived the reset", live)
 	}

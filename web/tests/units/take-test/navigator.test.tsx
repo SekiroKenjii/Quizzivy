@@ -111,8 +111,6 @@ describe("the navigator", () => {
     ).toBeInTheDocument();
   });
 
-  // The deck's S-05 callout: no submit button floating through the whole
-  // test -- the last question changes one button.
   it("turns the last question's next button into review", async () => {
     const user = userEvent.setup();
     renderPage();

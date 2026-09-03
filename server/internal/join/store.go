@@ -128,15 +128,6 @@ type RevokeInput struct {
 
 // Revoke ends the active code without issuing a replacement, and turns off
 // self-join (§6.4).
-//
-// Both halves, or neither. Revoking the code while leaving self_join_enabled
-// true would advertise a join flow that cannot succeed; clearing the flag
-// without revoking would leave a live bearer secret in circulation that the
-// teacher believes they have cancelled.
-//
-// Idempotent: revoking a class that has no active code still clears the flag
-// and still returns success. "There is no way in" is the requested state, and
-// reporting failure would invite a retry that changes nothing.
 func (s *Store) Revoke(ctx context.Context, in RevokeInput) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

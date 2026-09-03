@@ -8,18 +8,7 @@ import { destinationAfterSignIn, preloadStudentHome } from "@/features/auth/home
 import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 
-/**
- * Where Google sends the browser back (§5.3 step 2).
- *
- * The authorization code is exchanged SERVER-side -- the client secret never
- * reaches a browser -- so all this page does is hand `code` and `codeVerifier`
- * to `POST /auth/google` and act on the answer.
- *
- * `state` is checked before anything else. It is the only thing standing
- * between this endpoint and a code planted by someone else's authorization
- * request, and the pending record is consumed on read, so a replay of the same
- * callback URL finds nothing.
- */
+/** Where Google sends the browser back (§5.3 step 2). */
 export default function GoogleCallbackPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -60,8 +49,7 @@ export default function GoogleCallbackPage() {
           return;
         }
 
-        // A visitor holding a class code is a student, whatever the exchange
-        // says next. Their home can start downloading now, alongside it.
+        // A visitor holding a class code is a student, whatever the exchange says next.
         if (pending.joinCode) preloadStudentHome();
 
         const result = await api("post", "/auth/google", {

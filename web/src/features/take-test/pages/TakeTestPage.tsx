@@ -30,12 +30,6 @@ import { useTakeTestStore } from "../store";
  * S-05's engine, one question at a time -- and S-06's two other views of the
  * same attempt: the navigator (a sheet in thumb range, a rail from 1024px)
  * and the review before submitting.
- *
- * Both are views, not routes. A route change would unmount this page, and
- * with it the store, the event buffer and the monitor; the student would
- * come back to a paper that had forgotten them. The header keeps its height
- * across question types on purpose, so the body never shifts as a student
- * moves between them.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
@@ -63,13 +57,9 @@ export default function TakeTestPage() {
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const reset = useTakeTestStore((s) => s.reset);
 
-  // Also the recovery from an expired signed URL: §11.2 says treat it as
-  // expiring and refetch rather than failing, and the payload is where a fresh
-  // one comes from.
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
 
-  // Every §10 listener, in one place. Mounted here because this is the screen
-  // being watched, and it stops watching when the screen goes away.
+  // Every §10 listener, in one place.
   const { strikes, lastAwayMs, fullscreen } = useIntegrityMonitor({
     attemptId: attemptId ?? null,
     sessionId,
@@ -95,14 +85,11 @@ export default function TakeTestPage() {
     };
   }, [attemptId, reloads, hydrate, reset]);
 
-  // Submitted -- by the button, by the timer, or by the other tab -- and
-  // there is nothing left to do here. Home, until Phase 4's result page.
   useEffect(() => {
     if (submitState === "done") void navigate("/app", { replace: true });
   }, [submitState, navigate]);
 
-  // S-08's shortcuts. Never while the student is typing, and never inside a
-  // sheet or the review, where the keys mean something else.
+  // S-08's shortcuts.
   const question = questions[Math.min(index, questions.length - 1)];
   useEffect(() => {
     if (view !== "question" || navOpen || lock !== null || question === undefined)
@@ -154,9 +141,7 @@ export default function TakeTestPage() {
     setView("question");
   };
 
-  // The server's count from before this sitting plus what this tab has seen
-  // since. Nothing integrity-related renders over a locked paper: it is
-  // read-only, and a strike against it would be a strike against nothing.
+  // The server's count from before this sitting plus what this tab has seen since.
   const watching = integrity !== null && lock === null;
   const strikeStatus = watching
     ? strikeState(integrity, focusLossCount + strikes)
@@ -396,10 +381,7 @@ function SaveStrip({
   indicator: ReactNode;
 }) {
   const { t } = useTranslation();
-  // The moment the SERVER confirmed, not the moment this rendered. Reading the
-  // clock here would answer "what time is it" while appearing to answer "when
-  // did my work last survive", and would keep looking reassuring long after
-  // saves stopped landing.
+  // The moment the SERVER confirmed, not the moment this rendered.
   const lastSavedAt = useTakeTestStore((s) => s.lastSavedAt);
 
   if (lock !== null) {
@@ -443,9 +425,7 @@ function SaveStrip({
 }
 
 function hhmm(iso: string): string {
-  // 24-hour, as the deck writes it ("Đã lưu 09:41"). Left to the locale it
-  // renders as "04:44 PM" on an English-defaulted machine, which is neither
-  // what S-05 shows nor how anyone here reads a clock.
+  // 24-hour, as the deck writes it ("Đã lưu 09:41").
   return new Date(iso).toLocaleTimeString("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",

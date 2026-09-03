@@ -1,13 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-/**
- * Subscribes to a media query.
- *
- * `useSyncExternalStore` rather than useState + useEffect: matchMedia is
- * external state, and this is the primitive React provides for it. The effect
- * version has to write state during the effect to resync after mount, which is
- * both an anti-pattern and a real tearing risk during concurrent rendering.
- */
+/** Subscribes to a media query. */
 export function useMediaQuery(query: string): boolean {
   const subscribe = useCallback(
     (onChange: () => void) => {

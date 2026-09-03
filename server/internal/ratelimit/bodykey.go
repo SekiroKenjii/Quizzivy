@@ -18,13 +18,6 @@ func JSONFieldKey(field string, maxBytes int64) KeyFunc {
 }
 
 // JSONFieldKeyFunc is JSONFieldKey with a caller-supplied canonicaliser.
-//
-// Lowercasing is enough for an email and NOT enough for a join code. A code is
-// accepted "with or without the dash and in any case" (§6.1), so `K7M3-P9QR`
-// and `k7m3p9qr` are one code -- and keyed on the raw value they are two
-// buckets, which hands an attacker a fresh allowance for every spelling of the
-// same secret. The key has to be whatever the LOOKUP will canonicalise to, not
-// whatever was typed.
 func JSONFieldKeyFunc(field string, maxBytes int64, canonical func(string) string) KeyFunc {
 	return func(r *http.Request) string {
 		if r.Body == nil {

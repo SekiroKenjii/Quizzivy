@@ -38,8 +38,7 @@ describe("the timer reads the server's clock, not the device's", () => {
     );
 
     const { deadlineAt, offsetMs } = useTakeTestStore.getState();
-    // Thirty minutes. A device-clock reading would have said twenty-five, and a
-    // student would have lost five minutes they were owed.
+    // Thirty minutes.
     expect(remainingMs({ deadlineAt, offsetMs })).toBe(30 * 60_000);
     expect(offsetMs).toBe(-5 * 60_000);
   });
@@ -59,8 +58,7 @@ describe("the timer reads the server's clock, not the device's", () => {
     );
 
     const { deadlineAt, offsetMs } = useTakeTestStore.getState();
-    // Not thirty-five. A slow clock would have kept the student typing into a
-    // paper the server had already closed.
+    // Not thirty-five.
     expect(remainingMs({ deadlineAt, offsetMs })).toBe(30 * 60_000);
   });
 

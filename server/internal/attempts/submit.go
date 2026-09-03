@@ -84,9 +84,7 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 	for _, q := range questions {
 		payload, answered := answers[q.ID]
 		if !answered {
-			// No row, nothing to update, and zero either way. An unanswered
-			// short_answer is not work waiting for the teacher -- there is
-			// nothing to read.
+			// No row, nothing to update, and zero either way.
 			continue
 		}
 		result := grading.Grade(q, payload)
@@ -108,8 +106,7 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 		}
 	}
 
-	// §7: the total comes from the frozen version, not from summing the
-	// questions here. A paper's worth is decided when it is published.
+	// §7: the total comes from the frozen version, not from summing the questions here.
 	var total float64
 	if err := tx.QueryRow(ctx,
 		`SELECT total_points FROM app.test_versions WHERE id = $1::uuid`, versionID).
@@ -117,8 +114,6 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 		return row{}, fmt.Errorf("attempts: read total points: %w", err)
 	}
 
-	// Ended-at is the deadline for a timeout and now for anything else: the
-	// work stopped when the clock did, whether or not anyone was watching.
 	endedAt := now
 	if reason == TimerExpired {
 		endedAt = deadlineAt
@@ -141,16 +136,6 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 }
 
 // closingStatus records HOW the attempt ended, and nothing about grading.
-//
-// An earlier version jumped straight to `graded` when nothing needed a person,
-// which quietly destroyed the more interesting fact: a paper that ran out of
-// time and happened to contain no essay read back as `graded`, and nothing
-// anywhere said the student never finished it.
-//
-// `graded` is the teacher's to set, when they finish grading (§8). Nothing here
-// sets it, and a paper with no essay does not sit in anyone's queue as a
-// result: the queue counts ANSWERS awaiting a person
-// (requires_manual AND manual_score IS NULL), not attempts in a status.
 func closingStatus(reason Reason) Status {
 	if reason == TimerExpired {
 		return TimedOut
@@ -273,16 +258,6 @@ func (s *Service) Submit(ctx context.Context, attemptID, studentID string, reaso
 
 // ExpireIfDue closes an attempt whose time ran out, and does nothing to one
 // that has not.
-//
-// This is what makes a deadline take effect with nothing watching the clock
-// (D-18's argument, applied to attempts rather than assignments). A scheduler
-// would be a second moving part that has to be running, be monitored, and be
-// correct about a timezone; a read that already had to happen is neither.
-//
-// The cost is that an attempt nobody looks at stays in_progress in the table
-// until somebody does. Nothing reads status without going through here, so the
-// row is never observed in the stale state -- which is the only property that
-// matters.
 func (s *Store) ExpireIfDue(ctx context.Context, attemptID string, now time.Time) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

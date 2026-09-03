@@ -18,16 +18,7 @@ import { formatDateTime } from "@/lib/i18n/datetime";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { ApiError } from "@/lib/api/errors";
 
-/**
- * §6.4's join-code panel.
- *
- * The plaintext code exists in exactly one place: the response to a rotation,
- * held in component state for as long as the teacher is looking at it. It is
- * never written to the query cache (which survives navigation) or to storage,
- * and there is no endpoint that could return it again -- only a SHA-256 hash is
- * stored (§13.3). So the panel has two shapes, and which one you see is
- * determined by whether you just pressed the button.
- */
+/** §6.4's join-code panel. */
 /** i18next hands back a plain string; the formatter wants one of ours. */
 function currentLocale(language: string): Locale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(language)
@@ -45,15 +36,6 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * An expired code still occupies the one-active-code slot -- the partial
-   * unique index is on `revoked_at IS NULL`, deliberately, because only
-   * rotation revokes (§6.1). So the server keeps returning it and the panel has
-   * to distinguish "there is a code" from "students can use it".
-   *
-   * Without this the teacher sees a healthy-looking code with a uses counter
-   * while /join turns every student away.
-   */
   const [openedAt] = useState(() => Date.now());
   const expired = klass.joinCode
     ? new Date(klass.joinCode.expiresAt).getTime() <= openedAt

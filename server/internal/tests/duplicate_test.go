@@ -57,9 +57,7 @@ func TestDuplicateCopiesTheDraftAndNoVersions(t *testing.T) {
 		t.Errorf("copy currentVersion is %d, want 0", copied.CurrentVersion)
 	}
 
-	// The Done-when item: no version rows follow the copy. test_versions does
-	// not exist until T-2.9, so this asserts the property the way it can be
-	// asserted today and will keep meaning the same thing afterwards.
+	// The Done-when item: no version rows follow the copy.
 	var versionTables int
 	if err := pool.QueryRow(ctx,
 		`SELECT count(*) FROM information_schema.tables

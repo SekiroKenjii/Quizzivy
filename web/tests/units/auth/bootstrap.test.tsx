@@ -13,15 +13,7 @@ import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
 
-/**
- * Restoring the session on a reload (§5.4).
- *
- * The guard waits on `isBootstrapping` so a reload does not flash /login and
- * lose the deep link. That only holds if bootstrap finishes for the right
- * reason: an ABORTED request says the component went away, not that the session
- * is gone, and treating the two the same bounced a signed-in teacher to /login
- * on every reload while their refresh cookie was still good.
- */
+/** Restoring the session on a reload (§5.4). */
 function Harness() {
   useBootstrapSession();
   return (
@@ -127,15 +119,11 @@ describe("restoring a session on load", () => {
     );
 
     const view = renderApp();
-    // Unmount only once the request is genuinely out, or the abort never
-    // happens and the test proves nothing.
     await inFlight;
     view.unmount();
     release();
     await new Promise((r) => setTimeout(r, 20));
 
-    // clearSession() would have set isBootstrapping false with a null user,
-    // which is the state that bounces the next render to /login.
     expect(useAuthStore.getState().isBootstrapping).toBe(true);
     expect(useAuthStore.getState().user).toBeNull();
   });

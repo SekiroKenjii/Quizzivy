@@ -44,15 +44,6 @@ func (p *Pool) Ping(ctx context.Context) error {
 }
 
 // WaitReady blocks until the database answers, or the budget runs out.
-//
-// Startup needs a far longer budget than /healthz. Neon suspends idle computes
-// and resumes them on the first connection, which takes seconds -- so a 2s
-// startup ping fails on exactly the deploy that follows a quiet period, and
-// reports "context deadline exceeded", which reads like a network fault rather
-// than a database that is simply waking up.
-//
-// Retries rather than one long timeout, so a genuinely misconfigured DSN still
-// fails quickly on the first attempt instead of hanging for the full budget.
 func (p *Pool) WaitReady(ctx context.Context, budget time.Duration) error {
 	deadline := time.Now().Add(budget)
 	var lastErr error

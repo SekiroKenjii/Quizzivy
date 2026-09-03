@@ -57,9 +57,7 @@ export function BulkTagDialog({
     setDraft("");
   }
 
-  // A tag still sitting in the input counts. Requiring Enter to commit it means
-  // a teacher who types one word and presses the button gets a no-op and no
-  // explanation -- the commonest way to use this dialog is also one tag.
+  // A tag still sitting in the input counts.
   const pending = draft.trim();
   const effective =
     pending === "" || tags.includes(pending) ? tags : [...tags, pending];

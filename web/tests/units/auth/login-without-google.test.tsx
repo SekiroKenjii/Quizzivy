@@ -7,15 +7,6 @@ import "@/lib/i18n";
 // supported configuration, not a broken one. LoginPage renders the whole Google
 // block behind googleSignInAvailable(), and nothing asserted what happens when
 // it says no.
-//
-// CI was exercising exactly this branch by accident for twelve runs -- it has no
-// .env, so the button was never rendered and the sibling test failed. Once that
-// is fixed by pinning the variable for tests, this branch goes back to having no
-// coverage at all unless it is asked for explicitly.
-//
-// Mocked rather than driven by the environment variable: googleSignInAvailable
-// reads import.meta.env once at module load, so no per-test env change can move
-// it after the fact.
 vi.mock("@/features/auth/google/useGoogleSignIn", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/auth/google/useGoogleSignIn")>()),
   googleSignInAvailable: () => false,

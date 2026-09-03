@@ -6,10 +6,6 @@ import type { Locale as AppLocale } from "./index";
  * Everything is stored and transported as UTC (§13.2). This module is the only
  * place a timezone is applied, so "store UTC, render Asia/Ho_Chi_Minh" is a
  * property of the codebase rather than a convention people remember.
- *
- * Do not call `new Date().toLocaleString()` anywhere else — it silently uses
- * the device timezone, which is wrong for a student travelling or a device with
- * a bad clock.
  */
 export const APP_TIME_ZONE = "Asia/Ho_Chi_Minh";
 
@@ -57,14 +53,7 @@ export function formatRelative(utc: string | Date, locale: AppLocale = "vi") {
   return relative.format(days, "day");
 }
 
-/**
- * The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE.
- *
- * The input element has no timezone: it hands back "2026-08-29T08:00" and the
- * browser means it in the device's zone. On a laptop set to UTC that is 15:00
- * in Vietnam, so a teacher opening a test at 08:00 would open it at 15:00 for
- * everyone. These two make the field mean the same thing on every machine.
- */
+/** The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE. */
 export function toDateTimeInput(utc: string | Date): string {
   return formatInTimeZone(utc, APP_TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
 }

@@ -14,19 +14,7 @@ import {
 import { getTest, listTests, saveOutline } from "@/features/tests/api";
 import { ApiError } from "@/lib/api/errors";
 
-/**
- * A-06's "Thêm vào đề thi" for a selection.
- *
- * Built on the outline write the builder already uses rather than a new bulk
- * endpoint, so it goes through the same version guard: the test is fetched,
- * the questions are appended to the chosen section, and the save carries the
- * `expectedUpdatedAt` it was read with. A teacher editing that test in another
- * tab gets the STALE_WRITE they would get anywhere else, instead of this path
- * quietly overwriting them.
- *
- * Archived tests are not offered — adding to something retired is a mistake
- * with no undo on this screen.
- */
+/** A-06's "Thêm vào đề thi" for a selection. */
 export function AddToTestDialog({
   questionIds,
   open,
@@ -178,8 +166,6 @@ function SectionList({
       </p>
     );
   }
-  // A test with no section has nowhere to put them, and inventing one here
-  // would be a structural edit the teacher did not ask for.
   if (test.data.sections.length === 0) {
     return (
       <p className="text-muted-foreground px-3 pb-3 text-xs">{t("bank.noSections")}</p>

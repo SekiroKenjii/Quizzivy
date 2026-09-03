@@ -104,8 +104,7 @@ describe("the monitor", () => {
     expect(result.current.fullscreen).toBe(false);
   });
 
-  // §10.1: `fullscreen_enter` / `fullscreen_exit` -- only when
-  // `requireFullscreen` is on.
+  // §10.1: `fullscreen_enter` / `fullscreen_exit` -- only when `requireFullscreen` is on.
   it("records the events only when the policy requires fullscreen", () => {
     monitor({ requireFullscreen: false });
     act(() => document.dispatchEvent(new Event("fullscreenchange")));

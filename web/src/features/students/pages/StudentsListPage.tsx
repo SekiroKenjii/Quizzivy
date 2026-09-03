@@ -38,16 +38,11 @@ export default function StudentsListPage() {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // The default hides suspended accounts, which is right for the everyday
-  // screen -- but without a way to ask for them a disable is a one-way door.
   const [showDisabled, setShowDisabled] = useState(false);
   const [creating, setCreating] = useState(false);
   const search = useDebounced(query, 300).trim();
   const locale = currentLocale(i18n.language);
 
-  // The limit is part of the key on purpose: the two token pickers query
-  // `["admin-students", { q }]` with limit 20, and sharing a cache entry across
-  // two page sizes would truncate whichever screen painted second.
   const [page] = usePage(JSON.stringify({ search, showDisabled }));
   const students = useQuery({
     queryKey: ["admin-students", { q: search, showDisabled, limit: PAGE_SIZE, page }],
@@ -67,12 +62,7 @@ export default function StudentsListPage() {
   const items = students.data?.items ?? [];
   const facets = students.data?.facets;
 
-  // The drawer fetches its own subject rather than reading it out of the loaded
-  // page. Deriving it from the list tied the panel's lifetime to the search: a
-  // teacher who reset a password and then typed in the search box changed the
-  // query key, emptied `items` while the new page loaded, unmounted the drawer,
-  // and destroyed the one-time password -- which is stored hashed and exists
-  // nowhere else.
+  // The drawer fetches its own subject rather than reading it out of the loaded page.
   const detail = useQuery({
     queryKey: ["admin-student", selectedId],
     queryFn: ({ signal }) => getStudent(selectedId!, signal),
@@ -165,11 +155,6 @@ export default function StudentsListPage() {
       )}
 
       {selected === null ? null : (
-        // Keyed by student: without it React reuses the same fiber when the
-        // teacher clicks the next row, and the drawer keeps its state -- so the
-        // panel showed the NEW student's name above the PREVIOUS student's
-        // one-time password, under a caption telling the teacher to hand it
-        // over.
         <StudentDrawer
           key={selected.id}
           student={selected}
@@ -245,9 +230,6 @@ function Row({
   return (
     <TableRow>
       <TableCell>
-        {/* aria-expanded is what tints the row: table.tsx carries
-          `has-aria-expanded:bg-muted/50`, which is the deck's selected-row
-          highlight without a second piece of state to keep in step. */}
         <button
           type="button"
           aria-expanded={expanded}

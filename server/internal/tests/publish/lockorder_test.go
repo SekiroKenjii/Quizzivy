@@ -60,19 +60,11 @@ func (b *builder) listeningQuestion(prompt, assetID string) string {
 
 // TestConcurrentPublishesSharingAssetsDoNotDeadlock is the deadlock the sort
 // exists to prevent.
-//
-// Two tests that reuse the same listening files -- ordinary in a school -- were
-// locked in document order, so publishing both at once could take asset 1 then
-// asset 2 in one transaction and asset 2 then asset 1 in the other. Postgres
-// breaks the cycle by aborting one with 40P01, and the teacher who loses gets
-// an error on a deliberate action that says nothing they can act on.
 func TestConcurrentPublishesSharingAssetsDoNotDeadlock(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 
-	// Ids are sorted, not created, order -- so the fixture cannot accidentally
-	// arrange the two tests in the same order and pass by luck.
 	first := audioAsset(t, pool, author, "lock-order-1")
 	second := audioAsset(t, pool, author, "lock-order-2")
 

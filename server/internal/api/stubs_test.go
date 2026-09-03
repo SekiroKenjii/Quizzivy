@@ -11,15 +11,6 @@ import (
 )
 
 // unimplemented is every operation that still returns 501, listed on purpose.
-//
-// T-2.15 built the test-detail screen against `/preview` and `/versions` while
-// both were stubs. Nothing failed: the contract had them, the generated client
-// had them, the screen rendered its error state, and it took E2E 1a against a
-// live API to notice. A list that has to be edited when a stub is replaced
-// makes "is this endpoint real?" answerable without running anything.
-//
-// Delete a name here when you implement it. Adding one is a phase boundary, not
-// a routine change.
 var unimplemented = []string{
 	// Phase 4 — monitoring, grading and results
 	"ExtendAttempt",

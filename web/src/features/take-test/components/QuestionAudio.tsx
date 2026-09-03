@@ -5,19 +5,7 @@ import { recordAudioEvent } from "@/features/integrity/useIntegrityMonitor";
 import { useTakeTestStore } from "../store";
 import type { StudentQuestion } from "../api";
 
-/**
- * The listening half of a question (§11.3, §11.4).
- *
- * The count on screen is the SERVER's. A client-side counter resets on reload,
- * which is what would make maxPlays mean nothing -- so this renders what the
- * payload carried, moves it optimistically when a play starts, and lets the
- * next fetch settle it.
- *
- * Nothing here can stop the audio. §11.4 is explicit that blocking playback on
- * a round trip punishes bad wifi far more often than it catches anyone, and a
- * student determined to replay can go offline anyway -- which leaves a gap in
- * the event log, which is what the teacher's timeline is for.
- */
+/** The listening half of a question (§11.3, §11.4). */
 export function QuestionAudio({
   question,
   onExpired,
@@ -44,8 +32,6 @@ export function QuestionAudio({
       hint={playsHint(t, played, maxPlays)}
       onPlay={() => {
         notePlay(question.id);
-        // The count and the timeline are different things: one is how many
-        // listens are left, the other is when they happened (§10.1).
         if (attemptId !== null) recordAudioEvent(attemptId, "audio_play", question.id);
       }}
       onRetry={onExpired}

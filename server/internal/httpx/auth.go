@@ -18,26 +18,11 @@ type Principal struct {
 
 // RequireAuth enforces bearer authentication on every generated route that the
 // CONTRACT does not mark as open.
-//
-// It is deliberately fail-CLOSED. The obvious shape -- a set of protected
-// routes, pass through anything else -- fails open: a route missing from the
-// set serves data with no token and nothing looks wrong. Inverting it means a
-// mistake shows up as a public endpoint returning 401, which someone notices in
-// a minute, instead of a private one returning data, which nobody notices.
-//
-// `/healthz` is registered on the base mux rather than through the generated
-// wrapper, so it never reaches this middleware.
 func RequireAuth(open map[string]struct{}, verify func(bearer string) (Principal, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if _, isOpen := open[r.Pattern]; isOpen {
-				// Open means authentication is not REQUIRED, not that it is
-				// ignored. An operation offering `security: [bearerAuth, {}]`
-				// -- the event flush, which also accepts an unauthenticated
-				// beacon -- still needs to know who is calling when a token is
-				// there. Attached best-effort: a token that does not verify
-				// leaves the route open rather than refusing it, or "open"
-				// would not mean open.
+				// Open means authentication is not REQUIRED, not that it is ignored.
 				if token, ok := bearerToken(r); ok {
 					if principal, err := verify(token); err == nil {
 						r = r.WithContext(
@@ -116,18 +101,6 @@ func OpenRoutes(spec *openapi3.T, scheme string) map[string]struct{} {
 
 // requiresScheme reports whether the caller CANNOT satisfy the operation
 // without the named scheme.
-//
-// A security list is an OR of alternatives, each an AND of schemes, so the
-// scheme is required only when EVERY alternative names it. One alternative that
-// does not -- `- {}` -- is an operation that accepts the credential and does
-// not insist on it.
-//
-// This read "any alternative names it", which made the event flush 401 on the
-// one path it exists for: `security: [bearerAuth: [], {}]` is bearer OR
-// nothing, and navigator.sendBeacon has nothing. The two helpers over this same
-// field disagreed -- AssertPublicRoutesLimited already treated the operation as
-// public and demanded a rate limit for it -- so the contract said open, the
-// limiter agreed, and the middleware alone said no.
 func requiresScheme(opSecurity *openapi3.SecurityRequirements, global openapi3.SecurityRequirements, scheme string) bool {
 	reqs := global
 	if opSecurity != nil {

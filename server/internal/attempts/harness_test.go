@@ -139,10 +139,6 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		`INSERT INTO app.test_version_sections (test_version_id, ordinal, title)
 		 VALUES ($1::uuid,0,'Phần 1') RETURNING id::text`, w.versionID).Scan(&section))
 
-	// Every leaky column gets a value here on purpose, and a distinctive one:
-	// a projection that selected them would be caught by a test rather than by
-	// a student. The sentinels are searched for by value, so they must not
-	// occur anywhere a student is legitimately shown text.
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.test_version_questions
 		  (test_version_section_id, ordinal, type, prompt, points, explanation, sample_answer)
@@ -170,10 +166,7 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		      VALUES ($1::uuid,$2)`, blankID, secretBlankAnswer)
 	}
 
-	// An audio question with a real asset behind it. The CHECK constraints on
-	// test_version_questions only permit an audio policy when the attached
-	// asset really is audio, so a listening question cannot be faked with a
-	// bare column.
+	// An audio question with a real asset behind it.
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.media_assets
 		  (kind, storage_key, mime_type, bytes, duration_ms, original_filename,
@@ -197,8 +190,7 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		      VALUES ($1::uuid,$2,$3,$4)`, w.listening, i, opt.text, opt.correct)
 	}
 
-	// The one type §7 grades by hand, so requires_manual has something to be
-	// true about.
+	// The one type §7 grades by hand, so requires_manual has something to be true about.
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.test_version_questions
 		  (test_version_section_id, ordinal, type, prompt, points, sample_answer)

@@ -87,13 +87,11 @@ describe("away episodes", () => {
     expect(result.current.strikes).toBe(1);
   });
 
-  // A tab switch fires window blur AND visibilitychange. Both are recorded as
-  // the distinct signals they are, but the student left once.
+  // A tab switch fires window blur AND visibilitychange.
   it("treats a blur and a hide as one episode", () => {
     const { result } = monitor();
 
-    // What a real tab switch does: blur, then hidden. And on return, visible,
-    // then focus. Four signals, one absence.
+    // What a real tab switch does: blur, then hidden.
     act(() => {
       window.dispatchEvent(new Event("blur"));
       setHidden(true);

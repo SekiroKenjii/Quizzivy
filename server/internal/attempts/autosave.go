@@ -60,8 +60,6 @@ func writable(ctx context.Context, tx pgx.Tx, in SaveInput, now time.Time) (stri
 		 WHERE id = $1::uuid AND student_id = $2::uuid
 		   FOR UPDATE`, in.AttemptID, in.StudentID).Scan(&session, &status, &deadlineAt, &versionID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Someone else's attempt and an attempt that does not exist are one
-		// answer, as everywhere else in this package.
 		return "", ErrForbidden
 	}
 	if err != nil {
@@ -81,22 +79,6 @@ func writable(ctx context.Context, tx pgx.Tx, in SaveInput, now time.Time) (stri
 
 // upsertAnswers writes by (attempt, question), so a retried batch overwrites
 // rather than duplicating.
-//
-// The join to the version is what stops one student writing an answer against a
-// question on somebody else's paper, and the option check is the same rule one
-// level down: a choice answer naming an id that is not an option of THAT
-// question -- malformed, or a real option lifted from another question -- is
-// treated exactly like an unknown question. Rows that do not survive are
-// DROPPED rather than failing the batch, and that is deliberate: the only ways
-// to send such an id are a client bug or an attempt at exactly what the checks
-// block, and in both cases refusing the whole batch would throw away the real
-// answers sitting beside it. Losing a student's work is the one outcome this
-// feature exists to prevent. The count comes back so a caller can notice the
-// gap, and nothing that would grade as nonsense is stored.
-//
-// requires_manual is set from the question type rather than left to grading
-// (D-19): final_score is VIRTUAL and unindexable, so §7's pendingManual needs a
-// real column to filter on, and the type is known here.
 func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID string) (int, []string, error) {
 	if len(in.Answers) == 0 {
 		return 0, nil, nil
@@ -157,15 +139,6 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID strin
 }
 
 // insertEvents appends the batch, ignoring anything already recorded.
-//
-// [D-01] ON CONFLICT DO NOTHING on (attempt, session, client_seq) is what makes
-// a retried flush a no-op instead of a duplicate-key failure. A failed flush
-// must never block answering, so the client retries freely and this absorbs it.
-//
-// A question id that is not on this paper is stored as NULL rather than
-// rejected. The column means "what was on screen", it is already nullable for
-// the events that have no question, and an event is telemetry -- worth less
-// than the answers travelling with it in the same transaction.
 func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, events []Event, versionID string) error {
 	if len(events) == 0 {
 		return nil
@@ -209,21 +182,6 @@ func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, e
 
 // deriveFocusLoss recounts the attempt's away episodes from its event log and
 // sets the two columns the dashboard, the monitor and the resume payload read.
-//
-// Recounted rather than incremented, on the same connection as the insert
-// that changed the log, so a retried batch that ON CONFLICT swallowed cannot
-// count twice. Exactly one event per away episode carries `awayMs` -- the
-// client attaches it to the first "returned" signal -- so counting those is
-// counting episodes, and only those at or over the assignment's threshold
-// (§10.1: a 2-second blur is a notification, not a strike).
-//
-// The limit is exceeded when the count is OVER it, which is what the intro's
-// "quá 2 lần" and the contract's onLimitExceeded both say. `flagged` is
-// sticky: the teacher clears it (Phase 4), and a recount must not.
-//
-// A malformed awayMs is skipped rather than raised. This runs inside the
-// answers' transaction, and a bad byte in telemetry must never roll back the
-// answer it travelled with (§10.6).
 func deriveFocusLoss(ctx context.Context, q querier, attemptID string) error {
 	_, err := q.Exec(ctx, `
 		UPDATE app.attempts at

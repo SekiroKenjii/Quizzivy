@@ -15,12 +15,6 @@ import (
 // ErrInvalidCredentials is returned for every failed login, whatever the actual
 // cause: no such email, a Google-only account, a disabled account, or the wrong
 // password.
-//
-// §6.5 requires the join endpoints not to reveal which classes exist. The same
-// reasoning applies here to which accounts exist, and to which are suspended --
-// "this account is disabled" tells an attacker the email is real and worth
-// pursuing elsewhere. The teacher tells a suspended student directly; the login
-// form does not.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 type Service struct {

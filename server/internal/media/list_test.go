@@ -40,10 +40,6 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 		want[i], want[j] = want[j], want[i]
 	}
 
-	// The walk covers the whole table, not just this test's rows, so the bound
-	// comes from the live row count rather than from `total`. An earlier version
-	// used total+2 and passed only while the shared table held fewer than seven
-	// assets.
 	var live int
 	if err := pool.QueryRow(context.Background(),
 		`SELECT count(*) FROM app.media_assets WHERE deleted_at IS NULL`).Scan(&live); err != nil {
@@ -61,8 +57,6 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 		if err != nil {
 			t.Fatalf("list: %v", err)
 		}
-		// The table is shared with packages running in parallel, so the total
-		// may move between pages; it must still cover this test's own uploads.
 		if page.Total < total {
 			t.Fatalf("page %d reports total %d, below this test's %d uploads", number, page.Total, total)
 		}

@@ -52,9 +52,7 @@ func TestDifferentSeedsDealDifferentPapers(t *testing.T) {
 		}
 		seen[got] = seed
 	}
-	// Not "all distinct": with 12! orders, a repeat among 200 draws is possible
-	// and would make this test flaky rather than correct. What must not happen
-	// is the seed being ignored, which shows up as wholesale agreement.
+	// Not "all distinct": with 12!
 	if collisions > 1 {
 		t.Fatalf("%d seed pairs dealt an identical paper; the seed is barely reaching the order", collisions)
 	}
@@ -82,10 +80,6 @@ func TestThePaperDoesNotDependOnTheOrderRowsArriveIn(t *testing.T) {
 func TestOptionsOfDifferentQuestionsDoNotMoveInLockstep(t *testing.T) {
 	dealt := present(7, false, true, questions(30))
 
-	// Each question's options are salted with its own id, so two questions
-	// holding the same number of options must not land on the same permutation
-	// every time. Without the salt every question's options march together and
-	// a student who spots one pattern has spotted them all.
 	shapes := map[string]bool{}
 	for _, q := range dealt {
 		var suffixes []string
@@ -100,8 +94,7 @@ func TestOptionsOfDifferentQuestionsDoNotMoveInLockstep(t *testing.T) {
 }
 
 func TestBlanksAreNeverShuffled(t *testing.T) {
-	// A blank's ordinal is its position in the prompt text. Reordering blanks
-	// would renumber the sentence the student is reading.
+	// A blank's ordinal is its position in the prompt text.
 	q := Question{ID: "q1", Blanks: []Blank{{ID: "b1", Ordinal: 1}, {ID: "b2", Ordinal: 2}, {ID: "b3", Ordinal: 3}}}
 	for seed := int64(1); seed <= 100; seed++ {
 		got := present(seed, true, true, []Question{q})[0].Blanks

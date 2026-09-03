@@ -108,8 +108,7 @@ describe("the question bank list", () => {
     await waitFor(() => expect(requests.length).toBe(before + 1));
   });
 
-  // O-20: numbered pages. The page is asked for by number, the first page
-  // asks for none, and the number lives in the URL so it can be shared.
+  // O-20: numbered pages.
   it("turns pages by number, with the first page asking for none", async () => {
     server.use(
       http.get(`${BASE}/admin/questions`, ({ request }) => {
@@ -259,8 +258,6 @@ describe("the question bank list", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByLabelText("unit5-listening-2.mp3")).toBeInTheDocument();
 
-    // The deck's player, not the browser's: a round play control, a track, and
-    // a time readout that knows the length before the file is fetched.
     expect(screen.getByRole("button", { name: "Phát" })).toBeInTheDocument();
     expect(screen.getByText("0:00 / 1:50")).toBeInTheDocument();
     expect(screen.getByText("unit5-listening-2.mp3")).toBeInTheDocument();
@@ -311,8 +308,6 @@ describe("the question bank list", () => {
     );
     const player = screen.getByLabelText("unit5-listening-2.mp3");
 
-    // The signed URL was minted when the list loaded and lives ten minutes
-    // (§11.2); pressing play after that gets a 403 and, without this, silence.
     fireEvent.error(player);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/hết hạn/);

@@ -66,14 +66,6 @@ type GoogleSignInResult struct {
 }
 
 // GoogleSignIn implements §5.3 in full.
-//
-// The order of the branches is the security property. Identity before email
-// means a Google account that has signed in before is matched on its immutable
-// `sub`, not on an address that may since have moved to someone else. Email
-// only ever matches when it is VERIFIED, which is checked before any lookup
-// happens -- an unverified address is not evidence of anything, and treating it
-// as a match would let anyone who can register an address with Google claim the
-// matching Quizzivy account (§5.1).
 func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (GoogleSignInResult, error) {
 	if s.google == nil {
 		return GoogleSignInResult{}, ErrGoogleUnavailable

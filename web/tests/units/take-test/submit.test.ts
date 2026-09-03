@@ -35,11 +35,6 @@ function start() {
 }
 
 describe("submitting", () => {
-  /**
-   * The timer firing auto-submit at the same moment the student taps must
-   * produce ONE request. The server refuses the second anyway -- this is so it
-   * is never sent, because the student would see the refusal.
-   */
   it("issues one request when tapped twice", async () => {
     start();
     const store = useTakeTestStore.getState();
@@ -57,8 +52,6 @@ describe("submitting", () => {
     expect(submitted).toHaveBeenCalledTimes(1);
   });
 
-  // A submit racing the 1.5s debounce would otherwise leave the last thing
-  // typed unsent, which is the one answer the student most remembers writing.
   it("sends what is still unflushed before it submits", async () => {
     start();
     useTakeTestStore.getState().setAnswer("q1", text("the last thing I typed"));
@@ -77,11 +70,6 @@ describe("submitting", () => {
     expect(submitted.mock.calls[0]?.[1]).toEqual({ reason: "timer_expired" });
   });
 
-  /**
-   * Already submitted -- by the other tab, or by a request whose reply was lost
-   * on a flaky connection. The attempt is in, which is what was wanted, so this
-   * is a success the student should not be shown an error for.
-   */
   it("treats ATTEMPT_CLOSED as done rather than as a failure", async () => {
     start();
     submitted.mockRejectedValue(

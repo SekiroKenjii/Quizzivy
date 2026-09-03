@@ -3,12 +3,6 @@ import type { Page, Route } from "@playwright/test";
 /**
  * The E2E suite runs a production build against `vite preview` with no backend.
  * Everything the app asks the API for is stubbed here.
- *
- * That is a deliberate boundary, not a shortcut. These tests are about what the
- * BROWSER does -- routing, guards, the PKCE round trip, what a student sees --
- * and the server's own behaviour is covered by Go integration tests against a
- * real Postgres. Running both at once would make every frontend failure a
- * two-suite investigation.
  */
 
 export const API = "http://localhost:8080";
@@ -107,14 +101,7 @@ export const anonymous: Stubs = {
   },
 };
 
-/**
- * Stands in for Google's authorization endpoint.
- *
- * The browser really does navigate there, so the flow under test is the real
- * one: our own authorization request (O-13), a redirect back to the callback,
- * and the code exchanged server-side. Only Google itself is replaced -- and the
- * `state` is echoed from the request, so a broken state check still fails.
- */
+/** Stands in for Google's authorization endpoint. */
 export async function stubGoogleConsent(page: Page, code = "fake-authorization-code") {
   await page.route("https://accounts.google.com/**", async (route) => {
     const url = new URL(route.request().url());

@@ -86,8 +86,7 @@ describe("the student's home during the code exchange", () => {
     expect(preload).toHaveBeenCalledTimes(1);
   });
 
-  // §2: an anonymous visitor downloads neither tree. Without a class code the
-  // visitor's role is the exchange's to say, so nothing is fetched on a guess.
+  // §2: an anonymous visitor downloads neither tree.
   it("is not touched for a plain sign-in, whose role is not yet known", async () => {
     arrive({});
     expect(await screen.findByText("student home")).toBeInTheDocument();

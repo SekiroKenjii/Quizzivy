@@ -35,15 +35,6 @@ export function readDuration(file: File): Promise<number | null> {
 /**
  * The §11.1 pre-check: type, then size, then duration, in that order so an
  * oversized file is refused before its metadata is read.
- *
- * ADVISORY ONLY. The server re-validates every one of these by sniffing the
- * bytes, because everything here is under the uploader's control and a browser
- * that reports the wrong duration is a browser bug, not an attack. Its purpose
- * is that a teacher is not made to wait for 10 MB to be told no.
- *
- * A file whose duration cannot be read is NOT rejected: the server can measure
- * containers the browser will not, and refusing here would block a valid upload
- * on a codec the browser happens not to support.
  */
 export async function precheck(file: File): Promise<Rejection | null> {
   const about = { name: file.name, bytes: file.size };

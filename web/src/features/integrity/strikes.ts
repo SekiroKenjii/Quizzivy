@@ -4,11 +4,6 @@ import type { IntegrityPolicy } from "@/features/take-test/api";
  * Where a student stands against §10.2's focus-loss limit, in one shape that
  * the dialog and the indicator both read -- so "còn 1 lần" in the strip and
  * "còn 1 lần" in the dialog can never disagree.
- *
- * The boundary is the contract's word: `onLimitExceeded` fires when the count
- * is OVER the limit, not at it. The intro says "quá 2 lần" and means it: with
- * `maxFocusLoss: 2`, the second episode spends the last allowance and the
- * third is the one that carries a consequence.
  */
 export interface StrikeState {
   /** Counted away episodes, this sitting and earlier ones together. */
@@ -18,11 +13,7 @@ export interface StrikeState {
   /** Episodes left before the next one exceeds the limit. Null when unlimited. */
   remaining: number | null;
   exceeded: boolean;
-  /**
-   * What exceeding does. `auto_submit` reads as `flag` until T-5.1 builds its
-   * countdown: the attempt is still marked, and telling the student that is
-   * truer than promising a submission this build cannot make.
-   */
+  // What exceeding does.
   consequence: "warn" | "flag";
 }
 

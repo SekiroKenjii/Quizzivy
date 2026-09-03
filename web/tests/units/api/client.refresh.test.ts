@@ -10,11 +10,6 @@ import { useAuthStore } from "@/stores/auth";
 /**
  * These cover R-06, which is the failure mode this client exists to prevent:
  * "the app signs me out every time I refresh the page".
- *
- * The cause is invisible in any single request, so it is asserted by COUNTING
- * calls to /auth/refresh across concurrent requests. An implementation that
- * refreshes per-request passes every functional test and still logs everyone
- * out in production.
  */
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;

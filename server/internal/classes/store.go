@@ -244,14 +244,6 @@ type RemoveMemberInput struct {
 }
 
 // RemoveMember revokes access. It does NOT touch attempts (§6.4).
-//
-// The membership row is what grants access; the attempts are the student's
-// work and the teacher's record of it. Deleting them because someone left a
-// class would destroy the only evidence of what happened -- and §6.4 says
-// retain, so the FK from attempts does not point here at all.
-//
-// Idempotent: removing someone who is not a member leaves the class in the
-// requested state and reports success.
 func (s *Store) RemoveMember(ctx context.Context, in RemoveMemberInput) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -287,10 +279,7 @@ func (s *Store) RemoveMember(ctx context.Context, in RemoveMemberInput) error {
 // renames a class cannot silently clear its description.
 type UpdateInput struct {
 	Name *string
-	// nil means "the caller did not send it". Clearing a description back to
-	// NULL is therefore not expressible: the generated body decodes both an
-	// omitted field and an explicit null to a nil *string, so the handler
-	// cannot tell them apart. Sending "" is how a teacher empties it.
+	// nil means "the caller did not send it".
 	Description     *string
 	SelfJoinEnabled *bool
 }
@@ -365,9 +354,6 @@ func (s *Store) AddMember(ctx context.Context, in AddMemberInput) (Member, error
 		return Member{}, ErrNotFound
 	}
 
-	// An admin in a roster would be counted in every assignment total and sent
-	// a student's screens. A missing user is the same answer to the caller:
-	// that id is not somebody you can enrol.
 	var role string
 	switch err := tx.QueryRow(ctx,
 		`SELECT role::text FROM app.users WHERE id = $1::uuid AND disabled_at IS NULL`,

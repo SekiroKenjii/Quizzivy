@@ -15,18 +15,12 @@ import (
 // used -- four stores answered 20 and one answered 24, and nothing anywhere
 // compared the two. A client sizing a list from the published contract got a
 // short page and no error.
-//
-// Each operation carries its own default now, and this is the thing that keeps
-// them honest: the constant and the contract are edited in different files, so
-// without an assertion they drift again the first time someone tunes one.
 func TestEveryPageSizeMatchesItsContract(t *testing.T) {
 	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSpec: %v", err)
 	}
 
-	// PascalCase: oapi-codegen normalises operationIds in the embedded spec, so
-	// these read as the Go method names rather than the YAML's camelCase.
 	want := map[string]int{
 		"ListTests":       tests.DefaultLimit,
 		"ListQuestions":   questions.DefaultLimit,

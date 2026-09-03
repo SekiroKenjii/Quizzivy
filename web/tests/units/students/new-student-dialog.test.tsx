@@ -71,12 +71,6 @@ function renderHarness() {
 }
 
 describe("adding a student", () => {
-  /**
-   * Radix does not fire onOpenChange when a controlled `open` is flipped from
-   * outside, so a close path that skips the reset leaves the password alive in
-   * state — and the next teacher to click "Thêm học viên" opens straight onto
-   * the previous student's credential with no form and no way back.
-   */
   it("does not reopen showing the last student's password", async () => {
     const user = renderHarness();
 

@@ -58,9 +58,6 @@ func TestNoAnswerBearingFieldAppearsAtAnyDepth(t *testing.T) {
 	banned := map[string]bool{
 		"iscorrect": true, "sampleanswer": true, "acceptedanswers": true,
 		"transcript": true, "explanation": true, "casesensitive": true,
-		// The seed and the token hash are the server's, not the student's: the
-		// seed would let a client predict every future paper, and the hash is
-		// the stored form of a live credential.
 		"shuffleseed": true, "seed": true, "beacontokenhash": true,
 	}
 	var walk func(node any, path string)
@@ -107,8 +104,6 @@ func TestBlanksArriveWithoutTheirAcceptedAnswers(t *testing.T) {
 		t.Fatalf("%d blanks reached the student, want 2", blanks)
 	}
 
-	// Guards the fixture rather than the code: if the accepted answers stopped
-	// being seeded, the value search would pass for the wrong reason.
 	if got := count(t, pool, `
 		SELECT count(*) FROM app.test_version_blank_answers ba
 		  JOIN app.test_version_blanks b ON b.id = ba.test_version_blank_id
@@ -153,8 +148,7 @@ func TestAnotherStudentsAttemptIsNotReadable(t *testing.T) {
 		t.Fatalf("start: %v", err)
 	}
 
-	// Refused as forbidden rather than missing. A 404 here would answer "does
-	// this attempt id exist?" for anyone willing to ask, one id at a time.
+	// Refused as forbidden rather than missing.
 	if _, err := svc.Get(ctx, mine.Attempt.ID, w.outsider); !errors.Is(err, attempts.ErrForbidden) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}

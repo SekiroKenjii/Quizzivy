@@ -20,15 +20,7 @@ import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 
-/**
- * G-07's detail panel.
- *
- * An inline aside, not a modal sheet: the deck's markup has no overlay and
- * keeps the selected row visible and highlighted, and its callout says why —
- * "the teacher's task is nearly always 'look something up about this student
- * while doing something else'". A modal takes the table away, which is the one
- * thing the panel exists not to do.
- */
+/** G-07's detail panel. */
 export function StudentDrawer({
   student,
   onClose,
@@ -42,8 +34,7 @@ export function StudentDrawer({
   const [error, setError] = useState<string | null>(null);
   const locale = currentLocale(i18n.language);
 
-  // Escape closes it. This is the one thing a modal would have given for free,
-  // and it is cheaper than the overlay and scroll lock that come with one.
+  // Escape closes it.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();

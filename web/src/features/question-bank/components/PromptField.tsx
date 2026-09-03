@@ -12,10 +12,6 @@ interface PromptFieldProps {
 /**
  * The deck's A-04 prompt field: a bordered box with a small toolbar and a
  * "Markdown" hint, over a plain textarea.
- *
- * The toolbar wraps the selection rather than opening a rich-text editor. The
- * stored value stays Markdown, which is what the student renderer sanitises and
- * what a teacher can paste between questions.
  */
 export function PromptField({ value, onChange, id }: PromptFieldProps) {
   const { t } = useTranslation();

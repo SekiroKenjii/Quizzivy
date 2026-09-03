@@ -106,11 +106,7 @@ describe("the assignments list", () => {
     expect(table.getByText("Đang mở")).toBeInTheDocument();
   });
 
-  /**
-   * The server sent status "open"; the window says it closed 14 hours ago. A
-   * cached page outlives the moment its response was built, so the timestamps
-   * are the fresher fact.
-   */
+  // The server sent status "open"; the window says it closed 14 hours ago.
   it("trusts the window over a stale status from the server", async () => {
     serve([
       assignment({

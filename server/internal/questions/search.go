@@ -51,11 +51,6 @@ func escapeLike(s string) string { return likeEscaper.Replace(s) }
 // appendFilters adds the bank's WHERE clauses onto whatever arguments the
 // caller has already bound, so a paged query and a bare count can share one
 // definition of "what is being filtered" instead of drifting apart.
-//
-// Which filters apply is the caller's choice: the type facets deliberately skip
-// the type filter, and the tag rail deliberately skips the tag filter, because
-// a facet that applies its own dimension zeroes every row the teacher has not
-// picked.
 func appendFilters(in ListInput, args []any, opts filterOpts) ([]any, []string) {
 	where := []string{`q.deleted_at IS NULL`}
 
@@ -68,9 +63,6 @@ func appendFilters(in ListInput, args []any, opts filterOpts) ([]any, []string) 
 		where = append(where, fmt.Sprintf(`q.type = ANY($%d::app.question_type[])`, len(args)))
 	}
 	if opts.tags && len(in.Tags) > 0 {
-		// Overlap, not containment: two ticked chips mean "either", the same
-		// way two ticked types do. `@>` would mean "carries both", which reads
-		// as a filter that gets stricter the more of the rail you touch.
 		args = append(args, in.Tags)
 		where = append(where, fmt.Sprintf(`q.tags && $%d::text[]`, len(args)))
 	}
@@ -140,12 +132,6 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Question, paging.Page
 
 // attachChildren fills in the options and blanks for a whole page in two
 // queries rather than two per row.
-//
-// The contract's AdminQuestion carries both, and a list that returned a
-// different shape from the detail endpoint is something a client works around
-// rather than reports -- so the shape stays and the fetching changes. A full
-// page of 100 was 201 round trips, which is paid in network latency against
-// Neon on the teacher's main browsing screen.
 func (s *Store) attachChildren(ctx context.Context, questions []Question) error {
 	if len(questions) == 0 {
 		return nil

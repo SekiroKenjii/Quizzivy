@@ -13,17 +13,7 @@ import { useAuthStore } from "@/stores/auth";
 import { adminUser, studentUser } from "@tests/support/fixtures";
 import "@/lib/i18n";
 
-/**
- * §5.4's route rules. Each one exists because of a specific failure:
- *
- *  - waiting during bootstrap, so a reload does not flash /login and lose the
- *    deep link;
- *  - `?next=`, so signing in returns you to where you were going;
- *  - a 403 PAGE for a student on /admin, because a redirect makes a
- *    permissions mistake look like a navigation quirk;
- *  - a redirect for an admin on /app, because they have more access, not less,
- *    and there is nothing to surface.
- */
+/** §5.4's route rules. Each one exists because of a specific failure: */
 
 /** A router with every guarded shape, so a test only has to pick a URL. */
 function renderAt(path: string) {
@@ -58,8 +48,6 @@ function renderAt(path: string) {
     },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [path] });
-  // The 403 page can sign you out, so it reads the query client -- which
-  // AppProviders wraps the router in for every route in the real tree.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -196,8 +184,6 @@ describe("losing the session", () => {
     const router = createMemoryRouter(routes, {
       initialEntries: ["/join/K7M3P9QR/confirm"],
     });
-    // The 403 page can sign you out, so it reads the query client -- which
-    // AppProviders wraps the router in for every route in the real tree.
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>

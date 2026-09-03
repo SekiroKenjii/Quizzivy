@@ -1,17 +1,7 @@
 import { z } from "zod";
 import type { components } from "@/lib/api/schema";
 
-/**
- * Form input validation for §7's question editor.
- *
- * Hand-written for the reason AGENTS.md gives: the generated types say what the
- * API accepts, this says what the FORM accepts, and those differ -- a form
- * needs localised messages and a "required" that fires before anything is sent.
- *
- * Cross-field rules the server also enforces (a choice question needs a correct
- * option, placeholders must match the blanks) are checked here too, so the
- * teacher sees them inline rather than after a round trip.
- */
+/** Form input validation for §7's question editor. */
 const audioPolicySchema = z.object({
   maxPlays: z.number().int().min(1).nullable(),
   allowSeek: z.boolean(),
@@ -75,18 +65,7 @@ export function emptyQuestion(): QuestionValues {
   };
 }
 
-/**
- * Fails `tsc` if the form produces something the endpoint would not accept.
- *
- * ASSIGNABILITY, not equality, and the difference is forced by
- * `exactOptionalPropertyTypes`: the contract marks several fields `?: T | null`,
- * which permits an absent property but not an `undefined` one, and no zod schema
- * can produce exact-optional output. So every field here is required and
- * nullable instead -- the editor always sends a complete body -- and the
- * assertion checks the direction that matters: what the form yields is something
- * the endpoint takes. A field the contract does not have, or a type mismatch, is
- * a compile error rather than a 400 in front of a teacher mid-edit.
- */
+/** Fails `tsc` if the form produces something the endpoint would not accept. */
 type QuestionInput = components["schemas"]["QuestionInput"];
 
 type Expect<T extends true> = T;

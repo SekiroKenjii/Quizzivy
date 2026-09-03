@@ -11,13 +11,6 @@ import (
 )
 
 // snapshot freezes the draft into the version tables.
-//
-// This is what makes editing a published test safe: an attempt renders from
-// these rows, so a later edit to the bank question cannot reach a student
-// mid-test or change what a finished attempt was scored against (§7).
-//
-// media_asset_id points at the same immutable asset and the file is never
-// copied -- an asset is content-addressed and already immutable (§11.1).
 func snapshot(ctx context.Context, tx pgx.Tx, versionID string, d Draft) error {
 	if err := lockMediaAssets(ctx, tx, d); err != nil {
 		return err
@@ -50,14 +43,6 @@ func freezeSection(ctx context.Context, tx pgx.Tx, versionID string, section Sec
 
 // lockMediaAssets takes every asset lock the snapshot needs, up front and in
 // sorted order.
-//
-// Up front and sorted for two different reasons. The lock itself closes the
-// window in which a concurrent soft delete could remove an asset between the
-// delete's reference count and the insert that freezes it (media.LockForVersion-
-// Use). The ORDER is what stops two publishes of different tests that share
-// assets in opposite orders from deadlocking -- the same reason
-// tests.lockQuestions sorts, and a cycle spans sections just as easily as it
-// spans one, so sorting per section would not be enough.
 func lockMediaAssets(ctx context.Context, tx pgx.Tx, d Draft) error {
 	seen := map[string]bool{}
 	var ids []string

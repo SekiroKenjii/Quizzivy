@@ -59,15 +59,6 @@ type UploadInput struct {
 }
 
 // Upload validates, stores the object, then records the row.
-//
-// The ORDER is the contract (§11.1): size, then magic bytes, then duration. A
-// 50 MB upload is cut off by the first check, before anything parses it -- so a
-// file that is too big never becomes a parsing problem.
-//
-// The row is written AFTER the object lands, and the object is deleted if the
-// row fails. Either half alone is worse than neither: a row without an object
-// is a library entry that 404s when a student presses play, and an object
-// without a row is a file nothing will ever reference or clean up.
 func (s *Service) Upload(ctx context.Context, in UploadInput) (Asset, error) {
 	tmp, err := os.CreateTemp("", "quizzivy-upload-*")
 	if err != nil {

@@ -52,8 +52,7 @@ describe("reordering the outline", () => {
   it("is achievable with the keyboard alone", async () => {
     const { user, onChange } = renderTree();
 
-    // Tab until the move control is focused, then activate it. No pointer, no
-    // drag: this is the §14 path, and it has to reach the same positions.
+    // Tab until the move control is focused, then activate it.
     await user.tab();
     let guard = 0;
     while (

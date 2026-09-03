@@ -24,14 +24,6 @@ import (
 // theOpenSix is every operation reachable without an access token. It is short
 // on purpose. If this list grows, someone opened an endpoint, and that should
 // take an argument rather than a diff nobody reads.
-//
-// The argument for the sixth: navigator.sendBeacon cannot set an Authorization
-// header, and the pagehide flush is the one moment a student's session most
-// needs recording. It is declared `security: [bearerAuth, {}]` -- bearer OR
-// nothing -- and carries its own credential in the body instead: a beacon token
-// scoped to one attempt, valid until that attempt's deadline, granting append
-// access to events and no reads at all. It is rate-limited like the other five
-// (§6.5), which AssertPublicRoutesLimited enforces.
 var theOpenSix = []string{
 	"POST /app/attempts/{id}/events", // D-03's beacon path; see above
 	"POST /auth/google",              // sign-in, by definition pre-session

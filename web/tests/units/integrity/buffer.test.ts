@@ -54,9 +54,7 @@ describe("draining for a flush", () => {
     expect(pending()).toEqual([]);
   });
 
-  // The numbers are spent whether or not the request arrived. Reusing one would
-  // make a genuinely new event look like a retry and be dropped by the server's
-  // ON CONFLICT DO NOTHING.
+  // The numbers are spent whether or not the request arrived.
   it("does not rewind the sequence", () => {
     beginSession(ATTEMPT, "ses-1");
     record(ATTEMPT, "copy");

@@ -13,9 +13,7 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("assignments: not found")
-	// ErrTestNotPublished also covers a version id that does not exist: from
-	// the caller's side both mean "that is not something you can assign".
+	ErrNotFound         = errors.New("assignments: not found")
 	ErrTestNotPublished = errors.New("assignments: test version is not published")
 	ErrVersionLocked    = errors.New("assignments: attempts exist")
 )
@@ -52,11 +50,8 @@ type WriteInput struct {
 	ShuffleO      bool
 	Review        Review
 	Integrity     Integrity
-	// CloseNow is an action, not a state: it sets closed_at and there is no
-	// value of it that reopens an assignment.
-	CloseNow bool
-	// Draft withholds it from students. Saving again with Draft false is what
-	// publishes it; there is no separate publish call.
+	CloseNow      bool
+	// Draft withholds it from students.
 	Draft bool
 	Now   time.Time
 }
@@ -68,18 +63,11 @@ func validate(in WriteInput) error {
 		fields = append(fields, FieldError{"window.closesAt", "Thời điểm đóng phải sau thời điểm mở."})
 	}
 
-	// An assignment with no targets reaches nobody, and nothing downstream says
-	// so: the list would show 0/0 and the student home would simply be empty.
-	//
-	// A draft is the exception, and the only one: coming back to it later is
-	// the whole reason to save one.
 	if !in.Draft && len(in.ClassIDs) == 0 && len(in.StudentIDs) == 0 {
 		fields = append(fields, FieldError{"targets", "Chọn ít nhất một lớp hoặc một học viên."})
 	}
 
-	// Remove together with the auto_submit implementation (T-5.1). Storing it
-	// now would put a promise on the student's intro page that §10.2 makes
-	// verbatim and nothing yet keeps.
+	// Remove together with the auto_submit implementation (T-5.1).
 	if in.Integrity.OnLimitExceeded == "auto_submit" {
 		fields = append(fields, FieldError{
 			"integrity.onLimitExceeded",
@@ -186,8 +174,6 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Locked so the attempt count below cannot be overtaken by a student
-	// starting between the check and the write.
 	var currentVersionID string
 	var currentClosedAt, currentPublishedAt *time.Time
 	switch err := tx.QueryRow(ctx, `

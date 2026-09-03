@@ -9,16 +9,7 @@ export function googleSignInAvailable(): boolean {
   return typeof CLIENT_ID === "string" && CLIENT_ID.length > 0;
 }
 
-/**
- * Starts the §5.3 flow by navigating the whole tab to Google.
- *
- * A REDIRECT, not a popup. The plan said popup; §1.1 puts students on phones,
- * where popups are blocked often enough that a popup-only flow is a dead end
- * with no obvious cause. A redirect is also one code path instead of two --
- * no `postMessage`, no cross-window origin check, no "the popup closed and I
- * do not know why" branch. The PKCE verifier already has to survive the round
- * trip, so nothing is lost.
- */
+/** Starts the §5.3 flow by navigating the whole tab to Google. */
 export function useGoogleSignIn() {
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);

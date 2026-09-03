@@ -7,9 +7,6 @@ import en from "./locales/en.json";
  * Vietnamese is the product language (§2). `vi` is the default and the
  * fallback, deliberately: if a key is missing, a Vietnamese string is a far
  * better failure than an English one in front of a student.
- *
- * AGENTS.md: write the `vi` string first, then `en`. parity.test.ts fails the
- * build if the two drift apart.
  */
 export const SUPPORTED_LOCALES = ["vi", "en"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];

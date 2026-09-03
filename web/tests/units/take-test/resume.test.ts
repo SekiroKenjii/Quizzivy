@@ -75,8 +75,6 @@ describe("the resume merge", () => {
     await useTakeTestStore.getState().flush();
     expect(useTakeTestStore.getState().dirty.size).toBe(0);
 
-    // The server is now the authority for q1, and a later reload takes its word
-    // -- including a value the teacher's reset put there.
     useTakeTestStore.getState().hydrate(
       session({
         serverTime: now,
@@ -221,8 +219,6 @@ describe("scheduling", () => {
     }
   });
 
-  // The student who stopped typing because the wifi dropped is exactly the one
-  // whose work exists only in this tab; nothing else will come along to send it.
   it("retries a failed flush on its own, without further typing", async () => {
     vi.useFakeTimers();
     try {
