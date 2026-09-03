@@ -35,7 +35,5 @@ test("E2E 2 (middle): an answer given before a reload is still there after it", 
   // The second question is still open, so the reload restored an answer rather
   // than a finished paper.
   await page.getByRole("button", { name: "Câu sau" }).click();
-  await expect(page.getByRole("textbox", { name: "Bài làm của bạn" })).toHaveValue(
-    "",
-  );
+  await expect(page.getByRole("textbox", { name: "Bài làm của bạn" })).toHaveValue("");
 });
