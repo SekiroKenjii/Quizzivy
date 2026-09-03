@@ -439,6 +439,7 @@
     "position": "Question {{number}} · {{section}}"
   },
   "bank": {
+    "filters": "Filters",
     "typeFilter": "Question type",
     "tagFilter": "Tags",
     "allTypes": "All",

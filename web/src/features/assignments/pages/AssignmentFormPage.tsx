@@ -178,7 +178,7 @@ export default function AssignmentFormPage() {
     <>
       <PageHeader title={t("assignments.new")} backTo="/admin/assignments" />
 
-      <div className="max-w-2xl space-y-6">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>{t("assignments.step1")}</CardTitle>

@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { NavLink, Outlet } from "react-router";
-import { PageAsideSlot, PageBarSlot } from "@/layouts/slots";
+import { PageAsideSlot, PageBarSlot, PageRailSlot } from "@/layouts/slots";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -101,6 +101,7 @@ export default function AdminLayout() {
   // layouts/slots.ts.
   const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
   const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
+  const [railSlot, setRailSlot] = useState<HTMLDivElement | null>(null);
   return (
     /**
      * The deck's `.shell`: the sidebar is the FIRST child of a flex row and
@@ -202,15 +203,19 @@ export default function AdminLayout() {
         <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
         <div className="flex min-h-0 flex-1">
+          {/* A-06's filter rail lands here, at the content's left edge. */}
+          <div ref={setRailSlot} className="contents" />
           <main className="min-w-0 flex-1 overflow-y-auto p-6">
             <PageBarSlot.Provider value={barSlot}>
               <PageAsideSlot.Provider value={asideSlot}>
-                <Outlet />
+                <PageRailSlot.Provider value={railSlot}>
+                  <Outlet />
+                </PageRailSlot.Provider>
               </PageAsideSlot.Provider>
             </PageBarSlot.Provider>
           </main>
-          {/* The deck's side panel lands here, beside main rather than inside
-              it, so it holds still while main scrolls. */}
+          {/* The deck's detail panel lands here, beside main rather than
+              inside it, so it holds still while main scrolls. */}
           <div ref={setAsideSlot} className="contents" />
         </div>
       </div>
