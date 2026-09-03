@@ -18,6 +18,10 @@ func (s *Service) Get(ctx context.Context, classID string) (Class, error) {
 
 func (s *Service) List(ctx context.Context) ([]Class, error) { return s.store.List(ctx) }
 
+func (s *Service) ListMine(ctx context.Context, userID string) ([]Class, error) {
+	return s.store.ListMine(ctx, userID)
+}
+
 func (s *Service) Members(ctx context.Context, classID string) ([]Member, error) {
 	return s.store.Members(ctx, classID)
 }

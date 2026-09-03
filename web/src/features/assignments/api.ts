@@ -39,3 +39,18 @@ export function createAssignment(body: AssignmentInput) {
 export function updateAssignment(id: string, body: AssignmentInput) {
   return api("patch", "/admin/assignments/{id}", { path: { id }, body });
 }
+
+export type StudentAssignmentCard = components["schemas"]["StudentAssignmentCard"];
+export type StudentAssignmentDetail = components["schemas"]["StudentAssignmentDetail"];
+
+export function listMyAssignments(signal?: AbortSignal) {
+  return api("get", "/app/assignments", signal ? { signal } : {});
+}
+
+export function getMyAssignment(id: string, signal?: AbortSignal) {
+  return api(
+    "get",
+    "/app/assignments/{id}",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
+}

@@ -138,6 +138,11 @@ const studentTree: RouteObject = {
       lazy: page(() => import("@/layouts/StudentDetailLayout")),
       children: [
         {
+          path: "assignments/:id",
+          handle: { titleKey: "student.assignmentDetail" },
+          lazy: page(() => import("@/features/assignments/pages/AssignmentIntroPage")),
+        },
+        {
           path: "settings",
           handle: { titleKey: "nav.settings" },
           lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),

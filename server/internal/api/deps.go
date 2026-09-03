@@ -51,6 +51,7 @@ type JoinService interface {
 type ClassesService interface {
 	Get(ctx context.Context, classID string) (classes.Class, error)
 	List(ctx context.Context) ([]classes.Class, error)
+	ListMine(ctx context.Context, userID string) ([]classes.Class, error)
 	Members(ctx context.Context, classID string) ([]classes.Member, error)
 	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
@@ -99,6 +100,8 @@ type TestsService interface {
 type AssignmentsService interface {
 	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, string, error)
 	Get(ctx context.Context, id string) (assignments.Assignment, error)
+	ForStudent(ctx context.Context, studentID string, now time.Time) (assignments.StudentSections, error)
+	StudentDetail(ctx context.Context, id, studentID string) (assignments.StudentDetail, error)
 	Create(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
 	Update(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
 }

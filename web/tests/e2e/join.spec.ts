@@ -42,6 +42,21 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
         },
       },
     },
+    // What the home asks for once it lands: nothing assigned yet, one class.
+    "GET /app/assignments": { body: { dueNow: [], upcoming: [], completed: [] } },
+    "GET /app/classes": {
+      body: {
+        items: [
+          {
+            id: CLASS_ID,
+            name: CLASS_NAME,
+            studentCount: 13,
+            selfJoinEnabled: true,
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+      },
+    },
   });
   await stubGoogleConsent(page);
   await page.goto(`/join/${CODE}`);
@@ -64,9 +79,10 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
   // Under a loaded runner that can outlast 5s, which is what made this flaky
   // (#50). Both stay split: §2 says an anonymous visitor downloads neither
   // tree, and tests/integration/router-chunks.test.ts enforces it.
-  await expect(page.getByRole("heading", { name: "Bài của tôi" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: /^Chào / })).toBeVisible({
     timeout: 20_000,
   });
+  await expect(page.getByText("Hiện chưa có bài nào được giao.")).toBeVisible();
 
   const exchange = calls.filter((c) => c === "POST /auth/google");
   expect(exchange, "the authorization code is exchanged exactly once").toHaveLength(1);

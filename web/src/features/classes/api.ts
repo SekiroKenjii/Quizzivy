@@ -59,3 +59,8 @@ export function addMember(classId: string, userId: string) {
     body: { userId },
   });
 }
+
+/** §9's /app/classes. Never carries a join code; the server blanks it. */
+export function fetchMyClasses(signal?: AbortSignal) {
+  return api("get", "/app/classes", signal ? { signal } : {});
+}
