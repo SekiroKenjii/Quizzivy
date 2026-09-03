@@ -713,5 +713,27 @@
     "audioLabel": "Đoạn ghi âm của câu hỏi",
     "playsLeft_one": "Còn {{count}} lượt nghe",
     "playsLeft_other": "Còn {{count}} lượt nghe"
+  },
+  "integrity": {
+    "leftTitle": "Bạn vừa rời khỏi trang làm bài",
+    "leftBody": "Bài làm ghi nhận bạn chuyển sang cửa sổ khác trong {{seconds}} giây.",
+    "unlimited": "Giáo viên có thể xem lại các lần rời trang. Bài không bị dừng và điểm không bị trừ tự động.",
+    "remainingFlag": "Bạn còn <strong>{{count}} lần</strong> nữa trước khi bài được đánh dấu để giáo viên xem lại.",
+    "remainingWarn": "Bạn còn <strong>{{count}} lần</strong> rời trang được phép. Giáo viên sẽ thấy các lần rời trang khi xem bài.",
+    "spentFlag": "Bạn đã dùng hết số lần rời trang cho phép. Nếu rời trang thêm lần nữa, bài sẽ được đánh dấu để giáo viên xem lại.",
+    "spentWarn": "Bạn đã dùng hết số lần rời trang cho phép. Giáo viên sẽ thấy các lần rời trang khi xem bài.",
+    "exceededFlag": "Bạn đã rời trang quá số lần cho phép, nên bài được đánh dấu để giáo viên xem lại. Bài không bị dừng và điểm không bị trừ tự động.",
+    "exceededWarn": "Bạn đã rời trang quá số lần cho phép. Giáo viên sẽ thấy các lần rời trang khi xem bài. Bài không bị dừng và điểm không bị trừ tự động.",
+    "timerRunning": "Đồng hồ vẫn đang chạy trong lúc này.",
+    "honestLimits": "Bài làm chỉ ghi nhận việc trang này mất tập trung, không nhìn thấy gì khác. Giáo viên là người xem xét.",
+    "continue": "Tiếp tục làm bài",
+    "remaining_one": "Còn {{count}} lần rời trang",
+    "remaining_other": "Còn {{count}} lần rời trang",
+    "spent": "Hết lần rời trang",
+    "flagged": "Bài đã được đánh dấu",
+    "overLimit": "Quá số lần rời trang",
+    "fullscreenExited": "Bạn đã thoát chế độ toàn màn hình.",
+    "fullscreenUnsupported": "Trình duyệt này không hỗ trợ chế độ toàn màn hình. Bạn vẫn làm bài bình thường.",
+    "fullscreenReturn": "Quay lại toàn màn hình"
   }
 }
