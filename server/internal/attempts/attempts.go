@@ -95,6 +95,11 @@ type SaveInput struct {
 type SaveResult struct {
 	SavedAt time.Time
 	Saved   int
+	// Dropped names the answers that did not land, so a drop leaves a trace
+	// somewhere. Nothing is told to the student: a drop means the client sent
+	// something the paper does not have, which is a bug to investigate rather
+	// than news to hand a person mid-test.
+	Dropped []string
 }
 
 type Integrity struct {

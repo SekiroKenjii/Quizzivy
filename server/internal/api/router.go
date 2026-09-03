@@ -68,7 +68,7 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		return nil, err
 	}
 
-	server := &Server{Deps: deps}
+	server := &Server{Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())

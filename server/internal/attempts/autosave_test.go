@@ -294,6 +294,11 @@ func TestAQuestionFromAnotherPaperIsIgnoredRatherThanFatal(t *testing.T) {
 	if got.Saved != 2 {
 		t.Errorf("saved %d, want 2 — the foreign question should not have been written", got.Saved)
 	}
+	// Named, so the drop leaves a trace. The handler logs these; without them
+	// a client bug that destroys work is invisible on the server.
+	if len(got.Dropped) != 1 || got.Dropped[0] != other.choice {
+		t.Errorf("dropped %v, want exactly the foreign question %s", got.Dropped, other.choice)
+	}
 	if n := count(t, pool, `SELECT count(*) FROM app.attempt_answers WHERE question_id = $1::uuid`,
 		other.choice); n != 0 {
 		t.Error("an answer was written against another paper's question")
@@ -357,6 +362,9 @@ func TestAChoiceNamingAnOptionThatIsNotTheQuestionsIsDroppedNotStored(t *testing
 	if got.Saved != 1 {
 		t.Errorf("saved %d, want 1: the essay, and neither choice", got.Saved)
 	}
+	if len(got.Dropped) != 2 {
+		t.Errorf("dropped %v, want both choice questions named", got.Dropped)
+	}
 	stored := count(t, pool, `SELECT count(*) FROM app.attempt_answers
 		 WHERE attempt_id = $1::uuid AND question_id IN ($2::uuid, $3::uuid)`,
 		session.Attempt.ID, w.choice, w.listening)
@@ -376,5 +384,40 @@ func TestAChoiceNamingAnOptionThatIsNotTheQuestionsIsDroppedNotStored(t *testing
 	}
 	if got.Saved != 1 {
 		t.Errorf("saved %d, want 1: a real option on its own question", got.Saved)
+	}
+}
+
+// A batch where everything lands names nothing: the log line this feeds is
+// meant to be rare, and a Dropped that is never empty is a log nobody reads.
+func TestABatchThatFullyLandsNamesNothingAsDropped(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+
+	got, err := svc.Save(context.Background(), batch(w, session, 1))
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if got.Saved != 2 || len(got.Dropped) != 0 {
+		t.Errorf("saved %d, dropped %v; want 2 saved and nothing dropped", got.Saved, got.Dropped)
+	}
+}
+
+// Re-sending the same answers is a retry, not a drop. ON CONFLICT DO UPDATE
+// returns the row either way, so a client that flushes twice must not produce
+// a warning that says its answers went missing.
+func TestAReplayedBatchIsNotAdrop(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.Save(ctx, batch(w, session, 1)); err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+	again, err := svc.Save(ctx, batch(w, session, 1))
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	if len(again.Dropped) != 0 {
+		t.Errorf("a replayed batch reported %v as dropped", again.Dropped)
 	}
 }
