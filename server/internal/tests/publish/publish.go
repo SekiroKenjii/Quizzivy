@@ -40,8 +40,7 @@ func (e *ValidationError) Error() string {
 
 var (
 	ErrNotFound = errors.New("publish: test not found")
-	// ErrNoContent is a test with no sections at all. Distinct from an empty
-	// section: there is nothing to anchor a violation to.
+	// ErrNoContent is a test with no sections at all.
 	ErrNoContent = errors.New("publish: test has no sections")
 )
 

@@ -13,23 +13,7 @@ export interface IntegrityStatus {
   fullscreen: boolean;
 }
 
-/**
- * §10's signals, in one hook and one effect.
- *
- * "One `useIntegrityMonitor` hook owns all listeners, registered and torn down
- * in a single `useEffect`. No scattered listeners" (§10.6) -- because listeners
- * added from several components are listeners removed from several components,
- * and the one that gets missed keeps firing into a test the student has left.
- *
- * Everything here is observational. §10.6: integrity failure never blocks
- * input, and nothing in this file can prevent an answer being typed or a paper
- * being submitted. The single exception is copy/paste, which the teacher may
- * ask to have blocked -- and even that is recorded either way.
- *
- * Devtools detection is deliberately absent (§10.1). Window-size deltas and
- * `debugger` timing false-positive on zoom, split-screen and extensions, and are
- * bypassed in seconds by anyone who cares. Do not add them.
- */
+/** §10's signals, in one hook and one effect. */
 export function useIntegrityMonitor({
   attemptId,
   sessionId,
@@ -49,12 +33,6 @@ export function useIntegrityMonitor({
   });
   const [fullscreen, setFullscreen] = useState(isFullscreen);
 
-  // Read inside listeners that outlive a render, so they must not close over a
-  // stale copy -- the token in particular is reissued on every resume.
-  //
-  // Written from an effect rather than during render: a ref assigned while
-  // rendering is a write React cannot see, and the rule against it exists
-  // because the value then disagrees with what was painted.
   const latest = useRef({ attemptId, sessionId, beaconToken, policy });
   useEffect(() => {
     latest.current = { attemptId, sessionId, beaconToken, policy };
@@ -64,9 +42,7 @@ export function useIntegrityMonitor({
     if (attemptId === null || sessionId === null) return;
     beginSession(attemptId, sessionId);
 
-    // One episode at a time. A tab switch fires window blur AND
-    // visibilitychange, and both are recorded as the distinct signals they are
-    // -- but the student left once, so they are away once.
+    // One episode at a time.
     let awaySince: number | null = null;
 
     const note = (kind: string, meta?: Record<string, unknown>) =>
@@ -84,9 +60,6 @@ export function useIntegrityMonitor({
       }
       const awayMs = Date.now() - awaySince;
       awaySince = null;
-      // Both endpoints are stored, so the teacher sees duration rather than a
-      // bare count: a 2-second blur is a notification and a 90-second one is a
-      // search (§10.1).
       note(kind, { awayMs });
       if (awayMs >= (latest.current.policy?.minAwayMs ?? 3000)) {
         setEpisodes((prev) => ({ strikes: prev.strikes + 1, lastAwayMs: awayMs }));
@@ -103,17 +76,13 @@ export function useIntegrityMonitor({
     const onFullscreen = () => {
       const active = isFullscreen();
       setFullscreen(active);
-      // Recorded only when the teacher asked for fullscreen (§10.1). Otherwise
-      // a student who chose it for a quieter screen fills the timeline with
-      // exits from a rule nobody set.
+      // Recorded only when the teacher asked for fullscreen (§10.1).
       if (latest.current.policy?.requireFullscreen === true) {
         note(active ? "fullscreen_enter" : "fullscreen_exit");
       }
     };
 
     const onContextMenu = () => {
-      // Recorded, never blocked: blocking it breaks assistive tooling and the
-      // spell-check a language learner has every right to (§10.1).
       note("context_menu");
     };
 
@@ -126,8 +95,6 @@ export function useIntegrityMonitor({
       note("page_hide");
       const { sessionId: session, beaconToken: token } = latest.current;
       if (session === null || token === "") return;
-      // Drained, not peeked: if the beacon lands these are gone, and if it does
-      // not the tab is going away with them. There is no later.
       sendBeaconFlush({
         attemptId,
         sessionId: session,

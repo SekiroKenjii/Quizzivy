@@ -46,10 +46,6 @@ interface QuestionEditorProps {
  * §7's five question types in one editor, laid out as the deck's A-04: the
  * prompt and the answer in the middle column, everything about the question in
  * the settings rail.
- *
- * Type is a control rather than a wizard step -- switching it keeps the prompt
- * and the points and swaps only the answer editor, because "this works better
- * as true/false" should cost one click rather than a re-type.
  */
 export function QuestionEditor({
   value,
@@ -221,8 +217,6 @@ export function QuestionEditor({
               onChange({
                 ...value,
                 mediaAssetId: next?.id ?? null,
-                // §7's biconditional: the policy exists exactly when the asset
-                // is audio, so attaching one brings §11.1's defaults with it.
                 audio:
                   next?.kind === "audio" ? (value.audio ?? DEFAULT_AUDIO_POLICY) : null,
                 transcript: next?.kind === "audio" ? value.transcript : null,

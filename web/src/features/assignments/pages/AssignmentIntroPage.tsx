@@ -25,16 +25,7 @@ import { getMyAssignment, type StudentAssignmentDetail } from "../api";
 import { duringRules, type Rule } from "../studentRules";
 import { shortDate } from "../studentTime";
 
-/**
- * S-04: the contract before the clock starts.
- *
- * §10.2 says rules are "announced, visible, never silent", and this is the
- * only screen where they can be read without time pressure -- so every rule
- * the engine will enforce is stated here, from the same sentences the
- * teacher saw in G-01's preview. "Sau khi nộp" is a permission list, ticks
- * and crosses in one block, because a student who expects the answer key and
- * does not get it assumes the app is broken.
- */
+/** S-04: the contract before the clock starts. */
 export default function AssignmentIntroPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
@@ -211,14 +202,7 @@ function Permission({ on, yes, no }: { on: boolean; yes: string; no: string }) {
   );
 }
 
-/**
- * The button, and the one line under it that students actually need.
- *
- * Fullscreen, when required, is entered by THIS click: browsers grant it only
- * from a gesture (§10.2), so the request goes out before anything is awaited.
- * A refusal changes nothing -- the paper opens, and the exit bar offers the
- * way back.
- */
+/** The button, and the one line under it that students actually need. */
 function StartControl({
   assignment: a,
   live,

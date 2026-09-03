@@ -32,10 +32,6 @@ import { BrandLockup } from "@/components/shared/Brand";
 /**
  * §8: "sidebar + top bar. Collapsible sidebar ≤1280px. Minimum supported width
  * 768px."
- *
- * Desktop/tablet only (§1.1) — this is not made to work on a phone, and §16's
- * 360px requirement deliberately covers the student tree only. Data-dense is
- * fine here; §12 puts admin tables at ~40px rows.
  */
 
 // Grouped as the design deck's sidebar template groups them: authoring above,
@@ -86,9 +82,7 @@ export default function AdminLayout() {
   const [override, setOverride] = useState<boolean | null>(null);
   const palette = useCommandPalette();
 
-  // A-00 puts a count beside the class-facing items. It is the teacher's queue,
-  // so it comes from the same figures /admin shows rather than a second source
-  // that could disagree with it.
+  // A-00 puts a count beside the class-facing items.
   const summary = useQuery({
     queryKey: ["admin-dashboard"],
     queryFn: ({ signal }) => getDashboard(signal),
@@ -97,31 +91,16 @@ export default function AdminLayout() {
   const open = override ?? !isNarrow;
   const toggle = () => setOverride(!open);
 
-  // The elements a screen's PageHeader bar and PageAside portal into; see
-  // layouts/slots.ts.
+  // The elements a screen's PageHeader bar and PageAside portal into; see layouts/slots.ts.
   const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
   const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   const [railSlot, setRailSlot] = useState<HTMLDivElement | null>(null);
   return (
-    /**
-     * The deck's `.shell`: the sidebar is the FIRST child of a flex row and
-     * runs the full height, with the topbar inset beside it.
-     *
-     * Navigation is the most persistent thing on the screen, so it gets the
-     * viewport edge and never moves; the topbar then belongs to the content
-     * area, which is what its search actually searches. A-04 is the one board
-     * that drops the sidebar entirely — the builder is a focus mode and gets
-     * its own route outside this layout.
-     */
     <div className="flex h-svh min-w-[768px] overflow-hidden">
       <nav
         id="admin-sidebar"
         aria-label={t("nav.mainNavigation")}
         hidden={!open}
-        // Exactly the viewport, never the content: a long page used to stretch
-        // the shell and drag the nav down with it. Its own overflow means a
-        // sidebar that outgrows the screen scrolls by itself rather than
-        // lengthening everything beside it.
         className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r p-2"
       >
         {SECTIONS.map((section) => (
@@ -172,9 +151,6 @@ export default function AdminLayout() {
             </button>
             <BrandLockup height={28} />
 
-            {/* A-02's trigger: the palette is the only navigation model that
-              survives an LMS-sized sidebar, so it sits in the chrome rather
-              than on one screen. */}
             <Button
               variant="outline"
               size="sm"
@@ -196,8 +172,6 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        {/* G-01's contextual bar lands here, under the topbar and outside the
-            scroll container, so it stays put the way the topbar does. */}
         <div ref={setBarSlot} className="shrink-0" />
 
         <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />

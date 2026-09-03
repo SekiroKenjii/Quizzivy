@@ -51,8 +51,7 @@ type Result struct {
 // zero, and there is nobody to hand an error to at grading time.
 func Grade(q Question, payload []byte) Result {
 	if q.Type == "short_answer" {
-		// [D-19] Not zero-because-wrong. The teacher decides, and until they do
-		// this is what §7's pendingManual counts.
+		// [D-19] Not zero-because-wrong.
 		return Result{RequiresManual: true}
 	}
 	if len(payload) == 0 {
@@ -106,21 +105,12 @@ func gradeChoice(q Question, payload []byte) bool {
 			recognised++
 		}
 	}
-	// Everything chosen has to be an option of THIS question. The loop above
-	// only sees ids it knows, so without this an id from another question rides
-	// along unnoticed. Impossible from a correct client, and not a reason to
-	// award marks.
+	// Everything chosen has to be an option of THIS question.
 	return recognised == len(chosen)
 }
 
 // gradeTrueFalse compares against the option list, because that is where the
 // key lives.
-//
-// The two options are fixed in order and never renamed -- the editor writes
-// True at ordinal 0 and False at ordinal 1 and gives the teacher no way to
-// change either -- so the boolean maps to an ordinal. Matching on the TEXT
-// would be worse: it is authored data, it is English in a Vietnamese product,
-// and a teacher who found a way to edit it would silently invert the grade.
 func gradeTrueFalse(q Question, payload []byte) bool {
 	var answer struct {
 		Value *bool `json:"value"`
@@ -142,16 +132,6 @@ func gradeTrueFalse(q Question, payload []byte) bool {
 }
 
 // gradeFillBlank awards each blank its share (O-17).
-//
-// Two blanks on a two-point question are worth one point each, which is what
-// the design deck states on the question itself -- "2 điểm · mỗi chỗ trống 1
-// điểm" -- and therefore what the student is told before answering. An
-// all-or-nothing rule would have made that line a lie, and the line is the part
-// they read.
-//
-// The share is computed from the total rather than accumulated per blank, so
-// three blanks on a two-point question cannot round to 0.67 x 3 = 2.01. All
-// blanks right is exactly the question's points, always.
 func gradeFillBlank(q Question, payload []byte) float64 {
 	var answer struct {
 		Values map[string]string `json:"values"`
@@ -172,8 +152,6 @@ func gradeFillBlank(q Question, payload []byte) float64 {
 	if matched == 0 {
 		return 0
 	}
-	// numeric(8,2) in the column, so the value that reaches it is already the
-	// value it will store.
 	return math.Round(q.Points*float64(matched)/float64(len(q.Blanks))*100) / 100
 }
 
@@ -191,20 +169,6 @@ func matches(blank Blank, given string) bool {
 }
 
 // normalise forgives the typing, never the answer.
-//
-// Surrounding whitespace goes and internal runs collapse, because a trailing
-// space from a phone keyboard is not a mistake about English. Case folds unless
-// the teacher asked for it.
-//
-// Diacritics are deliberately NOT folded. This is an English test written for
-// Vietnamese students; the Vietnamese that appears in an answer is meaning-
-// bearing, and "ha noi" is not "Hà Nội" the way "hanoi " is "Hanoi".
-//
-// Composition IS folded. Vietnamese has two byte encodings for the same text
-// -- "ế" is one code point or three, depending on which keyboard produced it
-// -- and they render identically to everyone who will ever read them. The
-// accepted answer and the student's are typed on different machines by
-// definition, so both go through NFC before anything compares them.
 func normalise(s string, caseSensitive bool) string {
 	out := strings.Join(strings.Fields(norm.NFC.String(s)), " ")
 	if caseSensitive {

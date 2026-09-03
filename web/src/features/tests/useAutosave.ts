@@ -18,14 +18,7 @@ interface AutosaveOptions<T> {
   delay?: number;
 }
 
-/**
- * Merges the statuses of several autosaves into the one the topbar shows.
- *
- * A-04 has a single "Đã lưu 14:32" in the topbar, and the builder runs two
- * autosaves -- the outline and the open question. Two badges saying different
- * things is worse than one: the teacher wants to know whether it is safe to
- * close the tab, which is a question about all of it.
- */
+/** Merges the statuses of several autosaves into the one the topbar shows. */
 export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
   const stale = statuses.find((s) => s.kind === "stale");
   if (stale) return stale;
@@ -35,8 +28,6 @@ export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
 
   if (statuses.some((s) => s.kind === "saving")) return { kind: "saving" };
 
-  // Below "saving" because a request already going out is the more informative
-  // answer, but above "saved": one unsent edit makes the whole screen unsaved.
   if (statuses.some((s) => s.kind === "dirty")) return { kind: "dirty" };
 
   // The most recent save is the honest answer: an older one says less.
@@ -48,18 +39,7 @@ export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
   return newest;
 }
 
-/**
- * §8's 1.5s debounced autosave.
- *
- * Debounced rather than throttled, and coalescing rather than queueing: typing
- * a title produces one request when the typing stops, not one per keystroke and
- * not a backlog that arrives out of order.
- *
- * A `STALE_WRITE` is terminal for the session. §1.3 says one admin edits at a
- * time, so the second tab has nothing useful to retry -- retrying would
- * overwrite whatever the first tab saved, which is precisely the loss the
- * version guard exists to prevent.
- */
+/** §8's 1.5s debounced autosave. */
 export function useAutosave<T>({
   save,
   delay = AUTOSAVE_DELAY_MS,
@@ -110,9 +90,6 @@ export function useAutosave<T>({
     (value: T) => {
       if (stale.current) return;
       pending.current = value;
-      // Reported synchronously: until this lands, "Đã lưu 14:32" would be the
-      // previous save's timestamp, and §8's badge answers "is it safe to close
-      // the tab" -- which during this window it is not.
       setStatus({ kind: "dirty" });
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => void run(), delay);
@@ -120,16 +97,7 @@ export function useAutosave<T>({
     [delay, run],
   );
 
-  /**
-   * Resolves once nothing is left to save -- used before publishing.
-   *
-   * Awaiting the in-flight request matters as much as flushing the pending
-   * one. The debounce puts the save exactly where the teacher's hand is going:
-   * they stop typing, it fires at 1.5s, and they reach for Publish. Returning
-   * while that PATCH is still on the wire lets publish overtake it, and a
-   * version that froze without the last edit cannot be repaired -- it is
-   * immutable.
-   */
+  // Resolves once nothing is left to save -- used before publishing.
   const flush = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
     if (pending.current !== null) {
@@ -140,11 +108,6 @@ export function useAutosave<T>({
   }, [run]);
 
   // Unmounting must not drop an edit made inside the debounce window.
-  //
-  // The builder swaps the question editor as soon as another question is
-  // selected, so "type, then click the next question" is the ordinary way to
-  // work — and clearing the timer without saving loses exactly that edit,
-  // silently, while the indicator still says the last thing it saved.
   useEffect(() => {
     return () => {
       if (timer.current) clearTimeout(timer.current);

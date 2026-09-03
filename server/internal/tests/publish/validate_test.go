@@ -44,8 +44,6 @@ func TestPublishRejectsAChoiceQuestionWithNoCorrectOption(t *testing.T) {
 		Options: []questions.OptionInput{{Text: "A", IsCorrect: true}, {Text: "B", IsCorrect: false}},
 	})
 	draft := b.draft("Đề thiếu đáp án", q)
-	// The bank accepted it; the option was unset afterwards, which is exactly
-	// why publish re-validates.
 	if _, err := pool.Exec(context.Background(),
 		`UPDATE app.question_options SET is_correct = false WHERE question_id = $1`, q); err != nil {
 		t.Fatal(err)

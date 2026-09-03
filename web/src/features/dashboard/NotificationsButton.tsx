@@ -11,14 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getDashboard } from "@/features/dashboard/api";
 
-/**
- * The bell A-00 draws in the topbar.
- *
- * It shows the same figures /admin shows rather than a second notification
- * store: there is one queue, and two surfaces that could disagree about it
- * would be worse than one surface. Nothing is "unread" — the count is what is
- * outstanding right now, so it clears itself when the work is done.
- */
+/** The bell A-00 draws in the topbar. */
 export function NotificationsButton() {
   const { t } = useTranslation();
   const summary = useQuery({

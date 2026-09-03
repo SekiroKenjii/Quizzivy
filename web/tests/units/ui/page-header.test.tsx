@@ -33,9 +33,7 @@ function renderAt(element: React.ReactNode, path = "/admin/tests/1") {
 }
 
 describe("the contextual bar", () => {
-  // The deck keeps the topbar and sets this bar under it. Rendering it into
-  // the shell's slot puts it outside the scroll container, where it stays put
-  // the way the topbar does -- no sticky, no negative margins.
+  // The deck keeps the topbar and sets this bar under it.
   it("lands in the shell's slot, above main, not inside the scrolling content", () => {
     renderAt(
       <Shell>

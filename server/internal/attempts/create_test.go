@@ -150,8 +150,6 @@ func TestAnAssignmentOutsideItsWindowCannotBeStarted(t *testing.T) {
 			opensAt: now.Add(-time.Hour), closesAt: now.Add(time.Hour), closedAt: &closed,
 			maxAttempts: 1, duration: 60,
 		}, attempts.ErrAssignmentClosed},
-		// A draft is not "not yet" -- there is nothing to wait for, and saying
-		// so would tell a student an unpublished assignment exists.
 		{"still a draft", worldOpts{
 			opensAt: now.Add(-time.Hour), closesAt: now.Add(time.Hour), draft: true,
 			maxAttempts: 1, duration: 60,

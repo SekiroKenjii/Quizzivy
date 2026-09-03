@@ -7,15 +7,6 @@ import { loadSpec, type Json } from "@tests/support/openapi";
  * is evaluated inside its own subschema only — it cannot see the sibling allOf
  * branch — so the extra property is "additional" and the whole body is
  * rejected.
- *
- * api/openapi.yaml carried this at five sites (issue #41), three of them
- * shipped: `GET /admin/media` sent `usageCount` on every row and its own
- * contract refused that body. Nothing failed, because the only layer that
- * validates is the MSW fixture checker and no fixture happened to include one
- * of those properties.
- *
- * The pattern reads as obviously correct, which is why it was written five
- * times. This is the thing that stops a sixth.
  */
 describe("no response schema composes allOf over a closed base", () => {
   it("finds none", () => {

@@ -6,9 +6,6 @@ import { studentUser } from "@tests/support/fixtures";
  * §5.2: the access token lives in memory and nowhere else. A token in web
  * storage is readable by any script on the page, which defeats the entire
  * short-token-plus-httpOnly-cookie design.
- *
- * Losing it on reload is the intended trade-off, not a bug to fix by
- * persisting it. Do not "improve" this.
  */
 describe("the auth store", () => {
   afterEach(() => {

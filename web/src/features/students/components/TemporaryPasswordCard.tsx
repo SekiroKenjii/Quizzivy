@@ -3,18 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/**
- * The one-time password, shown inline where the copy happens.
- *
- * The deck puts the "đừng đăng lên nhóm lớp" warning in this card rather than a
- * dialog for a stated reason: the most likely leak in a small practice is a
- * well-meaning teacher pasting a credential into the class group chat, and the
- * sentence has to be at the moment of the copy.
- *
- * The plaintext lives in component state and never in the query cache — the
- * same discipline JoinCodePanel uses, because a cached secret outlives the
- * screen that was allowed to show it.
- */
+/** The one-time password, shown inline where the copy happens. */
 export function TemporaryPasswordCard({ password }: { password: string }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -26,8 +15,7 @@ export function TemporaryPasswordCard({ password }: { password: string }) {
       setFailed(false);
       setCopied(true);
     } catch {
-      // Clipboard access is refused in plenty of ordinary situations. Saying so
-      // beats a button that silently does nothing.
+      // Clipboard access is refused in plenty of ordinary situations.
       setCopied(false);
       setFailed(true);
     }

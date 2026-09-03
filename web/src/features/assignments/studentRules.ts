@@ -31,10 +31,6 @@ export interface Rule {
 /**
  * The sentences §10.2 shows the student before they start, built from the
  * switches the teacher is looking at.
- *
- * Pure and shared so the intro page renders the same list from the same rule.
- * The point of G-01's panel is that these are the actual sentences; a preview
- * that drifts from the real thing is worse than no preview at all.
  */
 export function studentRules(
   draft: RulesDraft,
@@ -84,8 +80,6 @@ export function duringRules(draft: RulesDraft, t: TFunction): Rule[] {
         count: draft.integrity.maxFocusLoss,
       }),
     });
-    // §10.5's honest limits, stated where the rule is: the monitoring sees
-    // this tab losing focus and nothing else, and the teacher decides.
     rules.push({ kind: "honest", text: t("integrity.honestLimits") });
   }
   rules.push({ kind: "autosave", text: t("assignments.rules.autosave") });

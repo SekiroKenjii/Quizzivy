@@ -14,11 +14,8 @@ import (
 )
 
 type Service struct {
-	store *Store
-	now   func() time.Time
-	// Seeded through the struct rather than called directly so a test can pin
-	// the paper and the clock. Nothing else about this package is random, and
-	// nothing else about it is hard to assert.
+	store        *Store
+	now          func() time.Time
 	newSessionID func() string
 	newSeed      func() (int64, error)
 	newBeacon    func() (string, []byte, error)
@@ -36,14 +33,6 @@ func NewService(store *Store) *Service {
 
 // StartOrResume is §9's entry point: one call whether the student is starting
 // fresh, reloading, or arriving on a second device.
-//
-// The three are deliberately not distinguished by the caller. A client that had
-// to decide would get it wrong exactly when it matters -- after a crash, when
-// its own state is what it lost.
-//
-// Every read here can be overtaken by a concurrent start, so losing is retried
-// rather than reported. The retry is bounded because a loop that cannot end is
-// worse than the error it was avoiding.
 func (s *Service) StartOrResume(ctx context.Context, assignmentID, studentID string) (Session, error) {
 	var err error
 	for range 3 {
@@ -65,10 +54,6 @@ func (s *Service) startOrResume(ctx context.Context, assignmentID, studentID str
 		return Session{}, ErrForbidden
 	}
 
-	// An attempt already in flight is resumable even if the assignment has
-	// since closed: 40-open-items.md P3 says deadline_at wins, and taking the
-	// paper away mid-sentence because a clock passed is the outcome that rule
-	// exists to prevent.
 	session, resumed, err := s.resumeIfLive(ctx, assignmentID, studentID, rules)
 	if err != nil || resumed {
 		return session, err
@@ -82,11 +67,6 @@ func (s *Service) startOrResume(ctx context.Context, assignmentID, studentID str
 		return Session{}, err
 	}
 	if tally.Spent >= rules.MaxAttempts {
-		// The last try may have been spent a moment ago by this student's own
-		// double tap, in the window between the lookup above and this count.
-		// If that attempt is still in flight then the limit was not reached by
-		// someone else -- it was reached by the request being answered, and the
-		// answer is to hand back the attempt rather than to refuse it.
 		session, resumed, err := s.resumeIfLive(ctx, assignmentID, studentID, rules)
 		if err != nil || resumed {
 			return session, err
@@ -100,17 +80,11 @@ func (s *Service) startOrResume(ctx context.Context, assignmentID, studentID str
 // endpoint. It re-reads the paper without disturbing the session: a reload
 // takes the attempt over, a refetch does not.
 func (s *Service) Get(ctx context.Context, attemptID, studentID string) (Session, error) {
-	// Before reading, not after: the payload has to report the status the
-	// attempt actually has, and a deadline that passed while nobody was looking
-	// has still passed.
 	if err := s.store.ExpireIfDue(ctx, attemptID, s.now()); err != nil {
 		return Session{}, err
 	}
 	attempt, err := s.store.ByID(ctx, attemptID, studentID)
 	if err != nil {
-		// A student asking for someone else's attempt gets the same answer as
-		// one asking for an attempt that does not exist. Any other pairing
-		// tells them which ids are real.
 		if errors.Is(err, ErrNotFound) {
 			return Session{}, ErrForbidden
 		}
@@ -140,10 +114,6 @@ func (s *Service) resumeIfLive(ctx context.Context, assignmentID, studentID stri
 		return Session{}, false, err
 	}
 
-	// An attempt whose time ran out is not resumable, however in_progress the
-	// row still says it is. Closing it here is what lets the student fall
-	// through to a fresh attempt if they have one left, rather than being
-	// handed back a paper with a deadline in the past.
 	if s.now().After(live.DeadlineAt) {
 		if err := s.store.ExpireIfDue(ctx, live.ID, s.now()); err != nil {
 			return Session{}, false, err
@@ -160,8 +130,6 @@ func (s *Service) canStart(r Rules) error {
 	now := s.now()
 	switch {
 	case r.PublishedAt == nil:
-		// A draft is not visible to students at all, so this reads as "no such
-		// assignment" rather than "not yet" -- there is nothing to wait for.
 		return ErrNotFound
 	case now.Before(r.OpensAt), !now.Before(r.ClosesAt):
 		return ErrAssignmentClosed
@@ -194,10 +162,6 @@ func (s *Service) create(ctx context.Context, assignmentID, studentID string, at
 		DeadlineAt:    r.Deadline(now),
 	})
 	if err != nil {
-		// ErrRaceLost travels up to the retry: a double tap, or two devices in
-		// the same instant, and the other insert has already made the attempt
-		// this one was going to make. Reading again is not a fallback -- it is
-		// the same answer, arrived at one moment later.
 		return Session{}, err
 	}
 	return s.session(ctx, created, beacon, r)
@@ -208,8 +172,6 @@ func (s *Service) resume(ctx context.Context, live row, r Rules) (Session, error
 	if err != nil {
 		return Session{}, err
 	}
-	// A fresh token per session, so the tab that just lost the attempt cannot
-	// keep writing events with the credential it still holds.
 	updated, _, err := s.store.Resume(ctx, ResumeInput{
 		AttemptID:  live.ID,
 		SessionID:  s.newSessionID(),
@@ -243,9 +205,7 @@ func (s *Service) session(ctx context.Context, a row, beacon string, r Rules) (S
 		SessionID:   a.SessionID,
 		BeaconToken: beacon,
 		ServerTime:  s.now(),
-		// Server-authoritative (§11.4). The client decrements optimistically and
-		// reconciles against this, because whatever it was counting locally did
-		// not survive the reload that brought it back here.
+		// Server-authoritative (§11.4).
 		AudioPlays: plays,
 		Answers:    answers,
 		Integrity:  r.Integrity,

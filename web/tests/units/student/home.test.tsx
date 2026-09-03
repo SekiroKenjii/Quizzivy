@@ -67,8 +67,6 @@ describe("the three sections", () => {
     expect(screen.getByText("Đóng lúc 21:00 hôm nay")).toBeInTheDocument();
   });
 
-  // The rules are read before the clock starts (S-04), so the card's button
-  // goes to the intro, never straight into the paper.
   it("sends the start button to the intro", async () => {
     const user = userEvent.setup();
     const router = home({ dueNow: [card()] });

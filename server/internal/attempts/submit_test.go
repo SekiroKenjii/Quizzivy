@@ -76,8 +76,7 @@ func TestSubmittingGradesWhatAMachineCanAndLeavesTheRest(t *testing.T) {
 		t.Fatalf("submit: %v", err)
 	}
 
-	// Three objective questions at 5 points each, all right. The essay is the
-	// teacher's, so the attempt is not `graded` yet.
+	// Three objective questions at 5 points each, all right.
 	if closed.Status != attempts.Submitted {
 		t.Errorf("status %q, want submitted — an essay is still waiting for a person", closed.Status)
 	}

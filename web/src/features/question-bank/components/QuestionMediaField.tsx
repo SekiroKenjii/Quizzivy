@@ -79,10 +79,6 @@ export function QuestionMediaField({
             </Button>
           </div>
 
-          {/* A-05 puts a player in this card: the teacher who just attached a
-            file wants to hear that it is the right one, and sending them to the
-            media library to check is the trip the inline preview exists to
-            avoid. */}
           {value.kind === "audio" ? (
             <AudioPlayer
               src={value.url}

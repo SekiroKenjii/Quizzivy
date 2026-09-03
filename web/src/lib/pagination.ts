@@ -1,11 +1,4 @@
-/**
- * Which page numbers to draw between Previous and Next.
- *
- * The first and last pages are always present, the current page keeps one
- * neighbour on each side, and a gap of more than one page becomes an
- * ellipsis -- so the control never grows past seven slots however long the
- * list is, and a page the teacher can see is always one click away.
- */
+/** Which page numbers to draw between Previous and Next. */
 export type PageSlot = number | "gap";
 
 export function pageWindow(page: number, pageCount: number): PageSlot[] {

@@ -18,15 +18,7 @@ import { ApiError } from "@/lib/api/errors";
 import { destinationAfterSignIn } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
 
-/**
- * §5.1's password sign-in, plus the §5.3 Google entry point.
- *
- * There is deliberately no "create an account" here. Password accounts are
- * created by the teacher, and self-signup is Google-only and requires a class
- * code (§6.3) -- so a signup form on this page would be an invitation to a
- * flow that does not exist. That is the one substantive departure from the
- * shadcn authentication example this layout is modelled on.
- */
+/** §5.1's password sign-in, plus the §5.3 Google entry point. */
 export default function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

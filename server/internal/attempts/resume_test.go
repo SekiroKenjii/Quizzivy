@@ -63,8 +63,7 @@ func TestResumingReturnsTheSameAttemptOnANewSession(t *testing.T) {
 	if second.BeaconToken == first.BeaconToken {
 		t.Error("the beacon token did not change; the superseded tab keeps append access")
 	}
-	// The clock does not restart on a reload. Losing power ten minutes into a
-	// test does not buy ten more.
+	// The clock does not restart on a reload.
 	if !second.Attempt.DeadlineAt.Equal(first.Attempt.DeadlineAt) {
 		t.Errorf("deadline moved from %v to %v", first.Attempt.DeadlineAt, second.Attempt.DeadlineAt)
 	}
@@ -112,9 +111,7 @@ func TestAReloadIsAResumeAndNotATakeover(t *testing.T) {
 		t.Fatalf("resume: %v", err)
 	}
 
-	// A tab that sent nothing is a tab that is gone -- a crash, a closed
-	// laptop, a reload. Reporting that to the teacher as a second device would
-	// be an accusation the evidence does not support.
+	// A tab that sent nothing is a tab that is gone -- a crash, a closed laptop, a reload.
 	if got := eventKinds(t, pool, first.Attempt.ID); len(got) != 1 || got[0] != attempts.KindResume {
 		t.Fatalf("events %v, want exactly [resume]", got)
 	}
@@ -128,8 +125,6 @@ func TestASecondDeviceOnALiveSessionIsRecordedAsATakeover(t *testing.T) {
 
 	first, _ := svc.StartOrResume(ctx, w.assignment, w.student)
 
-	// The first tab is demonstrably alive: it has just sent an event of its
-	// own, which is the only liveness signal the protocol has.
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO app.attempt_events (attempt_id, session_id, kind, occurred_at, client_seq)
 		VALUES ($1::uuid,$2::uuid,'tab_hidden',now(),0)`,

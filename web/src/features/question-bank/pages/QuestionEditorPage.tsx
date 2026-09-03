@@ -57,11 +57,6 @@ export default function QuestionEditorPage() {
 
   const question = existing.data ?? null;
 
-  // Remounting on identity is what seeds the form from the server without an
-  // effect that would fight the teacher's edits on every background refetch.
-  // Returns the refreshed asset rather than just refetching: the editor seeds
-  // its form state once, on purpose, so a refetch alone would mint a fresh
-  // signed URL that nothing on screen ever reads.
   async function refreshAsset(): Promise<MediaAsset | null> {
     const { data } = await existing.refetch();
     return data?.media ?? null;

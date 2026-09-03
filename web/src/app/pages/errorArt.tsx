@@ -1,18 +1,6 @@
 /**
  * The panel drawings for the three failure screens (E-01..E-03), transcribed
  * from the deck rather than redrawn.
- *
- * They share a grammar so the three read as one family: a dotted path and the
- * thing at the end of it, geometry only, one stroke weight, `currentColor` at
- * two opacities. §12 rules out alarm iconography and these screens are where
- * that matters most — a student who hits a 403 has done nothing wrong, and a
- * broken page is the product's fault, not theirs. Nothing here is red, and
- * nothing carries an exclamation mark.
- *
- * They inherit colour from the panel, which is why they carry no fill of their
- * own. Each is `aria-hidden` at the call site: the words beside them say the
- * same thing, and a screen reader announcing "dotted path to a missing page"
- * would be a worse version of "Không tìm thấy trang".
  */
 
 const SIZE = { viewBox: "0 0 260 260", width: 260, height: 260 } as const;

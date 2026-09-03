@@ -46,8 +46,6 @@ describe("counting a play", () => {
   });
 
   it("reconciles to whatever the server says", async () => {
-    // The server knows about a play this device never saw -- another tab, or a
-    // reload that lost an optimistic increment.
     counted.mockResolvedValue({ plays: 5, maxPlays: 2 });
 
     start({ q1: 0 });
@@ -62,12 +60,10 @@ describe("counting a play", () => {
 
     start({ q1: 1 });
     useTakeTestStore.getState().notePlay("q1");
-    // Let the rejection settle. Waiting only for the call would assert before
-    // any rollback could have run, and pass whether one existed or not.
+    // Let the rejection settle.
     await flush();
 
     // Not rolled back: the play really happened, and the next fetch settles it.
-    // Rolling back would hand the student a listen they had already spent.
     expect(useTakeTestStore.getState().audioPlays["q1"]).toBe(2);
   });
 

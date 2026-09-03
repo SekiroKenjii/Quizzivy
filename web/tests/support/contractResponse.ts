@@ -3,19 +3,7 @@ import addFormats from "ajv-formats";
 import { HttpResponse } from "msw";
 import { loadSpec, type Json } from "./openapi";
 
-/**
- * Validates every mock response against the real contract before returning it.
- *
- * A hand-written mock is a second, unversioned implementation of the API. It
- * drifts — someone adds a field to the contract, the handler keeps returning
- * the old shape, and the component tests keep passing against a payload
- * production will never send. Those tests then actively mislead: they are green
- * about behaviour that is already broken.
- *
- * So the fixture is checked against `api/openapi.yaml` itself. If a mock stops
- * matching the schema for the endpoint it claims to mock, the test fails at the
- * mock rather than in whatever it was actually testing.
- */
+/** Validates every mock response against the real contract before returning it. */
 
 const spec = loadSpec();
 

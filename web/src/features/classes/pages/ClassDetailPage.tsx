@@ -48,15 +48,7 @@ function currentLocale(language: string): Locale {
     : "vi";
 }
 
-/**
- * §6.4's class screen: the join code, and who is in the class.
- *
- * The member list is not decoration. §17.2 declines to build an approval queue,
- * and `joinedVia` plus the code hint are what it chose INSTEAD -- they are how a
- * teacher notices someone they did not expect, and after a rotation they say
- * whether that person came in through the code that leaked or the current one
- * (D-10).
- */
+/** §6.4's class screen: the join code, and who is in the class. */
 const MEMBERS_PAGE_SIZE = 20;
 
 export default function ClassDetailPage() {
@@ -123,8 +115,6 @@ export default function ClassDetailPage() {
 
   const items = members.data?.items ?? [];
 
-  // Only this page's ids: the picker's "already a member" mark is best-effort
-  // until the students search can exclude a class on the server.
   const memberIds = new Set(items.map((m) => m.userId));
 
   return (
@@ -195,9 +185,7 @@ export default function ClassDetailPage() {
                   {t("common.loading")}
                 </p>
               ) : items.length === 0 ? (
-                // §12: one short sentence, no illustration. Which sentence
-                // matters: `items` is search-filtered, so an empty result after
-                // typing means "nobody matches", not "the class is empty".
+                // §12: one short sentence, no illustration.
                 <p className="text-muted-foreground px-5 pb-8 text-sm">
                   {search === ""
                     ? t("classDetail.noMembers")

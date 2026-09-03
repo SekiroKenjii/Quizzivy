@@ -300,9 +300,7 @@ function AssignmentRow({
           </span>
         </div>
       </TableCell>
-      {/* Its own right-aligned column, as A-01 draws it. Folded into the
-        progress cell it widened that column enough to push the table into a
-        horizontal scrollbar at 1440px. */}
+      {/* Its own right-aligned column, as A-01 draws it. */}
       <TableCell className="text-right">
         <Badge variant={status === "open" ? "warning" : "outline"}>
           {t(`dashboard.assignmentStatus.${status}`)}

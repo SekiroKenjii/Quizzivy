@@ -17,11 +17,6 @@ import { useTakeTestStore } from "../store";
 /**
  * S-06's review: what is still empty, what was flagged, and the one button
  * that ends the attempt.
- *
- * The clock keeps running up here -- this is a view of the same attempt, not
- * a pause -- and every dot is a way back to the question it names. The
- * confirm dialog says the unanswered count out loud, because that is the
- * number a student regrets not having seen.
  */
 export function ReviewScreen({
   dots,
@@ -48,8 +43,6 @@ export function ReviewScreen({
   const confirm = async () => {
     setFailed(false);
     await submit("manual");
-    // The store settles back to idle when the request did not land and the
-    // attempt is still open; anything else is the page's to navigate away from.
     if (useTakeTestStore.getState().submitState === "idle") {
       setFailed(true);
       setConfirming(false);

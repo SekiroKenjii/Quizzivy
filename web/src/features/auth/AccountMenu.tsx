@@ -12,14 +12,7 @@ import {
 import { useLogout } from "@/features/auth/useSession";
 import { useAuthStore } from "@/stores/auth";
 
-/**
- * The deck's topbar ends in an avatar, not a "Đăng xuất" button.
- *
- * Signing out is a rare, destructive-ish action; putting its button permanently
- * in the chrome spends the most valuable corner of the screen on it and puts it
- * one mis-click from every page. Behind the avatar it is still two keystrokes
- * away and no longer competing with the work.
- */
+/** The deck's topbar ends in an avatar, not a "Đăng xuất" button. */
 export function AccountMenu() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);

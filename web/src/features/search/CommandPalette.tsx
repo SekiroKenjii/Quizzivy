@@ -28,14 +28,7 @@ interface Entry {
   label: string;
   hint?: string;
   status?: "published" | "draft" | "archived";
-  /**
-   * Carried per entry rather than derived at render.
-   *
-   * The row used to pick between exactly two icons, so a test, a question and a
-   * navigation destination all drew the same page glyph — and DESTINATIONS has
-   * always had the right icon per item, which nothing read. Three groups that
-   * look identical defeat the reason A-02 groups them.
-   */
+  // Carried per entry rather than derived at render.
   Icon: typeof FileText;
   to: string;
 }
@@ -54,16 +47,6 @@ const DESTINATIONS: { key: string; to: string; Icon: typeof FileText }[] = [
 /**
  * A-02: one component, three jobs — navigation, search across tests and
  * questions, and getting to a screen from anywhere.
- *
- * Results are typed and grouped rather than a flat relevance list, because a
- * teacher searching "unit 5" wants either the test or the questions in it, and
- * the group heading is what tells them apart at a glance. Search itself is
- * accent-insensitive server-side (§13.8), so "phat am" finds "phát âm" — the
- * normal case on a laptop keyboard, not the exception.
- *
- * The board also lists actions ("Giao … cho một lớp", "Chấm bài đang chờ").
- * Those reach assignments and grading, which are Phase 3 and 4; the group is
- * left out rather than shown inert.
  */
 export function CommandPalette({
   open,
@@ -117,9 +100,7 @@ export function CommandPalette({
     })),
   ];
 
-  // The highlight has to land somewhere real after the results change under
-  // it. Adjusted during render rather than from an effect: an effect would
-  // paint one frame with the stale index highlighted.
+  // The highlight has to land somewhere real after the results change under it.
   const [activeFor, setActiveFor] = useState("");
   const resultKey = `${search}|${entries.length}`;
   if (activeFor !== resultKey) {
@@ -128,8 +109,6 @@ export function CommandPalette({
   }
 
   function close(next: boolean) {
-    // Cleared here rather than in an effect on `open`, so Esc, an outside
-    // click and picking a result all leave the same clean state behind.
     if (!next) setQuery("");
     onOpenChange(next);
   }
@@ -171,8 +150,6 @@ export function CommandPalette({
             aria-hidden="true"
           />
           <input
-            /* The palette is opened by ⌘K in order to type immediately;
-               focusing anything else would make the shortcut useless. */
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             value={query}

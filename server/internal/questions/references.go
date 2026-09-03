@@ -31,17 +31,6 @@ func CountDraftReferences(ctx context.Context, q Querier, questionID string) (in
 
 // LockForDraftUse takes the row lock that makes the delete check meaningful,
 // and must be called before inserting into app.test_section_questions.
-//
-// SoftDelete locks the question row and then counts draft references, but a
-// FOR UPDATE on app.questions does not block an INSERT into a different table.
-// Without both sides contending on the same row, a draft can claim a question
-// between the count and the update, leaving an outline pointing at a
-// soft-deleted question -- the state the 409 exists to prevent. The foreign
-// key does not cover it either: ON DELETE RESTRICT fires on a real DELETE, and
-// this is a soft delete.
-//
-// Returns ErrNotFound if the question is gone or already deleted, so a caller
-// cannot add a deleted question to a draft either.
 func LockForDraftUse(ctx context.Context, q Querier, questionID string) error {
 	var deleted bool
 	err := q.QueryRow(ctx,

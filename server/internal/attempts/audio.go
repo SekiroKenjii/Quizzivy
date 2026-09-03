@@ -17,17 +17,6 @@ type Plays struct {
 
 // RecordPlay increments the server-authoritative counter and returns the new
 // value (§11.4).
-//
-// One statement, so ten taps racing each other produce ten plays: concurrent
-// upserts serialise on the row and each reads the value it wrote. A
-// read-then-write would lose every increment that landed between the two.
-//
-// It never refuses on count. A play past maxPlays returns 200 with the higher
-// number, which is what the teacher sees; blocking would punish bad wifi far
-// more often than it would catch anyone, and a student set on replaying can go
-// offline, which leaves a gap in the event log instead. The only refusal here
-// is the one that is not about counting: whether this attempt and this question
-// are the caller's to touch at all.
 const recordPlayQuery = `
 	WITH allowed AS (
 	  SELECT q.id, q.audio_max_plays
@@ -50,8 +39,7 @@ func (s *Store) RecordPlay(ctx context.Context, attemptID, studentID, questionID
 	err := s.pool.QueryRow(ctx, recordPlayQuery, attemptID, studentID, questionID, now).
 		Scan(&out.Plays, &out.MaxPlays)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Not this student's attempt, or not a question on its paper. One
-		// answer for both, as everywhere else here.
+		// Not this student's attempt, or not a question on its paper.
 		return Plays{}, ErrForbidden
 	}
 	if err != nil {

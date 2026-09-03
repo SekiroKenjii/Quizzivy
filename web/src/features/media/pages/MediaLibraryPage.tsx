@@ -50,8 +50,6 @@ export default function MediaLibraryPage() {
   const [playing, setPlaying] = useState<string | null>(null);
   const [viewing, setViewing] = useState<LibraryAsset | null>(null);
 
-  // Paged: a library grows for as long as the teacher keeps teaching, and the
-  // count in the title is the server's total, not however many are on screen.
   const [page] = usePage();
   const library = useQuery({
     queryKey: ["admin-media", { page }],
@@ -330,9 +328,6 @@ function AssetTable({
                         <Eye aria-hidden="true" />
                       </Button>
                     )}
-                    {/* aria-disabled rather than disabled, per A-07: pressing it
-                      explains why it cannot be deleted. A disabled button just
-                      refuses and leaves the teacher guessing. */}
                     <Button
                       variant="ghost"
                       size="icon-xs"

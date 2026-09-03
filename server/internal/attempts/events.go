@@ -22,24 +22,11 @@ type FlushInput struct {
 	Events    []Event
 
 	// StudentID is set when the request arrived with a verified access token.
-	StudentID string
-	// BeaconToken is set on the sendBeacon path, and grants append-only access
-	// to this one attempt's events. Nothing reads with it.
+	StudentID   string
 	BeaconToken string
 }
 
 // Flush appends a batch of client events.
-//
-// Deliberately NOT transactional beyond the single insert, and deliberately
-// silent about how many rows landed. §10.6 makes this fire-and-forget: a failed
-// event flush must never block answering or submitting, so there is nothing for
-// a caller to do with a partial result.
-//
-// It also does not check whether the session is still the attempt's current
-// one, unlike an answer write. A superseded tab's events are still true --
-// they are attributed to its own session_id, and the timeline is the poorer for
-// dropping the last thing a tab did before it lost. The contract agrees: this
-// operation has no SESSION_SUPERSEDED.
 func (s *Store) Flush(ctx context.Context, in FlushInput, now time.Time) error {
 	var (
 		studentID  string
@@ -80,8 +67,7 @@ func authorizeFlush(in FlushInput, studentID string, beaconHash []byte, deadline
 
 	case in.BeaconToken != "":
 		presented := sha256.Sum256([]byte(in.BeaconToken))
-		// Constant time: this is a bearer secret, and a comparison that returns
-		// early leaks how much of a guess was right, one byte at a time.
+		// Constant time: an early-returning compare leaks the guess a byte at a time.
 		if subtle.ConstantTimeCompare(presented[:], beaconHash) != 1 {
 			return ErrForbidden
 		}

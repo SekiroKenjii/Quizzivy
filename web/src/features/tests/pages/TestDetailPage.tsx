@@ -14,10 +14,6 @@ import { PageHeader } from "@/components/shared/PageHeader";
 /**
  * §8's test detail: what a student would receive, and the history of what they
  * have received before.
- *
- * The preview reads `/preview`, which renders the PUBLISHED version rather than
- * the draft — so a teacher checking a live test sees the live test, not the
- * edits they made this morning and have not published.
  */
 export default function TestDetailPage() {
   const { t, i18n } = useTranslation();

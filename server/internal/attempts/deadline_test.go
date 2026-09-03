@@ -57,10 +57,6 @@ func TestTheDeadlineDoesNotMoveWhenTheAssignmentCloses(t *testing.T) {
 		t.Errorf("the attempt's own deadline is %v after its start, want 60m", atStart.Sub(start))
 	}
 
-	// The same rules, re-evaluated once the assignment has closed, yield a
-	// deadline already behind the clock -- a student mid-sentence would be out
-	// of time the instant the page reloaded. That is the whole reason resume
-	// reads the stored deadline rather than calling this again.
 	resumedAt := start.Add(2 * time.Hour)
 	if recomputed := r.Deadline(resumedAt); !recomputed.Before(resumedAt) {
 		t.Fatalf("recomputing at %v gave %v, which is not in the past; this test no longer proves anything",

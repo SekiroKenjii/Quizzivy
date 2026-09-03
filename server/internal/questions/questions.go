@@ -77,8 +77,7 @@ type Question struct {
 	Explanation    *string
 	SampleAnswer   *string
 	Tags           []string
-	// Draft outlines referencing this question. Editing the bank copy changes
-	// every one of them; published versions hold their own snapshot (§7).
+	// Draft outlines referencing this question.
 	UsedInTests int
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

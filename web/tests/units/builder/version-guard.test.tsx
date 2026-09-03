@@ -18,11 +18,6 @@ const QUESTION_ID = "018f0000-0000-7000-8000-0000000000b1";
  * `updated_at` advances on every write (the tests_set_updated_at trigger fires
  * even for an outline-only save), and a PATCH whose expectedUpdatedAt does not
  * match the current one is a 409 STALE_WRITE.
- *
- * The builder used to send the value it read at mount for the whole session, so
- * the SECOND separated edit bricked it: "Bài này đang được mở ở nơi khác" in a
- * single tab, with every later edit dropped. E2E 1a missed it because it types
- * fast enough that every edit coalesces into one save.
  */
 let currentVersion = "2026-01-02T00:00:00.000000Z";
 let staleWrites = 0;
@@ -126,8 +121,6 @@ describe("the builder across several separated saves", () => {
     await vi.advanceTimersByTimeAsync(1500);
     await waitFor(() => expect(accepted).toBe(1));
 
-    // A minute later, in teacher terms: a second edit, well outside the
-    // debounce window that hid this from the E2E.
     await user.type(title, "b");
     await vi.advanceTimersByTimeAsync(1500);
     await waitFor(() => expect(accepted).toBe(2));

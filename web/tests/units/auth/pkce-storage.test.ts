@@ -80,9 +80,7 @@ describe("takePending", () => {
     expect(takePending()).toBeNull();
   });
 
-  // The case that decides which endpoint the code is sent to. Exchanging a link
-  // request at the sign-in endpoint would replace the current session with
-  // whichever Google account was chosen.
+  // The case that decides which endpoint the code is sent to.
   it("returns null for an unrecognised mode", () => {
     store({ ...valid, mode: "nonsense" });
     expect(takePending()).toBeNull();
@@ -95,8 +93,7 @@ describe("takePending", () => {
     }
   });
 
-  // `next` reaches destinationAfterSignIn, which calls .startsWith on it. A
-  // truthy non-string is the shape that throws inside the callback effect.
+  // `next` reaches destinationAfterSignIn, which calls .startsWith on it.
   it.each([
     ["an object next", { ...valid, next: {} }],
     ["a numeric next", { ...valid, next: 7 }],

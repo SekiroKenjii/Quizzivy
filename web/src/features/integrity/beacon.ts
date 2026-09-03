@@ -1,19 +1,7 @@
 import { BASE_URL } from "@/lib/api/client";
 import type { IntegrityEventInput } from "@/features/take-test/api";
 
-/**
- * The pagehide flush (D-03, §10.6).
- *
- * navigator.sendBeacon rather than fetch, because a fetch fired from `pagehide`
- * is routinely cancelled as the page goes away and this is the one moment the
- * timeline most wants recorded -- the tab closing is itself the event.
- *
- * text/plain rather than application/json, and the credential in the BODY
- * rather than a header, for the same underlying reason: sendBeacon cannot set
- * headers at all, and text/plain is CORS-safelisted so the request skips
- * preflight. A preflight fired on unload is not reliably delivered, which would
- * lose exactly the flush this exists for.
- */
+/** The pagehide flush (D-03, §10.6). */
 export function sendBeaconFlush(input: {
   attemptId: string;
   sessionId: string;

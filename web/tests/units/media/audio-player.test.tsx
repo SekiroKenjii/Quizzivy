@@ -52,8 +52,6 @@ describe("the player at rest", () => {
 
   it("never autoplays", () => {
     render(<AudioPlayer src="/a.mp3" label="Audio" preload="metadata" />);
-    // §11.3: browsers block audio without a gesture, the first play is always a
-    // tap, and attempting one would only produce a rejected promise to explain.
     expect(play).not.toHaveBeenCalled();
   });
 });
@@ -67,9 +65,6 @@ describe("starting playback", () => {
   it("calls play() in the same synchronous tick as the click", () => {
     render(<AudioPlayer src="/a.mp3" label="Audio" />);
 
-    // fireEvent, not userEvent: this dispatches synchronously, so the assertion
-    // below runs before any microtask could have drained. An implementation
-    // that awaited anything first would fail here and nowhere else.
     fireEvent.click(screen.getByRole("button", { name: "Phát" }));
     expect(play).toHaveBeenCalledTimes(1);
   });
@@ -98,8 +93,7 @@ describe("plays remaining", () => {
     expect(hint).toHaveAttribute("aria-live", "polite");
   });
 
-  // Exhausted is a number, not a disabled button. §11.4 never blocks playback,
-  // and the player is not where that rule would be quietly reversed.
+  // Exhausted is a number, not a disabled button.
   it("still plays when the hint says none are left", () => {
     render(<AudioPlayer src="/a.mp3" label="Audio" hint="Còn 0 lượt nghe" />);
     const button = screen.getByRole("button", { name: "Phát" });

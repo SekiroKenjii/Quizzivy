@@ -5,19 +5,6 @@ import { expect, test, type Page } from "@playwright/test";
  * E2E 1a (§14, phase-2 exit criterion): the teacher logs in, authors a test
  * with one question of each of §7's five types including audio, and publishes
  * it. It stops before assigning, which is Phase 3.
- *
- * This is the ONE suite that talks to a real API. The audio question uploads an
- * actual mp3 from T-2.2's fixture corpus, so §11.1's magic-byte sniff, size
- * check and pure-Go duration probe all run — a mocked upload would only assert
- * that the frontend can display whatever the mock returned.
- *
- * Needs postgres, MinIO and the Go API up; `make up && make migrate && make
- * seed`, then the API on :8080. The API's CORS allowlist has to include
- * http://localhost:4173, which is `vite preview` -- see .env.example.
- *
- * Locally, kill any `vite preview` left over from a previous run before
- * re-running: `reuseExistingServer` is on outside CI, so Playwright will reuse
- * it and serve the build that server started with rather than rebuilding.
  */
 
 const ADMIN = { email: "thuong@quizzivy.com", password: "quizzivy-dev" };
@@ -42,8 +29,6 @@ async function setOptions(page: Page, texts: string[]) {
   for (const [index, text] of texts.entries()) {
     await page.getByPlaceholder(`Lựa chọn ${index + 1}`).fill(text);
   }
-  // By label, not by role: single choice renders radios and multiple choice
-  // renders checkboxes, and the test is about the option, not the widget.
   await page.getByLabel("Lựa chọn 1", { exact: true }).check();
 }
 
@@ -65,9 +50,6 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
 
   // ---------------------------------------------------------------- create
   await page.goto("/admin/tests");
-  // `.first()` deliberately: the empty state offers the same action under the
-  // same name, so on a database with no tests the bare role+name matches twice.
-  // The page-header button precedes the empty state in the DOM.
   await page.getByRole("button", { name: "Đề thi mới" }).first().click();
   await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+\/edit$/);
 
@@ -103,14 +85,6 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
   await addQuestion(page, "Một đáp án", "Người phụ nữ đề nghị làm gì?");
   await page.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
 
-  // Waiting on the REMOVE control, not the filename: UploadPanel shows the name
-  // while it pre-checks the file AND inside every rejection message, so the name
-  // appearing means the upload started or failed, not that it finished. The
-  // remove button exists only once an asset is attached.
-  //
-  // Raced against the rejection alert so a server-side failure reports the
-  // server's own message in seconds instead of timing out silently a minute
-  // later — which is how a missing S3_FORCE_PATH_STYLE first showed up here.
   await expect(async () => {
     const rejected = page
       .getByRole("alert")
@@ -124,15 +98,7 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
   }).toPass({ timeout: 60_000 });
   await expect(page.getByText("unit5-listening.mp3")).toBeVisible();
 
-  // The server sniffed the bytes and measured the duration. 0:10 is what the
-  // pure-Go probe reads out of this fixture (probe_test.go: 10005ms), so the
-  // number appearing here is proof the probe ran rather than a mock answering.
-  //
-  // Asserted in both places it now appears -- the file's own meta line and the
-  // player's clock -- because the two read the duration by different routes:
-  // the meta line from the API response, the clock from the audio element once
-  // it has the file. A player showing 0:00 / 0:00 beside a correct meta line is
-  // exactly the failure a single loose /0:10/ would have hidden.
+  // The server sniffed the bytes and measured the duration.
   await expect(page.getByText(/0:10 · /)).toBeVisible();
   await expect(page.getByText("0:00 / 0:10")).toBeVisible();
 

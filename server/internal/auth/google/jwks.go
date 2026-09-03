@@ -22,13 +22,6 @@ const DefaultJWKSURL = "https://www.googleapis.com/oauth2/v3/certs"
 var ErrUnknownKey = errors.New("google: no signing key with that kid")
 
 // KeySet caches Google's signing keys.
-//
-// Google rotates keys without warning, so a cache that only expires on a timer
-// will serve an unknown `kid` for as long as its TTL. The cache therefore
-// refreshes on demand when a token names a key it has not seen -- which is the
-// only signal that a rotation happened -- and rate-limits that refresh so an
-// attacker cannot turn a stream of forged `kid`s into a stream of outbound
-// requests.
 type KeySet struct {
 	url    string
 	client *http.Client

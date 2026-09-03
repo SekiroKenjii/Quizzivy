@@ -37,18 +37,13 @@ type Membership struct {
 // Kept off Student's own identity fields for the same reason they are kept off
 // the User schema: the login payload has no business carrying them.
 type Stats struct {
-	// SubmittedCount counts distinct ASSIGNMENTS, not attempts, so it describes
-	// the same set Score averages over.
 	SubmittedCount int
-	// ScoreEarned and ScoreTotal are nil together when nothing is graded yet,
-	// which is the screen's em dash. They are never zero-for-missing: an
-	// unsubmitted assignment is absent from both sums, not a nought in them.
-	ScoreEarned   *float64
-	ScoreTotal    *float64
-	PendingManual int
-	FlaggedCount  int
-	LiveAttempt   bool
-	LastAttemptAt *time.Time
+	ScoreEarned    *float64
+	ScoreTotal     *float64
+	PendingManual  int
+	FlaggedCount   int
+	LiveAttempt    bool
+	LastAttemptAt  *time.Time
 }
 
 // Student is §7's User narrowed to the role this listing returns, plus what
@@ -83,10 +78,8 @@ const (
 
 type ListInput struct {
 	// Status defaults to Active when empty.
-	Status Status
-	Query  string
-	// ClassID narrows to one class's roster, which is how the pickers ask "who
-	// is not in this class yet" by diffing against it.
+	Status  Status
+	Query   string
 	ClassID string
 	Page    int
 	Limit   int
@@ -125,21 +118,6 @@ func statusCondition(status Status) string {
 // selectStudents is one statement for a whole page: the aggregates are lateral
 // subqueries over the page's rows, never a query per student. N+1 on a list
 // screen is §13.8's named default failure mode.
-//
-// The score is weighted -- sum(earned) over sum(total) -- across each
-// assignment's BEST graded attempt, which is the rule §7's maxAttempts implies
-// ("lấy điểm lượt cao nhất"). Three exclusions matter and none of them is a
-// zero:
-//
-//   - an assignment with no submission is absent from both sums, because
-//     "chưa nộp" and "—" are different facts and collapsing them understates
-//     every student who is simply not finished;
-//   - an attempt that is submitted but not yet GRADED is absent too, because
-//     attempt_answers.final_score is NULL while a short answer waits for a
-//     human and sum() skips NULLs -- summing early scores an unread essay as
-//     nought;
-//   - a voided attempt is absent, because voiding is an administrative erasure
-//     and counting it would be a silent grade change.
 const selectStudents = `
 		SELECT u.id::text, u.email, u.full_name,
 		       u.password_hash IS NOT NULL,
@@ -216,9 +194,6 @@ type rowScanner interface{ Scan(dest ...any) error }
 func scanStudent(row rowScanner) (Student, error) {
 	var student Student
 	var classes []byte
-	// submitted_count is the only aggregate that is never NULL; the rest are
-	// absent rather than zero when the student has done nothing, which is the
-	// difference the screen renders as an em dash.
 	var submitted *int
 	var pending *int
 	var flagged *int
@@ -241,8 +216,7 @@ func scanStudent(row rowScanner) (Student, error) {
 	student.Stats.FlaggedCount = deref(flagged)
 	student.Stats.LiveAttempt = live != nil && *live
 
-	// A total of zero would make the client divide by it. The pair is either
-	// both present and meaningful, or absent.
+	// A total of zero would make the client divide by it.
 	if student.Stats.ScoreTotal != nil && *student.Stats.ScoreTotal <= 0 {
 		student.Stats.ScoreEarned, student.Stats.ScoreTotal = nil, nil
 	}
@@ -313,15 +287,6 @@ var (
 )
 
 // Get returns one student, disabled or not.
-//
-// Disabled included on purpose: the row carries disabledAt, and a detail screen
-// that cannot open a suspended account is a detail screen that cannot re-enable
-// one. Sign-in is blocked by the auth path, not by hiding the record here.
-//
-// Filtered to role 'student' on purpose, not merely because the screen is
-// called Students: every write path reaches the same rows, and without this an
-// admin's own id in the URL would let /admin/students disable the only teacher
-// or reset another admin's password.
 func (s *Store) Get(ctx context.Context, id string) (Student, error) {
 	return s.get(ctx, id, true)
 }

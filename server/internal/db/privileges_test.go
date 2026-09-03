@@ -7,25 +7,6 @@ import (
 
 // Two properties of this system are enforced by PostgreSQL PRIVILEGES rather
 // than by schema or code, and until now nothing asserted either one:
-//
-//  1. New tables become readable and writable by the app role automatically,
-//     via `ALTER DEFAULT PRIVILEGES` in 00009 -- which is what lets every
-//     Phase 2-5 migration add a table without remembering to grant anything.
-//  2. audit_log is append-only, via the REVOKE at the end of 00009. audit.go
-//     describes the table as "append-only by PRIVILEGE, not by convention".
-//
-// Every integration test connects as the OWNER, which bypasses privilege checks
-// entirely -- so the role the tests exercise and the role production uses were
-// different, and the difference was invisible to CI.
-//
-// That is not hypothetical here. 00009's own comment records this class of
-// failure happening once already: "the first integration test to connect as the
-// app role failed with 'permission denied for schema app'". It was caught then
-// because something happened to connect as the app role. Nothing did afterwards.
-//
-// These ask the database about another role's privileges rather than opening a
-// second connection, so they need no extra DSN and no extra CI wiring: the
-// owner can interrogate quizzivy_app's grants directly.
 
 const appRole = "quizzivy_app"
 
@@ -77,10 +58,6 @@ func TestAppRoleCanReadAndWriteEveryTable(t *testing.T) {
 // evidence, and both of these tables exist to be evidence: audit_log is what
 // the teacher's actions are reconstructed from, attempt_events is what a
 // student's session is.
-//
-// The REVOKE is what makes it true, and it lives beside each table -- audit_log
-// in 00009, attempt_events in 00023 -- so a table is never briefly writable
-// between being created and being locked down.
 func TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole(t *testing.T) {
 	conn := migrated(t)
 

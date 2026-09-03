@@ -92,8 +92,6 @@ export default function TestsListPage() {
         },
         signal,
       ),
-    // The old page stays up while the next one loads, so turning a page does
-    // not blank the table.
     placeholderData: keepPreviousData,
   });
 
@@ -124,11 +122,7 @@ export default function TestsListPage() {
   });
 
   const items = tests.data?.items ?? [];
-  // Every page carries the same facets (they ignore the cursor), so the first
-  // one is the answer -- and it is the only page guaranteed to exist.
   const facets = tests.data?.facets;
-  // Union of what the server offers and what is picked, so a chosen chip cannot
-  // vanish from the row because it is the only thing still matching.
   const offered = [...new Set([...tags, ...(tests.data?.tags ?? [])])].sort((a, b) =>
     a.localeCompare(b, "vi"),
   );
@@ -181,8 +175,7 @@ export default function TestsListPage() {
           />
         </div>
 
-        {/* A-03's "Thẻ". Filters by the tags of the questions a test contains:
-          §7 gives Test none of its own, and a test is its questions. */}
+        {/* A-03's "Thẻ". */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={offered.length === 0}>

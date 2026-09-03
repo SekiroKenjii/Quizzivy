@@ -5,15 +5,7 @@ import { cn } from "@/lib/utils";
 import { blankInputs } from "./blankInputs";
 import type { Answer, StudentQuestion } from "../api";
 
-/**
- * What a student answers, one question at a time (S-05).
- *
- * Four types share one chrome and one prompt treatment, so nothing shifts as
- * the student moves between them. Prompts go through react-markdown with
- * rehype-sanitize (§2): a prompt is written by a teacher and read by every
- * student in the class, so an unsanitised one is stored XSS aimed at exactly
- * the people who cannot avoid opening it.
- */
+/** What a student answers, one question at a time (S-05). */
 export function QuestionBody({
   question,
   answer,
@@ -76,12 +68,6 @@ function Prompt({ children }: { children: string }) {
 /**
  * single_choice, multiple_choice and true_false, which differ only in how many
  * may be chosen.
- *
- * Native radios and checkboxes inside a label, visually hidden rather than
- * replaced. Arrow keys within a radio group, space to toggle a checkbox and the
- * grouping a screen reader announces all come from the platform; a div with
- * role="radio" would mean reimplementing every one of them, and getting one
- * wrong is a student who cannot answer.
  */
 function Choice({ question, answer, onAnswer, disabled }: Props) {
   const { t } = useTranslation();
@@ -161,9 +147,6 @@ function Choice({ question, answer, onAnswer, disabled }: Props) {
 function FillBlank({ question, answer, onAnswer, disabled }: Props) {
   const { t } = useTranslation();
   const values = answer !== undefined && "values" in answer ? answer.values : {};
-  // Not sorted: the slots are placed by the prompt, and each is matched to its
-  // blank by ordinal. What order the API happened to list them in never enters
-  // into it, and sorting here only looked like it mattered.
   const blanks = question.blanks ?? [];
 
   const write = (blankId: string, value: string) =>
@@ -176,17 +159,11 @@ function FillBlank({ question, answer, onAnswer, disabled }: Props) {
         plugins={[blankInputs]}
         components={{
           span: (props) => {
-            // "data-blank", not hast's usual camelCased "dataBlank": this node
-            // was built by the plugin above rather than parsed from HTML, so
-            // the key is whatever it wrote.
             const ordinal = props.node?.properties?.["data-blank"];
             if (ordinal === undefined || ordinal === null) return <span {...props} />;
             const blank = blanks.find((b) => String(b.ordinal) === String(ordinal));
             if (blank === undefined) {
-              // A placeholder with no blank behind it. Publish refuses this, so
-              // reaching it means the prompt and the blanks disagree -- show the
-              // marker back rather than an input nothing can be saved against,
-              // because the marker is what tells a teacher which one it is.
+              // A placeholder with no blank behind it.
               const orphan = `{{${String(ordinal)}}}`;
               return <span>{orphan}</span>;
             }
@@ -211,8 +188,7 @@ function FillBlank({ question, answer, onAnswer, disabled }: Props) {
 function ShortAnswer({ question, answer, onAnswer, disabled }: Props) {
   const { t } = useTranslation();
   const value = answer !== undefined && "value" in answer ? String(answer.value) : "";
-  // Whitespace-separated, which is what "18 từ" means to a student writing
-  // English. Not a linguistic claim about Vietnamese.
+  // Whitespace-separated, which is what "18 từ" means to a student writing English.
   const words = value.trim() === "" ? 0 : value.trim().split(/\s+/).length;
 
   return (

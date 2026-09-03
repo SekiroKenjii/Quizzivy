@@ -44,8 +44,6 @@ func serve(ctx context.Context, logger *slog.Logger, cfg config.Config, handler 
 		return err
 	case <-ctx.Done():
 		logger.Info("shutting down")
-		// Background, not ctx: ctx is already cancelled here, and Shutdown would
-		// return at once and cut in-flight requests instead of draining them.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)

@@ -2,19 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-/**
- * Guards spec §12's colour rules mechanically.
- *
- * §12 is unusually specific: "Primary action: dark charcoal (zinc-900) buttons,
- * white text. Not blue, not purple, not indigo." That is easy to honour on day
- * one and easy to lose later, when someone reaches for a familiar accent.
- *
- * The subtlety is that zinc is not hue-neutral — Tailwind's zinc sits around
- * hue 286, squarely in the blue/purple band — so a naive hue check would reject
- * the very palette the spec mandates. What separates zinc from indigo is
- * CHROMA: zinc's is <= 0.017, an actual indigo is ~0.2. So the rule is
- * "saturated AND in the blue band", not "in the blue band".
- */
+/** Guards spec §12's colour rules mechanically. */
 
 const CSS = readFileSync(
   resolve(import.meta.dirname, "../../../src/index.css"),

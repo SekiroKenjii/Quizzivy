@@ -63,9 +63,7 @@ describe("the pagehide flush", () => {
     });
 
     expect(sent).toHaveLength(1);
-    // text/plain is CORS-safelisted, so the request skips preflight. A
-    // preflight fired on unload is not reliably delivered, which would lose
-    // exactly the flush this exists for.
+    // text/plain is CORS-safelisted, so the request skips preflight.
     expect(sent[0]?.body.type).toBe("text/plain");
     expect(sent[0]?.url).toMatch(/\/app\/attempts\/att-1\/events$/);
 
@@ -98,8 +96,6 @@ describe("the pagehide flush", () => {
     expect((body["events"] as unknown[]).length).toBe(3);
   });
 
-  // Drained rather than peeked: if it lands they are gone, and if it does not
-  // the tab is going away with them. There is no later.
   it("empties the buffer", () => {
     mount();
     act(() => {
@@ -111,8 +107,6 @@ describe("the pagehide flush", () => {
 
   it("sends nothing when there is nothing to send", () => {
     beginSession(ATTEMPT, "ses-1");
-    // No hook, so no page_hide is recorded -- an empty flush is not worth a
-    // request the browser is racing a closing tab to make.
     act(() => {
       window.dispatchEvent(new Event("pagehide"));
     });

@@ -241,15 +241,6 @@ func resync(r io.ReaderAt, size, from int64) (int64, error) {
 }
 
 // vbrFrameCount reads a Xing/Info or VBRI header out of the first frame.
-//
-// Its position depends on the side-info block, whose size depends on the MPEG
-// version and the channel mode -- getting that wrong reads four bytes of audio
-// and calls them a frame count, which is why the tag is verified rather than
-// assumed.
-//
-// The second result is the stream length in BYTES as the header declares it, or
-// 0 when the header does not carry one. That is what lets the caller notice a
-// truncated upload, whose header still describes the file it used to be.
 func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, int64, bool) {
 	sideInfo := int64(32) // MPEG1 stereo
 	switch {

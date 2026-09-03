@@ -93,8 +93,6 @@ function BankList({
   const fetched = bank.data.items;
   const items = fetched.filter((question) => !excluded.has(question.id));
   if (items.length === 0) {
-    // Three different answers, and the teacher's next move differs for each:
-    // write a question, clear the search, or stop looking.
     const message =
       fetched.length === 0
         ? query.trim() === ""

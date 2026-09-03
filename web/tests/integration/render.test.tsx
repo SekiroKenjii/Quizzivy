@@ -9,9 +9,6 @@ import "@/lib/i18n";
  * End-to-end smoke over the harness: Testing Library renders a component, the
  * component fetches through the real API client, MSW answers with a
  * contract-validated fixture, and i18next supplies Vietnamese copy.
- *
- * If any layer of the harness is mis-wired, this fails — which is the point of
- * having it before any real screen exists.
  */
 function ClassList() {
   const { t } = useTranslation();

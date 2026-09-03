@@ -88,12 +88,6 @@ func apply(t *testing.T, sets ...map[string]string) {
 
 // The production deployment, assembled from the two places its configuration
 // actually lives, and asked the only question that matters: does it boot.
-//
-// This is the test that was missing. GOOGLE_REDIRECT_URI sat in fly.toml and
-// GOOGLE_CLIENT_SECRET in `fly secrets`, but the client id was in neither --
-// and loadGoogle refuses two-of-three by design. Nothing on the way to
-// production compared those two sets, so it was found by Fly's smoke check
-// reporting "the app appears to be crashing", with an empty log tail.
 func TestTheCommittedFlyConfigBootsWithTheDocumentedSecrets(t *testing.T) {
 	apply(t, flyEnv(t), flySecrets)
 

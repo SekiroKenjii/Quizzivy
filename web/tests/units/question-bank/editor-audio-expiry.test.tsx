@@ -75,10 +75,6 @@ function renderEditor() {
  * Issue #43: the shared player's `onError` was wired at one of its two call
  * sites, so the question editor swallowed an expired signed URL entirely — no
  * message, no reason, and no retry.
- *
- * The editor is the WORSE screen for it: attaching audio, writing the prompt,
- * adding options and writing explanations is easily longer than the ten minutes
- * a signature lives (§11.2), so the URL ages while the teacher works.
  */
 describe("an expired audio URL in the question editor", () => {
   it("says so instead of a play button that does nothing", async () => {
@@ -100,9 +96,6 @@ describe("an expired audio URL in the question editor", () => {
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
 
     await waitFor(() => expect(fetches).toBe(2));
-    // The editor seeds its form state once on purpose, so a refetch that did
-    // not hand the fresh asset back would mint a new URL nothing ever reads —
-    // and the player would still be showing the expired state.
     const refreshed = await screen.findByLabelText("unit5-listening-2.mp3");
     expect(refreshed).toHaveAttribute("src", "https://example.test/a.mp3?sig=2");
     expect(screen.queryByRole("alert")).toBeNull();

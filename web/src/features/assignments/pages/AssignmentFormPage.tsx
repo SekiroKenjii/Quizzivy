@@ -101,8 +101,6 @@ export default function AssignmentFormPage() {
     null,
   );
 
-  // The class named in the URL, fetched by id: a list of the first hundred is
-  // not where a class is guaranteed to be any more.
   const fromClassId = params.get("classId");
   const fromClassQuery = useQuery({
     queryKey: ["admin-class", fromClassId],
@@ -110,8 +108,6 @@ export default function AssignmentFormPage() {
     enabled: fromClassId !== null,
   });
 
-  // Arriving from a class's "Giao bài cho lớp" pre-selects it, which is the
-  // whole point of starting from there rather than from the assignments list.
   const preselected = useMemo(() => {
     const found = fromClassQuery.data;
     return found
@@ -119,9 +115,6 @@ export default function AssignmentFormPage() {
       : null;
   }, [fromClassQuery.data]);
 
-  // Applied during render rather than in an effect: the pre-selection is a
-  // function of the URL and the loaded classes, and an effect would paint one
-  // frame of an empty field first.
   const [appliedFor, setAppliedFor] = useState<string | null>(null);
   if (preselected && appliedFor !== preselected.id) {
     setAppliedFor(preselected.id);
@@ -168,8 +161,6 @@ export default function AssignmentFormPage() {
       }),
   });
 
-  // Assigning needs somebody to assign to; saving a draft only needs the test,
-  // because coming back to it later is the point of saving one.
   const hasTargets = draft.classes.length > 0 || draft.students.length > 0;
   const ready = draft.picked !== null && hasTargets;
   const savable = draft.picked !== null;
@@ -516,9 +507,7 @@ export default function AssignmentFormPage() {
           >
             {create.isPending ? t("common.loading") : t("assignments.assign")}
           </Button>
-          {/* A draft needs only the test. The teacher who has not decided who
-              it is for yet is exactly who this button is for, which is why it
-              stays enabled when "Giao bài" cannot be. */}
+          {/* A draft needs only the test. */}
           <Button
             variant="outline"
             className="w-full"
@@ -550,9 +539,6 @@ export default function AssignmentFormPage() {
 function Summary({ draft }: { draft: Draft }) {
   const { t } = useTranslation();
 
-  // Classes may overlap and a named student may already be in one, so this is
-  // an upper bound, not the roster. The server counts the real one; saying
-  // "up to" is the honest version of a number computed from chips.
   const upperBound =
     draft.classes.reduce((sum, c) => sum + Number(c.hint ?? 0), 0) +
     draft.students.length;

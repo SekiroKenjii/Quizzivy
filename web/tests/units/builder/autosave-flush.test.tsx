@@ -6,10 +6,6 @@ import { useAutosave } from "@/features/tests/useAutosave";
 /**
  * `flush()` is what publish relies on, and a version is immutable — one that
  * froze without the last edit cannot be repaired.
- *
- * The window the debounce creates is exactly where the teacher's hand goes:
- * they stop typing, the save fires at 1.5s, and they reach for Publish while
- * the request is still on the wire.
  */
 interface Handle {
   schedule: (value: string) => void;
@@ -76,8 +72,7 @@ describe("flush and a save already on the wire", () => {
       flushed = true;
     });
 
-    // Nothing is pending, but the PATCH has not come back. Publishing here is
-    // what freezes a version without the last edit.
+    // Nothing is pending, but the PATCH has not come back.
     await act(async () => {
       await Promise.resolve();
     });

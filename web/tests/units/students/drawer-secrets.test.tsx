@@ -97,9 +97,6 @@ describe("the one-time password in the student drawer", () => {
     await user.click(await screen.findByRole("button", { name: "Đặt mật khẩu tạm" }));
     expect(await screen.findByText("tho-vang-42")).toBeInTheDocument();
 
-    // Clicking another row never passes through "nothing selected", so without
-    // an identity the panel keeps its state and prints Hân's password under
-    // Dũng's name.
     await openDrawerFor(user, "Hoàng Tiến Dũng");
 
     await screen.findByRole("complementary", { name: /Hoàng Tiến Dũng/ });

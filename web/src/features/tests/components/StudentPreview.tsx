@@ -7,14 +7,7 @@ import type { components } from "@/lib/api/schema";
 
 type StudentQuestion = components["schemas"]["StudentQuestion"];
 
-/**
- * A read-only rendering of what a student receives.
- *
- * It renders `StudentQuestion` and nothing else, which is the point: the
- * payload has no `isCorrect`, no `sampleAnswer`, no `acceptedAnswers` and no
- * transcript, so a preview built from it cannot accidentally show the teacher
- * something a student would not see (§14 E2E 9).
- */
+/** A read-only rendering of what a student receives. */
 export function StudentPreview({ questions }: { questions: StudentQuestion[] }) {
   const { t } = useTranslation();
 

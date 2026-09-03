@@ -141,19 +141,7 @@ async function performRefresh(): Promise<boolean> {
   return true;
 }
 
-/**
- * **Single-flight.** Concurrent callers share one in-flight request.
- *
- * This is not an optimisation, it is a correctness requirement. §5.2 holds the
- * access token in memory only, so a cold page load has none; TanStack Query
- * mounts several queries at once; every one of them 401s. Without this, each
- * would POST /auth/refresh with the same cookie value. The first rotates it,
- * and the rest present an already-rotated token — which §5.2's reuse detection
- * correctly treats as theft, revoking the whole family and logging the user out.
- *
- * The symptom is "the app signs me out every time I refresh the page", and the
- * cause is invisible in any single request. `docs/plan/30-risks.md` R-06.
- */
+/** **Single-flight.** Concurrent callers share one in-flight request. */
 function refreshSession(): Promise<boolean> {
   inFlightRefresh ??= performRefresh()
     .catch(() => false)
@@ -232,11 +220,6 @@ export interface UploadOptions {
 /**
  * Uploads one file as multipart/form-data, sharing this module's token and
  * single-flight refresh.
- *
- * XMLHttpRequest rather than fetch, for the one thing fetch cannot do: report
- * how much of the body has been sent. §11.1 allows 10 MB, which is long enough
- * on a phone that a progress bar is the difference between "working" and
- * "broken".
  */
 export async function uploadFile<T>(
   path: string,

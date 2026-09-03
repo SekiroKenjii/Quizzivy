@@ -32,8 +32,6 @@ afterEach(() => {
 });
 
 describe("the three failure screens", () => {
-  // E-01: "nó báo lỗi" is unactionable; the path tells the teacher whether the
-  // assignment was deleted or the link was mistyped.
   it("puts the address that failed on the 404 itself", () => {
     renderAt(<NotFound />, "/app/assignments/8f2c-unit-5");
     expect(screen.getByText("/app/assignments/8f2c-unit-5")).toBeInTheDocument();
@@ -44,8 +42,6 @@ describe("the three failure screens", () => {
     renderAt(<NotFound />);
     const home = screen.getByText("Về trang chủ");
     const back = screen.getByText("Quay lại");
-    // DOCUMENT_POSITION_FOLLOWING: home comes first in reading and tab order,
-    // which is the ranking -- not merely which one is darker.
     expect(
       home.compareDocumentPosition(back) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -57,8 +53,6 @@ describe("the three failure screens", () => {
     expect(document.body.textContent).not.toMatch(/\b404\b/);
   });
 
-  // E-03's whole point: the commonest cause is the wrong account, and naming
-  // the address turns a dead end into a two-second fix.
   it("names the account the 403 is refusing", () => {
     useAuthStore.setState({ user: studentUser });
     renderAt(<ForbiddenPage />, "/admin");
@@ -90,8 +84,6 @@ describe("the brand kit on screen", () => {
     );
   });
 
-  // Sizing comes from the kit's viewBox, so the ratio cannot drift and the
-  // image reserves its box before it loads.
   it("sizes from the kit's own viewBox", () => {
     render(<BrandLockup height={28} />);
     const img = screen.getByAltText("Quizzivy");
@@ -100,8 +92,6 @@ describe("the brand kit on screen", () => {
     expect(img).toHaveAttribute("height", "28");
   });
 
-  // The regression that made this a warning: a 2px breach of a decorative
-  // recommendation took a whole page down behind the error boundary.
   it("warns about an undersized mark but still renders it", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(() => render(<BrandMark height={12} />)).not.toThrow();
@@ -109,8 +99,6 @@ describe("the brand kit on screen", () => {
     if (import.meta.env.DEV) expect(warn).toHaveBeenCalled();
   });
 
-  // B-04: the mark carries the brand and the app sets the name in Inter,
-  // because the kit's lettering is Quicksand and the two are never mixed.
   it("leaves the mark decorative when the app writes the name beside it", () => {
     const { container } = render(<BrandMark height={24} />);
     expect(container.querySelector("img")).toHaveAttribute("alt", "");

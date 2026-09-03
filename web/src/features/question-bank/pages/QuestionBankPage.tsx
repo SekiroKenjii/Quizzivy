@@ -51,22 +51,16 @@ export default function QuestionBankPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  // Sets, not single values: A-06's rail is checkboxes and chips. Within a
-  // group the choices widen the results; the groups narrow each other.
+  // Sets, not single values: A-06's rail is checkboxes and chips.
   const [types, setTypes] = useState<readonly QuestionType[]>([]);
   const [tags, setTags] = useState<readonly string[]>([]);
   const [audioOnly, setAudioOnly] = useState(false);
-  // Survives filtering on purpose — the deck's section 3 opens with "selection
-  // that survives filtering", because building a paper means gathering from
-  // several searches before committing to any of them.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [tagging, setTagging] = useState(false);
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
 
-  // The search fires on a pause, not on a keystroke: §13.8's trigram scan is
-  // cheap but not free, and a request per letter is a request per letter.
   const search = useDebounced(query, 300);
 
   const [page] = usePage(
@@ -97,13 +91,7 @@ export default function QuestionBankPage() {
   const items = bank.data?.items ?? [];
   const data = bank.data;
   const facets = data?.facets;
-  // From the server, not from `items`. A rail built out of the loaded page can
-  // only offer the tags that page happens to carry — with 72 questions and a
-  // page of 50, two of the bank's three tags were invisible, so a second chip
-  // could not be picked and multi-tag filtering looked unbuilt.
-  //
-  // Unioned with the selection so a chosen chip cannot vanish from the rail
-  // when it is the only thing still matching.
+  // From the server, not from `items`.
   const shownTags = [...new Set([...tags, ...(bank.data?.tags ?? [])])].sort((a, b) =>
     a.localeCompare(b, "vi"),
   );
@@ -377,8 +365,6 @@ function Row({
       {audio && playing ? (
         <TableRow>
           <TableCell colSpan={7} className="p-0">
-            {/* Keyed on the URL: a refetch mints a fresh one, and the row has
-                to forget that the previous one had expired. */}
             <AudioPreviewRow
               key={audio.url}
               asset={audio}
@@ -462,8 +448,6 @@ function FilterRail({
                 >
                   <Badge variant={picked ? "primary" : "outline"} className="gap-1">
                     {value}
-                    {/* A-06 draws the × on the chosen chip: with several
-                      picked, "click it again" is not visibly the way off. */}
                     {picked ? <X className="size-3" aria-hidden="true" /> : null}
                   </Badge>
                 </button>

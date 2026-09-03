@@ -30,10 +30,7 @@ type StudentCard struct {
 	MaxAttempts   int
 	QuestionCount int
 	TotalPoints   float64
-	// AttemptsUsed counts finished, non-voided attempts, plus one left in
-	// progress past its deadline. A live one is not used yet -- it is the
-	// one the student is in.
-	AttemptsUsed int
+	AttemptsUsed  int
 	// HasLiveAttempt means resumable: in progress and before its deadline.
 	HasLiveAttempt bool
 	// LiveDeadlineAt is non-nil exactly when HasLiveAttempt is true.
@@ -42,9 +39,7 @@ type StudentCard struct {
 	LastAttemptID *string
 	// LastSubmittedAt is nil while that attempt is still live.
 	LastSubmittedAt *time.Time
-	// Score is the last finished attempt's, and only when the assignment's
-	// review policy shows scores. Nil otherwise -- absent, not zero.
-	Score *Score
+	Score           *Score
 }
 
 type Score struct {
@@ -187,14 +182,6 @@ func scanStudentCard(row pgx.Row) (StudentCard, error) {
 }
 
 // ForStudent returns the home screen's three sections.
-//
-// Drafts never appear: publishing is what hands an assignment to students.
-// Everything else is placed by one rule, in order. A live attempt is due
-// whatever the window says -- it is burning a server-side clock the student
-// cannot see from anywhere else, so it outranks even a nearer deadline. An
-// open assignment with attempts left is due. A future one is upcoming. One
-// the student has sat is completed. One that closed before they ever started
-// is none of these: there is nothing to act on and nothing to show.
 func (s *Store) ForStudent(ctx context.Context, studentID string, now time.Time) (StudentSections, error) {
 	rows, err := s.pool.Query(ctx, studentCardColumns+studentCardFrom+`
 	 WHERE a.published_at IS NOT NULL AND `+targeted+`

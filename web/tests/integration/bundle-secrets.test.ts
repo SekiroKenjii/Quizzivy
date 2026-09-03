@@ -11,16 +11,6 @@ type BuildOutput = { output: (OutputChunk | OutputAsset)[] };
  * Vite's `envDir` points at the repository root, so the frontend build reads a
  * directory whose `.env` holds the database superuser password, the JWT signing
  * key, the Google client secret and two sets of object-storage credentials.
- *
- * What keeps them out of `dist/` is `envPrefix`. That is now set explicitly,
- * which documents the danger but does not remove it: a variable named
- * `VITE_GOOGLE_CLIENT_SECRET` by mistake is inlined however explicit the prefix
- * is, and `.env.example` lists `VITE_GOOGLE_CLIENT_ID` directly above
- * `GOOGLE_CLIENT_SECRET`. One character of a copy-paste apart.
- *
- * The blast radius is total -- the JWT signing key alone forges a session for
- * any account, including an admin -- so this reads the actual build output
- * rather than trusting configuration.
  */
 
 const ROOT = resolve(import.meta.dirname, "../..");

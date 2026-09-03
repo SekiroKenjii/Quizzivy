@@ -44,14 +44,10 @@ func TestATemporaryPasswordCanActuallyBeUsed(t *testing.T) {
 			t.Fatalf("TemporaryPassword: %v", err)
 		}
 
-		// The login endpoint enforces this before any handler runs, so a short
-		// one locks the student out of the account it was meant to rescue.
 		if len(got) < MinPasswordLength {
 			t.Fatalf("%q is %d bytes, under the %d the login schema requires",
 				got, len(got), MinPasswordLength)
 		}
-		// ChangePassword counts runes, not bytes; the list is ASCII so these
-		// agree, and this fails loudly if an accented word ever slips in.
 		if n := utf8.RuneCountInString(got); n < MinPasswordLength || n > MaxPasswordLength {
 			t.Fatalf("%q is %d runes, outside [%d,%d]", got, n, MinPasswordLength, MaxPasswordLength)
 		}
@@ -75,8 +71,6 @@ func TestTemporaryPasswordsDiffer(t *testing.T) {
 		}
 		seen[got] = true
 	}
-	// Not a randomness test -- a stuck generator returning one value is the
-	// failure this catches.
 	if len(seen) < 50 {
 		t.Errorf("100 draws produced %d distinct passwords", len(seen))
 	}

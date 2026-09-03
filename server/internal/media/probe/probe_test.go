@@ -13,19 +13,6 @@ import (
 
 // §11.1: identify by magic bytes, never by extension or Content-Type, and
 // measure without shelling out to ffprobe.
-//
-// **What this corpus is.** The fixtures are SYNTHESISED, not encoded --
-// testdata/generate.go builds them byte by byte, so every duration here is
-// known by construction rather than by trusting an encoder. That makes each
-// case exact and isolated.
-//
-// **What it therefore does not cover.** Real encoder quirks: LAME's exact
-// padding, iTunes' atom ordering, the odd stray byte between frames that
-// appears in files from the wild. R-08 is about VBR-without-Xing being wrong,
-// and this corpus proves the ARITHMETIC is right without proving the parser
-// survives everything a real encoder emits. Dropping a handful of real files
-// into testdata/ and adding them to the table below is the way to close that,
-// and needs no code change.
 
 func open(t *testing.T, name string) (*bytes.Reader, int64) {
 	t.Helper()
@@ -179,18 +166,6 @@ func craftedMP4(timescale, duration uint64) []byte {
 
 // TestADeclaredDurationCannotOverflowIntoAPlausibleOne pins the arithmetic in
 // `scaled`.
-//
-// The duration comes straight out of the uploaded file, so `duration * 1000`
-// used to wrap for anything above 2^64/1000 -- and the plausibility check ran
-// on the wrapped product, which is a number the uploader chose. The value below
-// is not a lucky find: given a target of 30 s at timescale 1000, solving
-// `duration * 1000 ≡ 30000000 (mod 2^64)` produces it directly, so anyone can
-// aim this at whatever duration passes review.
-//
-// The consequence was a wrong number rather than a crash, which is worse for
-// being quiet: it is stored in media_assets.duration_ms, satisfies the
-// `duration_ms <= 300000` CHECK, and §7's take-test timer then budgets against
-// audio of a completely different length.
 func TestADeclaredDurationCannotOverflowIntoAPlausibleOne(t *testing.T) {
 	const (
 		timescale = uint64(1000)

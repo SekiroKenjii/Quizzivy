@@ -46,8 +46,6 @@ func tracedPool(t *testing.T) (*pgxpool.Pool, *countingTracer) {
 	}
 	tracer := &countingTracer{}
 	cfg.ConnConfig.Tracer = tracer
-	// One connection, so a lazily-opened second one cannot add its setup
-	// queries to the count mid-measurement.
 	cfg.MinConns, cfg.MaxConns = 1, 1
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)

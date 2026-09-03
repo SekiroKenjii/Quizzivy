@@ -10,10 +10,6 @@ interface TitleHandle {
 /**
  * The deck's S-10 detail shell: a back arrow and the screen's name, in place of
  * the nav bar.
- *
- * A detail screen inside /app is somewhere the student navigated TO, so the
- * tabs would be offering a sideways move they did not ask for. The title comes
- * from the route's `handle`, which keeps it next to the route it names.
  */
 export default function StudentDetailLayout() {
   const { t } = useTranslation();

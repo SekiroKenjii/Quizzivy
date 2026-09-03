@@ -75,12 +75,7 @@ export function TestVersionPicker({
                     className="text-muted-foreground size-5 shrink-0"
                     aria-hidden="true"
                   />
-                  {/* Title and latest version only. `questionCount` and
-                    `totalPoints` on a Test describe its DRAFT outline, and this
-                    screen is choosing a frozen version -- a test whose draft was
-                    emptied after publishing would advertise "0 câu" for a
-                    version that has plenty. The numbers live on the rows below,
-                    where they are the version's own. */}
+                  {/* Title and latest version only. */}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{test.title}</p>
                     <p className="text-muted-foreground text-xs">

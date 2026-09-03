@@ -59,8 +59,6 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		RefreshTTL:   cfg.RefreshTokenTTL,
 		CookieSecure: cfg.RefreshCookieSecure,
 	}
-	// Guarded: assigning a nil *media.Service would give the interface a
-	// non-nil value, and the handlers' `Deps.Media == nil` check would miss it.
 	if mediaService != nil {
 		deps.Media = mediaService
 	}

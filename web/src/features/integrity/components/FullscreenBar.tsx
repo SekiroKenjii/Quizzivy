@@ -6,9 +6,6 @@ import { enterFullscreen, fullscreenSupported } from "../fullscreen";
  * Fullscreen exit is not one of S-07's dialogs. It is this inline bar, because
  * Esc must always work and a modal over an exited fullscreen is a trap
  * (§10.2). The paper below stays writable; the bar only offers the way back.
- *
- * On a browser with no element fullscreen at all -- every iPhone -- the button
- * would be a promise nothing can keep, so the bar says so instead.
  */
 export function FullscreenBar() {
   const { t } = useTranslation();

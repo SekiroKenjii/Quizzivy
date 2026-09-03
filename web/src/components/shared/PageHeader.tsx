@@ -21,21 +21,7 @@ interface TitleProps {
   actions?: ReactNode;
 }
 
-/**
- * The one header every admin screen goes through, in the deck's two shapes.
- *
- * `bar` is the contextual bar of the detail screens (G-01, G-02, G-06): back,
- * what you are looking at, and what you can do to it. The deck keeps the
- * global topbar and sets this bar under it, so it is rendered into the
- * shell's slot between the topbar and <main> -- outside the scroll container,
- * where it stays put the way the topbar does, with no sticky and no negative
- * margins reaching out of the padding. Without a shell (tests, other layouts)
- * it renders in place.
- *
- * `title` is the list screens' block (A-03, A-06, G-07): the page name large,
- * a one-line summary under it, and the actions on the right, inside the
- * content where the deck draws it.
- */
+/** The one header every admin screen goes through, in the deck's two shapes. */
 export function PageHeader(props: BarProps | TitleProps) {
   if (props.variant === "title") return <TitleBlock {...props} />;
   return <Bar {...props} />;

@@ -12,18 +12,6 @@ import (
 )
 
 // TestLockForDraftUseSerialisesAgainstDelete is the point of the lock.
-//
-// SoftDelete locks the question row and then counts draft references, but a
-// FOR UPDATE on app.questions does not block an INSERT into
-// test_section_questions -- different table, no conflict. Without the insert
-// side taking the same row lock, a draft can claim the question between the
-// count and the update, and the outline ends up pointing at a soft-deleted
-// question.
-//
-// This drives both halves at once and asserts the two possible orderings are
-// the only outcomes: either the delete wins and the insert is refused, or the
-// insert wins and the delete is refused. What must never happen is both
-// succeeding.
 func TestLockForDraftUseSerialisesAgainstDelete(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)

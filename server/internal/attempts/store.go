@@ -132,16 +132,6 @@ func (s *Store) Live(ctx context.Context, assignmentID, studentID string) (row, 
 
 // Tally answers the two questions the create path asks, which look like one
 // and are not.
-//
-// Spent is how many tries the student has used, and ignores voided attempts:
-// voiding exists so a teacher can give an attempt back, and one that still
-// consumed a slot would not be given back at all.
-//
-// Next is the number the new attempt will carry, and CANNOT ignore them --
-// attempt_no is half of a unique key, so a voided row still occupies its
-// number. Deriving both from one count is how a voided attempt turns the next
-// start into a duplicate-key error, which reads to the student as the retry
-// their teacher just granted quietly failing.
 type Tally struct {
 	Spent int
 	Next  int
@@ -252,8 +242,6 @@ func (s *Store) Resume(ctx context.Context, in ResumeInput) (row, bool, error) {
 		return row{}, false, fmt.Errorf("attempts: swap session: %w", err)
 	}
 
-	// The resume belongs to the session that started, the takeover to the one
-	// that lost -- so a teacher reading the timeline sees which tab ended.
 	if err := appendEvent(ctx, tx, in.AttemptID, in.SessionID, KindResume, in.Now); err != nil {
 		return row{}, false, err
 	}
@@ -313,12 +301,6 @@ type querier interface {
 
 // questionsQuery is §13.5's rule made structural: an explicit column list, so
 // the grading key cannot arrive by accident.
-//
-// transcript, explanation and sample_answer exist on this table and are not
-// selected. is_correct exists on options and is not selected. case_sensitive
-// and the whole test_version_blank_answers table are not read at all. A
-// `SELECT *` here would leak every answer on the paper to the student taking
-// it, and would do so silently.
 const questionsQuery = `
 	SELECT q.id, q.type, q.prompt, q.points,
 	       q.media_asset_id, q.media_asset_kind, m.mime_type, m.original_filename,
@@ -524,9 +506,6 @@ func (s *Store) RulesFor(ctx context.Context, assignmentID string) (Rules, error
 	if err != nil {
 		return Rules{}, fmt.Errorf("attempts: read rules for attempt: %w", err)
 	}
-	// Targeting is not re-checked here: the attempt exists, which means it was
-	// already answered once, and removing a student from a class mid-test must
-	// not take the paper out of their hands.
 	r.Targeted = true
 	return r, nil
 }

@@ -6,9 +6,6 @@ import { useTranslation } from "react-i18next";
  * asked for. IntersectionObserver honours the clipping of every scrolling
  * ancestor, so the row counts as visible only once the reader has actually
  * reached the end of the box it lives in, not the end of the document.
- *
- * Says "đang tải thêm" while the page is on its way, so the end of the list
- * never looks like the end of the data.
  */
 export function LoadMoreSentinel({
   as: Tag = "div",

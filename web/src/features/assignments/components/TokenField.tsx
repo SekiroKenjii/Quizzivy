@@ -31,10 +31,6 @@ interface TokenFieldProps {
 /**
  * G-01's "Lớp" and "Học viên lẻ" fields: chosen things as removable chips, with
  * one input that searches for the next one.
- *
- * Presentational on purpose. Each picker owns its own paged search; this owns
- * only the interaction, including asking for the next page when the reader
- * scrolls to the end of the list.
  */
 export function TokenField({
   label,
@@ -108,8 +104,6 @@ export function TokenField({
               if (blurTimer.current) clearTimeout(blurTimer.current);
               setFocused(true);
             }}
-            // Deferred so a click on an option lands before the list unmounts:
-            // mousedown fires before blur, but the click that follows does not.
             onBlur={() => {
               blurTimer.current = setTimeout(() => setFocused(false), 120);
             }}

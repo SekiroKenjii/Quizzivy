@@ -9,8 +9,6 @@ export function promptPlaceholders(prompt: string): number[] {
   const seen = new Set<number>();
   for (const match of prompt.matchAll(PLACEHOLDER)) {
     const ordinal = Number(match[1]);
-    // 0 and non-numbers are not placeholders this system defines, so they are
-    // prose that happens to look like one.
     if (Number.isInteger(ordinal) && ordinal >= 1) seen.add(ordinal);
   }
   return [...seen].sort((a, b) => a - b);

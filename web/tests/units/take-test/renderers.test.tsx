@@ -131,8 +131,6 @@ describe("fill_blank", () => {
     expect(screen.getByText(/tomorrow, we cancel\./)).toBeInTheDocument();
   });
 
-  // The reason this is a rehype plugin and not a string split: cutting the
-  // source in half would leave the emphasis markers as literal asterisks.
   it("preserves formatting that wraps a blank", () => {
     const { container } = render(
       <QuestionBody
@@ -204,8 +202,7 @@ describe("a locked paper", () => {
 });
 
 describe("blank ordering", () => {
-  // The prompt decides where a slot goes; the ordinal decides which blank it
-  // belongs to. Neither depends on the order the API listed them in.
+  // The prompt decides where a slot goes; the ordinal decides which blank it belongs to.
   it("matches by ordinal however the blanks arrive", async () => {
     const onAnswer = vi.fn();
     render(

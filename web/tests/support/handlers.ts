@@ -7,10 +7,6 @@ const BASE = "http://localhost:8080";
 /**
  * Default handlers: the happy path, enough for a component to mount. Tests
  * override per-case with `server.use(...)`.
- *
- * Every response goes through `contractJson`, so a handler that drifts from
- * api/openapi.yaml fails loudly at the mock instead of quietly teaching a
- * component the wrong shape.
  */
 export const handlers = [
   http.get(`${BASE}/auth/me`, () => contractJson("/auth/me", "get", 200, studentUser)),

@@ -164,25 +164,6 @@ func TestSearchTreatsWildcardsAsText(t *testing.T) {
 
 // TestTrigramIndexIsActuallyUsed is the guard T-2.6 asks for: a later refactor
 // of the query expression must not silently fall back to a sequential scan.
-//
-// Postgres matches an expression index only when the query spells the
-// expression IDENTICALLY, and a mismatch is invisible -- the rows come back
-// correct, just slowly.
-//
-// HOW THIS AVOIDS BEING A FLAKY TEST, which took some finding. Asserting "the
-// planner chose the trigram index" against realistic data is a coin flip: at
-// 3000 rows it picked the index in 2 of 5 runs, because ANALYZE's sampling moves
-// the cost estimate back and forth across the crossover. Disabling seqscan alone
-// does not help either -- app.questions carries four other partial indexes on
-// `deleted_at IS NULL`, so the planner just uses one of those and applies the
-// trigram condition as a Filter, and which one it picks also wobbles.
-//
-// So the alternatives are removed instead of out-competed. Inside a transaction
-// that is always rolled back, the competing indexes are dropped and seq scans
-// disabled, leaving the trigram index as the only path. The planner then uses it
-// if and only if the expression matches -- and falls back to the disabled seq
-// scan if it does not, which is the failure being detected. 10 consecutive runs
-// agreed, on an empty table and a populated one.
 func TestTrigramIndexIsActuallyUsed(t *testing.T) {
 	pool := newPool(t)
 	ctx := context.Background()
@@ -341,8 +322,7 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 		t.Errorf("two ticked types should match both: %v", both)
 	}
 
-	// A second chip widens too -- overlap, not containment. Under `@>` the
-	// single-choice question, which lacks the second tag, would drop out.
+	// A second chip widens too -- overlap, not containment.
 	widened := ids(questions.ListInput{Tags: []string{tag, tag + "-b"}})
 	if !widened[single.ID] || !widened[essay.ID] {
 		t.Errorf("a second tag chip removed rows instead of adding them: %v", widened)
@@ -373,8 +353,6 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Union, not replacement: a concurrent tagging of an overlapping selection
-	// would otherwise have the later write erase the earlier one's tags.
 	if !slices.Contains(got.Tags, tag+"-old") {
 		t.Errorf("the existing tag was dropped: %v", got.Tags)
 	}

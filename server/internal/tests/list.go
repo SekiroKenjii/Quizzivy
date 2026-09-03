@@ -15,8 +15,7 @@ const (
 // ListInput selects a page of tests.
 type ListInput struct {
 	Status *Status
-	// Tags filter by the tags of the questions a test CONTAINS. §7 gives Test no
-	// tags of its own, and a test is its questions -- OR-ed, like the bank's.
+	// Tags filter by the tags of the questions a test CONTAINS.
 	Tags  []string
 	Query string
 	Page  int
@@ -26,12 +25,6 @@ type ListInput struct {
 // titleSearch folds accents on both sides, so a teacher typing without
 // diacritics finds a title that has them -- the same rule the Query parameter
 // states for the question bank.
-//
-// There is NO index for this expression, unlike questions_prompt_trgm_idx: the
-// data model gives app.tests only tests_status_id_idx, and a teacher's tests
-// number in the dozens, so the sequential scan is the cheaper answer. If this
-// table ever grows, the fix is a gin_trgm_ops index on the identical
-// expression -- Postgres matches an expression index only on an exact match.
 const titleSearch = `app.immutable_unaccent(lower(t.title))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
 

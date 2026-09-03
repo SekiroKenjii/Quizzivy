@@ -9,20 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import type { StrikeState } from "../strikes";
 
-/**
- * S-07's first dialog: what happened, what is left, what happens at zero.
- *
- * It opens on every counted episode while there is a limit, because each one
- * moves the consequence closer and the deck's reason for these dialogs is "to
- * make a consequence known while it can still be avoided". With no limit
- * there is nothing new to say after the first, so it opens once a sitting.
- *
- * Non-dismissible in the deck's sense: no close button and the scrim does not
- * close it, so it cannot be waved away unread. Escape still acknowledges it --
- * T-3.14 forbids swallowing that key, and a student pressing it is a student
- * who has seen the text. The timer runs underneath the whole time, which the
- * dialog says out loud.
- */
+/** S-07's first dialog: what happened, what is left, what happens at zero. */
 export function StrikeDialog({
   state,
   strikes,

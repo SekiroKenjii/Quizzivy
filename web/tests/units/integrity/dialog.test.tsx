@@ -63,9 +63,7 @@ describe("what the dialog says", () => {
     );
   });
 
-  // §10.2's `flag`: attempt marked for the admin, student told. And §10.5's
-  // honesty, at the one moment it matters most: evidence for a conversation,
-  // not a verdict.
+  // §10.2's `flag`: attempt marked for the admin, student told.
   it("tells the student the attempt is marked once the limit is exceeded", () => {
     render(<Harness strikes={1} baseline={2} />);
     expect(dialog()).toHaveTextContent("nên bài được đánh dấu để giáo viên xem lại");
@@ -131,9 +129,6 @@ describe("never trapping the student", () => {
     render(<Harness strikes={1} />);
     expect(screen.queryByRole("button", { name: "Đóng" })).toBeNull();
 
-    // The overlay is the one thing outside the dialog a pointer can reach:
-    // Radix turns pointer events off on the body and back on for the scrim.
-    // Its outside-press listener attaches a tick after opening.
     await tick();
     const scrim = document.querySelector('[data-slot="dialog-overlay"]');
     if (scrim === null) throw new Error("no scrim");

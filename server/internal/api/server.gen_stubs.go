@@ -10,14 +10,6 @@ import (
 )
 
 // Server implements the generated StrictServerInterface.
-//
-// Every operation is a stub until its phase builds it. They return
-// httpx.ErrNotImplemented, which the strict handler's error hook renders as a
-// 501 in the standard error envelope -- so an unbuilt endpoint is honestly
-// unbuilt rather than a 404 that looks like a routing bug.
-//
-// This file is generated once from the interface and then owned by hand: as
-// each operation is implemented, its stub is replaced in place.
 type Server struct {
 	Deps Deps
 	// Logger is nil in tests; read it through logOf.

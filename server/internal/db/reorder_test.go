@@ -9,18 +9,6 @@ import (
 // can write the new ordinals directly, instead of the two-phase negative-offset
 // dance -- move everything to -1,-2,-3, then back -- that exists purely to dodge
 // a uniqueness check and doubles the writes.
-//
-// CORRECTION, measured on 18.6. 20-data-model.md justifies D-13 by saying a
-// single `UPDATE ... SET ordinal = (ordinal+1) % 3` transiently violates
-// uniqueness. It does not: Postgres checks a unique constraint at END OF
-// STATEMENT, so a set-based permutation is accepted with no deferral at all
-// (TestSetBasedPermutationNeedsNoDeferral below pins that).
-//
-// What actually needs deferral is the MULTI-statement reorder, which is the
-// shape a real reorder takes: the client sends a list of (id, ordinal) pairs and
-// the server writes them one row at a time. The first write collides with a row
-// that has not moved yet. That is the case D-13 buys, and the reason the
-// constraint is still worth having.
 
 // TestSetBasedPermutationNeedsNoDeferral records the behaviour that makes the
 // plan's stated justification wrong, so nobody re-derives it from the doc.

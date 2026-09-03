@@ -193,11 +193,7 @@ export const router = createBrowserRouter([
       authTree,
       publicTree,
       protectedTree,
-      // Eager, like the guard that also renders it. Asking for a chunk here
-      // while RequireRole imports it statically only produced an
-      // INEFFECTIVE_DYNAMIC_IMPORT warning: Rollup cannot split a module that
-      // something else needs up front, so the "lazy" route was paying the
-      // ceremony and getting the eager module anyway.
+      // Eager, like the guard that also renders it.
       { path: "403", element: <ForbiddenPage /> },
       { path: "*", element: <NotFound /> },
     ],

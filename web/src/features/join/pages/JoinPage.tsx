@@ -14,15 +14,6 @@ import { useAuthStore } from "@/stores/auth";
 /**
  * §6.2 steps one and two: `/join` (type a code) and `/join/:code` (a deep link
  * from a QR or a message, with the code filled in).
- *
- * One component for both, because they differ only in where the initial value
- * comes from -- and the prefilled case still SHOWS the code rather than acting
- * on it, so a student who scanned the wrong poster can see that before going
- * any further.
- *
- * A student who is already signed in skips both steps: §6.2 sends them straight
- * to enrolment, because the confirm screen exists to show an ANONYMOUS visitor
- * what they are about to create an account for.
  */
 export default function JoinPage() {
   const { t } = useTranslation();
