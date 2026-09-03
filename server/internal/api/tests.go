@@ -26,18 +26,14 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 	if request.Params.Q != nil {
 		in.Query = string(*request.Params.Q)
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = string(*request.Params.Cursor)
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, next, err := s.Deps.Tests.List(ctx, in)
-	if errors.Is(err, tests.ErrBadCursor) {
-		return openapi.ListTests400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			authError(ctx, openapi.VALIDATIONFAILED, "Con trỏ phân trang không hợp lệ."))}, nil
-	}
+	found, page, err := s.Deps.Tests.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -60,15 +56,15 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 			Published: facets.Published,
 			Archived:  facets.Archived,
 		},
-		Tags: tagList,
+		Tags:     tagList,
+		Page:     page.Number,
+		PageSize: page.Size,
+		Total:    page.Total,
 	}
 	for i, t := range found {
 		if out.Items[i], err = toAPITest(t); err != nil {
 			return nil, err
 		}
-	}
-	if next != "" {
-		out.NextCursor = &next
 	}
 	return out, nil
 }

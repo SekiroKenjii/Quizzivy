@@ -152,7 +152,13 @@ describe("the question editor, per question type", () => {
   it("attaching audio applies §11.1's defaults without the teacher opening the panel", async () => {
     server.use(
       http.get("http://localhost:8080/admin/media", () =>
-        contractJson("/admin/media", "get", 200, { items: [AUDIO], nextCursor: null }),
+        contractJson("/admin/media", "get", 200, {
+          page: 1,
+          pageSize: 50,
+          total: 0,
+          items: [AUDIO],
+          nextCursor: null,
+        }),
       ),
     );
     const user = renderEditor();

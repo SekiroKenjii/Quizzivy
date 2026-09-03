@@ -1,6 +1,11 @@
 import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Eye, FileAudio, FileImage, Play, Trash2, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +35,10 @@ import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api"
 import { formatBytes, formatDuration, formatUploadedAt } from "@/features/media/format";
 import { ApiError } from "@/lib/api/errors";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
+
+const PAGE_SIZE = 24;
 
 export default function MediaLibraryPage() {
   const { t } = useTranslation();
@@ -41,14 +50,13 @@ export default function MediaLibraryPage() {
   const [playing, setPlaying] = useState<string | null>(null);
   const [viewing, setViewing] = useState<LibraryAsset | null>(null);
 
-  // Paged, not a flat limit of 100: a library grows for as long as the teacher
-  // keeps teaching, and "100 tệp" was being printed as if it were the total.
-  const library = useInfiniteQuery({
-    queryKey: ["admin-media"],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      listMedia({ limit: 50, ...(pageParam ? { cursor: pageParam } : {}) }, signal),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  // Paged: a library grows for as long as the teacher keeps teaching, and the
+  // count in the title is the server's total, not however many are on screen.
+  const [page] = usePage();
+  const library = useQuery({
+    queryKey: ["admin-media", { page }],
+    queryFn: ({ signal }) => listMedia({ limit: PAGE_SIZE, page }, signal),
+    placeholderData: keepPreviousData,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-media"] });
@@ -66,7 +74,7 @@ export default function MediaLibraryPage() {
     },
   });
 
-  const assets = library.data?.pages.flatMap((page) => page.items) ?? [];
+  const assets = library.data?.items ?? [];
   const totalBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0);
   const dragging = useFileDrop((files) => uploader.current?.dropped(files));
 
@@ -83,10 +91,12 @@ export default function MediaLibraryPage() {
         title={t("media.title")}
         subtitle={
           library.isSuccess
-            ? t(library.hasNextPage ? "media.summarySoFar" : "media.summary", {
-                count: assets.length,
-                size: formatBytes(totalBytes),
-              })
+            ? library.data.total === assets.length
+              ? t("media.summary", {
+                  count: library.data.total,
+                  size: formatBytes(totalBytes),
+                })
+              : t("media.summaryPaged", { count: library.data.total })
             : "\u00a0"
         }
         actions={
@@ -168,16 +178,13 @@ export default function MediaLibraryPage() {
         </DialogContent>
       </Dialog>
 
-      {library.hasNextPage ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={library.isFetchingNextPage}
-          onClick={() => void library.fetchNextPage()}
-        >
-          {library.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
-        </Button>
-      ) : null}
+      {library.data && (
+        <Pager
+          page={library.data.page}
+          pageSize={library.data.pageSize}
+          total={library.data.total}
+        />
+      )}
 
       {/* A-07 makes the blocked delete explain itself rather than sit inert. */}
       <Dialog

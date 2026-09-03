@@ -2,14 +2,13 @@ package students
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"quizzivy/internal/paging"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -20,8 +19,6 @@ const (
 	DefaultLimit = 20
 	MaxLimit     = 100
 )
-
-var ErrBadCursor = errors.New("students: malformed cursor")
 
 // ActiveWindow must stay the dashboard's window. Two meanings of "active" on
 // two screens is worse than one screen missing the number.
@@ -91,26 +88,13 @@ type ListInput struct {
 	// ClassID narrows to one class's roster, which is how the pickers ask "who
 	// is not in this class yet" by diffing against it.
 	ClassID string
-	Cursor  string
+	Page    int
 	Limit   int
 }
 
 type Store struct{ pool *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
-
-func encodeCursor(id string) string { return base64.RawURLEncoding.EncodeToString([]byte(id)) }
-
-func decodeCursor(s string) (string, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return "", ErrBadCursor
-	}
-	if _, err := uuid.Parse(string(raw)); err != nil {
-		return "", ErrBadCursor
-	}
-	return string(raw), nil
-}
 
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
@@ -278,16 +262,10 @@ func deref(v *int) int {
 // the same rule the question bank uses, and the one a Vietnamese-first product
 // needs. There is no trigram index behind it: §1.3 caps this table at tens of
 // rows, where an index would cost more to maintain than the scan it saves.
-func (s *Store) List(ctx context.Context, in ListInput) ([]Student, string, error) {
-	limit := in.Limit
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
-	}
+func (s *Store) List(ctx context.Context, in ListInput) ([]Student, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	args := []any{limit + 1}
+	var args []any
 	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
 
 	if in.Query != "" {
@@ -298,42 +276,35 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Student, string, erro
 		args = append(args, in.ClassID)
 		where = append(where, fmt.Sprintf(classCondition, len(args)))
 	}
-	if in.Cursor != "" {
-		id, err := decodeCursor(in.Cursor)
-		if err != nil {
-			return nil, "", err
-		}
-		args = append(args, id)
-		where = append(where, fmt.Sprintf(`u.id < $%d::uuid`, len(args)))
+	from := `
+		 WHERE ` + strings.Join(where, "\n		   AND ")
+
+	page := paging.Page{Number: number, Size: limit}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u`+from, args...).Scan(&page.Total); err != nil {
+		return nil, paging.Page{}, fmt.Errorf("students: count: %w", err)
 	}
 
-	rows, err := s.pool.Query(ctx, selectStudents+`
-		 WHERE `+strings.Join(where, "\n		   AND ")+`
+	args = append(args, limit, offset)
+	rows, err := s.pool.Query(ctx, selectStudents+from+fmt.Sprintf(`
 		 ORDER BY u.id DESC
-		 LIMIT $1`, args...)
+		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, "", fmt.Errorf("students: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("students: list: %w", err)
 	}
 	defer rows.Close()
 
-	var out []Student
+	out := make([]Student, 0, limit)
 	for rows.Next() {
 		student, err := scanStudent(rows)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		out = append(out, student)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, "", fmt.Errorf("students: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("students: list: %w", err)
 	}
-
-	next := ""
-	if len(out) > limit {
-		out = out[:limit]
-		next = encodeCursor(out[len(out)-1].ID)
-	}
-	return out, next, nil
+	return out, page, nil
 }
 
 var (

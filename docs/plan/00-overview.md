@@ -337,11 +337,13 @@ non-2xx response body is:
 
 ## 8. Pagination
 
-Keyset per §13.8, uniform across list endpoints: `{ items, nextCursor }`, with
-`nextCursor` an opaque base64 of the sort key. Clients never construct or parse
-it. Because PKs are `uuidv7()` and therefore time-ordered, most lists sort by
-`id DESC` alone and need no separate `created_at` index; `20-data-model.md`
-records which tables deviate.
+Offset, uniform across list endpoints: `page` + `limit` in, `{ items, page,
+pageSize, total }` out (O-20, which overrides §13.8's keyset rule for the
+admin lists -- the teacher wants numbered pages, and at this scale a row
+shifting under a page turn is the cheaper problem). Because PKs are
+`uuidv7()` and therefore time-ordered, most lists sort by `id DESC` alone and
+need no separate `created_at` index; `20-data-model.md` records which tables
+deviate.
 
 ---
 

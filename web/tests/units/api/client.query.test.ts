@@ -19,7 +19,9 @@ describe("array query parameters", () => {
         seen = new URL(request.url).search;
         return HttpResponse.json({
           items: [],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 0,
           facets: {
             all: 0,
             single_choice: 0,
@@ -29,8 +31,7 @@ describe("array query parameters", () => {
             short_answer: 0,
           },
           tags: [],
-          total: 0,
-          filtered: 0,
+          bankTotal: 0,
         });
       }),
     );

@@ -48,7 +48,9 @@ beforeEach(() => {
       const items = q === "" ? all : all.filter((s) => s.fullName.includes(q));
       return contractJson("/admin/students", "get", 200, {
         items,
-        nextCursor: null,
+        page: 1,
+        pageSize: 50,
+        total: 0,
         facets: { total: all.length, activeLast7Days: 0 },
       });
     }),
@@ -137,7 +139,9 @@ describe("suspending and restoring a student", () => {
         const status = new URL(request.url).searchParams.get("status");
         return contractJson("/admin/students", "get", 200, {
           items: status === "disabled" ? [suspended] : [DUNG_ROW],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 0,
           facets: { total: 1, activeLast7Days: 0 },
         });
       }),

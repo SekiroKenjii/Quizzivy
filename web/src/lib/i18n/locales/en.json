@@ -311,7 +311,8 @@
     "play": "Play",
     "pause": "Pause",
     "seek": "Seek",
-    "expired": "This preview link has expired. Reload to listen."
+    "expired": "This preview link has expired. Reload to listen.",
+    "summaryPaged": "{{count}} files"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -829,5 +830,14 @@
     "fullscreenExited": "You left fullscreen.",
     "fullscreenUnsupported": "This browser has no fullscreen mode. You can carry on as normal.",
     "fullscreenReturn": "Return to fullscreen"
+  },
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Go to previous page",
+    "previousShort": "Previous",
+    "next": "Go to next page",
+    "nextShort": "Next",
+    "more": "More pages",
+    "page": "Page {{n}}"
   }
 }

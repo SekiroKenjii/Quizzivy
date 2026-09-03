@@ -10,14 +10,14 @@ export type LibraryAsset = components["schemas"]["LibraryAsset"];
 
 export interface ListMediaParams {
   kind?: MediaKind;
-  cursor?: string;
+  page?: number;
   limit?: number;
 }
 
 export function listMedia(params: ListMediaParams = {}, signal?: AbortSignal) {
   const query: Record<string, unknown> = {};
   if (params.kind) query["kind"] = params.kind;
-  if (params.cursor) query["cursor"] = params.cursor;
+  if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/media", signal ? { query, signal } : { query });
 }

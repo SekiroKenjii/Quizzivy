@@ -39,7 +39,9 @@ beforeEach(() => {
     http.get(`${BASE}/admin/tests`, () =>
       contractJson("/admin/tests", "get", 200, {
         items: [],
-        nextCursor: null,
+        page: 1,
+        pageSize: 50,
+        total: 0,
         facets: { all: 0, draft: 0, published: 0, archived: 0 },
         tags: [],
       }),

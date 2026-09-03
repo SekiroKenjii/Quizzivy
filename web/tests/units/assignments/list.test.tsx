@@ -51,7 +51,13 @@ function assignment(over: Record<string, unknown> = {}) {
 function serve(items: ReturnType<typeof assignment>[]) {
   server.use(
     http.get(`${BASE}/admin/assignments`, () =>
-      contractJson("/admin/assignments", "get", 200, { items, nextCursor: null }),
+      contractJson("/admin/assignments", "get", 200, {
+        page: 1,
+        pageSize: 50,
+        total: 0,
+        items,
+        nextCursor: null,
+      }),
     ),
   );
 }

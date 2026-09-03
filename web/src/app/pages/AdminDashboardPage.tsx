@@ -46,7 +46,10 @@ export default function AdminDashboardPage() {
         queryKey: ["admin-assignments", "open"],
         queryFn: ({ signal }: Q) => listAssignments({ limit: 10 }, signal),
       },
-      { queryKey: ["admin-classes"], queryFn: ({ signal }: Q) => fetchClasses(signal) },
+      {
+        queryKey: ["admin-classes"],
+        queryFn: ({ signal }: Q) => fetchClasses({ limit: 100 }, signal),
+      },
     ],
   });
 

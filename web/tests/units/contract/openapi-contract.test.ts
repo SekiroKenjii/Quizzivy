@@ -115,17 +115,17 @@ describe("conventions", () => {
     expect(dupes).toEqual([]);
   });
 
-  it("uses one {items, nextCursor} envelope on every paginated list", () => {
+  it("uses one {items, page, pageSize, total} envelope on every paginated list", () => {
     const bad: string[] = [];
     for (const { path, method, op } of ops) {
       const params: Json[] = op.parameters ?? [];
       const paginated = params.some(
-        (p) => p?.$ref?.endsWith("/Cursor") || p?.name === "cursor",
+        (p) => p?.$ref?.endsWith("/Page") || p?.name === "page",
       );
       if (!paginated) continue;
       const names = propertyNames(doc, jsonResponseSchema(op, 200));
-      if (!names.has("items") || !names.has("nextCursor")) {
-        bad.push(`${method.toUpperCase()} ${path}`);
+      for (const key of ["items", "page", "pageSize", "total"]) {
+        if (!names.has(key)) bad.push(`${method.toUpperCase()} ${path} lacks ${key}`);
       }
     }
     expect(bad).toEqual([]);

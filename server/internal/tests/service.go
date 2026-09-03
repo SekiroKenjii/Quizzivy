@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"quizzivy/internal/paging"
 	"time"
 )
 
@@ -22,7 +23,7 @@ type Request struct {
 	UserAgent string
 }
 
-func (s *Service) List(ctx context.Context, in ListInput) ([]Test, string, error) {
+func (s *Service) List(ctx context.Context, in ListInput) ([]Test, paging.Page, error) {
 	return s.store.List(ctx, in)
 }
 

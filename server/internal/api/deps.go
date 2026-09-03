@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/paging"
 	"time"
 
 	"quizzivy/internal/assignments"
@@ -50,9 +51,9 @@ type JoinService interface {
 // ClassesService is the slice of internal/classes the handlers use.
 type ClassesService interface {
 	Get(ctx context.Context, classID string) (classes.Class, error)
-	List(ctx context.Context) ([]classes.Class, error)
+	List(ctx context.Context, in classes.ListInput) ([]classes.Class, paging.Page, error)
 	ListMine(ctx context.Context, userID string) ([]classes.Class, error)
-	Members(ctx context.Context, classID string) ([]classes.Member, error)
+	Members(ctx context.Context, classID string, in classes.MembersInput) ([]classes.Member, paging.Page, error)
 	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
 	AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (classes.Member, error)
@@ -62,7 +63,7 @@ type ClassesService interface {
 type MediaService interface {
 	Upload(ctx context.Context, in media.UploadInput) (media.Asset, error)
 	SignedURL(ctx context.Context, asset media.Asset) (string, error)
-	List(ctx context.Context, in media.ListInput) ([]media.Asset, string, error)
+	List(ctx context.Context, in media.ListInput) ([]media.Asset, paging.Page, error)
 	Delete(ctx context.Context, in media.DeleteInput) error
 	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
 	// Get resolves one asset, so a question can render its attachment.
@@ -72,7 +73,7 @@ type MediaService interface {
 
 // QuestionsService is the slice of internal/questions the handlers use.
 type QuestionsService interface {
-	List(ctx context.Context, in questions.ListInput) ([]questions.Question, string, error)
+	List(ctx context.Context, in questions.ListInput) ([]questions.Question, paging.Page, error)
 	Facets(ctx context.Context, in questions.ListInput) (questions.TypeFacets, error)
 	Get(ctx context.Context, id string) (questions.Question, error)
 	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
@@ -85,7 +86,7 @@ type QuestionsService interface {
 
 // TestsService is the slice of internal/tests the handlers use.
 type TestsService interface {
-	List(ctx context.Context, in tests.ListInput) ([]tests.Test, string, error)
+	List(ctx context.Context, in tests.ListInput) ([]tests.Test, paging.Page, error)
 	Facets(ctx context.Context, in tests.ListInput) (tests.StatusFacets, error)
 	Tags(ctx context.Context, in tests.ListInput) ([]string, error)
 	Get(ctx context.Context, id string) (tests.Test, error)
@@ -98,7 +99,7 @@ type TestsService interface {
 
 // AssignmentsService is the slice of internal/assignments the handlers use.
 type AssignmentsService interface {
-	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, string, error)
+	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, paging.Page, error)
 	Get(ctx context.Context, id string) (assignments.Assignment, error)
 	ForStudent(ctx context.Context, studentID string, now time.Time) (assignments.StudentSections, error)
 	StudentDetail(ctx context.Context, id, studentID string) (assignments.StudentDetail, error)
@@ -118,7 +119,7 @@ type AttemptsService interface {
 
 // StudentsService is the slice of internal/students the handlers use.
 type StudentsService interface {
-	List(ctx context.Context, in students.ListInput) ([]students.Student, string, error)
+	List(ctx context.Context, in students.ListInput) ([]students.Student, paging.Page, error)
 	Facets(ctx context.Context, in students.ListInput) (students.Facets, error)
 	Get(ctx context.Context, id string) (students.Student, error)
 	Create(ctx context.Context, req students.Request, in students.CreateInput) (students.Student, error)

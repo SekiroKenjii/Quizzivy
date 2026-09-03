@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"quizzivy/internal/paging"
 	"strings"
 	"time"
 
@@ -18,6 +19,32 @@ var ErrNotFound = errors.New("classes: not found")
 type Store struct{ pool *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+const (
+	DefaultLimit = 20
+	MaxLimit     = 100
+)
+
+// ListInput selects a page of classes. Query matches the name, accent-folded
+// on both sides like every other search here (D-11).
+type ListInput struct {
+	Query string
+	Page  int
+	Limit int
+}
+
+// MembersInput selects a page of one class's roster. Query matches name or
+// email.
+type MembersInput struct {
+	Query string
+	Page  int
+	Limit int
+}
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+const nameSearch = `app.immutable_unaccent(lower(c.name))` +
+	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
 
 // JoinCodeInfo is metadata about the ACTIVE code -- never the code itself.
 // The plaintext exists once, in the response that created it (§13.3).
@@ -93,22 +120,42 @@ func (s *Store) Get(ctx context.Context, classID string) (Class, error) {
 	return c, err
 }
 
-func (s *Store) List(ctx context.Context) ([]Class, error) {
-	rows, err := s.pool.Query(ctx, classProjection+` ORDER BY c.id DESC`)
+// List returns one page of classes, newest first, with the paging beside it
+// (O-20). §1.3 promised single-digit classes; a development database already
+// holds over a hundred, which is what broke the pickers reading this whole.
+func (s *Store) List(ctx context.Context, in ListInput) ([]Class, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
+
+	var args []any
+	where := []string{"TRUE"}
+	if q := strings.TrimSpace(in.Query); q != "" {
+		args = append(args, likeEscaper.Replace(q))
+		where = append(where, fmt.Sprintf(nameSearch, len(args)))
+	}
+	condition := " WHERE " + strings.Join(where, " AND ")
+
+	page := paging.Page{Number: number, Size: limit}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.classes c`+condition, args...).Scan(&page.Total); err != nil {
+		return nil, paging.Page{}, fmt.Errorf("count classes: %w", err)
+	}
+
+	args = append(args, limit, offset)
+	rows, err := s.pool.Query(ctx, classProjection+condition+fmt.Sprintf(
+		` ORDER BY c.id DESC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, fmt.Errorf("list classes: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("list classes: %w", err)
 	}
 	defer rows.Close()
 
-	var out []Class
+	out := make([]Class, 0, limit)
 	for rows.Next() {
 		c, err := scanClass(rows)
 		if err != nil {
-			return nil, fmt.Errorf("list classes: %w", err)
+			return nil, paging.Page{}, fmt.Errorf("list classes: %w", err)
 		}
 		out = append(out, c)
 	}
-	return out, rows.Err()
+	return out, page, rows.Err()
 }
 
 // ListMine is §9's /app/classes: the classes this student belongs to, most
@@ -141,30 +188,48 @@ func (s *Store) ListMine(ctx context.Context, userID string) ([]Class, error) {
 // joined_via and the code hint are the point (§6.4): they are what lets a
 // teacher spot an unexpected enrolment, which is the mitigation §17.2 chose
 // instead of building an approval queue.
-func (s *Store) Members(ctx context.Context, classID string) ([]Member, error) {
-	const q = `
-		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint
+func (s *Store) Members(ctx context.Context, classID string, in MembersInput) ([]Member, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
+
+	args := []any{classID}
+	where := []string{`m.class_id = $1`}
+	if q := strings.TrimSpace(in.Query); q != "" {
+		args = append(args, likeEscaper.Replace(q))
+		where = append(where, fmt.Sprintf(`(app.immutable_unaccent(lower(u.full_name))
+		           LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'
+		        OR lower(u.email) LIKE '%%' || lower($%[1]d) || '%%' ESCAPE '\')`, len(args)))
+	}
+	from := `
 		  FROM app.class_members m
 		  JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
 		  LEFT JOIN app.class_join_codes jc ON jc.id = m.join_code_id
-		 WHERE m.class_id = $1
-		 ORDER BY m.joined_at DESC`
+		 WHERE ` + strings.Join(where, "\n		   AND ")
 
-	rows, err := s.pool.Query(ctx, q, classID)
+	page := paging.Page{Number: number, Size: limit}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
+		return nil, paging.Page{}, fmt.Errorf("count members of %s: %w", classID, err)
+	}
+
+	args = append(args, limit, offset)
+	rows, err := s.pool.Query(ctx, `
+		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint`+from+
+		fmt.Sprintf(`
+		 ORDER BY m.joined_at DESC
+		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, fmt.Errorf("list members of %s: %w", classID, err)
+		return nil, paging.Page{}, fmt.Errorf("list members of %s: %w", classID, err)
 	}
 	defer rows.Close()
 
-	var out []Member
+	out := make([]Member, 0, limit)
 	for rows.Next() {
 		var m Member
 		if err := rows.Scan(&m.UserID, &m.FullName, &m.Email, &m.JoinedVia, &m.JoinedAt, &m.JoinCodeHint); err != nil {
-			return nil, fmt.Errorf("list members of %s: %w", classID, err)
+			return nil, paging.Page{}, fmt.Errorf("list members of %s: %w", classID, err)
 		}
 		out = append(out, m)
 	}
-	return out, rows.Err()
+	return out, page, rows.Err()
 }
 
 type RemoveMemberInput struct {

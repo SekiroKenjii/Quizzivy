@@ -2,6 +2,7 @@ package classes
 
 import (
 	"context"
+	"quizzivy/internal/paging"
 	"time"
 )
 
@@ -16,14 +17,16 @@ func (s *Service) Get(ctx context.Context, classID string) (Class, error) {
 	return s.store.Get(ctx, classID)
 }
 
-func (s *Service) List(ctx context.Context) ([]Class, error) { return s.store.List(ctx) }
+func (s *Service) List(ctx context.Context, in ListInput) ([]Class, paging.Page, error) {
+	return s.store.List(ctx, in)
+}
 
 func (s *Service) ListMine(ctx context.Context, userID string) ([]Class, error) {
 	return s.store.ListMine(ctx, userID)
 }
 
-func (s *Service) Members(ctx context.Context, classID string) ([]Member, error) {
-	return s.store.Members(ctx, classID)
+func (s *Service) Members(ctx context.Context, classID string, in MembersInput) ([]Member, paging.Page, error) {
+	return s.store.Members(ctx, classID, in)
 }
 
 func (s *Service) RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error {

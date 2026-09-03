@@ -87,7 +87,7 @@ func (s *Store) Tags(ctx context.Context, in ListInput) ([]string, error) {
 // `filtered` applies EVERY dimension, unlike facets.All which skips the type
 // filter so the "Tất cả" row has something to show.
 func (s *Store) Counts(ctx context.Context, in ListInput) (total int, filtered int, err error) {
-	args, where := appendFilters(in, nil, allFilters(""))
+	args, where := appendFilters(in, nil, allFilters())
 
 	if err := s.pool.QueryRow(ctx, `
 		SELECT (SELECT count(*) FROM app.questions q WHERE q.deleted_at IS NULL),

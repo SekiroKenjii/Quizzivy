@@ -11,7 +11,7 @@ export interface ListQuestionsParams {
   tag?: string[];
   hasAudio?: boolean;
   q?: string;
-  cursor?: string;
+  page?: number;
   limit?: number;
 }
 
@@ -21,7 +21,7 @@ export function listQuestions(params: ListQuestionsParams = {}, signal?: AbortSi
   if (params.tag?.length) query["tag"] = params.tag;
   if (params.hasAudio !== undefined) query["hasAudio"] = params.hasAudio;
   if (params.q) query["q"] = params.q;
-  if (params.cursor) query["cursor"] = params.cursor;
+  if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/questions", signal ? { query, signal } : { query });
 }

@@ -9,7 +9,7 @@ export type IntegrityPolicy = components["schemas"]["IntegrityPolicy"];
 
 export interface ListAssignmentsParams {
   status?: AssignmentStatus;
-  cursor?: string;
+  page?: number;
   limit?: number;
 }
 
@@ -19,7 +19,7 @@ export function listAssignments(
 ) {
   const query: Record<string, unknown> = {};
   if (params.status) query["status"] = params.status;
-  if (params.cursor) query["cursor"] = params.cursor;
+  if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/assignments", signal ? { query, signal } : { query });
 }

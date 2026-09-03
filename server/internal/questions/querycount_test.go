@@ -103,8 +103,9 @@ func TestListCostsAFixedNumberOfQueries(t *testing.T) {
 			"with page size, or a full page of %d is %d round trips",
 			small, rows, large, questions.MaxLimit, small+2*(questions.MaxLimit-1))
 	}
-	if large > 3 {
-		t.Errorf("a page cost %d queries; expected the page plus one per child table", large)
+	// The count that backs the page numbers, the page, and one per child table.
+	if large > 4 {
+		t.Errorf("a page cost %d queries; expected the count, the page, and one per child table", large)
 	}
 	t.Logf("a page costs %d queries at any size", large)
 }

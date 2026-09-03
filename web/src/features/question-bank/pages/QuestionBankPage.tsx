@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Headphones, Play, Plus, Search, Tag as TagIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +27,8 @@ import {
 } from "@/features/question-bank/api";
 import { useDebounced } from "@/lib/useDebounced";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
 
 const TYPES: QuestionType[] = [
   "single_choice",
@@ -42,6 +44,8 @@ const TYPES: QuestionType[] = [
  * Filters on the left, results on the right: the second test is faster than the
  * first only if last term's work is findable.
  */
+const PAGE_SIZE = 20;
+
 export default function QuestionBankPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -64,27 +68,34 @@ export default function QuestionBankPage() {
   // cheap but not free, and a request per letter is a request per letter.
   const search = useDebounced(query, 300);
 
-  const bank = useInfiniteQuery({
-    queryKey: ["admin-questions", { types, tags, audioOnly, search }],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
+  const [page] = usePage(
+    JSON.stringify({
+      types: [...types],
+      tags: [...tags],
+      audioOnly,
+      search: search.trim(),
+    }),
+  );
+  const bank = useQuery({
+    queryKey: ["admin-questions", { types, tags, audioOnly, search, page }],
+    queryFn: ({ signal }) =>
       listQuestions(
         {
-          limit: 50,
+          limit: PAGE_SIZE,
+          page,
           ...(types.length > 0 ? { type: [...types] } : {}),
           ...(tags.length > 0 ? { tag: [...tags] } : {}),
           ...(audioOnly ? { hasAudio: true } : {}),
           ...(search.trim() === "" ? {} : { q: search.trim() }),
-          ...(pageParam ? { cursor: pageParam } : {}),
         },
         signal,
       ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   });
 
-  const items = bank.data?.pages.flatMap((page) => page.items) ?? [];
-  const page = bank.data?.pages[0];
-  const facets = page?.facets;
+  const items = bank.data?.items ?? [];
+  const data = bank.data;
+  const facets = data?.facets;
   // From the server, not from `items`. A rail built out of the loaded page can
   // only offer the tags that page happens to carry — with 72 questions and a
   // page of 50, two of the bank's three tags were invisible, so a second chip
@@ -92,8 +103,8 @@ export default function QuestionBankPage() {
   //
   // Unioned with the selection so a chosen chip cannot vanish from the rail
   // when it is the only thing still matching.
-  const shownTags = [...new Set([...tags, ...(bank.data?.pages[0]?.tags ?? [])])].sort(
-    (a, b) => a.localeCompare(b, "vi"),
+  const shownTags = [...new Set([...tags, ...(bank.data?.tags ?? [])])].sort((a, b) =>
+    a.localeCompare(b, "vi"),
   );
   const filtering = types.length > 0 || tags.length > 0 || audioOnly;
   const allSelected = items.length > 0 && items.every((q) => selected.has(q.id));
@@ -174,13 +185,13 @@ export default function QuestionBankPage() {
           variant="title"
           title={t("nav.questionBank")}
           subtitle={
-            page === undefined
+            data === undefined
               ? "\u00a0"
-              : page.filtered === page.total
-                ? t("bank.summary", { count: page.total })
+              : data.total === data.bankTotal
+                ? t("bank.summary", { count: data.bankTotal })
                 : t("bank.summaryFiltered", {
-                    count: page.total,
-                    filtered: page.filtered,
+                    count: data.bankTotal,
+                    filtered: data.total,
                   })
           }
           actions={
@@ -320,16 +331,9 @@ export default function QuestionBankPage() {
               </Table>
             </Card>
 
-            {bank.hasNextPage ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={bank.isFetchingNextPage}
-                onClick={() => void bank.fetchNextPage()}
-              >
-                {bank.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
-              </Button>
-            ) : null}
+            {data && (
+              <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+            )}
           </>
         )}
       </div>

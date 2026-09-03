@@ -31,7 +31,12 @@ const CREATED = {
 beforeEach(() => {
   server.use(
     http.get(`${BASE}/admin/classes`, () =>
-      contractJson("/admin/classes", "get", 200, { items: [] }),
+      contractJson("/admin/classes", "get", 200, {
+        page: 1,
+        pageSize: 50,
+        total: 0,
+        items: [],
+      }),
     ),
     http.post(`${BASE}/admin/students`, () =>
       contractJson("/admin/students", "post", 201, {
