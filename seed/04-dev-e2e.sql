@@ -73,11 +73,31 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- --------------------------------------- E2E 2's middle · answers survive
+-- Its own assignment rather than sharing E2E 7's: the specs run in parallel,
+-- and two of them on one assignment is the session takeover under test.
+INSERT INTO app.assignments
+  (id, test_id, test_version_id, opens_at, closes_at, duration_minutes,
+   max_attempts, published_at, created_by)
+VALUES (
+  '01935000-0000-7000-8000-00000000ee05'::uuid,
+  '01935000-0000-7000-8000-00000000dd01'::uuid,
+  '01935000-0000-7000-8000-00000000dd02'::uuid,
+  now() - interval '1 hour',
+  now() + interval '30 days',
+  45,
+  50,
+  now() - interval '1 hour',
+  '01935000-0000-7000-8000-0000000000a1'
+)
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO app.assignment_classes (assignment_id, class_id)
 SELECT a, '01935000-0000-7000-8000-0000000000c1'::uuid
   FROM unnest(ARRAY[
     '01935000-0000-7000-8000-00000000ee01'::uuid,
     '01935000-0000-7000-8000-00000000ee02'::uuid,
-    '01935000-0000-7000-8000-00000000ee03'::uuid
+    '01935000-0000-7000-8000-00000000ee03'::uuid,
+    '01935000-0000-7000-8000-00000000ee05'::uuid
   ]) AS a
 ON CONFLICT DO NOTHING;

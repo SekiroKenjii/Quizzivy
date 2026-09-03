@@ -10,6 +10,7 @@ export const ASSIGNMENT = {
   timer: "01935000-0000-7000-8000-00000000ee01",
   integrity: "01935000-0000-7000-8000-00000000ee02",
   takeover: "01935000-0000-7000-8000-00000000ee03",
+  persistence: "01935000-0000-7000-8000-00000000ee05",
 };
 
 export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
