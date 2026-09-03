@@ -26,7 +26,7 @@ func (s *Store) Save(ctx context.Context, in SaveInput, now time.Time) (SaveResu
 	if err != nil {
 		return SaveResult{}, err
 	}
-	saved, err := upsertAnswers(ctx, tx, in, versionID)
+	saved, dropped, err := upsertAnswers(ctx, tx, in, versionID)
 	if err != nil {
 		return SaveResult{}, err
 	}
@@ -37,7 +37,7 @@ func (s *Store) Save(ctx context.Context, in SaveInput, now time.Time) (SaveResu
 	if err := tx.Commit(ctx); err != nil {
 		return SaveResult{}, fmt.Errorf("attempts: commit save: %w", err)
 	}
-	return SaveResult{SavedAt: now, Saved: saved}, nil
+	return SaveResult{SavedAt: now, Saved: saved, Dropped: dropped}, nil
 }
 
 // writable locks the attempt and decides whether this write may happen at all,
@@ -97,9 +97,9 @@ func writable(ctx context.Context, tx pgx.Tx, in SaveInput, now time.Time) (stri
 // requires_manual is set from the question type rather than left to grading
 // (D-19): final_score is VIRTUAL and unindexable, so §7's pendingManual needs a
 // real column to filter on, and the type is known here.
-func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID string) (int, error) {
+func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID string) (int, []string, error) {
 	if len(in.Answers) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 	ids := make([]string, len(in.Answers))
 	payloads := make([]string, len(in.Answers))
@@ -108,7 +108,7 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID strin
 		payloads[i] = string(a.Payload)
 	}
 
-	tag, err := tx.Exec(ctx, `
+	rows, err := tx.Query(ctx, `
 		INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manual)
 		SELECT $1::uuid, q.id, submitted.payload::jsonb, q.type = 'short_answer'
 		  FROM unnest($2::uuid[], $3::text[]) AS submitted(question_id, payload)
@@ -127,12 +127,37 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID strin
 		                     AND o.test_version_question_id = q.id))
 		ON CONFLICT (attempt_id, question_id) DO UPDATE
 		   SET payload = EXCLUDED.payload,
-		       requires_manual = EXCLUDED.requires_manual`,
+		       requires_manual = EXCLUDED.requires_manual
+		RETURNING question_id::text`,
 		in.AttemptID, ids, payloads, versionID)
 	if err != nil {
-		return 0, fmt.Errorf("attempts: upsert answers: %w", err)
+		return 0, nil, fmt.Errorf("attempts: upsert answers: %w", err)
 	}
-	return int(tag.RowsAffected()), nil
+	defer rows.Close()
+
+	landed := make(map[string]struct{}, len(in.Answers))
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return 0, nil, fmt.Errorf("attempts: upsert answers: %w", err)
+		}
+		landed[id] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, nil, fmt.Errorf("attempts: upsert answers: %w", err)
+	}
+
+	// Named, not just counted. A drop is designed for a client bug or an
+	// attempt at what the checks above block, and both are things somebody has
+	// to be able to look into afterwards -- "one answer vanished" is not a
+	// report anyone can act on without knowing which.
+	var dropped []string
+	for _, id := range ids {
+		if _, ok := landed[id]; !ok {
+			dropped = append(dropped, id)
+		}
+	}
+	return len(landed), dropped, nil
 }
 
 // insertEvents appends the batch, ignoring anything already recorded.

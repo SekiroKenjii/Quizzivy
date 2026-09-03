@@ -245,6 +245,20 @@ func (s *Server) SaveAnswers(ctx context.Context, request openapi.SaveAnswersReq
 		return nil, err
 	}
 
+	// A dropped answer is silent by construction -- the student's client gets a
+	// normal 200 and shows "Saved" -- so this line is the only place it exists.
+	// Without it the first sign of a client bug that destroys work would be a
+	// student saying their answers vanished, with nothing to confirm it.
+	if len(saved.Dropped) > 0 {
+		logOf(s).WarnContext(ctx, "autosave dropped answers not on the paper",
+			"attempt_id", in.AttemptID,
+			"session_id", in.SessionID,
+			"student_id", principal.UserID,
+			"dropped_question_ids", saved.Dropped,
+			"saved", saved.Saved,
+			"submitted", len(in.Answers))
+	}
+
 	// serverTime comes back on every save, not only on the first fetch, so the
 	// client's clock offset self-corrects over a long test rather than drifting
 	// from whatever it measured once at the start.
