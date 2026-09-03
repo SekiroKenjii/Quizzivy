@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { NavLink, Outlet } from "react-router";
-import { PageBarSlot } from "@/layouts/pageBar";
+import { PageAsideSlot, PageBarSlot } from "@/layouts/slots";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -97,8 +97,10 @@ export default function AdminLayout() {
   const open = override ?? !isNarrow;
   const toggle = () => setOverride(!open);
 
-  // The element a screen's PageHeader bar portals into; see pageBar.ts.
+  // The elements a screen's PageHeader bar and PageAside portal into; see
+  // layouts/slots.ts.
   const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
+  const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   return (
     /**
      * The deck's `.shell`: the sidebar is the FIRST child of a flex row and
@@ -199,11 +201,18 @@ export default function AdminLayout() {
 
         <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
-        <main className="min-w-0 flex-1 overflow-y-auto p-6">
-          <PageBarSlot.Provider value={barSlot}>
-            <Outlet />
-          </PageBarSlot.Provider>
-        </main>
+        <div className="flex min-h-0 flex-1">
+          <main className="min-w-0 flex-1 overflow-y-auto p-6">
+            <PageBarSlot.Provider value={barSlot}>
+              <PageAsideSlot.Provider value={asideSlot}>
+                <Outlet />
+              </PageAsideSlot.Provider>
+            </PageBarSlot.Provider>
+          </main>
+          {/* The deck's side panel lands here, beside main rather than inside
+              it, so it holds still while main scrolls. */}
+          <div ref={setAsideSlot} className="contents" />
+        </div>
       </div>
     </div>
   );

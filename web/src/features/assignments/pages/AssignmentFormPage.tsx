@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { PageAside } from "@/components/shared/PageAside";
 import {
   TestVersionPicker,
   type PickedVersion,
@@ -177,375 +178,365 @@ export default function AssignmentFormPage() {
     <>
       <PageHeader title={t("assignments.new")} backTo="/admin/assignments" />
 
-      <div className="-mr-6 flex">
-        <div className="min-w-0 flex-1 pr-6">
-          <div className="max-w-2xl space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("assignments.step1")}</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-1">
-                {draft.picked === null ? (
-                  <Button variant="outline" onClick={() => setPicking(true)}>
-                    <FileText aria-hidden="true" />
-                    {t("assignments.chooseTest")}
-                  </Button>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3 rounded-md border p-3">
-                      <FileText
-                        className="text-muted-foreground size-5 shrink-0"
-                        aria-hidden="true"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {draft.picked.testTitle}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {t("assignments.versionMetaFull", {
-                            questions: draft.picked.version.questionCount,
-                            points: draft.picked.version.totalPoints,
-                            audio: draft.picked.version.audioCount,
-                            version: draft.picked.version.version,
-                          })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPicking(true)}
-                      >
-                        {t("assignments.changeTest")}
-                      </Button>
-                    </div>
-                    <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-                      {t("assignments.versionPinned", {
+      <div className="max-w-2xl space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("assignments.step1")}</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-1">
+            {draft.picked === null ? (
+              <Button variant="outline" onClick={() => setPicking(true)}>
+                <FileText aria-hidden="true" />
+                {t("assignments.chooseTest")}
+              </Button>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <FileText
+                    className="text-muted-foreground size-5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {draft.picked.testTitle}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {t("assignments.versionMetaFull", {
+                        questions: draft.picked.version.questionCount,
+                        points: draft.picked.version.totalPoints,
+                        audio: draft.picked.version.audioCount,
                         version: draft.picked.version.version,
                       })}
                     </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("assignments.step2")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-1">
-                <ClassTargetPicker
-                  selected={draft.classes}
-                  onAdd={(token) =>
-                    setDraft((d) => ({ ...d, classes: [...d.classes, token] }))
-                  }
-                  onRemove={(id) =>
-                    setDraft((d) => ({
-                      ...d,
-                      classes: d.classes.filter((c) => c.id !== id),
-                    }))
-                  }
-                />
-                <StudentTargetPicker
-                  selected={draft.students}
-                  onAdd={(token) =>
-                    setDraft((d) => ({ ...d, students: [...d.students, token] }))
-                  }
-                  onRemove={(id) =>
-                    setDraft((d) => ({
-                      ...d,
-                      students: d.students.filter((s) => s.id !== id),
-                    }))
-                  }
-                />
-                <div className="bg-muted/40 flex items-start gap-2 rounded-md p-2.5">
-                  <Users
-                    className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <p className="text-xs leading-relaxed">
-                    {t("assignments.rosterNote")}
-                  </p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
+                    {t("assignments.changeTest")}
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("assignments.step3")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-1">
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label={t("assignments.opensAt")}>
-                    {(id) => (
-                      <Input
-                        id={id}
-                        type="datetime-local"
-                        value={draft.opensAt}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, opensAt: e.target.value }))
-                        }
-                      />
-                    )}
-                  </Field>
-                  <Field label={t("assignments.closesAt")}>
-                    {(id) => (
-                      <Input
-                        id={id}
-                        type="datetime-local"
-                        value={draft.closesAt}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, closesAt: e.target.value }))
-                        }
-                      />
-                    )}
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field
-                    label={t("assignments.duration")}
-                    hint={t("assignments.durationHint")}
-                  >
-                    {(id) => (
-                      <Select
-                        id={id}
-                        value={draft.durationMinutes}
-                        onChange={(e) =>
-                          setDraft((d) => ({
-                            ...d,
-                            durationMinutes: Number(e.target.value),
-                          }))
-                        }
-                      >
-                        {DURATIONS.map((minutes) => (
-                          <option key={minutes} value={minutes}>
-                            {t("assignments.minutes", { count: minutes })}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </Field>
-                  <Field
-                    label={t("assignments.attempts")}
-                    {...(draft.maxAttempts > 1
-                      ? { hint: t("assignments.attemptsHint") }
-                      : {})}
-                  >
-                    {(id) => (
-                      <Select
-                        id={id}
-                        value={draft.maxAttempts}
-                        onChange={(e) =>
-                          setDraft((d) => ({
-                            ...d,
-                            maxAttempts: Number(e.target.value),
-                          }))
-                        }
-                      >
-                        {ATTEMPTS.map((count) => (
-                          <option key={count} value={count}>
-                            {t("assignments.attemptCount", { count })}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </Field>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("assignments.step4")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5 pt-1">
-                <Toggle
-                  label={t("assignments.shuffleQuestions")}
-                  checked={draft.shuffleQuestions}
-                  onChange={(v) => setDraft((d) => ({ ...d, shuffleQuestions: v }))}
-                />
-                <Toggle
-                  label={t("assignments.shuffleOptions")}
-                  checked={draft.shuffleOptions}
-                  onChange={(v) => setDraft((d) => ({ ...d, shuffleOptions: v }))}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("assignments.step5")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5 pt-1">
-                <Toggle
-                  label={t("assignments.showScore")}
-                  checked={draft.review.showScore}
-                  onChange={(v) =>
-                    setDraft((d) => ({ ...d, review: { ...d.review, showScore: v } }))
-                  }
-                />
-                <Toggle
-                  label={t("assignments.showCorrectAnswers")}
-                  checked={draft.review.showCorrectAnswers}
-                  onChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      review: { ...d.review, showCorrectAnswers: v },
-                    }))
-                  }
-                />
-                <Toggle
-                  label={t("assignments.showExplanations")}
-                  checked={draft.review.showExplanations}
-                  onChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      review: { ...d.review, showExplanations: v },
-                    }))
-                  }
-                />
-                <p className="text-muted-foreground text-xs leading-relaxed">
-                  {t("assignments.reuseHint")}
+                <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
+                  {t("assignments.versionPinned", {
+                    version: draft.picked.version.version,
+                  })}
                 </p>
-              </CardContent>
-            </Card>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("assignments.step6")}</CardTitle>
-                <CardDescription>{t("assignments.integrityDefaults")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-1">
-                <Toggle
-                  label={t("assignments.requireFullscreen")}
-                  checked={draft.integrity.requireFullscreen}
-                  onChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      integrity: { ...d.integrity, requireFullscreen: v },
-                    }))
-                  }
-                />
-                <Toggle
-                  label={t("assignments.blockCopyPaste")}
-                  checked={draft.integrity.blockCopyPaste}
-                  onChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      integrity: { ...d.integrity, blockCopyPaste: v },
-                    }))
-                  }
-                />
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <Field label={t("assignments.maxFocusLoss")}>
-                    {(id) => (
-                      <Select
-                        id={id}
-                        value={draft.integrity.maxFocusLoss}
-                        onChange={(e) =>
-                          setDraft((d) => ({
-                            ...d,
-                            integrity: {
-                              ...d.integrity,
-                              maxFocusLoss: Number(e.target.value),
-                            },
-                          }))
-                        }
-                      >
-                        {FOCUS_LIMITS.map((count) => (
-                          <option key={count} value={count}>
-                            {count === 0
-                              ? t("assignments.unlimited")
-                              : t("assignments.timesAway", { count })}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </Field>
-                  <Field label={t("assignments.onLimitExceeded")}>
-                    {(id) => (
-                      <Select
-                        id={id}
-                        disabled={draft.integrity.maxFocusLoss === 0}
-                        value={draft.integrity.onLimitExceeded}
-                        onChange={(e) =>
-                          setDraft((d) => ({
-                            ...d,
-                            integrity: {
-                              ...d.integrity,
-                              onLimitExceeded: e.target.value as "warn" | "flag",
-                            },
-                          }))
-                        }
-                      >
-                        <option value="warn">{t("assignments.actionWarn")}</option>
-                        <option value="flag">{t("assignments.actionFlag")}</option>
-                      </Select>
-                    )}
-                  </Field>
-                </div>
-                <div className="bg-muted/40 flex items-start gap-2 rounded-md p-2.5">
-                  <Info
-                    className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <p className="text-xs leading-relaxed">
-                    {t("assignments.integrityHonesty")}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        <aside className="sticky top-28 h-fit w-80 shrink-0 space-y-5 border-l p-5">
-          <Summary draft={draft} />
-          <Separator />
-          <StudentRulesPreview draft={draft} />
-
-          {error === null ? null : (
-            <div role="alert" className="text-destructive space-y-1 text-sm">
-              <p>{error.summary}</p>
-              {error.fields.map((message) => (
-                <p key={message} className="text-xs">
-                  · {message}
-                </p>
-              ))}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("assignments.step2")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-1">
+            <ClassTargetPicker
+              selected={draft.classes}
+              onAdd={(token) =>
+                setDraft((d) => ({ ...d, classes: [...d.classes, token] }))
+              }
+              onRemove={(id) =>
+                setDraft((d) => ({
+                  ...d,
+                  classes: d.classes.filter((c) => c.id !== id),
+                }))
+              }
+            />
+            <StudentTargetPicker
+              selected={draft.students}
+              onAdd={(token) =>
+                setDraft((d) => ({ ...d, students: [...d.students, token] }))
+              }
+              onRemove={(id) =>
+                setDraft((d) => ({
+                  ...d,
+                  students: d.students.filter((s) => s.id !== id),
+                }))
+              }
+            />
+            <div className="bg-muted/40 flex items-start gap-2 rounded-md p-2.5">
+              <Users
+                className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
+              <p className="text-xs leading-relaxed">{t("assignments.rosterNote")}</p>
             </div>
-          )}
+          </CardContent>
+        </Card>
 
-          <div className="space-y-2">
-            <Button
-              className="w-full"
-              disabled={!ready || create.isPending}
-              onClick={() => {
-                setError(null);
-                create.mutate(false);
-              }}
-            >
-              {create.isPending ? t("common.loading") : t("assignments.assign")}
-            </Button>
-            {/* A draft needs only the test. The teacher who has not decided who
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("assignments.step3")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={t("assignments.opensAt")}>
+                {(id) => (
+                  <Input
+                    id={id}
+                    type="datetime-local"
+                    value={draft.opensAt}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, opensAt: e.target.value }))
+                    }
+                  />
+                )}
+              </Field>
+              <Field label={t("assignments.closesAt")}>
+                {(id) => (
+                  <Input
+                    id={id}
+                    type="datetime-local"
+                    value={draft.closesAt}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, closesAt: e.target.value }))
+                    }
+                  />
+                )}
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label={t("assignments.duration")}
+                hint={t("assignments.durationHint")}
+              >
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={draft.durationMinutes}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        durationMinutes: Number(e.target.value),
+                      }))
+                    }
+                  >
+                    {DURATIONS.map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {t("assignments.minutes", { count: minutes })}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <Field
+                label={t("assignments.attempts")}
+                {...(draft.maxAttempts > 1
+                  ? { hint: t("assignments.attemptsHint") }
+                  : {})}
+              >
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={draft.maxAttempts}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        maxAttempts: Number(e.target.value),
+                      }))
+                    }
+                  >
+                    {ATTEMPTS.map((count) => (
+                      <option key={count} value={count}>
+                        {t("assignments.attemptCount", { count })}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("assignments.step4")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5 pt-1">
+            <Toggle
+              label={t("assignments.shuffleQuestions")}
+              checked={draft.shuffleQuestions}
+              onChange={(v) => setDraft((d) => ({ ...d, shuffleQuestions: v }))}
+            />
+            <Toggle
+              label={t("assignments.shuffleOptions")}
+              checked={draft.shuffleOptions}
+              onChange={(v) => setDraft((d) => ({ ...d, shuffleOptions: v }))}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("assignments.step5")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5 pt-1">
+            <Toggle
+              label={t("assignments.showScore")}
+              checked={draft.review.showScore}
+              onChange={(v) =>
+                setDraft((d) => ({ ...d, review: { ...d.review, showScore: v } }))
+              }
+            />
+            <Toggle
+              label={t("assignments.showCorrectAnswers")}
+              checked={draft.review.showCorrectAnswers}
+              onChange={(v) =>
+                setDraft((d) => ({
+                  ...d,
+                  review: { ...d.review, showCorrectAnswers: v },
+                }))
+              }
+            />
+            <Toggle
+              label={t("assignments.showExplanations")}
+              checked={draft.review.showExplanations}
+              onChange={(v) =>
+                setDraft((d) => ({
+                  ...d,
+                  review: { ...d.review, showExplanations: v },
+                }))
+              }
+            />
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {t("assignments.reuseHint")}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("assignments.step6")}</CardTitle>
+            <CardDescription>{t("assignments.integrityDefaults")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-1">
+            <Toggle
+              label={t("assignments.requireFullscreen")}
+              checked={draft.integrity.requireFullscreen}
+              onChange={(v) =>
+                setDraft((d) => ({
+                  ...d,
+                  integrity: { ...d.integrity, requireFullscreen: v },
+                }))
+              }
+            />
+            <Toggle
+              label={t("assignments.blockCopyPaste")}
+              checked={draft.integrity.blockCopyPaste}
+              onChange={(v) =>
+                setDraft((d) => ({
+                  ...d,
+                  integrity: { ...d.integrity, blockCopyPaste: v },
+                }))
+              }
+            />
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <Field label={t("assignments.maxFocusLoss")}>
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={draft.integrity.maxFocusLoss}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        integrity: {
+                          ...d.integrity,
+                          maxFocusLoss: Number(e.target.value),
+                        },
+                      }))
+                    }
+                  >
+                    {FOCUS_LIMITS.map((count) => (
+                      <option key={count} value={count}>
+                        {count === 0
+                          ? t("assignments.unlimited")
+                          : t("assignments.timesAway", { count })}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <Field label={t("assignments.onLimitExceeded")}>
+                {(id) => (
+                  <Select
+                    id={id}
+                    disabled={draft.integrity.maxFocusLoss === 0}
+                    value={draft.integrity.onLimitExceeded}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        integrity: {
+                          ...d.integrity,
+                          onLimitExceeded: e.target.value as "warn" | "flag",
+                        },
+                      }))
+                    }
+                  >
+                    <option value="warn">{t("assignments.actionWarn")}</option>
+                    <option value="flag">{t("assignments.actionFlag")}</option>
+                  </Select>
+                )}
+              </Field>
+            </div>
+            <div className="bg-muted/40 flex items-start gap-2 rounded-md p-2.5">
+              <Info
+                className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
+              <p className="text-xs leading-relaxed">
+                {t("assignments.integrityHonesty")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <PageAside label={t("assignments.summaryTitle")}>
+        <Summary draft={draft} />
+        <Separator />
+        <StudentRulesPreview draft={draft} />
+
+        {error === null ? null : (
+          <div role="alert" className="text-destructive space-y-1 text-sm">
+            <p>{error.summary}</p>
+            {error.fields.map((message) => (
+              <p key={message} className="text-xs">
+                · {message}
+              </p>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Button
+            className="w-full"
+            disabled={!ready || create.isPending}
+            onClick={() => {
+              setError(null);
+              create.mutate(false);
+            }}
+          >
+            {create.isPending ? t("common.loading") : t("assignments.assign")}
+          </Button>
+          {/* A draft needs only the test. The teacher who has not decided who
               it is for yet is exactly who this button is for, which is why it
               stays enabled when "Giao bài" cannot be. */}
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={!savable || create.isPending}
-              onClick={() => {
-                setError(null);
-                create.mutate(true);
-              }}
-            >
-              {t("assignments.saveDraft")}
-            </Button>
-          </div>
-          {ready ? null : (
-            <p className="text-muted-foreground text-xs">
-              {savable ? t("assignments.needTargets") : t("assignments.readyHint")}
-            </p>
-          )}
-        </aside>
-      </div>
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={!savable || create.isPending}
+            onClick={() => {
+              setError(null);
+              create.mutate(true);
+            }}
+          >
+            {t("assignments.saveDraft")}
+          </Button>
+        </div>
+        {ready ? null : (
+          <p className="text-muted-foreground text-xs">
+            {savable ? t("assignments.needTargets") : t("assignments.readyHint")}
+          </p>
+        )}
+      </PageAside>
 
       <TestVersionPicker
         open={picking}

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
+import { PageAsideSlot } from "@/layouts/slots";
 import {
   createQuestion,
   getQuestion,
@@ -95,6 +96,7 @@ function Builder({ test }: { test: Test }) {
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(test.title);
+  const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   const [sections, setSections] = useState<OutlineSection[]>(
     () => toOutlineDraft(test).sections,
   );
@@ -353,20 +355,27 @@ function Builder({ test }: { test: Test }) {
         </Suspense>
 
         <div className="min-w-0 flex-1 overflow-y-auto p-6">
-          {selectedId === null ? (
-            <p className="text-muted-foreground text-sm">
-              {questionIds.length === 0 ? t("builder.empty") : t("builder.noSelection")}
-            </p>
-          ) : (
-            <QuestionPane
-              key={selectedId}
-              questionId={selectedId}
-              flushRef={flushQuestion}
-              onStatus={setQuestionStatus}
-              contextLabel={contextLabel}
-            />
-          )}
+          <PageAsideSlot.Provider value={asideSlot}>
+            {selectedId === null ? (
+              <p className="text-muted-foreground text-sm">
+                {questionIds.length === 0
+                  ? t("builder.empty")
+                  : t("builder.noSelection")}
+              </p>
+            ) : (
+              <QuestionPane
+                key={selectedId}
+                questionId={selectedId}
+                flushRef={flushQuestion}
+                onStatus={setQuestionStatus}
+                contextLabel={contextLabel}
+              />
+            )}
+          </PageAsideSlot.Provider>
         </div>
+        {/* A-04 sets the settings column under the builder's own bar, so the
+            editor's panel lands in this row rather than the shell's. */}
+        <div ref={setAsideSlot} className="contents" />
       </div>
 
       <QuestionPickerDialog
