@@ -377,3 +377,40 @@ func TestAnAttemptLeftOpenPastItsDeadlineIsSpentNotLive(t *testing.T) {
 		t.Errorf("intro would offer a resume the server refuses: %+v", d.StudentCard)
 	}
 }
+
+// The bearer middleware never asks the database -- verification is pure, so an
+// access token keeps working for up to its TTL after an admin disables the
+// account. attempts.Store already refuses to start an attempt in that window;
+// these reads have to agree with it, or the home offers a Start the server
+// rejects and the intro hands over every policy on the paper.
+func TestADisabledStudentReadsNothingWhileTheirTokenLasts(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := assignments.NewStore(pool)
+	ctx := context.Background()
+	a := createFor(t, store, w, legalInput(w))
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sections.DueNow) != 1 {
+		t.Fatalf("before disabling: %d due cards, want 1", len(sections.DueNow))
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, w.student); err != nil {
+		t.Fatal(err)
+	}
+
+	sections, err = store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(sections.DueNow) + len(sections.Upcoming) + len(sections.Completed); n != 0 {
+		t.Errorf("%d cards for a disabled student", n)
+	}
+	if _, err := store.StudentDetail(ctx, a.ID, w.student); !errors.Is(err, assignments.ErrForbidden) {
+		t.Errorf("intro for a disabled student: %v, want ErrForbidden", err)
+	}
+}

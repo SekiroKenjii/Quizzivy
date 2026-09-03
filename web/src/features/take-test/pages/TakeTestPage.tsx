@@ -145,7 +145,7 @@ export default function TakeTestPage() {
 
   const dots: DotState[] = questions.map((q) => ({
     id: q.id,
-    answered: answered(answers[q.id]),
+    answered: answered(q, answers[q.id]),
     flagged: flags.has(q.id),
   }));
   const jump = (i: number) => {
