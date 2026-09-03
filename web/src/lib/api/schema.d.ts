@@ -1397,12 +1397,7 @@ export interface components {
             testTitle: string;
             /** @description See StudentAssignmentCard. */
             className?: string | null;
-            /**
-             * @description Who set the work — S-04 puts it beside the class, "IELTS Foundation ·
-             *     Cô Thương". The assignment's author, not the test's: the same paper
-             *     can be set by different people, and the student is being told who to
-             *     ask about this sitting.
-             */
+            /** @description The assignment's author. */
             teacherName?: string | null;
             status: components["schemas"]["AssignmentStatus"];
             opensAt: components["schemas"]["Timestamp"];
@@ -1422,16 +1417,7 @@ export interface components {
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
             hasAudio: boolean;
-            /**
-             * @description Whether any listening question on this paper releases its transcript
-             *     after submitting — S-04's fourth "Sau khi nộp" row.
-             *
-             *     Derived rather than stored: the flag is per question
-             *     (`test_version_questions.audio_show_transcript_after`), and the intro
-             *     promises the student one thing about the whole paper. "At least one"
-             *     is the honest reading of a promise the student will judge by whether
-             *     they ever see a transcript.
-             */
+            /** @description True when any listening question releases its transcript after submitting. */
             showsTranscript: boolean;
             /** @description The strictest `maxPlays` across the test, for the intro copy. */
             audioMaxPlays?: number | null;
@@ -1870,15 +1856,7 @@ export interface components {
             testVersion: number;
             testTitle: string;
             targets: {
-                /**
-                 * @description The classes this assignment targets, with their names, because
-                 *     every screen that lists an assignment names them. The name
-                 *     travels with the row rather than being looked up in the classes
-                 *     list: that lookup reads one page, so it stops answering past
-                 *     the page boundary and shows an em dash for a class that exists.
-                 *     `AssignmentInput.targets.classIds` stays ids-only -- a write
-                 *     does not need the names.
-                 */
+                /** @description The classes this assignment targets, with their names. */
                 classes: {
                     id: components["schemas"]["Uuid"];
                     name: string;
@@ -2119,27 +2097,15 @@ export interface components {
         StudentAssignmentCard: {
             id: components["schemas"]["Uuid"];
             testTitle: string;
-            /**
-             * @description The class this assignment reached the student through — S-03 puts it
-             *     beside the badge, and S-04 above the title.
-             *
-             *     Null when there is not exactly one: an assignment can target several
-             *     classes and name students directly, and a student on two of those
-             *     classes has no single answer. Naming one of them would be picking a
-             *     side the student cannot check, and a student reached by name was not
-             *     reached through a class at all.
-             */
+            /** @description The class this assignment reached the student through. Null unless exactly one targeted class contains them. */
             className?: string | null;
             status: components["schemas"]["AssignmentStatus"];
             opensAt: components["schemas"]["Timestamp"];
             closesAt: components["schemas"]["Timestamp"];
             durationMinutes: number;
-            /** @description Questions on the pinned version — S-03's "24 câu". */
+            /** @description Questions on the pinned version. */
             questionCount: number;
-            /**
-             * @description What the paper is out of. S-04 states it before the student starts,
-             *     which is the only place they are told.
-             */
+            /** @description What the paper is out of. */
             totalPoints: components["schemas"]["Points"];
             attemptsUsed: number;
             maxAttempts: number;
@@ -2147,18 +2113,14 @@ export interface components {
             lastAttemptId?: string | null;
             /**
              * Format: date-time
-             * @description When the last attempt was handed in — S-03's "Nộp 26/08" on a
-             *     completed row. Null while the last attempt is still in progress.
+             * @description When the last attempt was handed in. Null while it is in progress.
              */
             lastSubmittedAt?: string | null;
             /** @description Drives Start vs Resume (§9). */
             hasLiveAttempt?: boolean;
             /**
              * Format: date-time
-             * @description The live attempt's deadline, so the home can show the number the
-             *     engine's clock shows rather than saying the clock is running and
-             *     leaving the student to open the paper to find out how long is left.
-             *     Null exactly when `hasLiveAttempt` is false.
+             * @description The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
              */
             liveDeadlineAt?: string | null;
             /** @description Only when the assignment's `review.showScore` is on. */
@@ -2305,8 +2267,7 @@ export interface components {
          *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
          *     lists: at this scale the teacher wants "trang 3 / 26" more than
          *     stability under concurrent inserts). A page past the end is an empty
-         *     `items` with the same `total`; a page past `maximum` is refused,
-         *     because `(page - 1) * limit` has to stay a number.
+         *     `items` with the same `total`.
          *
          *     Page size is `limit`, declared per operation with its own default -- a
          *     media grid wants a different page from a table of tests. The response
@@ -2772,8 +2733,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3050,8 +3010,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3251,8 +3210,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3374,8 +3332,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3534,8 +3491,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3818,8 +3774,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3990,8 +3945,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -4110,8 +4064,7 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`; a page past `maximum` is refused,
-                 *     because `(page - 1) * limit` has to stay a number.
+                 *     `items` with the same `total`.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response

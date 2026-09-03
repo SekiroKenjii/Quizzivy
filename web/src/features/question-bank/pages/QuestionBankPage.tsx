@@ -112,8 +112,6 @@ export default function QuestionBankPage() {
 
   return (
     <>
-      {/* Beside the results, not above them: a filter rail that scrolls away
-        with the list is a rail you cannot reach while reading it. */}
       <PageAside side="left" label={t("bank.filters")}>
         <div>
           <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">

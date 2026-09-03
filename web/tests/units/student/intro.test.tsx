@@ -191,11 +191,7 @@ describe("when there is nothing to start", () => {
   });
 });
 
-/**
- * S-04's header and its fourth fact. The intro is the only screen that tells
- * a student what the paper is out of before the clock starts, and the only
- * one that names who set it.
- */
+/** S-04's header and its fourth fact. */
 describe("what the deck's intro states", () => {
   it("names the class and the teacher above the title", async () => {
     show({ className: "IELTS Foundation", teacherName: "Cô Thương" });
@@ -213,8 +209,6 @@ describe("what the deck's intro states", () => {
     expect(screen.getByText("24 câu · 30 điểm")).toBeInTheDocument();
   });
 
-  // The transcript row is a permission, and permissions are only worth stating
-  // about a paper that has something to permit.
   it("offers the transcript only when the paper releases one", async () => {
     show({ hasAudio: true, showsTranscript: true });
     expect(await screen.findByText("Xem lời thoại bài nghe")).toBeInTheDocument();

@@ -20,16 +20,12 @@ import (
 // each operation is implemented, its stub is replaced in place.
 type Server struct {
 	Deps Deps
-	// Logger is the router's, so a handler can report something worth
-	// investigating that is not an error to the caller. Nil in tests that
-	// build a Server directly; every use goes through Server.log().
+	// Logger is nil in tests; read it through logOf.
 	Logger *slog.Logger
 }
 
-// logOf is the server's logger, or one that discards, so a handler never has
-// to check. A function rather than a method: stubs_test reads Server's method
-// set to audit which operations are still unimplemented, and a helper method
-// there reads as an operation named "log".
+// logOf is the server's logger, or one that discards. Not a method: stubs_test
+// reads Server's method set to find unimplemented operations.
 func logOf(s *Server) *slog.Logger {
 	if s.Logger == nil {
 		return slog.New(slog.DiscardHandler)

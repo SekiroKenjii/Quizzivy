@@ -245,10 +245,7 @@ func (s *Server) SaveAnswers(ctx context.Context, request openapi.SaveAnswersReq
 		return nil, err
 	}
 
-	// A dropped answer is silent by construction -- the student's client gets a
-	// normal 200 and shows "Saved" -- so this line is the only place it exists.
-	// Without it the first sign of a client bug that destroys work would be a
-	// student saying their answers vanished, with nothing to confirm it.
+	// The 200 the client gets is the same either way, so this is the only trace.
 	if len(saved.Dropped) > 0 {
 		logOf(s).WarnContext(ctx, "autosave dropped answers not on the paper",
 			"attempt_id", in.AttemptID,

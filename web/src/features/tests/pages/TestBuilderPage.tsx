@@ -373,8 +373,7 @@ function Builder({ test }: { test: Test }) {
             )}
           </PageAsideSlot.Provider>
         </div>
-        {/* A-04 sets the settings column under the builder's own bar, so the
-            editor's panel lands in this row rather than the shell's. */}
+        {/* A-04 puts the settings column under the builder's own bar. */}
         <div ref={setAsideSlot} className="contents" />
       </div>
 

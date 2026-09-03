@@ -19,10 +19,8 @@ func TestClampFillsInWhatTheCallerLeftOut(t *testing.T) {
 	}
 }
 
-// `page` arrives from a query string. Multiplied by a limit it overflows, and
-// a wrapped OFFSET is either a negative number Postgres refuses with a 500 or
-// a positive one it scans towards. Past the data every page is empty; the only
-// question is which empty page a nonsense number gets.
+// A page from a query string, multiplied by a limit, overflows into a
+// negative OFFSET that Postgres refuses.
 func TestClampBoundsAPageTheArithmeticCannotHold(t *testing.T) {
 	const int64Max = 1<<63 - 1
 	for _, page := range []int{paging.MaxPage + 1, 1 << 40, int64Max} {

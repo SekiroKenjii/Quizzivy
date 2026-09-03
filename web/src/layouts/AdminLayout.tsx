@@ -203,7 +203,6 @@ export default function AdminLayout() {
         <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
         <div className="flex min-h-0 flex-1">
-          {/* A-06's filter rail lands here, at the content's left edge. */}
           <div ref={setRailSlot} className="contents" />
           <main className="min-w-0 flex-1 overflow-y-auto p-6">
             <PageBarSlot.Provider value={barSlot}>
@@ -214,8 +213,6 @@ export default function AdminLayout() {
               </PageAsideSlot.Provider>
             </PageBarSlot.Provider>
           </main>
-          {/* The deck's detail panel lands here, beside main rather than
-              inside it, so it holds still while main scrolls. */}
           <div ref={setAsideSlot} className="contents" />
         </div>
       </div>
