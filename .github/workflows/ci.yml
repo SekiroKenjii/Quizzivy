@@ -373,10 +373,9 @@ jobs:
         working-directory: server
         # -coverprofile feeds the sonar job. atomic rather than set because
         # some of these tests run in parallel, and set mode miscounts there.
-        # -p 1: these packages share one database and the dashboard asserts on
-        # global aggregates by diffing two readings, so a package creating an
-        # attempt in between moves the number. See the Makefile's test-api.
-        run: go test ./... -count=1 -p 1 -covermode=atomic -coverprofile=coverage.out
+        # Packages run in parallel against one database; the dashboard's
+        # aggregate tests isolate themselves in a REPEATABLE READ transaction.
+        run: go test ./... -count=1 -covermode=atomic -coverprofile=coverage.out
 
       # Explicitly re-run the round trip against a database that has never seen
       # these migrations, which is the state that matters for a first deploy.
