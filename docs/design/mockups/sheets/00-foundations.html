@@ -442,6 +442,62 @@
               </div>
             </div>
             <div class="space-y-5">
+              <!-- Two cards at the top of F-08's right column (the only structurally clean
+                   anchor in this board). If the column balance bothers you, both cards can move
+                   as-is into a second grid-cols-2 row after the existing grid. -->
+              <!-- Route-level fetch failure. Drawn inline, at list width, where the rows would
+                   have been. Replaces the bare alert paragraph the app renders today when a list
+                   or detail query fails. -->
+              <div class="card p-5">
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Route error — “Không tải được”</p>
+                <div class="border rounded-lg p-5">
+                  <p class="text-sm font-medium">Không tải được danh sách đề thi.</p>
+                  <div class="flex items-center justify-between gap-3 mt-4">
+                    <button class="btn btn-sm btn-outline">
+                      <svg class="i" aria-hidden="true"><use href="#i-refresh-cw" /></svg> Thử lại
+                    </button>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-muted-foreground">Mã lỗi</span>
+                      <code class="font-mono text-xs border rounded-sm px-1.5 py-0.5">req_7f3a9d41</code>
+                      <button class="btn btn-xs btn-ghost">
+                        <svg class="i i-3.5" aria-hidden="true"><use href="#i-copy" /></svg> Sao chép
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground mt-3">
+                  Replaces the bare <code class="font-mono">&lt;p&gt;</code> the app shows when a list
+                  or detail query fails. One sentence naming what did not load, one retry, and the
+                  full request id — never truncated, a shortened id cannot be searched. The page
+                  chrome stays. No red and no icon: a failed fetch is not the user’s fault.
+                </p>
+              </div>
+              <!-- Toasts (sonner). Two confirmations drawn stacked, newest at the bottom, as the
+                   library renders them. -->
+              <div class="card p-5">
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Toast — “Đã lưu” · “Đã xoá”</p>
+                <div class="relative bg-muted/30 rounded-lg overflow-hidden" style="height: 140px">
+                  <div class="absolute w-80" style="right: 1rem; bottom: 1rem">
+                    <div class="popover px-4 py-3 flex items-center gap-3 text-sm">
+                      <svg class="i text-muted-foreground shrink-0" aria-hidden="true"><use href="#i-check" /></svg>
+                      <span class="flex-1 min-w-0">Đã lưu</span>
+                    </div>
+                    <div class="popover px-4 py-3 flex items-center gap-3 text-sm mt-2">
+                      <span class="flex-1 min-w-0">Đã xoá đề thi</span>
+                      <button class="btn btn-link text-sm shrink-0">Hoàn tác</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground mt-3">
+                  F-10 assumes sonner; this is it. Bottom-right, one line, four seconds, no colour,
+                  no title. It names the object, not its title — titles are long and a toast does
+                  not wrap. Only to confirm an action the user just took: never an error that needs
+                  a decision, never inside the engine (S-05 keeps save state in its own strip).
+                  A delete toast carries Hoàn tác for its whole life; the delete commits when the
+                  toast leaves.
+                </p>
+              </div>
+
               <div class="card p-5">
                 <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Empty state</p>
                 <div class="border border-dashed rounded-lg p-8 text-center">
