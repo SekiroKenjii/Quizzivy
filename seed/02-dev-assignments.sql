@@ -47,6 +47,22 @@ VALUES
    'short_answer', 'Viết 2–3 câu tả thói quen buổi sáng của bạn.', '2.00')
 ON CONFLICT (id) DO NOTHING;
 
+-- The choice question's options. publish would refuse a choice question
+-- without a correct option, and the seeded attempt below answers with dd09, so
+-- dd09 is the one that is right.
+INSERT INTO app.test_version_options
+  (id, test_version_question_id, ordinal, text, is_correct)
+VALUES
+  ('01935000-0000-7000-8000-00000000dd09'::uuid,
+   '01935000-0000-7000-8000-00000000dd04'::uuid, 0, 'went', true),
+  ('01935000-0000-7000-8000-00000000dd0a'::uuid,
+   '01935000-0000-7000-8000-00000000dd04'::uuid, 1, 'go', false),
+  ('01935000-0000-7000-8000-00000000dd0b'::uuid,
+   '01935000-0000-7000-8000-00000000dd04'::uuid, 2, 'goes', false),
+  ('01935000-0000-7000-8000-00000000dd0c'::uuid,
+   '01935000-0000-7000-8000-00000000dd04'::uuid, 3, 'gone', false)
+ON CONFLICT (id) DO NOTHING;
+
 -- ------------------------------------------------------------ an assignment
 -- Open right now, closing in three hours, so the dashboard's "Bài đang mở"
 -- card and its countdown have something true to say.
