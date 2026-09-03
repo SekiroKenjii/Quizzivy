@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/dashboard"
@@ -27,6 +29,28 @@ func newPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// isolated is the transaction a test reads and writes through.
+//
+// Every figure on the dashboard is a global aggregate, and these tests diff two
+// readings of one. REPEATABLE READ takes its snapshot at the first statement
+// and keeps it, so both readings see the same committed world plus this test's
+// own rows -- whatever the other packages sharing the database are inserting
+// meanwhile. Rolled back at the end, which is also the cleanup.
+func isolated(t *testing.T, pool *pgxpool.Pool) pgx.Tx {
+	t.Helper()
+	tx, err := pool.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	return tx
+}
+
+type querier interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func nonce(t *testing.T) string {
 	t.Helper()
 	b := make([]byte, 8)
@@ -44,18 +68,18 @@ type fixture struct {
 	student    string
 }
 
-func seed(t *testing.T, pool *pgxpool.Pool, opensAt, closesAt time.Time, flagged bool) fixture {
+func seed(t *testing.T, db querier, opensAt, closesAt time.Time, flagged bool) fixture {
 	t.Helper()
 	ctx := context.Background()
 	id := nonce(t)
 
 	var author, student string
-	if err := pool.QueryRow(ctx,
+	if err := db.QueryRow(ctx,
 		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
 		"dash-a-"+id+"@example.com").Scan(&author); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx,
+	if err := db.QueryRow(ctx,
 		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học viên','student') RETURNING id::text`,
 		"dash-s-"+id+"@example.com").Scan(&student); err != nil {
 		t.Fatal(err)
@@ -68,27 +92,27 @@ func seed(t *testing.T, pool *pgxpool.Pool, opensAt, closesAt time.Time, flagged
 			t.Fatal(err)
 		}
 	}
-	must(pool.QueryRow(ctx,
+	must(db.QueryRow(ctx,
 		`INSERT INTO app.tests (title, status, current_version, created_by)
 		 VALUES ('Dashboard fixture','published',1,$1) RETURNING id::text`, author).Scan(&testID))
-	must(pool.QueryRow(ctx,
+	must(db.QueryRow(ctx,
 		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
 		 VALUES ($1,1,'2.00',$2) RETURNING id::text`, testID, author).Scan(&versionID))
-	must(pool.QueryRow(ctx,
+	must(db.QueryRow(ctx,
 		`INSERT INTO app.test_version_sections (test_version_id, ordinal, title)
 		 VALUES ($1,0,'Phần 1') RETURNING id::text`, versionID).Scan(&sectionID))
-	must(pool.QueryRow(ctx,
+	must(db.QueryRow(ctx,
 		`INSERT INTO app.test_version_questions
 		        (test_version_section_id, ordinal, type, prompt, points)
 		 VALUES ($1,0,'short_answer','Viết một câu','2.00') RETURNING id::text`,
 		sectionID).Scan(&questionID))
-	must(pool.QueryRow(ctx,
+	must(db.QueryRow(ctx,
 		`INSERT INTO app.assignments
 		        (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by,
 		         published_at)
 		 VALUES ($1,$2,$3,$4,45,$5, now()) RETURNING id::text`,
 		testID, versionID, opensAt, closesAt, author).Scan(&assignmentID))
-	must(pool.QueryRow(ctx,
+	must(db.QueryRow(ctx,
 		`INSERT INTO app.attempts
 		        (assignment_id, test_version_id, student_id, attempt_no, status,
 		         session_id, shuffle_seed, beacon_token_hash, deadline_at,
@@ -98,31 +122,19 @@ func seed(t *testing.T, pool *pgxpool.Pool, opensAt, closesAt time.Time, flagged
 		 RETURNING id::text`,
 		assignmentID, versionID, student, flagged).Scan(&attemptID))
 	must(func() error {
-		_, err := pool.Exec(ctx,
+		_, err := db.Exec(ctx,
 			`INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manual)
 			 VALUES ($1,$2,'{"text":"xin chào"}'::jsonb, true)`, attemptID, questionID)
 		return err
 	}())
-
-	t.Cleanup(func() {
-		c := context.Background()
-		_, _ = pool.Exec(c, `DELETE FROM app.attempt_answers WHERE attempt_id = $1`, attemptID)
-		_, _ = pool.Exec(c, `DELETE FROM app.attempts WHERE id = $1`, attemptID)
-		_, _ = pool.Exec(c, `DELETE FROM app.assignments WHERE id = $1`, assignmentID)
-		_, _ = pool.Exec(c, `DELETE FROM app.test_version_questions WHERE test_version_section_id = $1`, sectionID)
-		_, _ = pool.Exec(c, `DELETE FROM app.test_version_sections WHERE id = $1`, sectionID)
-		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE id = $1`, versionID)
-		_, _ = pool.Exec(c, `DELETE FROM app.audit_log WHERE actor_user_id IN ($1,$2)`, author, student)
-		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1`, testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1,$2)`, author, student)
-	})
 
 	return fixture{assignment: assignmentID, attempt: attemptID, student: student}
 }
 
 func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 	pool := newPool(t)
-	store := dashboard.NewStore(pool)
+	tx := isolated(t, pool)
+	store := dashboard.NewStore(tx)
 	ctx := context.Background()
 
 	before, err := store.Get(ctx)
@@ -131,9 +143,9 @@ func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 	}
 
 	// Open now.
-	seed(t, pool, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
+	seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 	// Already finished: outside the window, so not "open".
-	seed(t, pool, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour), false)
+	seed(t, tx, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour), false)
 
 	after, err := store.Get(ctx)
 	if err != nil {
@@ -146,14 +158,15 @@ func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 
 func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 	pool := newPool(t)
-	store := dashboard.NewStore(pool)
+	tx := isolated(t, pool)
+	store := dashboard.NewStore(tx)
 	ctx := context.Background()
 
 	before, err := store.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := seed(t, pool, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
+	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 
 	after, err := store.Get(ctx)
 	if err != nil {
@@ -164,7 +177,7 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 	}
 
 	// Grading it empties the queue -- the count is about work left, not work done.
-	if _, err := pool.Exec(ctx,
+	if _, err := tx.Exec(ctx,
 		`UPDATE app.attempt_answers SET manual_score = '2.00', graded_at = now()
 		  WHERE attempt_id = $1`, f.attempt); err != nil {
 		t.Fatal(err)
@@ -180,14 +193,15 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 
 func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 	pool := newPool(t)
-	store := dashboard.NewStore(pool)
+	tx := isolated(t, pool)
+	store := dashboard.NewStore(tx)
 	ctx := context.Background()
 
 	before, err := store.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := seed(t, pool, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true)
+	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true)
 
 	after, err := store.Get(ctx)
 	if err != nil {
@@ -216,14 +230,15 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 
 func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 	pool := newPool(t)
-	store := dashboard.NewStore(pool)
+	tx := isolated(t, pool)
+	store := dashboard.NewStore(tx)
 	ctx := context.Background()
 
 	before, err := store.Get(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := seed(t, pool, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
+	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 
 	after, err := store.Get(ctx)
 	if err != nil {
@@ -234,7 +249,7 @@ func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 	}
 
 	// Older than the window: the dashboard is today's queue, not all history.
-	if _, err := pool.Exec(ctx,
+	if _, err := tx.Exec(ctx,
 		`UPDATE app.attempts SET started_at = now() - interval '30 days' WHERE id = $1`,
 		f.attempt); err != nil {
 		t.Fatal(err)
