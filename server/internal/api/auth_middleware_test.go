@@ -21,18 +21,19 @@ import (
 // it. That makes "forgot to protect the new endpoint" impossible by
 // construction, and makes the small set of exceptions worth pinning.
 
-// theOpenFive is every operation reachable without an access token. It is short
+// theOpenSix is every operation reachable without an access token. It is short
 // on purpose. If this list grows, someone opened an endpoint, and that should
 // take an argument rather than a diff nobody reads.
-var theOpenFive = []string{
-	"POST /auth/google",  // sign-in, by definition pre-session
-	"POST /auth/login",   // ditto
-	"POST /auth/logout",  // authenticated by the refresh COOKIE instead
-	"POST /auth/refresh", // ditto -- the access token is expected to be dead
-	"POST /join/preview", // §6.5's public join surface
+var theOpenSix = []string{
+	"POST /app/attempts/{id}/events", // D-03's beacon path; see above
+	"POST /auth/google",              // sign-in, by definition pre-session
+	"POST /auth/login",               // ditto
+	"POST /auth/logout",              // authenticated by the refresh COOKIE instead
+	"POST /auth/refresh",             // ditto -- the access token is expected to be dead
+	"POST /join/preview",             // §6.5's public join surface
 }
 
-func TestOnlyFiveOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
+func TestOnlySixOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
@@ -45,8 +46,8 @@ func TestOnlyFiveOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 	}
 	sort.Strings(got)
 
-	if strings.Join(got, "\n") != strings.Join(theOpenFive, "\n") {
-		t.Errorf("open routes changed.\n got: %v\nwant: %v", got, theOpenFive)
+	if strings.Join(got, "\n") != strings.Join(theOpenSix, "\n") {
+		t.Errorf("open routes changed.\n got: %v\nwant: %v", got, theOpenSix)
 	}
 
 	total := 0

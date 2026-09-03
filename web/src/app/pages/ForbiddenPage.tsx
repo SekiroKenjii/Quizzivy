@@ -11,11 +11,6 @@ import { useAuthStore } from "@/stores/auth";
 /**
  * §5.4: a `student` reaching `/admin/*` gets a 403 PAGE, not a redirect — "a
  * redirect hides the misconfiguration".
- *
- * E-03 makes the point that the page is only useful if it names WHICH account
- * is being refused. The commonest real cause is a student signed in with the
- * wrong Google account, or a teacher on their personal one; showing the address
- * turns a dead end into a two-second fix.
  */
 export default function ForbiddenPage() {
   const { t } = useTranslation();
@@ -43,9 +38,7 @@ export default function ForbiddenPage() {
         <Button asChild>
           <Link to={homePathFor(user)}>{t("forbidden.action")}</Link>
         </Button>
-        {/* "Sign in with another account", not "Sign out". The same call to
-            POST /auth/logout, but it states what it gets them rather than what
-            it takes away — and switching accounts is the actual fix. */}
+        {/* "Sign in with another account", not "Sign out". */}
         <Button variant="outline" onClick={() => void logout()}>
           {t("forbidden.switchAccount")}
         </Button>

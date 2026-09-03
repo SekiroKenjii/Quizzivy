@@ -153,6 +153,52 @@ after Phase 4 touches three layers.
 
 ---
 
+### O-17 — `fill_blank` scoring with more than one blank · Phase 3 — **RESOLVED**
+**Resolved 2026-09-01: per blank.** Each blank earns its share of the question's
+points. Thuong's call, following the design deck.
+
+I shipped all-or-nothing first, reasoning from O-09's rule for the other
+multi-part type and recording the disagreement here. That was the wrong place to
+look: S-05 already answers it, on the question itself, in the line the student
+reads before answering —
+
+> 2 điểm · mỗi chỗ trống 1 điểm
+
+An all-or-nothing rule would have made that sentence a lie, and the sentence is
+the part they see. Worth remembering as a research failure rather than a
+judgement one: the answer existed in the deck and I searched the spec and this
+file for it.
+
+The share is computed off the total (`points × matched ÷ blanks`) rather than
+accumulated per blank, so a question that divides unevenly still adds up. Three
+blanks worth two points would otherwise round to 0.67 each and pay 2.01 for a
+perfect answer — more than the question is worth, on the commonest answer there
+is.
+
+Diacritics are still not folded, and that remains closed. "ha noi" is not
+"Hà Nội" the way "hanoi " is "Hanoi".
+
+---
+
+### O-20 — Offset pagination for admin lists · Phase 3 — **RESOLVED**
+
+**Decided 2026-09-03 by Thuong.** §13.8 says keyset everywhere, and every admin
+list shipped that way with a "Xem thêm" button. The teacher wants numbered
+pages -- shadcn's Pagination, "trang 3 / 26", a URL that can be shared -- and
+numbered pages need `total` and a jump to page N, which keyset cannot give.
+
+**Resolution:** every admin list (`tests`, `questions`, `media`, `assignments`,
+`attempts`, `students`, `classes`, class members) takes `page` + `limit` and
+answers `{ items, page, pageSize, total }`. Server-side that is `OFFSET` plus
+a `count(*)` with the same WHERE. §13.8's concern -- an insert landing
+mid-pagination shifting a page by one row -- is real and accepted at this
+scale (§1.3: one teacher, ~50 students); a duplicated row on page turn costs
+less than a grid that cannot jump. `20-data-model.md` §12 keeps the keyset
+indexes; they still serve the `ORDER BY id DESC`.
+
+**Consequence:** `docs/quizzivy-spec-v0.3.md` §13.8 is overridden for lists.
+The student's own lists (`/app/*`) are unpaged and unaffected.
+
 ### O-10 — Diacritic-insensitive search scope · Phase 5
 **Default:** accent-insensitive **matching** ships in Phase 2. Accent-aware
 **ranking** is deferred to P1.

@@ -40,10 +40,6 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 		want[i], want[j] = want[j], want[i]
 	}
 
-	// The walk covers the whole table, not just this test's rows, so the bound
-	// comes from the live row count rather than from `total`. An earlier version
-	// used total+2 and passed only while the shared table held fewer than seven
-	// assets.
 	var live int
 	if err := pool.QueryRow(context.Background(),
 		`SELECT count(*) FROM app.media_assets WHERE deleted_at IS NULL`).Scan(&live); err != nil {
@@ -53,14 +49,16 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 
 	var got []string
 	seen := map[string]int{}
-	cursor := ""
-	for pages := 0; ; pages++ {
-		if pages > maxPages {
-			t.Fatalf("pagination did not terminate after %d pages for %d live assets", pages, live)
+	for number := 1; ; number++ {
+		if number > maxPages {
+			t.Fatalf("pagination did not terminate after %d pages for %d live assets", number, live)
 		}
-		assets, next, err := svc.List(context.Background(), media.ListInput{Limit: 1, Cursor: cursor})
+		assets, page, err := svc.List(context.Background(), media.ListInput{Limit: 1, Page: number})
 		if err != nil {
 			t.Fatalf("list: %v", err)
+		}
+		if page.Total < total {
+			t.Fatalf("page %d reports total %d, below this test's %d uploads", number, page.Total, total)
 		}
 		for _, a := range assets {
 			// Restrict to this test's own uploads: the table is shared.
@@ -69,10 +67,9 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 				seen[a.ID]++
 			}
 		}
-		if next == "" {
+		if len(assets) == 0 {
 			break
 		}
-		cursor = next
 	}
 
 	for id, n := range seen {
@@ -132,21 +129,29 @@ func TestListFiltersByKindAndSignsEveryItem(t *testing.T) {
 	}
 }
 
-// TestListRejectsForgedCursor keeps a malformed cursor a 400 rather than a 500
-// or, worse, a query built from attacker-supplied text.
-func TestListRejectsForgedCursor(t *testing.T) {
+// TestAPagePastTheEndIsEmptyWithTheSameTotal: the client draws its page count
+// from `total`, so the number must not vanish on the page nothing is on.
+func TestAPagePastTheEndIsEmptyWithTheSameTotal(t *testing.T) {
 	pool := newPool(t)
 	svc := media.NewService(media.NewStore(pool), newFakeStore())
 
-	for _, bad := range []string{
-		"not-base64!!",
-		"YWJj",                         // "abc": no separator
-		"MjAyNC0wMS0wMXxub3QtYS11dWlk", // valid time, id is not a uuid
-		"eHx5",                         // "x|y": neither half parses
-	} {
-		_, _, err := svc.List(context.Background(), media.ListInput{Cursor: bad})
-		if err == nil {
-			t.Errorf("cursor %q was accepted", bad)
-		}
+	_, page, err := svc.List(context.Background(), media.ListInput{Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requested := page.Total + 50
+	beyond, far, err := svc.List(context.Background(), media.ListInput{Limit: 1, Page: requested})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(beyond) != 0 {
+		t.Errorf("%d rows on a page past the end", len(beyond))
+	}
+	// A lower bound, not equality: the other tests in this package insert and
+	// delete assets in parallel, so the count moves between the two calls. The
+	// regression this guards is `total` reading 0 on the page nothing is on,
+	// which would collapse the client's page count to nothing.
+	if far.Total < 1 || far.Number != requested || far.Size != 1 {
+		t.Errorf("page past the end reports %+v, want a non-zero total and page %d at size 1", far, requested)
 	}
 }

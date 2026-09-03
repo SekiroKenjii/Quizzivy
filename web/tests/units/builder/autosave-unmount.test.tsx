@@ -10,11 +10,6 @@ import {
 /**
  * The edit made inside the debounce window has to survive the component going
  * away.
- *
- * In the builder, "type, then click the next question" swaps the editor within
- * a second — the ordinary way to work. Dropping the timer without saving loses
- * that edit silently, while the indicator still reports the last save that did
- * land.
  */
 function Harness({
   save,
@@ -25,9 +20,6 @@ function Harness({
 }) {
   const autosave = useAutosave<string>({ save });
 
-  // Scheduling from an effect rather than during render: reporting "saved"
-  // re-renders, and a render-time schedule would re-queue on that render —
-  // a property of the harness, not of the hook.
   useEffect(() => {
     onReady(autosave.schedule);
   }, [onReady, autosave.schedule]);

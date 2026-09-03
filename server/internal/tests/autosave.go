@@ -34,8 +34,6 @@ func (s *Store) Update(ctx context.Context, in UpdateRequest) (Test, error) {
 		return Test{}, err
 	}
 
-	// Locked before anything is read from app.questions, and before the tests
-	// row is touched, so the ordering is the same for every writer.
 	if in.Input.SetSections {
 		if err := lockQuestions(ctx, tx, in.Input.Sections); err != nil {
 			return Test{}, err
@@ -121,13 +119,6 @@ func statusArg(s *Status) *string {
 }
 
 // replaceOutline writes the sections and their question ordering.
-//
-// Sections are diffed by id rather than deleted and recreated, so an id the
-// builder is holding stays valid across a save. The questions within a section
-// are position-addressed, so those rows are simply rewritten.
-//
-// Ordinals are deferred (D-13): they are rewritten one row at a time and
-// transiently collide whenever two sections swap places.
 func replaceOutline(ctx context.Context, tx pgx.Tx, testID string, sections []SectionInput) error {
 	if _, err := tx.Exec(ctx,
 		`SET CONSTRAINTS app.test_sections_ordinal_key,
@@ -179,9 +170,7 @@ func upsertSection(ctx context.Context, tx pgx.Tx, testID string, ordinal int, s
 		return "", fmt.Errorf("tests: update section: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		// A section id from another test, or one already removed. Reported as
-		// not-found rather than silently creating a section the client will not
-		// recognise.
+		// A section id from another test, or one already removed.
 		return "", ErrNotFound
 	}
 	return sec.ID, nil

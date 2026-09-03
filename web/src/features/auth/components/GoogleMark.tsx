@@ -1,14 +1,4 @@
-/**
- * Google's four-colour "G".
- *
- * A deliberate exception to §12's palette rules: an identifying mark on a
- * button that hands the user to a third party, which Google's branding
- * guidance expects in full colour. Inline rather than an asset so it cannot
- * fail to load on the first screen a new student sees.
- *
- * Carries no size class: `button.tsx` sizes icons by variant, and that rule
- * only matches an svg without one. A caller outside a Button must pass a size.
- */
+/** Google's four-colour "G". */
 export function GoogleMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} aria-hidden="true" focusable="false">

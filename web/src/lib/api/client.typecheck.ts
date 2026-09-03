@@ -3,10 +3,6 @@ import { api } from "./client";
 /**
  * Compile-time assertions that the client is genuinely constrained by the
  * generated contract. There is nothing to run: `tsc -b` is the test.
- *
- * `@ts-expect-error` is self-verifying — if the line below it ever stops being
- * an error, TypeScript reports the directive as unused and the build fails. So
- * these cannot rot into decoration.
  */
 
 export async function _valid() {

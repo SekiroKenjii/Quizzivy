@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/audit"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type Store struct{ pool *pgxpool.Pool }
@@ -328,9 +330,9 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in Input) 
 			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
 			return fmt.Errorf("questions: write blank: %w", err)
 		}
-		// UNIQUE (blank_id, answer) is exact, so a repeated answer would abort.
 		seen := map[string]bool{}
 		for _, answer := range b.AcceptedAnswers {
+			answer = norm.NFC.String(answer)
 			if seen[answer] {
 				continue
 			}
@@ -353,8 +355,7 @@ func (s *Store) SoftDelete(ctx context.Context, in WriteInput) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Locked before the reference count. On its own this only orders concurrent
-	// deletes -- see LockForDraftUse, which the insert side must call.
+	// Locked before the reference count.
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,

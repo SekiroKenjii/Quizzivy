@@ -1,6 +1,11 @@
 import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Eye, FileAudio, FileImage, Play, Trash2, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +34,11 @@ import { useFileDrop } from "@/features/media/useFileDrop";
 import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api";
 import { formatBytes, formatDuration, formatUploadedAt } from "@/features/media/format";
 import { ApiError } from "@/lib/api/errors";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
+
+const PAGE_SIZE = 24;
 
 export default function MediaLibraryPage() {
   const { t } = useTranslation();
@@ -40,14 +50,11 @@ export default function MediaLibraryPage() {
   const [playing, setPlaying] = useState<string | null>(null);
   const [viewing, setViewing] = useState<LibraryAsset | null>(null);
 
-  // Paged, not a flat limit of 100: a library grows for as long as the teacher
-  // keeps teaching, and "100 tệp" was being printed as if it were the total.
-  const library = useInfiniteQuery({
-    queryKey: ["admin-media"],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      listMedia({ limit: 50, ...(pageParam ? { cursor: pageParam } : {}) }, signal),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  const [page] = usePage();
+  const library = useQuery({
+    queryKey: ["admin-media", { page }],
+    queryFn: ({ signal }) => listMedia({ limit: PAGE_SIZE, page }, signal),
+    placeholderData: keepPreviousData,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-media"] });
@@ -65,7 +72,7 @@ export default function MediaLibraryPage() {
     },
   });
 
-  const assets = library.data?.pages.flatMap((page) => page.items) ?? [];
+  const assets = library.data?.items ?? [];
   const totalBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0);
   const dragging = useFileDrop((files) => uploader.current?.dropped(files));
 
@@ -77,23 +84,26 @@ export default function MediaLibraryPage() {
         </p>
       ) : null}
 
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("media.title")}</h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {library.isSuccess
-              ? t(library.hasNextPage ? "media.summarySoFar" : "media.summary", {
-                  count: assets.length,
+      <PageHeader
+        variant="title"
+        title={t("media.title")}
+        subtitle={
+          library.isSuccess
+            ? library.data.total === assets.length
+              ? t("media.summary", {
+                  count: library.data.total,
                   size: formatBytes(totalBytes),
                 })
-              : "\u00a0"}
-          </p>
-        </div>
-        <Button size="sm" onClick={() => uploader.current?.choose()}>
-          <Upload aria-hidden="true" />
-          {t("media.upload")}
-        </Button>
-      </div>
+              : t("media.summaryPaged", { count: library.data.total })
+            : "\u00a0"
+        }
+        actions={
+          <Button size="sm" onClick={() => uploader.current?.choose()}>
+            <Upload aria-hidden="true" />
+            {t("media.upload")}
+          </Button>
+        }
+      />
 
       <UploadPanel
         ref={uploader}
@@ -166,16 +176,13 @@ export default function MediaLibraryPage() {
         </DialogContent>
       </Dialog>
 
-      {library.hasNextPage ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={library.isFetchingNextPage}
-          onClick={() => void library.fetchNextPage()}
-        >
-          {library.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
-        </Button>
-      ) : null}
+      {library.data && (
+        <Pager
+          page={library.data.page}
+          pageSize={library.data.pageSize}
+          total={library.data.total}
+        />
+      )}
 
       {/* A-07 makes the blocked delete explain itself rather than sit inert. */}
       <Dialog
@@ -321,9 +328,6 @@ function AssetTable({
                         <Eye aria-hidden="true" />
                       </Button>
                     )}
-                    {/* aria-disabled rather than disabled, per A-07: pressing it
-                      explains why it cannot be deleted. A disabled button just
-                      refuses and leaves the teacher guessing. */}
                     <Button
                       variant="ghost"
                       size="icon-xs"

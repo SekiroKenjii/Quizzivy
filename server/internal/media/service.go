@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"quizzivy/internal/paging"
 	"strings"
 	"time"
 
@@ -58,15 +59,6 @@ type UploadInput struct {
 }
 
 // Upload validates, stores the object, then records the row.
-//
-// The ORDER is the contract (§11.1): size, then magic bytes, then duration. A
-// 50 MB upload is cut off by the first check, before anything parses it -- so a
-// file that is too big never becomes a parsing problem.
-//
-// The row is written AFTER the object lands, and the object is deleted if the
-// row fails. Either half alone is worse than neither: a row without an object
-// is a library entry that 404s when a student presses play, and an object
-// without a row is a file nothing will ever reference or clean up.
 func (s *Service) Upload(ctx context.Context, in UploadInput) (Asset, error) {
 	tmp, err := os.CreateTemp("", "quizzivy-upload-*")
 	if err != nil {
@@ -248,24 +240,24 @@ func (s *Service) mint(ctx context.Context, asset Asset) (SignedURLResult, error
 
 // List returns a page of the library with a signed URL on every item, since the
 // bucket is private and a listing without URLs cannot render a preview (§11.2).
-func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, string, error) {
-	assets, next, err := s.store.List(ctx, in)
+func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, paging.Page, error) {
+	assets, page, err := s.store.List(ctx, in)
 	if err != nil {
-		return nil, "", err
+		return nil, paging.Page{}, err
 	}
 	for i := range assets {
 		url, err := s.object.SignedURL(ctx, assets[i].StorageKey, s.ttl)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		assets[i].URL = url
 		refs, err := CountReferences(ctx, s.store.pool, assets[i].ID)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		assets[i].UsageCount = refs
 	}
-	return assets, next, nil
+	return assets, page, nil
 }
 
 // Get resolves one live asset, so another package can render an attachment

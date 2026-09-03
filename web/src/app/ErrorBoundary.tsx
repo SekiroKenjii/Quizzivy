@@ -10,14 +10,6 @@ import { NotFoundArt, UnexpectedErrorArt } from "@/app/pages/errorArt";
 /**
  * The global error boundary from §9: "global error boundary with reload +
  * copyable error ID".
- *
- * The copyable ID is the point. A student who hits an error can read a short
- * code to their teacher, and it matches the `requestId` the API returns in its
- * error envelope (docs/plan/00-overview.md §7), so a report can be traced to a
- * specific request rather than a vague description.
- *
- * Tone follows §12 and E-02: plain text, no alarm iconography, and no apology.
- * "Rất tiếc…" adds a line and no information; a stack trace adds fear.
  */
 function useErrorId(error: unknown): string {
   const [id] = useState(() => {
@@ -68,16 +60,12 @@ export function ErrorBoundary() {
       footer={t("error.footnote")}
     >
       <ErrorActions>
-        {/* Reload first: most unexpected errors are transient, so the cheapest
-            recovery leads. Home is there for the ones that are not. */}
         <Button onClick={() => window.location.reload()}>{t("error.reload")}</Button>
         <Button variant="outline" asChild>
           <a href="/">{t("error.home")}</a>
         </Button>
       </ErrorActions>
 
-      {/* Below a separator and centred: the id is not an action, it is a thing
-          to read out. */}
       <Separator className="my-5" />
       <div className="flex items-center justify-center gap-2">
         <span className="text-muted-foreground text-xs">{t("error.errorId")}</span>
@@ -104,9 +92,7 @@ export function NotFound() {
       body={t("notFound.body")}
       footer={t("notFound.footnote")}
     >
-      {/* The path that failed, on screen. "Nó báo lỗi" is unactionable;
-          /app/assignments/8f2c… tells the teacher whether the assignment was
-          deleted or the link was mistyped. */}
+      {/* The path that failed, on screen. */}
       <div className="bg-muted/50 mt-4 rounded-md px-3 py-2">
         <code className="text-muted-foreground font-mono text-xs break-words">
           {location.pathname}
@@ -114,8 +100,6 @@ export function NotFound() {
       </div>
 
       <ErrorActions>
-        {/* Home is primary because it always works; back is secondary because it
-            often returns to the same dead link. */}
         <Button asChild>
           <a href="/">{t("notFound.action")}</a>
         </Button>

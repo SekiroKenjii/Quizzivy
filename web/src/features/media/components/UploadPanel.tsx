@@ -31,16 +31,7 @@ type State =
   | { status: "uploading"; name: string; fraction: number }
   | { status: "error"; message: string };
 
-/**
- * The drop target for §11.1's audio uploads, and the progress it reports.
- *
- * The design deck puts "Tải lên" in the page header rather than showing a
- * standing drop card, so this stays quiet until something is dragged over it or
- * the header button opens the picker through the ref.
- *
- * The pre-check is advisory and the server re-validates everything; its job is
- * that a teacher is not made to wait for 10 MB to be told the file is too long.
- */
+/** The drop target for §11.1's audio uploads, and the progress it reports. */
 export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
   const { t, i18n } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -51,9 +42,6 @@ export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
     choose: () => inputRef.current?.click(),
     accept: (file: File) => void accept(file),
     dropped: (files: File[]) => {
-      // A folder reads as a drop with no files at all, and uploading the first
-      // of three looks to the teacher like the other two failed. Both get said
-      // rather than swallowed.
       if (files.length === 0) {
         setState({ status: "error", message: t("media.rejectFolder") });
         return;
@@ -98,8 +86,6 @@ export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
       });
     } finally {
       abortRef.current = null;
-      // The same file can be chosen again after a failure only if the input is
-      // cleared: a repeat selection fires no change event otherwise.
       if (inputRef.current) inputRef.current.value = "";
     }
   }

@@ -10,17 +10,7 @@ import { ApiError } from "@/lib/api/errors";
 import { homePathFor } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
 
-/**
- * The forced password change (§5.4).
- *
- * Reached from every route while `mustChangePassword` is set, which is how a
- * teacher-issued temporary password stops being a shared secret. The page has
- * no way out on purpose: navigating anywhere else lands back here.
- *
- * A wrong current password is a 400, not a 401 -- see the server handler. If it
- * were a 401 the API client would refresh, retry, and sign the user out for a
- * typo.
- */
+/** The forced password change (§5.4). */
 export default function ChangePasswordPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -59,12 +49,7 @@ export default function ChangePasswordPage() {
 
         <form onSubmit={onSubmit} className="mt-5" noValidate>
           <div className="space-y-3">
-            {/* Not required, and that is the point. This page is reached only
-              while `mustChangePassword` is set, which happens after a teacher
-              resets the password — including on a Google-only account, whose
-              owner may sign in with Google and land here having never held the
-              temporary one. Demanding it would strand exactly the person the
-              reset was for. */}
+            {/* Not required, and that is the point. */}
             <div className="space-y-1.5">
               <Label htmlFor="current-password">{t("changePassword.current")}</Label>
               <Input

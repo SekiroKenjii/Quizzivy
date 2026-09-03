@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   Archive,
   Copy,
@@ -44,6 +49,9 @@ import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { ApiError } from "@/lib/api/errors";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
 
 const TABS: (TestStatus | "all")[] = ["all", "draft", "published", "archived"];
 
@@ -54,6 +62,8 @@ const STATUS_VARIANT: Record<TestStatus, "success" | "secondary" | "outline"> = 
 };
 
 /** §8's tests list, as the deck's A-03. */
+const PAGE_SIZE = 20;
+
 export default function TestsListPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -66,21 +76,23 @@ export default function TestsListPage() {
   const search = useDebounced(query, 300);
   const locale = currentLocale(i18n.language);
 
-  const tests = useInfiniteQuery({
-    queryKey: ["admin-tests", { tab, search, tags }],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
+  const [page] = usePage(
+    JSON.stringify({ tab, search: search.trim(), tags: [...tags] }),
+  );
+  const tests = useQuery({
+    queryKey: ["admin-tests", { tab, search, tags, page }],
+    queryFn: ({ signal }) =>
       listTests(
         {
-          limit: 50,
+          limit: PAGE_SIZE,
+          page,
           ...(tab === "all" ? {} : { status: tab }),
           ...(tags.length > 0 ? { tag: [...tags] } : {}),
           ...(search.trim() === "" ? {} : { q: search.trim() }),
-          ...(pageParam ? { cursor: pageParam } : {}),
         },
         signal,
       ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-tests"] });
@@ -109,32 +121,29 @@ export default function TestsListPage() {
     onError: (cause) => setError(message(cause, t("tests.archiveFailed"))),
   });
 
-  const items = tests.data?.pages.flatMap((page) => page.items) ?? [];
-  // Every page carries the same facets (they ignore the cursor), so the first
-  // one is the answer -- and it is the only page guaranteed to exist.
-  const facets = tests.data?.pages[0]?.facets;
-  // Union of what the server offers and what is picked, so a chosen chip cannot
-  // vanish from the row because it is the only thing still matching.
-  const offered = [...new Set([...tags, ...(tests.data?.pages[0]?.tags ?? [])])].sort(
-    (a, b) => a.localeCompare(b, "vi"),
+  const items = tests.data?.items ?? [];
+  const facets = tests.data?.facets;
+  const offered = [...new Set([...tags, ...(tests.data?.tags ?? [])])].sort((a, b) =>
+    a.localeCompare(b, "vi"),
   );
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("nav.tests")}</h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {facets
-              ? t("tests.summary", { count: facets.all, drafts: facets.draft })
-              : "\u00a0"}
-          </p>
-        </div>
-        <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>
-          <Plus aria-hidden="true" />
-          {t("tests.new")}
-        </Button>
-      </div>
+      <PageHeader
+        variant="title"
+        title={t("nav.tests")}
+        subtitle={
+          facets
+            ? t("tests.summary", { count: facets.all, drafts: facets.draft })
+            : "\u00a0"
+        }
+        actions={
+          <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>
+            <Plus aria-hidden="true" />
+            {t("tests.new")}
+          </Button>
+        }
+      />
 
       <div className="flex items-center gap-2">
         <Tabs value={tab} onValueChange={(next) => setTab(next as TestStatus | "all")}>
@@ -166,8 +175,7 @@ export default function TestsListPage() {
           />
         </div>
 
-        {/* A-03's "Thẻ". Filters by the tags of the questions a test contains:
-          §7 gives Test none of its own, and a test is its questions. */}
+        {/* A-03's "Thẻ". */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={offered.length === 0}>
@@ -300,16 +308,13 @@ export default function TestsListPage() {
             </Table>
           </Card>
 
-          {tests.hasNextPage ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={tests.isFetchingNextPage}
-              onClick={() => void tests.fetchNextPage()}
-            >
-              {tests.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
-            </Button>
-          ) : null}
+          {tests.data && (
+            <Pager
+              page={tests.data.page}
+              pageSize={tests.data.pageSize}
+              total={tests.data.total}
+            />
+          )}
         </>
       )}
     </div>

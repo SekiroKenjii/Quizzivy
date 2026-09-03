@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 // Recent is one row of the "what just happened" list.
@@ -31,9 +31,20 @@ type Summary struct {
 	Recent          []Recent
 }
 
-type Store struct{ pool *pgxpool.Pool }
+// DB is what the store reads through: a pool in production, and in tests a
+// transaction -- every figure here is a global aggregate, and a test that
+// takes two readings of one can only trust the difference if nothing else
+// on the shared database can move it in between. A REPEATABLE READ
+// transaction is exactly that isolation, and it needs no scope parameter
+// smuggled into production queries to get it.
+type DB interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
 
-func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+type Store struct{ db DB }
+
+func NewStore(db DB) *Store { return &Store{db: db} }
 
 // ActiveWindow is what "active" means for the student count: §8's dashboard is
 // a work queue for today, so a student who sat something last month is not part
@@ -48,7 +59,7 @@ const ActiveWindow = 7 * 24 * time.Hour
 // two and are near-empty most of the time.
 func (s *Store) Get(ctx context.Context) (Summary, error) {
 	var out Summary
-	err := s.pool.QueryRow(ctx, `
+	err := s.db.QueryRow(ctx, `
 		SELECT
 		  -- published_at NOT NULL: a draft whose window happens to be current
 		  -- is not open, because nobody has been given it.
@@ -60,7 +71,9 @@ func (s *Store) Get(ctx context.Context) (Summary, error) {
 		     FROM app.attempt_answers ans
 		     JOIN app.attempts at ON at.id = ans.attempt_id
 		    WHERE ans.requires_manual AND ans.manual_score IS NULL
-		      AND at.status = 'submitted'),
+		      -- Both closed-but-ungraded states. An attempt that ran out of
+		      -- time still has essays in it (00025).
+		      AND at.status IN ('submitted', 'timed_out')),
 		  (SELECT count(DISTINCT at.student_id) FROM app.attempts at
 		    WHERE at.started_at >= now() - $1::interval),
 		  (SELECT count(*) FROM app.attempts at WHERE at.flagged)
@@ -78,7 +91,7 @@ func (s *Store) Get(ctx context.Context) (Summary, error) {
 }
 
 func (s *Store) recent(ctx context.Context) ([]Recent, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.db.Query(ctx, `
 		SELECT at.id::text, at.student_id::text, u.full_name,
 		       at.assignment_id::text, t.title, at.status::text, at.submitted_at,
 		       (SELECT count(*) FROM app.attempt_answers ans

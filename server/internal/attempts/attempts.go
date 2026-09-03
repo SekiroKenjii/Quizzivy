@@ -14,6 +14,7 @@ type Status string
 const (
 	InProgress Status = "in_progress"
 	Submitted  Status = "submitted"
+	TimedOut   Status = "timed_out"
 	Graded     Status = "graded"
 	Voided     Status = "voided"
 )
@@ -29,23 +30,60 @@ const (
 // sessionLiveWindow decides whether a resume supersedes a tab that was still
 // open (`session_takeover`) or merely re-enters one that had gone -- a reload,
 // a crash, a closed laptop -- which is `resume` alone.
-//
-// There is no heartbeat to ask, so recency of the session's last CLIENT write
-// stands in for liveness. Two minutes is several autosave debounces: long
-// enough that a brief network stall does not read as a departed tab, short
-// enough that reopening a test an hour later is not reported to the teacher as
-// a second device.
 const sessionLiveWindow = 2 * time.Minute
 
 var (
 	ErrNotFound = errors.New("attempts: not found")
 	// ErrForbidden covers both "not your attempt" and "not assigned to you".
-	// They are one answer to the caller and deliberately indistinguishable to
-	// the student: which assignments exist is not theirs to enumerate.
 	ErrForbidden        = errors.New("attempts: not yours")
 	ErrAssignmentClosed = errors.New("attempts: assignment is not open")
 	ErrLimitReached     = errors.New("attempts: attempt limit reached")
+
+	// ErrSessionSuperseded is how the tab that lost finds out.
+	ErrSessionSuperseded = errors.New("attempts: session superseded")
+	ErrDeadlinePassed    = errors.New("attempts: deadline passed")
+	ErrAttemptClosed     = errors.New("attempts: attempt is no longer in progress")
+
+	ErrBeaconExpired = errors.New("attempts: beacon token has expired")
 )
+
+// Answer is one saved answer, kept as the raw JSON the contract defines.
+//
+// The server has no reason to understand a choice from a text answer until
+// grading, and decoding it here would be a second place for the shape to drift
+// from api/openapi.yaml. The column is jsonb, so Postgres validates that it is
+// an object and the CHECK on the table enforces the rest.
+type Answer struct {
+	QuestionID string
+	Payload    []byte
+}
+
+// Event is one client-sourced integrity event (§10.1). Kind is deliberately not
+// an enum here for the same reason it is not one in the column.
+type Event struct {
+	Kind       string
+	OccurredAt time.Time
+	ClientSeq  int
+	QuestionID *string
+	Meta       []byte
+}
+
+type SaveInput struct {
+	AttemptID string
+	StudentID string
+	SessionID string
+	Answers   []Answer
+	Events    []Event
+}
+
+// SaveResult reports what actually landed. Saved can be lower than the number
+// of answers submitted -- see Store.Save for why that is not an error.
+type SaveResult struct {
+	SavedAt time.Time
+	Saved   int
+	// Dropped names the answers that did not land.
+	Dropped []string
+}
 
 type Integrity struct {
 	RequireFullscreen bool

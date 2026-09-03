@@ -54,8 +54,6 @@ func validateQuestion(section Section, q Question, add func(Violation)) {
 		validateBlanks(q, anchor, add)
 	}
 
-	// An audio policy without an audio asset means the question renders a
-	// player with nothing to play.
 	if q.AllowSeek != nil && !hasAudioAsset(q) {
 		add(anchor(AudioQuestionHasAsset, "Câu hỏi có thiết lập nghe nhưng chưa đính kèm tệp âm thanh."))
 	}
@@ -82,8 +80,6 @@ func validateBlanks(q Question, anchor func(Rule, string) Violation, add func(Vi
 		}
 	}
 
-	// §8 implies this without stating it: a prompt with {{3}} and only two
-	// blanks is unrenderable, and a blank with no placeholder is unreachable.
 	inPrompt := questions.PromptPlaceholders(q.Prompt)
 	promptSet := make(map[int]bool, len(inPrompt))
 	for _, n := range inPrompt {

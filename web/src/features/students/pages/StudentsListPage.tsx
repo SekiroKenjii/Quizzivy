@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -27,49 +27,42 @@ import {
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 /** §8's students table, as the deck's G-07. */
 export default function StudentsListPage() {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // The default hides suspended accounts, which is right for the everyday
-  // screen -- but without a way to ask for them a disable is a one-way door.
   const [showDisabled, setShowDisabled] = useState(false);
   const [creating, setCreating] = useState(false);
   const search = useDebounced(query, 300).trim();
   const locale = currentLocale(i18n.language);
 
-  // The limit is part of the key on purpose: the two token pickers query
-  // `["admin-students", { q }]` with limit 20, and sharing a cache entry across
-  // two page sizes would truncate whichever screen painted second.
-  const students = useInfiniteQuery({
-    queryKey: ["admin-students", { q: search, showDisabled, limit: PAGE_SIZE }],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
+  const [page] = usePage(JSON.stringify({ search, showDisabled }));
+  const students = useQuery({
+    queryKey: ["admin-students", { q: search, showDisabled, limit: PAGE_SIZE, page }],
+    queryFn: ({ signal }) =>
       listStudents(
         {
           limit: PAGE_SIZE,
+          page,
           ...(showDisabled ? { status: "disabled" as const } : {}),
           ...(search === "" ? {} : { q: search }),
-          ...(pageParam ? { cursor: pageParam } : {}),
         },
         signal,
       ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   });
 
-  const items = students.data?.pages.flatMap((page) => page.items) ?? [];
-  const facets = students.data?.pages[0]?.facets;
+  const items = students.data?.items ?? [];
+  const facets = students.data?.facets;
 
-  // The drawer fetches its own subject rather than reading it out of the loaded
-  // page. Deriving it from the list tied the panel's lifetime to the search: a
-  // teacher who reset a password and then typed in the search box changed the
-  // query key, emptied `items` while the new page loaded, unmounted the drawer,
-  // and destroyed the one-time password -- which is stored hashed and exists
-  // nowhere else.
+  // The drawer fetches its own subject rather than reading it out of the loaded page.
   const detail = useQuery({
     queryKey: ["admin-student", selectedId],
     queryFn: ({ signal }) => getStudent(selectedId!, signal),
@@ -79,129 +72,89 @@ export default function StudentsListPage() {
   const selected = selectedId === null ? null : (detail.data ?? null);
 
   return (
-    <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
-      <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              {t("nav.students")}
-            </h1>
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {facets
-                ? t("students.summary", {
-                    count: facets.total,
-                    active: facets.activeLast7Days,
-                  })
-                : " "}
-            </p>
-          </div>
+    <div className="space-y-4">
+      <PageHeader
+        variant="title"
+        title={t("nav.students")}
+        subtitle={
+          facets
+            ? t("students.summary", {
+                count: facets.total,
+                active: facets.activeLast7Days,
+              })
+            : " "
+        }
+        actions={
           <Button size="sm" onClick={() => setCreating(true)}>
             <UserPlus aria-hidden="true" />
             {t("students.new")}
           </Button>
+        }
+      />
+
+      <div className="flex items-center gap-4">
+        <div className="relative w-72">
+          <Search
+            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
+            aria-hidden="true"
+          />
+          <Input
+            className="pl-9"
+            value={query}
+            placeholder={t("students.searchPlaceholder")}
+            aria-label={t("students.searchPlaceholder")}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </div>
-
-        <div className="flex items-center gap-4">
-          <div className="relative w-72">
-            <Search
-              className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
-              aria-hidden="true"
-            />
-            <Input
-              className="pl-9"
-              value={query}
-              placeholder={t("students.searchPlaceholder")}
-              aria-label={t("students.searchPlaceholder")}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-          <label className="flex items-center gap-2.5 text-sm">
-            <Checkbox
-              checked={showDisabled}
-              onChange={(event) => {
-                setShowDisabled(event.target.checked);
-                setSelectedId(null);
-              }}
-            />
-            {t("students.showDisabled")}
-          </label>
-        </div>
-
-        {students.isPending ? (
-          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-            {t("common.loading")}
-          </p>
-        ) : students.isError ? (
-          <div className="space-y-3">
-            <p role="alert" className="text-sm">
-              {t("students.loadFailed")}
-            </p>
-            <Button variant="outline" size="sm" onClick={() => void students.refetch()}>
-              {t("common.retry")}
-            </Button>
-          </div>
-        ) : items.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {showDisabled
-              ? t("students.noneDisabled")
-              : search === ""
-                ? t("students.empty")
-                : t("students.noMatches")}
-          </p>
-        ) : (
-          <>
-            <Card className="gap-0 overflow-hidden py-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[26%]">{t("students.student")}</TableHead>
-                    <TableHead>{t("students.classes")}</TableHead>
-                    <TableHead>{t("students.signInWith")}</TableHead>
-                    <TableHead className="text-right">
-                      {t("students.submitted")}
-                    </TableHead>
-                    <TableHead className="text-right">
-                      {t("students.average")}
-                    </TableHead>
-                    <TableHead>{t("students.activity")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((student) => (
-                    <Row
-                      key={student.id}
-                      student={student}
-                      locale={locale}
-                      expanded={student.id === selectedId}
-                      onToggle={() =>
-                        setSelectedId(student.id === selectedId ? null : student.id)
-                      }
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-
-            {students.hasNextPage ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={students.isFetchingNextPage}
-                onClick={() => void students.fetchNextPage()}
-              >
-                {students.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
-              </Button>
-            ) : null}
-          </>
-        )}
+        <label className="flex items-center gap-2.5 text-sm">
+          <Checkbox
+            checked={showDisabled}
+            onChange={(event) => {
+              setShowDisabled(event.target.checked);
+              setSelectedId(null);
+            }}
+          />
+          {t("students.showDisabled")}
+        </label>
       </div>
 
+      {students.isPending ? (
+        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+          {t("common.loading")}
+        </p>
+      ) : students.isError ? (
+        <div className="space-y-3">
+          <p role="alert" className="text-sm">
+            {t("students.loadFailed")}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void students.refetch()}>
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          {t(emptyMessage(showDisabled, search))}
+        </p>
+      ) : (
+        <>
+          <StudentTable
+            items={items}
+            locale={locale}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+
+          {students.data && (
+            <Pager
+              page={students.data.page}
+              pageSize={students.data.pageSize}
+              total={students.data.total}
+            />
+          )}
+        </>
+      )}
+
       {selected === null ? null : (
-        // Keyed by student: without it React reuses the same fiber when the
-        // teacher clicks the next row, and the drawer keeps its state -- so the
-        // panel showed the NEW student's name above the PREVIOUS student's
-        // one-time password, under a caption telling the teacher to hand it
-        // over.
         <StudentDrawer
           key={selected.id}
           student={selected}
@@ -212,6 +165,52 @@ export default function StudentsListPage() {
       <NewStudentDialog open={creating} onOpenChange={setCreating} />
     </div>
   );
+}
+
+function StudentTable({
+  items,
+  locale,
+  selectedId,
+  onSelect,
+}: {
+  items: Student[];
+  locale: Locale;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[26%]">{t("students.student")}</TableHead>
+            <TableHead>{t("students.classes")}</TableHead>
+            <TableHead>{t("students.signInWith")}</TableHead>
+            <TableHead className="text-right">{t("students.submitted")}</TableHead>
+            <TableHead className="text-right">{t("students.average")}</TableHead>
+            <TableHead>{t("students.activity")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((student) => (
+            <Row
+              key={student.id}
+              student={student}
+              locale={locale}
+              expanded={student.id === selectedId}
+              onToggle={() => onSelect(student.id === selectedId ? null : student.id)}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
+function emptyMessage(showDisabled: boolean, search: string): string {
+  if (showDisabled) return "students.noneDisabled";
+  return search === "" ? "students.empty" : "students.noMatches";
 }
 
 function Row({
@@ -231,9 +230,6 @@ function Row({
   return (
     <TableRow>
       <TableCell>
-        {/* aria-expanded is what tints the row: table.tsx carries
-          `has-aria-expanded:bg-muted/50`, which is the deck's selected-row
-          highlight without a second piece of state to keep in step. */}
         <button
           type="button"
           aria-expanded={expanded}

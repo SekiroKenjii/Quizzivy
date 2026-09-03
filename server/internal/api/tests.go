@@ -10,6 +10,8 @@ import (
 	"quizzivy/internal/tests"
 )
 
+const msgTestNotFound = "Không tìm thấy đề."
+
 func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequestObject) (openapi.ListTestsResponseObject, error) {
 	if s.Deps.Tests == nil {
 		return nil, httpx.ErrNotImplemented
@@ -26,18 +28,14 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 	if request.Params.Q != nil {
 		in.Query = string(*request.Params.Q)
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = string(*request.Params.Cursor)
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, next, err := s.Deps.Tests.List(ctx, in)
-	if errors.Is(err, tests.ErrBadCursor) {
-		return openapi.ListTests400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			authError(ctx, openapi.VALIDATIONFAILED, "Con trỏ phân trang không hợp lệ."))}, nil
-	}
+	found, page, err := s.Deps.Tests.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -60,15 +58,15 @@ func (s *Server) ListTests(ctx context.Context, request openapi.ListTestsRequest
 			Published: facets.Published,
 			Archived:  facets.Archived,
 		},
-		Tags: tagList,
+		Tags:     tagList,
+		Page:     page.Number,
+		PageSize: page.Size,
+		Total:    page.Total,
 	}
 	for i, t := range found {
 		if out.Items[i], err = toAPITest(t); err != nil {
 			return nil, err
 		}
-	}
-	if next != "" {
-		out.NextCursor = &next
 	}
 	return out, nil
 }
@@ -80,7 +78,7 @@ func (s *Server) GetTest(ctx context.Context, request openapi.GetTestRequestObje
 	t, err := s.Deps.Tests.Get(ctx, request.Id.String())
 	if errors.Is(err, tests.ErrNotFound) {
 		return openapi.GetTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy đề."))}, nil
+			notFound(ctx, msgTestNotFound))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -129,7 +127,7 @@ func (s *Server) UpdateTest(ctx context.Context, request openapi.UpdateTestReque
 			"Đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi lưu.")), nil
 	case errors.Is(err, tests.ErrNotFound):
 		return openapi.UpdateTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy đề."))}, nil
+			notFound(ctx, msgTestNotFound))}, nil
 	case errors.Is(err, tests.ErrUnknownQuestion):
 		resp := authError(ctx, openapi.VALIDATIONFAILED, "Đề tham chiếu câu hỏi không tồn tại.")
 		resp.Error.Details = &map[string]interface{}{"sections": "Một câu hỏi trong đề đã bị xoá."}
@@ -162,7 +160,7 @@ func (s *Server) DuplicateTest(ctx context.Context, request openapi.DuplicateTes
 	t, err := s.Deps.Tests.Duplicate(ctx, req)
 	if errors.Is(err, tests.ErrNotFound) {
 		return openapi.DuplicateTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy đề."))}, nil
+			notFound(ctx, msgTestNotFound))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -329,48 +327,55 @@ func (s *Server) toStudentQuestions(
 ) ([]openapi.StudentQuestion, error) {
 	out := make([]openapi.StudentQuestion, len(questions))
 	for i, q := range questions {
-		points, err := strconv.ParseFloat(q.Points, 64)
+		sq, err := toStudentQuestion(q)
 		if err != nil {
 			return nil, err
 		}
-
-		sq := openapi.StudentQuestion{
-			Id:     parseUUID(q.ID),
-			Type:   openapi.QuestionType(q.Type),
-			Prompt: q.Prompt,
-			Points: points,
-		}
-
-		if len(q.Options) > 0 {
-			options := make([]openapi.StudentOption, len(q.Options))
-			for j, o := range q.Options {
-				options[j] = openapi.StudentOption{Id: parseUUID(o.ID), Text: o.Text}
-			}
-			sq.Options = &options
-		}
-		if len(q.Blanks) > 0 {
-			blanks := make([]openapi.StudentBlank, len(q.Blanks))
-			for j, b := range q.Blanks {
-				blanks[j] = openapi.StudentBlank{Id: parseUUID(b.ID), Ordinal: b.Ordinal}
-			}
-			sq.Blanks = &blanks
-		}
-		if q.AllowSeek != nil && q.ShowScript != nil {
-			sq.Audio = &openapi.AudioPolicy{
-				MaxPlays:                  q.MaxPlays,
-				AllowSeek:                 *q.AllowSeek,
-				ShowTranscriptAfterSubmit: *q.ShowScript,
-			}
-		}
-		if asset, err := s.previewAsset(ctx, q.MediaAssetID); err != nil {
+		asset, err := s.previewAsset(ctx, q.MediaAssetID)
+		if err != nil {
 			return nil, err
-		} else if asset != nil {
+		}
+		if asset != nil {
 			sq.Media = asset
 		}
-
 		out[i] = sq
 	}
 	return out, nil
+}
+
+func toStudentQuestion(q tests.PreviewQuestion) (openapi.StudentQuestion, error) {
+	points, err := strconv.ParseFloat(q.Points, 64)
+	if err != nil {
+		return openapi.StudentQuestion{}, err
+	}
+	sq := openapi.StudentQuestion{
+		Id:     parseUUID(q.ID),
+		Type:   openapi.QuestionType(q.Type),
+		Prompt: q.Prompt,
+		Points: points,
+	}
+	if len(q.Options) > 0 {
+		options := make([]openapi.StudentOption, len(q.Options))
+		for j, o := range q.Options {
+			options[j] = openapi.StudentOption{Id: parseUUID(o.ID), Text: o.Text}
+		}
+		sq.Options = &options
+	}
+	if len(q.Blanks) > 0 {
+		blanks := make([]openapi.StudentBlank, len(q.Blanks))
+		for j, b := range q.Blanks {
+			blanks[j] = openapi.StudentBlank{Id: parseUUID(b.ID), Ordinal: b.Ordinal}
+		}
+		sq.Blanks = &blanks
+	}
+	if q.AllowSeek != nil && q.ShowScript != nil {
+		sq.Audio = &openapi.AudioPolicy{
+			MaxPlays:                  q.MaxPlays,
+			AllowSeek:                 *q.AllowSeek,
+			ShowTranscriptAfterSubmit: *q.ShowScript,
+		}
+	}
+	return sq, nil
 }
 
 func (s *Server) previewAsset(ctx context.Context, assetID *string) (*openapi.MediaAsset, error) {

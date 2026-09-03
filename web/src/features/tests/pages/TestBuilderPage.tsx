@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
+import { PageAsideSlot } from "@/layouts/slots";
 import {
   createQuestion,
   getQuestion,
@@ -95,6 +96,7 @@ function Builder({ test }: { test: Test }) {
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(test.title);
+  const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   const [sections, setSections] = useState<OutlineSection[]>(
     () => toOutlineDraft(test).sections,
   );
@@ -105,9 +107,6 @@ function Builder({ test }: { test: Test }) {
   const [picking, setPicking] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // The open question editor owns its own autosave, and publishing snapshots
-  // what is SAVED -- so the edit still inside its debounce window has to land
-  // first, exactly like the outline's.
   const flushQuestion = useRef<(() => Promise<void>) | null>(null);
   const [questionStatus, setQuestionStatus] = useState<AutosaveStatus>({
     kind: "idle",
@@ -116,16 +115,6 @@ function Builder({ test }: { test: Test }) {
   const [publishing, setPublishing] = useState(false);
 
   // The version guard moves with each save.
-  //
-  // `test.updatedAt` is what the builder read when it mounted, and every save
-  // advances it server-side (the tests_set_updated_at trigger fires even on an
-  // outline-only write). Sending the mount-time value again is a STALE_WRITE,
-  // and that is terminal: the badge says the test is open somewhere else, and
-  // every later edit is dropped -- in a single tab, with nobody else editing.
-  //
-  // E2E 1a did not catch it because it types fast enough that every outline
-  // edit coalesces into one save; a teacher working over minutes hits it on
-  // their second edit.
   const version = useRef(test.updatedAt);
 
   const outline = useAutosave<{ title: string; sections: OutlineSection[] }>({
@@ -183,8 +172,6 @@ function Builder({ test }: { test: Test }) {
     outline.schedule({ title: next, sections });
   }
 
-  // A new question goes into the LAST section, which is where a teacher who
-  // just typed a section title is looking.
   function appendQuestion(questionId: string) {
     const last = sections.length - 1;
     updateOutline(
@@ -229,16 +216,8 @@ function Builder({ test }: { test: Test }) {
     setViolations(null);
     setPublishing(true);
     try {
-      // Publishing snapshots what is SAVED, so anything still in the debounce
-      // window has to land first or the version misses the last edit.
       await Promise.all([outline.flush(), flushQuestion.current?.()]);
       await publishTest(test.id);
-      // The detail page reads the same cached test this builder loaded, and
-      // publishing changed its status, its version and everything autosave
-      // wrote. Without this it renders the draft as it was on open.
-      // refetchType "all": the detail page's query is not mounted yet, and the
-      // default only refetches active observers — so it would land on the
-      // draft as it was when the builder opened.
       await queryClient.invalidateQueries({
         queryKey: ["admin-test", test.id],
         refetchType: "all",
@@ -257,8 +236,6 @@ function Builder({ test }: { test: Test }) {
     }
   }
 
-  // A-04 labels the editor with where the question sits, because "câu 2" is
-  // how a teacher refers to it and the outline is the only thing that knows.
   const contextLabel = describePosition(sections, selectedId, t);
 
   const saveStatus = mergeAutosave([outline.status, questionStatus]);
@@ -353,20 +330,26 @@ function Builder({ test }: { test: Test }) {
         </Suspense>
 
         <div className="min-w-0 flex-1 overflow-y-auto p-6">
-          {selectedId === null ? (
-            <p className="text-muted-foreground text-sm">
-              {questionIds.length === 0 ? t("builder.empty") : t("builder.noSelection")}
-            </p>
-          ) : (
-            <QuestionPane
-              key={selectedId}
-              questionId={selectedId}
-              flushRef={flushQuestion}
-              onStatus={setQuestionStatus}
-              contextLabel={contextLabel}
-            />
-          )}
+          <PageAsideSlot.Provider value={asideSlot}>
+            {selectedId === null ? (
+              <p className="text-muted-foreground text-sm">
+                {questionIds.length === 0
+                  ? t("builder.empty")
+                  : t("builder.noSelection")}
+              </p>
+            ) : (
+              <QuestionPane
+                key={selectedId}
+                questionId={selectedId}
+                flushRef={flushQuestion}
+                onStatus={setQuestionStatus}
+                contextLabel={contextLabel}
+              />
+            )}
+          </PageAsideSlot.Provider>
         </div>
+        {/* A-04 puts the settings column under the builder's own bar. */}
+        <div ref={setAsideSlot} className="contents" />
       </div>
 
       <QuestionPickerDialog
@@ -466,8 +449,6 @@ function QuestionForm({
     };
   }, [flush, flushRef]);
 
-  // Reported upward rather than rendered here: A-04 has one status, in the
-  // topbar, and it has to speak for the whole screen.
   useEffect(() => {
     onStatus(status);
   }, [onStatus, status]);
@@ -488,15 +469,7 @@ function QuestionForm({
   );
 }
 
-/**
- * A question the API will accept, not a blank form.
- *
- * `emptyQuestion()` is what the bank's own editor starts from: empty fields
- * showing placeholders, with Save disabled until they are filled. The builder
- * creates the row first and edits it after, so what it POSTs has to satisfy the
- * contract's `minLength: 1` on the prompt and on every option — hence text a
- * teacher overwrites rather than blanks the server refuses.
- */
+/** A question the API will accept, not a blank form. */
 function starterQuestion(t: TFunction): QuestionValues {
   return {
     type: "single_choice",

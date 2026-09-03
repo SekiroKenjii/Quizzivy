@@ -14,17 +14,6 @@ import (
 )
 
 // TestShutdownDrainsInFlightRequests pins the shutdown context.
-//
-// serve deliberately builds its shutdown deadline from context.Background()
-// rather than from the ctx it was handed. Sonar's godre:S8239 reports that as
-// "use the available context parameter", which is wrong here and would be a
-// real regression: by the time that branch runs, ctx is ALREADY cancelled --
-// that is why the branch was selected. Passing it to Shutdown makes Shutdown
-// return context.Canceled immediately, cutting every in-flight request instead
-// of draining it.
-//
-// Measured: draining takes the length of the request and returns nil; the
-// cancelled context returns in 0ms with an error.
 func TestShutdownDrainsInFlightRequests(t *testing.T) {
 	const requestDuration = 300 * time.Millisecond
 

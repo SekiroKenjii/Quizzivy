@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Headphones, Play, Plus, Search, Tag as TagIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +26,10 @@ import {
   type QuestionType,
 } from "@/features/question-bank/api";
 import { useDebounced } from "@/lib/useDebounced";
+import { PageAside } from "@/components/shared/PageAside";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
 
 const TYPES: QuestionType[] = [
   "single_choice",
@@ -41,157 +45,96 @@ const TYPES: QuestionType[] = [
  * Filters on the left, results on the right: the second test is faster than the
  * first only if last term's work is findable.
  */
+const PAGE_SIZE = 20;
+
 export default function QuestionBankPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  // Sets, not single values: A-06's rail is checkboxes and chips. Within a
-  // group the choices widen the results; the groups narrow each other.
+  // Sets, not single values: A-06's rail is checkboxes and chips.
   const [types, setTypes] = useState<readonly QuestionType[]>([]);
   const [tags, setTags] = useState<readonly string[]>([]);
   const [audioOnly, setAudioOnly] = useState(false);
-  // Survives filtering on purpose — the deck's section 3 opens with "selection
-  // that survives filtering", because building a paper means gathering from
-  // several searches before committing to any of them.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [tagging, setTagging] = useState(false);
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
 
-  // The search fires on a pause, not on a keystroke: §13.8's trigram scan is
-  // cheap but not free, and a request per letter is a request per letter.
   const search = useDebounced(query, 300);
 
-  const bank = useInfiniteQuery({
-    queryKey: ["admin-questions", { types, tags, audioOnly, search }],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
+  const [page] = usePage(
+    JSON.stringify({
+      types: [...types],
+      tags: [...tags],
+      audioOnly,
+      search: search.trim(),
+    }),
+  );
+  const bank = useQuery({
+    queryKey: ["admin-questions", { types, tags, audioOnly, search, page }],
+    queryFn: ({ signal }) =>
       listQuestions(
         {
-          limit: 50,
+          limit: PAGE_SIZE,
+          page,
           ...(types.length > 0 ? { type: [...types] } : {}),
           ...(tags.length > 0 ? { tag: [...tags] } : {}),
           ...(audioOnly ? { hasAudio: true } : {}),
           ...(search.trim() === "" ? {} : { q: search.trim() }),
-          ...(pageParam ? { cursor: pageParam } : {}),
         },
         signal,
       ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   });
 
-  const items = bank.data?.pages.flatMap((page) => page.items) ?? [];
-  const page = bank.data?.pages[0];
-  const facets = page?.facets;
-  // From the server, not from `items`. A rail built out of the loaded page can
-  // only offer the tags that page happens to carry — with 72 questions and a
-  // page of 50, two of the bank's three tags were invisible, so a second chip
-  // could not be picked and multi-tag filtering looked unbuilt.
-  //
-  // Unioned with the selection so a chosen chip cannot vanish from the rail
-  // when it is the only thing still matching.
-  const shownTags = [...new Set([...tags, ...(bank.data?.pages[0]?.tags ?? [])])].sort(
-    (a, b) => a.localeCompare(b, "vi"),
+  const items = bank.data?.items ?? [];
+  const data = bank.data;
+  const facets = data?.facets;
+  // From the server, not from `items`.
+  const shownTags = [...new Set([...tags, ...(bank.data?.tags ?? [])])].sort((a, b) =>
+    a.localeCompare(b, "vi"),
   );
   const filtering = types.length > 0 || tags.length > 0 || audioOnly;
   const allSelected = items.length > 0 && items.every((q) => selected.has(q.id));
 
   return (
-    <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
-      {/* Full height with its own scroll: a filter rail that scrolls away
-        with the results is a rail you cannot reach while reading them. */}
-      <aside className="w-56 shrink-0 space-y-5 overflow-y-auto border-r p-4">
-        <div>
-          <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
-            {t("bank.typeFilter")}
-          </p>
-          <div className="space-y-3">
-            <FilterOption
-              label={t("bank.allTypes")}
-              count={facets?.all}
-              checked={types.length === 0}
-              onChange={() => setTypes([])}
-            />
-            {TYPES.map((value) => (
-              <FilterOption
-                key={value}
-                label={t(`questionEditor.type.${value}`)}
-                count={facets?.[value]}
-                checked={types.includes(value)}
-                onChange={() => setTypes(toggle(types, value))}
-              />
-            ))}
-          </div>
-        </div>
+    <>
+      <FilterRail
+        facets={facets}
+        types={types}
+        tags={tags}
+        shownTags={shownTags}
+        tagsReady={bank.isSuccess}
+        audioOnly={audioOnly}
+        onTypes={setTypes}
+        onTags={setTags}
+        onAudioOnly={setAudioOnly}
+      />
 
-        <Separator />
-
-        <div>
-          <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
-            {t("bank.tagFilter")}
-          </p>
-          {!bank.isSuccess ? null : shownTags.length === 0 ? (
-            <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {shownTags.map((value) => {
-                const picked = tags.includes(value);
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={picked}
-                    onClick={() => setTags(toggle(tags, value))}
-                  >
-                    <Badge variant={picked ? "primary" : "outline"} className="gap-1">
-                      {value}
-                      {/* A-06 draws the × on the chosen chip: with several
-                        picked, "click it again" is not visibly the way off. */}
-                      {picked ? <X className="size-3" aria-hidden="true" /> : null}
-                    </Badge>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        <label className="flex items-center gap-2.5 text-sm">
-          <Checkbox
-            checked={audioOnly}
-            onChange={(event) => setAudioOnly(event.target.checked)}
-          />
-          {t("bank.audioOnly")}
-        </label>
-      </aside>
-
-      <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              {t("nav.questionBank")}
-            </h1>
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {page === undefined
-                ? "\u00a0"
-                : page.filtered === page.total
-                  ? t("bank.summary", { count: page.total })
-                  : t("bank.summaryFiltered", {
-                      count: page.total,
-                      filtered: page.filtered,
-                    })}
-            </p>
-          </div>
-          <Button asChild size="sm">
-            <Link to="/admin/question-bank/new">
-              <Plus aria-hidden="true" />
-              {t("bank.newQuestion")}
-            </Link>
-          </Button>
-        </div>
+      <div className="space-y-4">
+        <PageHeader
+          variant="title"
+          title={t("nav.questionBank")}
+          subtitle={
+            data === undefined
+              ? "\u00a0"
+              : data.total === data.bankTotal
+                ? t("bank.summary", { count: data.bankTotal })
+                : t("bank.summaryFiltered", {
+                    count: data.bankTotal,
+                    filtered: data.total,
+                  })
+          }
+          actions={
+            <Button asChild size="sm">
+              <Link to="/admin/question-bank/new">
+                <Plus aria-hidden="true" />
+                {t("bank.newQuestion")}
+              </Link>
+            </Button>
+          }
+        />
 
         <div className="relative">
           <Search
@@ -320,16 +263,9 @@ export default function QuestionBankPage() {
               </Table>
             </Card>
 
-            {bank.hasNextPage ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={bank.isFetchingNextPage}
-                onClick={() => void bank.fetchNextPage()}
-              >
-                {bank.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
-              </Button>
-            ) : null}
+            {data && (
+              <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+            )}
           </>
         )}
       </div>
@@ -346,7 +282,7 @@ export default function QuestionBankPage() {
         onOpenChange={setAdding}
         onAdded={() => setSelected(new Set())}
       />
-    </div>
+    </>
   );
 }
 
@@ -429,8 +365,6 @@ function Row({
       {audio && playing ? (
         <TableRow>
           <TableCell colSpan={7} className="p-0">
-            {/* Keyed on the URL: a refetch mints a fresh one, and the row has
-                to forget that the previous one had expired. */}
             <AudioPreviewRow
               key={audio.url}
               asset={audio}
@@ -445,6 +379,96 @@ function Row({
 }
 
 /** The tags actually present in the results, so the rail cannot offer a dead end. */
+
+function FilterRail({
+  facets,
+  types,
+  tags,
+  shownTags,
+  tagsReady,
+  audioOnly,
+  onTypes,
+  onTags,
+  onAudioOnly,
+}: {
+  facets: Record<string, number> | undefined;
+  types: readonly QuestionType[];
+  tags: readonly string[];
+  shownTags: readonly string[];
+  tagsReady: boolean;
+  audioOnly: boolean;
+  onTypes: (next: readonly QuestionType[]) => void;
+  onTags: (next: readonly string[]) => void;
+  onAudioOnly: (next: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <PageAside side="left" label={t("bank.filters")}>
+      <div>
+        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
+          {t("bank.typeFilter")}
+        </p>
+        <div className="space-y-3">
+          <FilterOption
+            label={t("bank.allTypes")}
+            count={facets?.all}
+            checked={types.length === 0}
+            onChange={() => onTypes([])}
+          />
+          {TYPES.map((value) => (
+            <FilterOption
+              key={value}
+              label={t(`questionEditor.type.${value}`)}
+              count={facets?.[value]}
+              checked={types.includes(value)}
+              onChange={() => onTypes(toggle(types, value))}
+            />
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      <div>
+        <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
+          {t("bank.tagFilter")}
+        </p>
+        {!tagsReady ? null : shownTags.length === 0 ? (
+          <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {shownTags.map((value) => {
+              const picked = tags.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={picked}
+                  onClick={() => onTags(toggle(tags, value))}
+                >
+                  <Badge variant={picked ? "primary" : "outline"} className="gap-1">
+                    {value}
+                    {picked ? <X className="size-3" aria-hidden="true" /> : null}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      <label className="flex items-center gap-2.5 text-sm">
+        <Checkbox
+          checked={audioOnly}
+          onChange={(event) => onAudioOnly(event.target.checked)}
+        />
+        {t("bank.audioOnly")}
+      </label>
+    </PageAside>
+  );
+}
 
 function FilterOption({
   label,

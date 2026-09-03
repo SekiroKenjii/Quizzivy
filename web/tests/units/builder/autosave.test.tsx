@@ -146,8 +146,6 @@ describe("the builder's autosave", () => {
     await vi.advanceTimersByTimeAsync(1500);
 
     expect(await screen.findByText(/mở ở nơi khác/)).toBeInTheDocument();
-    // Retrying would overwrite whatever the other tab saved, which is the loss
-    // the version guard exists to prevent.
     expect(screen.getByRole("button", { name: "Phát hành" })).toBeDisabled();
   });
 });

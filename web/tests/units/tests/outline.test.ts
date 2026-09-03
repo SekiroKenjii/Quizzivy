@@ -86,8 +86,6 @@ describe("stepping a question with the keyboard", () => {
   });
 
   it("crosses into the next section rather than stopping at the boundary", () => {
-    // Without this the keyboard cannot reach positions the pointer can, and
-    // moving a question between sections is why the outline drags at all.
     expect(stepQuestion(outline(), { sectionIndex: 0, index: 2 }, 1)).toEqual({
       sectionIndex: 1,
       index: 0,

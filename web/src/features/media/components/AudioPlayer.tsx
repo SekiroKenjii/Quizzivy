@@ -15,26 +15,19 @@ interface AudioPlayerProps {
   hint?: string | undefined;
   /** A-05 puts a smaller one inside the question editor's chosen-audio card. */
   size?: "default" | "sm";
-  /**
-   * Refetches whatever owns the asset, minting a fresh signed URL.
-   *
-   * Optional only because not every caller can refetch — never because the
-   * failure may go unreported. The player says so either way.
-   */
+  // §11.3 asks for `metadata` so the duration renders without downloading the file.
+  preload?: "none" | "metadata";
+  // Fired synchronously as playback starts, inside the gesture.
+  onPlay?: (() => void) | undefined;
+  // Fired when a seek is refused.
+  onSeekBlocked?: (() => void) | undefined;
+  // Refetches whatever owns the asset, minting a fresh signed URL.
   onRetry?: (() => void) | undefined;
 }
 
 /**
  * The deck's `AudioPlayer` (foundations, §11.3): a round play button, one flat
  * track, and a time readout. Monochrome — no waveform, no equaliser.
- *
- * Custom rather than `<audio controls>` because the native chrome cannot be
- * made to look like this, and because §11.1's rules need a track that can be
- * display-only: a browser's own control always offers seeking, which is exactly
- * what a listening question must not.
- *
- * The element itself stays in the tree with `preload="none"`, so nothing is
- * fetched until the teacher presses play.
  */
 export function AudioPlayer({
   src,
@@ -43,6 +36,9 @@ export function AudioPlayer({
   allowSeek = true,
   hint,
   size = "default",
+  preload = "none",
+  onPlay,
+  onSeekBlocked,
   onRetry,
 }: AudioPlayerProps) {
   const { t } = useTranslation();
@@ -50,8 +46,6 @@ export function AudioPlayer({
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [loaded, setLoaded] = useState<number | null>(null);
-  // Keyed by src rather than a bare boolean, so a fresh URL is not still
-  // wearing the old one's failure and no caller has to remember a `key`.
   const [failedFor, setFailedFor] = useState<string | null>(null);
   const failed = failedFor === src;
 
@@ -63,8 +57,6 @@ export function AudioPlayer({
     const element = audio.current;
     if (!element) return;
 
-    // Listeners rather than an effect body that writes state: these fire from
-    // the element, so nothing here runs during render.
     const onTime = () => setPosition(element.currentTime);
     const onMeta = () =>
       setLoaded(Number.isFinite(element.duration) ? element.duration : null);
@@ -72,15 +64,22 @@ export function AudioPlayer({
       setPlaying(false);
       setPosition(0);
     };
+    const onPause = () => setPlaying(false);
+    const onPlaying = () => setPlaying(true);
+
     element.addEventListener("timeupdate", onTime);
     element.addEventListener("loadedmetadata", onMeta);
     element.addEventListener("ended", onEnd);
-    element.addEventListener("pause", () => setPlaying(false));
-    element.addEventListener("play", () => setPlaying(true));
+    element.addEventListener("pause", onPause);
+    element.addEventListener("play", onPlaying);
     return () => {
       element.removeEventListener("timeupdate", onTime);
       element.removeEventListener("loadedmetadata", onMeta);
       element.removeEventListener("ended", onEnd);
+      element.removeEventListener("pause", onPause);
+      element.removeEventListener("play", onPlaying);
+      // §11.3: one instance per question, and navigating away releases it.
+      element.pause();
     };
   }, []);
 
@@ -88,9 +87,9 @@ export function AudioPlayer({
     const element = audio.current;
     if (!element) return;
     if (element.paused) {
-      // Called straight out of the click, not from a promise: iOS Safari only
-      // honours play() inside the gesture that triggered it (§11.3).
-      void element.play().catch(() => setFailedFor(src));
+      const started = element.play();
+      onPlay?.();
+      void started.catch(() => setFailedFor(src));
     } else {
       element.pause();
     }
@@ -146,11 +145,6 @@ export function AudioPlayer({
       </button>
 
       <div className="min-w-0 flex-1">
-        {/* One visual track for both cases, with the seek control laid over it
-          when seeking is allowed. Styling a bare range input to look like the
-          deck's 4px track means fighting three different engines over where the
-          thumb sits; this way the track is the deck's and the input only has to
-          be invisible. */}
         <div className="relative flex h-3 items-center">
           <div className="bg-secondary h-1 w-full overflow-hidden rounded-full">
             <div
@@ -194,19 +188,28 @@ export function AudioPlayer({
             {clock(total)}
           </span>
           {hint === undefined ? null : (
-            <span className="text-muted-foreground truncate text-xs">{hint}</span>
+            <span aria-live="polite" className="text-muted-foreground truncate text-xs">
+              {hint}
+            </span>
           )}
         </div>
       </div>
 
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- the transcript
-          is a field on the question, shown separately per §11.1's policy. */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- the transcript is a field on the question (§11.1) */}
       <audio
         ref={audio}
         src={src}
-        preload="none"
+        preload={preload}
         aria-label={label}
         onError={() => setFailedFor(src)}
+        onSeeking={(event) => {
+          if (allowSeek) return;
+          // Put it back and say so.
+          const element = event.currentTarget;
+          if (Math.abs(element.currentTime - position) < 0.5) return;
+          element.currentTime = position;
+          onSeekBlocked?.();
+        }}
       />
     </div>
   );

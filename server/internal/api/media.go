@@ -14,15 +14,6 @@ import (
 )
 
 // UploadMedia implements POST /admin/media (§11.1).
-//
-// Upload goes THROUGH the backend in v1: the files are small, the volume is
-// low, and the backend has to validate them anyway. Presigned direct-to-R2 is
-// the P1 optimisation and does not change this call's contract.
-//
-// The validation order is the contract: size, then magic bytes, then duration.
-// A 50 MB upload is refused by the first check and never becomes a parsing
-// problem. Neither the extension nor the Content-Type header is consulted at
-// any point -- both come from the uploader.
 func (s *Server) UploadMedia(ctx context.Context, request openapi.UploadMediaRequestObject) (openapi.UploadMediaResponseObject, error) {
 	if s.Deps.Media == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -125,25 +116,19 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 		kind := media.Kind(*request.Params.Kind)
 		in.Kind = &kind
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = string(*request.Params.Cursor)
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	assets, next, err := s.Deps.Media.List(ctx, in)
-	if errors.Is(err, media.ErrBadCursor) {
-		return openapi.ListMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			authError(ctx, openapi.VALIDATIONFAILED, "Con trỏ phân trang không hợp lệ."))}, nil
-	}
+	assets, page, err := s.Deps.Media.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	var out openapi.ListMedia200JSONResponse
 	out.Headers.CacheControl = cacheControlForSignedURLList
-	// One named type now that the contract is flat, instead of restating an
-	// anonymous struct the generator inferred (issue #41).
 	out.Body.Items = make([]openapi.LibraryAsset, len(assets))
 	for i, a := range assets {
 		usage := a.UsageCount
@@ -159,9 +144,7 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 			UsageCount:       &usage,
 		}
 	}
-	if next != "" {
-		out.Body.NextCursor = &next
-	}
+	out.Body.Page, out.Body.PageSize, out.Body.Total = page.Number, page.Size, page.Total
 	return out, nil
 }
 
@@ -248,12 +231,4 @@ func cacheControlForSignedURL(ttl time.Duration) string {
 }
 
 // cacheControlForSignedURLList is the list endpoint's answer.
-//
-// `no-store`, not `max-age`. The list carries a signed URL for EVERY item, with
-// the same ten-minute life, so a cached page keeps showing URLs that have
-// stopped working -- and unlike the single-asset response there is nothing
-// worth re-serving from cache, because the library changes on every upload and
-// delete. The request carries an Authorization header so a shared cache would
-// not store it anyway; what this stops is the browser's heuristic caching of a
-// 200 that names no policy at all.
 const cacheControlForSignedURLList = "private, no-store"

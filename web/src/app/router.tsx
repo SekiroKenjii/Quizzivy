@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
 import { ErrorBoundary, NotFound } from "@/app/ErrorBoundary";
+import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
@@ -137,6 +138,11 @@ const studentTree: RouteObject = {
       lazy: page(() => import("@/layouts/StudentDetailLayout")),
       children: [
         {
+          path: "assignments/:id",
+          handle: { titleKey: "student.assignmentDetail" },
+          lazy: page(() => import("@/features/assignments/pages/AssignmentIntroPage")),
+        },
+        {
           path: "settings",
           handle: { titleKey: "nav.settings" },
           lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),
@@ -187,7 +193,8 @@ export const router = createBrowserRouter([
       authTree,
       publicTree,
       protectedTree,
-      { path: "403", lazy: page(() => import("@/app/pages/ForbiddenPage")) },
+      // Eager, like the guard that also renders it.
+      { path: "403", element: <ForbiddenPage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

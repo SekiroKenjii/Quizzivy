@@ -1,11 +1,6 @@
 /**
  * Turns each `{{n}}` in a rendered prompt into the slot a student will type
  * into, so the teacher sees the question the way it will be answered.
- *
- * A rehype plugin rather than a string replacement because the markers live
- * inside Markdown, and splicing HTML into the source would defeat the
- * sanitiser. It runs AFTER rehype-sanitize, so the only markup it introduces is
- * the markup written here.
  */
 const PLACEHOLDER = /\{\{(\d+)\}\}/g;
 

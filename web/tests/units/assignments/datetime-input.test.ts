@@ -6,10 +6,6 @@ import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
  * the DEVICE's zone. Everything in Quizzivy is Asia/Ho_Chi_Minh (§13.2), so on
  * a laptop set to anything else a naive `new Date(value)` shifts every window
  * the teacher sets -- an 08:00 open becomes 15:00 for the whole class.
- *
- * The suite runs on a machine that is usually already in Vietnam time, where a
- * naive reading gives the right answer by luck and these tests would pass with
- * the conversion deleted. So they run under UTC, where luck runs out.
  */
 describe("datetime-local, pinned to the app's timezone", () => {
   const original = process.env["TZ"];

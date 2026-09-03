@@ -17,7 +17,10 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  PNPM_VERSION: "11.12.0"
+  # 11.12.0 is a release pnpm itself refuses to install
+  # (ERR_PNPM_BROKEN_PNPM_RELEASE): its @pnpm/exe build shipped without a
+  # binary -- 16KB unpacked against 18MB for a real one.
+  PNPM_VERSION: "11.25.0"
   GO_VERSION: "1.27"
 
 jobs:
@@ -30,18 +33,18 @@ jobs:
     name: Contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: server/go.sum
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -62,13 +65,13 @@ jobs:
     name: Web
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -108,13 +111,13 @@ jobs:
     name: E2E
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -134,7 +137,7 @@ jobs:
         working-directory: web
         run: pnpm e2e
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
@@ -192,18 +195,18 @@ jobs:
       S3_FORCE_PATH_STYLE: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: server/go.sum
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -262,7 +265,7 @@ jobs:
         working-directory: web
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run E2E 1a
+      - name: Run the live E2Es (1a, 2's middle, 5, 6, 7, 8)
         working-directory: web
         run: pnpm e2e:live
 
@@ -270,7 +273,7 @@ jobs:
         if: failure()
         run: cat "$RUNNER_TEMP/api.log"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-live
@@ -310,9 +313,9 @@ jobs:
       TEST_DESTRUCTIVE: "1"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: server/go.sum
@@ -373,10 +376,9 @@ jobs:
         working-directory: server
         # -coverprofile feeds the sonar job. atomic rather than set because
         # some of these tests run in parallel, and set mode miscounts there.
-        # -p 1: these packages share one database and the dashboard asserts on
-        # global aggregates by diffing two readings, so a package creating an
-        # attempt in between moves the number. See the Makefile's test-api.
-        run: go test ./... -count=1 -p 1 -covermode=atomic -coverprofile=coverage.out
+        # Packages run in parallel against one database; the dashboard's
+        # aggregate tests isolate themselves in a REPEATABLE READ transaction.
+        run: go test ./... -count=1 -covermode=atomic -coverprofile=coverage.out
 
       # Explicitly re-run the round trip against a database that has never seen
       # these migrations, which is the state that matters for a first deploy.
@@ -393,7 +395,7 @@ jobs:
         # always(): a failing test still produced a profile for everything that
         # did run, and that is exactly the run where Sonar's view is worth most.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: go-coverage
           path: server/coverage.out
@@ -422,7 +424,7 @@ jobs:
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Sonar reads git history to decide what counts as new code and to
           # attribute issues. A shallow clone silently makes every line look new.
@@ -432,7 +434,7 @@ jobs:
         # Coverage is an input to the scan, not a precondition for it. If the
         # Server job died before producing a profile, analyse without it.
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: go-coverage
           path: server
@@ -441,7 +443,7 @@ jobs:
       # merged before the SonarCloud project exists.
       - name: Scan
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v8
 
       - name: Say why it was skipped
         if: env.SONAR_TOKEN == ''

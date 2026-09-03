@@ -19,9 +19,6 @@ const FULL_CODE = "K7M3-P9QR";
  * "Mở tham gia bằng mã", so on 27/09/2026 this file would have started failing
  * eight of its tests, and the expired-code block would have gone green for the
  * wrong reason.
- *
- * Only `Date` is faked. `setTimeout` stays real so `waitFor` and userEvent
- * behave normally.
  */
 const NOW = new Date("2026-08-29T00:00:00Z");
 
@@ -244,8 +241,6 @@ describe("revoking", () => {
     );
     expect(await screen.findByText(FULL_CODE)).toBeInTheDocument();
 
-    // Dismissing is the last time anyone sees it: there is no endpoint that
-    // could return it and it was never put in the query cache.
     await user.click(screen.getByRole("button", { name: "Xong" }));
     await waitFor(() => expect(screen.queryByText(FULL_CODE)).not.toBeInTheDocument());
 

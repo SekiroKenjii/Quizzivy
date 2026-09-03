@@ -112,14 +112,6 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 // accounts exist. A missing user that returns instantly, while a real one
 // spends ~50ms hashing, is a user-enumeration oracle measurable over a handful
 // of requests.
-//
-// This WAS a wall-clock comparison of the two paths, requiring their ratio to
-// land in [0.5, 2.0]. It turned develop red on a push that touched neither
-// file, at 68ms against 157ms for two operations that differ only in which
-// 64 MiB arena they touch. The property is real; a stopwatch on a shared runner
-// was not measuring it.
-//
-// It is now tested where it can actually decay, in two parts.
 
 // TestDummyHashUsesTheCurrentCostParameters covers parameter drift.
 //
@@ -145,13 +137,6 @@ func TestDummyHashUsesTheCurrentCostParameters(t *testing.T) {
 // argument does not reach: someone reading BurnPasswordTime as pointless work
 // and optimising it away. Asserting dummyHash's parameters says nothing about
 // whether anything still uses it.
-//
-// A FLOOR, not a ratio, and that is the whole point. Contention can only make
-// an operation slower, so a lower bound cannot be crossed by a busy runner --
-// only by the work genuinely not happening. The margin is five orders of
-// magnitude: one Argon2id at 64 MiB is tens of milliseconds on any machine that
-// can run this suite, and a no-op measured 190ns when this was checked by
-// mutation. 5ms sits far below the real cost and far above any plausible noise.
 func TestBurnPasswordTimeDoesRealWork(t *testing.T) {
 	// Untimed: the first Argon2id call faults in a fresh 64 MiB arena.
 	BurnPasswordTime(context.Background(), "warm-up")

@@ -103,8 +103,6 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	if len(questionsOut) != 1 {
 		t.Fatalf("want 1 question, got %d", len(questionsOut))
 	}
-	// §7: the version holds its own snapshot, so a bank edit cannot reach a
-	// student sitting the published test.
 	if questionsOut[0].Prompt != "Bản đã phát hành" {
 		t.Errorf("prompt: want the frozen text, got %q", questionsOut[0].Prompt)
 	}

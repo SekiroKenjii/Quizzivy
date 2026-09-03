@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useLazyList } from "@/hooks/useLazyList";
+import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import {
   Dialog,
   DialogContent,
@@ -49,9 +50,9 @@ export function AssetLibraryDialog({
 // question editor render.
 function AssetList({ onPick }: { onPick: (asset: MediaAsset) => void }) {
   const { t } = useTranslation();
-  const library = useQuery({
+  const library = useLazyList({
     queryKey: ["admin-media", "picker"],
-    queryFn: ({ signal }) => listMedia({ kind: "audio", limit: 100 }, signal),
+    fetchPage: (page, signal) => listMedia({ kind: "audio", page, limit: 24 }, signal),
   });
 
   if (library.isPending) {
@@ -68,13 +69,13 @@ function AssetList({ onPick }: { onPick: (asset: MediaAsset) => void }) {
       </p>
     );
   }
-  if (library.data.items.length === 0) {
+  if (library.items.length === 0) {
     return <p className="text-muted-foreground text-sm">{t("media.empty")}</p>;
   }
 
   return (
     <ul className="max-h-80 space-y-1 overflow-y-auto">
-      {library.data.items.map((asset) => (
+      {library.items.map((asset) => (
         <li key={asset.id}>
           <button
             type="button"
@@ -88,6 +89,12 @@ function AssetList({ onPick }: { onPick: (asset: MediaAsset) => void }) {
           </button>
         </li>
       ))}
+      <LoadMoreSentinel
+        as="li"
+        active={library.hasMore}
+        loading={library.loadingMore}
+        onVisible={library.loadMore}
+      />
     </ul>
   );
 }

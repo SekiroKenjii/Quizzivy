@@ -45,11 +45,6 @@ func refreshTokenFromContext(ctx context.Context) string {
 // refreshCookie builds the §5.2 cookie: httpOnly, Secure, SameSite=Lax,
 // Path=/auth, and HOST-ONLY -- no Domain attribute, so only the API host ever
 // receives it.
-//
-// SameSite=Lax is sufficient because app.quizzivy.com and api.quizzivy.com are
-// the same SITE even though they are different origins. On genuinely cross-site
-// hosts this cookie would never be sent and sessions would die silently
-// (docs/plan/30-risks.md R-07).
 func refreshCookie(token string, ttl time.Duration, secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     refreshCookieName,

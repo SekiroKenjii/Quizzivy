@@ -4,12 +4,11 @@ package assignments
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
+	"quizzivy/internal/paging"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -57,13 +56,19 @@ type Integrity struct {
 	MinAwayMs         int
 }
 
+// ClassRef is a targeted class and its name.
+type ClassRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type Assignment struct {
 	ID             string
 	TestID         string
 	TestVersionID  string
 	TestVersion    int
 	TestTitle      string
-	ClassIDs       []string
+	Classes        []ClassRef
 	StudentIDs     []string
 	OpensAt        time.Time
 	ClosesAt       time.Time
@@ -80,33 +85,18 @@ type Assignment struct {
 	FlaggedCount   int
 }
 
-var ErrBadCursor = fmt.Errorf("assignments: malformed cursor")
-
 const DefaultLimit = 20
 const MaxLimit = 100
 
 type ListInput struct {
 	Status *Status
-	Cursor string
+	Page   int
 	Limit  int
 }
 
 type Store struct{ pool *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
-
-func encodeCursor(id string) string { return base64.RawURLEncoding.EncodeToString([]byte(id)) }
-
-func decodeCursor(s string) (string, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return "", ErrBadCursor
-	}
-	if _, err := uuid.Parse(string(raw)); err != nil {
-		return "", ErrBadCursor
-	}
-	return string(raw), nil
-}
 
 // selectAssignment is shared by List and Get so a row can never mean one thing
 // in the list and another on the detail screen.
@@ -118,8 +108,11 @@ const selectAssignment = `
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
 		       a.integrity_min_away_ms,
-		       coalesce((SELECT array_agg(ac.class_id::text) FROM app.assignment_classes ac
-		                  WHERE ac.assignment_id = a.id), '{}'),
+		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', c.id::text, 'name', c.name)
+		                                  ORDER BY c.name)
+		                   FROM app.assignment_classes ac
+		                   JOIN app.classes c ON c.id = ac.class_id
+		                  WHERE ac.assignment_id = a.id), '[]'::jsonb),
 		       coalesce((SELECT array_agg(ast.user_id::text) FROM app.assignment_students ast
 		                  WHERE ast.assignment_id = a.id), '{}'),
 		       -- Both sides of submitted/total range over the SAME set: students
@@ -128,7 +121,11 @@ const selectAssignment = `
 		       -- "12/13" with nothing able to close the gap.
 		       (SELECT count(*) FROM app.attempts at
 		          JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
-		         WHERE at.assignment_id = a.id AND at.status IN ('submitted','graded')),
+		         -- timed_out counts as handed in: the student is done, whatever
+		         -- ended it, and 12/13 must not read 11/13 because one ran out
+		         -- of time. Matches students.go's submitted_count.
+		         WHERE at.assignment_id = a.id
+		           AND at.status IN ('submitted','timed_out','graded')),
 		       (SELECT count(*) FROM app.attempts at
 		          JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
 		         WHERE at.assignment_id = a.id AND at.flagged),
@@ -163,7 +160,7 @@ func scanAssignment(row pgx.Row) (Assignment, error) {
 		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
 		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
-		&a.ClassIDs, &a.StudentIDs,
+		&a.Classes, &a.StudentIDs,
 		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
 	return a, err
 }
@@ -185,20 +182,15 @@ func (s *Store) get(ctx context.Context, q querier, id string) (Assignment, erro
 	return a, nil
 }
 
-// List returns one page of assignments, newest first.
+// List returns one page of assignments, newest first, with the paging
+// beside it (O-20: OFFSET, so the client can draw numbered pages).
 //
 // The status filter is applied in SQL over the same expression StatusAt
 // computes, so the list and the row never disagree about what "open" means.
-func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, string, error) {
-	limit := in.Limit
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
-	}
+func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	args := []any{limit + 1}
+	var args []any
 	where := []string{"TRUE"}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
@@ -211,44 +203,35 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, string, e
 			  ELSE 'closed'
 			END = $%d`, len(args)))
 	}
-	if in.Cursor != "" {
-		id, err := decodeCursor(in.Cursor)
-		if err != nil {
-			return nil, "", err
-		}
-		args = append(args, id)
-		where = append(where, fmt.Sprintf(`a.id < $%d::uuid`, len(args)))
+
+	page := paging.Page{Number: number, Size: limit}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.assignments a WHERE `+join(where), args...).
+		Scan(&page.Total); err != nil {
+		return nil, paging.Page{}, fmt.Errorf("assignments: count: %w", err)
 	}
 
-	sql := selectAssignment + `
-		 WHERE ` + join(where) + `
+	args = append(args, limit, offset)
+	rows, err := s.pool.Query(ctx, selectAssignment+`
+		 WHERE `+join(where)+fmt.Sprintf(`
 		 ORDER BY a.id DESC
-		 LIMIT $1`
-
-	rows, err := s.pool.Query(ctx, sql, args...)
+		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, "", fmt.Errorf("assignments: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("assignments: list: %w", err)
 	}
 	defer rows.Close()
 
-	var out []Assignment
+	out := make([]Assignment, 0, limit)
 	for rows.Next() {
 		a, err := scanAssignment(rows)
 		if err != nil {
-			return nil, "", fmt.Errorf("assignments: scan: %w", err)
+			return nil, paging.Page{}, fmt.Errorf("assignments: scan: %w", err)
 		}
 		out = append(out, a)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, "", fmt.Errorf("assignments: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("assignments: list: %w", err)
 	}
-
-	next := ""
-	if len(out) > limit {
-		out = out[:limit]
-		next = encodeCursor(out[len(out)-1].ID)
-	}
-	return out, next, nil
+	return out, page, nil
 }
 
 func join(parts []string) string {

@@ -116,14 +116,10 @@ test-api: migrate ## Go tests, including the DB-backed ones
 	# package was relying on winning a race it does not control. CI applies them
 	# in its own step for the same reason.
 	#
-	# -p 1 because these packages share one database and the dashboard asserts
-	# on GLOBAL aggregates -- "active students", "open assignments" -- by taking
-	# a reading, changing something, and taking another. Any package inserting
-	# an attempt in between moves the number, so the counts were only ever
-	# right while nothing else created attempts concurrently. internal/attempts
-	# is the first package that does, which is what surfaced it; running the
-	# packages one at a time removes the class rather than this instance.
-	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./... -p 1
+	# Packages run in parallel against one database. Tests that diff a global
+	# aggregate (the dashboard) do so inside a REPEATABLE READ transaction, so
+	# another package's inserts cannot move the number between two readings.
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./...
 
 e2e: ## Playwright, against a real production build
 	cd web && pnpm e2e

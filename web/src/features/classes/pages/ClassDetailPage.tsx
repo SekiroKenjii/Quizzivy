@@ -1,13 +1,8 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router";
-import { ClipboardList, Search, UserPlus } from "lucide-react";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -27,12 +23,24 @@ import {
 import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
 import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
-import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { invalidateClassMembership } from "@/features/classes/invalidate";
+import { ApiError } from "@/lib/api/errors";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/datetime";
-import { ApiError } from "@/lib/api/errors";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { ClipboardList, Search, UserPlus } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate, useParams } from "react-router";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
+import { useDebounced } from "@/lib/useDebounced";
 
 function currentLocale(language: string): Locale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(language)
@@ -40,15 +48,9 @@ function currentLocale(language: string): Locale {
     : "vi";
 }
 
-/**
- * §6.4's class screen: the join code, and who is in the class.
- *
- * The member list is not decoration. §17.2 declines to build an approval queue,
- * and `joinedVia` plus the code hint are what it chose INSTEAD -- they are how a
- * teacher notices someone they did not expect, and after a rotation they say
- * whether that person came in through the code that leaked or the current one
- * (D-10).
- */
+/** §6.4's class screen: the join code, and who is in the class. */
+const MEMBERS_PAGE_SIZE = 20;
+
 export default function ClassDetailPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -60,12 +62,20 @@ export default function ClassDetailPage() {
     queryKey: ["admin-class", id],
     queryFn: ({ signal }) => fetchClass(id, signal),
   });
+  const [query, setQuery] = useState("");
+  const search = useDebounced(query, 300).trim();
+  const [page] = usePage(search);
   const members = useQuery({
-    queryKey: ["admin-class-members", id],
-    queryFn: ({ signal }) => fetchMembers(id, signal),
+    queryKey: ["admin-class-members", id, { q: search, page }],
+    queryFn: ({ signal }) =>
+      fetchMembers(
+        id,
+        { limit: MEMBERS_PAGE_SIZE, page, ...(search === "" ? {} : { q: search }) },
+        signal,
+      ),
+    placeholderData: keepPreviousData,
   });
 
-  const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{
@@ -103,9 +113,9 @@ export default function ClassDetailPage() {
     );
   }
 
-  const items = matching(members.data?.items ?? [], query);
+  const items = members.data?.items ?? [];
 
-  const memberIds = new Set((members.data?.items ?? []).map((m) => m.userId));
+  const memberIds = new Set(items.map((m) => m.userId));
 
   return (
     <>
@@ -175,13 +185,11 @@ export default function ClassDetailPage() {
                   {t("common.loading")}
                 </p>
               ) : items.length === 0 ? (
-                // §12: one short sentence, no illustration. Which sentence
-                // matters: `items` is search-filtered, so an empty result after
-                // typing means "nobody matches", not "the class is empty".
+                // §12: one short sentence, no illustration.
                 <p className="text-muted-foreground px-5 pb-8 text-sm">
-                  {members.data.items.length === 0
+                  {search === ""
                     ? t("classDetail.noMembers")
-                    : t("classDetail.noMemberMatches", { query: query.trim() })}
+                    : t("classDetail.noMemberMatches", { query: search })}
                 </p>
               ) : (
                 <Table>
@@ -214,7 +222,9 @@ export default function ClassDetailPage() {
                             <Badge>{t("classDetail.viaAdmin")}</Badge>
                           ) : (
                             <Badge variant="secondary">
-                              {t("classDetail.viaCode", { hint: m.joinCodeHint ?? "" })}
+                              {t("classDetail.viaCode", {
+                                hint: m.joinCodeHint ?? "",
+                              })}
                             </Badge>
                           )}
                         </TableCell>
@@ -228,7 +238,10 @@ export default function ClassDetailPage() {
                             disabled={remove.isPending}
                             onClick={() => {
                               setRemoveError(null);
-                              setConfirmRemove({ userId: m.userId, name: m.fullName });
+                              setConfirmRemove({
+                                userId: m.userId,
+                                name: m.fullName,
+                              });
                             }}
                           >
                             <span aria-hidden="true">{t("classDetail.remove")}</span>
@@ -241,6 +254,15 @@ export default function ClassDetailPage() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+              {members.data && members.data.total > MEMBERS_PAGE_SIZE && (
+                <div className="px-5 pb-4">
+                  <Pager
+                    page={members.data.page}
+                    pageSize={members.data.pageSize}
+                    total={members.data.total}
+                  />
+                </div>
               )}
               {removeError ? (
                 <p role="alert" className="text-destructive px-5 pb-2 text-sm">
@@ -293,21 +315,5 @@ export default function ClassDetailPage() {
         onOpenChange={setAdding}
       />
     </>
-  );
-}
-
-// The members endpoint has no query parameter and a class is ~50 people, so the
-// deck's search box filters what is already loaded rather than adding a round
-// trip per keystroke.
-function matching<T extends { fullName: string; email: string }>(
-  members: T[],
-  query: string,
-): T[] {
-  const needle = query.trim().toLocaleLowerCase("vi");
-  if (needle === "") return members;
-  return members.filter(
-    (member) =>
-      member.fullName.toLocaleLowerCase("vi").includes(needle) ||
-      member.email.toLowerCase().includes(needle),
   );
 }

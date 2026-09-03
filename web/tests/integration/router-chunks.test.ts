@@ -16,12 +16,6 @@ type BuildOutput = { output: ({ type: "asset" } | OutputChunk)[] };
 /**
  * §2: "Split at the route level so a student never downloads admin code and an
  * anonymous visitor downloads neither."
- *
- * That is a claim about the built bundle, so it is checked against the built
- * bundle — not by reading the router and trusting that `lazy` did its job. A
- * refactor that turns one of those dynamic imports into a static one still
- * type-checks, still renders, and silently ships the admin tree to every
- * student. This is the only thing that would notice.
  */
 
 // tests/integration -> tests -> web. Same depth as the old location,

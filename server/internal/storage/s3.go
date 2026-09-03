@@ -30,13 +30,6 @@ type Client struct {
 }
 
 // New builds the client.
-//
-// The two checksum settings are the load-bearing part, and getting them wrong
-// produces a bug that appears ONLY in production. Recent aws-sdk-go-v2 versions
-// compute and send `x-amz-sdk-checksum-algorithm` on PutObject by default. R2
-// implements a limited set and reports most of those headers as unimplemented,
-// so the default gives an upload that works perfectly against MinIO and fails
-// against R2. See docs/setup/r2.md.
 func New(ctx context.Context, cfg Config) (*Client, error) {
 	if cfg.Bucket == "" {
 		return nil, errors.New("storage: bucket is required")

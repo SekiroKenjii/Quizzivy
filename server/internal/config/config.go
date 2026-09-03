@@ -147,12 +147,6 @@ func loadGoogle(cfg *Config) error {
 // MediaEnabled reports whether object storage is configured. Media upload is
 // optional as a group, like Google sign-in: a deployment without it serves
 // everything else rather than refusing to start.
-//
-// The ENDPOINT counts. Without it the SDK has no BaseEndpoint and resolves
-// against real AWS S3 -- so a deployment holding a bucket and R2 credentials
-// but no S3_ENDPOINT used to report media as enabled and then talk to the wrong
-// provider entirely. loadMedia now refuses that at startup, so by the time this
-// is asked the four are all set or all empty.
 func (c Config) MediaEnabled() bool {
 	return c.S3Endpoint != "" && c.S3Bucket != "" &&
 		c.S3AccessKeyID != "" && c.S3SecretAccessKey != ""
@@ -202,14 +196,6 @@ func (c Config) GoogleEnabled() bool {
 
 // getenvInt reads an integer setting. An ABSENT value takes the fallback; a
 // PRESENT but unparseable one is an error.
-//
-// The two are not the same thing and used to be treated as such. Every other
-// input here fails loudly -- a non-numeric API_PORT, X-Forwarded-For as the
-// client-IP header, a `*` in the CORS origins, a half-configured Google block --
-// and this was the one that quietly substituted the default. Its only caller
-// bounds Argon2id concurrency on a 512 MB machine, so "8 slots" instead of "8"
-// would start the process on 4 and say nothing, and whoever raised it after
-// resizing the machine would never learn it had not applied.
 func getenvInt(key string, fallback int) (int, error) {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {

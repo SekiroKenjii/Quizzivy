@@ -19,14 +19,7 @@ interface BlanksEditorProps {
   onChange: (blanks: Blank[]) => void;
 }
 
-/**
- * fill_blank's answer editor, with the placeholder agreement checked live.
- *
- * The server enforces the same rule at save and again at publish. Showing it
- * here is what stops a teacher discovering at publish time that the `{{3}}` they
- * typed has no blank behind it -- §8's publish gate confirms rather than
- * surprises.
- */
+/** fill_blank's answer editor, with the placeholder agreement checked live. */
 export function BlanksEditor({ prompt, blanks, onChange }: BlanksEditorProps) {
   const { t } = useTranslation();
   const mismatch = comparePlaceholders(

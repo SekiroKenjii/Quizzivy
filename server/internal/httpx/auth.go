@@ -18,19 +18,17 @@ type Principal struct {
 
 // RequireAuth enforces bearer authentication on every generated route that the
 // CONTRACT does not mark as open.
-//
-// It is deliberately fail-CLOSED. The obvious shape -- a set of protected
-// routes, pass through anything else -- fails open: a route missing from the
-// set serves data with no token and nothing looks wrong. Inverting it means a
-// mistake shows up as a public endpoint returning 401, which someone notices in
-// a minute, instead of a private one returning data, which nobody notices.
-//
-// `/healthz` is registered on the base mux rather than through the generated
-// wrapper, so it never reaches this middleware.
 func RequireAuth(open map[string]struct{}, verify func(bearer string) (Principal, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if _, isOpen := open[r.Pattern]; isOpen {
+				// Open means authentication is not REQUIRED, not that it is ignored.
+				if token, ok := bearerToken(r); ok {
+					if principal, err := verify(token); err == nil {
+						r = r.WithContext(
+							context.WithValue(r.Context(), principalKey, principal))
+					}
+				}
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -101,17 +99,22 @@ func OpenRoutes(spec *openapi3.T, scheme string) map[string]struct{} {
 	return open
 }
 
+// requiresScheme reports whether the caller CANNOT satisfy the operation
+// without the named scheme.
 func requiresScheme(opSecurity *openapi3.SecurityRequirements, global openapi3.SecurityRequirements, scheme string) bool {
 	reqs := global
 	if opSecurity != nil {
 		reqs = *opSecurity
 	}
+	if len(reqs) == 0 {
+		return false
+	}
 	for _, req := range reqs {
-		if _, ok := req[scheme]; ok {
-			return true
+		if _, ok := req[scheme]; !ok {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // RoleAdmin is the app.user_role value the /admin tree requires.

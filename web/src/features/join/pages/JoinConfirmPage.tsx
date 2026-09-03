@@ -17,12 +17,6 @@ import { useAuthStore } from "@/stores/auth";
  * §6.2's confirm step, and the reason it exists: "the student sees WHICH class
  * they are joining before authenticating. Never create an account and enrol in
  * one blind tap."
- *
- * So the preview happens first and unauthenticated, and the primary button is
- * the only thing that starts an account. §12 asks for this shape specifically --
- * "single centered card, class name large, one primary button... calm and
- * legitimate, not a marketing page" -- because it is the first Quizzivy screen
- * a new student ever sees.
  */
 export default function JoinConfirmPage() {
   const { t } = useTranslation();

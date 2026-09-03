@@ -12,7 +12,7 @@ export interface ListStudentsParams {
   q?: string;
   classId?: string;
   status?: StudentStatus;
-  cursor?: string;
+  page?: number;
   limit?: number;
 }
 
@@ -21,7 +21,7 @@ export function listStudents(params: ListStudentsParams = {}, signal?: AbortSign
   if (params.q) query["q"] = params.q;
   if (params.classId) query["classId"] = params.classId;
   if (params.status) query["status"] = params.status;
-  if (params.cursor) query["cursor"] = params.cursor;
+  if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/students", signal ? { query, signal } : { query });
 }
@@ -53,14 +53,7 @@ export function resetStudentPassword(id: string) {
   return api("post", "/admin/students/{id}/reset-password", { path: { id } });
 }
 
-/**
- * The percentage G-07 prints, from the (earned, total) pair the server sends.
- *
- * Weighted by construction: the server already summed both sides across the
- * student's best graded attempts, so a 50-point midterm carries five times the
- * weight of a 10-point quiz. Null when nothing is graded — which is the em
- * dash, not a zero.
- */
+/** The percentage G-07 prints, from the (earned, total) pair the server sends. */
 export function scorePercent(stats: StudentStats): number | null {
   const score = stats.score;
   if (!score || score.total <= 0) return null;

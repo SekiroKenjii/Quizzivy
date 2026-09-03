@@ -26,7 +26,6 @@ func (s Status) valid() bool {
 var (
 	ErrNotFound        = errors.New("tests: not found")
 	ErrStaleWrite      = errors.New("tests: edited elsewhere since the version read")
-	ErrBadCursor       = errors.New("tests: malformed cursor")
 	ErrUnknownQuestion = errors.New("tests: outline references a question that does not exist")
 )
 
@@ -102,8 +101,6 @@ func (in UpdateInput) Validate() error {
 	if in.Status != nil && !in.Status.valid() {
 		add("status", "Trạng thái không hợp lệ.")
 	}
-	// Publishing is its own endpoint: it has to snapshot a version, and
-	// current_version = 0 with status published is refused by the database.
 	if in.Status != nil && *in.Status == Published {
 		add("status", "Dùng thao tác xuất bản để chuyển đề sang trạng thái published.")
 	}
@@ -115,8 +112,6 @@ func (in UpdateInput) Validate() error {
 		seen := make(map[string]bool, len(s.QuestionIDs))
 		for _, id := range s.QuestionIDs {
 			if seen[id] {
-				// The database refuses this too; saying which section it was
-				// in is what the teacher needs.
 				add(sectionField(i, "questionIds"), "Một câu hỏi chỉ được xuất hiện một lần trong phần.")
 				break
 			}

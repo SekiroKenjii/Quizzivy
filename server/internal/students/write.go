@@ -22,9 +22,8 @@ type CreateInput struct {
 	Email    string
 	FullName string
 	ClassIDs []string
-	// Hash is computed by the caller. Argon2id runs behind a four-slot
-	// semaphore that blocks, so it must never be held open across a
-	// transaction the way a hash computed inside one would be.
+	// Hash is computed by the caller: Argon2id blocks on a four-slot semaphore
+	// that must not be held across a transaction.
 	Hash string
 	Now  time.Time
 }
@@ -58,9 +57,6 @@ func (s *Store) Create(ctx context.Context, req Request, in CreateInput) (Studen
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// password_hash and must_change_password go in ONE statement: the
-	// users_must_change_needs_password CHECK is non-deferrable, so the flag
-	// cannot be true at the end of any statement where the hash is still NULL.
 	var id string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO app.users (email, full_name, role, password_hash, must_change_password)
@@ -147,8 +143,7 @@ func (s *Store) Update(ctx context.Context, req Request, in UpdateInput) (Studen
 	if err := tx.Commit(ctx); err != nil {
 		return Student{}, fmt.Errorf("students: commit update: %w", err)
 	}
-	// includeDisabled: a successful disable must return the row it just wrote,
-	// not 404.
+	// includeDisabled: a successful disable must return the row it just wrote, not 404.
 	return s.get(ctx, in.ID, true)
 }
 

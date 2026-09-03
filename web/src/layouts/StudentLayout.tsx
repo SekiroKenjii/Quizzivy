@@ -4,14 +4,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/shared/Brand";
 
-/**
- * §9: "minimal top bar, no sidebar, mobile-first, safe-area padding."
- *
- * §1.1 says students are often on a phone, and §16 requires 360px to work, so
- * this stays deliberately sparse. Safe-area insets are applied on `body`
- * (index.css) for left/right; the bottom inset is applied here because only
- * this tree has content that can reach the home indicator.
- */
+/** §9: "minimal top bar, no sidebar, mobile-first, safe-area padding." */
 export default function StudentLayout() {
   const { t } = useTranslation();
 

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"quizzivy/gen/openapi"
@@ -9,16 +10,19 @@ import (
 )
 
 // Server implements the generated StrictServerInterface.
-//
-// Every operation is a stub until its phase builds it. They return
-// httpx.ErrNotImplemented, which the strict handler's error hook renders as a
-// 501 in the standard error envelope -- so an unbuilt endpoint is honestly
-// unbuilt rather than a 404 that looks like a routing bug.
-//
-// This file is generated once from the interface and then owned by hand: as
-// each operation is implemented, its stub is replaced in place.
 type Server struct {
 	Deps Deps
+	// Logger is nil in tests; read it through logOf.
+	Logger *slog.Logger
+}
+
+// logOf is the server's logger, or one that discards. Not a method: stubs_test
+// reads Server's method set to find unimplemented operations.
+func logOf(s *Server) *slog.Logger {
+	if s.Logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return s.Logger
 }
 
 // Deps is what handlers need. It grows as phases add capability.
@@ -82,34 +86,6 @@ func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) ListMyAssignments(_ context.Context, _ openapi.ListMyAssignmentsRequestObject) (openapi.ListMyAssignmentsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetMyAssignment(_ context.Context, _ openapi.GetMyAssignmentRequestObject) (openapi.GetMyAssignmentResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) SaveAnswers(_ context.Context, _ openapi.SaveAnswersRequestObject) (openapi.SaveAnswersResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) RecordAudioPlay(_ context.Context, _ openapi.RecordAudioPlayRequestObject) (openapi.RecordAudioPlayResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) FlushEvents(_ context.Context, _ openapi.FlushEventsRequestObject) (openapi.FlushEventsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) GetAttemptResult(_ context.Context, _ openapi.GetAttemptResultRequestObject) (openapi.GetAttemptResultResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) SubmitAttempt(_ context.Context, _ openapi.SubmitAttemptRequestObject) (openapi.SubmitAttemptResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListMyClasses(_ context.Context, _ openapi.ListMyClassesRequestObject) (openapi.ListMyClassesResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

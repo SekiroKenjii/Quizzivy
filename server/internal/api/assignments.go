@@ -21,39 +21,38 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 		status := assignments.Status(*request.Params.Status)
 		in.Status = &status
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = *request.Params.Cursor
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, next, err := s.Deps.Assignments.List(ctx, in)
+	found, page, err := s.Deps.Assignments.List(ctx, in)
 	if err != nil {
-		// The contract gives this operation no 400, so a bad cursor is simply
-		// an empty page rather than an invented status.
-		if errors.Is(err, assignments.ErrBadCursor) {
-			return openapi.ListAssignments200JSONResponse{Items: []openapi.Assignment{}}, nil
-		}
 		return nil, err
 	}
 
 	out := openapi.ListAssignments200JSONResponse{
-		Items: make([]openapi.Assignment, len(found)),
+		Items:    make([]openapi.Assignment, len(found)),
+		Page:     page.Number,
+		PageSize: page.Size,
+		Total:    page.Total,
 	}
 	for i, a := range found {
 		out.Items[i] = toAPIAssignment(a)
-	}
-	if next != "" {
-		out.NextCursor = &next
 	}
 	return out, nil
 }
 
 func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
-	classIDs := make([]openapi.Uuid, len(a.ClassIDs))
-	for i, id := range a.ClassIDs {
-		classIDs[i] = parseUUID(id)
+	classes := make([]struct {
+		Id   openapi.Uuid `json:"id"`
+		Name string       `json:"name"`
+	}, len(a.Classes))
+	for i, c := range a.Classes {
+		classes[i].Id = parseUUID(c.ID)
+		classes[i].Name = c.Name
 	}
 	studentIDs := make([]openapi.Uuid, len(a.StudentIDs))
 	for i, id := range a.StudentIDs {
@@ -67,9 +66,12 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 		TestVersion:   a.TestVersion,
 		TestTitle:     a.TestTitle,
 		Targets: struct {
-			ClassIds   []openapi.Uuid `json:"classIds"`
+			Classes []struct {
+				Id   openapi.Uuid `json:"id"`
+				Name string       `json:"name"`
+			} `json:"classes"`
 			StudentIds []openapi.Uuid `json:"studentIds"`
-		}{ClassIds: classIDs, StudentIds: studentIDs},
+		}{Classes: classes, StudentIds: studentIDs},
 		DurationMinutes:  a.DurationMin,
 		MaxAttempts:      a.MaxAttempts,
 		ShuffleQuestions: a.ShuffleQ,

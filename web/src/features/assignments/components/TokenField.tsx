@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 
 export interface Token {
   id: string;
@@ -17,6 +18,10 @@ interface TokenFieldProps {
   selected: Token[];
   options: Token[];
   loading: boolean;
+  /** More options exist beyond `options`; reaching the end of the list asks for them. */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onEndReached?: () => void;
   query: string;
   onQueryChange: (query: string) => void;
   onAdd: (token: Token) => void;
@@ -26,10 +31,6 @@ interface TokenFieldProps {
 /**
  * G-01's "Lớp" and "Học viên lẻ" fields: chosen things as removable chips, with
  * one input that searches for the next one.
- *
- * Presentational on purpose. Where the options come from differs per field --
- * classes are one cached list, students are a paged search -- so each picker
- * owns its own query and this owns only the interaction.
  */
 export function TokenField({
   label,
@@ -38,6 +39,9 @@ export function TokenField({
   selected,
   options,
   loading,
+  hasMore = false,
+  loadingMore = false,
+  onEndReached,
   query,
   onQueryChange,
   onAdd,
@@ -100,8 +104,6 @@ export function TokenField({
               if (blurTimer.current) clearTimeout(blurTimer.current);
               setFocused(true);
             }}
-            // Deferred so a click on an option lands before the list unmounts:
-            // mousedown fires before blur, but the click that follows does not.
             onBlur={() => {
               blurTimer.current = setTimeout(() => setFocused(false), 120);
             }}
@@ -131,22 +133,30 @@ export function TokenField({
                 {t("assignments.noCandidates")}
               </li>
             ) : (
-              available.map((option) => (
-                <li key={option.id}>
-                  <button
-                    type="button"
-                    className="hover:bg-secondary flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm"
-                    onClick={() => pick(option)}
-                  >
-                    <span className="truncate">{option.label}</span>
-                    {option.hint === undefined ? null : (
-                      <span className="text-muted-foreground ml-auto shrink-0 truncate text-xs">
-                        {option.hint}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))
+              <>
+                {available.map((option) => (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      className="hover:bg-secondary flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm"
+                      onClick={() => pick(option)}
+                    >
+                      <span className="truncate">{option.label}</span>
+                      {option.hint === undefined ? null : (
+                        <span className="text-muted-foreground ml-auto shrink-0 truncate text-xs">
+                          {option.hint}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+                <LoadMoreSentinel
+                  as="li"
+                  active={hasMore}
+                  loading={loadingMore}
+                  onVisible={() => onEndReached?.()}
+                />
+              </>
             )}
           </ul>
         ) : null}

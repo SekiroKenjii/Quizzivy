@@ -13,17 +13,6 @@ import (
 )
 
 // §13.5: "Passwords: Argon2id (bcrypt cost >= 12 if unavailable)."
-//
-// Hashes are stored in PHC string format:
-//
-//	$argon2id$v=19$m=65536,t=3,p=2$<salt>$<hash>
-//
-// The parameters travel with the hash, which matters more than it looks. Tuning
-// them later re-hashes new passwords without invalidating old ones, and a hash
-// generated elsewhere -- the dev seed, a migration from another system -- still
-// verifies. A bare hash plus package-level constants would silently stop
-// matching the day the constants changed, and the symptom would be "wrong
-// password" for every existing user.
 const (
 	defaultMemory  = 64 * 1024 // 64 MiB
 	defaultTime    = 3
@@ -33,13 +22,6 @@ const (
 )
 
 // DefaultMaxConcurrentHashes bounds how many Argon2id operations run at once.
-//
-// Each hash holds a 64 MiB arena for its whole duration, so the ceiling is
-// slots x 64 MiB and nothing else bounds it: measured at 517 MiB for 8
-// concurrent against a 512 MB instance. Rate limiting does not help, since the
-// limits are per-IP and a class signs in from a phone each. Four costs about
-// 12% throughput against eight and leaves half the instance for everything
-// else; the arithmetic to raise it is memory / 64 MiB, minus headroom.
 const DefaultMaxConcurrentHashes = 4
 
 var (
@@ -175,12 +157,6 @@ func decodeHash(encoded string) (params, []byte, []byte, error) {
 
 // dummyHash is verified against when no user matches, so a login attempt for an
 // unknown email costs the same Argon2id work as one for a real account.
-//
-// Without it, "no such user" returns in microseconds while a real account
-// spends ~50ms hashing -- and that difference is measurable over a handful of
-// requests, turning the login endpoint into a user-enumeration oracle. §6.5
-// asks the join endpoints not to leak which classes exist; the same reasoning
-// applies to which accounts do.
 var dummyHash string
 
 func init() {
@@ -193,17 +169,6 @@ func init() {
 
 // BurnPasswordTime performs the same work as a real verification and discards
 // the result. Called when no user matches.
-//
-// THE DISCARDED WORK IS THE POINT. This looks like an expensive no-op and is
-// not: without it, "no such user" returns in microseconds while a real account
-// spends tens of milliseconds hashing, and that gap is measurable over a
-// handful of requests. Anyone optimising this into a cheaper body, or removing
-// the call sites in service.go as wasted effort, turns login into a
-// user-enumeration oracle.
-//
-// TestBurnPasswordTimeDoesRealWork holds a floor under it for exactly that
-// reason, and TestDummyHashUsesTheCurrentCostParameters checks the other half:
-// that the hash it verifies against still costs what a real one costs.
 func BurnPasswordTime(ctx context.Context, password string) {
 	_, _ = VerifyPassword(ctx, password, dummyHash)
 }

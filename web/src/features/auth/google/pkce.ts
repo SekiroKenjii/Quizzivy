@@ -1,11 +1,4 @@
-/**
- * PKCE for the Google authorization-code flow (§5.3, O-13).
- *
- * We build this request ourselves rather than using Google Identity Services.
- * That is an approved deviation from §2, not an oversight: `initCodeClient`
- * cannot send a `code_challenge`, and §5.3 requires PKCE. Do not "fix" this by
- * reintroducing `accounts.google.com/gsi/client`.
- */
+/** PKCE for the Google authorization-code flow (§5.3, O-13). */
 
 const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 
@@ -17,12 +10,7 @@ const STORAGE_KEY = "quizzivy.oauth.pending";
 export interface PendingAuthorization {
   verifier: string;
   state: string;
-  /**
-   * What the returning code is FOR. The callback lands on one URL for both
-   * journeys, and exchanging a link request at the sign-in endpoint would
-   * replace the current session with whichever Google account was chosen --
-   * silently signing the user in as someone else.
-   */
+  // What the returning code is FOR.
   mode: "signin" | "link";
   /** Where to go after a successful sign-in. Carried across the round trip. */
   next?: string;
@@ -30,15 +18,7 @@ export interface PendingAuthorization {
   joinCode?: string;
 }
 
-/**
- * The pending authorization survives in `sessionStorage`.
- *
- * This is NOT a contradiction of §5.2's "never sessionStorage". That rule is
- * about the ACCESS TOKEN -- a durable bearer credential an XSS could walk away
- * with. A PKCE verifier is single-use, worthless without the matching `code`,
- * discarded the moment it is redeemed, and has to survive a full page load by
- * definition: that is what PKCE is for.
- */
+/** The pending authorization survives in `sessionStorage`. */
 export function rememberPending(pending: PendingAuthorization) {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
@@ -60,16 +40,7 @@ export function takePending(): PendingAuthorization | null {
   }
 }
 
-/**
- * Validates what came out of storage before any of it is trusted.
- *
- * Every field is load-bearing: `verifier` goes to Google's token endpoint,
- * `state` is what statesMatch compares against the URL, `mode` decides which
- * endpoint the code is redeemed at, and `next` has string methods called on it
- * by destinationAfterSignIn. The optional fields are checked too -- a stored
- * `next` of `{}` is truthy and has no .startsWith, which would throw inside the
- * callback effect.
- */
+/** Validates what came out of storage before any of it is trusted. */
 function isPendingAuthorization(value: unknown): value is PendingAuthorization {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
@@ -106,14 +77,7 @@ async function s256(verifier: string): Promise<string> {
   return base64UrlEncode(new Uint8Array(digest));
 }
 
-/**
- * `state` is compared in constant time on the way back.
- *
- * It is short and the comparison is local, so a timing attack on it is not a
- * realistic threat. A plain `===` on a security token is the kind of line that
- * gets copied somewhere it does matter, and the constant-time version costs
- * nothing.
- */
+/** `state` is compared in constant time on the way back. */
 export function statesMatch(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -49,10 +49,11 @@ beforeEach(() => {
           short_answer: 0,
         },
         tags: [],
-        total: 0,
-        filtered: 0,
+        bankTotal: 0,
         items: [question()],
-        nextCursor: null,
+        page: 1,
+        pageSize: 50,
+        total: 0,
       });
     }),
   );
@@ -107,11 +108,13 @@ describe("the question bank list", () => {
     await waitFor(() => expect(requests.length).toBe(before + 1));
   });
 
-  it("pages by cursor, never by offset", async () => {
+  // O-20: numbered pages.
+  it("turns pages by number, with the first page asking for none", async () => {
     server.use(
       http.get(`${BASE}/admin/questions`, ({ request }) => {
         const url = new URL(request.url);
         requests.push(url);
+        const page = Number(url.searchParams.get("page") ?? "1");
         return contractJson("/admin/questions", "get", 200, {
           facets: {
             all: 0,
@@ -122,25 +125,32 @@ describe("the question bank list", () => {
             short_answer: 0,
           },
           tags: [],
-          total: 0,
-          filtered: 0,
-          items: [
-            question({
-              id: `018f0000-0000-7000-8000-00000000${url.searchParams.get("cursor") ? "0002" : "0001"}`,
-            }),
-          ],
-          nextCursor: url.searchParams.get("cursor") ? null : "cursor-2",
+          bankTotal: 45,
+          items: [question({ id: `018f0000-0000-7000-8000-00000000000${page}` })],
+          page,
+          pageSize: 20,
+          total: 45,
         });
       }),
     );
     const user = renderBank();
 
-    await user.click(await screen.findByRole("button", { name: "Xem thêm" }));
+    const pages = await screen.findByRole("navigation", { name: "Phân trang" });
+    expect(
+      within(pages)
+        .getAllByRole("link")
+        .map((a) => a.textContent?.trim()),
+    ).toEqual(["Trước", "1", "2", "3", "Sau"]);
+    expect(within(pages).getByRole("link", { name: "Trang 1" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(requests[0]?.searchParams.has("page")).toBe(false);
 
+    await user.click(within(pages).getByRole("link", { name: "Trang 2" }));
     await waitFor(() => expect(requests).toHaveLength(2));
-    expect(requests[1]?.searchParams.get("cursor")).toBe("cursor-2");
-    expect(requests.some((url) => url.searchParams.has("offset"))).toBe(false);
-    expect(requests.some((url) => url.searchParams.has("page"))).toBe(false);
+    expect(requests[1]?.searchParams.get("page")).toBe("2");
+    expect(requests.some((url) => url.searchParams.has("cursor"))).toBe(false);
   });
 
   it("offers one sentence and one action when nothing matches", async () => {
@@ -156,10 +166,11 @@ describe("the question bank list", () => {
             short_answer: 0,
           },
           tags: [],
-          total: 0,
-          filtered: 0,
+          bankTotal: 0,
           items: [],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 0,
         }),
       ),
     );
@@ -184,10 +195,11 @@ describe("the question bank list", () => {
             short_answer: 0,
           },
           tags: [],
-          total: 0,
-          filtered: 0,
+          bankTotal: 0,
           items: [],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 0,
         }),
       ),
     );
@@ -214,8 +226,7 @@ describe("the question bank list", () => {
             short_answer: 0,
           },
           tags: [],
-          total: 0,
-          filtered: 0,
+          bankTotal: 0,
           items: [
             question({
               media: {
@@ -230,7 +241,9 @@ describe("the question bank list", () => {
               },
             }),
           ],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 0,
         }),
       ),
     );
@@ -245,8 +258,6 @@ describe("the question bank list", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByLabelText("unit5-listening-2.mp3")).toBeInTheDocument();
 
-    // The deck's player, not the browser's: a round play control, a track, and
-    // a time readout that knows the length before the file is fetched.
     expect(screen.getByRole("button", { name: "Phát" })).toBeInTheDocument();
     expect(screen.getByText("0:00 / 1:50")).toBeInTheDocument();
     expect(screen.getByText("unit5-listening-2.mp3")).toBeInTheDocument();
@@ -267,8 +278,7 @@ describe("the question bank list", () => {
             short_answer: 0,
           },
           tags: [],
-          total: 0,
-          filtered: 0,
+          bankTotal: 0,
           items: [
             question({
               media: {
@@ -283,7 +293,9 @@ describe("the question bank list", () => {
               },
             }),
           ],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 0,
         });
       }),
     );
@@ -296,8 +308,6 @@ describe("the question bank list", () => {
     );
     const player = screen.getByLabelText("unit5-listening-2.mp3");
 
-    // The signed URL was minted when the list loaded and lives ten minutes
-    // (§11.2); pressing play after that gets a 403 and, without this, silence.
     fireEvent.error(player);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/hết hạn/);

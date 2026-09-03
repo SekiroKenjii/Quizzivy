@@ -1,17 +1,24 @@
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { api } from "@/lib/api/client";
+import { fetchClasses } from "@/features/classes/api";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
 
 /**
  * The teacher's classes. Deliberately thin: it exists so the §6.4 panel is
  * reachable, and creating and editing classes is Phase 2 work.
  */
+const PAGE_SIZE = 20;
+
 export default function ClassesListPage() {
   const { t } = useTranslation();
+  const [page] = usePage();
   const classes = useQuery({
-    queryKey: ["admin-classes"],
-    queryFn: ({ signal }) => api("get", "/admin/classes", { signal }),
+    queryKey: ["admin-classes", { page }],
+    queryFn: ({ signal }) => fetchClasses({ page, limit: PAGE_SIZE }, signal),
+    placeholderData: keepPreviousData,
   });
 
   if (classes.isPending) {
@@ -33,7 +40,7 @@ export default function ClassesListPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold tracking-tight">{t("nav.classes")}</h1>
+      <PageHeader variant="title" title={t("nav.classes")} />
 
       {items.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("classes.empty")}</p>
@@ -54,6 +61,11 @@ export default function ClassesListPage() {
           ))}
         </ul>
       )}
+      <Pager
+        page={classes.data.page}
+        pageSize={classes.data.pageSize}
+        total={classes.data.total}
+      />
     </div>
   );
 }

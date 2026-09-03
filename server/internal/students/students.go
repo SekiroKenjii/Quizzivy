@@ -2,14 +2,13 @@ package students
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"quizzivy/internal/paging"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -20,8 +19,6 @@ const (
 	DefaultLimit = 20
 	MaxLimit     = 100
 )
-
-var ErrBadCursor = errors.New("students: malformed cursor")
 
 // ActiveWindow must stay the dashboard's window. Two meanings of "active" on
 // two screens is worse than one screen missing the number.
@@ -40,18 +37,13 @@ type Membership struct {
 // Kept off Student's own identity fields for the same reason they are kept off
 // the User schema: the login payload has no business carrying them.
 type Stats struct {
-	// SubmittedCount counts distinct ASSIGNMENTS, not attempts, so it describes
-	// the same set Score averages over.
 	SubmittedCount int
-	// ScoreEarned and ScoreTotal are nil together when nothing is graded yet,
-	// which is the screen's em dash. They are never zero-for-missing: an
-	// unsubmitted assignment is absent from both sums, not a nought in them.
-	ScoreEarned   *float64
-	ScoreTotal    *float64
-	PendingManual int
-	FlaggedCount  int
-	LiveAttempt   bool
-	LastAttemptAt *time.Time
+	ScoreEarned    *float64
+	ScoreTotal     *float64
+	PendingManual  int
+	FlaggedCount   int
+	LiveAttempt    bool
+	LastAttemptAt  *time.Time
 }
 
 // Student is §7's User narrowed to the role this listing returns, plus what
@@ -86,31 +78,16 @@ const (
 
 type ListInput struct {
 	// Status defaults to Active when empty.
-	Status Status
-	Query  string
-	// ClassID narrows to one class's roster, which is how the pickers ask "who
-	// is not in this class yet" by diffing against it.
+	Status  Status
+	Query   string
 	ClassID string
-	Cursor  string
+	Page    int
 	Limit   int
 }
 
 type Store struct{ pool *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
-
-func encodeCursor(id string) string { return base64.RawURLEncoding.EncodeToString([]byte(id)) }
-
-func decodeCursor(s string) (string, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return "", ErrBadCursor
-	}
-	if _, err := uuid.Parse(string(raw)); err != nil {
-		return "", ErrBadCursor
-	}
-	return string(raw), nil
-}
 
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
@@ -141,21 +118,6 @@ func statusCondition(status Status) string {
 // selectStudents is one statement for a whole page: the aggregates are lateral
 // subqueries over the page's rows, never a query per student. N+1 on a list
 // screen is §13.8's named default failure mode.
-//
-// The score is weighted -- sum(earned) over sum(total) -- across each
-// assignment's BEST graded attempt, which is the rule §7's maxAttempts implies
-// ("lấy điểm lượt cao nhất"). Three exclusions matter and none of them is a
-// zero:
-//
-//   - an assignment with no submission is absent from both sums, because
-//     "chưa nộp" and "—" are different facts and collapsing them understates
-//     every student who is simply not finished;
-//   - an attempt that is submitted but not yet GRADED is absent too, because
-//     attempt_answers.final_score is NULL while a short answer waits for a
-//     human and sum() skips NULLs -- summing early scores an unread essay as
-//     nought;
-//   - a voided attempt is absent, because voiding is an administrative erasure
-//     and counting it would be a silent grade change.
 const selectStudents = `
 		SELECT u.id::text, u.email, u.full_name,
 		       u.password_hash IS NOT NULL,
@@ -232,9 +194,6 @@ type rowScanner interface{ Scan(dest ...any) error }
 func scanStudent(row rowScanner) (Student, error) {
 	var student Student
 	var classes []byte
-	// submitted_count is the only aggregate that is never NULL; the rest are
-	// absent rather than zero when the student has done nothing, which is the
-	// difference the screen renders as an em dash.
 	var submitted *int
 	var pending *int
 	var flagged *int
@@ -257,8 +216,7 @@ func scanStudent(row rowScanner) (Student, error) {
 	student.Stats.FlaggedCount = deref(flagged)
 	student.Stats.LiveAttempt = live != nil && *live
 
-	// A total of zero would make the client divide by it. The pair is either
-	// both present and meaningful, or absent.
+	// A total of zero would make the client divide by it.
 	if student.Stats.ScoreTotal != nil && *student.Stats.ScoreTotal <= 0 {
 		student.Stats.ScoreEarned, student.Stats.ScoreTotal = nil, nil
 	}
@@ -278,16 +236,10 @@ func deref(v *int) int {
 // the same rule the question bank uses, and the one a Vietnamese-first product
 // needs. There is no trigram index behind it: §1.3 caps this table at tens of
 // rows, where an index would cost more to maintain than the scan it saves.
-func (s *Store) List(ctx context.Context, in ListInput) ([]Student, string, error) {
-	limit := in.Limit
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
-	}
+func (s *Store) List(ctx context.Context, in ListInput) ([]Student, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	args := []any{limit + 1}
+	var args []any
 	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
 
 	if in.Query != "" {
@@ -298,42 +250,35 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Student, string, erro
 		args = append(args, in.ClassID)
 		where = append(where, fmt.Sprintf(classCondition, len(args)))
 	}
-	if in.Cursor != "" {
-		id, err := decodeCursor(in.Cursor)
-		if err != nil {
-			return nil, "", err
-		}
-		args = append(args, id)
-		where = append(where, fmt.Sprintf(`u.id < $%d::uuid`, len(args)))
+	from := `
+		 WHERE ` + strings.Join(where, "\n		   AND ")
+
+	page := paging.Page{Number: number, Size: limit}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u`+from, args...).Scan(&page.Total); err != nil {
+		return nil, paging.Page{}, fmt.Errorf("students: count: %w", err)
 	}
 
-	rows, err := s.pool.Query(ctx, selectStudents+`
-		 WHERE `+strings.Join(where, "\n		   AND ")+`
+	args = append(args, limit, offset)
+	rows, err := s.pool.Query(ctx, selectStudents+from+fmt.Sprintf(`
 		 ORDER BY u.id DESC
-		 LIMIT $1`, args...)
+		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, "", fmt.Errorf("students: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("students: list: %w", err)
 	}
 	defer rows.Close()
 
-	var out []Student
+	out := make([]Student, 0, limit)
 	for rows.Next() {
 		student, err := scanStudent(rows)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		out = append(out, student)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, "", fmt.Errorf("students: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("students: list: %w", err)
 	}
-
-	next := ""
-	if len(out) > limit {
-		out = out[:limit]
-		next = encodeCursor(out[len(out)-1].ID)
-	}
-	return out, next, nil
+	return out, page, nil
 }
 
 var (
@@ -342,15 +287,6 @@ var (
 )
 
 // Get returns one student, disabled or not.
-//
-// Disabled included on purpose: the row carries disabledAt, and a detail screen
-// that cannot open a suspended account is a detail screen that cannot re-enable
-// one. Sign-in is blocked by the auth path, not by hiding the record here.
-//
-// Filtered to role 'student' on purpose, not merely because the screen is
-// called Students: every write path reaches the same rows, and without this an
-// admin's own id in the URL would let /admin/students disable the only teacher
-// or reset another admin's password.
 func (s *Store) Get(ctx context.Context, id string) (Student, error) {
 	return s.get(ctx, id, true)
 }

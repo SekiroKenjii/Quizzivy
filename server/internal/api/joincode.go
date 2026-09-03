@@ -148,13 +148,6 @@ func toAPIClass(c join.EnrolledClass) openapi.Class {
 }
 
 // JoinClass implements POST /app/classes/join (§6.2).
-//
-// The already-signed-in half of the join flow: a student who follows
-// /join/:code while logged in skips the account-creation branch entirely.
-// Idempotent when they are already a member -- a deep link gets followed twice,
-// and the second time is a success, not an error. Crucially the repeat does NOT
-// consume a use, or a student could burn their own class's code by tapping
-// twice.
 func (s *Server) JoinClass(ctx context.Context, request openapi.JoinClassRequestObject) (openapi.JoinClassResponseObject, error) {
 	if s.Deps.Join == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented

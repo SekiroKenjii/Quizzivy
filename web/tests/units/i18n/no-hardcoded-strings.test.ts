@@ -2,18 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-/**
- * The half of §14 that `react/jsx-no-literals` cannot cover.
- *
- * That rule checks JSX text children. It is configured with `ignoreProps`,
- * because checking every attribute would flag `className`, `id` and `type` and
- * be unusable. But some attributes ARE user-facing — an `aria-label` is what a
- * screen-reader user hears, and a `placeholder` is read as ordinary copy. An
- * English one of those in front of a Vietnamese student is exactly what
- * AGENTS.md forbids.
- *
- * So this checks precisely the attributes that carry human-readable text.
- */
+/** The half of §14 that `react/jsx-no-literals` cannot cover. */
 
 const SRC = resolve(import.meta.dirname, "../../../src");
 const USER_FACING_ATTRS = [

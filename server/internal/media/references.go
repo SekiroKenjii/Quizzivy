@@ -32,17 +32,6 @@ func CountReferences(ctx context.Context, q Querier, assetID string) (int, error
 // LockForVersionUse takes the row lock that makes the delete check meaningful,
 // and must be called by the publish routine before inserting a version question
 // that names the asset.
-//
-// SoftDelete locks the asset row and then counts version references, but a
-// FOR UPDATE on app.media_assets does not block an INSERT into
-// test_version_questions. Without both sides contending on the same row, a
-// publish can claim the asset between the count and the update, leaving a
-// published version pointing at a soft-deleted asset -- the state the 409
-// exists to prevent. The composite foreign key does not cover it either: its
-// RESTRICT fires on a real DELETE, and this is a soft one.
-//
-// Returns ErrNotFound if the asset is gone or already deleted, so a publish
-// cannot freeze a reference to a deleted asset either.
 func LockForVersionUse(ctx context.Context, q Querier, assetID string) error {
 	var deleted bool
 	err := q.QueryRow(ctx,
@@ -63,15 +52,6 @@ func LockForVersionUse(ctx context.Context, q Querier, assetID string) error {
 // ReachableByStudent reports whether a student may mint a signed URL for an
 // asset, true only when it is used by a question in a version they have an
 // attempt on.
-//
-// Reachability is derived from the student's OWN attempts, never from a
-// parameter the caller supplies: the asset id arrives from the client, so
-// authorising it against anything else would let one student read another
-// class's listening files by guessing (§11.2).
-//
-// A voided attempt still counts. The recording was legitimately part of a test
-// that student sat, and the result screen can still show it; voiding is about
-// the score, not about access.
 func ReachableByStudent(ctx context.Context, q Querier, studentID, assetID string) (bool, error) {
 	var reachable bool
 	err := q.QueryRow(ctx, `

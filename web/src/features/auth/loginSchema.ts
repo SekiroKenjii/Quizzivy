@@ -1,16 +1,7 @@
 import { z } from "zod";
 import type { paths } from "@/lib/api/schema";
 
-/**
- * Form input validation for §5.1's sign-in.
- *
- * Hand-written rather than generated, which is the arrangement AGENTS.md
- * describes: the generated types say what the API accepts, and this says what
- * the FORM accepts, which is not the same thing -- a form needs localised
- * messages and a "required" that fires before anything is sent.
- *
- * The type-level assertion below is what stops the two drifting.
- */
+/** Form input validation for §5.1's sign-in. */
 export const loginSchema = z.object({
   email: z
     .string()

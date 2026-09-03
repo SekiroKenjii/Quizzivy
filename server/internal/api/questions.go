@@ -30,18 +30,14 @@ func (s *Server) ListQuestions(ctx context.Context, request openapi.ListQuestion
 	if request.Params.Q != nil {
 		in.Query = string(*request.Params.Q)
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = string(*request.Params.Cursor)
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, next, err := s.Deps.Questions.List(ctx, in)
-	if errors.Is(err, questions.ErrBadCursor) {
-		return openapi.ListQuestions400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			authError(ctx, openapi.VALIDATIONFAILED, "Con trỏ phân trang không hợp lệ."))}, nil
-	}
+	found, page, err := s.Deps.Questions.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +52,7 @@ func (s *Server) ListQuestions(ctx context.Context, request openapi.ListQuestion
 		return nil, err
 	}
 
-	total, filtered, err := s.Deps.Questions.Counts(ctx, in)
+	bankTotal, _, err := s.Deps.Questions.Counts(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -71,18 +67,17 @@ func (s *Server) ListQuestions(ctx context.Context, request openapi.ListQuestion
 			FillBlank:      facets.ByType[questions.FillBlank],
 			ShortAnswer:    facets.ByType[questions.ShortAnswer],
 		},
-		Tags:     tagList,
-		Total:    total,
-		Filtered: filtered,
+		Tags:      tagList,
+		BankTotal: bankTotal,
+		Page:      page.Number,
+		PageSize:  page.Size,
+		Total:     page.Total,
 	}
 	for i, q := range found {
 		out.Items[i], err = s.toAPIQuestion(ctx, q)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if next != "" {
-		out.NextCursor = &next
 	}
 	return out, nil
 }

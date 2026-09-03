@@ -9,13 +9,6 @@ import (
 
 // TestLimitsMatchTheContract pins §11.1's two numbers against the embedded
 // spec.
-//
-// They are written out in four places -- here, the contract, the migration's
-// CHECK, and the web client -- because none of the four can derive them from
-// another. Drift in the direction someone would naturally take, raising the
-// user-facing check first, means the upload runs, the object lands in R2, and
-// the INSERT fails on the CHECK: the expensive work happens and then the write
-// is refused, which is the shape of #15.
 func TestLimitsMatchTheContract(t *testing.T) {
 	spec, err := gen.GetSpec()
 	if err != nil {

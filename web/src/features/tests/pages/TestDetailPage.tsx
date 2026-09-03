@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { Link, useParams } from "react-router";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,18 +9,14 @@ import { getTest, listVersions, previewTest } from "@/features/tests/api";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * §8's test detail: what a student would receive, and the history of what they
  * have received before.
- *
- * The preview reads `/preview`, which renders the PUBLISHED version rather than
- * the draft — so a teacher checking a live test sees the live test, not the
- * edits they made this morning and have not published.
  */
 export default function TestDetailPage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const { id = "" } = useParams();
   const locale = currentLocale(i18n.language);
 
@@ -63,26 +58,23 @@ export default function TestDetailPage() {
     preview.error instanceof ApiError && preview.error.code === "TEST_NOT_PUBLISHED";
 
   return (
-    <div className="-m-6">
-      <div className="flex h-14 items-center gap-3 border-b px-4">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("common.back")}
-          onClick={() => void navigate("/admin/tests")}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <h1 className="truncate text-sm font-medium">{test.data.title}</h1>
-        <Badge variant={test.data.status === "published" ? "success" : "secondary"}>
-          {t(`builder.${test.data.status}`)}
-        </Badge>
-        <Button asChild size="sm" variant="outline" className="ml-auto">
-          <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        title={test.data.title}
+        backTo="/admin/tests"
+        meta={
+          <Badge variant={test.data.status === "published" ? "success" : "secondary"}>
+            {t(`builder.${test.data.status}`)}
+          </Badge>
+        }
+        actions={
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
+          </Button>
+        }
+      />
 
-      <div className="grid gap-5 p-6 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <div>
             <h2 className="text-[0.9375rem] font-semibold tracking-[-0.01em]">
@@ -130,45 +122,58 @@ export default function TestDetailPage() {
               </h2>
             </div>
             <div className="px-5 pb-4">
-              {versions.isPending ? (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="text-muted-foreground text-sm"
-                >
-                  {t("common.loading")}
-                </p>
-              ) : versions.isError ? (
-                <p role="alert" className="text-destructive text-sm">
-                  {t("tests.loadFailed")}
-                </p>
-              ) : versions.data.items.length === 0 ? (
-                <p className="text-muted-foreground text-sm">{t("tests.noVersions")}</p>
-              ) : (
-                <ol className="space-y-3">
-                  {versions.data.items.map((version) => (
-                    <li key={version.id} className="text-sm">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-medium tabular-nums">
-                          {t("tests.versionNumber", { n: version.version })}
-                        </span>
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {version.questionCount} · {version.totalPoints}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground text-xs">
-                        {formatDateTime(version.publishedAt, locale)} ·{" "}
-                        {version.publishedBy}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              )}
+              <VersionHistory query={versions} locale={locale} />
             </div>
           </section>
         </Card>
       </div>
-    </div>
+    </>
+  );
+}
+
+function VersionHistory({
+  query,
+  locale,
+}: {
+  query: UseQueryResult<Awaited<ReturnType<typeof listVersions>>>;
+  locale: Locale;
+}) {
+  const { t } = useTranslation();
+  if (query.isPending) {
+    return (
+      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+        {t("common.loading")}
+      </p>
+    );
+  }
+  if (query.isError) {
+    return (
+      <p role="alert" className="text-destructive text-sm">
+        {t("tests.loadFailed")}
+      </p>
+    );
+  }
+  if (query.data.items.length === 0) {
+    return <p className="text-muted-foreground text-sm">{t("tests.noVersions")}</p>;
+  }
+  return (
+    <ol className="space-y-3">
+      {query.data.items.map((version) => (
+        <li key={version.id} className="text-sm">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="font-medium tabular-nums">
+              {t("tests.versionNumber", { n: version.version })}
+            </span>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {version.questionCount} · {version.totalPoints}
+            </span>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {formatDateTime(version.publishedAt, locale)} · {version.publishedBy}
+          </p>
+        </li>
+      ))}
+    </ol>
   );
 }
 

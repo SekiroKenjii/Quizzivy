@@ -15,10 +15,6 @@ import { MAX_BYTES, MAX_DURATION_MS } from "@/features/media/limits";
  * Structural invariants of api/openapi.yaml. Ported from api/contract_check.py,
  * which existed only because the web project did not yet — that file is now
  * deleted (T-0.7 said it would be).
- *
- * The helpers these use are unit-tested at the bottom of this file against
- * synthetic documents, so the checks are demonstrably capable of failing rather
- * than merely green.
  */
 
 const doc = loadSpec();
@@ -115,17 +111,17 @@ describe("conventions", () => {
     expect(dupes).toEqual([]);
   });
 
-  it("uses one {items, nextCursor} envelope on every paginated list", () => {
+  it("uses one {items, page, pageSize, total} envelope on every paginated list", () => {
     const bad: string[] = [];
     for (const { path, method, op } of ops) {
       const params: Json[] = op.parameters ?? [];
       const paginated = params.some(
-        (p) => p?.$ref?.endsWith("/Cursor") || p?.name === "cursor",
+        (p) => p?.$ref?.endsWith("/Page") || p?.name === "page",
       );
       if (!paginated) continue;
       const names = propertyNames(doc, jsonResponseSchema(op, 200));
-      if (!names.has("items") || !names.has("nextCursor")) {
-        bad.push(`${method.toUpperCase()} ${path}`);
+      for (const key of ["items", "page", "pageSize", "total"]) {
+        if (!names.has(key)) bad.push(`${method.toUpperCase()} ${path} lacks ${key}`);
       }
     }
     expect(bad).toEqual([]);
@@ -198,17 +194,6 @@ describe("the checkers themselves", () => {
 });
 
 describe("§11.1's upload limits agree across the layers", () => {
-  // The contract carries the numbers, but openapi-typescript cannot express a
-  // JSON-Schema `maximum` as a TypeScript type, so schema.d.ts does not carry
-  // them and limits.ts genuinely has to restate them. That is what makes this
-  // pin necessary rather than redundant.
-  //
-  // Drift in either direction costs something. Raise the server without the
-  // client and the widget refuses a file the server would accept. Raise the
-  // client without the database -- the likelier order, since the user-facing
-  // check is the one someone edits first -- and the upload runs, the object
-  // lands in R2, and the INSERT fails on the CHECK: expensive work, then a
-  // refusal, which is the shape of #15.
   const asset = resolveRef(doc, "#/components/schemas/MediaAsset") as Record<
     string,
     Json

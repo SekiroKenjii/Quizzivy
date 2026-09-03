@@ -9,7 +9,9 @@ import { authStore } from "@/stores/auth";
  * The interesting part is refresh. See `refreshSession` below.
  */
 
-const BASE_URL: string =
+// Exported for the one caller that cannot go through `api()`: the pagehide
+// beacon, which is a navigator.sendBeacon and not a fetch (D-03).
+export const BASE_URL: string =
   import.meta.env["VITE_API_BASE_URL"] ?? "http://localhost:8080";
 
 // ---------------------------------------------------------------- typing
@@ -67,34 +69,34 @@ export type RequestOptions<O> = Optional<"path", PathParamsOf<O>> &
 
 // ------------------------------------------------------------ url building
 
+function fillPath(path: string, params?: Record<string, unknown>): string {
+  if (!params) return path;
+  let resolved = path;
+  for (const [key, value] of Object.entries(params)) {
+    resolved = resolved.replace(`{${key}}`, encodeURIComponent(String(value)));
+  }
+  return resolved;
+}
+
+// A repeated key per element is what OpenAPI's `style: form, explode: true`
+// means and what the Go binder reads; String(array) would send "a,b" as one.
+function appendValue(url: URL, key: string, value: unknown): void {
+  if (value === undefined || value === null) return;
+  if (Array.isArray(value)) {
+    for (const item of value) appendValue(url, key, item);
+    return;
+  }
+  url.searchParams.append(key, String(value));
+}
+
 function buildUrl(
   path: string,
   pathParams?: Record<string, unknown>,
   query?: Record<string, unknown>,
 ): string {
-  let resolved = path;
-  if (pathParams) {
-    for (const [key, value] of Object.entries(pathParams)) {
-      resolved = resolved.replace(`{${key}}`, encodeURIComponent(String(value)));
-    }
-  }
-  const url = new URL(BASE_URL + resolved);
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      if (value === undefined || value === null) continue;
-      // Repeated key per element, which is what OpenAPI's `style: form,
-      // explode: true` means and what the Go binder reads. String(array) would
-      // send "a,b" as one value, and the server would look for a question type
-      // literally called "a,b".
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          if (item === undefined || item === null) continue;
-          url.searchParams.append(key, String(item));
-        }
-        continue;
-      }
-      url.searchParams.set(key, String(value));
-    }
+  const url = new URL(BASE_URL + fillPath(path, pathParams));
+  for (const [key, value] of Object.entries(query ?? {})) {
+    appendValue(url, key, value);
   }
   return url.toString();
 }
@@ -139,19 +141,7 @@ async function performRefresh(): Promise<boolean> {
   return true;
 }
 
-/**
- * **Single-flight.** Concurrent callers share one in-flight request.
- *
- * This is not an optimisation, it is a correctness requirement. §5.2 holds the
- * access token in memory only, so a cold page load has none; TanStack Query
- * mounts several queries at once; every one of them 401s. Without this, each
- * would POST /auth/refresh with the same cookie value. The first rotates it,
- * and the rest present an already-rotated token — which §5.2's reuse detection
- * correctly treats as theft, revoking the whole family and logging the user out.
- *
- * The symptom is "the app signs me out every time I refresh the page", and the
- * cause is invisible in any single request. `docs/plan/30-risks.md` R-06.
- */
+/** **Single-flight.** Concurrent callers share one in-flight request. */
 function refreshSession(): Promise<boolean> {
   inFlightRefresh ??= performRefresh()
     .catch(() => false)
@@ -230,11 +220,6 @@ export interface UploadOptions {
 /**
  * Uploads one file as multipart/form-data, sharing this module's token and
  * single-flight refresh.
- *
- * XMLHttpRequest rather than fetch, for the one thing fetch cannot do: report
- * how much of the body has been sent. §11.1 allows 10 MB, which is long enough
- * on a phone that a progress bar is the difference between "working" and
- * "broken".
  */
 export async function uploadFile<T>(
   path: string,

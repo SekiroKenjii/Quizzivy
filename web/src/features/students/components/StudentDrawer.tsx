@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { PageAside } from "@/components/shared/PageAside";
 import { TemporaryPasswordCard } from "@/features/students/components/TemporaryPasswordCard";
 import {
   resetStudentPassword,
@@ -19,15 +20,7 @@ import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 
-/**
- * G-07's detail panel.
- *
- * An inline aside, not a modal sheet: the deck's markup has no overlay and
- * keeps the selected row visible and highlighted, and its callout says why —
- * "the teacher's task is nearly always 'look something up about this student
- * while doing something else'". A modal takes the table away, which is the one
- * thing the panel exists not to do.
- */
+/** G-07's detail panel. */
 export function StudentDrawer({
   student,
   onClose,
@@ -41,8 +34,7 @@ export function StudentDrawer({
   const [error, setError] = useState<string | null>(null);
   const locale = currentLocale(i18n.language);
 
-  // Escape closes it. This is the one thing a modal would have given for free,
-  // and it is cheaper than the overlay and scroll lock that come with one.
+  // Escape closes it.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -90,10 +82,7 @@ export function StudentDrawer({
   const googleOnly = !student.hasPassword && student.linkedProviders.includes("google");
 
   return (
-    <aside
-      aria-label={t("students.detailFor", { name: student.fullName })}
-      className="w-96 shrink-0 space-y-5 overflow-y-auto border-l p-5"
-    >
+    <PageAside label={t("students.detailFor", { name: student.fullName })}>
       <div className="flex items-start gap-3">
         <Avatar size="lg" name={student.fullName} />
         <div className="min-w-0 flex-1">
@@ -227,7 +216,7 @@ export function StudentDrawer({
           {student.disabledAt ? t("students.enable") : t("students.disable")}
         </Button>
       </div>
-    </aside>
+    </PageAside>
   );
 }
 

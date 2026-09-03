@@ -26,8 +26,6 @@ func (s *Server) StartOrResumeAttempt(ctx context.Context, request openapi.Start
 	switch {
 	case errors.Is(err, attempts.ErrForbidden), errors.Is(err, attempts.ErrNotFound):
 		// One answer for "not yours", "no such assignment" and "still a draft".
-		// Which assignments exist is not a student's to enumerate, and a
-		// distinct 404 would enumerate them.
 		return openapi.StartOrResumeAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
 				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền làm bài này.")),
@@ -166,9 +164,6 @@ func (s *Server) toAPIStudentQuestion(ctx context.Context, studentID string, q a
 		return out, nil
 	}
 
-	// Minted per response rather than stored: the URL expires, and one cached
-	// alongside the row would hand a student a dead player halfway through a
-	// listening question (§11.2).
 	signed, err := s.Deps.Media.MintForStudent(ctx, studentID, q.Media.ID)
 	if err != nil {
 		return openapi.StudentQuestion{}, fmt.Errorf("sign attempt media: %w", err)
@@ -199,4 +194,251 @@ func toAPIAnswers(stored map[string][]byte) (map[string]openapi.Answer, error) {
 		out[questionID] = answer
 	}
 	return out, nil
+}
+
+// SaveAnswers is §9's autosave: answers and the events that accompanied them,
+// in one call and one transaction.
+func (s *Server) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRequestObject) (openapi.SaveAnswersResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	in := attempts.SaveInput{
+		AttemptID: request.Id.String(),
+		StudentID: principal.UserID,
+		SessionID: request.Body.SessionId.String(),
+	}
+	var err error
+	if in.Answers, err = toDomainAnswers(request.Body.Answers); err != nil {
+		return nil, err
+	}
+	if in.Events, err = toDomainEvents(request.Body.Events); err != nil {
+		return nil, err
+	}
+
+	saved, err := s.Deps.Attempts.Save(ctx, in)
+	switch {
+	case errors.Is(err, attempts.ErrForbidden):
+		return openapi.SaveAnswers403JSONResponse{
+			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền ghi vào bài làm này.")),
+		}, nil
+	case errors.Is(err, attempts.ErrSessionSuperseded):
+		return openapi.SaveAnswers409JSONResponse(authError(ctx, openapi.SESSIONSUPERSEDED,
+			"Bài làm này đã được mở ở nơi khác.")), nil
+	case errors.Is(err, attempts.ErrDeadlinePassed):
+		return openapi.SaveAnswers409JSONResponse(authError(ctx, openapi.DEADLINEPASSED,
+			"Đã hết giờ làm bài.")), nil
+	case errors.Is(err, attempts.ErrAttemptClosed):
+		return openapi.SaveAnswers409JSONResponse(authError(ctx, openapi.ATTEMPTCLOSED,
+			"Bài làm này đã kết thúc.")), nil
+	case err != nil:
+		return nil, err
+	}
+
+	// The 200 the client gets is the same either way, so this is the only trace.
+	if len(saved.Dropped) > 0 {
+		logOf(s).WarnContext(ctx, "autosave dropped answers not on the paper",
+			"attempt_id", in.AttemptID,
+			"session_id", in.SessionID,
+			"student_id", principal.UserID,
+			"dropped_question_ids", saved.Dropped,
+			"saved", saved.Saved,
+			"submitted", len(in.Answers))
+	}
+
+	return openapi.SaveAnswers200JSONResponse{
+		ServerTime: saved.SavedAt,
+		SavedAt:    saved.SavedAt,
+	}, nil
+}
+
+// toDomainAnswers re-encodes each answer through the generated union, so a
+// payload that does not match the contract is refused here rather than stored
+// and discovered at grading.
+func toDomainAnswers(in *map[string]openapi.Answer) ([]attempts.Answer, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]attempts.Answer, 0, len(*in))
+	for questionID, answer := range *in {
+		payload, err := json.Marshal(answer)
+		if err != nil {
+			return nil, fmt.Errorf("encode answer for %s: %w", questionID, err)
+		}
+		out = append(out, attempts.Answer{QuestionID: questionID, Payload: payload})
+	}
+	return out, nil
+}
+
+func toDomainEvents(in *[]openapi.IntegrityEventInput) ([]attempts.Event, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]attempts.Event, len(*in))
+	for i, e := range *in {
+		out[i] = attempts.Event{
+			Kind:       e.Kind,
+			OccurredAt: e.OccurredAt,
+			ClientSeq:  e.ClientSeq,
+		}
+		if e.QuestionId != nil {
+			id := e.QuestionId.String()
+			out[i].QuestionID = &id
+		}
+		if e.Meta != nil {
+			meta, err := json.Marshal(e.Meta)
+			if err != nil {
+				return nil, fmt.Errorf("encode event meta: %w", err)
+			}
+			out[i].Meta = meta
+		}
+	}
+	return out, nil
+}
+
+// RecordAudioPlay increments the server-authoritative counter (§11.4).
+//
+// It never refuses a play on count. The client plays first and posts after, so
+// a failure here costs a number rather than the audio, and a limit enforced
+// over a round trip would punish bad wifi far more often than it would catch
+// anyone.
+func (s *Server) RecordAudioPlay(ctx context.Context, request openapi.RecordAudioPlayRequestObject) (openapi.RecordAudioPlayResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	plays, err := s.Deps.Attempts.RecordPlay(ctx,
+		request.Id.String(), principal.UserID, request.Body.QuestionId.String())
+	if errors.Is(err, attempts.ErrForbidden) {
+		return openapi.RecordAudioPlay403JSONResponse{
+			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền nghe câu hỏi này.")),
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return openapi.RecordAudioPlay200JSONResponse{
+		Plays:    plays.Plays,
+		MaxPlays: plays.MaxPlays,
+	}, nil
+}
+
+// beaconFlush is the text/plain body, which the contract types only as a
+// string because navigator.sendBeacon has nowhere else to put a credential.
+//
+// text/plain is CORS-safelisted, so the request skips preflight. That matters
+// specifically on unload: a preflight fired from `pagehide` is not reliably
+// delivered, and an event log that loses the last thing that happened loses the
+// part the teacher most wants (§10.6, D-03).
+type beaconFlush struct {
+	BeaconToken string                        `json:"beaconToken"`
+	SessionID   openapi.Uuid                  `json:"sessionId"`
+	Events      []openapi.IntegrityEventInput `json:"events"`
+}
+
+// FlushEvents accepts the ordinary authenticated flush and the beacon one.
+//
+// Always 202, whatever happened, unless the credential is bad. §10.6 makes this
+// fire-and-forget: the client cannot act on the outcome, and a flush that
+// blocks answering or submitting is worse than a flush that silently did
+// nothing.
+func (s *Server) FlushEvents(ctx context.Context, request openapi.FlushEventsRequestObject) (openapi.FlushEventsResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	in := attempts.FlushInput{AttemptID: request.Id.String()}
+	switch {
+	case request.JSONBody != nil:
+		principal, ok := httpx.PrincipalFromContext(ctx)
+		if !ok {
+			return forbiddenFlush(ctx), nil
+		}
+		in.StudentID = principal.UserID
+		in.SessionID = request.JSONBody.SessionId.String()
+		events, err := toDomainEvents(&request.JSONBody.Events)
+		if err != nil {
+			return nil, err
+		}
+		in.Events = events
+
+	case request.TextBody != nil:
+		var body beaconFlush
+		if err := json.Unmarshal([]byte(*request.TextBody), &body); err != nil {
+			// Unparseable is refused rather than 202'd.
+			return forbiddenFlush(ctx), nil
+		}
+		in.BeaconToken = body.BeaconToken
+		in.SessionID = body.SessionID.String()
+		events, err := toDomainEvents(&body.Events)
+		if err != nil {
+			return nil, err
+		}
+		in.Events = events
+
+	default:
+		return forbiddenFlush(ctx), nil
+	}
+
+	err := s.Deps.Attempts.Flush(ctx, in)
+	if errors.Is(err, attempts.ErrForbidden) || errors.Is(err, attempts.ErrBeaconExpired) {
+		return forbiddenFlush(ctx), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return openapi.FlushEvents202Response{}, nil
+}
+
+func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {
+	return openapi.FlushEvents403JSONResponse{
+		ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+			authError(ctx, openapi.FORBIDDEN, "Không ghi được nhật ký cho bài làm này.")),
+	}
+}
+
+// SubmitAttempt closes an attempt and grades everything a machine can.
+//
+// `sessionId` is accepted and not checked. The contract gives this operation no
+// SESSION_SUPERSEDED, and rightly: a student on the tab that lost the race is
+// still the student, and refusing their submit would strand finished work
+// behind a technicality about which tab it came from.
+func (s *Server) SubmitAttempt(ctx context.Context, request openapi.SubmitAttemptRequestObject) (openapi.SubmitAttemptResponseObject, error) {
+	if s.Deps.Attempts == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	reason := attempts.Manual
+	if request.Body != nil && request.Body.Reason != nil {
+		reason = attempts.Reason(*request.Body.Reason)
+	}
+
+	closed, err := s.Deps.Attempts.Submit(ctx, request.Id.String(), principal.UserID, reason)
+	switch {
+	case errors.Is(err, attempts.ErrForbidden):
+		return openapi.SubmitAttempt403JSONResponse{
+			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
+				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền nộp bài làm này.")),
+		}, nil
+	case errors.Is(err, attempts.ErrAttemptClosed):
+		return openapi.SubmitAttempt409JSONResponse(authError(ctx, openapi.ATTEMPTCLOSED,
+			"Bài làm này đã được nộp.")), nil
+	case err != nil:
+		return nil, err
+	}
+	return openapi.SubmitAttempt200JSONResponse(toAPIAttempt(closed)), nil
 }

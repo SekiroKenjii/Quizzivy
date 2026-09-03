@@ -5,15 +5,6 @@ import { cn } from "@/lib/utils";
 /**
  * The brand kit on screen. Files are Thuong's, served from `public/brand/`
  * verbatim — never redrawn, recoloured, or re-lettered here.
- *
- * `<img>` rather than inline SVG for two reasons. Each variant is ~37 kB of
- * path data because the wordmark is Quicksand converted to outlines, and every
- * variant carries its own fixed colours, so there is nothing for `currentColor`
- * to do. Inlining would put all of that in the JS bundle to gain styling hooks
- * the kit forbids using.
- *
- * Width and height are always set from the kit's own viewBox, so the aspect
- * ratio cannot drift and the image reserves its box before it loads.
  */
 
 // From docs/design/brand/svg/. The kit's B-05 sets these floors: below them a
@@ -39,15 +30,9 @@ type Art = keyof typeof ART;
 function box(art: Art, height: number) {
   const { ratio, floor } = ART[art];
   const width = Math.round(height * ratio);
-  // The floor is on width for the lockups and on height for the mark, which is
-  // how the kit states them: a lockup runs out of room sideways, a mark
-  // vertically.
   const measured = art === "mark" ? height : width;
   if (import.meta.env.DEV && measured < floor) {
-    // A warning, never a throw. The first version of this threw, and a 2px
-    // breach of a decorative recommendation took down a whole page behind the
-    // error boundary -- a far worse outcome than a slightly small logo. The
-    // floor is about legibility; nothing downstream depends on it.
+    // A warning, never a throw.
     console.warn(
       `Brand: ${art} at height ${height} measures ${measured}px, under the kit's ${floor}px floor (B-05). ` +
         `Below a lockup's floor, switch to <BrandMark> rather than scaling the lockup down.`,
@@ -85,15 +70,7 @@ export function BrandLockup({
   );
 }
 
-/**
- * The mark alone, beside the app's own wordmark as ordinary text.
- *
- * This is what B-04 prescribes wherever the lockup would fall under its floor —
- * the student top bar at 390px, where the lockup fits only 104px. The text is
- * Inter and deliberately so: the kit's lettering is Quicksand, and the rule is
- * that the two are never mixed. Type "Quizzivy" here and it is the product's
- * name in the product's typeface; reach for the logo and it is the file.
- */
+/** The mark alone, beside the app's own wordmark as ordinary text. */
 export function BrandMark({
   height = 22,
   className,

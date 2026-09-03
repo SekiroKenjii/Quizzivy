@@ -20,9 +20,9 @@ import {
   listAssignments,
   type Assignment,
 } from "@/features/dashboard/api";
-import { fetchClasses } from "@/features/classes/api";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/i18n/datetime";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * §8's /admin, as A-01: a work queue rather than a wall of statistics.
@@ -35,7 +35,7 @@ export default function AdminDashboardPage() {
   const { t, i18n } = useTranslation();
   const locale = currentLocale(i18n.language);
 
-  const [summary, open, classes] = useQueries({
+  const [summary, open] = useQueries({
     queries: [
       {
         queryKey: ["admin-dashboard"],
@@ -45,38 +45,32 @@ export default function AdminDashboardPage() {
         queryKey: ["admin-assignments", "open"],
         queryFn: ({ signal }: Q) => listAssignments({ limit: 10 }, signal),
       },
-      { queryKey: ["admin-classes"], queryFn: ({ signal }: Q) => fetchClasses(signal) },
     ],
   });
 
-  const classNames = new Map(
-    (classes.data?.items ?? []).map((klass) => [klass.id, klass.name]),
-  );
-
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("nav.dashboard")}</h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {formatDateTime(new Date(), locale)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/admin/tests">
-              <Plus aria-hidden="true" />
-              {t("tests.new")}
-            </Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link to="/admin/assignments">
-              <Send aria-hidden="true" />
-              {t("dashboard.assign")}
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        variant="title"
+        title={t("nav.dashboard")}
+        subtitle={formatDateTime(new Date(), locale)}
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/tests">
+                <Plus aria-hidden="true" />
+                {t("tests.new")}
+              </Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/admin/assignments">
+                <Send aria-hidden="true" />
+                {t("dashboard.assign")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       <section aria-labelledby="queue-heading">
         <h2
@@ -175,7 +169,6 @@ export default function AdminDashboardPage() {
                     <AssignmentRow
                       key={assignment.id}
                       assignment={assignment}
-                      classNames={classNames}
                       locale={locale}
                     />
                   ))}
@@ -269,11 +262,9 @@ function QueueCard({
 
 function AssignmentRow({
   assignment,
-  classNames,
   locale,
 }: {
   assignment: Assignment;
-  classNames: Map<string, string>;
   locale: Locale;
 }) {
   const { t } = useTranslation();
@@ -286,9 +277,8 @@ function AssignmentRow({
     <TableRow>
       <TableCell className="font-medium">{assignment.testTitle}</TableCell>
       <TableCell className="text-muted-foreground">
-        {assignment.targets.classIds
-          .map((id) => classNames.get(id) ?? "—")
-          .join(", ") || t("dashboard.byStudent")}
+        {assignment.targets.classes.map((klass) => klass.name).join(", ") ||
+          t("dashboard.byStudent")}
       </TableCell>
       <TableCell className="text-muted-foreground whitespace-nowrap">
         {formatDateTime(assignment.window.closesAt, locale)}
@@ -310,9 +300,7 @@ function AssignmentRow({
           </span>
         </div>
       </TableCell>
-      {/* Its own right-aligned column, as A-01 draws it. Folded into the
-        progress cell it widened that column enough to push the table into a
-        horizontal scrollbar at 1440px. */}
+      {/* Its own right-aligned column, as A-01 draws it. */}
       <TableCell className="text-right">
         <Badge variant={status === "open" ? "warning" : "outline"}>
           {t(`dashboard.assignmentStatus.${status}`)}

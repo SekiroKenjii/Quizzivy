@@ -40,11 +40,6 @@ export class ApiError extends Error {
 /**
  * The per-field reasons behind a validation failure, if the response carried
  * any.
- *
- * `message` is the envelope's summary -- "Dữ liệu bài giao không hợp lệ." --
- * which names no field, so a form that renders only it leaves the user to guess
- * which of a dozen inputs the server objected to. The server already wrote the
- * specific sentences; this is how they reach the screen.
  */
 export function fieldMessages(cause: unknown): string[] {
   if (!(cause instanceof ApiError) || !cause.details) return [];

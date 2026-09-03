@@ -176,7 +176,7 @@ func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 	}
 }
 
-func TestThePageStopsAtTheLimitAndResumesFromTheCursor(t *testing.T) {
+func TestThePageStopsAtTheLimitAndTheNextPageFollowsWithoutOverlap(t *testing.T) {
 	pool := newPool(t)
 	store := students.NewStore(pool)
 	ctx := context.Background()
@@ -186,28 +186,22 @@ func TestThePageStopsAtTheLimitAndResumesFromTheCursor(t *testing.T) {
 		makeStudent(t, pool, "Phân Trang "+tag)
 	}
 
-	first, next, err := store.List(ctx, students.ListInput{Query: tag, Limit: 2})
+	first, page, err := store.List(ctx, students.ListInput{Query: tag, Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(first) != 2 {
-		t.Fatalf("first page = %d, want 2", len(first))
-	}
-	if next == "" {
-		t.Fatal("no cursor with a third row waiting")
+	if len(first) != 2 || page.Total != 3 || page.Number != 1 || page.Size != 2 {
+		t.Fatalf("first page = %d rows, %+v; want 2 of 3", len(first), page)
 	}
 
-	second, last, err := store.List(ctx, students.ListInput{Query: tag, Limit: 2, Cursor: next})
+	second, page, err := store.List(ctx, students.ListInput{Query: tag, Limit: 2, Page: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(second) != 1 {
-		t.Fatalf("second page = %d, want 1", len(second))
+	if len(second) != 1 || page.Total != 3 {
+		t.Fatalf("second page = %d rows, %+v; want the third", len(second), page)
 	}
-	if last != "" {
-		t.Errorf("cursor = %q on the final page", last)
-	}
-	// Keyset, not offset: the pages must not overlap.
+	// OFFSET over a stable order (id DESC): the pages must not overlap.
 	for _, s := range second {
 		if ids(first)[s.ID] {
 			t.Errorf("%s appeared on both pages", s.FullName)

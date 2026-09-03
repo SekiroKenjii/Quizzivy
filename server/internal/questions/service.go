@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"quizzivy/internal/paging"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -95,7 +96,7 @@ func (s *Service) GetIncludingDeleted(ctx context.Context, id string) (Question,
 	return s.store.GetIncludingDeleted(ctx, id)
 }
 
-func (s *Service) List(ctx context.Context, in ListInput) ([]Question, string, error) {
+func (s *Service) List(ctx context.Context, in ListInput) ([]Question, paging.Page, error) {
 	return s.store.List(ctx, in)
 }
 

@@ -11,15 +11,6 @@ import (
 
 // AssertPublicRoutesLimited cross-references the contract against the limiter
 // registry and reports any unauthenticated operation with no policy.
-//
-// §14 requires every public endpoint to be rate-limited, and §6.5 explains why:
-// these are the only endpoints reachable without a session, and one of them
-// takes a bearer secret. A checklist in a PR template is a promise; this is a
-// process that refuses to start.
-//
-// The source of truth is api/openapi.yaml, embedded in the generated code, so
-// adding a public operation to the contract is what triggers the requirement --
-// nobody has to remember.
 func AssertPublicRoutesLimited(spec *openapi3.T, reg *ratelimit.Registry) error {
 	var missing []string
 

@@ -401,15 +401,28 @@ phase that carries the most.
 **Touches:** `web/tests/e2e/`
 **Size:** M
 **Done when:**
-- [ ] **E2E 5** — timer expiry auto-submits
-- [ ] **E2E 6** — tab switch fires `tab_hidden`, the warning dialog appears, and
-      the event is retrievable for the admin timeline
-- [ ] **E2E 7** — a second tab on the same attempt supersedes the first; the
-      first goes read-only
-- [ ] **E2E 8** — audio `maxPlays`: play twice → button disabled → **reload** →
-      still disabled. This is the one that proves the counter is
+- [x] **E2E 5** — timer expiry auto-submits (`timer-expiry.live.spec.ts`)
+- [x] **E2E 6** — tab switch fires `tab_hidden`, the warning dialog appears, and
+      the event is retrievable — asserted by reloading, since a reload discards
+      the tab's own count and the spent allowance still comes back
+      (`integrity-away.live.spec.ts`). The admin timeline itself is Phase 4.
+- [x] **E2E 7** — a second tab on the same attempt supersedes the first; the
+      first goes read-only (`session-takeover.live.spec.ts`)
+- [x] **E2E 8** — audio `maxPlays`: play twice → **reload** → the allowance is
+      still spent. This is the one that proves the counter is
       server-authoritative rather than client state (§11.4)
-- [ ] A manual pass of E2E 2's middle: answer, reload mid-test, confirm answers
-      persist. The full E2E 2 lands in Phase 4 once the result page exists
-- [ ] Phase 1 and 2 E2Es still pass
+
+      **Deviation.** This task was written as "button disabled". §11.4 as
+      implemented does not disable anything: "playback is optimistic … over-limit
+      plays are reported to the teacher, not enforced retroactively", and
+      blocking on a round trip "would punish bad wifi far more often than it
+      would catch anyone". So the spec asserts what §11.4 actually promises and
+      what the sentence above says the test is for — the count survives the
+      reload that defeats a client-side counter. Mutation-checked: dropping
+      `session.audioPlays` from the store's hydrate fails it.
+- [x] E2E 2's middle: answer, reload mid-test, confirm answers persist —
+      automated as `answers-persist.live.spec.ts` rather than passed by hand,
+      since the half that needs Phase 4's result page is the only half that
+      cannot be. The full E2E 2 still lands in Phase 4
+- [x] Phase 1 and 2 E2Es still pass
 - [ ] `release/phase-3` merges to `main` and back to `develop`; deployable (§16)

@@ -31,8 +31,6 @@ describe("the fill_blank placeholder renderer", () => {
       '<img src=x onerror="alert(1)"> <script>alert(2)</script> plain {{1}}',
     );
 
-    // The script's body survives as inert text, which is fine; what must not
-    // survive is any element or attribute that could run it.
     expect(container.querySelector("script")).toBeNull();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("[onerror]")).toBeNull();

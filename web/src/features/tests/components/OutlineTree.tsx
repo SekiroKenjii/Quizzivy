@@ -102,10 +102,6 @@ export function OutlineTree({
 
   const numbering = numberQuestions(sections);
 
-  // The count comes from local state and is complete immediately; the points
-  // come from per-question queries and fill in one at a time. Showing both
-  // together rendered "6 câu · 0 điểm", then 2, then 6 -- a number that was
-  // never true. The count alone is honest until the rest lands.
   const settled = [...numbering.keys()].every((id) => questions.has(id));
 
   return (
@@ -250,9 +246,6 @@ function OutlineRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: questionId });
 
-  // `undefined` is "the query has not resolved", which is not the same claim as
-  // "this question has no text". Collapsing them made a six-question outline
-  // read as six empty questions for the length of six in-flight requests.
   const loading = question === undefined;
   const label = question?.prompt.trim() ?? "";
 
@@ -302,8 +295,7 @@ function OutlineRow({
         {loading ? "" : t("builder.points", { points: question.points })}
       </span>
 
-      {/* The keyboard path, per §14. dnd-kit's keyboard sensor drives the same
-          move; these make it discoverable without knowing to press space. */}
+      {/* The keyboard path, per §14. */}
       <span className="flex shrink-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
         <Button
           variant="ghost"

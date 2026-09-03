@@ -11,6 +11,8 @@ import (
 	"quizzivy/internal/httpx"
 )
 
+const msgClassNotFound = "Không tìm thấy lớp học."
+
 // GetClass implements GET /admin/classes/{id} (§6.4).
 //
 // Carries the active code's METADATA -- hint, expiry, uses -- and never the
@@ -24,7 +26,7 @@ func (s *Server) GetClass(ctx context.Context, request openapi.GetClassRequestOb
 	if err != nil {
 		if errors.Is(err, classes.ErrNotFound) {
 			return openapi.GetClass404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, "Không tìm thấy lớp học.")),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgClassNotFound)),
 			}, nil
 		}
 		return nil, err
@@ -61,11 +63,22 @@ func (s *Server) UpdateClass(ctx context.Context, request openapi.UpdateClassReq
 }
 
 // ListClasses implements GET /admin/classes.
-func (s *Server) ListClasses(ctx context.Context, _ openapi.ListClassesRequestObject) (openapi.ListClassesResponseObject, error) {
+func (s *Server) ListClasses(ctx context.Context, request openapi.ListClassesRequestObject) (openapi.ListClassesResponseObject, error) {
 	if s.Deps.Classes == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	found, err := s.Deps.Classes.List(ctx)
+	in := classes.ListInput{}
+	if request.Params.Q != nil {
+		in.Query = string(*request.Params.Q)
+	}
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
+	}
+	if request.Params.Limit != nil {
+		in.Limit = int(*request.Params.Limit)
+	}
+
+	found, page, err := s.Deps.Classes.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +86,9 @@ func (s *Server) ListClasses(ctx context.Context, _ openapi.ListClassesRequestOb
 	for _, c := range found {
 		items = append(items, toAPIAdminClass(c))
 	}
-	return openapi.ListClasses200JSONResponse{Items: items}, nil
+	return openapi.ListClasses200JSONResponse{
+		Items: items, Page: page.Number, PageSize: page.Size, Total: page.Total,
+	}, nil
 }
 
 // ListClassMembers implements GET /admin/classes/{id}/members (§6.4).
@@ -81,7 +96,18 @@ func (s *Server) ListClassMembers(ctx context.Context, request openapi.ListClass
 	if s.Deps.Classes == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	found, err := s.Deps.Classes.Members(ctx, request.Id.String())
+	in := classes.MembersInput{}
+	if request.Params.Q != nil {
+		in.Query = string(*request.Params.Q)
+	}
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
+	}
+	if request.Params.Limit != nil {
+		in.Limit = int(*request.Params.Limit)
+	}
+
+	found, page, err := s.Deps.Classes.Members(ctx, request.Id.String(), in)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +123,9 @@ func (s *Server) ListClassMembers(ctx context.Context, request openapi.ListClass
 			JoinCodeHint: m.JoinCodeHint,
 		})
 	}
-	return openapi.ListClassMembers200JSONResponse{Items: items}, nil
+	return openapi.ListClassMembers200JSONResponse{
+		Items: items, Page: page.Number, PageSize: page.Size, Total: page.Total,
+	}, nil
 }
 
 func (s *Server) AddClassMember(ctx context.Context, request openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
@@ -116,7 +144,7 @@ func (s *Server) AddClassMember(ctx context.Context, request openapi.AddClassMem
 	case err == nil:
 	case errors.Is(err, classes.ErrNotFound):
 		return openapi.AddClassMember404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy lớp học."))}, nil
+			notFound(ctx, msgClassNotFound))}, nil
 	case errors.Is(err, classes.ErrNotAStudent):
 		return openapi.AddClassMember400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			authError(ctx, openapi.VALIDATIONFAILED, "Chỉ có thể thêm tài khoản học viên vào lớp."))}, nil
@@ -155,7 +183,7 @@ func (s *Server) RemoveClassMember(ctx context.Context, request openapi.RemoveCl
 	if err != nil {
 		if errors.Is(err, classes.ErrNotFound) {
 			return openapi.RemoveClassMember404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, "Không tìm thấy lớp học.")),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgClassNotFound)),
 			}, nil
 		}
 		return nil, err

@@ -14,6 +14,9 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
     "POST /auth/login": {
       body: { accessToken: "e2e-token", expiresIn: 900, user: studentUser },
     },
+    // What the home asks for once it lands.
+    "GET /app/assignments": { body: { dueNow: [], upcoming: [], completed: [] } },
+    "GET /app/classes": { body: { items: [] } },
   });
 
   await page.goto("/login");
@@ -21,7 +24,12 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
   await page.getByLabel("Mật khẩu").fill("quizzivy-dev");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole("heading", { name: "Bài của tôi" })).toBeVisible();
+  // Their own app: greeted by name, and -- in no class yet -- offered the way in.
+  await expect(page.getByRole("heading", { name: /^Chào / })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
+    "href",
+    "/join",
+  );
 });
 
 test("E2E 2a: the student settings screen renders §9's three sections", async ({

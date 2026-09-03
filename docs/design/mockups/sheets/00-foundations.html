@@ -622,6 +622,45 @@
             </p>
           </div>
         </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-11</span>
+            <span class="board-name">Side columns — two roles, one width each</span>
+          </div>
+          <p class="board-note">
+            Earlier drafts of this deck drew the right-hand panel at three widths (G-01 and
+            A-04 at 20rem, G-07 at 24rem, S-08 at 18rem) because each board was drawn for its
+            own screen. Four widths for one component is drift, not design: it gives the next
+            screen no answer to “how wide is this?”. There are two roles here, and each gets
+            one width. The boards above have been redrawn to match.
+          </p>
+          <div class="grid grid-cols-2 gap-5">
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Panel · right · 20rem</p>
+              <p class="text-sm text-muted-foreground">
+                <code class="font-mono text-xs">w-80 border-l p-5 space-y-5</code> — details
+                what is selected in the middle, or summarises what the middle is building.
+                G-01 summary · G-07 student · A-04 question settings · S-08 navigator.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Rail · left · 14rem</p>
+              <p class="text-sm text-muted-foreground">
+                <code class="font-mono text-xs">w-56 border-r p-4 space-y-5</code> — filters
+                what the middle shows. Narrower on purpose: it holds checkboxes and chips, and
+                at panel width it would be mostly empty. A-06 bank filters.
+              </p>
+            </div>
+          </div>
+          <p class="board-note mt-4">
+            Both run the full height of the content area beside the scroll, never inside it, and
+            scroll by themselves when their own content is taller than the screen — a filter
+            rail that scrolls away with the results is a rail you cannot reach while reading
+            them. Neither is sticky; sticky is what you reach for when the column is in the
+            wrong place.
+          </p>
+        </div>
       </section>
     </div>
 

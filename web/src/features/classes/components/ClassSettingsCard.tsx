@@ -9,14 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateClass, type Class } from "@/features/classes/api";
 import { ApiError } from "@/lib/api/errors";
 
-/**
- * G-06's "Lớp" card: the class's own name and description.
- *
- * Explicitly saved rather than autosaved. The builder autosaves because a test
- * is long-form work where losing a minute of typing hurts; a class name is two
- * fields someone edits once, and an autosave there would push a rename to every
- * screen showing the class while the teacher is still mid-word.
- */
+/** G-06's "Lớp" card: the class's own name and description. */
 export function ClassSettingsCard({ klass }: { klass: Class }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();

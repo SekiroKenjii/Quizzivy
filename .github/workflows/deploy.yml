@@ -33,11 +33,16 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  PNPM_VERSION: "11.12.0"
+  # 11.12.0 is a release pnpm itself refuses to install
+  # (ERR_PNPM_BROKEN_PNPM_RELEASE): its @pnpm/exe build shipped without a
+  # binary -- 16KB unpacked against 18MB for a real one.
+  PNPM_VERSION: "11.25.0"
   # Where the SPA is told to find the API. Baked into the bundle at build time,
   # so it is a build input rather than runtime configuration.
   API_ORIGIN: https://api.quizzivy.com
   PAGES_PROJECT: quizzivy-web
+  # The version that has deployed this project; bump deliberately.
+  WRANGLER_VERSION: 3.90.0
 
 jobs:
   # The commit CI validated, resolved once so both jobs deploy the same thing.
@@ -71,7 +76,7 @@ jobs:
     if: needs.resolve.outputs.api == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
@@ -243,7 +248,7 @@ jobs:
     if: ${{ !cancelled() && needs.resolve.outputs.web == 'true' && (needs.api.result == 'success' || needs.api.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
@@ -267,11 +272,11 @@ jobs:
             exit 1
           fi
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -303,10 +308,17 @@ jobs:
             exit 1; }
           echo "bundle targets $API_ORIGIN"
 
+      # A pinned direct call, with no installer between us and the deploy tool.
+      # wrangler-action installed wrangler into web/ at deploy time with
+      # whatever package manager it found there -- an unpinned `pnpm add` into
+      # the checkout after the build had already succeeded, whose version came
+      # from the action's default and whose postinstall needed an approval in
+      # web/pnpm-workspace.yaml for a package this project does not depend on
+      # (#47). npx has no build-script gating, the version is pinned here, and
+      # nothing is written into web/.
       - name: Deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: web
-          command: pages deploy dist --project-name=${{ env.PAGES_PROJECT }} --branch=main
+        working-directory: web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@${{ env.WRANGLER_VERSION }} pages deploy dist --project-name=${{ env.PAGES_PROJECT }} --branch=main

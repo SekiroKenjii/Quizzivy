@@ -5,14 +5,7 @@ import { AutosaveStatusLabel } from "@/features/tests/components/AutosaveStatusL
 import { mergeAutosave, useAutosave } from "@/features/tests/useAutosave";
 import "@/lib/i18n";
 
-/**
- * §8's badge answers one question: is it safe to close the tab.
- *
- * It used to keep showing "Đã lưu 14:32" through the whole 1.5s debounce window
- * after an edit, and HH:MM cannot distinguish a save at 14:32:01 from a stale
- * badge at 14:32:50 — so the one moment the answer is "no" looked identical to
- * the moments it is "yes".
- */
+/** §8's badge answers one question: is it safe to close the tab. */
 function Harness({ onReady }: { onReady: (schedule: (v: string) => void) => void }) {
   const autosave = useAutosave<string>({ save: () => Promise.resolve() });
   useEffect(() => {
@@ -45,8 +38,6 @@ describe("the autosave badge during the debounce window", () => {
     render(<Harness onReady={(s) => (schedule = s)} />);
 
     act(() => schedule("một chữ"));
-    // Flushed rather than awaited: findByText polls on timers, and the timers
-    // are faked here.
     await act(async () => {
       vi.advanceTimersByTime(1500);
       await Promise.resolve();

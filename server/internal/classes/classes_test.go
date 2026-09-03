@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -136,7 +137,7 @@ func TestMembersShowHowEachOneGotIn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +180,7 @@ func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 		t.Fatalf("RemoveMember: %v", err)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +241,7 @@ func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 		t.Errorf("userId = %s, want %s", m.UserID, studentID)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +264,7 @@ func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 		t.Fatalf("second add: %v", err)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,11 +339,264 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 		t.Errorf("studentCount = %d after disabling the only member, want 0", after.StudentCount)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(members) != 0 {
 		t.Errorf("the roster still lists %d disabled member(s)", len(members))
+	}
+}
+
+// §9's /app/classes: what a student belongs to, and never the code's hint --
+// four characters of it are four more than a student should have.
+func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+	otherClass, _, outsider := makeClass(t, pool)
+
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, classID, studentID, teacherID); err != nil {
+		t.Fatal(err)
+	}
+	// An active code, so the blanking is tested against something.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
+		 VALUES ($1::uuid, sha256('secret'::bytea), 'P9QR', now() + interval '1 day', $2::uuid)`,
+		classID, teacherID); err != nil {
+		t.Fatal(err)
+	}
+
+	mine, err := store.ListMine(ctx, studentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != 1 || mine[0].ID != classID {
+		t.Fatalf("classes %+v, want exactly the one joined", mine)
+	}
+	if mine[0].JoinCode != nil {
+		t.Errorf("a student's class carries a join code hint: %+v", *mine[0].JoinCode)
+	}
+
+	theirs, err := store.ListMine(ctx, outsider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(theirs) != 0 {
+		t.Errorf("a student in no class sees %d classes (%s is not theirs)", len(theirs), otherClass)
+	}
+}
+
+// O-20: numbered pages on the class list too. §1.3 promised single-digit
+// classes; the picker that read this whole was the first thing to break.
+func TestClassesPageAndSearchByName(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	tag := nonce(t)
+
+	var mine []string
+	for i := range 3 {
+		var id string
+		if err := pool.QueryRow(ctx, `INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
+			fmt.Sprintf("Phân Trang %s %d", tag, i)).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		mine = append(mine, id)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.classes WHERE id = ANY($1::uuid[])`, mine)
+	})
+
+	first, page, err := store.List(ctx, classes.ListInput{Query: "phan trang " + tag, Limit: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 3 || page.Number != 1 || page.Size != 2 || len(first) != 2 {
+		t.Fatalf("page 1: %+v with %d rows, want total 3 and 2 rows", page, len(first))
+	}
+	second, page, err := store.List(ctx, classes.ListInput{Query: "phan trang " + tag, Limit: 2, Page: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 3 || len(second) != 1 {
+		t.Fatalf("page 2: %+v with %d rows, want the third", page, len(second))
+	}
+	if second[0].ID == first[0].ID || second[0].ID == first[1].ID {
+		t.Error("the pages overlap")
+	}
+	// Past the end: no rows, same total, so the client can still draw the count.
+	empty, page, err := store.List(ctx, classes.ListInput{Query: "phan trang " + tag, Limit: 2, Page: 9})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(empty) != 0 || page.Total != 3 {
+		t.Errorf("page 9: %d rows, total %d", len(empty), page.Total)
+	}
+}
+
+func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+	tag := nonce(t)
+
+	var extra []string
+	for i := range 2 {
+		var id string
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO app.users (email, full_name, role) VALUES ($1, $2, 'student') RETURNING id::text`,
+			fmt.Sprintf("m-%s-%d@example.com", tag, i), fmt.Sprintf("Thành Viên %s", tag)).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		extra = append(extra, id)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.class_members WHERE user_id = ANY($1::uuid[])`, extra)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = ANY($1::uuid[])`, extra)
+	})
+	for _, id := range append([]string{studentID}, extra...) {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by) VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`,
+			classID, id, teacherID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	all, page, err := store.Members(ctx, classID, classes.MembersInput{Limit: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 3 || len(all) != 2 {
+		t.Fatalf("members page 1: %+v with %d rows", page, len(all))
+	}
+	byName, page, err := store.Members(ctx, classID, classes.MembersInput{Query: "thanh vien " + tag})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 2 || len(byName) != 2 {
+		t.Errorf("by name: %+v with %d rows, want the two tagged", page, len(byName))
+	}
+	byEmail, page, err := store.Members(ctx, classID, classes.MembersInput{Query: "m-" + tag + "-1@"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 1 || len(byEmail) != 1 {
+		t.Errorf("by email: %+v with %d rows, want one", page, len(byEmail))
+	}
+}
+
+// Same window as the assignments reads: the token outlives the account.
+func TestADisabledStudentListsNoClasses(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, classID, studentID, teacherID); err != nil {
+		t.Fatal(err)
+	}
+	mine, err := store.ListMine(ctx, studentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != 1 {
+		t.Fatalf("before disabling: %d classes, want 1", len(mine))
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, studentID); err != nil {
+		t.Fatal(err)
+	}
+	mine, err = store.ListMine(ctx, studentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != 0 {
+		t.Errorf("%d classes for a disabled student", len(mine))
+	}
+}
+
+// One INSERT gives every row the same joined_at, and sixty rows in pages of
+// ten is enough for Postgres to order the ties differently per page.
+func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, _ := makeClass(t, pool)
+	tag := nonce(t)
+
+	const (
+		size     = 60
+		pageSize = 10
+	)
+	var joined []string
+	rows, err := pool.Query(ctx, `
+		INSERT INTO app.users (email, full_name, role)
+		SELECT format('same-%s-%s@example.com', $1::text, i), 'Cùng lúc', 'student'
+		  FROM generate_series(1, $2::int) AS i
+		RETURNING id::text`, tag, size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		joined = append(joined, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE user_id = ANY($1::uuid[])`, joined)
+		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = ANY($1::uuid[])`, joined)
+	})
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		SELECT $1::uuid, u, 'admin', $3::uuid FROM unnest($2::uuid[]) AS u`,
+		classID, joined, teacherID); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := map[string]int{}
+	served := 0
+	for number := 1; number*pageSize <= size; number++ {
+		members, page, err := store.Members(ctx, classID, classes.MembersInput{
+			Page:  number,
+			Limit: pageSize,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if page.Total != size {
+			t.Fatalf("page %d: total %d, want %d", number, page.Total, size)
+		}
+		served += len(members)
+		for _, m := range members {
+			seen[m.UserID]++
+		}
+	}
+	if served != size {
+		t.Fatalf("the pages served %d rows in total, want %d", served, size)
+	}
+	if len(seen) != size {
+		t.Errorf("%d rows across the pages but only %d distinct members: %d were served twice",
+			served, len(seen), served-len(seen))
+	}
+	for _, id := range joined {
+		if seen[id] != 1 {
+			t.Errorf("member %s appeared %d times across the pages, want once", id, seen[id])
+		}
 	}
 }

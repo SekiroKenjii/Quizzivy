@@ -36,7 +36,9 @@ beforeEach(() => {
       const all = [question(A, "Câu một"), question(B, "Câu hai")];
       return contractJson("/admin/questions", "get", 200, {
         items: q === "" ? all : all.filter((x) => x.prompt.includes(q)),
-        nextCursor: null,
+        page: 1,
+        pageSize: 50,
+        total: 0,
         facets: {
           all: 2,
           single_choice: 0,
@@ -46,8 +48,7 @@ beforeEach(() => {
           short_answer: 2,
         },
         tags: [],
-        total: 0,
-        filtered: 0,
+        bankTotal: 0,
       });
     }),
     http.post(`${BASE}/admin/questions/tags`, async ({ request }) => {
@@ -88,11 +89,6 @@ describe("A-06's bulk selection", () => {
     expect(screen.queryByText(/Đã chọn/)).toBeNull();
   });
 
-  /**
-   * The deck opens section 3 with "selection that survives filtering", because
-   * building a paper means gathering from several searches before committing to
-   * any of them. A selection cleared by typing would make that impossible.
-   */
   it("keeps a selection when the search filters the row away", async () => {
     const user = renderBank();
 
@@ -140,14 +136,7 @@ describe("the bulk tag dialog", () => {
   });
 });
 
-/**
- * The rail's chips come from the SERVER, not from the returned page.
- *
- * Derived from `items`, a rail can only offer the tags that page happens to
- * carry: with 72 questions and a page of 50, two of the bank's three tags were
- * invisible — so a second chip could not be picked and multi-tag filtering
- * looked unbuilt when the server had supported it all along.
- */
+/** The rail's chips come from the SERVER, not from the returned page. */
 describe("A-06's tag rail", () => {
   it("offers tags no row on this page carries", async () => {
     server.use(
@@ -155,7 +144,9 @@ describe("A-06's tag rail", () => {
         contractJson("/admin/questions", "get", 200, {
           // Neither row mentions unit-9 or past-simple.
           items: [question(A, "Câu một"), question(B, "Câu hai")],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 2,
           facets: {
             all: 2,
             single_choice: 0,
@@ -165,8 +156,7 @@ describe("A-06's tag rail", () => {
             short_answer: 2,
           },
           tags: ["listening", "past-simple", "unit-5", "unit-9"],
-          total: 72,
-          filtered: 2,
+          bankTotal: 72,
         }),
       ),
     );
@@ -179,8 +169,7 @@ describe("A-06's tag rail", () => {
       ).toBeInTheDocument();
     }
 
-    // And several can be held at once, which is what the page-derived rail
-    // made impossible.
+    // And several can be held at once, which is what the page-derived rail made impossible.
     await user.click(screen.getByRole("button", { name: "unit-5", pressed: false }));
     await user.click(screen.getByRole("button", { name: "unit-9", pressed: false }));
     expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(2);
@@ -191,7 +180,9 @@ describe("A-06's tag rail", () => {
       http.get(`${BASE}/admin/questions`, () =>
         contractJson("/admin/questions", "get", 200, {
           items: [question(A, "Câu một"), question(B, "Câu hai")],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 2,
           facets: {
             all: 2,
             single_choice: 0,
@@ -201,8 +192,7 @@ describe("A-06's tag rail", () => {
             short_answer: 2,
           },
           tags: [],
-          total: 72,
-          filtered: 2,
+          bankTotal: 72,
         }),
       ),
     );

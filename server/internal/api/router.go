@@ -14,13 +14,6 @@ import (
 
 // RateLimits declares the policy for every public operation, plus the one
 // authenticated operation that mints a credential.
-//
-// Numbers are §6.5's. The per-code buckets are wired in T-1.7, when the join
-// endpoints learn how to read a code out of the request; the mechanism is here
-// and tested.
-//
-// Adding a public operation to api/openapi.yaml without adding it here makes
-// the server refuse to start -- see httpx.AssertPublicRoutesLimited.
 func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
@@ -37,11 +30,6 @@ func RateLimits() *ratelimit.Registry {
 		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
 
-	// Not public -- bearer-protected, so AssertPublicRoutesLimited would never
-	// have asked for it -- but it is the only endpoint that mints a password.
-	// A stolen admin session should not be able to grind out resets across a
-	// roster faster than a teacher would ever need to, and one teacher does not
-	// legitimately reset thirty accounts in an hour.
 	reg.Add("POST /admin/students/{id}/reset-password", capacity,
 		ratelimit.PerMinute(5), ratelimit.PerHour(30))
 
@@ -68,7 +56,7 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		return nil, err
 	}
 
-	server := &Server{Deps: deps}
+	server := &Server{Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
@@ -126,18 +114,6 @@ func healthz(database DB) http.HandlerFunc {
 }
 
 // inExecutionOrder reverses the middleware slice.
-//
-// oapi-codegen wraps them in order -- `handler = middleware(handler)` in a loop
-// -- so the LAST entry ends up outermost and runs FIRST. Written literally,
-// the list reads backwards from what happens, and the comments on it drift into
-// describing an order that is not the real one. Reversing here lets the list
-// above be read top-to-bottom as the sequence a request actually travels.
-//
-// router_test.go pins the direction, so an upstream change to how the generated
-// wrapper applies middleware fails a test instead of silently inverting the
-// chain.
-// inExecutionOrder reverses the slice because oapi-codegen applies middleware
-// last-first, so the argument order reads as execution order.
 func inExecutionOrder(mw ...openapi.MiddlewareFunc) []openapi.MiddlewareFunc {
 	out := make([]openapi.MiddlewareFunc, 0, len(mw))
 	for i := len(mw) - 1; i >= 0; i-- {

@@ -39,7 +39,9 @@ beforeEach(() => {
     http.get(`${BASE}/admin/tests`, () =>
       contractJson("/admin/tests", "get", 200, {
         items: [],
-        nextCursor: null,
+        page: 1,
+        pageSize: 50,
+        total: 0,
         facets: { all: 0, draft: 0, published: 0, archived: 0 },
         tags: [],
       }),
@@ -80,8 +82,6 @@ describe("the tests list with nothing in it", () => {
     renderList();
     await screen.findByText("Chưa có đề thi nào.");
 
-    // Two controls share one accessible name here, which is why the E2E has to
-    // disambiguate. DOM order is the thing it relies on, so it is pinned.
     const buttons = screen.getAllByRole("button", { name: "Đề thi mới" });
     expect(buttons).toHaveLength(2);
     expect(buttons[0]!.compareDocumentPosition(buttons[1]!)).toBe(

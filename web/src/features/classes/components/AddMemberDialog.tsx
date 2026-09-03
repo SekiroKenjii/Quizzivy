@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,16 +15,14 @@ import { listStudents } from "@/features/students/api";
 import { addMember } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { useDebounced } from "@/lib/useDebounced";
+import { useLazyList } from "@/hooks/useLazyList";
+import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import { ApiError } from "@/lib/api/errors";
 
 /**
  * G-06's "Thêm học viên": enrols someone who already has an account, which is
  * the path for a student who joined before the class existed or who lost the
  * code.
- *
- * Members already in the class stay in the list, marked, rather than being
- * filtered out. Vanishing rows make a teacher wonder whether the search is
- * broken; "đã trong lớp" answers the question they actually had.
  */
 export function AddMemberDialog({
   classId,
@@ -43,10 +41,13 @@ export function AddMemberDialog({
   const [error, setError] = useState<string | null>(null);
   const search = useDebounced(query, 250).trim();
 
-  const students = useQuery({
-    queryKey: ["admin-students", { q: search }],
-    queryFn: ({ signal }) =>
-      listStudents(search === "" ? { limit: 20 } : { q: search, limit: 20 }, signal),
+  const students = useLazyList({
+    queryKey: ["admin-students", "picker", { q: search }],
+    fetchPage: (page, signal) =>
+      listStudents(
+        search === "" ? { page, limit: 20 } : { q: search, page, limit: 20 },
+        signal,
+      ),
     enabled: open,
   });
 
@@ -60,7 +61,7 @@ export function AddMemberDialog({
       setError(cause instanceof ApiError ? cause.message : t("classDetail.addFailed")),
   });
 
-  const items = students.data?.items ?? [];
+  const items = students.items;
 
   return (
     <Dialog
@@ -84,9 +85,6 @@ export function AddMemberDialog({
             className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
             aria-hidden="true"
           />
-          {/* The dialog exists to type a name into, so focus belongs in the
-              box; landing anywhere else costs a keystroke and tells a screen
-              reader user nothing extra. */}
           <Input
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
@@ -148,6 +146,12 @@ export function AddMemberDialog({
               );
             })
           )}
+          <LoadMoreSentinel
+            as="li"
+            active={students.hasMore}
+            loading={students.loadingMore}
+            onVisible={students.loadMore}
+          />
         </ul>
       </DialogContent>
     </Dialog>

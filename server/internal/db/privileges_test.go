@@ -7,25 +7,6 @@ import (
 
 // Two properties of this system are enforced by PostgreSQL PRIVILEGES rather
 // than by schema or code, and until now nothing asserted either one:
-//
-//  1. New tables become readable and writable by the app role automatically,
-//     via `ALTER DEFAULT PRIVILEGES` in 00009 -- which is what lets every
-//     Phase 2-5 migration add a table without remembering to grant anything.
-//  2. audit_log is append-only, via the REVOKE at the end of 00009. audit.go
-//     describes the table as "append-only by PRIVILEGE, not by convention".
-//
-// Every integration test connects as the OWNER, which bypasses privilege checks
-// entirely -- so the role the tests exercise and the role production uses were
-// different, and the difference was invisible to CI.
-//
-// That is not hypothetical here. 00009's own comment records this class of
-// failure happening once already: "the first integration test to connect as the
-// app role failed with 'permission denied for schema app'". It was caught then
-// because something happened to connect as the app role. Nothing did afterwards.
-//
-// These ask the database about another role's privileges rather than opening a
-// second connection, so they need no extra DSN and no extra CI wiring: the
-// owner can interrogate quizzivy_app's grants directly.
 
 const appRole = "quizzivy_app"
 
@@ -72,21 +53,28 @@ func TestAppRoleCanReadAndWriteEveryTable(t *testing.T) {
 	t.Logf("checked SELECT and INSERT for %s on %d tables", appRole, len(tables))
 }
 
-// TestAuditLogIsAppendOnlyForTheAppRole makes §13.4's claim a privilege rather
-// than a promise. An audit trail the application can rewrite is not one.
-func TestAuditLogIsAppendOnlyForTheAppRole(t *testing.T) {
+// TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole makes §13.4's claim a
+// privilege rather than a promise. A record the application can rewrite is not
+// evidence, and both of these tables exist to be evidence: audit_log is what
+// the teacher's actions are reconstructed from, attempt_events is what a
+// student's session is.
+func TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole(t *testing.T) {
 	conn := migrated(t)
 
-	for _, priv := range []string{"SELECT", "INSERT"} {
-		if !hasTablePrivilege(t, conn, appRole, "app.audit_log", priv) {
-			t.Errorf("%s cannot %s app.audit_log; it has to be able to write entries", appRole, priv)
-		}
-	}
-	for _, priv := range []string{"UPDATE", "DELETE"} {
-		if hasTablePrivilege(t, conn, appRole, "app.audit_log", priv) {
-			t.Errorf("%s can %s app.audit_log -- §13.4 says append-only, and the REVOKE in "+
-				"00009 is what makes that true", appRole, priv)
-		}
+	for _, table := range []string{"app.audit_log", "app.attempt_events"} {
+		t.Run(table, func(t *testing.T) {
+			for _, priv := range []string{"SELECT", "INSERT"} {
+				if !hasTablePrivilege(t, conn, appRole, table, priv) {
+					t.Errorf("%s cannot %s %s; it has to be able to write entries", appRole, priv, table)
+				}
+			}
+			for _, priv := range []string{"UPDATE", "DELETE"} {
+				if hasTablePrivilege(t, conn, appRole, table, priv) {
+					t.Errorf("%s can %s %s -- append-only is the point, and the REVOKE "+
+						"in the migration that creates it is what makes that true", appRole, priv, table)
+				}
+			}
+		})
 	}
 }
 

@@ -19,6 +19,7 @@ const (
 	secretExplanation  = "GIAI-THICH-KHONG-DANH-CHO-HOC-VIEN"
 	secretSampleAnswer = "DAP-AN-MAU-KHONG-DANH-CHO-HOC-VIEN"
 	secretBlankAnswer  = "DAP-AN-CHO-TRONG-KHONG-DANH-CHO-HOC-VIEN"
+	secretTranscript   = "LOI-THOAI-KHONG-DANH-CHO-HOC-VIEN"
 )
 
 func newPool(t *testing.T) *pgxpool.Pool {
@@ -57,6 +58,9 @@ type world struct {
 	assignment string
 	choice     string
 	blank      string
+	essay      string
+	listening  string
+	asset      string
 }
 
 type worldOpts struct {
@@ -66,6 +70,11 @@ type worldOpts struct {
 	draft       bool
 	maxAttempts int
 	duration    int
+
+	// §10.3's policy; zero values mean its defaults (no limit, flag, 3000ms).
+	maxFocusLoss int
+	onLimit      string
+	minAwayMs    int
 }
 
 func openAssignment() worldOpts {
@@ -74,6 +83,12 @@ func openAssignment() worldOpts {
 		opensAt: now.Add(-time.Hour), closesAt: now.Add(3 * time.Hour),
 		maxAttempts: 1, duration: 60,
 	}
+}
+
+func focusLimit(maxFocusLoss int, onLimit string) worldOpts {
+	o := openAssignment()
+	o.maxFocusLoss, o.onLimit = maxFocusLoss, onLimit
+	return o
 }
 
 func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
@@ -124,10 +139,6 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		`INSERT INTO app.test_version_sections (test_version_id, ordinal, title)
 		 VALUES ($1::uuid,0,'Phần 1') RETURNING id::text`, w.versionID).Scan(&section))
 
-	// Every leaky column gets a value here on purpose, and a distinctive one:
-	// a projection that selected them would be caught by a test rather than by
-	// a student. The sentinels are searched for by value, so they must not
-	// occur anywhere a student is legitimately shown text.
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.test_version_questions
 		  (test_version_section_id, ordinal, type, prompt, points, explanation, sample_answer)
@@ -155,18 +166,59 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		      VALUES ($1::uuid,$2)`, blankID, secretBlankAnswer)
 	}
 
+	// An audio question with a real asset behind it.
+	must(pool.QueryRow(ctx, `
+		INSERT INTO app.media_assets
+		  (kind, storage_key, mime_type, bytes, duration_ms, original_filename,
+		   checksum_sha256, uploaded_by)
+		VALUES ('audio', $1, 'audio/mpeg', 159711, 10004, 'nghe-'||$2||'.mp3',
+		        sha256(convert_to($1, 'UTF8')), $3::uuid)
+		RETURNING id::text`, "audio/att-"+id+".mp3", id, w.admin).Scan(&w.asset))
+	must(pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_questions
+		  (test_version_section_id, ordinal, type, prompt, points,
+		   media_asset_id, media_asset_kind, audio_allow_seek, audio_show_transcript_after,
+		   transcript)
+		VALUES ($1::uuid,3,'single_choice','Người phụ nữ đề nghị làm gì?','5.00',
+		        $2::uuid,'audio',false,true,$3)
+		RETURNING id::text`, section, w.asset, secretTranscript).Scan(&w.listening))
+	for i, opt := range []struct {
+		text    string
+		correct bool
+	}{{"Đi bộ", true}, {"Đi xe buýt", false}} {
+		exec(`INSERT INTO app.test_version_options (test_version_question_id, ordinal, text, is_correct)
+		      VALUES ($1::uuid,$2,$3,$4)`, w.listening, i, opt.text, opt.correct)
+	}
+
+	// The one type §7 grades by hand, so requires_manual has something to be true about.
+	must(pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_questions
+		  (test_version_section_id, ordinal, type, prompt, points, sample_answer)
+		VALUES ($1::uuid,2,'short_answer','Viết 2-3 câu tả thói quen buổi sáng.','5.00',$2)
+		RETURNING id::text`, section, secretSampleAnswer).Scan(&w.essay))
+
 	published := "now()"
 	if o.draft {
 		published = "NULL"
 	}
+	onLimit, minAway := o.onLimit, o.minAwayMs
+	if onLimit == "" {
+		onLimit = "flag"
+	}
+	if minAway == 0 {
+		minAway = 3000
+	}
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.assignments
 		  (test_id, test_version_id, opens_at, closes_at, closed_at, published_at,
-		   duration_minutes, max_attempts, created_by)
-		VALUES ($1::uuid,$2::uuid,$3,$4,$5,`+published+`,$6,$7,$8::uuid)
+		   duration_minutes, max_attempts, created_by,
+		   integrity_max_focus_loss, integrity_on_limit_exceeded, integrity_min_away_ms)
+		VALUES ($1::uuid,$2::uuid,$3,$4,$5,`+published+`,$6,$7,$8::uuid,
+		        $9,$10::app.integrity_action,$11)
 		RETURNING id::text`,
 		w.testID, w.versionID, o.opensAt, o.closesAt, o.closedAt,
-		o.duration, o.maxAttempts, w.admin).Scan(&w.assignment))
+		o.duration, o.maxAttempts, w.admin,
+		o.maxFocusLoss, onLimit, minAway).Scan(&w.assignment))
 	exec(`INSERT INTO app.assignment_classes (assignment_id, class_id)
 	      VALUES ($1::uuid,$2::uuid)`, w.assignment, w.class)
 
@@ -185,6 +237,7 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 			_, _ = pool.Exec(c, q, w.assignment)
 		}
 		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, w.testID)
+		_, _ = pool.Exec(c, `DELETE FROM app.media_assets WHERE id = $1::uuid`, w.asset)
 		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1::uuid`, w.testID)
 		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, w.class)
 		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1::uuid`, w.class)

@@ -6,12 +6,6 @@ import { BrandLockup } from "@/components/shared/Brand";
 /**
  * The shell for /login and for the three failure screens: a brand panel on the
  * left, one card on the right.
- *
- * Below `lg` the panel is dropped entirely and the card carries the lockup
- * itself, because on a phone half a screen of brand is half a screen the
- * student cannot act in. That rule is why the panel may hold a drawing at all —
- * everything in it is decoration in the precise sense that the screen works
- * without it.
  */
 export function AuthLayout({
   children,
@@ -21,10 +15,7 @@ export function AuthLayout({
   children: ReactNode;
   /** Sits below the card, per the deck: it is about the product, not the form. */
   footer?: ReactNode;
-  /**
-   * The panel drawing the failure screens pass (E-01..E-03). Login passes
-   * nothing and the panel keeps its two-element shape.
-   */
+  // The panel drawing the failure screens pass (E-01..E-03).
   art?: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -32,8 +23,6 @@ export function AuthLayout({
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <aside className="bg-primary text-primary-foreground hidden flex-col justify-between p-10 lg:flex">
-        {/* on-dark, not color: the kit forbids the colour variant on a dark
-            surface, and this panel is zinc-900 in every theme. */}
         <BrandLockup height={44} onDark />
         {art === undefined ? null : (
           <div className="flex justify-center py-6" aria-hidden="true">

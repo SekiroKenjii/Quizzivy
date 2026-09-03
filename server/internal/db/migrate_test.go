@@ -92,18 +92,6 @@ FROM (
 
 // scratchDatabase creates a database of its own for the destructive round trip
 // and drops it afterwards.
-//
-// This test used to run goose.Reset against the SHARED test database, and
-// `go test ./...` runs packages IN PARALLEL. So it dropped schema app out from
-// under internal/classes mid-query -- "relation app.users does not exist" --
-// and develop's CI was red on every run for twelve runs because of it. Nothing
-// was wrong with either test alone; they simply cannot share a database while
-// one of them drops it.
-//
-// Serialising the suite with `-p 1` would also have worked, but it slows every
-// package to fix one interaction and encodes a constraint nothing in the code
-// states. Giving this test its own database makes it correct by construction:
-// there is nothing else in there to break.
 func scratchDatabase(t *testing.T) string {
 	t.Helper()
 	admin, err := sql.Open("pgx", db.TestDSN(t))

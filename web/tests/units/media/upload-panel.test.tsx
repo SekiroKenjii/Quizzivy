@@ -55,14 +55,10 @@ async function choose(file: File) {
 }
 
 describe("the upload panel's client-side pre-check", () => {
-  // The Done-when case: a teacher is not made to wait for 10 MB to be told the
-  // file is too long.
   it("rejects a 6-minute file in Vietnamese without contacting the server", async () => {
     stubDuration(6 * 60);
     await choose(audioFile("bai-nghe-dai.mp3", 1024));
 
-    // The deck's A-05: the rejection names the file and the measured length,
-    // not just the rule, so the teacher knows which file and by how much.
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/bai-nghe-dai\.mp3/);
     expect(alert).toHaveTextContent(/6:00/);
@@ -88,8 +84,6 @@ describe("the upload panel's client-side pre-check", () => {
     expect(uploadCalls).toBe(0);
   });
 
-  // The pre-check is advisory: the server can measure containers the browser
-  // will not, so an unreadable duration must not block a valid upload.
   it("uploads anyway when the browser cannot read the duration", async () => {
     stubDuration(null);
     await choose(audioFile("khong-doc-duoc.m4a", 1024));

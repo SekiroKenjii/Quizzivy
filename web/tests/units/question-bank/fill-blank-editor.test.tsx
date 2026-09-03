@@ -72,8 +72,6 @@ describe("the question editor page, on a fill_blank mismatch", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("tab", { name: "Điền từ" }));
-    // paste, not type: userEvent reads `{{` as an escaped brace, so typing the
-    // placeholder would silently enter `{1}` and test nothing.
     await user.click(screen.getByLabelText("Nội dung câu hỏi"));
     await user.paste("She {{1}} and {{3}}.");
     await user.click(screen.getByRole("button", { name: "Thêm chỗ trống" }));

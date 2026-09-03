@@ -91,10 +91,6 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 		 VALUES ($1::uuid,1,'10.00',$2::uuid) RETURNING id::text`,
 		w.testID, w.admin).Scan(&w.versionID))
 
-	// By test, not by version: a test may publish a second version mid-case, and
-	// an attempt against it would block every delete behind an ON DELETE
-	// RESTRICT that these statements ignore -- leaving rows in the dev database
-	// that later show up on a screen as if they were real.
 	t.Cleanup(func() {
 		c := context.Background()
 		_, _ = pool.Exec(c, `
@@ -162,8 +158,11 @@ func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 	if created.TestID != w.testID {
 		t.Errorf("test id: want %s, got %s", w.testID, created.TestID)
 	}
-	if len(created.ClassIDs) != 1 || created.ClassIDs[0] != w.class {
-		t.Errorf("class targets: got %v", created.ClassIDs)
+	if len(created.Classes) != 1 || created.Classes[0].ID != w.class {
+		t.Errorf("class targets: got %v", created.Classes)
+	}
+	if len(created.Classes) == 1 && created.Classes[0].Name == "" {
+		t.Error("class target carries no name")
 	}
 	if len(created.StudentIDs) != 1 || created.StudentIDs[0] != w.student {
 		t.Errorf("student targets: got %v", created.StudentIDs)
@@ -313,8 +312,8 @@ func TestUpdateReplacesTargetsRatherThanAddingToThem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	if len(saved.ClassIDs) != 0 {
-		t.Errorf("dropped class target survived: %v", saved.ClassIDs)
+	if len(saved.Classes) != 0 {
+		t.Errorf("dropped class target survived: %v", saved.Classes)
 	}
 	if len(saved.StudentIDs) != 1 {
 		t.Errorf("student targets: got %v", saved.StudentIDs)
@@ -509,8 +508,6 @@ func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 
 	in := legalInput(w)
 	in.Draft = true
-	// The one assignment allowed to reach nobody yet: coming back to it is the
-	// point of saving one.
 	in.ClassIDs = nil
 
 	draft, err := store.Create(ctx, request(w), in)

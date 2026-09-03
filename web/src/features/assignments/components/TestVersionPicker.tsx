@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
+import { useLazyList } from "@/hooks/useLazyList";
+import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import { FileText } from "lucide-react";
 import {
   Dialog,
@@ -34,9 +36,10 @@ export function TestVersionPicker({
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const tests = useQuery({
-    queryKey: ["admin-tests", { tab: "published", search: "" }],
-    queryFn: ({ signal }) => listTests({ status: "published", limit: 50 }, signal),
+  const tests = useLazyList({
+    queryKey: ["admin-tests", "picker", { status: "published" }],
+    fetchPage: (page, signal) =>
+      listTests({ status: "published", page, limit: 20 }, signal),
     enabled: open,
   });
 
@@ -55,12 +58,12 @@ export function TestVersionPicker({
             <p role="alert" className="text-destructive text-sm">
               {t("tests.loadFailed")}
             </p>
-          ) : (tests.data?.items.length ?? 0) === 0 ? (
+          ) : tests.items.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {t("assignments.noPublishedTests")}
             </p>
           ) : (
-            tests.data?.items.map((test) => (
+            tests.items.map((test) => (
               <div key={test.id} className="rounded-md border">
                 <button
                   type="button"
@@ -72,12 +75,7 @@ export function TestVersionPicker({
                     className="text-muted-foreground size-5 shrink-0"
                     aria-hidden="true"
                   />
-                  {/* Title and latest version only. `questionCount` and
-                    `totalPoints` on a Test describe its DRAFT outline, and this
-                    screen is choosing a frozen version -- a test whose draft was
-                    emptied after publishing would advertise "0 câu" for a
-                    version that has plenty. The numbers live on the rows below,
-                    where they are the version's own. */}
+                  {/* Title and latest version only. */}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{test.title}</p>
                     <p className="text-muted-foreground text-xs">
@@ -100,6 +98,11 @@ export function TestVersionPicker({
               </div>
             ))
           )}
+          <LoadMoreSentinel
+            active={tests.hasMore}
+            loading={tests.loadingMore}
+            onVisible={tests.loadMore}
+          />
         </div>
       </DialogContent>
     </Dialog>

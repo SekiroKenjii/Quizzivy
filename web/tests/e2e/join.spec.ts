@@ -5,11 +5,6 @@ import { anonymous, stubApi, stubGoogleConsent, studentUser } from "./support/ap
  * §14's E2E 3 and E2E 4 — the self-join flow, which is the only way a student
  * account comes into existence (§6.3) and the first Quizzivy screen anyone new
  * ever sees.
- *
- * Google itself is replaced; everything else is the real thing. The browser
- * really does navigate to the authorization endpoint, the redirect really does
- * come back to our callback, and the `state` is echoed from the request rather
- * than invented — so a broken state check fails here rather than passing.
  */
 
 const CODE = "K7M3P9QR";
@@ -42,6 +37,21 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
         },
       },
     },
+    // What the home asks for once it lands: nothing assigned yet, one class.
+    "GET /app/assignments": { body: { dueNow: [], upcoming: [], completed: [] } },
+    "GET /app/classes": {
+      body: {
+        items: [
+          {
+            id: CLASS_ID,
+            name: CLASS_NAME,
+            studentCount: 13,
+            selfJoinEnabled: true,
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+      },
+    },
   });
   await stubGoogleConsent(page);
   await page.goto(`/join/${CODE}`);
@@ -58,7 +68,11 @@ test("E2E 3: an anonymous visitor joins a class from a deep link", async ({ page
   await page.getByRole("button", { name: "Tiếp tục với Google" }).click();
 
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole("heading", { name: "Bài của tôi" })).toBeVisible();
+  // Longer than the default on purpose.
+  await expect(page.getByRole("heading", { name: /^Chào / })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Hiện chưa có bài nào được giao.")).toBeVisible();
 
   const exchange = calls.filter((c) => c === "POST /auth/google");
   expect(exchange, "the authorization code is exchanged exactly once").toHaveLength(1);

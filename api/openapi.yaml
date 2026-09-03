@@ -77,25 +77,22 @@ components:
         Presenting an already-rotated token revokes the whole family (§5.2).
 
   parameters:
-    Cursor:
-      name: cursor
-      in: query
-      required: false
-      description: Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this.
-      schema: { type: string, maxLength: 512 }
-    Limit:
-      name: limit
+    Page:
+      name: page
       in: query
       required: false
       description: |
-        Page size. The DEFAULT IS PER RESOURCE and is declared on each operation
-        — a media grid wants a different page from a table of tests, and one
-        shared default could only ever be right for one of them. It used to
-        claim 25, which no server used.
+        1-based page number. Lists are OFFSET-paginated so a client can draw
+        numbered pages (O-20 overrides §13.8's keyset rule for the admin
+        lists: at this scale the teacher wants "trang 3 / 26" more than
+        stability under concurrent inserts). A page past the end is an empty
+        `items` with the same `total`.
 
-        A client should drive pagination from `nextCursor`, never from an
-        assumed page size.
-      schema: { type: integer, minimum: 1, maximum: 100 }
+        Page size is `limit`, declared per operation with its own default -- a
+        media grid wants a different page from a table of tests. The response
+        echoes the size actually used as `pageSize`; compute page counts from
+        that and `total`, never from an assumed size.
+      schema: { type: integer, minimum: 1, maximum: 1000000, default: 1 }
     Query:
       name: q
       in: query
@@ -260,13 +257,17 @@ components:
       properties:
         error: { $ref: '#/components/schemas/ErrorDetail' }
 
-    CursorPage:
+    PageInfo:
       type: object
-      required: [nextCursor]
+      description: |
+        The paging half of every list envelope. `total` counts the rows that
+        match the CURRENT filters -- the number the page count is drawn from
+        -- and is present even on an empty page past the end.
+      required: [page, pageSize, total]
       properties:
-        nextCursor:
-          type: [string, 'null']
-          description: Pass back as `cursor`. `null` means the last page (§13.8).
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
 
     # ------------------------------------------------------------------ auth
 
@@ -365,24 +366,35 @@ components:
         the policies §10.2 states in plain Vietnamese before the student starts.
       required:
         [id, testTitle, status, opensAt, closesAt, durationMinutes,
-         attemptsUsed, maxAttempts, review, integrity, hasAudio]
+         attemptsUsed, maxAttempts, questionCount, totalPoints, review,
+         integrity, hasAudio, showsTranscript]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         testTitle: { type: string }
+        className: { type: [string, 'null'], description: See StudentAssignmentCard. }
+        teacherName:
+          type: [string, 'null']
+          description: The assignment's author.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         opensAt: { $ref: '#/components/schemas/Timestamp' }
         closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer, minimum: 1 }
+        questionCount: { type: integer, minimum: 0 }
+        totalPoints: { $ref: '#/components/schemas/Points' }
         attemptsUsed: { type: integer, minimum: 0 }
         maxAttempts: { type: integer, minimum: 1 }
         hasLiveAttempt: { type: boolean }
+        liveDeadlineAt: { type: [string, 'null'], format: date-time }
         lastAttemptId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        lastSubmittedAt: { type: [string, 'null'], format: date-time }
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
-        instructions: { type: [string, 'null'] }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
         hasAudio: { type: boolean }
+        showsTranscript:
+          type: boolean
+          description: True when any listening question releases its transcript after submitting.
         audioMaxPlays:
           type: [integer, 'null']
           description: The strictest `maxPlays` across the test, for the intro copy.
@@ -496,7 +508,7 @@ components:
     StudentFacets:
       type: object
       description: |
-        G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a cursor page
+        G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a page
         cannot express, in the same shape as TestStatusFacets.
 
         `active` reuses the dashboard's window verbatim rather than defining a
@@ -1007,10 +1019,19 @@ components:
         testTitle: { type: string }
         targets:
           type: object
-          required: [classIds, studentIds]
+          required: [classes, studentIds]
           additionalProperties: false
           properties:
-            classIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+            classes:
+              type: array
+              description: The classes this assignment targets, with their names.
+              items:
+                type: object
+                required: [id, name]
+                additionalProperties: false
+                properties:
+                  id: { $ref: '#/components/schemas/Uuid' }
+                  name: { type: string }
             studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
         publishedAt:
           type: [string, 'null']
@@ -1288,19 +1309,41 @@ components:
 
     StudentAssignmentCard:
       type: object
-      required: [id, testTitle, status, opensAt, closesAt, durationMinutes, attemptsUsed, maxAttempts]
+      required:
+        [id, testTitle, status, opensAt, closesAt, durationMinutes,
+         attemptsUsed, maxAttempts, questionCount, totalPoints]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         testTitle: { type: string }
+        className:
+          type: [string, 'null']
+          description: >-
+            The class this assignment reached the student through. Null unless
+            exactly one targeted class contains them.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         opensAt: { $ref: '#/components/schemas/Timestamp' }
         closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer }
+        questionCount:
+          type: integer
+          minimum: 0
+          description: Questions on the pinned version.
+        totalPoints:
+          $ref: '#/components/schemas/Points'
+          description: What the paper is out of.
         attemptsUsed: { type: integer, minimum: 0 }
         maxAttempts: { type: integer, minimum: 1 }
         lastAttemptId: { type: [string, 'null'], format: uuid }
+        lastSubmittedAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the last attempt was handed in. Null while it is in progress.
         hasLiveAttempt: { type: boolean, description: Drives Start vs Resume (§9). }
+        liveDeadlineAt:
+          type: [string, 'null']
+          format: date-time
+          description: The live attempt's deadline. Null exactly when `hasLiveAttempt` is false.
         score:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.
@@ -1854,7 +1897,7 @@ paths:
             type: array
             items: { type: string }
         - $ref: '#/components/parameters/Query'
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
         - name: limit
@@ -1872,7 +1915,7 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/CursorPage'
+                  - $ref: '#/components/schemas/PageInfo'
                   - type: object
                     required: [items, facets, tags]
                     properties:
@@ -2101,7 +2144,7 @@ paths:
           description: A-06's "Chỉ câu có audio".
           schema: { type: boolean }
         - $ref: '#/components/parameters/Query'
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
         - name: limit
@@ -2122,9 +2165,9 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/CursorPage'
+                  - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items, facets, tags, total, filtered]
+                    required: [items, facets, tags, bankTotal]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
                       facets: { $ref: '#/components/schemas/QuestionTypeFacets' }
@@ -2142,17 +2185,16 @@ paths:
                           The tag filter itself is not applied, for the same
                           reason the type facets ignore the type filter — picking
                           one chip must not empty the rail.
-                      total:
-                        type: integer
-                        minimum: 0
-                        description: Live questions in the bank, before any filter. A-06's "180 câu".
-                      filtered:
+                      bankTotal:
                         type: integer
                         minimum: 0
                         description: |
-                          Matching ALL current filters — A-06's "đang lọc 41".
-                          Distinct from `facets.all`, which ignores the type
-                          filter so the "Tất cả" row can show a total.
+                          Live questions in the bank, before any filter — A-06's
+                          "180 câu". The envelope's `total` is the other number
+                          on that line, "đang lọc 41": rows matching ALL current
+                          filters, which is also what the page count is drawn
+                          from. Distinct from `facets.all`, which ignores the
+                          type filter so the "Tất cả" row can show a total.
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestion
@@ -2274,7 +2316,7 @@ paths:
       tags: [admin-media]
       parameters:
         - { name: kind, in: query, schema: { $ref: '#/components/schemas/MediaKind' } }
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
         - name: limit
@@ -2292,7 +2334,7 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/CursorPage'
+                  - $ref: '#/components/schemas/PageInfo'
                   - type: object
                     required: [items]
                     properties:
@@ -2389,7 +2431,7 @@ paths:
       tags: [admin-assignments]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AssignmentStatus' } }
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
         - name: limit
@@ -2407,7 +2449,7 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/CursorPage'
+                  - $ref: '#/components/schemas/PageInfo'
                   - type: object
                     required: [items]
                     properties:
@@ -2516,7 +2558,7 @@ paths:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AttemptStatus' } }
         - { name: flagged, in: query, schema: { type: boolean } }
         - { name: pendingGrading, in: query, schema: { type: boolean } }
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
         - name: limit
@@ -2534,7 +2576,7 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/CursorPage'
+                  - $ref: '#/components/schemas/PageInfo'
                   - type: object
                     required: [items]
                     properties:
@@ -2780,7 +2822,7 @@ paths:
             type: string
             enum: [active, disabled, all]
             default: active
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
         - name: limit
@@ -2798,7 +2840,7 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/CursorPage'
+                  - $ref: '#/components/schemas/PageInfo'
                   - type: object
                     required: [items, facets]
                     properties:
@@ -2910,19 +2952,34 @@ paths:
   /admin/classes:
     get:
       operationId: listClasses
-      description: All classes. Unpaginated -- a single-teacher practice has single-digit classes (§1.3).
+      description: |
+        Classes, newest first. Paginated and searchable like every other list:
+        §1.3 promised single-digit classes, and a development database already
+        holds over a hundred, which is what broke the class pickers.
       tags: [admin-classes]
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Page'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                additionalProperties: false
-                properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/Class' } }
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/Class' } }
     post:
       operationId: createClass
       description: Creates a class. A join code is not issued automatically; rotate to get one (§6.4).
@@ -2988,18 +3045,30 @@ paths:
       description: |
         Shows `joinedVia` and `joinedAt` so the teacher can spot unexpected
         enrolments — the mitigation §6.5 relies on instead of an approval queue.
-        Spec §15 has no endpoint for this.
+        Spec §15 has no endpoint for this. `q` searches name and email.
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Page'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                additionalProperties: false
-                properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/ClassMember' } }
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/ClassMember' } }
     post:
       operationId: addClassMember
       description: 'Enrols an existing user directly, bypassing the join code. Recorded as `joinedVia: admin` so the teacher can tell the two apart.'
@@ -3313,6 +3382,7 @@ paths:
                 properties:
                   serverTime: { $ref: '#/components/schemas/Timestamp' }
                   savedAt: { $ref: '#/components/schemas/Timestamp' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
             `SESSION_SUPERSEDED` — opened elsewhere; the client goes read-only
@@ -3366,6 +3436,7 @@ paths:
       responses:
         '202':
           description: Accepted. Always 202 — the client cannot act on the outcome anyway.
+        '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /app/attempts/{id}/audio-play:
@@ -3405,6 +3476,7 @@ paths:
                 properties:
                   plays: { type: integer, minimum: 1 }
                   maxPlays: { type: [integer, 'null'] }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /app/attempts/{id}/submit:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -3436,6 +3508,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: '`ATTEMPT_CLOSED`.'
           content:

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Flag, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,9 @@ import {
 import { statusAt } from "@/features/assignments/status";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/i18n/datetime";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
 
 const TABS: (AssignmentStatus | "all")[] = [
   "all",
@@ -46,6 +49,8 @@ const STATUS_VARIANT: Record<AssignmentStatus, "success" | "secondary" | "outlin
  * monitor -- so the columns are §8's list verbatim and the shape is A-03's,
  * which is the deck's answer for every other list screen.
  */
+const PAGE_SIZE = 20;
+
 export default function AssignmentsListPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -53,41 +58,36 @@ export default function AssignmentsListPage() {
   const locale = currentLocale(i18n.language);
   const now = new Date();
 
-  const assignments = useInfiniteQuery({
-    queryKey: ["admin-assignments", { tab }],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
+  const [page] = usePage(tab);
+  const assignments = useQuery({
+    queryKey: ["admin-assignments", { tab, page }],
+    queryFn: ({ signal }) =>
       listAssignments(
-        {
-          limit: 50,
-          ...(tab === "all" ? {} : { status: tab }),
-          ...(pageParam ? { cursor: pageParam } : {}),
-        },
+        { limit: PAGE_SIZE, page, ...(tab === "all" ? {} : { status: tab }) },
         signal,
       ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   });
 
-  const items = assignments.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = assignments.data?.items ?? [];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {t("nav.assignments")}
-          </h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {assignments.isSuccess
-              ? t("assignments.summary", { count: items.length })
-              : " "}
-          </p>
-        </div>
-        <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
-          <Plus aria-hidden="true" />
-          {t("assignments.new")}
-        </Button>
-      </div>
+      <PageHeader
+        variant="title"
+        title={t("nav.assignments")}
+        subtitle={
+          assignments.isSuccess
+            ? t("assignments.summary", { count: items.length })
+            : " "
+        }
+        actions={
+          <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
+            <Plus aria-hidden="true" />
+            {t("assignments.new")}
+          </Button>
+        }
+      />
 
       <Tabs
         value={tab}
@@ -162,18 +162,13 @@ export default function AssignmentsListPage() {
             </Table>
           </Card>
 
-          {assignments.hasNextPage ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={assignments.isFetchingNextPage}
-              onClick={() => void assignments.fetchNextPage()}
-            >
-              {assignments.isFetchingNextPage
-                ? t("common.loading")
-                : t("bank.loadMore")}
-            </Button>
-          ) : null}
+          {assignments.data && (
+            <Pager
+              page={assignments.data.page}
+              pageSize={assignments.data.pageSize}
+              total={assignments.data.total}
+            />
+          )}
         </>
       )}
     </div>
@@ -213,7 +208,7 @@ function Row({
       </TableCell>
       <TableCell className="text-muted-foreground">
         {t("assignments.targetSummary", {
-          classes: assignment.targets.classIds.length,
+          classes: assignment.targets.classes.length,
           students: assignment.targets.studentIds.length,
         })}
       </TableCell>

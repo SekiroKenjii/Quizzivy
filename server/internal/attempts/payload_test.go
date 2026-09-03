@@ -26,7 +26,9 @@ func TestThePaperCarriesNoPartOfTheGradingKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, secret := range []string{secretExplanation, secretSampleAnswer, secretBlankAnswer} {
+	for _, secret := range []string{
+		secretExplanation, secretSampleAnswer, secretBlankAnswer, secretTranscript,
+	} {
 		if strings.Contains(string(encoded), secret) {
 			t.Errorf("the payload contains %q", secret)
 		}
@@ -56,9 +58,6 @@ func TestNoAnswerBearingFieldAppearsAtAnyDepth(t *testing.T) {
 	banned := map[string]bool{
 		"iscorrect": true, "sampleanswer": true, "acceptedanswers": true,
 		"transcript": true, "explanation": true, "casesensitive": true,
-		// The seed and the token hash are the server's, not the student's: the
-		// seed would let a client predict every future paper, and the hash is
-		// the stored form of a live credential.
 		"shuffleseed": true, "seed": true, "beacontokenhash": true,
 	}
 	var walk func(node any, path string)
@@ -105,8 +104,6 @@ func TestBlanksArriveWithoutTheirAcceptedAnswers(t *testing.T) {
 		t.Fatalf("%d blanks reached the student, want 2", blanks)
 	}
 
-	// Guards the fixture rather than the code: if the accepted answers stopped
-	// being seeded, the value search above would pass for the wrong reason.
 	if got := count(t, pool, `
 		SELECT count(*) FROM app.test_version_blank_answers ba
 		  JOIN app.test_version_blanks b ON b.id = ba.test_version_blank_id
@@ -130,8 +127,8 @@ func TestOptionsArriveWithoutTheirCorrectness(t *testing.T) {
 	for _, q := range session.Questions {
 		options += len(q.Options)
 	}
-	if options != 4 {
-		t.Fatalf("%d options reached the student, want 4", options)
+	if options != 6 {
+		t.Fatalf("%d options reached the student, want 6", options)
 	}
 	if got := count(t, pool,
 		`SELECT count(*) FROM app.test_version_options WHERE test_version_question_id = $1::uuid AND is_correct`,
@@ -151,8 +148,7 @@ func TestAnotherStudentsAttemptIsNotReadable(t *testing.T) {
 		t.Fatalf("start: %v", err)
 	}
 
-	// Refused as forbidden rather than missing. A 404 here would answer "does
-	// this attempt id exist?" for anyone willing to ask, one id at a time.
+	// Refused as forbidden rather than missing.
 	if _, err := svc.Get(ctx, mine.Attempt.ID, w.outsider); !errors.Is(err, attempts.ErrForbidden) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}
@@ -226,4 +222,34 @@ func ids(qs []attempts.Question) string {
 		b.WriteString(" ")
 	}
 	return b.String()
+}
+
+// The transcript is §13.5's clearest case: it is the audio, written down. A
+// live check against seeded data once reported no leak because the question
+// carried no transcript at all, which proved nothing.
+func TestTheListeningQuestionsTranscriptNeverReachesTheStudent(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+
+	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), secretTranscript) {
+		t.Error("the transcript is in the student payload")
+	}
+
+	var stored string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT transcript FROM app.test_version_questions WHERE id = $1::uuid`,
+		w.listening).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != secretTranscript {
+		t.Fatalf("the fixture holds %q, not the sentinel; this test proves nothing", stored)
+	}
 }

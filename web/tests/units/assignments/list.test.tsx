@@ -19,7 +19,9 @@ function assignment(over: Record<string, unknown> = {}) {
     testVersion: 3,
     testTitle: "Unit 5",
     targets: {
-      classIds: ["018f0000-0000-7000-8000-0000000000c1"],
+      classes: [
+        { id: "018f0000-0000-7000-8000-0000000000c1", name: "IELTS Foundation" },
+      ],
       studentIds: [],
     },
     publishedAt: "2026-08-27T00:00:00Z",
@@ -51,7 +53,13 @@ function assignment(over: Record<string, unknown> = {}) {
 function serve(items: ReturnType<typeof assignment>[]) {
   server.use(
     http.get(`${BASE}/admin/assignments`, () =>
-      contractJson("/admin/assignments", "get", 200, { items, nextCursor: null }),
+      contractJson("/admin/assignments", "get", 200, {
+        page: 1,
+        pageSize: 50,
+        total: 0,
+        items,
+        nextCursor: null,
+      }),
     ),
   );
 }
@@ -98,11 +106,7 @@ describe("the assignments list", () => {
     expect(table.getByText("Đang mở")).toBeInTheDocument();
   });
 
-  /**
-   * The server sent status "open"; the window says it closed 14 hours ago. A
-   * cached page outlives the moment its response was built, so the timestamps
-   * are the fresher fact.
-   */
+  // The server sent status "open"; the window says it closed 14 hours ago.
   it("trusts the window over a stale status from the server", async () => {
     serve([
       assignment({
