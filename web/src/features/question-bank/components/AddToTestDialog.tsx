@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLazyList } from "@/hooks/useLazyList";
+import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import { FileText } from "lucide-react";
 import {
   Dialog,
@@ -41,9 +43,9 @@ export function AddToTestDialog({
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const tests = useQuery({
-    queryKey: ["admin-tests", { tab: "all", search: "" }],
-    queryFn: ({ signal }) => listTests({ limit: 50 }, signal),
+  const tests = useLazyList({
+    queryKey: ["admin-tests", "picker", { status: "all" }],
+    fetchPage: (page, signal) => listTests({ page, limit: 20 }, signal),
     enabled: open,
   });
 
@@ -84,7 +86,7 @@ export function AddToTestDialog({
       setError(cause instanceof ApiError ? cause.message : t("bank.addToTestFailed")),
   });
 
-  const candidates = (tests.data?.items ?? []).filter((x) => x.status !== "archived");
+  const candidates = tests.items.filter((x) => x.status !== "archived");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,6 +140,11 @@ export function AddToTestDialog({
               </div>
             ))
           )}
+          <LoadMoreSentinel
+            active={tests.hasMore}
+            loading={tests.loadingMore}
+            onVisible={tests.loadMore}
+          />
         </div>
       </DialogContent>
     </Dialog>

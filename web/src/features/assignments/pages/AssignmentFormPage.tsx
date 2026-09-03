@@ -28,7 +28,7 @@ import {
 import type { Token } from "@/features/assignments/components/TokenField";
 import { StudentRulesPreview } from "@/features/assignments/components/StudentRulesPreview";
 import { createAssignment } from "@/features/assignments/api";
-import { fetchClasses } from "@/features/classes/api";
+import { fetchClass } from "@/features/classes/api";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 import { ApiError, fieldMessages } from "@/lib/api/errors";
 
@@ -100,21 +100,23 @@ export default function AssignmentFormPage() {
     null,
   );
 
-  const classes = useQuery({
-    queryKey: ["admin-classes"],
-    queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
+  // The class named in the URL, fetched by id: a list of the first hundred is
+  // not where a class is guaranteed to be any more.
+  const fromClassId = params.get("classId");
+  const fromClassQuery = useQuery({
+    queryKey: ["admin-class", fromClassId],
+    queryFn: ({ signal }) => fetchClass(fromClassId ?? "", signal),
+    enabled: fromClassId !== null,
   });
 
   // Arriving from a class's "Giao bài cho lớp" pre-selects it, which is the
   // whole point of starting from there rather than from the assignments list.
-  const fromClass = params.get("classId");
   const preselected = useMemo(() => {
-    if (!fromClass || !classes.data) return null;
-    const found = classes.data.items.find((c) => c.id === fromClass);
+    const found = fromClassQuery.data;
     return found
       ? { id: found.id, label: found.name, hint: String(found.studentCount) }
       : null;
-  }, [fromClass, classes.data]);
+  }, [fromClassQuery.data]);
 
   // Applied during render rather than in an effect: the pre-selection is a
   // function of the URL and the loaded classes, and an effect would paint one

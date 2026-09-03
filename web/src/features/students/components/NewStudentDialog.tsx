@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +15,9 @@ import { Label } from "@/components/ui/label";
 import { TemporaryPasswordCard } from "@/features/students/components/TemporaryPasswordCard";
 import { createStudent } from "@/features/students/api";
 import { fetchClasses } from "@/features/classes/api";
+import { useLazyList } from "@/hooks/useLazyList";
+import { useDebounced } from "@/lib/useDebounced";
+import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import { ApiError, fieldMessages } from "@/lib/api/errors";
 
 /**
@@ -39,9 +42,15 @@ export function NewStudentDialog({
   const [temporary, setTemporary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const classes = useQuery({
-    queryKey: ["admin-classes"],
-    queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
+  const [classQuery, setClassQuery] = useState("");
+  const classSearch = useDebounced(classQuery, 250).trim();
+  const classes = useLazyList({
+    queryKey: ["admin-classes", "picker", { q: classSearch }],
+    fetchPage: (page, signal) =>
+      fetchClasses(
+        classSearch === "" ? { page, limit: 20 } : { q: classSearch, page, limit: 20 },
+        signal,
+      ),
     enabled: open,
   });
 
@@ -58,6 +67,7 @@ export function NewStudentDialog({
     setFullName("");
     setEmail("");
     setClassIds([]);
+    setClassQuery("");
     setTemporary(null);
     setError(null);
   }
@@ -121,29 +131,55 @@ export function NewStudentDialog({
                 onChange={(event) => setEmail(event.target.value)}
               />
             </div>
-            {(classes.data?.items.length ?? 0) === 0 ? null : (
+            {classes.total === 0 && classSearch === "" ? null : (
               <fieldset>
                 <legend className="text-sm font-medium">
                   {t("students.addToClasses")}
                 </legend>
-                <div className="mt-1.5 space-y-1">
-                  {classes.data?.items.map((klass) => (
-                    <label key={klass.id} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={classIds.includes(klass.id)}
-                        onChange={(event) =>
-                          setClassIds((current) =>
-                            event.target.checked
-                              ? [...current, klass.id]
-                              : current.filter((id) => id !== klass.id),
-                          )
-                        }
-                      />
-                      {klass.name}
-                    </label>
-                  ))}
-                </div>
+                <Input
+                  className="mt-1.5"
+                  value={classQuery}
+                  placeholder={t("students.searchClasses")}
+                  aria-label={t("students.searchClasses")}
+                  onChange={(event) => setClassQuery(event.target.value)}
+                />
+                <ul className="mt-1.5 max-h-48 space-y-1 overflow-y-auto">
+                  {classes.items.length === 0 && !classes.isPending ? (
+                    <li className="text-muted-foreground text-sm">
+                      {t("students.noClassMatches")}
+                    </li>
+                  ) : (
+                    classes.items.map((klass) => (
+                      <li key={klass.id}>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={classIds.includes(klass.id)}
+                            onChange={(event) =>
+                              setClassIds((current) =>
+                                event.target.checked
+                                  ? [...current, klass.id]
+                                  : current.filter((id) => id !== klass.id),
+                              )
+                            }
+                          />
+                          {klass.name}
+                        </label>
+                      </li>
+                    ))
+                  )}
+                  <LoadMoreSentinel
+                    as="li"
+                    active={classes.hasMore}
+                    loading={classes.loadingMore}
+                    onVisible={classes.loadMore}
+                  />
+                </ul>
+                {classIds.length > 0 && (
+                  <p className="text-muted-foreground mt-1.5 text-xs">
+                    {t("students.selectedClasses", { count: classIds.length })}
+                  </p>
+                )}
               </fieldset>
             )}
           </div>
