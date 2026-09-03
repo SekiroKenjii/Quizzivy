@@ -326,3 +326,55 @@ func TestAnEventNamingAnUnknownQuestionIsStoredWithoutIt(t *testing.T) {
 		t.Errorf("question_id = %q, want NULL", *questionID)
 	}
 }
+
+// The join drops an answer against a question that is not on the paper; this
+// is the same rule one level down. A choice naming an id that is not one of
+// that question's options -- malformed, or a real option lifted from another
+// question -- would grade as nonsense with no visible cause, so it is not
+// stored. The answers beside it are (#52).
+func TestAChoiceNamingAnOptionThatIsNotTheQuestionsIsDroppedNotStored(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	var choiceOption string
+	if err := pool.QueryRow(ctx, `SELECT id::text FROM app.test_version_options
+		 WHERE test_version_question_id = $1::uuid AND is_correct`, w.choice).Scan(&choiceOption); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := svc.Save(ctx, attempts.SaveInput{
+		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
+		Answers: []attempts.Answer{
+			{QuestionID: w.choice, Payload: []byte(`{"type":"choice","optionIds":[""]}`)},
+			{QuestionID: w.listening, Payload: []byte(`{"type":"choice","optionIds":["` + choiceOption + `"]}`)},
+			{QuestionID: w.essay, Payload: []byte(`{"type":"text","value":"Tôi dậy lúc 6 giờ."}`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if got.Saved != 1 {
+		t.Errorf("saved %d, want 1: the essay, and neither choice", got.Saved)
+	}
+	stored := count(t, pool, `SELECT count(*) FROM app.attempt_answers
+		 WHERE attempt_id = $1::uuid AND question_id IN ($2::uuid, $3::uuid)`,
+		session.Attempt.ID, w.choice, w.listening)
+	if stored != 0 {
+		t.Errorf("%d choice rows stored, want 0", stored)
+	}
+
+	// The same question with its own option is an ordinary save.
+	got, err = svc.Save(ctx, attempts.SaveInput{
+		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
+		Answers: []attempts.Answer{
+			{QuestionID: w.choice, Payload: []byte(`{"type":"choice","optionIds":["` + choiceOption + `"]}`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("second save: %v", err)
+	}
+	if got.Saved != 1 {
+		t.Errorf("saved %d, want 1: a real option on its own question", got.Saved)
+	}
+}

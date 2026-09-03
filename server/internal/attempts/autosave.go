@@ -83,12 +83,16 @@ func writable(ctx context.Context, tx pgx.Tx, in SaveInput, now time.Time) (stri
 // rather than duplicating.
 //
 // The join to the version is what stops one student writing an answer against a
-// question on somebody else's paper. Rows that do not survive it are DROPPED
-// rather than failing the batch, and that is deliberate: the only ways to send
-// an unknown id are a client bug or an attempt at exactly what the join blocks,
-// and in both cases refusing the whole batch would throw away the real answers
-// sitting beside it. Losing a student's work is the one outcome this feature
-// exists to prevent. The count comes back so a caller can notice the gap.
+// question on somebody else's paper, and the option check is the same rule one
+// level down: a choice answer naming an id that is not an option of THAT
+// question -- malformed, or a real option lifted from another question -- is
+// treated exactly like an unknown question. Rows that do not survive are
+// DROPPED rather than failing the batch, and that is deliberate: the only ways
+// to send such an id are a client bug or an attempt at exactly what the checks
+// block, and in both cases refusing the whole batch would throw away the real
+// answers sitting beside it. Losing a student's work is the one outcome this
+// feature exists to prevent. The count comes back so a caller can notice the
+// gap, and nothing that would grade as nonsense is stored.
 //
 // requires_manual is set from the question type rather than left to grading
 // (D-19): final_score is VIRTUAL and unindexable, so §7's pendingManual needs a
@@ -111,6 +115,16 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID strin
 		  JOIN app.test_version_questions q ON q.id = submitted.question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $4::uuid
+		   AND NOT EXISTS (
+		         SELECT 1
+		           FROM jsonb_array_elements_text(
+		                  CASE WHEN jsonb_typeof(submitted.payload::jsonb->'optionIds') = 'array'
+		                       THEN submitted.payload::jsonb->'optionIds'
+		                       ELSE '[]'::jsonb END) AS chosen(id)
+		          WHERE NOT EXISTS (
+		                  SELECT 1 FROM app.test_version_options o
+		                   WHERE o.id::text = chosen.id
+		                     AND o.test_version_question_id = q.id))
 		ON CONFLICT (attempt_id, question_id) DO UPDATE
 		   SET payload = EXCLUDED.payload,
 		       requires_manual = EXCLUDED.requires_manual`,
