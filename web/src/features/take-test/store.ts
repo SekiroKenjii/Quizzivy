@@ -54,6 +54,12 @@ interface TakeTestState {
   audioPlays: Record<string, number>;
   integrity: IntegrityPolicy | null;
   /**
+   * Questions the student marked to come back to (S-06's "đánh dấu"). Theirs
+   * alone: the contract has no field for it, so it lives in sessionStorage
+   * per attempt and survives a reload, not a device change.
+   */
+  flags: ReadonlySet<string>;
+  /**
    * Counted away episodes before this sitting, per the server. Latched on the
    * first payload for an attempt: a refetch would return a count that already
    * includes episodes this tab flushed, and the monitor counts those itself.
@@ -73,6 +79,7 @@ interface TakeTestState {
 
   hydrate: (session: AttemptSession) => void;
   setAnswer: (questionId: string, answer: Answer) => void;
+  toggleFlag: (questionId: string) => void;
   notePlay: (questionId: string) => void;
   flush: () => Promise<void>;
   submit: (reason?: "manual" | "timer_expired" | "auto_submit") => Promise<void>;
@@ -97,6 +104,7 @@ const initial = {
   touchedAt: {} as Record<string, number>,
   audioPlays: {} as Record<string, number>,
   integrity: null,
+  flags: new Set<string>() as ReadonlySet<string>,
   focusLossCount: 0,
   deadlineAt: 0,
   offsetMs: 0,
@@ -138,6 +146,10 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         answers,
         audioPlays: session.audioPlays,
         integrity: session.integrity,
+        flags:
+          state.attemptId === session.attempt.id
+            ? state.flags
+            : readFlags(session.attempt.id),
         focusLossCount:
           state.attemptId === session.attempt.id
             ? state.focusLossCount
@@ -150,6 +162,15 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         lock: lockFor(session),
       };
     }),
+
+  toggleFlag: (questionId) => {
+    const { attemptId, flags } = get();
+    if (attemptId === null) return;
+    const next = new Set(flags);
+    if (!next.delete(questionId)) next.add(questionId);
+    writeFlags(attemptId, next);
+    set({ flags: next });
+  },
 
   setAnswer: (questionId, answer) => {
     if (get().lock !== null) return;
@@ -296,14 +317,76 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
 
   lockNow: (reason) => {
     cancelScheduledFlush();
+    cancelDeadline();
     set({ lock: reason });
   },
 
   reset: () => {
     cancelScheduledFlush();
-    set({ ...initial, dirty: new Set<string>() });
+    cancelDeadline();
+    set({ ...initial, dirty: new Set<string>(), flags: new Set<string>() });
   },
 }));
+
+/**
+ * The deadline, armed as a single timeout rather than polled.
+ *
+ * E2E 5: time running out submits the paper, with `timer_expired` so the
+ * server ends it at the deadline rather than at the request's arrival. Armed
+ * from the server's clock (remainingMs) and re-armed whenever the offset is
+ * re-measured, so a device clock that drifts during an hour-long test still
+ * fires when the server's minute hand says so, not the device's.
+ */
+let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function armDeadline() {
+  cancelDeadline();
+  const state = useTakeTestStore.getState();
+  if (state.attemptId === null || state.lock !== null || state.submitState !== "idle")
+    return;
+  deadlineTimer = setTimeout(() => {
+    deadlineTimer = undefined;
+    void useTakeTestStore.getState().submit("timer_expired");
+  }, remainingMs(state));
+}
+
+export function cancelDeadline() {
+  if (deadlineTimer !== undefined) {
+    clearTimeout(deadlineTimer);
+    deadlineTimer = undefined;
+  }
+}
+
+useTakeTestStore.subscribe((state, previous) => {
+  if (
+    state.deadlineAt !== previous.deadlineAt ||
+    state.offsetMs !== previous.offsetMs
+  ) {
+    armDeadline();
+  }
+});
+
+const FLAGS_PREFIX = "quizzivy.flags.";
+
+function readFlags(attemptId: string): ReadonlySet<string> {
+  try {
+    const raw = sessionStorage.getItem(FLAGS_PREFIX + attemptId);
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    return new Set(
+      Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function writeFlags(attemptId: string, flags: ReadonlySet<string>): void {
+  try {
+    sessionStorage.setItem(FLAGS_PREFIX + attemptId, JSON.stringify([...flags]));
+  } catch {
+    // In memory only, like the event buffer: worse on a reload, no reason to stop.
+  }
+}
 
 /**
  * One pending flush at a time, rescheduled by whichever came last.

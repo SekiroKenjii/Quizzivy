@@ -26,9 +26,11 @@ type StudentCard struct {
 	PublishedAt *time.Time
 	DurationMin int
 	MaxAttempts int
-	// AttemptsUsed counts finished, non-voided attempts. A live one is not
-	// used yet -- it is the one the student is in.
-	AttemptsUsed   int
+	// AttemptsUsed counts finished, non-voided attempts, plus one left in
+	// progress past its deadline. A live one is not used yet -- it is the
+	// one the student is in.
+	AttemptsUsed int
+	// HasLiveAttempt means resumable: in progress and before its deadline.
 	HasLiveAttempt bool
 	// LastAttemptID is the most recent non-voided attempt, live or finished.
 	LastAttemptID *string
@@ -79,12 +81,18 @@ const targeted = `
 const studentCardColumns = `
 	SELECT a.id::text, t.title, a.opens_at, a.closes_at, a.closed_at, a.published_at,
 	       a.duration_minutes, a.max_attempts, a.review_show_score,
+	       -- "Live" means resumable, the way resumeIfLive means it: in progress
+	       -- AND before its deadline. One left open past the deadline in a
+	       -- closed tab is spent -- the server times it out at the next contact
+	       -- -- so it counts as used here rather than offering a resume the
+	       -- server would refuse.
 	       (SELECT count(*) FROM app.attempts at
 	         WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
-	           AND at.status IN ('submitted', 'timed_out', 'graded')),
+	           AND (at.status IN ('submitted', 'timed_out', 'graded')
+	                OR (at.status = 'in_progress' AND at.deadline_at <= now()))),
 	       EXISTS (SELECT 1 FROM app.attempts at
 	                WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
-	                  AND at.status = 'in_progress'),
+	                  AND at.status = 'in_progress' AND at.deadline_at > now()),
 	       last.id::text, last.status::text, last.earned, last.total, last.pending`
 
 const studentCardFrom = `
