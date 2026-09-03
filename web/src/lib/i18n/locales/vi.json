@@ -439,6 +439,7 @@
     "position": "Câu {{number}} · {{section}}"
   },
   "bank": {
+    "filters": "Bộ lọc",
     "typeFilter": "Loại câu",
     "tagFilter": "Thẻ",
     "allTypes": "Tất cả",

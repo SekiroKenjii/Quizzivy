@@ -26,6 +26,7 @@ import {
   type QuestionType,
 } from "@/features/question-bank/api";
 import { useDebounced } from "@/lib/useDebounced";
+import { PageAside } from "@/components/shared/PageAside";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
@@ -110,10 +111,10 @@ export default function QuestionBankPage() {
   const allSelected = items.length > 0 && items.every((q) => selected.has(q.id));
 
   return (
-    <div className="-m-6 flex h-[calc(100svh-3.5rem)] overflow-hidden">
-      {/* Full height with its own scroll: a filter rail that scrolls away
-        with the results is a rail you cannot reach while reading them. */}
-      <aside className="w-56 shrink-0 space-y-5 overflow-y-auto border-r p-4">
+    <>
+      {/* Beside the results, not above them: a filter rail that scrolls away
+        with the list is a rail you cannot reach while reading it. */}
+      <PageAside side="left" label={t("bank.filters")}>
         <div>
           <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
             {t("bank.typeFilter")}
@@ -178,9 +179,9 @@ export default function QuestionBankPage() {
           />
           {t("bank.audioOnly")}
         </label>
-      </aside>
+      </PageAside>
 
-      <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
+      <div className="space-y-4">
         <PageHeader
           variant="title"
           title={t("nav.questionBank")}
@@ -350,7 +351,7 @@ export default function QuestionBankPage() {
         onOpenChange={setAdding}
         onAdded={() => setSelected(new Set())}
       />
-    </div>
+    </>
   );
 }
 
