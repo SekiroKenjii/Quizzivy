@@ -66,8 +66,13 @@ ON CONFLICT (id) DO NOTHING;
 -- ------------------------------------------------------------ an assignment
 -- Open right now, closing in three hours, so the dashboard's "Bài đang mở"
 -- card and its countdown have something true to say.
+-- published_at is what hands an assignment to students; a NULL one is a draft
+-- and no student ever sees it. Migration 00022 backfilled the rows that existed
+-- when it ran, which is why omitting it here looked fine on a database seeded
+-- before that migration and produced an invisible assignment on a fresh one.
 INSERT INTO app.assignments
-  (id, test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by)
+  (id, test_id, test_version_id, opens_at, closes_at, duration_minutes,
+   published_at, created_by)
 VALUES (
   '01935000-0000-7000-8000-00000000dd06'::uuid,
   '01935000-0000-7000-8000-00000000dd01'::uuid,
@@ -75,6 +80,7 @@ VALUES (
   now() - interval '2 hours',
   now() + interval '3 hours',
   45,
+  now() - interval '2 hours',
   '01935000-0000-7000-8000-0000000000a1'
 )
 ON CONFLICT (id) DO NOTHING;
