@@ -3,8 +3,11 @@ package attempts_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/attempts"
 )
@@ -257,4 +260,178 @@ func containsKind(kinds []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// One away episode as the client records it: the return signal carrying how
+// long the student was gone. The leave signal is recorded too but carries
+// nothing, so it is the return that counts.
+func away(seq int, awayMs int) attempts.Event {
+	return attempts.Event{
+		Kind: "window_focus", OccurredAt: time.Now(), ClientSeq: seq,
+		Meta: []byte(fmt.Sprintf(`{"awayMs": %d}`, awayMs)),
+	}
+}
+
+func flushEvents(w world, s attempts.Session, events ...attempts.Event) attempts.FlushInput {
+	return attempts.FlushInput{
+		AttemptID: s.Attempt.ID, SessionID: s.SessionID, StudentID: w.student, Events: events,
+	}
+}
+
+func focusState(t *testing.T, pool *pgxpool.Pool, attemptID string) (count int, flagged bool) {
+	t.Helper()
+	if err := pool.QueryRow(context.Background(),
+		`SELECT focus_loss_count, flagged FROM app.attempts WHERE id = $1::uuid`, attemptID).
+		Scan(&count, &flagged); err != nil {
+		t.Fatal(err)
+	}
+	return count, flagged
+}
+
+func startWith(t *testing.T, pool *pgxpool.Pool, o worldOpts) (*attempts.Service, world, attempts.Session) {
+	t.Helper()
+	w := seedWorld(t, pool, o)
+	svc := newService(t, pool)
+	session, err := svc.StartOrResume(context.Background(), w.assignment, w.student)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	return svc, w, session
+}
+
+// §10.2's `flag`: "attempt marked for the admin, student told". The client
+// tells; this is the marking. And §10.1's threshold: the count is episodes at
+// or over minAwayMs, not events.
+func TestAwayEpisodesOverTheThresholdAreCountedAndExceedingTheLimitFlags(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := startWith(t, pool, focusLimit(2, "flag"))
+	ctx := context.Background()
+
+	// Two episodes: at the limit, not over it. "Quá 2 lần" means more than two.
+	if err := svc.Flush(ctx, flushEvents(w, session, away(1, 3502), away(2, 90_000))); err != nil {
+		t.Fatal(err)
+	}
+	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || flagged {
+		t.Fatalf("after two episodes: count %d flagged %v, want 2 and not flagged", n, flagged)
+	}
+
+	// A notification, not a search: below the threshold, so not an episode.
+	if err := svc.Flush(ctx, flushEvents(w, session, away(3, 2000))); err != nil {
+		t.Fatal(err)
+	}
+	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || flagged {
+		t.Fatalf("after a 2s blur: count %d flagged %v, want still 2 and not flagged", n, flagged)
+	}
+
+	// The third is the one over the limit.
+	if err := svc.Flush(ctx, flushEvents(w, session, away(4, 3000))); err != nil {
+		t.Fatal(err)
+	}
+	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 3 || !flagged {
+		t.Fatalf("after three episodes: count %d flagged %v, want 3 and flagged", n, flagged)
+	}
+
+	// What the student sees on the next resume is the same number.
+	resumed, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumed.Attempt.FocusLossCount != 3 || !resumed.Attempt.Flagged {
+		t.Errorf("resume payload: count %d flagged %v, want 3 and flagged",
+			resumed.Attempt.FocusLossCount, resumed.Attempt.Flagged)
+	}
+}
+
+func TestWarnCountsButNeverFlags(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := startWith(t, pool, focusLimit(1, "warn"))
+
+	if err := svc.Flush(context.Background(),
+		flushEvents(w, session, away(1, 5000), away(2, 5000), away(3, 5000))); err != nil {
+		t.Fatal(err)
+	}
+	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 3 || flagged {
+		t.Errorf("count %d flagged %v, want 3 and not flagged: warn is dialog only", n, flagged)
+	}
+}
+
+func TestNoLimitCountsButNeverFlags(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool) // §10.3's default: maxFocusLoss 0
+
+	if err := svc.Flush(context.Background(),
+		flushEvents(w, session, away(1, 5000), away(2, 5000))); err != nil {
+		t.Fatal(err)
+	}
+	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || flagged {
+		t.Errorf("count %d flagged %v, want 2 and not flagged: 0 means unlimited", n, flagged)
+	}
+}
+
+// The threshold is the assignment's, not a constant.
+func TestTheAssignmentsOwnThresholdDecidesAnEpisode(t *testing.T) {
+	pool := newPool(t)
+	o := focusLimit(0, "flag")
+	o.minAwayMs = 10_000
+	svc, w, session := startWith(t, pool, o)
+
+	if err := svc.Flush(context.Background(),
+		flushEvents(w, session, away(1, 5000), away(2, 10_000))); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := focusState(t, pool, session.Attempt.ID); n != 1 {
+		t.Errorf("count %d, want 1: only the 10s episode reaches a 10s threshold", n)
+	}
+}
+
+// A retried batch is absorbed by ON CONFLICT; the recount must not see it twice.
+func TestARetriedBatchDoesNotDoubleCount(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := startWith(t, pool, focusLimit(5, "flag"))
+	ctx := context.Background()
+
+	in := flushEvents(w, session, away(1, 4000), away(2, 4000))
+	for range 3 {
+		if err := svc.Flush(ctx, in); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, _ := focusState(t, pool, session.Attempt.ID); n != 2 {
+		t.Errorf("count %d after the same batch three times, want 2", n)
+	}
+}
+
+func TestTheBeaconPathCountsToo(t *testing.T) {
+	pool := newPool(t)
+	svc, _, session := startWith(t, pool, focusLimit(1, "flag"))
+
+	in := attempts.FlushInput{
+		AttemptID: session.Attempt.ID, SessionID: session.SessionID,
+		BeaconToken: session.BeaconToken,
+		Events:      []attempts.Event{away(1, 4000), away(2, 4000)},
+	}
+	if err := svc.Flush(context.Background(), in); err != nil {
+		t.Fatal(err)
+	}
+	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || !flagged {
+		t.Errorf("count %d flagged %v via the beacon, want 2 and flagged", n, flagged)
+	}
+}
+
+// Events ride with the answers in one transaction (§10.6), so a bad byte in
+// telemetry must not roll back the answer it travelled with.
+func TestAMalformedAwayMsIsSkippedNotFatal(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := startWith(t, pool, focusLimit(1, "flag"))
+
+	junk := attempts.Event{
+		Kind: "window_focus", OccurredAt: time.Now(), ClientSeq: 1,
+		Meta: []byte(`{"awayMs": "soon"}`),
+	}
+	if err := svc.Flush(context.Background(), flushEvents(w, session, junk, away(2, 4000))); err != nil {
+		t.Fatalf("a malformed awayMs failed the flush: %v", err)
+	}
+	if n, _ := focusState(t, pool, session.Attempt.ID); n != 1 {
+		t.Errorf("count %d, want 1: the junk is skipped and the real episode counted", n)
+	}
 }
