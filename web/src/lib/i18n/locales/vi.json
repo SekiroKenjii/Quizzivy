@@ -12,7 +12,8 @@
     "language": "Ngôn ngữ",
     "comingSoon": "Phần này sẽ được xây dựng ở giai đoạn sau.",
     "save": "Lưu",
-    "saving": "Đang lưu…"
+    "saving": "Đang lưu…",
+    "loadingMore": "Đang tải thêm…"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -741,7 +742,11 @@
     "disable": "Khoá tài khoản",
     "enable": "Mở khoá",
     "disabledBadge": "đã khoá",
-    "disableFailed": "Không đổi được trạng thái tài khoản. Vui lòng thử lại."
+    "disableFailed": "Không đổi được trạng thái tài khoản. Vui lòng thử lại.",
+    "searchClasses": "Tìm lớp",
+    "selectedClasses_one": "Đã chọn {{count}} lớp",
+    "selectedClasses_other": "Đã chọn {{count}} lớp",
+    "noClassMatches": "Không có lớp nào khớp."
   },
   "takeTest": {
     "answerOptions": "Các phương án",
