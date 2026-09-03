@@ -378,11 +378,7 @@ func TestAnAttemptLeftOpenPastItsDeadlineIsSpentNotLive(t *testing.T) {
 	}
 }
 
-// The bearer middleware never asks the database -- verification is pure, so an
-// access token keeps working for up to its TTL after an admin disables the
-// account. attempts.Store already refuses to start an attempt in that window;
-// these reads have to agree with it, or the home offers a Start the server
-// rejects and the intro hands over every policy on the paper.
+// A token outlives the account by its TTL, so these reads check it themselves.
 func TestADisabledStudentReadsNothingWhileTheirTokenLasts(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
@@ -415,10 +411,7 @@ func TestADisabledStudentReadsNothingWhileTheirTokenLasts(t *testing.T) {
 	}
 }
 
-// S-03 and S-04 draw four facts the contract used to leave out: which class
-// the work came through, who set it, how many questions, and what the paper is
-// out of. They come from the pinned version and the roster rather than from a
-// second request, because the home draws a card per assignment.
+// The four facts S-03 and S-04 draw, from the pinned version and the roster.
 func TestTheCardCarriesWhatTheStudentsScreensDraw(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
@@ -454,8 +447,6 @@ func TestTheCardCarriesWhatTheStudentsScreensDraw(t *testing.T) {
 	if card.QuestionCount != 3 {
 		t.Errorf("questionCount %d, want 3", card.QuestionCount)
 	}
-	// The version's own total, not a sum of what happens to be attached: it is
-	// what the paper is out of, and the version is frozen.
 	if card.TotalPoints != 10 {
 		t.Errorf("totalPoints %v, want 10", card.TotalPoints)
 	}
@@ -475,9 +466,7 @@ func TestTheCardCarriesWhatTheStudentsScreensDraw(t *testing.T) {
 	}
 }
 
-// An assignment can target several classes and name students directly, so
-// "which class is this for" has no single answer for a student on two of them.
-// Naming one would be picking a side they cannot check.
+// A student on two targeted classes has no single answer, so they get none.
 func TestTheClassNameIsOmittedUnlessThereIsExactlyOne(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
@@ -540,9 +529,7 @@ func TestAStudentReachedByNameGetsNoClassName(t *testing.T) {
 	}
 }
 
-// S-03's resume card shows the number the engine's clock shows, and its
-// completed rows show when the work was handed in. Two assignments, because
-// one with a live attempt is due rather than completed however many it has.
+// Two assignments: one with a live attempt is due, never completed.
 func TestTheCardCarriesTheLiveDeadlineAndTheSubmissionTime(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
@@ -573,7 +560,6 @@ func TestTheCardCarriesTheLiveDeadlineAndTheSubmissionTime(t *testing.T) {
 	if !resumable.HasLiveAttempt {
 		t.Fatal("the attempt is in progress and inside its deadline")
 	}
-	// Non-null exactly when hasLiveAttempt: both read the same condition.
 	if resumable.LiveDeadlineAt == nil {
 		t.Error("a live attempt with no deadline to show")
 	}

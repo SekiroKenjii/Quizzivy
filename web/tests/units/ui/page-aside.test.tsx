@@ -22,9 +22,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 describe("the side panel", () => {
-  // The deck sets it beside the content, not in it. Rendering into the shell's
-  // slot is what keeps it still while main scrolls: it is a sibling of the
-  // scroll container, so there is nothing to scroll it with.
+  // A sibling of the scroll container, so nothing scrolls it.
   it("lands in the shell's slot, beside main, not inside the scrolling content", () => {
     render(
       <Shell>
@@ -56,8 +54,7 @@ describe("the side panel", () => {
     ).toBeInTheDocument();
   });
 
-  // A-04: the builder lays out its own row under its own bar, and its panel
-  // belongs in that row -- the nearest slot wins over the shell's.
+  // A-04: the builder's own row wins over the shell's.
   it("prefers the nearest slot", () => {
     function Builder({ children }: { children: React.ReactNode }) {
       const [slot, setSlot] = useState<HTMLDivElement | null>(null);
@@ -83,8 +80,7 @@ describe("the side panel", () => {
     expect(within(screen.getByTestId("slot")).queryByText("Điểm")).toBeNull();
   });
 
-  // S-08: under 1024px the navigator is a sheet, so the rail is not drawn.
-  // jsdom has no viewport, so this checks the contract rather than the layout.
+  // jsdom has no viewport, so this checks the class, not the layout.
   it("can be hidden below the large breakpoint", () => {
     render(
       <PageAside label="Danh sách câu" hideBelow="lg">
@@ -99,8 +95,6 @@ describe("the side panel", () => {
 });
 
 describe("the filter rail", () => {
-  // A-06: the rail filters what main shows, so it takes the other edge -- and
-  // its own slot, or it would land beside the detail panel on the right.
   it("lands in the rail slot, not the panel slot", () => {
     render(
       <Shell>
@@ -116,8 +110,7 @@ describe("the filter rail", () => {
     expect(within(screen.getByTestId("main")).queryByRole("complementary")).toBeNull();
   });
 
-  // F-11: one width per role. A rail of checkboxes at panel width is mostly
-  // empty, and a panel at rail width cannot hold G-07's three stat tiles.
+  // F-11: one width per role.
   it("is narrower than the panel and borders the other side", () => {
     render(
       <>

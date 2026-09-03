@@ -54,14 +54,7 @@ export function closesLine(closesAt: string, now: Date, t: TFunction): string {
     : t("student.closesAt", { time, date: shortDate(closesAt) });
 }
 
-/**
- * "22:14" -- what the engine's clock shows, so the home can say how long is
- * left instead of only that the clock is running.
- *
- * mm:ss under an hour and h:mm:ss over it, because "82:14" is a number nobody
- * reads as an hour and twenty-two minutes. Never negative: a deadline that has
- * passed reads 00:00, and the server is what ends the attempt.
- */
+/** "22:14", or "1:22:14" past an hour. Never negative; a passed deadline reads 00:00. */
 export function countdown(deadlineAt: string, now: Date): string {
   const total = Math.max(
     0,

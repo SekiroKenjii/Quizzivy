@@ -294,8 +294,6 @@ func TestAQuestionFromAnotherPaperIsIgnoredRatherThanFatal(t *testing.T) {
 	if got.Saved != 2 {
 		t.Errorf("saved %d, want 2 — the foreign question should not have been written", got.Saved)
 	}
-	// Named, so the drop leaves a trace. The handler logs these; without them
-	// a client bug that destroys work is invisible on the server.
 	if len(got.Dropped) != 1 || got.Dropped[0] != other.choice {
 		t.Errorf("dropped %v, want exactly the foreign question %s", got.Dropped, other.choice)
 	}
@@ -387,8 +385,7 @@ func TestAChoiceNamingAnOptionThatIsNotTheQuestionsIsDroppedNotStored(t *testing
 	}
 }
 
-// A batch where everything lands names nothing: the log line this feeds is
-// meant to be rare, and a Dropped that is never empty is a log nobody reads.
+// A Dropped that is never empty is a log nobody reads.
 func TestABatchThatFullyLandsNamesNothingAsDropped(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
@@ -402,9 +399,7 @@ func TestABatchThatFullyLandsNamesNothingAsDropped(t *testing.T) {
 	}
 }
 
-// Re-sending the same answers is a retry, not a drop. ON CONFLICT DO UPDATE
-// returns the row either way, so a client that flushes twice must not produce
-// a warning that says its answers went missing.
+// ON CONFLICT DO UPDATE returns the row, so a retry is not a drop.
 func TestAReplayedBatchIsNotAdrop(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)

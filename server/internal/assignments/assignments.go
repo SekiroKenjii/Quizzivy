@@ -56,10 +56,7 @@ type Integrity struct {
 	MinAwayMs         int
 }
 
-// ClassRef is a targeted class and its name. The name travels with the
-// assignment because every screen that lists one names its classes, and the
-// alternative -- looking the name up in the classes list -- reads one page of
-// it, so it answers with an em dash for any class past the page boundary.
+// ClassRef is a targeted class and its name.
 type ClassRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`

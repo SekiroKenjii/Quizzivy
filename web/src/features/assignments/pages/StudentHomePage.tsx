@@ -198,8 +198,6 @@ function DueCard({ card, now }: { card: StudentAssignmentCard; now: Date }) {
           <Clock aria-hidden="true" />
           {timeLeft(card.closesAt, now, t)}
         </Badge>
-        {/* Which class this came through. Absent when the server cannot name
-          one -- several targeted classes, or a student named directly. */}
         {card.className != null && (
           <span className="text-muted-foreground text-xs">{card.className}</span>
         )}
@@ -288,14 +286,7 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
   );
 }
 
-/**
- * "Đồng hồ vẫn đang chạy, còn 22:14." -- the number the engine's clock shows.
- *
- * Derived during render, with the interval only asking for a repaint, the way
- * the engine's own Clock does it. A countdown held in state would be a second
- * copy of the truth; a countdown rendered once would be wrong by the time the
- * student read it, which is the whole reason this card carries one.
- */
+/** Derived during render; the interval only asks for a repaint, as Clock does. */
 function ResumeBody({ card }: { card: StudentAssignmentCard }) {
   const { t } = useTranslation();
   const deadlineAt = card.liveDeadlineAt;

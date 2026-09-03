@@ -16,8 +16,7 @@ export default function FocusLayout() {
   // and footer too, and left the footer stranded mid-page instead of at the
   // bottom of the viewport.
   //
-  // Exactly the viewport, like the admin shell: the engine scrolls its paper
-  // and pins everything around it (S-08), so nothing here may grow with it.
+  // Exactly the viewport: the engine scrolls its paper and pins the rest (S-08).
   return (
     <div className="bg-background flex h-svh flex-col leading-relaxed">
       <Outlet />

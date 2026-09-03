@@ -490,8 +490,7 @@ func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
 	}
 }
 
-// Same window as the assignments reads: the token outlives the account, so the
-// class list has to ask what the token cannot.
+// Same window as the assignments reads: the token outlives the account.
 func TestADisabledStudentListsNoClasses(t *testing.T) {
 	pool := newPool(t)
 	store := classes.NewStore(pool)
@@ -524,13 +523,8 @@ func TestADisabledStudentListsNoClasses(t *testing.T) {
 	}
 }
 
-// OFFSET puts a row on exactly one page only when the sort is total.
-// `joined_at` is not: now() is transaction-scoped, so one INSERT gives every
-// row the same instant, and Postgres is then free to order the ties however
-// each page's plan happens to. Sixty members in pages of ten is enough to see
-// it: the sweep below returns sixty rows and, without a tie-break, fewer than
-// sixty people -- a roster that serves one student twice and loses another,
-// under a count that still says sixty.
+// One INSERT gives every row the same joined_at, and sixty rows in pages of
+// ten is enough for Postgres to order the ties differently per page.
 func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
 	pool := newPool(t)
 	store := classes.NewStore(pool)
@@ -568,7 +562,6 @@ func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
 		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = ANY($1::uuid[])`, joined)
 	})
 
-	// One statement, so every row carries the same joined_at.
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
 		SELECT $1::uuid, u, 'admin', $3::uuid FROM unnest($2::uuid[]) AS u`,

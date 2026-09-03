@@ -20,8 +20,7 @@ var ErrForbidden = errors.New("assignments: not this student's")
 type StudentCard struct {
 	ID        string
 	TestTitle string
-	// ClassName is the class this assignment reached the student through, and
-	// only when there is exactly one -- see the query for why.
+	// ClassName is set only when exactly one targeted class contains them.
 	ClassName     *string
 	OpensAt       time.Time
 	ClosesAt      time.Time
@@ -37,12 +36,11 @@ type StudentCard struct {
 	AttemptsUsed int
 	// HasLiveAttempt means resumable: in progress and before its deadline.
 	HasLiveAttempt bool
-	// LiveDeadlineAt is that attempt's deadline, non-nil exactly when
-	// HasLiveAttempt is true.
+	// LiveDeadlineAt is non-nil exactly when HasLiveAttempt is true.
 	LiveDeadlineAt *time.Time
 	// LastAttemptID is the most recent non-voided attempt, live or finished.
 	LastAttemptID *string
-	// LastSubmittedAt is when it was handed in; nil while it is still live.
+	// LastSubmittedAt is nil while that attempt is still live.
 	LastSubmittedAt *time.Time
 	// Score is the last finished attempt's, and only when the assignment's
 	// review policy shows scores. Nil otherwise -- absent, not zero.
@@ -59,14 +57,12 @@ type Score struct {
 // state before the clock starts.
 type StudentDetail struct {
 	StudentCard
-	// TeacherName is who set the work: the assignment's author, which is what
-	// S-04 names beside the class.
+	// TeacherName is the assignment's author.
 	TeacherName *string
 	Review      Review
 	Integrity   Integrity
 	HasAudio    bool
-	// ShowsTranscript is true when any listening question on the paper
-	// releases its transcript after submitting.
+	// ShowsTranscript is true when any listening question releases one.
 	ShowsTranscript bool
 	AudioMaxPlays   *int
 }
@@ -82,12 +78,8 @@ type StudentSections struct {
 // and by name -- are checked with EXISTS rather than a join, so a student on
 // both lists is one row, not two.
 //
-// The account check is part of the roster test rather than the middleware's
-// job: bearer verification is pure (deps.go), so an access token keeps working
-// for up to its TTL after an admin disables the account. Every other
-// membership read closes that window the same way -- attempts/store.go refuses
-// to start an attempt in it, and these reads have to agree with it or the home
-// offers a Start the server will reject.
+// Disabled accounts are excluded here because bearer verification is pure, so
+// a token outlives the account by its TTL.
 const targeted = `
 	(EXISTS (SELECT 1 FROM app.users me
 	          WHERE me.id = $1::uuid AND me.disabled_at IS NULL)
@@ -104,10 +96,6 @@ const targeted = `
 // type the contract promises (`format: double`).
 const studentCardColumns = `
 	SELECT a.id::text, t.title,
-	       -- The class this assignment reached them through, named only when
-	       -- there is exactly one. An assignment can target several classes and
-	       -- name students directly; a student on two of them has no single
-	       -- answer, and picking one would be picking a side they cannot check.
 	       (SELECT CASE WHEN count(*) = 1 THEN min(c.name) END
 	          FROM app.assignment_classes ac
 	          JOIN app.classes c ON c.id = ac.class_id
@@ -132,8 +120,7 @@ const studentCardColumns = `
 	       EXISTS (SELECT 1 FROM app.attempts at
 	                WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
 	                  AND at.status = 'in_progress' AND at.deadline_at > now()),
-	       -- The same WHERE as the EXISTS above, so this is non-null exactly
-	       -- when that is true rather than merely usually agreeing with it.
+	       -- The same WHERE as the EXISTS above, so the two cannot disagree.
 	       (SELECT at.deadline_at FROM app.attempts at
 	         WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
 	           AND at.status = 'in_progress' AND at.deadline_at > now()
@@ -249,12 +236,8 @@ func (s *Store) StudentDetail(ctx context.Context, id, studentID string) (Studen
 		onLimit   string
 		maxPlays  *int
 	)
-	// $1 is the student, so `targeted` and the card read unchanged; the
-	// assignment is $2.
+	// $1 is the student, so `targeted` and the card read unchanged; $2 is the assignment.
 	err := s.pool.QueryRow(ctx, studentCardColumns+`,
-	       -- Who set the work, for S-04's header. The assignment's author
-	       -- rather than the test's: the same paper can be set by different
-	       -- people, and this names who to ask about this sitting.
 	       (SELECT au.full_name FROM app.users au WHERE au.id = a.created_by),
 	       a.review_show_correct_answers, a.review_show_explanations,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
@@ -264,9 +247,6 @@ func (s *Store) StudentDetail(ctx context.Context, id, studentID string) (Studen
 	                 JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
 	                WHERE sec.test_version_id = a.test_version_id
 	                  AND q.media_asset_kind = 'audio'),
-	       -- At least one, because the intro promises the student one thing
-	       -- about the whole paper and they will judge it by whether they ever
-	       -- see a transcript.
 	       EXISTS (SELECT 1 FROM app.test_version_questions q
 	                 JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
 	                WHERE sec.test_version_id = a.test_version_id

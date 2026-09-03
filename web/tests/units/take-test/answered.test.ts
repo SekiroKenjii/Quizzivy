@@ -38,11 +38,7 @@ describe("answered", () => {
   });
 });
 
-/**
- * Per-blank grading (O-17) is what makes a partly-filled question worth
- * warning about: one blank of four scores a quarter, so calling it done hides
- * three quarters of the marks from the one screen that exists to catch that.
- */
+/** Per-blank grading (O-17): one blank of four scores a quarter, not nothing. */
 describe("answered, for a fill_blank", () => {
   it("is false when no blank has been typed into", () => {
     expect(answered(twoBlanks, { type: "fill_blank", values: {} })).toBe(false);
@@ -66,8 +62,6 @@ describe("answered, for a fill_blank", () => {
     ).toBe(true);
   });
 
-  // A value keyed to a blank this question does not have proves nothing about
-  // the blanks it does have.
   it("ignores values that belong to no blank on this question", () => {
     expect(
       answered(twoBlanks, {

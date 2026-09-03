@@ -277,9 +277,6 @@ function AssignmentRow({
     <TableRow>
       <TableCell className="font-medium">{assignment.testTitle}</TableCell>
       <TableCell className="text-muted-foreground">
-        {/* The names travel with the row. Looking them up in the classes list
-          read one page of it, so a class past the page boundary rendered as an
-          em dash on a screen that had the id in hand. */}
         {assignment.targets.classes.map((klass) => klass.name).join(", ") ||
           t("dashboard.byStudent")}
       </TableCell>

@@ -84,8 +84,6 @@ export default function AssignmentIntroPage() {
   return (
     <div className="space-y-4">
       <div>
-        {/* Which class, and who set it. Absent when the server can name
-          neither -- an assignment can target several classes at once. */}
         {provenance !== null && (
           <p className="text-muted-foreground text-xs">{provenance}</p>
         )}
@@ -98,8 +96,6 @@ export default function AssignmentIntroPage() {
         <Fact label={t("student.intro.duration")}>
           {t("student.minutes", { count: a.durationMinutes })}
         </Fact>
-        {/* What the paper is: the only place a student is told what it is out
-          of before they start. */}
         <Fact label={t("student.intro.questions")}>
           {t("student.intro.questionsValue", {
             questions: t("student.questions", { count: a.questionCount }),
@@ -143,9 +139,6 @@ export default function AssignmentIntroPage() {
             yes="seeExplanations"
             no="notSeeExplanations"
           />
-          {/* Only when the paper has one to release. A crossed-out row about
-            transcripts on a test with no listening question answers a question
-            the student never asked. */}
           {a.showsTranscript && (
             <Permission on yes="seeTranscript" no="seeTranscript" />
           )}
@@ -157,11 +150,7 @@ export default function AssignmentIntroPage() {
   );
 }
 
-/**
- * "IELTS Foundation · Cô Thương", or whichever half the server could name.
- * Null when it could name neither, so the title is not preceded by an empty
- * line.
- */
+/** "IELTS Foundation · Cô Thương", whichever half the server could name. */
 function introProvenance(a: StudentAssignmentDetail, t: TFunction): string | null {
   if (a.className != null && a.teacherName != null) {
     return t("student.intro.classAndTeacher", {
@@ -172,7 +161,7 @@ function introProvenance(a: StudentAssignmentDetail, t: TFunction): string | nul
   return a.className ?? a.teacherName ?? null;
 }
 
-/** Two decimals at most, and none when the number is whole: "30", not "30.00". */
+/** "30", not "30.00". */
 function decimal(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
 }

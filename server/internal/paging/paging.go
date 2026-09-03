@@ -12,14 +12,8 @@ type Page struct {
 	Total  int
 }
 
-// MaxPage is the highest page number any list will honour.
-//
-// It exists for the arithmetic, not for the data: `(page - 1) * limit` on a
-// caller's int overflows, and a wrapped OFFSET is either a negative number
-// Postgres rejects with a 500 or a positive one it scans towards for a while.
-// Every page past the data is empty anyway, so this only decides which empty
-// page a nonsense number gets. The contract declares the same ceiling, so an
-// HTTP caller is refused before reaching here; this covers every other caller.
+// MaxPage bounds the page number so (page - 1) * limit cannot overflow.
+// The contract declares the same ceiling.
 const MaxPage = 1_000_000
 
 // Clamp turns a caller's page and limit into what the query will use. A page

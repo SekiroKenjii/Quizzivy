@@ -165,7 +165,6 @@ func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 	if len(created.Classes) != 1 || created.Classes[0].ID != w.class {
 		t.Errorf("class targets: got %v", created.Classes)
 	}
-	// The name travels with the target, so no screen has to look it up.
 	if len(created.Classes) == 1 && created.Classes[0].Name == "" {
 		t.Error("class target carries no name")
 	}

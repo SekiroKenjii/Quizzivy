@@ -147,10 +147,6 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in SaveInput, versionID strin
 		return 0, nil, fmt.Errorf("attempts: upsert answers: %w", err)
 	}
 
-	// Named, not just counted. A drop is designed for a client bug or an
-	// attempt at what the checks above block, and both are things somebody has
-	// to be able to look into afterwards -- "one answer vanished" is not a
-	// report anyone can act on without knowing which.
 	var dropped []string
 	for _, id := range ids {
 		if _, ok := landed[id]; !ok {

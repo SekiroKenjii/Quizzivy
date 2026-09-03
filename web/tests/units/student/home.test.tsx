@@ -194,20 +194,13 @@ describe("nothing assigned", () => {
   });
 });
 
-/**
- * S-03 draws four things the card could not carry until the contract did:
- * which class the work came through, how long the paper is, when a finished
- * one was handed in, and how much of the clock is left on a live one.
- */
+/** The four things S-03 draws that the card could not carry before. */
 describe("what the deck's card says", () => {
   it("names the class the assignment came through, beside the badge", async () => {
     home({ dueNow: [card({ className: "IELTS Foundation" })] });
     expect(await screen.findByText("IELTS Foundation")).toBeInTheDocument();
   });
 
-  // Several targeted classes, or a student named directly: the server sends
-  // null rather than picking one, and the card says nothing rather than
-  // naming a class the student cannot check.
   it("says nothing about the class when the server names none", async () => {
     home({ dueNow: [card({ className: null })] }, []);
     await screen.findByText("Unit 5 — Present perfect");
@@ -233,9 +226,6 @@ describe("what the deck's card says", () => {
     expect(screen.queryByText("Lượt 1/2")).toBeNull();
   });
 
-  // A submitted attempt is what puts a date there; one still in progress has
-  // none, and the row falls back to the attempt count rather than inventing
-  // a date.
   it("falls back to the attempt count when there is no submission time", async () => {
     home({
       completed: [card({ status: "closed", attemptsUsed: 1, lastSubmittedAt: null })],
@@ -254,8 +244,7 @@ describe("the resume card's clock", () => {
         }),
       ],
     });
-    // The seconds move while the test runs (shouldAdvanceTime), so the minute
-    // is the assertion and the seconds only have to be there.
+    // shouldAdvanceTime moves the seconds, so only the minute is asserted.
     expect(
       await screen.findByText(/Đồng hồ vẫn đang chạy, còn 22:\d{2}\./),
     ).toBeInTheDocument();
@@ -270,8 +259,6 @@ describe("the resume card's clock", () => {
     expect(await screen.findByText(/còn 21:\d{2}\./)).toBeInTheDocument();
   });
 
-  // The server is what ends an attempt; a client clock that has run out says
-  // 00:00 rather than counting into negative numbers.
   it("stops at zero", async () => {
     home({
       dueNow: [card({ hasLiveAttempt: true, liveDeadlineAt: "2026-08-29T09:59:00Z" })],
