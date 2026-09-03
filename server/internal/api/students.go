@@ -12,6 +12,8 @@ import (
 	"quizzivy/internal/students"
 )
 
+const msgStudentNotFound = "Không tìm thấy học viên."
+
 // ListStudents backs §8's students table (G-07) and the two pickers that add a
 // student to a class (G-06) or to an assignment (G-01).
 func (s *Server) ListStudents(ctx context.Context, request openapi.ListStudentsRequestObject) (openapi.ListStudentsResponseObject, error) {
@@ -69,7 +71,7 @@ func (s *Server) GetStudent(ctx context.Context, request openapi.GetStudentReque
 	student, err := s.Deps.Students.Get(ctx, request.Id.String())
 	if errors.Is(err, students.ErrNotFound) {
 		return openapi.GetStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy học viên."))}, nil
+			notFound(ctx, msgStudentNotFound))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -143,7 +145,7 @@ func (s *Server) UpdateStudent(ctx context.Context, request openapi.UpdateStuden
 	case err == nil:
 	case errors.Is(err, students.ErrNotFound):
 		return openapi.UpdateStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy học viên."))}, nil
+			notFound(ctx, msgStudentNotFound))}, nil
 	case errors.Is(err, students.ErrEmailTaken):
 		return openapi.UpdateStudent409JSONResponse(authError(ctx, openapi.EMAILTAKEN,
 			"Địa chỉ email này đã được dùng cho một tài khoản khác.")), nil
@@ -172,7 +174,7 @@ func (s *Server) ResetStudentPassword(ctx context.Context, request openapi.Reset
 	err = s.Deps.Students.ResetPassword(ctx, req, request.Id.String(), hash, time.Now())
 	if errors.Is(err, students.ErrNotFound) {
 		return openapi.ResetStudentPassword404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy học viên."))}, nil
+			notFound(ctx, msgStudentNotFound))}, nil
 	}
 	if err != nil {
 		return nil, err

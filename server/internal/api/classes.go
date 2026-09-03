@@ -11,6 +11,8 @@ import (
 	"quizzivy/internal/httpx"
 )
 
+const msgClassNotFound = "Không tìm thấy lớp học."
+
 // GetClass implements GET /admin/classes/{id} (§6.4).
 //
 // Carries the active code's METADATA -- hint, expiry, uses -- and never the
@@ -24,7 +26,7 @@ func (s *Server) GetClass(ctx context.Context, request openapi.GetClassRequestOb
 	if err != nil {
 		if errors.Is(err, classes.ErrNotFound) {
 			return openapi.GetClass404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, "Không tìm thấy lớp học.")),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgClassNotFound)),
 			}, nil
 		}
 		return nil, err
@@ -142,7 +144,7 @@ func (s *Server) AddClassMember(ctx context.Context, request openapi.AddClassMem
 	case err == nil:
 	case errors.Is(err, classes.ErrNotFound):
 		return openapi.AddClassMember404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy lớp học."))}, nil
+			notFound(ctx, msgClassNotFound))}, nil
 	case errors.Is(err, classes.ErrNotAStudent):
 		return openapi.AddClassMember400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			authError(ctx, openapi.VALIDATIONFAILED, "Chỉ có thể thêm tài khoản học viên vào lớp."))}, nil
@@ -181,7 +183,7 @@ func (s *Server) RemoveClassMember(ctx context.Context, request openapi.RemoveCl
 	if err != nil {
 		if errors.Is(err, classes.ErrNotFound) {
 			return openapi.RemoveClassMember404JSONResponse{
-				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, "Không tìm thấy lớp học.")),
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgClassNotFound)),
 			}, nil
 		}
 		return nil, err

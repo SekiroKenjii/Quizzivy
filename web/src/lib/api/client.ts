@@ -69,34 +69,34 @@ export type RequestOptions<O> = Optional<"path", PathParamsOf<O>> &
 
 // ------------------------------------------------------------ url building
 
+function fillPath(path: string, params?: Record<string, unknown>): string {
+  if (!params) return path;
+  let resolved = path;
+  for (const [key, value] of Object.entries(params)) {
+    resolved = resolved.replace(`{${key}}`, encodeURIComponent(String(value)));
+  }
+  return resolved;
+}
+
+// A repeated key per element is what OpenAPI's `style: form, explode: true`
+// means and what the Go binder reads; String(array) would send "a,b" as one.
+function appendValue(url: URL, key: string, value: unknown): void {
+  if (value === undefined || value === null) return;
+  if (Array.isArray(value)) {
+    for (const item of value) appendValue(url, key, item);
+    return;
+  }
+  url.searchParams.append(key, String(value));
+}
+
 function buildUrl(
   path: string,
   pathParams?: Record<string, unknown>,
   query?: Record<string, unknown>,
 ): string {
-  let resolved = path;
-  if (pathParams) {
-    for (const [key, value] of Object.entries(pathParams)) {
-      resolved = resolved.replace(`{${key}}`, encodeURIComponent(String(value)));
-    }
-  }
-  const url = new URL(BASE_URL + resolved);
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      if (value === undefined || value === null) continue;
-      // Repeated key per element, which is what OpenAPI's `style: form,
-      // explode: true` means and what the Go binder reads. String(array) would
-      // send "a,b" as one value, and the server would look for a question type
-      // literally called "a,b".
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          if (item === undefined || item === null) continue;
-          url.searchParams.append(key, String(item));
-        }
-        continue;
-      }
-      url.searchParams.set(key, String(value));
-    }
+  const url = new URL(BASE_URL + fillPath(path, pathParams));
+  for (const [key, value] of Object.entries(query ?? {})) {
+    appendValue(url, key, value);
   }
   return url.toString();
 }

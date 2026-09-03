@@ -112,72 +112,17 @@ export default function QuestionBankPage() {
 
   return (
     <>
-      <PageAside side="left" label={t("bank.filters")}>
-        <div>
-          <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
-            {t("bank.typeFilter")}
-          </p>
-          <div className="space-y-3">
-            <FilterOption
-              label={t("bank.allTypes")}
-              count={facets?.all}
-              checked={types.length === 0}
-              onChange={() => setTypes([])}
-            />
-            {TYPES.map((value) => (
-              <FilterOption
-                key={value}
-                label={t(`questionEditor.type.${value}`)}
-                count={facets?.[value]}
-                checked={types.includes(value)}
-                onChange={() => setTypes(toggle(types, value))}
-              />
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
-            {t("bank.tagFilter")}
-          </p>
-          {!bank.isSuccess ? null : shownTags.length === 0 ? (
-            <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {shownTags.map((value) => {
-                const picked = tags.includes(value);
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={picked}
-                    onClick={() => setTags(toggle(tags, value))}
-                  >
-                    <Badge variant={picked ? "primary" : "outline"} className="gap-1">
-                      {value}
-                      {/* A-06 draws the × on the chosen chip: with several
-                        picked, "click it again" is not visibly the way off. */}
-                      {picked ? <X className="size-3" aria-hidden="true" /> : null}
-                    </Badge>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        <label className="flex items-center gap-2.5 text-sm">
-          <Checkbox
-            checked={audioOnly}
-            onChange={(event) => setAudioOnly(event.target.checked)}
-          />
-          {t("bank.audioOnly")}
-        </label>
-      </PageAside>
+      <FilterRail
+        facets={facets}
+        types={types}
+        tags={tags}
+        shownTags={shownTags}
+        tagsReady={bank.isSuccess}
+        audioOnly={audioOnly}
+        onTypes={setTypes}
+        onTags={setTags}
+        onAudioOnly={setAudioOnly}
+      />
 
       <div className="space-y-4">
         <PageHeader
@@ -448,6 +393,98 @@ function Row({
 }
 
 /** The tags actually present in the results, so the rail cannot offer a dead end. */
+
+function FilterRail({
+  facets,
+  types,
+  tags,
+  shownTags,
+  tagsReady,
+  audioOnly,
+  onTypes,
+  onTags,
+  onAudioOnly,
+}: {
+  facets: Record<string, number> | undefined;
+  types: readonly QuestionType[];
+  tags: readonly string[];
+  shownTags: readonly string[];
+  tagsReady: boolean;
+  audioOnly: boolean;
+  onTypes: (next: readonly QuestionType[]) => void;
+  onTags: (next: readonly string[]) => void;
+  onAudioOnly: (next: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <PageAside side="left" label={t("bank.filters")}>
+      <div>
+        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
+          {t("bank.typeFilter")}
+        </p>
+        <div className="space-y-3">
+          <FilterOption
+            label={t("bank.allTypes")}
+            count={facets?.all}
+            checked={types.length === 0}
+            onChange={() => onTypes([])}
+          />
+          {TYPES.map((value) => (
+            <FilterOption
+              key={value}
+              label={t(`questionEditor.type.${value}`)}
+              count={facets?.[value]}
+              checked={types.includes(value)}
+              onChange={() => onTypes(toggle(types, value))}
+            />
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      <div>
+        <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
+          {t("bank.tagFilter")}
+        </p>
+        {!tagsReady ? null : shownTags.length === 0 ? (
+          <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {shownTags.map((value) => {
+              const picked = tags.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={picked}
+                  onClick={() => onTags(toggle(tags, value))}
+                >
+                  <Badge variant={picked ? "primary" : "outline"} className="gap-1">
+                    {value}
+                    {/* A-06 draws the × on the chosen chip: with several
+                      picked, "click it again" is not visibly the way off. */}
+                    {picked ? <X className="size-3" aria-hidden="true" /> : null}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      <label className="flex items-center gap-2.5 text-sm">
+        <Checkbox
+          checked={audioOnly}
+          onChange={(event) => onAudioOnly(event.target.checked)}
+        />
+        {t("bank.audioOnly")}
+      </label>
+    </PageAside>
+  );
+}
 
 function FilterOption({
   label,
