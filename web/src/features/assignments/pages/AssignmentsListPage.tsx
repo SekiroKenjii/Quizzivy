@@ -208,7 +208,7 @@ function Row({
       </TableCell>
       <TableCell className="text-muted-foreground">
         {t("assignments.targetSummary", {
-          classes: assignment.targets.classIds.length,
+          classes: assignment.targets.classes.length,
           students: assignment.targets.studentIds.length,
         })}
       </TableCell>

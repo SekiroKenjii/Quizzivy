@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, History, Repeat, Timer } from "lucide-react";
+import { Clock, History, List, Repeat, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,9 +15,11 @@ import type { Locale } from "@/lib/i18n";
 import { listMyAssignments, type StudentAssignmentCard } from "../api";
 import {
   closesLine,
+  countdown,
   givenName,
   sameAppDay,
   scoreText,
+  shortDate,
   timeLeft,
   weekdayDate,
 } from "../studentTime";
@@ -156,10 +158,14 @@ export default function StudentHomePage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{card.testTitle}</p>
                 <p className="text-muted-foreground text-xs">
-                  {t("student.attempt", {
-                    n: card.attemptsUsed,
-                    total: card.maxAttempts,
-                  })}
+                  {card.lastSubmittedAt == null
+                    ? t("student.attempt", {
+                        n: card.attemptsUsed,
+                        total: card.maxAttempts,
+                      })
+                    : t("student.submittedOn", {
+                        date: shortDate(card.lastSubmittedAt),
+                      })}
                 </p>
               </div>
               <Outcome card={card} locale={locale} />
@@ -192,12 +198,21 @@ function DueCard({ card, now }: { card: StudentAssignmentCard; now: Date }) {
           <Clock aria-hidden="true" />
           {timeLeft(card.closesAt, now, t)}
         </Badge>
+        {/* Which class this came through. Absent when the server cannot name
+          one -- several targeted classes, or a student named directly. */}
+        {card.className != null && (
+          <span className="text-muted-foreground text-xs">{card.className}</span>
+        )}
       </div>
       <p className="mt-2.5 text-base leading-snug font-semibold">{card.testTitle}</p>
       <div className="text-muted-foreground mt-2 flex items-center gap-4 text-xs">
         <span className="flex items-center gap-1.5">
           <Timer className="size-3.5" aria-hidden="true" />
           {t("student.minutes", { count: card.durationMinutes })}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <List className="size-3.5" aria-hidden="true" />
+          {t("student.questions", { count: card.questionCount })}
         </span>
         <span className="flex items-center gap-1.5">
           <Repeat className="size-3.5" aria-hidden="true" />
@@ -253,9 +268,7 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
         />
         <div className="min-w-0">
           <p className="text-sm font-semibold">{t("student.resumeTitle")}</p>
-          <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-            {t("student.resumeBody", { title: card.testTitle })}
-          </p>
+          <ResumeBody card={card} />
         </div>
       </div>
       {error !== null && (
@@ -272,6 +285,36 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
         {t("student.resume")}
       </Button>
     </Card>
+  );
+}
+
+/**
+ * "Đồng hồ vẫn đang chạy, còn 22:14." -- the number the engine's clock shows.
+ *
+ * Derived during render, with the interval only asking for a repaint, the way
+ * the engine's own Clock does it. A countdown held in state would be a second
+ * copy of the truth; a countdown rendered once would be wrong by the time the
+ * student read it, which is the whole reason this card carries one.
+ */
+function ResumeBody({ card }: { card: StudentAssignmentCard }) {
+  const { t } = useTranslation();
+  const deadlineAt = card.liveDeadlineAt;
+  const [, repaint] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (deadlineAt == null) return;
+    const tick = setInterval(repaint, 1000);
+    return () => clearInterval(tick);
+  }, [deadlineAt]);
+
+  return (
+    <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+      {deadlineAt == null
+        ? t("student.resumeBody", { title: card.testTitle })
+        : t("student.resumeBodyLeft", {
+            title: card.testTitle,
+            left: countdown(deadlineAt, new Date()),
+          })}
+    </p>
   );
 }
 

@@ -59,15 +59,20 @@ func (s *Server) GetMyAssignment(ctx context.Context, request openapi.GetMyAssig
 	out := openapi.StudentAssignmentDetail{
 		Id:              card.Id,
 		TestTitle:       card.TestTitle,
+		ClassName:       card.ClassName,
+		TeacherName:     d.TeacherName,
 		Status:          card.Status,
 		OpensAt:         card.OpensAt,
 		ClosesAt:        card.ClosesAt,
 		DurationMinutes: card.DurationMinutes,
+		QuestionCount:   card.QuestionCount,
+		TotalPoints:     card.TotalPoints,
 		AttemptsUsed:    card.AttemptsUsed,
 		MaxAttempts:     card.MaxAttempts,
 		HasLiveAttempt:  card.HasLiveAttempt,
+		LiveDeadlineAt:  card.LiveDeadlineAt,
+		LastSubmittedAt: card.LastSubmittedAt,
 		Score:           card.Score,
-		Instructions:    d.Instructions,
 		Review: openapi.ReviewPolicy{
 			ShowScore:          d.Review.ShowScore,
 			ShowCorrectAnswers: d.Review.ShowCorrectAnswers,
@@ -80,8 +85,9 @@ func (s *Server) GetMyAssignment(ctx context.Context, request openapi.GetMyAssig
 			OnLimitExceeded:   openapi.IntegrityPolicyOnLimitExceeded(d.Integrity.OnLimitExceeded),
 			MinAwayMs:         d.Integrity.MinAwayMs,
 		},
-		HasAudio:      d.HasAudio,
-		AudioMaxPlays: d.AudioMaxPlays,
+		HasAudio:        d.HasAudio,
+		ShowsTranscript: d.ShowsTranscript,
+		AudioMaxPlays:   d.AudioMaxPlays,
 	}
 	if d.LastAttemptID != nil {
 		id := parseUUID(*d.LastAttemptID)
@@ -132,13 +138,18 @@ func toAPIStudentCard(c assignments.StudentCard, now time.Time) openapi.StudentA
 	out := openapi.StudentAssignmentCard{
 		Id:              parseUUID(c.ID),
 		TestTitle:       c.TestTitle,
+		ClassName:       c.ClassName,
 		Status:          openapi.AssignmentStatus(assignments.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)),
 		OpensAt:         c.OpensAt,
 		ClosesAt:        c.ClosesAt,
 		DurationMinutes: c.DurationMin,
+		QuestionCount:   c.QuestionCount,
+		TotalPoints:     c.TotalPoints,
 		AttemptsUsed:    c.AttemptsUsed,
 		MaxAttempts:     c.MaxAttempts,
 		HasLiveAttempt:  &live,
+		LiveDeadlineAt:  c.LiveDeadlineAt,
+		LastSubmittedAt: c.LastSubmittedAt,
 	}
 	if c.LastAttemptID != nil {
 		id := parseUUID(*c.LastAttemptID)

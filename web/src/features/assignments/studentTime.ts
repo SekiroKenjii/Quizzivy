@@ -54,6 +54,28 @@ export function closesLine(closesAt: string, now: Date, t: TFunction): string {
     : t("student.closesAt", { time, date: shortDate(closesAt) });
 }
 
+/**
+ * "22:14" -- what the engine's clock shows, so the home can say how long is
+ * left instead of only that the clock is running.
+ *
+ * mm:ss under an hour and h:mm:ss over it, because "82:14" is a number nobody
+ * reads as an hour and twenty-two minutes. Never negative: a deadline that has
+ * passed reads 00:00, and the server is what ends the attempt.
+ */
+export function countdown(deadlineAt: string, now: Date): string {
+  const total = Math.max(
+    0,
+    Math.floor((new Date(deadlineAt).getTime() - now.getTime()) / 1000),
+  );
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const minutes = Math.floor(total / 60) % 60;
+  const hours = Math.floor(total / 3600);
+  const seconds = total % 60;
+  return hours > 0
+    ? `${String(hours)}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
+}
+
 /** "27/30", with the decimals the numbers actually have. */
 export function scoreText(
   earned: number,

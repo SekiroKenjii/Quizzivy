@@ -190,3 +190,39 @@ describe("when there is nothing to start", () => {
     expect(await screen.findByText("Bài này đã đóng.")).toBeInTheDocument();
   });
 });
+
+/**
+ * S-04's header and its fourth fact. The intro is the only screen that tells
+ * a student what the paper is out of before the clock starts, and the only
+ * one that names who set it.
+ */
+describe("what the deck's intro states", () => {
+  it("names the class and the teacher above the title", async () => {
+    show({ className: "IELTS Foundation", teacherName: "Cô Thương" });
+    expect(await screen.findByText("IELTS Foundation · Cô Thương")).toBeInTheDocument();
+  });
+
+  it("names whichever half the server could name, and neither is not a blank line", async () => {
+    show({ className: "IELTS Foundation", teacherName: null });
+    expect(await screen.findByText("IELTS Foundation")).toBeInTheDocument();
+  });
+
+  it("states the question count and what the paper is out of", async () => {
+    show({ questionCount: 24, totalPoints: 30 });
+    expect(await screen.findByText("Số câu")).toBeInTheDocument();
+    expect(screen.getByText("24 câu · 30 điểm")).toBeInTheDocument();
+  });
+
+  // The transcript row is a permission, and permissions are only worth stating
+  // about a paper that has something to permit.
+  it("offers the transcript only when the paper releases one", async () => {
+    show({ hasAudio: true, showsTranscript: true });
+    expect(await screen.findByText("Xem lời thoại bài nghe")).toBeInTheDocument();
+  });
+
+  it("says nothing about transcripts on a paper with no listening question", async () => {
+    show({ showsTranscript: false });
+    await screen.findByText("Sau khi nộp");
+    expect(screen.queryByText("Xem lời thoại bài nghe")).toBeNull();
+  });
+});

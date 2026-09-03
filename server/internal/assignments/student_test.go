@@ -414,3 +414,167 @@ func TestADisabledStudentReadsNothingWhileTheirTokenLasts(t *testing.T) {
 		t.Errorf("intro for a disabled student: %v, want ErrForbidden", err)
 	}
 }
+
+// S-03 and S-04 draw four facts the contract used to leave out: which class
+// the work came through, who set it, how many questions, and what the paper is
+// out of. They come from the pinned version and the roster rather than from a
+// second request, because the home draws a card per assignment.
+func TestTheCardCarriesWhatTheStudentsScreensDraw(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := assignments.NewStore(pool)
+	ctx := context.Background()
+
+	var section string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_sections (test_version_id, ordinal, title)
+		VALUES ($1::uuid, 0, 'Phần') RETURNING id::text`, w.versionID).Scan(&section); err != nil {
+		t.Fatal(err)
+	}
+	for i := range 3 {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+			VALUES ($1::uuid, $2::int, 'single_choice', 'Câu?', '2.50')`, section, i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a := createFor(t, store, w, legalInput(w))
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sections.DueNow) != 1 {
+		t.Fatalf("%d due cards, want 1", len(sections.DueNow))
+	}
+	card := sections.DueNow[0]
+	if card.ClassName == nil {
+		t.Error("the card names no class, and the student is in exactly one targeted class")
+	}
+	if card.QuestionCount != 3 {
+		t.Errorf("questionCount %d, want 3", card.QuestionCount)
+	}
+	// The version's own total, not a sum of what happens to be attached: it is
+	// what the paper is out of, and the version is frozen.
+	if card.TotalPoints != 10 {
+		t.Errorf("totalPoints %v, want 10", card.TotalPoints)
+	}
+
+	d, err := store.StudentDetail(ctx, a.ID, w.student)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.TeacherName == nil || *d.TeacherName != "Giáo viên" {
+		t.Errorf("teacher name %v, want the assignment's author", d.TeacherName)
+	}
+	if d.QuestionCount != 3 || d.TotalPoints != 10 {
+		t.Errorf("intro facts: %d câu, %v điểm", d.QuestionCount, d.TotalPoints)
+	}
+	if d.ShowsTranscript {
+		t.Error("showsTranscript on a paper with no listening question")
+	}
+}
+
+// An assignment can target several classes and name students directly, so
+// "which class is this for" has no single answer for a student on two of them.
+// Naming one would be picking a side they cannot check.
+func TestTheClassNameIsOmittedUnlessThereIsExactlyOne(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := assignments.NewStore(pool)
+	ctx := context.Background()
+
+	var second string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
+		"Lớp hai "+nonce(t)).Scan(&second); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, second)
+		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1::uuid`, second)
+	})
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, second, w.student, w.admin); err != nil {
+		t.Fatal(err)
+	}
+
+	in := legalInput(w)
+	in.ClassIDs = []string{w.class, second}
+	createFor(t, store, w, in)
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sections.DueNow) != 1 {
+		t.Fatalf("%d due cards, want 1", len(sections.DueNow))
+	}
+	if name := sections.DueNow[0].ClassName; name != nil {
+		t.Errorf("the card named %q, but the student is in two targeted classes", *name)
+	}
+}
+
+// A student named directly was not reached through a class at all.
+func TestAStudentReachedByNameGetsNoClassName(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := assignments.NewStore(pool)
+
+	in := legalInput(w)
+	in.ClassIDs = nil
+	in.StudentIDs = []string{w.student}
+	createFor(t, store, w, in)
+
+	sections, err := store.ForStudent(context.Background(), w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sections.DueNow) != 1 {
+		t.Fatalf("%d due cards, want 1", len(sections.DueNow))
+	}
+	if name := sections.DueNow[0].ClassName; name != nil {
+		t.Errorf("the card named %q for a student reached by name", *name)
+	}
+}
+
+// S-03's resume card shows the number the engine's clock shows, and its
+// completed rows show when the work was handed in. Two assignments, because
+// one with a live attempt is due rather than completed however many it has.
+func TestTheCardCarriesTheLiveDeadlineAndTheSubmissionTime(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := assignments.NewStore(pool)
+	ctx := context.Background()
+
+	finished := createFor(t, store, w, legalInput(w)) // maxAttempts 1
+	sitAttempt(t, pool, w, finished.ID, "submitted", "8.00", false)
+
+	running := legalInput(w)
+	running.MaxAttempts = 2
+	live := createFor(t, store, w, running)
+	sitAttempt(t, pool, w, live.ID, "in_progress", "0.00", false)
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := only(t, sections.Completed, finished.ID)
+	if done.LastSubmittedAt == nil {
+		t.Error("a submitted attempt with no submission time")
+	}
+	if done.LiveDeadlineAt != nil {
+		t.Errorf("no attempt is live, but a deadline is offered: %v", done.LiveDeadlineAt)
+	}
+
+	resumable := only(t, sections.DueNow, live.ID)
+	if !resumable.HasLiveAttempt {
+		t.Fatal("the attempt is in progress and inside its deadline")
+	}
+	// Non-null exactly when hasLiveAttempt: both read the same condition.
+	if resumable.LiveDeadlineAt == nil {
+		t.Error("a live attempt with no deadline to show")
+	}
+}

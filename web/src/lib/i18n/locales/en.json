@@ -110,8 +110,16 @@
       "exhausted": "You have used all your attempts.",
       "opensLater": "Opens at {{time}} · {{date}}.",
       "closed": "This assignment is closed.",
-      "startFailed": "Could not start. Please try again."
-    }
+      "startFailed": "Could not start. Please try again.",
+      "questions": "Questions",
+      "questionsValue": "{{questions}} · {{points}} points",
+      "seeTranscript": "See the listening transcript",
+      "classAndTeacher": "{{className}} · {{teacher}}"
+    },
+    "questions_one": "{{count}} question",
+    "questions_other": "{{count}} questions",
+    "submittedOn": "Submitted {{date}}",
+    "resumeBodyLeft": "{{title}}. The clock is still running, {{left}} left."
   },
   "changePassword": {
     "title": "Change your password",

@@ -162,8 +162,12 @@ func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 	if created.TestID != w.testID {
 		t.Errorf("test id: want %s, got %s", w.testID, created.TestID)
 	}
-	if len(created.ClassIDs) != 1 || created.ClassIDs[0] != w.class {
-		t.Errorf("class targets: got %v", created.ClassIDs)
+	if len(created.Classes) != 1 || created.Classes[0].ID != w.class {
+		t.Errorf("class targets: got %v", created.Classes)
+	}
+	// The name travels with the target, so no screen has to look it up.
+	if len(created.Classes) == 1 && created.Classes[0].Name == "" {
+		t.Error("class target carries no name")
 	}
 	if len(created.StudentIDs) != 1 || created.StudentIDs[0] != w.student {
 		t.Errorf("student targets: got %v", created.StudentIDs)
@@ -313,8 +317,8 @@ func TestUpdateReplacesTargetsRatherThanAddingToThem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	if len(saved.ClassIDs) != 0 {
-		t.Errorf("dropped class target survived: %v", saved.ClassIDs)
+	if len(saved.Classes) != 0 {
+		t.Errorf("dropped class target survived: %v", saved.Classes)
 	}
 	if len(saved.StudentIDs) != 1 {
 		t.Errorf("student targets: got %v", saved.StudentIDs)
