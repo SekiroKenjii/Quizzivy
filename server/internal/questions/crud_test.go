@@ -210,6 +210,30 @@ func TestBlanksAndAnswersRoundTrip(t *testing.T) {
 // TestUpdateReplacesChildrenAtomically: the editor sends the whole question, so
 // a failed write must not leave the new prompt beside the old options -- a
 // question that renders one thing and grades another.
+// One accepted answer typed on two machines is one accepted answer. Escapes
+// rather than literals, so the file's own encoding cannot make this pass.
+func TestTwoCompositionsOfOneAnswerAreStoredOnce(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	const composed = "H\u00e0 N\u1ed9i"
+	const decomposed = "Ha\u0300 No\u0323\u0302i"
+	in := questions.Input{
+		Type: questions.FillBlank, Prompt: "Thủ đô là {{1}}",
+		Points: "3.00", Tags: []string{},
+		Blanks: []questions.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{composed, decomposed}}},
+	}
+	q, err := svc.Create(ctx, questions.WriteRequest{Input: in, ActorID: author})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if got := q.Blanks[0].AcceptedAnswers; len(got) != 1 || got[0] != composed {
+		t.Errorf("stored %q, want exactly one NFC answer %q", got, composed)
+	}
+}
+
 func TestUpdateRejectedByTheDatabaseLeavesTheOldVersion(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)

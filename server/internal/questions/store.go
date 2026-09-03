@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/audit"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type Store struct{ pool *pgxpool.Pool }
@@ -328,9 +330,13 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in Input) 
 			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
 			return fmt.Errorf("questions: write blank: %w", err)
 		}
-		// UNIQUE (blank_id, answer) is exact, so a repeated answer would abort.
+		// UNIQUE (blank_id, answer) is exact, so a repeated answer would abort --
+		// and "repeated" includes one word in two Unicode compositions, which
+		// the constraint cannot tell apart from two words and grading treats as
+		// one. Stored as NFC, so the bank holds each answer once.
 		seen := map[string]bool{}
 		for _, answer := range b.AcceptedAnswers {
+			answer = norm.NFC.String(answer)
 			if seen[answer] {
 				continue
 			}
