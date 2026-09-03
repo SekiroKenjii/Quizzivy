@@ -23,6 +23,7 @@ import {
 import { fetchClasses } from "@/features/classes/api";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/i18n/datetime";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * §8's /admin, as A-01: a work queue rather than a wall of statistics.
@@ -55,28 +56,27 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("nav.dashboard")}</h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {formatDateTime(new Date(), locale)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/admin/tests">
-              <Plus aria-hidden="true" />
-              {t("tests.new")}
-            </Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link to="/admin/assignments">
-              <Send aria-hidden="true" />
-              {t("dashboard.assign")}
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        variant="title"
+        title={t("nav.dashboard")}
+        subtitle={formatDateTime(new Date(), locale)}
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/tests">
+                <Plus aria-hidden="true" />
+                {t("tests.new")}
+              </Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/admin/assignments">
+                <Send aria-hidden="true" />
+                {t("dashboard.assign")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       <section aria-labelledby="queue-heading">
         <h2

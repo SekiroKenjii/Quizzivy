@@ -26,6 +26,7 @@ import {
   type QuestionType,
 } from "@/features/question-bank/api";
 import { useDebounced } from "@/lib/useDebounced";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 const TYPES: QuestionType[] = [
   "single_choice",
@@ -169,29 +170,28 @@ export default function QuestionBankPage() {
       </aside>
 
       <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-6">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              {t("nav.questionBank")}
-            </h1>
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {page === undefined
-                ? "\u00a0"
-                : page.filtered === page.total
-                  ? t("bank.summary", { count: page.total })
-                  : t("bank.summaryFiltered", {
-                      count: page.total,
-                      filtered: page.filtered,
-                    })}
-            </p>
-          </div>
-          <Button asChild size="sm">
-            <Link to="/admin/question-bank/new">
-              <Plus aria-hidden="true" />
-              {t("bank.newQuestion")}
-            </Link>
-          </Button>
-        </div>
+        <PageHeader
+          variant="title"
+          title={t("nav.questionBank")}
+          subtitle={
+            page === undefined
+              ? "\u00a0"
+              : page.filtered === page.total
+                ? t("bank.summary", { count: page.total })
+                : t("bank.summaryFiltered", {
+                    count: page.total,
+                    filtered: page.filtered,
+                  })
+          }
+          actions={
+            <Button asChild size="sm">
+              <Link to="/admin/question-bank/new">
+                <Plus aria-hidden="true" />
+                {t("bank.newQuestion")}
+              </Link>
+            </Button>
+          }
+        />
 
         <div className="relative">
           <Search

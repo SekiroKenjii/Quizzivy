@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { getTest, listVersions, previewTest } from "@/features/tests/api";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * §8's test detail: what a student would receive, and the history of what they
@@ -21,7 +21,6 @@ import { ApiError } from "@/lib/api/errors";
  */
 export default function TestDetailPage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const { id = "" } = useParams();
   const locale = currentLocale(i18n.language);
 
@@ -63,26 +62,23 @@ export default function TestDetailPage() {
     preview.error instanceof ApiError && preview.error.code === "TEST_NOT_PUBLISHED";
 
   return (
-    <div className="-m-6">
-      <div className="flex h-14 items-center gap-3 border-b px-4">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("common.back")}
-          onClick={() => void navigate("/admin/tests")}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <h1 className="truncate text-sm font-medium">{test.data.title}</h1>
-        <Badge variant={test.data.status === "published" ? "success" : "secondary"}>
-          {t(`builder.${test.data.status}`)}
-        </Badge>
-        <Button asChild size="sm" variant="outline" className="ml-auto">
-          <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        title={test.data.title}
+        backTo="/admin/tests"
+        meta={
+          <Badge variant={test.data.status === "published" ? "success" : "secondary"}>
+            {t(`builder.${test.data.status}`)}
+          </Badge>
+        }
+        actions={
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
+          </Button>
+        }
+      />
 
-      <div className="grid gap-5 p-6 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <div>
             <h2 className="text-[0.9375rem] font-semibold tracking-[-0.01em]">
@@ -168,7 +164,7 @@ export default function TestDetailPage() {
           </section>
         </Card>
       </div>
-    </div>
+    </>
   );
 }
 

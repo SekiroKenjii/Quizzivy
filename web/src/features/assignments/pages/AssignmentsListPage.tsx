@@ -23,6 +23,7 @@ import {
 import { statusAt } from "@/features/assignments/status";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/i18n/datetime";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 const TABS: (AssignmentStatus | "all")[] = [
   "all",
@@ -72,22 +73,21 @@ export default function AssignmentsListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {t("nav.assignments")}
-          </h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {assignments.isSuccess
-              ? t("assignments.summary", { count: items.length })
-              : " "}
-          </p>
-        </div>
-        <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
-          <Plus aria-hidden="true" />
-          {t("assignments.new")}
-        </Button>
-      </div>
+      <PageHeader
+        variant="title"
+        title={t("nav.assignments")}
+        subtitle={
+          assignments.isSuccess
+            ? t("assignments.summary", { count: items.length })
+            : " "
+        }
+        actions={
+          <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
+            <Plus aria-hidden="true" />
+            {t("assignments.new")}
+          </Button>
+        }
+      />
 
       <Tabs
         value={tab}
