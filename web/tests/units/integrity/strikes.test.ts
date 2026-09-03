@@ -128,4 +128,13 @@ describe("away episodes", () => {
     awayFor(8000);
     expect(result.current.strikes).toBe(2);
   });
+
+  // "trong 24 giây" in the dialog is this number.
+  it("reports how long the counted episode lasted", () => {
+    const { result } = monitor();
+    awayFor(2000);
+    expect(result.current.lastAwayMs).toBeNull();
+    awayFor(24_000);
+    expect(result.current.lastAwayMs).toBe(24_000);
+  });
 });

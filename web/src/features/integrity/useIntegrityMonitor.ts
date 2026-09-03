@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import type { IntegrityPolicy } from "@/features/take-test/api";
 import { beginSession, drain, pending, record } from "./buffer";
 import { sendBeaconFlush } from "./beacon";
+import { isFullscreen } from "./fullscreen";
+
+/** What the screen renders from the monitor. Everything else it records. */
+export interface IntegrityStatus {
+  /** Away episodes at or over `minAwayMs`, as seen by this hook instance. */
+  strikes: number;
+  /** How long the latest counted episode lasted. Null until there is one. */
+  lastAwayMs: number | null;
+  fullscreen: boolean;
+}
 
 /**
  * §10's signals, in one hook and one effect.
@@ -30,8 +40,14 @@ export function useIntegrityMonitor({
   sessionId: string | null;
   beaconToken: string;
   policy: IntegrityPolicy | null;
-}): { strikes: number } {
-  const [strikes, setStrikes] = useState(0);
+}): IntegrityStatus {
+  const [episodes, setEpisodes] = useState<
+    Pick<IntegrityStatus, "strikes" | "lastAwayMs">
+  >({
+    strikes: 0,
+    lastAwayMs: null,
+  });
+  const [fullscreen, setFullscreen] = useState(isFullscreen);
 
   // Read inside listeners that outlive a render, so they must not close over a
   // stale copy -- the token in particular is reissued on every resume.
@@ -73,7 +89,7 @@ export function useIntegrityMonitor({
       // search (§10.1).
       note(kind, { awayMs });
       if (awayMs >= (latest.current.policy?.minAwayMs ?? 3000)) {
-        setStrikes((n) => n + 1);
+        setEpisodes((prev) => ({ strikes: prev.strikes + 1, lastAwayMs: awayMs }));
       }
     };
 
@@ -83,10 +99,17 @@ export function useIntegrityMonitor({
     const onFocus = () => returned("window_focus");
     const onOffline = () => note("network_offline");
     const onOnline = () => note("network_online");
-    const onFullscreen = () =>
-      note(
-        document.fullscreenElement === null ? "fullscreen_exit" : "fullscreen_enter",
-      );
+
+    const onFullscreen = () => {
+      const active = isFullscreen();
+      setFullscreen(active);
+      // Recorded only when the teacher asked for fullscreen (§10.1). Otherwise
+      // a student who chose it for a quieter screen fills the timeline with
+      // exits from a rule nobody set.
+      if (latest.current.policy?.requireFullscreen === true) {
+        note(active ? "fullscreen_enter" : "fullscreen_exit");
+      }
+    };
 
     const onContextMenu = () => {
       // Recorded, never blocked: blocking it breaks assistive tooling and the
@@ -140,7 +163,7 @@ export function useIntegrityMonitor({
     };
   }, [attemptId, sessionId]);
 
-  return { strikes };
+  return { ...episodes, fullscreen };
 }
 
 /** What the audio player reports, which no listener here can observe. */

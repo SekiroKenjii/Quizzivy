@@ -1,10 +1,14 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, ChevronRight, Check, List, LoaderCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuestionCard } from "../components/QuestionCard";
 import { clearSession } from "@/features/integrity/buffer";
+import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
+import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
+import { StrikeIndicator } from "@/features/integrity/components/StrikeIndicator";
+import { strikeState } from "@/features/integrity/strikes";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { getAttempt } from "../api";
 import { remainingMs, useTakeTestStore } from "../store";
@@ -12,12 +16,13 @@ import { remainingMs, useTakeTestStore } from "../store";
 /**
  * S-05's engine, one question at a time.
  *
- * What is here: the paper, the answer being written into it, the clock, and the
- * answer to "did my work survive?". What is not, yet: the strike counter
- * (T-3.13/T-3.14, which owns the integrity signals) and the question navigator
- * sheet (S-06). Both attach to this chrome without moving it -- the header
- * keeps its height across question types on purpose, so the body never shifts
- * as a student moves between them.
+ * What is here: the paper, the answer being written into it, the clock, the
+ * answer to "did my work survive?", and §10.2's three pieces of integrity
+ * chrome -- the strike count in the save strip, the way back into fullscreen,
+ * and the dialog. What is not, yet: the question navigator sheet (S-06). It
+ * attaches to this chrome without moving it -- the header keeps its height
+ * across question types on purpose, so the body never shifts as a student
+ * moves between them.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
@@ -31,6 +36,7 @@ export default function TakeTestPage() {
   const sessionId = useTakeTestStore((s) => s.sessionId);
   const beaconToken = useTakeTestStore((s) => s.beaconToken);
   const integrity = useTakeTestStore((s) => s.integrity);
+  const focusLossCount = useTakeTestStore((s) => s.focusLossCount);
   const lock = useTakeTestStore((s) => s.lock);
   const dirty = useTakeTestStore((s) => s.dirty.size);
   const inFlight = useTakeTestStore((s) => s.flushInFlight);
@@ -42,10 +48,9 @@ export default function TakeTestPage() {
   // one comes from.
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
 
-  // Every §10 listener, in one place. It returns the strike count, which T-3.14
-  // renders; mounted here because this is the screen being watched, and it
-  // stops watching when the screen goes away.
-  useIntegrityMonitor({
+  // Every §10 listener, in one place. Mounted here because this is the screen
+  // being watched, and it stops watching when the screen goes away.
+  const { strikes, lastAwayMs, fullscreen } = useIntegrityMonitor({
     attemptId: attemptId ?? null,
     sessionId,
     beaconToken,
@@ -84,6 +89,14 @@ export default function TakeTestPage() {
   if (question === undefined) return <Notice>{t("takeTest.empty")}</Notice>;
   const last = index >= questions.length - 1;
 
+  // The server's count from before this sitting plus what this tab has seen
+  // since. Nothing integrity-related renders over a locked paper: it is
+  // read-only, and a strike against it would be a strike against nothing.
+  const watching = integrity !== null && lock === null;
+  const strikeStatus = watching
+    ? strikeState(integrity, focusLossCount + strikes)
+    : null;
+
   return (
     <div className="flex flex-1 flex-col">
       <Header
@@ -91,7 +104,18 @@ export default function TakeTestPage() {
         total={questions.length}
         onExit={() => void navigate("/app")}
       />
-      <SaveStrip dirty={dirty} inFlight={inFlight} lock={lock} />
+      <SaveStrip
+        dirty={dirty}
+        inFlight={inFlight}
+        lock={lock}
+        indicator={
+          strikeStatus === null ? null : <StrikeIndicator state={strikeStatus} />
+        }
+      />
+      {watching && integrity.requireFullscreen && !fullscreen && <FullscreenBar />}
+      {strikeStatus !== null && (
+        <StrikeDialog state={strikeStatus} strikes={strikes} lastAwayMs={lastAwayMs} />
+      )}
 
       <main className="mx-auto w-full max-w-[720px] flex-1 px-4 py-5">
         <QuestionCard question={question} onAudioExpired={reload} />
@@ -202,10 +226,13 @@ function SaveStrip({
   dirty,
   inFlight,
   lock,
+  indicator,
 }: {
   dirty: number;
   inFlight: boolean;
   lock: string | null;
+  /** S-05 puts the strike count at the strip's far end, beside the save state. */
+  indicator: ReactNode;
 }) {
   const { t } = useTranslation();
   // The moment the SERVER confirmed, not the moment this rendered. Reading the
@@ -248,6 +275,7 @@ function SaveStrip({
               : t("takeTest.saved", { time: hhmm(lastSavedAt) })}
           </>
         )}
+        {indicator !== null && <span className="ml-auto">{indicator}</span>}
       </div>
     </div>
   );

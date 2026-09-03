@@ -53,6 +53,12 @@ interface TakeTestState {
   touchedAt: Record<string, number>;
   audioPlays: Record<string, number>;
   integrity: IntegrityPolicy | null;
+  /**
+   * Counted away episodes before this sitting, per the server. Latched on the
+   * first payload for an attempt: a refetch would return a count that already
+   * includes episodes this tab flushed, and the monitor counts those itself.
+   */
+  focusLossCount: number;
 
   deadlineAt: number;
   /** serverTime minus device time at load. See remainingMs. */
@@ -91,6 +97,7 @@ const initial = {
   touchedAt: {} as Record<string, number>,
   audioPlays: {} as Record<string, number>,
   integrity: null,
+  focusLossCount: 0,
   deadlineAt: 0,
   offsetMs: 0,
   lock: null,
@@ -131,6 +138,10 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         answers,
         audioPlays: session.audioPlays,
         integrity: session.integrity,
+        focusLossCount:
+          state.attemptId === session.attempt.id
+            ? state.focusLossCount
+            : (session.attempt.integrity?.focusLossCount ?? 0),
         deadlineAt: Date.parse(session.attempt.deadlineAt),
         // Measured once per payload, and every save returns serverTime so it
         // keeps being re-measured over a long test rather than drifting from

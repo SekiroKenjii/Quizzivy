@@ -713,5 +713,27 @@
     "audioLabel": "Question audio",
     "playsLeft_one": "{{count}} play left",
     "playsLeft_other": "{{count}} plays left"
+  },
+  "integrity": {
+    "leftTitle": "You left the test page",
+    "leftBody": "Your attempt recorded you switching to another window for {{seconds}} seconds.",
+    "unlimited": "Your teacher can review the times you left. The test does not stop and no marks are deducted automatically.",
+    "remainingFlag": "You have <strong>{{count}} more</strong> before your attempt is marked for your teacher to review.",
+    "remainingWarn": "You have <strong>{{count}} more</strong> allowed. Your teacher will see the times you left when reviewing.",
+    "spentFlag": "You have used all the allowed times away. Leave once more and your attempt will be marked for your teacher to review.",
+    "spentWarn": "You have used all the allowed times away. Your teacher will see the times you left when reviewing.",
+    "exceededFlag": "You left more times than allowed, so your attempt is marked for your teacher to review. The test does not stop and no marks are deducted automatically.",
+    "exceededWarn": "You left more times than allowed. Your teacher will see this when reviewing. The test does not stop and no marks are deducted automatically.",
+    "timerRunning": "The clock is still running.",
+    "honestLimits": "Your attempt only records this page losing focus; it sees nothing else. Your teacher is the one who decides.",
+    "continue": "Continue the test",
+    "remaining_one": "{{count}} time away left",
+    "remaining_other": "{{count}} times away left",
+    "spent": "No times away left",
+    "flagged": "Attempt marked for review",
+    "overLimit": "Over the times-away limit",
+    "fullscreenExited": "You left fullscreen.",
+    "fullscreenUnsupported": "This browser has no fullscreen mode. You can carry on as normal.",
+    "fullscreenReturn": "Return to fullscreen"
   }
 }
