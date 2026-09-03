@@ -489,3 +489,121 @@ func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
 		t.Errorf("by email: %+v with %d rows, want one", page, len(byEmail))
 	}
 }
+
+// Same window as the assignments reads: the token outlives the account, so the
+// class list has to ask what the token cannot.
+func TestADisabledStudentListsNoClasses(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, classID, studentID, teacherID); err != nil {
+		t.Fatal(err)
+	}
+	mine, err := store.ListMine(ctx, studentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != 1 {
+		t.Fatalf("before disabling: %d classes, want 1", len(mine))
+	}
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, studentID); err != nil {
+		t.Fatal(err)
+	}
+	mine, err = store.ListMine(ctx, studentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != 0 {
+		t.Errorf("%d classes for a disabled student", len(mine))
+	}
+}
+
+// OFFSET puts a row on exactly one page only when the sort is total.
+// `joined_at` is not: now() is transaction-scoped, so one INSERT gives every
+// row the same instant, and Postgres is then free to order the ties however
+// each page's plan happens to. Sixty members in pages of ten is enough to see
+// it: the sweep below returns sixty rows and, without a tie-break, fewer than
+// sixty people -- a roster that serves one student twice and loses another,
+// under a count that still says sixty.
+func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, _ := makeClass(t, pool)
+	tag := nonce(t)
+
+	const (
+		size     = 60
+		pageSize = 10
+	)
+	var joined []string
+	rows, err := pool.Query(ctx, `
+		INSERT INTO app.users (email, full_name, role)
+		SELECT format('same-%s-%s@example.com', $1::text, i), 'Cùng lúc', 'student'
+		  FROM generate_series(1, $2::int) AS i
+		RETURNING id::text`, tag, size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		joined = append(joined, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE user_id = ANY($1::uuid[])`, joined)
+		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = ANY($1::uuid[])`, joined)
+	})
+
+	// One statement, so every row carries the same joined_at.
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		SELECT $1::uuid, u, 'admin', $3::uuid FROM unnest($2::uuid[]) AS u`,
+		classID, joined, teacherID); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := map[string]int{}
+	served := 0
+	for number := 1; number*pageSize <= size; number++ {
+		members, page, err := store.Members(ctx, classID, classes.MembersInput{
+			Page:  number,
+			Limit: pageSize,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if page.Total != size {
+			t.Fatalf("page %d: total %d, want %d", number, page.Total, size)
+		}
+		served += len(members)
+		for _, m := range members {
+			seen[m.UserID]++
+		}
+	}
+	if served != size {
+		t.Fatalf("the pages served %d rows in total, want %d", served, size)
+	}
+	if len(seen) != size {
+		t.Errorf("%d rows across the pages but only %d distinct members: %d were served twice",
+			served, len(seen), served-len(seen))
+	}
+	for _, id := range joined {
+		if seen[id] != 1 {
+			t.Errorf("member %s appeared %d times across the pages, want once", id, seen[id])
+		}
+	}
+}

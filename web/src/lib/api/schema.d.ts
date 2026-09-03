@@ -2236,7 +2236,8 @@ export interface components {
          *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
          *     lists: at this scale the teacher wants "trang 3 / 26" more than
          *     stability under concurrent inserts). A page past the end is an empty
-         *     `items` with the same `total`.
+         *     `items` with the same `total`; a page past `maximum` is refused,
+         *     because `(page - 1) * limit` has to stay a number.
          *
          *     Page size is `limit`, declared per operation with its own default -- a
          *     media grid wants a different page from a table of tests. The response
@@ -2702,7 +2703,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -2979,7 +2981,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3179,7 +3182,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3301,7 +3305,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3460,7 +3465,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3743,7 +3749,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -3914,7 +3921,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response
@@ -4033,7 +4041,8 @@ export interface operations {
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
                  *     lists: at this scale the teacher wants "trang 3 / 26" more than
                  *     stability under concurrent inserts). A page past the end is an empty
-                 *     `items` with the same `total`.
+                 *     `items` with the same `total`; a page past `maximum` is refused,
+                 *     because `(page - 1) * limit` has to stay a number.
                  *
                  *     Page size is `limit`, declared per operation with its own default -- a
                  *     media grid wants a different page from a table of tests. The response

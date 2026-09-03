@@ -165,6 +165,9 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Class, paging.Page, e
 func (s *Store) ListMine(ctx context.Context, userID string) ([]Class, error) {
 	rows, err := s.pool.Query(ctx, classProjection+`
 	  JOIN app.class_members me ON me.class_id = c.id AND me.user_id = $1::uuid
+	  -- The account, not just the membership: an access token outlives a
+	  -- disabling by its TTL, so this read has to ask what the token cannot.
+	  JOIN app.users student ON student.id = me.user_id AND student.disabled_at IS NULL
 	 ORDER BY me.joined_at DESC, c.id DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list my classes: %w", err)
@@ -214,7 +217,11 @@ func (s *Store) Members(ctx context.Context, classID string, in MembersInput) ([
 	rows, err := s.pool.Query(ctx, `
 		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint`+from+
 		fmt.Sprintf(`
-		 ORDER BY m.joined_at DESC
+		 -- Total, or the pages overlap: joined_at is not unique, and two
+		 -- members sharing one have no order between them, so the same row
+		 -- can be served on page 1 and page 2 while another is served on
+		 -- neither. Every other list in O-20 orders by something total.
+		 ORDER BY m.joined_at DESC, u.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, paging.Page{}, fmt.Errorf("list members of %s: %w", classID, err)

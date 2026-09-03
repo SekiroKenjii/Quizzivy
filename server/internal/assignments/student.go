@@ -66,12 +66,21 @@ type StudentSections struct {
 // targeted is the roster test, written once. Both routes -- through a class
 // and by name -- are checked with EXISTS rather than a join, so a student on
 // both lists is one row, not two.
+//
+// The account check is part of the roster test rather than the middleware's
+// job: bearer verification is pure (deps.go), so an access token keeps working
+// for up to its TTL after an admin disables the account. Every other
+// membership read closes that window the same way -- attempts/store.go refuses
+// to start an attempt in it, and these reads have to agree with it or the home
+// offers a Start the server will reject.
 const targeted = `
-	(EXISTS (SELECT 1 FROM app.assignment_students s
-	          WHERE s.assignment_id = a.id AND s.user_id = $1::uuid)
-	 OR EXISTS (SELECT 1 FROM app.assignment_classes ac
-	              JOIN app.class_members m ON m.class_id = ac.class_id
-	             WHERE ac.assignment_id = a.id AND m.user_id = $1::uuid))`
+	(EXISTS (SELECT 1 FROM app.users me
+	          WHERE me.id = $1::uuid AND me.disabled_at IS NULL)
+	 AND (EXISTS (SELECT 1 FROM app.assignment_students s
+	               WHERE s.assignment_id = a.id AND s.user_id = $1::uuid)
+	      OR EXISTS (SELECT 1 FROM app.assignment_classes ac
+	                   JOIN app.class_members m ON m.class_id = ac.class_id
+	                  WHERE ac.assignment_id = a.id AND m.user_id = $1::uuid)))`
 
 // The student's view of an assignment, in two halves so the intro can add its
 // columns between them. `last` is their most recent non-voided attempt, live
