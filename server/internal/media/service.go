@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"quizzivy/internal/paging"
 	"strings"
 	"time"
 
@@ -248,24 +249,24 @@ func (s *Service) mint(ctx context.Context, asset Asset) (SignedURLResult, error
 
 // List returns a page of the library with a signed URL on every item, since the
 // bucket is private and a listing without URLs cannot render a preview (§11.2).
-func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, string, error) {
-	assets, next, err := s.store.List(ctx, in)
+func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, paging.Page, error) {
+	assets, page, err := s.store.List(ctx, in)
 	if err != nil {
-		return nil, "", err
+		return nil, paging.Page{}, err
 	}
 	for i := range assets {
 		url, err := s.object.SignedURL(ctx, assets[i].StorageKey, s.ttl)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		assets[i].URL = url
 		refs, err := CountReferences(ctx, s.store.pool, assets[i].ID)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		assets[i].UsageCount = refs
 	}
-	return assets, next, nil
+	return assets, page, nil
 }
 
 // Get resolves one live asset, so another package can render an attachment

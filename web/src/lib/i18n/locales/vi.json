@@ -311,7 +311,8 @@
     "play": "Phát",
     "pause": "Tạm dừng",
     "seek": "Tua",
-    "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe."
+    "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe.",
+    "summaryPaged": "{{count}} tệp"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -829,5 +830,14 @@
     "fullscreenExited": "Bạn đã thoát chế độ toàn màn hình.",
     "fullscreenUnsupported": "Trình duyệt này không hỗ trợ chế độ toàn màn hình. Bạn vẫn làm bài bình thường.",
     "fullscreenReturn": "Quay lại toàn màn hình"
+  },
+  "pagination": {
+    "label": "Phân trang",
+    "previous": "Trang trước",
+    "previousShort": "Trước",
+    "next": "Trang sau",
+    "nextShort": "Sau",
+    "more": "Các trang khác",
+    "page": "Trang {{n}}"
   }
 }

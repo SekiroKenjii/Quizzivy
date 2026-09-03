@@ -2,11 +2,9 @@ package questions
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
+	"quizzivy/internal/paging"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 // Page-size bounds for the bank listing.
@@ -25,25 +23,8 @@ type ListInput struct {
 	Tags     []string
 	HasAudio *bool
 	Query    string
-	Cursor   string
+	Page     int
 	Limit    int
-}
-
-// encodeCursor renders a keyset position opaquely. A uuidv7 id is both
-// time-ordered and unique, so id DESC alone is a strict total order.
-func encodeCursor(id string) string {
-	return base64.RawURLEncoding.EncodeToString([]byte(id))
-}
-
-func decodeCursor(s string) (string, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return "", ErrBadCursor
-	}
-	if _, err := uuid.Parse(string(raw)); err != nil {
-		return "", ErrBadCursor
-	}
-	return string(raw), nil
 }
 
 // TrigramExpression must match questions_prompt_trgm_idx verbatim; Postgres
@@ -102,59 +83,40 @@ func appendFilters(in ListInput, args []any, opts filterOpts) ([]any, []string) 
 		args = append(args, escapeLike(q))
 		where = append(where, fmt.Sprintf(searchCondition, len(args)))
 	}
-	if opts.after != "" {
-		args = append(args, opts.after)
-		where = append(where, fmt.Sprintf(`q.id < $%d::uuid`, len(args)))
-	}
 	return args, where
 }
 
 type filterOpts struct {
 	types bool
 	tags  bool
-	after string
 }
 
 // allFilters is every dimension: what the page itself is filtered by.
-func allFilters(after string) filterOpts {
-	return filterOpts{types: true, tags: true, after: after}
+func allFilters() filterOpts {
+	return filterOpts{types: true, tags: true}
 }
 
-// buildFilters returns the bound arguments and WHERE clauses for one page.
-func buildFilters(in ListInput, limit int, after string) (args []any, where []string) {
-	return appendFilters(in, []any{limit + 1}, allFilters(after))
-}
+// List returns one page of live bank questions, newest first, with the
+// paging beside it (O-20: OFFSET, so the client can draw numbered pages).
+func (s *Store) List(ctx context.Context, in ListInput) ([]Question, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-// List returns one page of live bank questions, newest first.
-func (s *Store) List(ctx context.Context, in ListInput) ([]Question, string, error) {
-	limit := in.Limit
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
-	}
-
-	var after string
-	if in.Cursor != "" {
-		id, err := decodeCursor(in.Cursor)
-		if err != nil {
-			return nil, "", err
-		}
-		after = id
-	}
-
-	args, where := buildFilters(in, limit, after)
-
-	sql := `SELECT` + questionColumns + `
+	args, where := appendFilters(in, nil, allFilters())
+	from := `
 		  FROM app.questions q
-		 WHERE ` + strings.Join(where, "\n		   AND ") + `
-		 ORDER BY q.id DESC
-		 LIMIT $1`
+		 WHERE ` + strings.Join(where, "\n		   AND ")
 
-	rows, err := s.pool.Query(ctx, sql, args...)
+	page := paging.Page{Number: number, Size: limit}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
+		return nil, paging.Page{}, fmt.Errorf("questions: count: %w", err)
+	}
+
+	args = append(args, limit, offset)
+	rows, err := s.pool.Query(ctx, `SELECT`+questionColumns+from+fmt.Sprintf(`
+		 ORDER BY q.id DESC
+		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, "", fmt.Errorf("questions: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("questions: list: %w", err)
 	}
 	defer rows.Close()
 
@@ -162,25 +124,18 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Question, string, err
 	for rows.Next() {
 		question, err := scanQuestion(rows)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		questions = append(questions, question)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, "", fmt.Errorf("questions: list: %w", err)
-	}
-
-	// One row beyond the page detects a next page without a second query.
-	var next string
-	if len(questions) > limit {
-		questions = questions[:limit]
-		next = encodeCursor(questions[len(questions)-1].ID)
+		return nil, paging.Page{}, fmt.Errorf("questions: list: %w", err)
 	}
 
 	if err := s.attachChildren(ctx, questions); err != nil {
-		return nil, "", err
+		return nil, paging.Page{}, err
 	}
-	return questions, next, nil
+	return questions, page, nil
 }
 
 // attachChildren fills in the options and blanks for a whole page in two

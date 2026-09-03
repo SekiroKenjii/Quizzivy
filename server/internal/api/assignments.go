@@ -21,31 +21,26 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 		status := assignments.Status(*request.Params.Status)
 		in.Status = &status
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = *request.Params.Cursor
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, next, err := s.Deps.Assignments.List(ctx, in)
+	found, page, err := s.Deps.Assignments.List(ctx, in)
 	if err != nil {
-		// The contract gives this operation no 400, so a bad cursor is simply
-		// an empty page rather than an invented status.
-		if errors.Is(err, assignments.ErrBadCursor) {
-			return openapi.ListAssignments200JSONResponse{Items: []openapi.Assignment{}}, nil
-		}
 		return nil, err
 	}
 
 	out := openapi.ListAssignments200JSONResponse{
-		Items: make([]openapi.Assignment, len(found)),
+		Items:    make([]openapi.Assignment, len(found)),
+		Page:     page.Number,
+		PageSize: page.Size,
+		Total:    page.Total,
 	}
 	for i, a := range found {
 		out.Items[i] = toAPIAssignment(a)
-	}
-	if next != "" {
-		out.NextCursor = &next
 	}
 	return out, nil
 }

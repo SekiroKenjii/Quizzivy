@@ -36,7 +36,9 @@ beforeEach(() => {
       const all = [question(A, "Câu một"), question(B, "Câu hai")];
       return contractJson("/admin/questions", "get", 200, {
         items: q === "" ? all : all.filter((x) => x.prompt.includes(q)),
-        nextCursor: null,
+        page: 1,
+        pageSize: 50,
+        total: 0,
         facets: {
           all: 2,
           single_choice: 0,
@@ -46,8 +48,7 @@ beforeEach(() => {
           short_answer: 2,
         },
         tags: [],
-        total: 0,
-        filtered: 0,
+        bankTotal: 0,
       });
     }),
     http.post(`${BASE}/admin/questions/tags`, async ({ request }) => {
@@ -155,7 +156,9 @@ describe("A-06's tag rail", () => {
         contractJson("/admin/questions", "get", 200, {
           // Neither row mentions unit-9 or past-simple.
           items: [question(A, "Câu một"), question(B, "Câu hai")],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 2,
           facets: {
             all: 2,
             single_choice: 0,
@@ -165,8 +168,7 @@ describe("A-06's tag rail", () => {
             short_answer: 2,
           },
           tags: ["listening", "past-simple", "unit-5", "unit-9"],
-          total: 72,
-          filtered: 2,
+          bankTotal: 72,
         }),
       ),
     );
@@ -191,7 +193,9 @@ describe("A-06's tag rail", () => {
       http.get(`${BASE}/admin/questions`, () =>
         contractJson("/admin/questions", "get", 200, {
           items: [question(A, "Câu một"), question(B, "Câu hai")],
-          nextCursor: null,
+          page: 1,
+          pageSize: 50,
+          total: 2,
           facets: {
             all: 2,
             single_choice: 0,
@@ -201,8 +205,7 @@ describe("A-06's tag rail", () => {
             short_answer: 2,
           },
           tags: [],
-          total: 72,
-          filtered: 2,
+          bankTotal: 72,
         }),
       ),
     );

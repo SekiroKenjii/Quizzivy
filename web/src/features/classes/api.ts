@@ -4,8 +4,18 @@ import type { components } from "@/lib/api/schema";
 export type Class = components["schemas"]["Class"];
 export type ClassMember = components["schemas"]["ClassMember"];
 
-export function fetchClasses(signal?: AbortSignal) {
-  return api("get", "/admin/classes", signal ? { signal } : {});
+export interface ListClassesParams {
+  q?: string;
+  page?: number;
+  limit?: number;
+}
+
+export function fetchClasses(params: ListClassesParams = {}, signal?: AbortSignal) {
+  const query: Record<string, unknown> = {};
+  if (params.q) query["q"] = params.q;
+  if (params.page && params.page > 1) query["page"] = params.page;
+  if (params.limit) query["limit"] = params.limit;
+  return api("get", "/admin/classes", signal ? { query, signal } : { query });
 }
 
 export function fetchClass(id: string, signal?: AbortSignal): Promise<Class> {
@@ -16,11 +26,19 @@ export function fetchClass(id: string, signal?: AbortSignal): Promise<Class> {
   );
 }
 
-export function fetchMembers(id: string, signal?: AbortSignal) {
+export function fetchMembers(
+  id: string,
+  params: ListClassesParams = {},
+  signal?: AbortSignal,
+) {
+  const query: Record<string, unknown> = {};
+  if (params.q) query["q"] = params.q;
+  if (params.page && params.page > 1) query["page"] = params.page;
+  if (params.limit) query["limit"] = params.limit;
   return api(
     "get",
     "/admin/classes/{id}/members",
-    signal ? { path: { id }, signal } : { path: { id } },
+    signal ? { path: { id }, query, signal } : { path: { id }, query },
   );
 }
 

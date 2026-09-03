@@ -2,11 +2,9 @@ package tests
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
+	"quizzivy/internal/paging"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -19,25 +17,10 @@ type ListInput struct {
 	Status *Status
 	// Tags filter by the tags of the questions a test CONTAINS. §7 gives Test no
 	// tags of its own, and a test is its questions -- OR-ed, like the bank's.
-	Tags   []string
-	Query  string
-	Cursor string
-	Limit  int
-}
-
-func encodeCursor(id string) string {
-	return base64.RawURLEncoding.EncodeToString([]byte(id))
-}
-
-func decodeCursor(s string) (string, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return "", ErrBadCursor
-	}
-	if _, err := uuid.Parse(string(raw)); err != nil {
-		return "", ErrBadCursor
-	}
-	return string(raw), nil
+	Tags  []string
+	Query string
+	Page  int
+	Limit int
 }
 
 // titleSearch folds accents on both sides, so a teacher typing without
@@ -68,26 +51,12 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func escapeLike(s string) string { return likeEscaper.Replace(s) }
 
-// List returns one page of live tests, newest first.
-func (s *Store) List(ctx context.Context, in ListInput) ([]Test, string, error) {
-	limit := in.Limit
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
-	}
+// List returns one page of live tests, newest first, and the paging that
+// goes with it (O-20: OFFSET, so the client can draw numbered pages).
+func (s *Store) List(ctx context.Context, in ListInput) ([]Test, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	var after string
-	if in.Cursor != "" {
-		id, err := decodeCursor(in.Cursor)
-		if err != nil {
-			return nil, "", err
-		}
-		after = id
-	}
-
-	args := []any{limit + 1}
+	var args []any
 	where := []string{`t.deleted_at IS NULL`}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
@@ -101,20 +70,21 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Test, string, error) 
 		args = append(args, escapeLike(q))
 		where = append(where, fmt.Sprintf(titleSearch, len(args)))
 	}
-	if after != "" {
-		args = append(args, after)
-		where = append(where, fmt.Sprintf(`t.id < $%d::uuid`, len(args)))
+	from := `
+		  FROM app.tests t
+		 WHERE ` + strings.Join(where, "\n		   AND ")
+
+	page := paging.Page{Number: number, Size: limit}
+	if err := s.pool.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
+		return nil, paging.Page{}, fmt.Errorf("tests: count: %w", err)
 	}
 
-	sql := `SELECT` + testColumns + `
-		  FROM app.tests t
-		 WHERE ` + strings.Join(where, "\n		   AND ") + `
+	args = append(args, limit, offset)
+	rows, err := s.pool.Query(ctx, `SELECT`+testColumns+from+fmt.Sprintf(`
 		 ORDER BY t.id DESC
-		 LIMIT $1`
-
-	rows, err := s.pool.Query(ctx, sql, args...)
+		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
-		return nil, "", fmt.Errorf("tests: list: %w", err)
+		return nil, paging.Page{}, fmt.Errorf("tests: list: %w", err)
 	}
 	defer rows.Close()
 
@@ -122,24 +92,18 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Test, string, error) 
 	for rows.Next() {
 		t, err := scanTest(rows)
 		if err != nil {
-			return nil, "", err
+			return nil, paging.Page{}, err
 		}
 		list = append(list, t)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, "", fmt.Errorf("tests: list: %w", err)
-	}
-
-	var next string
-	if len(list) > limit {
-		list = list[:limit]
-		next = encodeCursor(list[len(list)-1].ID)
+		return nil, paging.Page{}, fmt.Errorf("tests: list: %w", err)
 	}
 
 	if err := s.attachSections(ctx, list); err != nil {
-		return nil, "", err
+		return nil, paging.Page{}, err
 	}
-	return list, next, nil
+	return list, page, nil
 }
 
 // attachSections fills the outline for a whole page in one query rather than

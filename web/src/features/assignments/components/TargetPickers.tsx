@@ -18,7 +18,7 @@ export function ClassTargetPicker({ selected, onAdd, onRemove }: PickerProps) {
   const [query, setQuery] = useState("");
   const classes = useQuery({
     queryKey: ["admin-classes"],
-    queryFn: ({ signal }) => fetchClasses(signal),
+    queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
   });
 
   const all = classes.data?.items ?? [];

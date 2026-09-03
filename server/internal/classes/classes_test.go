@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -136,7 +137,7 @@ func TestMembersShowHowEachOneGotIn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +180,7 @@ func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 		t.Fatalf("RemoveMember: %v", err)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +241,7 @@ func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 		t.Errorf("userId = %s, want %s", m.UserID, studentID)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +264,7 @@ func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 		t.Fatalf("second add: %v", err)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +339,7 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 		t.Errorf("studentCount = %d after disabling the only member, want 0", after.StudentCount)
 	}
 
-	members, err := svc.Members(ctx, classID)
+	members, _, err := svc.Members(ctx, classID, classes.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,5 +387,105 @@ func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
 	}
 	if len(theirs) != 0 {
 		t.Errorf("a student in no class sees %d classes (%s is not theirs)", len(theirs), otherClass)
+	}
+}
+
+// O-20: numbered pages on the class list too. §1.3 promised single-digit
+// classes; the picker that read this whole was the first thing to break.
+func TestClassesPageAndSearchByName(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	tag := nonce(t)
+
+	var mine []string
+	for i := range 3 {
+		var id string
+		if err := pool.QueryRow(ctx, `INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
+			fmt.Sprintf("Phân Trang %s %d", tag, i)).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		mine = append(mine, id)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.classes WHERE id = ANY($1::uuid[])`, mine)
+	})
+
+	first, page, err := store.List(ctx, classes.ListInput{Query: "phan trang " + tag, Limit: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 3 || page.Number != 1 || page.Size != 2 || len(first) != 2 {
+		t.Fatalf("page 1: %+v with %d rows, want total 3 and 2 rows", page, len(first))
+	}
+	second, page, err := store.List(ctx, classes.ListInput{Query: "phan trang " + tag, Limit: 2, Page: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 3 || len(second) != 1 {
+		t.Fatalf("page 2: %+v with %d rows, want the third", page, len(second))
+	}
+	if second[0].ID == first[0].ID || second[0].ID == first[1].ID {
+		t.Error("the pages overlap")
+	}
+	// Past the end: no rows, same total, so the client can still draw the count.
+	empty, page, err := store.List(ctx, classes.ListInput{Query: "phan trang " + tag, Limit: 2, Page: 9})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(empty) != 0 || page.Total != 3 {
+		t.Errorf("page 9: %d rows, total %d", len(empty), page.Total)
+	}
+}
+
+func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+	tag := nonce(t)
+
+	var extra []string
+	for i := range 2 {
+		var id string
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO app.users (email, full_name, role) VALUES ($1, $2, 'student') RETURNING id::text`,
+			fmt.Sprintf("m-%s-%d@example.com", tag, i), fmt.Sprintf("Thành Viên %s", tag)).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		extra = append(extra, id)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.class_members WHERE user_id = ANY($1::uuid[])`, extra)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = ANY($1::uuid[])`, extra)
+	})
+	for _, id := range append([]string{studentID}, extra...) {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by) VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`,
+			classID, id, teacherID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	all, page, err := store.Members(ctx, classID, classes.MembersInput{Limit: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 3 || len(all) != 2 {
+		t.Fatalf("members page 1: %+v with %d rows", page, len(all))
+	}
+	byName, page, err := store.Members(ctx, classID, classes.MembersInput{Query: "thanh vien " + tag})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 2 || len(byName) != 2 {
+		t.Errorf("by name: %+v with %d rows, want the two tagged", page, len(byName))
+	}
+	byEmail, page, err := store.Members(ctx, classID, classes.MembersInput{Query: "m-" + tag + "-1@"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 1 || len(byEmail) != 1 {
+		t.Errorf("by email: %+v with %d rows, want one", page, len(byEmail))
 	}
 }

@@ -1298,8 +1298,10 @@ Notes on migration mechanics (§13.7):
 
 - No `SELECT *` anywhere. Enforced by review and by the separate student/admin
   Go types described in §11.
-- Keyset pagination on every list endpoint. Because PKs are `uuidv7()`, `id DESC`
-  is a valid recency order and most lists need no `created_at` index at all. The
+- `ORDER BY id DESC` on every list endpoint, paged by OFFSET since O-20 (the
+  keyset rule §13.8 states was overridden for the admin lists on 2026-09-03;
+  the indexes below serve the order either way). Because PKs are `uuidv7()`,
+  `id DESC` is a valid recency order and most lists need no `created_at` index at all. The
   three that filter first — `questions` (by type), `tests` (by status),
   `media_assets` (by kind) — have `(filter, id DESC)` composite indexes above.
 - `EXPLAIN (ANALYZE, BUFFERS)` before merging, on the three screens where N+1 is

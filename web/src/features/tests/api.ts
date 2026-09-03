@@ -37,7 +37,7 @@ export interface ListTestsParams {
   /** Repeatable. Matches the tags of the questions a test contains (A-03). */
   tag?: string[];
   q?: string;
-  cursor?: string;
+  page?: number;
   limit?: number;
 }
 
@@ -46,7 +46,7 @@ export function listTests(params: ListTestsParams = {}, signal?: AbortSignal) {
   if (params.status) query["status"] = params.status;
   if (params.tag?.length) query["tag"] = params.tag;
   if (params.q) query["q"] = params.q;
-  if (params.cursor) query["cursor"] = params.cursor;
+  if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/tests", signal ? { query, signal } : { query });
 }

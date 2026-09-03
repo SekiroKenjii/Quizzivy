@@ -125,18 +125,14 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 		kind := media.Kind(*request.Params.Kind)
 		in.Kind = &kind
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = string(*request.Params.Cursor)
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	assets, next, err := s.Deps.Media.List(ctx, in)
-	if errors.Is(err, media.ErrBadCursor) {
-		return openapi.ListMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			authError(ctx, openapi.VALIDATIONFAILED, "Con trỏ phân trang không hợp lệ."))}, nil
-	}
+	assets, page, err := s.Deps.Media.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +155,7 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 			UsageCount:       &usage,
 		}
 	}
-	if next != "" {
-		out.Body.NextCursor = &next
-	}
+	out.Body.Page, out.Body.PageSize, out.Body.Total = page.Number, page.Size, page.Total
 	return out, nil
 }
 

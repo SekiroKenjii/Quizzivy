@@ -26,7 +26,6 @@ func (s Status) valid() bool {
 var (
 	ErrNotFound        = errors.New("tests: not found")
 	ErrStaleWrite      = errors.New("tests: edited elsewhere since the version read")
-	ErrBadCursor       = errors.New("tests: malformed cursor")
 	ErrUnknownQuestion = errors.New("tests: outline references a question that does not exist")
 )
 

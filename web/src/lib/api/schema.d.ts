@@ -811,7 +811,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description All classes. Unpaginated -- a single-teacher practice has single-digit classes (§1.3). */
+        /**
+         * @description Classes, newest first. Paginated and searchable like every other list:
+         *     §1.3 promised single-digit classes, and a development database already
+         *     holds over a hundred, which is what broke the class pickers.
+         */
         get: operations["listClasses"];
         put?: never;
         /** @description Creates a class. A join code is not issued automatically; rotate to get one (§6.4). */
@@ -854,7 +858,7 @@ export interface paths {
         /**
          * @description Shows `joinedVia` and `joinedAt` so the teacher can spot unexpected
          *     enrolments — the mitigation §6.5 relies on instead of an approval queue.
-         *     Spec §15 has no endpoint for this.
+         *     Spec §15 has no endpoint for this. `q` searches name and email.
          */
         get: operations["listClassMembers"];
         put?: never;
@@ -1309,9 +1313,15 @@ export interface components {
         ErrorResponse: {
             error: components["schemas"]["ErrorDetail"];
         };
-        CursorPage: {
-            /** @description Pass back as `cursor`. `null` means the last page (§13.8). */
-            nextCursor: string | null;
+        /**
+         * @description The paging half of every list envelope. `total` counts the rows that
+         *     match the CURRENT filters -- the number the page count is drawn from
+         *     -- and is present even on an empty page past the end.
+         */
+        PageInfo: {
+            page: number;
+            pageSize: number;
+            total: number;
         };
         /**
          * @description Guards are written so a third role (`teacher`, limited admin) can be
@@ -1487,7 +1497,7 @@ export interface components {
             stats: components["schemas"]["StudentStats"];
         };
         /**
-         * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a cursor page
+         * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a page
          *     cannot express, in the same shape as TestStatusFacets.
          *
          *     `active` reuses the dashboard's window verbatim rather than defining a
@@ -2221,18 +2231,19 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
-        Cursor: string;
         /**
-         * @description Page size. The DEFAULT IS PER RESOURCE and is declared on each operation
-         *     — a media grid wants a different page from a table of tests, and one
-         *     shared default could only ever be right for one of them. It used to
-         *     claim 25, which no server used.
+         * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+         *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+         *     lists: at this scale the teacher wants "trang 3 / 26" more than
+         *     stability under concurrent inserts). A page past the end is an empty
+         *     `items` with the same `total`.
          *
-         *     A client should drive pagination from `nextCursor`, never from an
-         *     assumed page size.
+         *     Page size is `limit`, declared per operation with its own default -- a
+         *     media grid wants a different page from a table of tests. The response
+         *     echoes the size actually used as `pageSize`; compute page counts from
+         *     that and `total`, never from an assumed size.
          */
-        Limit: number;
+        Page: number;
         /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
         Query: string;
         IdPath: components["schemas"]["Uuid"];
@@ -2686,8 +2697,19 @@ export interface operations {
                 tag?: string[];
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
-                /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
-                cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
                 limit?: number;
             };
             header?: never;
@@ -2702,7 +2724,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPage"] & {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["Test"][];
                         facets: components["schemas"]["TestStatusFacets"];
                         /**
@@ -2952,8 +2974,19 @@ export interface operations {
                 hasAudio?: boolean;
                 /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
                 q?: components["parameters"]["Query"];
-                /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
-                cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
                 limit?: number;
             };
             header?: never;
@@ -2972,7 +3005,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPage"] & {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["AdminQuestion"][];
                         facets: components["schemas"]["QuestionTypeFacets"];
                         /**
@@ -2988,14 +3021,15 @@ export interface operations {
                          *     one chip must not empty the rail.
                          */
                         tags: string[];
-                        /** @description Live questions in the bank, before any filter. A-06's "180 câu". */
-                        total: number;
                         /**
-                         * @description Matching ALL current filters — A-06's "đang lọc 41".
-                         *     Distinct from `facets.all`, which ignores the type
-                         *     filter so the "Tất cả" row can show a total.
+                         * @description Live questions in the bank, before any filter — A-06's
+                         *     "180 câu". The envelope's `total` is the other number
+                         *     on that line, "đang lọc 41": rows matching ALL current
+                         *     filters, which is also what the page count is drawn
+                         *     from. Distinct from `facets.all`, which ignores the
+                         *     type filter so the "Tất cả" row can show a total.
                          */
-                        filtered: number;
+                        bankTotal: number;
                     };
                 };
             };
@@ -3140,8 +3174,19 @@ export interface operations {
         parameters: {
             query?: {
                 kind?: components["schemas"]["MediaKind"];
-                /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
-                cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
                 limit?: number;
             };
             header?: never;
@@ -3165,7 +3210,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPage"] & {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["LibraryAsset"][];
                     };
                 };
@@ -3251,8 +3296,19 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["AssignmentStatus"];
-                /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
-                cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
                 limit?: number;
             };
             header?: never;
@@ -3267,7 +3323,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPage"] & {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["Assignment"][];
                     };
                 };
@@ -3399,8 +3455,19 @@ export interface operations {
                 status?: components["schemas"]["AttemptStatus"];
                 flagged?: boolean;
                 pendingGrading?: boolean;
-                /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
-                cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
                 limit?: number;
             };
             header?: never;
@@ -3415,7 +3482,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPage"] & {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["AttemptListRow"][];
                     };
                 };
@@ -3671,8 +3738,19 @@ export interface operations {
                  *     would be unreachable.
                  */
                 status?: "active" | "disabled" | "all";
-                /** @description Opaque keyset cursor from a previous `nextCursor` (§13.8). Never construct or parse this. */
-                cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
                 limit?: number;
             };
             header?: never;
@@ -3687,7 +3765,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPage"] & {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["StudentRow"][];
                         facets: components["schemas"]["StudentFacets"];
                     };
@@ -3828,7 +3906,24 @@ export interface operations {
     };
     listClasses: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3841,7 +3936,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["Class"][];
                     };
                 };
@@ -3930,7 +4025,24 @@ export interface operations {
     };
     listClassMembers: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                limit?: number;
+            };
             header?: never;
             path: {
                 id: components["parameters"]["IdPath"];
@@ -3945,7 +4057,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["ClassMember"][];
                     };
                 };

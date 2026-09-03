@@ -29,18 +29,14 @@ func (s *Server) ListStudents(ctx context.Context, request openapi.ListStudentsR
 	if request.Params.Status != nil {
 		in.Status = students.Status(*request.Params.Status)
 	}
-	if request.Params.Cursor != nil {
-		in.Cursor = *request.Params.Cursor
+	if request.Params.Page != nil {
+		in.Page = int(*request.Params.Page)
 	}
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, next, err := s.Deps.Students.List(ctx, in)
-	if errors.Is(err, students.ErrBadCursor) {
-		return openapi.ListStudents400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			authError(ctx, openapi.VALIDATIONFAILED, "Con trỏ phân trang không hợp lệ."))}, nil
-	}
+	found, page, err := s.Deps.Students.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +52,12 @@ func (s *Server) ListStudents(ctx context.Context, request openapi.ListStudentsR
 			Total:           facets.Total,
 			ActiveLast7Days: facets.ActiveLast7Days,
 		},
+		Page:     page.Number,
+		PageSize: page.Size,
+		Total:    page.Total,
 	}
 	for i, student := range found {
 		out.Items[i] = toAPIStudent(student)
-	}
-	if next != "" {
-		out.NextCursor = &next
 	}
 	return out, nil
 }

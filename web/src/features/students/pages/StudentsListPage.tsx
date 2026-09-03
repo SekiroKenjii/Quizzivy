@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +28,10 @@ import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Pager } from "@/components/shared/Pager";
+import { usePage } from "@/hooks/usePage";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 /** §8's students table, as the deck's G-07. */
 export default function StudentsListPage() {
@@ -46,24 +48,24 @@ export default function StudentsListPage() {
   // The limit is part of the key on purpose: the two token pickers query
   // `["admin-students", { q }]` with limit 20, and sharing a cache entry across
   // two page sizes would truncate whichever screen painted second.
-  const students = useInfiniteQuery({
-    queryKey: ["admin-students", { q: search, showDisabled, limit: PAGE_SIZE }],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
+  const [page] = usePage(JSON.stringify({ search, showDisabled }));
+  const students = useQuery({
+    queryKey: ["admin-students", { q: search, showDisabled, limit: PAGE_SIZE, page }],
+    queryFn: ({ signal }) =>
       listStudents(
         {
           limit: PAGE_SIZE,
+          page,
           ...(showDisabled ? { status: "disabled" as const } : {}),
           ...(search === "" ? {} : { q: search }),
-          ...(pageParam ? { cursor: pageParam } : {}),
         },
         signal,
       ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   });
 
-  const items = students.data?.pages.flatMap((page) => page.items) ?? [];
-  const facets = students.data?.pages[0]?.facets;
+  const items = students.data?.items ?? [];
+  const facets = students.data?.facets;
 
   // The drawer fetches its own subject rather than reading it out of the loaded
   // page. Deriving it from the list tied the panel's lifetime to the search: a
@@ -182,16 +184,13 @@ export default function StudentsListPage() {
               </Table>
             </Card>
 
-            {students.hasNextPage ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={students.isFetchingNextPage}
-                onClick={() => void students.fetchNextPage()}
-              >
-                {students.isFetchingNextPage ? t("common.loading") : t("bank.loadMore")}
-              </Button>
-            ) : null}
+            {students.data && (
+              <Pager
+                page={students.data.page}
+                pageSize={students.data.pageSize}
+                total={students.data.total}
+              />
+            )}
           </>
         )}
       </div>

@@ -37,7 +37,6 @@ var (
 	ErrNotFound = errors.New("questions: not found")
 	// ErrReferenced is a delete refused because a draft outline still uses it.
 	ErrReferenced = errors.New("questions: referenced by a draft test outline")
-	ErrBadCursor  = errors.New("questions: malformed cursor")
 )
 
 // AudioPolicy is present if and only if the attached asset is audio.

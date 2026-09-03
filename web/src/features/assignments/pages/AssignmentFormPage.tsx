@@ -102,7 +102,7 @@ export default function AssignmentFormPage() {
 
   const classes = useQuery({
     queryKey: ["admin-classes"],
-    queryFn: ({ signal }) => fetchClasses(signal),
+    queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
   });
 
   // Arriving from a class's "Giao bài cho lớp" pre-selects it, which is the
