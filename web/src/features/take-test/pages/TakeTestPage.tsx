@@ -1,26 +1,39 @@
 import { useEffect, useReducer, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
-import { ChevronLeft, ChevronRight, Check, List, LoaderCircle, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Flag,
+  List,
+  LoaderCircle,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
+import { Clock } from "../components/Clock";
+import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
 import { QuestionCard } from "../components/QuestionCard";
+import { ReviewScreen } from "../components/ReviewScreen";
 import { clearSession } from "@/features/integrity/buffer";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
 import { StrikeIndicator } from "@/features/integrity/components/StrikeIndicator";
 import { strikeState } from "@/features/integrity/strikes";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
-import { getAttempt } from "../api";
-import { remainingMs, useTakeTestStore } from "../store";
+import { answered } from "../answered";
+import { getAttempt, type Answer, type StudentQuestion } from "../api";
+import { useTakeTestStore } from "../store";
 
 /**
- * S-05's engine, one question at a time.
+ * S-05's engine, one question at a time -- and S-06's two other views of the
+ * same attempt: the navigator (a sheet in thumb range, a rail from 1024px)
+ * and the review before submitting.
  *
- * What is here: the paper, the answer being written into it, the clock, the
- * answer to "did my work survive?", and §10.2's three pieces of integrity
- * chrome -- the strike count in the save strip, the way back into fullscreen,
- * and the dialog. What is not, yet: the question navigator sheet (S-06). It
- * attaches to this chrome without moving it -- the header keeps its height
+ * Both are views, not routes. A route change would unmount this page, and
+ * with it the store, the event buffer and the monitor; the student would
+ * come back to a paper that had forgotten them. The header keeps its height
  * across question types on purpose, so the body never shifts as a student
  * moves between them.
  */
@@ -31,16 +44,23 @@ export default function TakeTestPage() {
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [index, setIndex] = useState(0);
+  const [view, setView] = useState<"question" | "review">("question");
+  const [navOpen, setNavOpen] = useState(false);
 
   const questions = useTakeTestStore((s) => s.questions);
+  const answers = useTakeTestStore((s) => s.answers);
+  const flags = useTakeTestStore((s) => s.flags);
   const sessionId = useTakeTestStore((s) => s.sessionId);
   const beaconToken = useTakeTestStore((s) => s.beaconToken);
   const integrity = useTakeTestStore((s) => s.integrity);
   const focusLossCount = useTakeTestStore((s) => s.focusLossCount);
   const lock = useTakeTestStore((s) => s.lock);
+  const submitState = useTakeTestStore((s) => s.submitState);
   const dirty = useTakeTestStore((s) => s.dirty.size);
   const inFlight = useTakeTestStore((s) => s.flushInFlight);
   const hydrate = useTakeTestStore((s) => s.hydrate);
+  const setAnswer = useTakeTestStore((s) => s.setAnswer);
+  const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const reset = useTakeTestStore((s) => s.reset);
 
   // Also the recovery from an expired signed URL: §11.2 says treat it as
@@ -75,19 +95,64 @@ export default function TakeTestPage() {
     };
   }, [attemptId, reloads, hydrate, reset]);
 
+  // Submitted -- by the button, by the timer, or by the other tab -- and
+  // there is nothing left to do here. Home, until Phase 4's result page.
+  useEffect(() => {
+    if (submitState === "done") void navigate("/app", { replace: true });
+  }, [submitState, navigate]);
+
+  // S-08's shortcuts. Never while the student is typing, and never inside a
+  // sheet or the review, where the keys mean something else.
+  const question = questions[Math.min(index, questions.length - 1)];
+  useEffect(() => {
+    if (view !== "question" || navOpen || lock !== null || question === undefined)
+      return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || typingIn(event.target))
+        return;
+      switch (event.key) {
+        case "ArrowRight":
+          setIndex((i) => Math.min(questions.length - 1, i + 1));
+          return;
+        case "ArrowLeft":
+          setIndex((i) => Math.max(0, i - 1));
+          return;
+        case "f":
+        case "F":
+          toggleFlag(question.id);
+          return;
+      }
+      const pick = "abcd".indexOf(event.key.toLowerCase());
+      const option = question.options?.[pick];
+      if (pick >= 0 && option !== undefined) {
+        setAnswer(question.id, chooseOption(question, answers[question.id], option.id));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view, navOpen, lock, question, questions.length, answers, toggleFlag, setAnswer]);
+
   if (status === "loading") {
     return <Notice>{t("takeTest.loading")}</Notice>;
   }
   if (status === "failed") {
     return <Notice>{t("takeTest.loadFailed")}</Notice>;
   }
-  if (questions.length === 0) {
+  if (question === undefined) {
     return <Notice>{t("takeTest.empty")}</Notice>;
   }
-
-  const question = questions[Math.min(index, questions.length - 1)];
-  if (question === undefined) return <Notice>{t("takeTest.empty")}</Notice>;
   const last = index >= questions.length - 1;
+
+  const dots: DotState[] = questions.map((q) => ({
+    id: q.id,
+    answered: answered(answers[q.id]),
+    flagged: flags.has(q.id),
+  }));
+  const jump = (i: number) => {
+    setIndex(i);
+    setNavOpen(false);
+    setView("question");
+  };
 
   // The server's count from before this sitting plus what this tab has seen
   // since. Nothing integrity-related renders over a locked paper: it is
@@ -96,6 +161,22 @@ export default function TakeTestPage() {
   const strikeStatus = watching
     ? strikeState(integrity, focusLossCount + strikes)
     : null;
+  const strikeDialog = strikeStatus !== null && (
+    <StrikeDialog state={strikeStatus} strikes={strikes} lastAwayMs={lastAwayMs} />
+  );
+
+  if (view === "review") {
+    return (
+      <>
+        <ReviewScreen dots={dots} onBack={() => setView("question")} onJump={jump} />
+        {strikeDialog}
+      </>
+    );
+  }
+
+  const flagged = flags.has(question.id);
+  const choice =
+    question.type === "single_choice" || question.type === "multiple_choice";
 
   return (
     <div className="flex flex-1 flex-col">
@@ -113,13 +194,52 @@ export default function TakeTestPage() {
         }
       />
       {watching && integrity.requireFullscreen && !fullscreen && <FullscreenBar />}
-      {strikeStatus !== null && (
-        <StrikeDialog state={strikeStatus} strikes={strikes} lastAwayMs={lastAwayMs} />
-      )}
+      {strikeDialog}
 
-      <main className="mx-auto w-full max-w-[720px] flex-1 px-4 py-5">
-        <QuestionCard question={question} onAudioExpired={reload} />
-      </main>
+      <div className="flex flex-1">
+        <main className="mx-auto w-full max-w-[720px] min-w-0 flex-1 px-4 py-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-muted-foreground text-xs">
+              {t("takeTest.questionCounter", { n: index + 1, total: questions.length })}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              aria-pressed={flagged}
+              aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
+              disabled={lock !== null}
+              onClick={() => toggleFlag(question.id)}
+            >
+              <Flag
+                className={flagged ? "fill-current" : undefined}
+                aria-hidden="true"
+              />
+              <span className="hidden lg:inline">{t("takeTest.flag")}</span>
+            </Button>
+          </div>
+          <QuestionCard question={question} onAudioExpired={reload} />
+          <p className="text-muted-foreground mt-6 hidden items-center gap-1 text-xs lg:flex">
+            {t("takeTest.shortcuts")}
+            {choice && (
+              <>
+                {" "}
+                <Kbd>{KEY.a}</Kbd>
+                {KEY.dash}
+                <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
+              </>
+            )}{" "}
+            <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd> {t("takeTest.shortcutMove")}{" "}
+            {KEY.dot} <Kbd>{KEY.f}</Kbd> {t("takeTest.shortcutFlag")}
+          </p>
+        </main>
+        <NavigatorRail
+          dots={dots}
+          current={index}
+          onJump={jump}
+          onReview={() => setView("review")}
+        />
+      </div>
 
       <footer
         className="bg-background sticky bottom-0 flex items-center gap-2 border-t p-3"
@@ -134,12 +254,16 @@ export default function TakeTestPage() {
         >
           <ChevronLeft aria-hidden="true" />
         </Button>
-        <Button variant="outline" className="flex-1" disabled>
+        <Button
+          variant="outline"
+          className="flex-1 lg:hidden"
+          onClick={() => setNavOpen(true)}
+        >
           <List aria-hidden="true" />
           {t("takeTest.questionList")}
         </Button>
         {last ? (
-          <Button className="flex-1" disabled>
+          <Button className="flex-1" onClick={() => setView("review")}>
             {t("takeTest.reviewAndSubmit")}
           </Button>
         ) : (
@@ -149,8 +273,55 @@ export default function TakeTestPage() {
           </Button>
         )}
       </footer>
+
+      <NavigatorSheet
+        open={navOpen}
+        onOpenChange={setNavOpen}
+        dots={dots}
+        current={index}
+        onJump={jump}
+        onReview={() => {
+          setNavOpen(false);
+          setView("review");
+        }}
+      />
     </div>
   );
+}
+
+/** The key caps S-08 draws. Not translated: they are the keys. */
+const KEY = {
+  a: "A",
+  d: "D",
+  dash: "–",
+  dot: "·",
+  left: "←",
+  right: "→",
+  f: "F",
+} as const;
+
+function typingIn(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
+  );
+}
+
+/** A–D on a choice question: a single picks, a multiple toggles. */
+function chooseOption(
+  question: StudentQuestion,
+  current: Answer | undefined,
+  optionId: string,
+): Answer {
+  if (question.type === "multiple_choice") {
+    const chosen = new Set(current?.type === "choice" ? current.optionIds : []);
+    if (!chosen.delete(optionId)) chosen.add(optionId);
+    return { type: "choice", optionIds: [...chosen] };
+  }
+  return { type: "choice", optionIds: [optionId] };
 }
 
 function Notice({ children }: { children: string }) {
@@ -162,9 +333,8 @@ function Notice({ children }: { children: string }) {
 }
 
 /**
- * The clock, read from the server's time rather than the device's, and the
- * exit that §10.2 forbids ever removing -- deliberately the least prominent
- * control here, and never beside the submit.
+ * The clock, and the exit that §10.2 forbids ever removing -- deliberately
+ * the least prominent control here, and never beside the submit.
  */
 function Header({
   index,
@@ -176,20 +346,6 @@ function Header({
   onExit: () => void;
 }) {
   const { t } = useTranslation();
-  const deadlineAt = useTakeTestStore((s) => s.deadlineAt);
-  const offsetMs = useTakeTestStore((s) => s.offsetMs);
-
-  // Derived during render rather than held in state. The interval's only job is
-  // to ask for a repaint; keeping the number in state as well would be a second
-  // copy of the truth, synchronised by an effect that sets state on mount --
-  // which is the cascade react-hooks/set-state-in-effect exists to stop.
-  const [, repaint] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => {
-    const tick = setInterval(repaint, 1000);
-    return () => clearInterval(tick);
-  }, []);
-  const left = remainingMs({ deadlineAt, offsetMs });
-
   return (
     <header className="border-b">
       <div className="mx-auto flex h-12 w-full max-w-[720px] items-center gap-3 px-4">
@@ -205,7 +361,7 @@ function Header({
         <span className="text-muted-foreground ml-auto text-xs tabular-nums">
           {t("takeTest.questionCounter", { n: index + 1, total })}
         </span>
-        <span className="text-sm font-semibold tabular-nums">{clock(left)}</span>
+        <Clock />
       </div>
       <div className="bg-secondary h-1">
         <div
@@ -290,11 +446,4 @@ function hhmm(iso: string): string {
     minute: "2-digit",
     hour12: false,
   });
-}
-
-function clock(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }

@@ -1,8 +1,8 @@
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface PageHeaderProps {
   title: string;
@@ -26,7 +26,7 @@ export function PageHeader({ title, meta, actions, backTo }: PageHeaderProps) {
   const navigate = useNavigate();
 
   return (
-    <header className="bg-background sticky top-0 z-10 -mx-6 -mt-6 mb-6 border-b">
+    <header className="bg-background sticky z-10 -mx-6 -mt-6 mb-6 border-b">
       <div className="flex h-14 items-center gap-3 px-6">
         {backTo === undefined ? null : (
           <Button

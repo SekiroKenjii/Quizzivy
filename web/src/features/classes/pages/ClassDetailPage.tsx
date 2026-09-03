@@ -1,13 +1,8 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router";
-import { ClipboardList, Search, UserPlus } from "lucide-react";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -27,12 +23,16 @@ import {
 import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
 import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
-import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { invalidateClassMembership } from "@/features/classes/invalidate";
+import { ApiError } from "@/lib/api/errors";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/datetime";
-import { ApiError } from "@/lib/api/errors";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ClipboardList, Search, UserPlus } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate, useParams } from "react-router";
 
 function currentLocale(language: string): Locale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(language)
@@ -214,7 +214,9 @@ export default function ClassDetailPage() {
                             <Badge>{t("classDetail.viaAdmin")}</Badge>
                           ) : (
                             <Badge variant="secondary">
-                              {t("classDetail.viaCode", { hint: m.joinCodeHint ?? "" })}
+                              {t("classDetail.viaCode", {
+                                hint: m.joinCodeHint ?? "",
+                              })}
                             </Badge>
                           )}
                         </TableCell>
@@ -228,7 +230,10 @@ export default function ClassDetailPage() {
                             disabled={remove.isPending}
                             onClick={() => {
                               setRemoveError(null);
-                              setConfirmRemove({ userId: m.userId, name: m.fullName });
+                              setConfirmRemove({
+                                userId: m.userId,
+                                name: m.fullName,
+                              });
                             }}
                           >
                             <span aria-hidden="true">{t("classDetail.remove")}</span>

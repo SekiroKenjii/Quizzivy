@@ -340,3 +340,40 @@ func TestTheIntroReportsTheStrictestAudioCap(t *testing.T) {
 		t.Errorf("maxPlays %v, want the strictest, 2", d.AudioMaxPlays)
 	}
 }
+
+// A tab closed before the clock ran out leaves an in_progress row past its
+// deadline. The server times it out at the next contact and refuses a resume,
+// so the home must not offer one -- the attempt is spent, and says so.
+func TestAnAttemptLeftOpenPastItsDeadlineIsSpentNotLive(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := assignments.NewStore(pool)
+	ctx := context.Background()
+	a := createFor(t, store, w, legalInput(w))
+	stale := sitAttempt(t, pool, w, a.ID, "in_progress", "0.00", false)
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.attempts SET started_at = now() - interval '2 hours',
+		                         deadline_at = now() - interval '1 hour' WHERE id = $1::uuid`, stale); err != nil {
+		t.Fatal(err)
+	}
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sections.DueNow) != 0 {
+		t.Errorf("due %v, want none: nothing here can be resumed or started", ids(sections.DueNow))
+	}
+	card := only(t, sections.Completed, a.ID)
+	if card.HasLiveAttempt || card.AttemptsUsed != 1 || card.Score != nil {
+		t.Errorf("stale attempt: %+v, want spent, not live, no score", card)
+	}
+
+	d, err := store.StudentDetail(ctx, a.ID, w.student)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.HasLiveAttempt || d.AttemptsUsed != 1 {
+		t.Errorf("intro would offer a resume the server refuses: %+v", d.StudentCard)
+	}
+}

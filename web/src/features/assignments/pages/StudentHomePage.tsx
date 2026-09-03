@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { fetchMyClasses } from "@/features/classes/api";
 import { startOrResumeAttempt } from "@/features/take-test/api";
+import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 import { formatTime } from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
@@ -225,16 +226,20 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const resume = async () => {
     setBusy(true);
-    setFailed(false);
+    setError(null);
     try {
       const session = await startOrResumeAttempt(card.id);
       await navigate(`/app/attempts/${session.attempt.id}`);
-    } catch {
-      setFailed(true);
+    } catch (cause) {
+      // The server's own sentence when it has one -- "hết lượt" is an answer,
+      // "thử lại" is not.
+      setError(
+        cause instanceof ApiError ? cause.message : t("student.intro.startFailed"),
+      );
       setBusy(false);
     }
   };
@@ -253,9 +258,9 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
           </p>
         </div>
       </div>
-      {failed && (
+      {error !== null && (
         <p role="alert" className="mt-3 text-xs">
-          {t("student.intro.startFailed")}
+          {error}
         </p>
       )}
       <Button
