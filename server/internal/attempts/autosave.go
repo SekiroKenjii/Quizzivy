@@ -169,6 +169,47 @@ func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, e
 	if err != nil {
 		return fmt.Errorf("attempts: insert events: %w", err)
 	}
+	return deriveFocusLoss(ctx, q, attemptID)
+}
+
+// deriveFocusLoss recounts the attempt's away episodes from its event log and
+// sets the two columns the dashboard, the monitor and the resume payload read.
+//
+// Recounted rather than incremented, on the same connection as the insert
+// that changed the log, so a retried batch that ON CONFLICT swallowed cannot
+// count twice. Exactly one event per away episode carries `awayMs` -- the
+// client attaches it to the first "returned" signal -- so counting those is
+// counting episodes, and only those at or over the assignment's threshold
+// (§10.1: a 2-second blur is a notification, not a strike).
+//
+// The limit is exceeded when the count is OVER it, which is what the intro's
+// "quá 2 lần" and the contract's onLimitExceeded both say. `flagged` is
+// sticky: the teacher clears it (Phase 4), and a recount must not.
+//
+// A malformed awayMs is skipped rather than raised. This runs inside the
+// answers' transaction, and a bad byte in telemetry must never roll back the
+// answer it travelled with (§10.6).
+func deriveFocusLoss(ctx context.Context, q querier, attemptID string) error {
+	_, err := q.Exec(ctx, `
+		UPDATE app.attempts at
+		   SET focus_loss_count = counted.n,
+		       flagged = at.flagged
+		         OR (a.integrity_max_focus_loss > 0
+		             AND counted.n > a.integrity_max_focus_loss
+		             AND a.integrity_on_limit_exceeded IN ('flag', 'auto_submit'))
+		  FROM app.assignments a,
+		       LATERAL (
+		         SELECT count(*) AS n
+		           FROM app.attempt_events e
+		          WHERE e.attempt_id = $1::uuid
+		            AND CASE WHEN jsonb_typeof(e.meta->'awayMs') = 'number'
+		                     THEN (e.meta->>'awayMs')::numeric >= a.integrity_min_away_ms
+		                     ELSE false END
+		       ) AS counted
+		 WHERE at.id = $1::uuid AND a.id = at.assignment_id`, attemptID)
+	if err != nil {
+		return fmt.Errorf("attempts: derive focus loss: %w", err)
+	}
 	return nil
 }
 

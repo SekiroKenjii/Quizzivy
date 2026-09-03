@@ -70,6 +70,11 @@ type worldOpts struct {
 	draft       bool
 	maxAttempts int
 	duration    int
+
+	// §10.3's policy; zero values mean its defaults (no limit, flag, 3000ms).
+	maxFocusLoss int
+	onLimit      string
+	minAwayMs    int
 }
 
 func openAssignment() worldOpts {
@@ -78,6 +83,12 @@ func openAssignment() worldOpts {
 		opensAt: now.Add(-time.Hour), closesAt: now.Add(3 * time.Hour),
 		maxAttempts: 1, duration: 60,
 	}
+}
+
+func focusLimit(maxFocusLoss int, onLimit string) worldOpts {
+	o := openAssignment()
+	o.maxFocusLoss, o.onLimit = maxFocusLoss, onLimit
+	return o
 }
 
 func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
@@ -198,14 +209,24 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 	if o.draft {
 		published = "NULL"
 	}
+	onLimit, minAway := o.onLimit, o.minAwayMs
+	if onLimit == "" {
+		onLimit = "flag"
+	}
+	if minAway == 0 {
+		minAway = 3000
+	}
 	must(pool.QueryRow(ctx, `
 		INSERT INTO app.assignments
 		  (test_id, test_version_id, opens_at, closes_at, closed_at, published_at,
-		   duration_minutes, max_attempts, created_by)
-		VALUES ($1::uuid,$2::uuid,$3,$4,$5,`+published+`,$6,$7,$8::uuid)
+		   duration_minutes, max_attempts, created_by,
+		   integrity_max_focus_loss, integrity_on_limit_exceeded, integrity_min_away_ms)
+		VALUES ($1::uuid,$2::uuid,$3,$4,$5,`+published+`,$6,$7,$8::uuid,
+		        $9,$10::app.integrity_action,$11)
 		RETURNING id::text`,
 		w.testID, w.versionID, o.opensAt, o.closesAt, o.closedAt,
-		o.duration, o.maxAttempts, w.admin).Scan(&w.assignment))
+		o.duration, o.maxAttempts, w.admin,
+		o.maxFocusLoss, onLimit, minAway).Scan(&w.assignment))
 	exec(`INSERT INTO app.assignment_classes (assignment_id, class_id)
 	      VALUES ($1::uuid,$2::uuid)`, w.assignment, w.class)
 
