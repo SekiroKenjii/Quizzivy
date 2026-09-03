@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"math"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Question is everything scoring needs and nothing it does not. No prompt, no
@@ -197,8 +199,14 @@ func matches(blank Blank, given string) bool {
 // Diacritics are deliberately NOT folded. This is an English test written for
 // Vietnamese students; the Vietnamese that appears in an answer is meaning-
 // bearing, and "ha noi" is not "Hà Nội" the way "hanoi " is "Hanoi".
+//
+// Composition IS folded. Vietnamese has two byte encodings for the same text
+// -- "ế" is one code point or three, depending on which keyboard produced it
+// -- and they render identically to everyone who will ever read them. The
+// accepted answer and the student's are typed on different machines by
+// definition, so both go through NFC before anything compares them.
 func normalise(s string, caseSensitive bool) string {
-	out := strings.Join(strings.Fields(s), " ")
+	out := strings.Join(strings.Fields(norm.NFC.String(s)), " ")
 	if caseSensitive {
 		return out
 	}

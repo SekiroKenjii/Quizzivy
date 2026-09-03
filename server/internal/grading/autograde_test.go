@@ -145,6 +145,42 @@ func TestFillBlankKeepsDiacritics(t *testing.T) {
 	}
 }
 
+// The same text, two encodings. macOS input methods produce decomposed
+// Vietnamese where most others produce composed, and the two render
+// identically -- so without this, a wrong mark would have no visible cause.
+//
+// Written as escapes rather than literals on purpose: with literals, the
+// editor that saved this file would decide whether the test tests anything.
+func TestFillBlankIgnoresUnicodeComposition(t *testing.T) {
+	const composed = "H\u00e0 N\u1ed9i"           // à and ộ as one code point each (NFC)
+	const decomposed = "Ha\u0300 No\u0323\u0302i" // base letters plus combining marks (NFD)
+	if composed == decomposed {
+		t.Fatal("the two spellings must differ byte-wise, or this test proves nothing")
+	}
+
+	for _, c := range []struct {
+		name          string
+		accepted      string
+		given         string
+		caseSensitive bool
+	}{
+		{"composed key, decomposed answer", composed, decomposed, false},
+		{"decomposed key, composed answer", decomposed, composed, false},
+		{"case-sensitive blank still folds composition", composed, decomposed, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			q := grading.Question{
+				Type: "fill_blank", Points: 3,
+				Blanks: []grading.Blank{{ID: "b1", Accepted: []string{c.accepted}, CaseSensitive: c.caseSensitive}},
+			}
+			payload := `{"type":"fill_blank","values":{"b1":` + quote(c.given) + `}}`
+			if got := grading.Grade(q, []byte(payload)).Score; got != 3 {
+				t.Errorf("score %v, want 3: the same word in another encoding was marked wrong", got)
+			}
+		})
+	}
+}
+
 func TestACaseSensitiveBlankSaysSo(t *testing.T) {
 	q := grading.Question{
 		Type: "fill_blank", Points: 3,
