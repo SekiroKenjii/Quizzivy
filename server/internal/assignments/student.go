@@ -18,22 +18,32 @@ var ErrForbidden = errors.New("assignments: not this student's")
 // no roster -- those are the teacher's projection (Assignment), and the two
 // are separate types so a field added to one cannot leak through the other.
 type StudentCard struct {
-	ID          string
-	TestTitle   string
-	OpensAt     time.Time
-	ClosesAt    time.Time
-	ClosedAt    *time.Time
-	PublishedAt *time.Time
-	DurationMin int
-	MaxAttempts int
+	ID        string
+	TestTitle string
+	// ClassName is the class this assignment reached the student through, and
+	// only when there is exactly one -- see the query for why.
+	ClassName     *string
+	OpensAt       time.Time
+	ClosesAt      time.Time
+	ClosedAt      *time.Time
+	PublishedAt   *time.Time
+	DurationMin   int
+	MaxAttempts   int
+	QuestionCount int
+	TotalPoints   float64
 	// AttemptsUsed counts finished, non-voided attempts, plus one left in
 	// progress past its deadline. A live one is not used yet -- it is the
 	// one the student is in.
 	AttemptsUsed int
 	// HasLiveAttempt means resumable: in progress and before its deadline.
 	HasLiveAttempt bool
+	// LiveDeadlineAt is that attempt's deadline, non-nil exactly when
+	// HasLiveAttempt is true.
+	LiveDeadlineAt *time.Time
 	// LastAttemptID is the most recent non-voided attempt, live or finished.
 	LastAttemptID *string
+	// LastSubmittedAt is when it was handed in; nil while it is still live.
+	LastSubmittedAt *time.Time
 	// Score is the last finished attempt's, and only when the assignment's
 	// review policy shows scores. Nil otherwise -- absent, not zero.
 	Score *Score
@@ -49,11 +59,16 @@ type Score struct {
 // state before the clock starts.
 type StudentDetail struct {
 	StudentCard
-	Instructions  *string
-	Review        Review
-	Integrity     Integrity
-	HasAudio      bool
-	AudioMaxPlays *int
+	// TeacherName is who set the work: the assignment's author, which is what
+	// S-04 names beside the class.
+	TeacherName *string
+	Review      Review
+	Integrity   Integrity
+	HasAudio    bool
+	// ShowsTranscript is true when any listening question on the paper
+	// releases its transcript after submitting.
+	ShowsTranscript bool
+	AudioMaxPlays   *int
 }
 
 // StudentSections is §9's home, already sorted into its three lists.
@@ -88,8 +103,23 @@ const targeted = `
 // as students.go reads them), cast to float8 so numeric(8,2) lands in the wire
 // type the contract promises (`format: double`).
 const studentCardColumns = `
-	SELECT a.id::text, t.title, a.opens_at, a.closes_at, a.closed_at, a.published_at,
+	SELECT a.id::text, t.title,
+	       -- The class this assignment reached them through, named only when
+	       -- there is exactly one. An assignment can target several classes and
+	       -- name students directly; a student on two of them has no single
+	       -- answer, and picking one would be picking a side they cannot check.
+	       (SELECT CASE WHEN count(*) = 1 THEN min(c.name) END
+	          FROM app.assignment_classes ac
+	          JOIN app.classes c ON c.id = ac.class_id
+	          JOIN app.class_members m ON m.class_id = ac.class_id
+	                                  AND m.user_id = $1::uuid
+	         WHERE ac.assignment_id = a.id),
+	       a.opens_at, a.closes_at, a.closed_at, a.published_at,
 	       a.duration_minutes, a.max_attempts, a.review_show_score,
+	       (SELECT count(*) FROM app.test_version_questions q
+	          JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
+	         WHERE sec.test_version_id = a.test_version_id),
+	       v.total_points::float8,
 	       -- "Live" means resumable, the way resumeIfLive means it: in progress
 	       -- AND before its deadline. One left open past the deadline in a
 	       -- closed tab is spent -- the server times it out at the next contact
@@ -102,13 +132,21 @@ const studentCardColumns = `
 	       EXISTS (SELECT 1 FROM app.attempts at
 	                WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
 	                  AND at.status = 'in_progress' AND at.deadline_at > now()),
-	       last.id::text, last.status::text, last.earned, last.total, last.pending`
+	       -- The same WHERE as the EXISTS above, so this is non-null exactly
+	       -- when that is true rather than merely usually agreeing with it.
+	       (SELECT at.deadline_at FROM app.attempts at
+	         WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
+	           AND at.status = 'in_progress' AND at.deadline_at > now()
+	         ORDER BY at.deadline_at DESC LIMIT 1),
+	       last.id::text, last.status::text, last.submitted_at,
+	       last.earned, last.total, last.pending`
 
 const studentCardFrom = `
 	  FROM app.assignments a
 	  JOIN app.tests t ON t.id = a.test_id
+	  JOIN app.test_versions v ON v.id = a.test_version_id
 	  LEFT JOIN LATERAL (
-	       SELECT at.id, at.status,
+	       SELECT at.id, at.status, at.submitted_at,
 	              at.score_earned::float8 AS earned,
 	              coalesce(at.score_total, av.total_points)::float8 AS total,
 	              (SELECT count(*) FROM app.attempt_answers ans
@@ -123,17 +161,19 @@ const studentCardFrom = `
 
 // lastAttempt is the tail of a card row: what the LATERAL found, if anything.
 type lastAttempt struct {
-	id      *string
-	status  *string
-	earned  *float64
-	total   *float64
-	pending *int
+	id          *string
+	status      *string
+	submittedAt *time.Time
+	earned      *float64
+	total       *float64
+	pending     *int
 }
 
 // apply fills the card's attempt-derived fields. A score is shown only for a
 // finished attempt with one recorded, and only when the assignment says so.
 func (l lastAttempt) apply(c *StudentCard, showScore bool) {
 	c.LastAttemptID = l.id
+	c.LastSubmittedAt = l.submittedAt
 	finished := l.status != nil && *l.status != "in_progress"
 	if showScore && finished && l.earned != nil && l.total != nil && l.pending != nil {
 		c.Score = &Score{Earned: *l.earned, Total: *l.total, PendingManual: *l.pending}
@@ -146,10 +186,12 @@ func scanStudentCard(row pgx.Row) (StudentCard, error) {
 		showScore bool
 		l         lastAttempt
 	)
-	err := row.Scan(&c.ID, &c.TestTitle, &c.OpensAt, &c.ClosesAt, &c.ClosedAt, &c.PublishedAt,
+	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName,
+		&c.OpensAt, &c.ClosesAt, &c.ClosedAt, &c.PublishedAt,
 		&c.DurationMin, &c.MaxAttempts, &showScore,
-		&c.AttemptsUsed, &c.HasLiveAttempt,
-		&l.id, &l.status, &l.earned, &l.total, &l.pending)
+		&c.QuestionCount, &c.TotalPoints,
+		&c.AttemptsUsed, &c.HasLiveAttempt, &c.LiveDeadlineAt,
+		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending)
 	if err != nil {
 		return StudentCard{}, err
 	}
@@ -208,10 +250,12 @@ func (s *Store) StudentDetail(ctx context.Context, id, studentID string) (Studen
 		maxPlays  *int
 	)
 	// $1 is the student, so `targeted` and the card read unchanged; the
-	// assignment is $2. Instructions stay nil: the schema keeps them per
-	// section (test_version_sections.instructions), and the contract's
-	// test-level field has no column to read from.
+	// assignment is $2.
 	err := s.pool.QueryRow(ctx, studentCardColumns+`,
+	       -- Who set the work, for S-04's header. The assignment's author
+	       -- rather than the test's: the same paper can be set by different
+	       -- people, and this names who to ask about this sitting.
+	       (SELECT au.full_name FROM app.users au WHERE au.id = a.created_by),
 	       a.review_show_correct_answers, a.review_show_explanations,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
@@ -220,6 +264,13 @@ func (s *Store) StudentDetail(ctx context.Context, id, studentID string) (Studen
 	                 JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
 	                WHERE sec.test_version_id = a.test_version_id
 	                  AND q.media_asset_kind = 'audio'),
+	       -- At least one, because the intro promises the student one thing
+	       -- about the whole paper and they will judge it by whether they ever
+	       -- see a transcript.
+	       EXISTS (SELECT 1 FROM app.test_version_questions q
+	                 JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
+	                WHERE sec.test_version_id = a.test_version_id
+	                  AND q.audio_show_transcript_after),
 	       -- The strictest cap on the paper. NULL when every listening question
 	       -- is unlimited, which the intro reads as "no limit to state".
 	       (SELECT min(q.audio_max_plays) FROM app.test_version_questions q
@@ -228,14 +279,17 @@ func (s *Store) StudentDetail(ctx context.Context, id, studentID string) (Studen
 	           AND q.media_asset_kind = 'audio')`+studentCardFrom+`
 	 WHERE a.id = $2::uuid AND a.published_at IS NOT NULL AND `+targeted,
 		studentID, id).Scan(
-		&d.ID, &d.TestTitle, &d.OpensAt, &d.ClosesAt, &d.ClosedAt, &d.PublishedAt,
+		&d.ID, &d.TestTitle, &d.ClassName,
+		&d.OpensAt, &d.ClosesAt, &d.ClosedAt, &d.PublishedAt,
 		&d.DurationMin, &d.MaxAttempts, &showScore,
-		&d.AttemptsUsed, &d.HasLiveAttempt,
-		&l.id, &l.status, &l.earned, &l.total, &l.pending,
+		&d.QuestionCount, &d.TotalPoints,
+		&d.AttemptsUsed, &d.HasLiveAttempt, &d.LiveDeadlineAt,
+		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
+		&d.TeacherName,
 		&d.Review.ShowCorrectAnswers, &d.Review.ShowExplanations,
 		&d.Integrity.RequireFullscreen, &d.Integrity.BlockCopyPaste,
 		&d.Integrity.MaxFocusLoss, &onLimit, &d.Integrity.MinAwayMs,
-		&d.HasAudio, &maxPlays)
+		&d.HasAudio, &d.ShowsTranscript, &maxPlays)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return StudentDetail{}, ErrForbidden
 	}

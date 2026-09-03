@@ -110,8 +110,16 @@
       "exhausted": "Bạn đã dùng hết số lượt làm bài.",
       "opensLater": "Bài mở lúc {{time}} · {{date}}.",
       "closed": "Bài này đã đóng.",
-      "startFailed": "Không bắt đầu được. Hãy thử lại."
-    }
+      "startFailed": "Không bắt đầu được. Hãy thử lại.",
+      "questions": "Số câu",
+      "questionsValue": "{{questions}} · {{points}} điểm",
+      "seeTranscript": "Xem lời thoại bài nghe",
+      "classAndTeacher": "{{className}} · {{teacher}}"
+    },
+    "questions_one": "{{count}} câu",
+    "questions_other": "{{count}} câu",
+    "submittedOn": "Nộp {{date}}",
+    "resumeBodyLeft": "{{title}}. Đồng hồ vẫn đang chạy, còn {{left}}."
   },
   "changePassword": {
     "title": "Đổi mật khẩu",

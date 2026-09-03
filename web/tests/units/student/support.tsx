@@ -44,6 +44,8 @@ export function card(over: Record<string, unknown> = {}) {
     opensAt: "2026-08-29T01:00:00Z",
     closesAt: "2026-08-29T14:00:00Z",
     durationMinutes: 45,
+    questionCount: 24,
+    totalPoints: 30,
     attemptsUsed: 0,
     maxAttempts: 2,
     hasLiveAttempt: false,
@@ -57,6 +59,7 @@ export function detail(over: Record<string, unknown> = {}) {
     review: REVIEW,
     integrity: POLICY,
     hasAudio: false,
+    showsTranscript: false,
     ...over,
   };
 }

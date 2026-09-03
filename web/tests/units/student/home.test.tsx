@@ -193,3 +193,94 @@ describe("nothing assigned", () => {
     );
   });
 });
+
+/**
+ * S-03 draws four things the card could not carry until the contract did:
+ * which class the work came through, how long the paper is, when a finished
+ * one was handed in, and how much of the clock is left on a live one.
+ */
+describe("what the deck's card says", () => {
+  it("names the class the assignment came through, beside the badge", async () => {
+    home({ dueNow: [card({ className: "IELTS Foundation" })] });
+    expect(await screen.findByText("IELTS Foundation")).toBeInTheDocument();
+  });
+
+  // Several targeted classes, or a student named directly: the server sends
+  // null rather than picking one, and the card says nothing rather than
+  // naming a class the student cannot check.
+  it("says nothing about the class when the server names none", async () => {
+    home({ dueNow: [card({ className: null })] }, []);
+    await screen.findByText("Unit 5 — Present perfect");
+    expect(screen.queryByText("IELTS Foundation")).toBeNull();
+  });
+
+  it("states how many questions the paper has", async () => {
+    home({ dueNow: [card({ questionCount: 24 })] });
+    expect(await screen.findByText("24 câu")).toBeInTheDocument();
+  });
+
+  it("dates a completed row by when it was handed in", async () => {
+    home({
+      completed: [
+        card({
+          status: "closed",
+          attemptsUsed: 1,
+          lastSubmittedAt: "2026-08-26T09:30:00Z",
+        }),
+      ],
+    });
+    expect(await screen.findByText("Nộp 26/08")).toBeInTheDocument();
+    expect(screen.queryByText("Lượt 1/2")).toBeNull();
+  });
+
+  // A submitted attempt is what puts a date there; one still in progress has
+  // none, and the row falls back to the attempt count rather than inventing
+  // a date.
+  it("falls back to the attempt count when there is no submission time", async () => {
+    home({
+      completed: [card({ status: "closed", attemptsUsed: 1, lastSubmittedAt: null })],
+    });
+    expect(await screen.findByText("Lượt 1/2")).toBeInTheDocument();
+  });
+});
+
+describe("the resume card's clock", () => {
+  it("shows how long is left, not merely that the clock is running", async () => {
+    home({
+      dueNow: [
+        card({
+          hasLiveAttempt: true,
+          liveDeadlineAt: "2026-08-29T10:22:14Z",
+        }),
+      ],
+    });
+    // The seconds move while the test runs (shouldAdvanceTime), so the minute
+    // is the assertion and the seconds only have to be there.
+    expect(
+      await screen.findByText(/Đồng hồ vẫn đang chạy, còn 22:\d{2}\./),
+    ).toBeInTheDocument();
+  });
+
+  it("counts down rather than freezing at what it was on load", async () => {
+    home({
+      dueNow: [card({ hasLiveAttempt: true, liveDeadlineAt: "2026-08-29T10:22:14Z" })],
+    });
+    await screen.findByText(/còn 22:\d{2}\./);
+    await vi.advanceTimersByTimeAsync(65_000);
+    expect(await screen.findByText(/còn 21:\d{2}\./)).toBeInTheDocument();
+  });
+
+  // The server is what ends an attempt; a client clock that has run out says
+  // 00:00 rather than counting into negative numbers.
+  it("stops at zero", async () => {
+    home({
+      dueNow: [card({ hasLiveAttempt: true, liveDeadlineAt: "2026-08-29T09:59:00Z" })],
+    });
+    expect(await screen.findByText(/còn 00:00\./)).toBeInTheDocument();
+  });
+
+  it("says only that the clock is running when no deadline came with it", async () => {
+    home({ dueNow: [card({ hasLiveAttempt: true, liveDeadlineAt: null })] });
+    expect(await screen.findByText(/Đồng hồ vẫn đang chạy\.$/)).toBeInTheDocument();
+  });
+});

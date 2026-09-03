@@ -19,7 +19,9 @@ function assignment(over: Record<string, unknown> = {}) {
     testVersion: 3,
     testTitle: "Unit 5",
     targets: {
-      classIds: ["018f0000-0000-7000-8000-0000000000c1"],
+      classes: [
+        { id: "018f0000-0000-7000-8000-0000000000c1", name: "IELTS Foundation" },
+      ],
       studentIds: [],
     },
     publishedAt: "2026-08-27T00:00:00Z",

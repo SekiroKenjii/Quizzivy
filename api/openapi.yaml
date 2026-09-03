@@ -367,24 +367,47 @@ components:
         the policies §10.2 states in plain Vietnamese before the student starts.
       required:
         [id, testTitle, status, opensAt, closesAt, durationMinutes,
-         attemptsUsed, maxAttempts, review, integrity, hasAudio]
+         attemptsUsed, maxAttempts, questionCount, totalPoints, review,
+         integrity, hasAudio, showsTranscript]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         testTitle: { type: string }
+        className: { type: [string, 'null'], description: See StudentAssignmentCard. }
+        teacherName:
+          type: [string, 'null']
+          description: |
+            Who set the work — S-04 puts it beside the class, "IELTS Foundation ·
+            Cô Thương". The assignment's author, not the test's: the same paper
+            can be set by different people, and the student is being told who to
+            ask about this sitting.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         opensAt: { $ref: '#/components/schemas/Timestamp' }
         closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer, minimum: 1 }
+        questionCount: { type: integer, minimum: 0 }
+        totalPoints: { $ref: '#/components/schemas/Points' }
         attemptsUsed: { type: integer, minimum: 0 }
         maxAttempts: { type: integer, minimum: 1 }
         hasLiveAttempt: { type: boolean }
+        liveDeadlineAt: { type: [string, 'null'], format: date-time }
         lastAttemptId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
+        lastSubmittedAt: { type: [string, 'null'], format: date-time }
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
-        instructions: { type: [string, 'null'] }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
         hasAudio: { type: boolean }
+        showsTranscript:
+          type: boolean
+          description: |
+            Whether any listening question on this paper releases its transcript
+            after submitting — S-04's fourth "Sau khi nộp" row.
+
+            Derived rather than stored: the flag is per question
+            (`test_version_questions.audio_show_transcript_after`), and the intro
+            promises the student one thing about the whole paper. "At least one"
+            is the honest reading of a promise the student will judge by whether
+            they ever see a transcript.
         audioMaxPlays:
           type: [integer, 'null']
           description: The strictest `maxPlays` across the test, for the intro copy.
@@ -1009,10 +1032,26 @@ components:
         testTitle: { type: string }
         targets:
           type: object
-          required: [classIds, studentIds]
+          required: [classes, studentIds]
           additionalProperties: false
           properties:
-            classIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+            classes:
+              type: array
+              description: |
+                The classes this assignment targets, with their names, because
+                every screen that lists an assignment names them. The name
+                travels with the row rather than being looked up in the classes
+                list: that lookup reads one page, so it stops answering past
+                the page boundary and shows an em dash for a class that exists.
+                `AssignmentInput.targets.classIds` stays ids-only -- a write
+                does not need the names.
+              items:
+                type: object
+                required: [id, name]
+                additionalProperties: false
+                properties:
+                  id: { $ref: '#/components/schemas/Uuid' }
+                  name: { type: string }
             studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
         publishedAt:
           type: [string, 'null']
@@ -1290,19 +1329,55 @@ components:
 
     StudentAssignmentCard:
       type: object
-      required: [id, testTitle, status, opensAt, closesAt, durationMinutes, attemptsUsed, maxAttempts]
+      required:
+        [id, testTitle, status, opensAt, closesAt, durationMinutes,
+         attemptsUsed, maxAttempts, questionCount, totalPoints]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         testTitle: { type: string }
+        className:
+          type: [string, 'null']
+          description: |
+            The class this assignment reached the student through — S-03 puts it
+            beside the badge, and S-04 above the title.
+
+            Null when there is not exactly one: an assignment can target several
+            classes and name students directly, and a student on two of those
+            classes has no single answer. Naming one of them would be picking a
+            side the student cannot check, and a student reached by name was not
+            reached through a class at all.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         opensAt: { $ref: '#/components/schemas/Timestamp' }
         closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer }
+        questionCount:
+          type: integer
+          minimum: 0
+          description: Questions on the pinned version — S-03's "24 câu".
+        totalPoints:
+          $ref: '#/components/schemas/Points'
+          description: |
+            What the paper is out of. S-04 states it before the student starts,
+            which is the only place they are told.
         attemptsUsed: { type: integer, minimum: 0 }
         maxAttempts: { type: integer, minimum: 1 }
         lastAttemptId: { type: [string, 'null'], format: uuid }
+        lastSubmittedAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            When the last attempt was handed in — S-03's "Nộp 26/08" on a
+            completed row. Null while the last attempt is still in progress.
         hasLiveAttempt: { type: boolean, description: Drives Start vs Resume (§9). }
+        liveDeadlineAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            The live attempt's deadline, so the home can show the number the
+            engine's clock shows rather than saying the clock is running and
+            leaving the student to open the paper to find out how long is left.
+            Null exactly when `hasLiveAttempt` is false.
         score:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.

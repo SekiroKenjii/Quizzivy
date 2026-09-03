@@ -56,13 +56,22 @@ type Integrity struct {
 	MinAwayMs         int
 }
 
+// ClassRef is a targeted class and its name. The name travels with the
+// assignment because every screen that lists one names its classes, and the
+// alternative -- looking the name up in the classes list -- reads one page of
+// it, so it answers with an em dash for any class past the page boundary.
+type ClassRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type Assignment struct {
 	ID             string
 	TestID         string
 	TestVersionID  string
 	TestVersion    int
 	TestTitle      string
-	ClassIDs       []string
+	Classes        []ClassRef
 	StudentIDs     []string
 	OpensAt        time.Time
 	ClosesAt       time.Time
@@ -102,8 +111,11 @@ const selectAssignment = `
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
 		       a.integrity_min_away_ms,
-		       coalesce((SELECT array_agg(ac.class_id::text) FROM app.assignment_classes ac
-		                  WHERE ac.assignment_id = a.id), '{}'),
+		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', c.id::text, 'name', c.name)
+		                                  ORDER BY c.name)
+		                   FROM app.assignment_classes ac
+		                   JOIN app.classes c ON c.id = ac.class_id
+		                  WHERE ac.assignment_id = a.id), '[]'::jsonb),
 		       coalesce((SELECT array_agg(ast.user_id::text) FROM app.assignment_students ast
 		                  WHERE ast.assignment_id = a.id), '{}'),
 		       -- Both sides of submitted/total range over the SAME set: students
@@ -151,7 +163,7 @@ func scanAssignment(row pgx.Row) (Assignment, error) {
 		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
 		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
-		&a.ClassIDs, &a.StudentIDs,
+		&a.Classes, &a.StudentIDs,
 		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
 	return a, err
 }

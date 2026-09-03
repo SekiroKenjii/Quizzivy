@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -78,15 +79,32 @@ export default function AssignmentIntroPage() {
   const live = a.hasLiveAttempt === true;
   const attemptNo = Math.min(a.attemptsUsed + 1, a.maxAttempts);
 
+  const provenance = introProvenance(a, t);
+
   return (
     <div className="space-y-4">
-      <h1 className="text-xl leading-snug font-semibold tracking-tight">
-        {a.testTitle}
-      </h1>
+      <div>
+        {/* Which class, and who set it. Absent when the server can name
+          neither -- an assignment can target several classes at once. */}
+        {provenance !== null && (
+          <p className="text-muted-foreground text-xs">{provenance}</p>
+        )}
+        <h1 className="mt-1 text-xl leading-snug font-semibold tracking-tight">
+          {a.testTitle}
+        </h1>
+      </div>
 
       <Card className="grid grid-cols-2 gap-x-4 gap-y-3 p-5">
         <Fact label={t("student.intro.duration")}>
           {t("student.minutes", { count: a.durationMinutes })}
+        </Fact>
+        {/* What the paper is: the only place a student is told what it is out
+          of before they start. */}
+        <Fact label={t("student.intro.questions")}>
+          {t("student.intro.questionsValue", {
+            questions: t("student.questions", { count: a.questionCount }),
+            points: decimal(a.totalPoints),
+          })}
         </Fact>
         <Fact label={t("student.intro.attempts")}>
           {t("student.intro.attemptsValue", { n: attemptNo, total: a.maxAttempts })}
@@ -125,12 +143,38 @@ export default function AssignmentIntroPage() {
             yes="seeExplanations"
             no="notSeeExplanations"
           />
+          {/* Only when the paper has one to release. A crossed-out row about
+            transcripts on a test with no listening question answers a question
+            the student never asked. */}
+          {a.showsTranscript && (
+            <Permission on yes="seeTranscript" no="seeTranscript" />
+          )}
         </ul>
       </Card>
 
       <StartControl assignment={a} live={live} />
     </div>
   );
+}
+
+/**
+ * "IELTS Foundation · Cô Thương", or whichever half the server could name.
+ * Null when it could name neither, so the title is not preceded by an empty
+ * line.
+ */
+function introProvenance(a: StudentAssignmentDetail, t: TFunction): string | null {
+  if (a.className != null && a.teacherName != null) {
+    return t("student.intro.classAndTeacher", {
+      className: a.className,
+      teacher: a.teacherName,
+    });
+  }
+  return a.className ?? a.teacherName ?? null;
+}
+
+/** Two decimals at most, and none when the number is whole: "30", not "30.00". */
+function decimal(value: number): string {
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
 }
 
 function Fact({ label, children }: { label: string; children: string }) {
