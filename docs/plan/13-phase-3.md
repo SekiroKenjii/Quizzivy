@@ -420,7 +420,9 @@ phase that carries the most.
       what the sentence above says the test is for — the count survives the
       reload that defeats a client-side counter. Mutation-checked: dropping
       `session.audioPlays` from the store's hydrate fails it.
-- [ ] A manual pass of E2E 2's middle: answer, reload mid-test, confirm answers
-      persist. The full E2E 2 lands in Phase 4 once the result page exists
+- [x] E2E 2's middle: answer, reload mid-test, confirm answers persist —
+      automated as `answers-persist.live.spec.ts` rather than passed by hand,
+      since the half that needs Phase 4's result page is the only half that
+      cannot be. The full E2E 2 still lands in Phase 4
 - [x] Phase 1 and 2 E2Es still pass
 - [ ] `release/phase-3` merges to `main` and back to `develop`; deployable (§16)
