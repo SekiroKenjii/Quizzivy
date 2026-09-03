@@ -17,7 +17,10 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  PNPM_VERSION: "11.12.0"
+  # 11.12.0 is a release pnpm itself refuses to install
+  # (ERR_PNPM_BROKEN_PNPM_RELEASE): its @pnpm/exe build shipped without a
+  # binary -- 16KB unpacked against 18MB for a real one.
+  PNPM_VERSION: "11.25.0"
   GO_VERSION: "1.27"
 
 jobs:
