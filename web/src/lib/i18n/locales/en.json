@@ -249,7 +249,8 @@
     "alreadyMember": "already a member",
     "add": "Add",
     "addFailed": "Could not add the student. Please try again.",
-    "assignToClass": "Assign to class"
+    "assignToClass": "Assign to class",
+    "removed": "Removed from the class"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -383,7 +384,8 @@
     "pause": "Pause",
     "seek": "Seek",
     "expired": "This preview link has expired. Reload to listen.",
-    "summaryPaged": "{{count}} files"
+    "summaryPaged": "{{count}} files",
+    "deleted": "File deleted"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -458,7 +460,8 @@
     "removeOptionN": "Remove option {{n}}",
     "removeBlankN": "Remove blank {{n}}",
     "acceptedAnswersFor": "Accepted answers for blank {{n}}",
-    "caseSensitiveFor": "Case sensitivity for blank {{n}}"
+    "caseSensitiveFor": "Case sensitivity for blank {{n}}",
+    "saved": "Question saved"
   },
   "builder": {
     "outline": "Structure",
@@ -548,7 +551,9 @@
     "noTestsToAddTo": "No tests to add to yet.",
     "noSections": "This test has no sections yet.",
     "addHere": "{{count}} here now",
-    "summaryFiltered": "{{count}} questions · {{filtered}} shown"
+    "summaryFiltered": "{{count}} questions · {{filtered}} shown",
+    "tagged": "Tags applied",
+    "addedToTest": "Added to the test"
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",
@@ -588,7 +593,14 @@
     "summarySoFar": "{{count}} tests loaded",
     "audioCount": "{{count}} listening questions",
     "tagFilter": "Tags",
-    "tagFilterCount": "Tags · {{count}}"
+    "tagFilterCount": "Tags · {{count}}",
+    "archiveConfirmTitle": "Archive {{title}}?",
+    "archiveConfirmBody": "The test leaves the list and can no longer be assigned. Existing assignments and students' work stay as they are.",
+    "archived": "Test archived",
+    "restore": "Restore",
+    "restoreHint": "Restoring returns the test as a draft.",
+    "restored": "Test restored",
+    "restoreFailed": "Could not restore the test."
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -884,7 +896,14 @@
     "searchClasses": "Find a class",
     "selectedClasses_one": "{{count}} class selected",
     "selectedClasses_other": "{{count}} classes selected",
-    "noClassMatches": "No class matches."
+    "noClassMatches": "No class matches.",
+    "disableConfirmTitle": "Disable {{name}}'s account?",
+    "disableConfirmBody": "The student can no longer sign in. Attempts and grades stay; you can re-enable at any time.",
+    "disabled": "Account disabled",
+    "enabled": "Account re-enabled",
+    "removeConfirmTitle": "Remove {{name}} from {{klass}}?",
+    "removeConfirmBody": "The student no longer sees this class's assignments. Existing work stays.",
+    "removed": "Removed from the class"
   },
   "takeTest": {
     "answerOptions": "Answer options",

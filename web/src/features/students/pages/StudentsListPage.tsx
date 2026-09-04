@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Search, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -28,7 +27,9 @@ import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SearchInput } from "@/components/shared/SearchInput";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 
@@ -94,19 +95,11 @@ export default function StudentsListPage() {
       />
 
       <div className="flex items-center gap-4">
-        <div className="relative w-72">
-          <Search
-            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
-            aria-hidden="true"
-          />
-          <Input
-            className="pl-9"
-            value={query}
-            placeholder={t("students.searchPlaceholder")}
-            aria-label={t("students.searchPlaceholder")}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder={t("students.searchPlaceholder")}
+        />
         <label className="flex items-center gap-2.5 text-sm">
           <Checkbox
             checked={showDisabled}
@@ -120,22 +113,24 @@ export default function StudentsListPage() {
       </div>
 
       {students.isPending ? (
-        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-          {t("common.loading")}
-        </p>
+        <ListSkeleton />
       ) : students.isError ? (
-        <div className="space-y-3">
-          <p role="alert" className="text-sm">
-            {t("students.loadFailed")}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => void students.refetch()}>
-            {t("common.retry")}
-          </Button>
-        </div>
+        <LoadError error={students.error} onRetry={() => void students.refetch()}>
+          {t("students.loadFailed")}
+        </LoadError>
       ) : items.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
+        <EmptyState
+          action={
+            showDisabled || search !== "" ? undefined : (
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <UserPlus aria-hidden="true" />
+                {t("students.new")}
+              </Button>
+            )
+          }
+        >
           {t(emptyMessage(showDisabled, search))}
-        </p>
+        </EmptyState>
       ) : (
         <>
           <StudentTable

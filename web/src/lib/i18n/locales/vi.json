@@ -249,7 +249,8 @@
     "alreadyMember": "đã trong lớp",
     "add": "Thêm",
     "addFailed": "Không thêm được học viên. Vui lòng thử lại.",
-    "assignToClass": "Giao bài cho lớp"
+    "assignToClass": "Giao bài cho lớp",
+    "removed": "Đã xoá khỏi lớp"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -383,7 +384,8 @@
     "pause": "Tạm dừng",
     "seek": "Tua",
     "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe.",
-    "summaryPaged": "{{count}} tệp"
+    "summaryPaged": "{{count}} tệp",
+    "deleted": "Đã xoá tệp"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -458,7 +460,8 @@
     "removeOptionN": "Xoá lựa chọn {{n}}",
     "removeBlankN": "Xoá chỗ trống {{n}}",
     "acceptedAnswersFor": "Đáp án được chấp nhận cho chỗ trống {{n}}",
-    "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}"
+    "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}",
+    "saved": "Đã lưu câu hỏi"
   },
   "builder": {
     "outline": "Cấu trúc",
@@ -548,7 +551,9 @@
     "noTestsToAddTo": "Chưa có đề nào để thêm vào.",
     "noSections": "Đề này chưa có phần nào.",
     "addHere": "đang có {{count}} câu",
-    "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}"
+    "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}",
+    "tagged": "Đã gắn thẻ",
+    "addedToTest": "Đã thêm vào đề"
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",
@@ -588,7 +593,14 @@
     "summarySoFar": "{{count}} đề đã tải",
     "audioCount": "{{count}} câu nghe",
     "tagFilter": "Thẻ",
-    "tagFilterCount": "Thẻ · {{count}}"
+    "tagFilterCount": "Thẻ · {{count}}",
+    "archiveConfirmTitle": "Lưu trữ đề {{title}}?",
+    "archiveConfirmBody": "Đề rời khỏi danh sách và không giao được nữa. Bài giao đã có và bài làm của học viên vẫn giữ nguyên.",
+    "archived": "Đã lưu trữ đề",
+    "restore": "Khôi phục",
+    "restoreHint": "Khôi phục đưa đề về trạng thái nháp.",
+    "restored": "Đã khôi phục đề",
+    "restoreFailed": "Không khôi phục được đề."
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
@@ -884,7 +896,14 @@
     "searchClasses": "Tìm lớp",
     "selectedClasses_one": "Đã chọn {{count}} lớp",
     "selectedClasses_other": "Đã chọn {{count}} lớp",
-    "noClassMatches": "Không có lớp nào khớp."
+    "noClassMatches": "Không có lớp nào khớp.",
+    "disableConfirmTitle": "Vô hiệu hoá tài khoản {{name}}?",
+    "disableConfirmBody": "Học viên không đăng nhập được nữa. Bài làm và điểm vẫn giữ nguyên; bạn mở lại được bất cứ lúc nào.",
+    "disabled": "Đã vô hiệu hoá tài khoản",
+    "enabled": "Đã mở lại tài khoản",
+    "removeConfirmTitle": "Xoá {{name}} khỏi lớp {{klass}}?",
+    "removeConfirmBody": "Học viên không còn thấy bài của lớp này. Bài đã làm vẫn giữ nguyên.",
+    "removed": "Đã xoá khỏi lớp"
   },
   "takeTest": {
     "answerOptions": "Các phương án",

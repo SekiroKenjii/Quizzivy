@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
@@ -97,31 +98,21 @@ export default function AssignmentsListPage() {
       </Tabs>
 
       {assignments.isPending ? (
-        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-          {t("common.loading")}
-        </p>
+        <ListSkeleton />
       ) : assignments.isError ? (
-        <div className="space-y-3">
-          <p role="alert" className="text-sm">
-            {t("assignments.loadFailed")}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void assignments.refetch()}
-          >
-            {t("common.retry")}
-          </Button>
-        </div>
+        <LoadError error={assignments.error} onRetry={() => void assignments.refetch()}>
+          {t("assignments.loadFailed")}
+        </LoadError>
       ) : items.length === 0 ? (
-        <div className="space-y-3">
-          <p className="text-muted-foreground text-sm">
-            {tab === "all" ? t("assignments.empty") : t("assignments.noneWithStatus")}
-          </p>
-          <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
-            {t("assignments.new")}
-          </Button>
-        </div>
+        <EmptyState
+          action={
+            <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
+              {t("assignments.new")}
+            </Button>
+          }
+        >
+          {tab === "all" ? t("assignments.empty") : t("assignments.noneWithStatus")}
+        </EmptyState>
       ) : (
         <>
           <Card className="gap-0 overflow-hidden py-0">

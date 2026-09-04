@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { tagQuestions } from "@/features/question-bank/api";
 import { ApiError } from "@/lib/api/errors";
+import { toast } from "@/components/ui/sonner";
 
 /**
  * A-06's "Gắn thẻ" for a selection.
@@ -68,6 +69,7 @@ export function BulkTagDialog({
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
       onApplied();
       close();
+      toast(t("bank.tagged"));
     },
     onError: (cause) =>
       setError(cause instanceof ApiError ? cause.message : t("bank.tagFailed")),

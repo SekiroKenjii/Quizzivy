@@ -66,6 +66,14 @@ export function archiveTest(test: Test) {
   });
 }
 
+/** A-03a: back as a draft, never straight to published. */
+export function restoreTest(test: Test) {
+  return api("patch", "/admin/tests/{id}", {
+    path: { id: test.id },
+    body: { expectedUpdatedAt: test.updatedAt, status: "draft" },
+  });
+}
+
 export function listVersions(id: string, signal?: AbortSignal) {
   return api(
     "get",

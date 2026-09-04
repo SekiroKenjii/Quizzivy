@@ -22,6 +22,7 @@ import {
 } from "@/features/question-bank/placeholders";
 import type { MediaAsset } from "@/features/media/api";
 import { ApiError } from "@/lib/api/errors";
+import { toast } from "@/components/ui/sonner";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 export default function QuestionEditorPage() {
@@ -93,6 +94,7 @@ function Editor({
       question === null ? createQuestion(body) : updateQuestion(question.id, body),
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      toast(t("questionEditor.saved"));
       void navigate(`/admin/question-bank/${saved.id}`, { replace: true });
     },
     onError: (cause) => {

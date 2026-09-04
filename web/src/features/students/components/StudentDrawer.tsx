@@ -6,7 +6,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageAside } from "@/components/shared/PageAside";
+import { toast } from "@/components/ui/sonner";
 import { TemporaryPasswordCard } from "@/features/students/components/TemporaryPasswordCard";
 import {
   resetStudentPassword,
@@ -43,10 +45,15 @@ export function StudentDrawer({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  const [confirming, setConfirming] = useState<
+    { kind: "disable" } | { kind: "remove"; classId: string; className: string } | null
+  >(null);
   const setDisabled = useMutation({
     mutationFn: (disabled: boolean) => updateStudent(student.id, { disabled }),
-    onSuccess: async () => {
+    onSuccess: async (_, disabled) => {
       setError(null);
+      setConfirming(null);
+      toast(t(disabled ? "students.disabled" : "students.enabled"));
       await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-student", student.id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
@@ -71,6 +78,8 @@ export function StudentDrawer({
     mutationFn: (classId: string) => removeMember(classId, student.id),
     onSuccess: async (_data, classId) => {
       setError(null);
+      setConfirming(null);
+      toast(t("students.removed"));
       await invalidateClassMembership(queryClient, classId);
       await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
     },
@@ -158,7 +167,13 @@ export function StudentDrawer({
                 size="xs"
                 className="text-muted-foreground shrink-0"
                 disabled={remove.isPending}
-                onClick={() => remove.mutate(klass.id)}
+                onClick={() =>
+                  setConfirming({
+                    kind: "remove",
+                    classId: klass.id,
+                    className: klass.name,
+                  })
+                }
               >
                 {t("students.removeFromClass")}
               </Button>
@@ -206,7 +221,11 @@ export function StudentDrawer({
           size="sm"
           className="mt-2.5"
           disabled={setDisabled.isPending}
-          onClick={() => setDisabled.mutate(!student.disabledAt)}
+          onClick={() =>
+            student.disabledAt
+              ? setDisabled.mutate(false)
+              : setConfirming({ kind: "disable" })
+          }
         >
           {student.disabledAt ? (
             <UserCheck aria-hidden="true" />
@@ -216,6 +235,35 @@ export function StudentDrawer({
           {student.disabledAt ? t("students.enable") : t("students.disable")}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+        title={
+          confirming?.kind === "remove"
+            ? t("students.removeConfirmTitle", {
+                name: student.fullName,
+                klass: confirming.className,
+              })
+            : t("students.disableConfirmTitle", { name: student.fullName })
+        }
+        description={t(
+          confirming?.kind === "remove"
+            ? "students.removeConfirmBody"
+            : "students.disableConfirmBody",
+        )}
+        confirmLabel={t(
+          confirming?.kind === "remove"
+            ? "students.removeFromClass"
+            : "students.disable",
+        )}
+        destructive
+        pending={remove.isPending || setDisabled.isPending}
+        onConfirm={() => {
+          if (confirming?.kind === "remove") remove.mutate(confirming.classId);
+          else setDisabled.mutate(true);
+        }}
+      />
     </PageAside>
   );
 }

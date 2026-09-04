@@ -1,16 +1,10 @@
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { toast } from "@/components/ui/sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -83,6 +77,7 @@ export default function ClassDetailPage() {
       setRemoveError(null);
       setConfirmRemove(null);
       await invalidateClassMembership(queryClient, id);
+      toast(t("classDetail.removed"));
     },
     onError: (cause) => {
       setConfirmRemove(null);
@@ -276,31 +271,16 @@ export default function ClassDetailPage() {
         </div>
       </div>
 
-      <Dialog
+      <ConfirmDialog
         open={confirmRemove !== null}
         onOpenChange={(open) => !open && setConfirmRemove(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("classDetail.removeConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {confirmRemove ? `${confirmRemove.name} — ` : ""}
-              {t("classDetail.removeConfirmBody")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmRemove(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              disabled={remove.isPending}
-              onClick={() => confirmRemove && remove.mutate(confirmRemove.userId)}
-            >
-              {remove.isPending ? t("common.loading") : t("classDetail.removeConfirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("classDetail.removeConfirmTitle")}
+        description={`${confirmRemove?.name ?? ""} — ${t("classDetail.removeConfirmBody")}`}
+        confirmLabel={t("classDetail.removeConfirm")}
+        destructive
+        pending={remove.isPending}
+        onConfirm={() => confirmRemove && remove.mutate(confirmRemove.userId)}
+      />
 
       <AddMemberDialog
         classId={id}

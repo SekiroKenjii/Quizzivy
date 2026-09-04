@@ -2,14 +2,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Headphones, Play, Plus, Search, Tag as TagIcon, X } from "lucide-react";
+import { Headphones, Play, Plus, Tag as TagIcon, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
 import { BulkTagDialog } from "@/features/question-bank/components/BulkTagDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -27,7 +26,9 @@ import {
 } from "@/features/question-bank/api";
 import { useDebounced } from "@/lib/useDebounced";
 import { PageAside } from "@/components/shared/PageAside";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SearchInput } from "@/components/shared/SearchInput";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 
@@ -136,19 +137,12 @@ export default function QuestionBankPage() {
           }
         />
 
-        <div className="relative">
-          <Search
-            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
-            aria-hidden="true"
-          />
-          <Input
-            className="pl-9"
-            value={query}
-            placeholder={t("bank.searchPlaceholder")}
-            aria-label={t("bank.searchPlaceholder")}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          className="w-full"
+          value={query}
+          onChange={setQuery}
+          placeholder={t("bank.searchPlaceholder")}
+        />
 
         {selected.size === 0 ? null : (
           <div className="bg-secondary flex h-11 items-center gap-3 rounded-md px-3">
@@ -177,30 +171,21 @@ export default function QuestionBankPage() {
         )}
 
         {bank.isPending ? (
-          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-            {t("common.loading")}
-          </p>
+          <ListSkeleton />
         ) : bank.isError ? (
-          <div className="space-y-3">
-            <p role="alert" className="text-sm">
-              {t("bank.loadFailed")}
-            </p>
-            <Button variant="outline" size="sm" onClick={() => void bank.refetch()}>
-              {t("common.retry")}
-            </Button>
-          </div>
+          <LoadError error={bank.error} onRetry={() => void bank.refetch()}>
+            {t("bank.loadFailed")}
+          </LoadError>
         ) : items.length === 0 ? (
-          // §12: one short sentence and one action, no illustration.
-          <div className="space-y-3">
-            <p className="text-muted-foreground text-sm">
-              {filtering || search.trim() !== ""
-                ? t("bank.noMatches")
-                : t("bank.empty")}
-            </p>
-            <Button asChild size="sm">
-              <Link to="/admin/question-bank/new">{t("bank.newQuestion")}</Link>
-            </Button>
-          </div>
+          <EmptyState
+            action={
+              <Button asChild size="sm">
+                <Link to="/admin/question-bank/new">{t("bank.newQuestion")}</Link>
+              </Button>
+            }
+          >
+            {filtering || search.trim() !== "" ? t("bank.noMatches") : t("bank.empty")}
+          </EmptyState>
         ) : (
           <>
             <Card className="gap-0 overflow-hidden py-0">

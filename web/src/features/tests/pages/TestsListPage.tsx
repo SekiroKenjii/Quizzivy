@@ -9,25 +9,24 @@ import {
 } from "@tanstack/react-query";
 import {
   Archive,
+  RotateCw,
   Copy,
-  Ellipsis,
   Filter,
   Headphones,
   Plus,
-  Search,
   SquarePen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenu,
   DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -39,6 +38,7 @@ import {
 } from "@/components/ui/table";
 import {
   archiveTest,
+  restoreTest,
   createTest,
   duplicateTest,
   listTests,
@@ -49,7 +49,12 @@ import { useLocale } from "@/lib/i18n/useLocale";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { ApiError } from "@/lib/api/errors";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RowMenu } from "@/components/shared/RowMenu";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { toast } from "@/components/ui/sonner";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
@@ -110,10 +115,29 @@ export default function TestsListPage() {
     onError: (cause) => setError(message(cause, t("tests.duplicateFailed"))),
   });
 
+  const restore = useMutation({
+    mutationFn: (test: Test) => restoreTest(test),
+    onSuccess: async () => {
+      await invalidate();
+      toast(t("tests.restored"));
+    },
+    onError: (cause) => setError(message(cause, t("tests.restoreFailed"))),
+  });
+
+  const [archiving, setArchiving] = useState<Test | null>(null);
   const archive = useMutation({
     mutationFn: (test: Test) => archiveTest(test),
-    onSuccess: invalidate,
-    onError: (cause) => setError(message(cause, t("tests.archiveFailed"))),
+    onSuccess: async (_, test) => {
+      await invalidate();
+      setArchiving(null);
+      toast(t("tests.archived"), {
+        action: { label: t("common.undo"), onClick: () => restore.mutate(test) },
+      });
+    },
+    onError: (cause) => {
+      setArchiving(null);
+      setError(message(cause, t("tests.archiveFailed")));
+    },
   });
 
   const items = tests.data?.items ?? [];
@@ -156,19 +180,12 @@ export default function TestsListPage() {
           </TabsList>
         </Tabs>
 
-        <div className="relative ml-auto w-72">
-          <Search
-            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
-            aria-hidden="true"
-          />
-          <Input
-            className="pl-9"
-            value={query}
-            placeholder={t("tests.searchPlaceholder")}
-            aria-label={t("tests.searchPlaceholder")}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          className="ml-auto"
+          value={query}
+          onChange={setQuery}
+          placeholder={t("tests.searchPlaceholder")}
+        />
 
         {/* A-03's "Thẻ". */}
         <DropdownMenu>
@@ -205,29 +222,27 @@ export default function TestsListPage() {
       )}
 
       {tests.isPending ? (
-        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-          {t("common.loading")}
-        </p>
+        <ListSkeleton />
       ) : tests.isError ? (
-        <div className="space-y-3">
-          <p role="alert" className="text-sm">
-            {t("tests.loadFailed")}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => void tests.refetch()}>
-            {t("common.retry")}
-          </Button>
-        </div>
+        <LoadError error={tests.error} onRetry={() => void tests.refetch()}>
+          {t("tests.loadFailed")}
+        </LoadError>
       ) : items.length === 0 ? (
-        <div className="space-y-3">
-          <p className="text-muted-foreground text-sm">
-            {tab === "all" && search.trim() === "" && tags.length === 0
-              ? t("tests.empty")
-              : t("tests.noMatches")}
-          </p>
-          <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>
-            {t("tests.new")}
-          </Button>
-        </div>
+        <EmptyState
+          action={
+            <Button
+              size="sm"
+              disabled={create.isPending}
+              onClick={() => create.mutate()}
+            >
+              {t("tests.new")}
+            </Button>
+          }
+        >
+          {tab === "all" && search.trim() === "" && tags.length === 0
+            ? t("tests.empty")
+            : t("tests.noMatches")}
+        </EmptyState>
       ) : (
         <>
           <Card className="gap-0 overflow-hidden py-0">
@@ -292,7 +307,8 @@ export default function TestsListPage() {
                         test={test}
                         onEdit={() => void navigate(`/admin/tests/${test.id}/edit`)}
                         onDuplicate={() => duplicate.mutate(test.id)}
-                        onArchive={() => archive.mutate(test)}
+                        onArchive={() => setArchiving(test)}
+                        onRestore={() => restore.mutate(test)}
                       />
                     </TableCell>
                   </TableRow>
@@ -300,6 +316,16 @@ export default function TestsListPage() {
               </TableBody>
             </Table>
           </Card>
+          <ConfirmDialog
+            open={archiving !== null}
+            onOpenChange={(open) => !open && setArchiving(null)}
+            title={t("tests.archiveConfirmTitle", { title: archiving?.title ?? "" })}
+            description={t("tests.archiveConfirmBody")}
+            confirmLabel={t("tests.archive")}
+            destructive
+            pending={archive.isPending}
+            onConfirm={() => archiving && archive.mutate(archiving)}
+          />
 
           {tests.data && (
             <Pager
@@ -319,44 +345,49 @@ function RowActions({
   onEdit,
   onDuplicate,
   onArchive,
+  onRestore,
 }: {
   test: Test;
   onEdit: () => void;
   onDuplicate: () => void;
   onArchive: () => void;
+  onRestore: () => void;
 }) {
   const { t } = useTranslation();
 
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label={t("tests.actionsFor", { title: test.title })}
-        >
-          <Ellipsis aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={onEdit}>
-          <SquarePen aria-hidden="true" />
-          {t("tests.edit")}
+  if (test.status === "archived") {
+    return (
+      <RowMenu className="w-60">
+        <DropdownMenuItem onSelect={onRestore}>
+          <RotateCw aria-hidden="true" />
+          {t("tests.restore")}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onDuplicate}>
           <Copy aria-hidden="true" />
           {t("tests.duplicate")}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={test.status === "archived"}
-          onSelect={onArchive}
-        >
-          <Archive aria-hidden="true" />
-          {t("tests.archive")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DropdownMenuSeparator />
+        <p className="text-muted-foreground px-2 pt-0.5 pb-1 text-xs">
+          {t("tests.restoreHint")}
+        </p>
+      </RowMenu>
+    );
+  }
+  return (
+    <RowMenu>
+      <DropdownMenuItem onSelect={onEdit}>
+        <SquarePen aria-hidden="true" />
+        {t("tests.edit")}
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={onDuplicate}>
+        <Copy aria-hidden="true" />
+        {t("tests.duplicate")}
+      </DropdownMenuItem>
+      <DropdownMenuItem variant="destructive" onSelect={onArchive}>
+        <Archive aria-hidden="true" />
+        {t("tests.archive")}
+      </DropdownMenuItem>
+    </RowMenu>
   );
 }
 

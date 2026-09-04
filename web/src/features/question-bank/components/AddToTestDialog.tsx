@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { getTest, listTests, saveOutline } from "@/features/tests/api";
 import { ApiError } from "@/lib/api/errors";
+import { toast } from "@/components/ui/sonner";
 
 /** A-06's "Thêm vào đề thi" for a selection. */
 export function AddToTestDialog({
@@ -69,6 +70,7 @@ export function AddToTestDialog({
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
       onAdded();
       onOpenChange(false);
+      toast(t("bank.addedToTest"));
     },
     onError: (cause) =>
       setError(cause instanceof ApiError ? cause.message : t("bank.addToTestFailed")),
