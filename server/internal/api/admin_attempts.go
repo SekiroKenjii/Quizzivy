@@ -15,6 +15,7 @@ import (
 	"quizzivy/internal/httpx"
 	"quizzivy/internal/integrity"
 	"quizzivy/internal/review"
+	"quizzivy/internal/students"
 )
 
 const msgAttemptNotFound = "Không tìm thấy lượt làm."
@@ -124,7 +125,7 @@ type reviewAnswer = struct {
 // GetAttemptForReview backs G-03. This is the one response that carries the
 // grading key, and it lives under /admin.
 func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAttemptForReviewRequestObject) (openapi.GetAttemptForReviewResponseObject, error) {
-	if s.Deps.Review == nil || s.Deps.Auth == nil || s.Deps.Integrity == nil {
+	if s.Deps.Review == nil || s.Deps.Students == nil || s.Deps.Integrity == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	rv, err := s.Deps.Review.Get(ctx, request.Id.String())
@@ -135,7 +136,9 @@ func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAtt
 	if err != nil {
 		return nil, err
 	}
-	student, err := s.Deps.Auth.CurrentUser(ctx, rv.Attempt.StudentID)
+	// Through the students store, not the session's CurrentUser: a disabled
+	// account is refused a session, but its papers are still the teacher's to read.
+	student, err := s.Deps.Students.Get(ctx, rv.Attempt.StudentID)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +177,7 @@ func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAtt
 	}
 	return openapi.GetAttemptForReview200JSONResponse{
 		Attempt:     attempt,
-		Student:     toAPIUser(student),
+		Student:     toAPIUserFromStudent(student),
 		TestTitle:   rv.TestTitle,
 		MaxAttempts: rv.MaxAttempts,
 		Questions:   questions,
@@ -446,4 +449,23 @@ func rawUUID(s string) openapi_types.UUID {
 		return openapi_types.UUID{}
 	}
 	return id
+}
+
+// toAPIUserFromStudent renders the contract's User from the admin's student
+// row, which carries the same facts without the session checks.
+func toAPIUserFromStudent(st students.Student) openapi.User {
+	providers := make([]openapi.UserLinkedProviders, 0, len(st.LinkedProviders))
+	for _, p := range st.LinkedProviders {
+		providers = append(providers, openapi.UserLinkedProviders(p))
+	}
+	return openapi.User{
+		Id:                 parseUUID(st.ID),
+		Email:              openapi_types.Email(st.Email),
+		FullName:           st.FullName,
+		Role:               openapi.RoleStudent,
+		HasPassword:        st.HasPassword,
+		LinkedProviders:    providers,
+		MustChangePassword: st.MustChangePassword,
+		CreatedAt:          st.CreatedAt,
+	}
 }
