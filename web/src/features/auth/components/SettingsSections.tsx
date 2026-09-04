@@ -14,7 +14,7 @@ import {
 } from "@/features/auth/google/useGoogleSignIn";
 import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { SUPPORTED_LOCALES, setLocale, type Locale } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth";
 
 function Section({
@@ -232,7 +232,7 @@ export function LanguageSection() {
     <Section title={t("common.language")} labelledBy="settings-language">
       <Tabs
         value={i18n.language}
-        onValueChange={(locale) => void i18n.changeLanguage(locale)}
+        onValueChange={(locale) => setLocale(locale as Locale)}
       >
         <TabsList aria-label={t("common.language")}>
           {SUPPORTED_LOCALES.map((locale: Locale) => (
