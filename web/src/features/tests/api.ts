@@ -66,11 +66,11 @@ export function archiveTest(test: Test) {
   });
 }
 
-/** A-03a's Khôi phục brings a test back as a draft; an undo puts it back as it was. */
-export function restoreTest(test: Test, status: TestStatus = "draft") {
+/** A-03a: back as a draft. Publishing again is the publish endpoint's job, not this one's. */
+export function restoreTest(test: Test) {
   return api("patch", "/admin/tests/{id}", {
     path: { id: test.id },
-    body: { expectedUpdatedAt: test.updatedAt, status },
+    body: { expectedUpdatedAt: test.updatedAt, status: "draft" },
   });
 }
 

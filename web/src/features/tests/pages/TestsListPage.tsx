@@ -116,8 +116,7 @@ export default function TestsListPage() {
   });
 
   const restore = useMutation({
-    mutationFn: ({ test, status }: { test: Test; status?: TestStatus }) =>
-      status === undefined ? restoreTest(test) : restoreTest(test, status),
+    mutationFn: (test: Test) => restoreTest(test),
     onSuccess: async () => {
       await invalidate();
       toast(t("tests.restored"));
@@ -131,12 +130,18 @@ export default function TestsListPage() {
     onSuccess: async (archived, test) => {
       await invalidate();
       setArchiving(null);
-      toast(t("tests.archived"), {
-        action: {
-          label: t("common.undo"),
-          onClick: () => restore.mutate({ test: archived, status: test.status }),
-        },
-      });
+      toast(
+        t("tests.archived"),
+        // Restoring only ever yields a draft, so undo is offered where that is the truth.
+        test.status === "draft"
+          ? {
+              action: {
+                label: t("common.undo"),
+                onClick: () => restore.mutate(archived),
+              },
+            }
+          : undefined,
+      );
     },
     onError: (cause) => {
       setArchiving(null);
@@ -312,7 +317,7 @@ export default function TestsListPage() {
                         onEdit={() => void navigate(`/admin/tests/${test.id}/edit`)}
                         onDuplicate={() => duplicate.mutate(test.id)}
                         onArchive={() => setArchiving(test)}
-                        onRestore={() => restore.mutate({ test })}
+                        onRestore={() => restore.mutate(test)}
                       />
                     </TableCell>
                   </TableRow>

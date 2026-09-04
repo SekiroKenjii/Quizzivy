@@ -319,7 +319,8 @@
     "codeHint": "••••{{hint}}",
     "created": "Đã tạo lớp",
     "archived": "Đã lưu trữ lớp",
-    "restored": "Đã khôi phục lớp"
+    "restored": "Đã khôi phục lớp",
+    "restoreFailed": "Không khôi phục được lớp."
   },
   "settings": {
     "profile": "Hồ sơ",
