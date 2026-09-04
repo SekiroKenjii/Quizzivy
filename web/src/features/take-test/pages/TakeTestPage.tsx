@@ -16,6 +16,7 @@ import { Clock } from "../components/Clock";
 import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviewScreen } from "../components/ReviewScreen";
+import { SubmittedScreen } from "../components/SubmittedScreen";
 import { clearSession } from "@/features/integrity/buffer";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
@@ -25,6 +26,7 @@ import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { answered } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
 import { useTakeTestStore } from "../store";
+import { hhmm } from "../time";
 
 /**
  * S-05's engine, one question at a time -- and S-06's two other views of the
@@ -50,6 +52,8 @@ export default function TakeTestPage() {
   const focusLossCount = useTakeTestStore((s) => s.focusLossCount);
   const lock = useTakeTestStore((s) => s.lock);
   const submitState = useTakeTestStore((s) => s.submitState);
+  const submitReason = useTakeTestStore((s) => s.submitReason);
+  const submittedAt = useTakeTestStore((s) => s.submittedAt);
   const dirty = useTakeTestStore((s) => s.dirty.size);
   const inFlight = useTakeTestStore((s) => s.flushInFlight);
   const hydrate = useTakeTestStore((s) => s.hydrate);
@@ -84,10 +88,6 @@ export default function TakeTestPage() {
       reset();
     };
   }, [attemptId, reloads, hydrate, reset]);
-
-  useEffect(() => {
-    if (submitState === "done") void navigate("/app", { replace: true });
-  }, [submitState, navigate]);
 
   // S-08's shortcuts.
   const question = questions[Math.min(index, questions.length - 1)];
@@ -140,6 +140,18 @@ export default function TakeTestPage() {
     setNavOpen(false);
     setView("question");
   };
+
+  if (submitState === "done" && submittedAt !== null) {
+    return (
+      <SubmittedScreen
+        reason={submitReason ?? "manual"}
+        submittedAt={submittedAt}
+        answered={dots.filter((d) => d.answered).length}
+        total={dots.length}
+        onHome={() => void navigate("/app", { replace: true })}
+      />
+    );
+  }
 
   // The server's count from before this sitting plus what this tab has seen since.
   const watching = integrity !== null && lock === null;
@@ -422,13 +434,4 @@ function SaveStrip({
       </div>
     </div>
   );
-}
-
-function hhmm(iso: string): string {
-  // 24-hour, as the deck writes it ("Đã lưu 09:41").
-  return new Date(iso).toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 }

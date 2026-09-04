@@ -188,6 +188,17 @@ describe("review and submit", () => {
     await waitFor(() =>
       expect(submitAttempt).toHaveBeenCalledWith("att-1", { reason: "manual" }),
     );
+
+    expect(
+      await screen.findByRole("heading", { name: "Bài đã được nộp." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Nộp lúc \d{2}:\d{2} · \d{2}\/\d{2} · 1\/3 câu đã trả lời$/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Thoát" })).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/app/attempts/att-1");
+
+    await user.click(screen.getByRole("button", { name: "Về trang chủ" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/app"));
   });
 
