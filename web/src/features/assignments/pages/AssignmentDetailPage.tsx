@@ -1,8 +1,28 @@
-import { useState, type ReactNode } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
-import { Link, useParams } from "react-router";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  getAssignment,
+  updateAssignment,
+  type Assignment,
+  type AssignmentStatus,
+} from "@/features/assignments/api";
+import { CloseEarlyDialog } from "@/features/assignments/components/CloseEarlyDialog";
+import { toInput } from "@/features/assignments/input";
+import { statusAt } from "@/features/assignments/status";
+import { listVersions, type TestVersion } from "@/features/tests/api";
+import { ApiError } from "@/lib/api/errors";
+import { formatDate, formatMoment, formatTime } from "@/lib/i18n/datetime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import {
   CalendarClock,
   Check,
@@ -15,29 +35,9 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { CloseEarlyDialog } from "@/features/assignments/components/CloseEarlyDialog";
-import {
-  getAssignment,
-  updateAssignment,
-  type Assignment,
-  type AssignmentStatus,
-} from "@/features/assignments/api";
-import { toInput } from "@/features/assignments/input";
-import { statusAt } from "@/features/assignments/status";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { listVersions, type TestVersion } from "@/features/tests/api";
-import { ApiError } from "@/lib/api/errors";
-import { formatDate, formatMoment, formatTime } from "@/lib/i18n/datetime";
+import { useState, type ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import { Link, useParams } from "react-router";
 
 /** G-09: one route, four states. The bar is the state machine; the summary is what G-01 saved. */
 export default function AssignmentDetailPage() {
@@ -142,7 +142,7 @@ export default function AssignmentDetailPage() {
         }
       />
 
-      <div className="max-w-4xl space-y-4">
+      <div className="space-y-4">
         {failure === null ? null : (
           <p role="alert" className="text-destructive text-sm">
             {failure}
