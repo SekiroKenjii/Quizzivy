@@ -13,9 +13,11 @@ import (
 	"quizzivy/internal/config"
 	"quizzivy/internal/dashboard"
 	"quizzivy/internal/db"
+	"quizzivy/internal/integrity"
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
 	"quizzivy/internal/questions"
+	"quizzivy/internal/review"
 	"quizzivy/internal/storage"
 	"quizzivy/internal/students"
 	"quizzivy/internal/tests"
@@ -54,6 +56,8 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		Dashboard:    dashboard.NewStore(pool.Pool),
 		Assignments:  assignments.NewStore(pool.Pool),
 		Attempts:     attempts.NewService(attempts.NewStore(pool.Pool)),
+		Review:       review.NewStore(pool.Pool),
+		Integrity:    integrity.NewStore(pool.Pool),
 		Students:     students.NewStore(pool.Pool),
 		Tokens:       tokens,
 		RefreshTTL:   cfg.RefreshTokenTTL,

@@ -9,6 +9,8 @@ import { PageBarSlot } from "@/layouts/slots";
 interface BarProps {
   variant?: "bar";
   title: string;
+  /** Sits between the back arrow and the title: G-03's avatar. */
+  leading?: ReactNode;
   meta?: ReactNode;
   actions?: ReactNode;
   backTo?: string;
@@ -27,7 +29,7 @@ export function PageHeader(props: BarProps | TitleProps) {
   return <Bar {...props} />;
 }
 
-function Bar({ title, meta, actions, backTo }: BarProps) {
+function Bar({ title, leading, meta, actions, backTo }: BarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const slot = useContext(PageBarSlot);
@@ -45,6 +47,7 @@ function Bar({ title, meta, actions, backTo }: BarProps) {
             <ArrowLeft aria-hidden="true" />
           </Button>
         )}
+        {leading}
         <h1 className="truncate text-sm font-medium">{title}</h1>
         {meta}
         {actions === undefined ? null : (

@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { signInAsAdmin, signInAsStudent } from "./support/live";
+import { assignToClass, signInAsAdmin, signInAsStudent } from "./support/live";
 
 /**
  * E2E 8 (§16, phase-3 exit criterion): the listening allowance is the server's
@@ -58,32 +58,6 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
 }
 
-async function assignTo(page: Page, title: string) {
-  await page.goto("/admin/assignments/new");
-  await page.getByRole("button", { name: "Chọn đề thi" }).click();
-  const picker = page.getByRole("dialog");
-  // Two steps: the test expands, then a version is picked, because an
-  // assignment pins a version rather than a test.
-  await picker.getByText(title).click();
-  await picker
-    .getByRole("button", { name: /Dùng bản này/ })
-    .first()
-    .click();
-  await expect(page.getByRole("button", { name: "Đổi đề" })).toBeVisible();
-
-  await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
-  // Scoped to the combobox's own listbox: the duration <select> further down the
-  // form carries options too.
-  await page
-    .getByRole("listbox")
-    .getByRole("option", { name: /Tiếng Anh giao tiếp/ })
-    .first()
-    .click();
-
-  await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/assignments$/, { timeout: 30_000 });
-}
-
 test("E2E 8: the listening count is the server's and survives a reload", async ({
   browser,
 }) => {
@@ -96,7 +70,7 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     const admin = await teacher.newPage();
     await signInAsAdmin(admin);
     await publishListeningTest(admin, title);
-    await assignTo(admin, title);
+    await assignToClass(admin, title);
 
     const page = await student.newPage();
     await signInAsStudent(page);

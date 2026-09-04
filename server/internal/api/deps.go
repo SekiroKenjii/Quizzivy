@@ -12,9 +12,11 @@ import (
 	"quizzivy/internal/classes"
 	"quizzivy/internal/dashboard"
 	"quizzivy/internal/httpx"
+	"quizzivy/internal/integrity"
 	"quizzivy/internal/join"
 	"quizzivy/internal/media"
 	"quizzivy/internal/questions"
+	"quizzivy/internal/review"
 	"quizzivy/internal/students"
 	"quizzivy/internal/tests"
 	"quizzivy/internal/tests/publish"
@@ -118,6 +120,23 @@ type AttemptsService interface {
 	RecordPlay(ctx context.Context, attemptID, studentID, questionID string) (attempts.Plays, error)
 	Flush(ctx context.Context, in attempts.FlushInput) error
 	Submit(ctx context.Context, attemptID, studentID string, reason attempts.Reason) (attempts.Attempt, error)
+	Result(ctx context.Context, attemptID, studentID string) (attempts.Result, error)
+	Monitor(ctx context.Context, assignmentID string) (attempts.Monitor, error)
+	Extend(ctx context.Context, req attempts.Request, attemptID string, minutes int, reason string) (attempts.Attempt, error)
+	Reset(ctx context.Context, req attempts.Request, attemptID, reason string) (attempts.Attempt, error)
+	Void(ctx context.Context, req attempts.Request, attemptID, reason string) (attempts.Attempt, error)
+}
+
+// ReviewService is the slice of internal/review the handlers use.
+type ReviewService interface {
+	Get(ctx context.Context, attemptID string) (review.Review, error)
+	Grade(ctx context.Context, attemptID, graderID string, items []review.Item) (attempts.Score, error)
+	Finish(ctx context.Context, attemptID string) (attempts.Attempt, error)
+}
+
+// IntegrityService is the slice of internal/integrity the handlers use.
+type IntegrityService interface {
+	Timeline(ctx context.Context, attemptID string) (integrity.Timeline, error)
 }
 
 // StudentsService is the slice of internal/students the handlers use.
@@ -133,6 +152,7 @@ type StudentsService interface {
 // DashboardService is the slice of internal/dashboard the handlers use.
 type DashboardService interface {
 	Get(ctx context.Context) (dashboard.Summary, error)
+	List(ctx context.Context, in dashboard.ListInput) ([]dashboard.Recent, paging.Page, error)
 }
 
 // PublishService is the slice of internal/tests/publish the handlers use.

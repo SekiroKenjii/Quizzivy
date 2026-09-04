@@ -11,21 +11,7 @@ import (
 )
 
 // unimplemented is every operation that still returns 501, listed on purpose.
-var unimplemented = []string{
-	// Phase 4 — monitoring, grading and results
-	"ExtendAttempt",
-	"FinishGrading",
-	"GetAssignmentMonitor",
-	"GetAttemptEvents",
-	"GetAttemptForReview",
-	"GetAttemptResult",
-	"GradeAttempt",
-	"ListAttempts",
-	"ResetAttempt",
-	"VoidAttempt",
-
-	// Classes and students beyond what §6.4 needed in Phase 1
-}
+var unimplemented = []string{}
 
 // stubbedOperations reads the names off server.gen_stubs.go, which is the file
 // that by convention holds nothing but stubs: implementing an operation moves

@@ -1,4 +1,4 @@
--- Fixtures for the live E2E suite (E2E 5, 6, 7).
+-- Fixtures for the live E2E suite (E2E 2, 5, 6, 7, 9).
 --
 -- Separate from 02-dev-assignments.sql because these exist to be consumed:
 -- every run starts an attempt against them, and their policies are set to the
@@ -92,12 +92,32 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- ------------------------------------------ E2E 9 · the payload boundary
+-- Its own assignment for the same reason as E2E 2's: the specs run in
+-- parallel, and a second spec on one assignment is a session takeover.
+INSERT INTO app.assignments
+  (id, test_id, test_version_id, opens_at, closes_at, duration_minutes,
+   max_attempts, published_at, created_by)
+VALUES (
+  '01935000-0000-7000-8000-00000000ee09'::uuid,
+  '01935000-0000-7000-8000-00000000dd01'::uuid,
+  '01935000-0000-7000-8000-00000000dd02'::uuid,
+  now() - interval '1 hour',
+  now() + interval '30 days',
+  45,
+  50,
+  now() - interval '1 hour',
+  '01935000-0000-7000-8000-0000000000a1'
+)
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO app.assignment_classes (assignment_id, class_id)
 SELECT a, '01935000-0000-7000-8000-0000000000c1'::uuid
   FROM unnest(ARRAY[
     '01935000-0000-7000-8000-00000000ee01'::uuid,
     '01935000-0000-7000-8000-00000000ee02'::uuid,
     '01935000-0000-7000-8000-00000000ee03'::uuid,
-    '01935000-0000-7000-8000-00000000ee05'::uuid
+    '01935000-0000-7000-8000-00000000ee05'::uuid,
+    '01935000-0000-7000-8000-00000000ee09'::uuid
   ]) AS a
 ON CONFLICT DO NOTHING;

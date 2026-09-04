@@ -1287,7 +1287,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2081,9 +2081,13 @@ export interface components {
             attemptId?: string | null;
             attemptNo?: number | null;
             /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
             deadlineAt?: string | null;
             /** Format: date-time */
             submittedAt?: string | null;
+            /** @description Questions with a saved answer, against the response's `questionCount` (G-02's progress column). */
+            answeredCount?: number | null;
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;
             flagged?: boolean;
@@ -3493,10 +3497,13 @@ export interface operations {
                 content: {
                     "application/json": {
                         serverTime: components["schemas"]["Timestamp"];
+                        /** @description Questions on the pinned version, the denominator of every row's progress. */
+                        questionCount: number;
                         rows: components["schemas"]["MonitorRow"][];
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listAttempts: {
@@ -3559,6 +3566,9 @@ export interface operations {
                     "application/json": {
                         attempt: components["schemas"]["Attempt"];
                         student: components["schemas"]["User"];
+                        testTitle: string;
+                        /** @description For "lượt 1/2" in the header (G-03). */
+                        maxAttempts: number;
                         questions: components["schemas"]["AdminQuestion"][];
                         answers: {
                             [key: string]: {
@@ -3604,6 +3614,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     extendAttempt: {
@@ -3634,6 +3645,16 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_CLOSED` — only an attempt still in progress has a deadline to move. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     resetAttempt: {
@@ -3662,6 +3683,17 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_VOIDED` — already voided; nothing to reset. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     voidAttempt: {
@@ -3688,6 +3720,17 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Attempt"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_VOIDED` — already voided. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3723,6 +3766,16 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or nothing that counts. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     finishGrading: {
@@ -3745,7 +3798,8 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
-            /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded. */
+            404: components["responses"]["NotFound"];
+            /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4577,12 +4631,15 @@ export interface operations {
                     "application/json": {
                         attempt: components["schemas"]["Attempt"];
                         review: components["schemas"]["ReviewPolicy"];
+                        testTitle: string;
+                        /** @description For "Lượt 1/2" under the score (S-09). */
+                        maxAttempts: number;
                         questions: components["schemas"]["ResultQuestion"][];
                     };
                 };
             };
             403: components["responses"]["Forbidden"];
-            /** @description Not yet submitted. */
+            /** @description `ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show. */
             409: {
                 headers: {
                     [name: string]: unknown;

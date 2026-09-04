@@ -4236,6 +4236,209 @@ Làm nhầm đề của lớp khác, đã trao đổi với em</textarea
             </div>
           </div>
         </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">G-10</span>
+            <span class="board-name">Grading queue — the inbox A-00 promised</span>
+            <span class="board-route">/admin/grading · ?tab=flagged</span>
+          </div>
+          <p class="board-note">
+            A-00 put “Chờ chấm” in the nav with a count and argued that
+            promoting it costs one route. This is the route. Two tabs, because
+            the dashboard has two queues that empty the same way: papers with a
+            short answer nobody has read, and papers the integrity policy
+            flagged. Each row is one attempt and one button, and the button
+            lands on G-03 with the first unmarked question already open. The
+            test title links to the assignment’s monitor for the teacher who
+            wants the whole class rather than one paper. Nothing here is
+            sortable or searchable on purpose: an inbox is read in the order it
+            arrived, newest first.
+          </p>
+          <div class="board-scroll">
+            <div class="frame frame-wide">
+              <div class="shell">
+                <nav class="shell-side">
+                  <p class="side-label">Giảng dạy</p>
+                  <span class="side-item"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-layout-dashboard" /></svg>
+                    Tổng quan</span
+                  >
+                  <span class="side-item"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-file-text" /></svg>
+                    Đề thi</span
+                  >
+                  <span class="side-item"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-library" /></svg>
+                    Ngân hàng câu hỏi</span
+                  >
+                  <span class="side-item"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-audio-lines" /></svg>
+                    Thư viện media</span
+                  >
+                  <p class="side-label">Lớp học</p>
+                  <span class="side-item"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-clipboard-list" /></svg>
+                    Bài giao <span class="count">3</span></span
+                  >
+                  <span class="side-item is-active"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-square-pen" /></svg>
+                    Chờ chấm <span class="count">7</span></span
+                  >
+                  <span class="side-item"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-users" /></svg>
+                    Học viên</span
+                  >
+                  <span class="side-item"
+                    ><svg class="i" aria-hidden="true">
+                      <use href="#i-graduation-cap" /></svg>
+                    Lớp học</span
+                  >
+                  <div class="mt-auto">
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-settings" /></svg>
+                      Cài đặt</span
+                    >
+                  </div>
+                </nav>
+
+                <div class="flex-1 min-w-0">
+                  <div class="topbar">
+                    <button
+                      class="btn btn-icon btn-sm btn-ghost"
+                      aria-label="Thu gọn menu"
+                    >
+                      <svg class="i i-5" aria-hidden="true">
+                        <use href="#i-panel-left" />
+                      </svg>
+                    </button>
+                    <svg width="126" height="29" aria-hidden="true">
+                      <use href="#qz-logo-h-color" />
+                    </svg>
+                    <div class="ml-auto">
+                      <span class="avatar avatar-sm">TT</span>
+                    </div>
+                  </div>
+                  <div class="p-6 space-y-4">
+                    <div class="flex items-end justify-between">
+                      <div>
+                        <h1 class="text-xl font-semibold tracking-tight">
+                          Chờ chấm
+                        </h1>
+                        <p class="text-sm text-muted-foreground mt-0.5">
+                          7 bài chờ chấm
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="tabs">
+                      <button class="tab is-active">Chờ chấm</button>
+                      <button class="tab">Cần xem lại</button>
+                    </div>
+
+                    <div class="card overflow-hidden">
+                      <table class="table">
+                        <thead>
+                          <tr>
+                            <th style="width: 28%">Học viên</th>
+                            <th>Đề thi</th>
+                            <th>Trạng thái</th>
+                            <th>Nộp lúc</th>
+                            <th class="text-right">Chờ chấm</th>
+                            <th style="width: 110px"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">NM</span>
+                                <span class="font-medium">Nguyễn Đức Minh</span>
+                              </div>
+                            </td>
+                            <td class="text-muted-foreground">
+                              Unit 5 — Present perfect &amp; listening
+                            </td>
+                            <td><span class="badge b-secondary">Đã nộp</span></td>
+                            <td class="text-muted-foreground">2 giờ trước</td>
+                            <td class="text-right num">2</td>
+                            <td class="text-right">
+                              <button class="btn btn-sm btn-outline">Chấm</button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">ĐA</span>
+                                <span class="font-medium">Đỗ Ngọc Anh</span>
+                              </div>
+                            </td>
+                            <td class="text-muted-foreground">
+                              Unit 5 — Present perfect &amp; listening
+                            </td>
+                            <td>
+                              <span class="badge b-warning">Hết giờ</span>
+                              <span class="badge b-warning"
+                                ><svg class="i" aria-hidden="true">
+                                  <use href="#i-flag" /></svg>
+                                Cần xem lại</span
+                              >
+                            </td>
+                            <td class="text-muted-foreground">3 giờ trước</td>
+                            <td class="text-right num">2</td>
+                            <td class="text-right">
+                              <button class="btn btn-sm btn-outline">Chấm</button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">TL</span>
+                                <span class="font-medium">Trần Bảo Linh</span>
+                              </div>
+                            </td>
+                            <td class="text-muted-foreground">Unit 4 — Passive voice</td>
+                            <td><span class="badge b-secondary">Đã nộp</span></td>
+                            <td class="text-muted-foreground">hôm qua</td>
+                            <td class="text-right num">1</td>
+                            <td class="text-right">
+                              <button class="btn btn-sm btn-outline">Chấm</button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-4 mt-4">
+            <div class="callout">
+              <strong>Both queues are the dashboard’s numbers.</strong> The
+              count in the nav and the count on A-01 read the same endpoint,
+              so the inbox can never disagree with the door it is behind.
+            </div>
+            <div class="callout">
+              <strong>“Chấm” lands on the first unmarked question.</strong> G-03
+              opens on whatever still needs a person; a paper with nothing left
+              opens on question 1 with “Hoàn tất chấm” already enabled.
+            </div>
+            <div class="callout">
+              <strong>Flagged is a tab, not a colour.</strong> The badge is the
+              same amber “Cần xem lại” as everywhere else (F-07); the row is
+              not tinted, because the queue reports and the teacher judges.
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ================================================== PEOPLE -->

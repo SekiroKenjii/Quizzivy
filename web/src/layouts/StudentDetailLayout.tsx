@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Outlet, useMatches, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { DetailShell } from "@/layouts/detailShell";
 
 interface TitleHandle {
   titleKey: string;
@@ -16,6 +18,7 @@ export default function StudentDetailLayout() {
   const navigate = useNavigate();
   const matches = useMatches();
   const titled = [...matches].reverse().find((match) => hasTitle(match.handle));
+  const [own, setTitle] = useState<string | null>(null);
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -28,15 +31,16 @@ export default function StudentDetailLayout() {
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
-        <h1 className="text-sm font-medium">
-          {hasTitle(titled?.handle) ? t(titled.handle.titleKey) : t("app.name")}
+        <h1 className="truncate text-sm font-medium">
+          {own ??
+            (hasTitle(titled?.handle) ? t(titled.handle.titleKey) : t("app.name"))}
         </h1>
       </header>
       <main
         className="mx-auto w-full max-w-3xl flex-1 p-4"
         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
-        <Outlet />
+        <Outlet context={{ setTitle } satisfies DetailShell} />
       </main>
     </div>
   );
