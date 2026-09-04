@@ -258,7 +258,9 @@
     "maxUsesHint": "Để trống thì hệ thống dùng giới hạn mặc định là 40 lượt.",
     "maxUsesRange": "Giới hạn lượt dùng phải là số nguyên từ 1 đến 1000.",
     "exhaustedBadge": "đã dùng hết",
-    "exhaustedExplainer": "Mã này đã hết lượt dùng nên học viên không dùng được nữa. Hãy tạo mã mới."
+    "exhaustedExplainer": "Mã này đã hết lượt dùng nên học viên không dùng được nữa. Hãy tạo mã mới.",
+    "issueConfirmTitle": "Mở tham gia bằng mã?",
+    "issueConfirmBody": "Ai có mã đều vào được lớp. Bạn ngừng nhận mã bất cứ lúc nào."
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",

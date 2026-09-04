@@ -116,7 +116,8 @@ export default function TestsListPage() {
   });
 
   const restore = useMutation({
-    mutationFn: (test: Test) => restoreTest(test),
+    mutationFn: ({ test, status }: { test: Test; status?: TestStatus }) =>
+      status === undefined ? restoreTest(test) : restoreTest(test, status),
     onSuccess: async () => {
       await invalidate();
       toast(t("tests.restored"));
@@ -127,11 +128,14 @@ export default function TestsListPage() {
   const [archiving, setArchiving] = useState<Test | null>(null);
   const archive = useMutation({
     mutationFn: (test: Test) => archiveTest(test),
-    onSuccess: async (_, test) => {
+    onSuccess: async (archived, test) => {
       await invalidate();
       setArchiving(null);
       toast(t("tests.archived"), {
-        action: { label: t("common.undo"), onClick: () => restore.mutate(test) },
+        action: {
+          label: t("common.undo"),
+          onClick: () => restore.mutate({ test: archived, status: test.status }),
+        },
       });
     },
     onError: (cause) => {
@@ -308,7 +312,7 @@ export default function TestsListPage() {
                         onEdit={() => void navigate(`/admin/tests/${test.id}/edit`)}
                         onDuplicate={() => duplicate.mutate(test.id)}
                         onArchive={() => setArchiving(test)}
-                        onRestore={() => restore.mutate(test)}
+                        onRestore={() => restore.mutate({ test })}
                       />
                     </TableCell>
                   </TableRow>

@@ -203,8 +203,12 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
         <ConfirmDialog
           open={confirming === "rotate"}
           onOpenChange={(open) => !open && setConfirming(null)}
-          title={t("classDetail.rotateConfirmTitle")}
-          description={t("classDetail.rotateConfirmBody")}
+          title={t(
+            code ? "classDetail.rotateConfirmTitle" : "classDetail.issueConfirmTitle",
+          )}
+          description={t(
+            code ? "classDetail.rotateConfirmBody" : "classDetail.issueConfirmBody",
+          )}
           confirmLabel={t("classDetail.rotateConfirm")}
           disabled={maxUsesInvalid}
           pending={rotate.isPending}

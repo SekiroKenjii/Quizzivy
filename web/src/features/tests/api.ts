@@ -66,11 +66,11 @@ export function archiveTest(test: Test) {
   });
 }
 
-/** A-03a: back as a draft, never straight to published. */
-export function restoreTest(test: Test) {
+/** A-03a's Khôi phục brings a test back as a draft; an undo puts it back as it was. */
+export function restoreTest(test: Test, status: TestStatus = "draft") {
   return api("patch", "/admin/tests/{id}", {
     path: { id: test.id },
-    body: { expectedUpdatedAt: test.updatedAt, status: "draft" },
+    body: { expectedUpdatedAt: test.updatedAt, status },
   });
 }
 

@@ -258,7 +258,9 @@
     "maxUsesHint": "Left empty, the server applies its default limit of 40 uses.",
     "maxUsesRange": "The use limit must be a whole number from 1 to 1000.",
     "exhaustedBadge": "limit reached",
-    "exhaustedExplainer": "This code has reached its use limit, so students can no longer join with it. Issue a new one."
+    "exhaustedExplainer": "This code has reached its use limit, so students can no longer join with it. Issue a new one.",
+    "issueConfirmTitle": "Open joining by code?",
+    "issueConfirmBody": "Anyone holding the code can join the class. You can stop accepting it at any time."
   },
   "classes": {
     "loadFailed": "Could not load classes.",
