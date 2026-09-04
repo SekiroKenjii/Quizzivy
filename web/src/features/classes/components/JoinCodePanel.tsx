@@ -269,7 +269,12 @@ function FreshCodeDialog({
 
   return (
     <Dialog open={code !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent
+        showCloseButton={false}
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t("classDetail.freshTitle")}</DialogTitle>
           <DialogDescription>{t("classDetail.rotateConfirmBody")}</DialogDescription>

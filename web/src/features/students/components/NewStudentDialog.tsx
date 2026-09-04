@@ -101,7 +101,12 @@ export function NewStudentDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent>
+      <DialogContent
+        showCloseButton={temporary === null}
+        onEscapeKeyDown={(event) => temporary !== null && event.preventDefault()}
+        onPointerDownOutside={(event) => temporary !== null && event.preventDefault()}
+        onInteractOutside={(event) => temporary !== null && event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t("students.new")}</DialogTitle>
           <DialogDescription>{t("students.newHint")}</DialogDescription>
