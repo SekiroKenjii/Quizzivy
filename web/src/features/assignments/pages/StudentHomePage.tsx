@@ -143,7 +143,17 @@ export default function StudentHomePage() {
           {completed.map((card) => (
             <Card key={card.id} className="flex-row items-center gap-3 p-3.5">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{card.testTitle}</p>
+                {/* To S-09, when there is a paper to show. */}
+                {card.lastAttemptId ? (
+                  <Link
+                    to={`/app/attempts/${card.lastAttemptId}/result`}
+                    className="block truncate text-sm font-medium hover:underline"
+                  >
+                    {card.testTitle}
+                  </Link>
+                ) : (
+                  <p className="truncate text-sm font-medium">{card.testTitle}</p>
+                )}
                 <p className="text-muted-foreground text-xs">
                   {card.lastSubmittedAt == null
                     ? t("student.attempt", {
