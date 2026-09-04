@@ -1,4 +1,6 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +10,10 @@ import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, fetchCurrentUser } from "@/features/auth/api";
+import {
+  changePasswordSchema,
+  type ChangePasswordValues,
+} from "@/features/auth/changePasswordSchema";
 import {
   googleSignInAvailable,
   useGoogleSignIn,
@@ -66,33 +72,31 @@ export function PasswordSection() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
 
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
   const [status, setStatus] = useState<{
     kind: "ok" | "error";
     message: string;
   } | null>(null);
-  const [pending, setPending] = useState(false);
+  const form = useForm<ChangePasswordValues>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: { currentPassword: "", newPassword: "" },
+    mode: "onTouched",
+  });
+  const newPasswordError = form.formState.errors.newPassword;
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  const onSubmit = form.handleSubmit(async (values) => {
     setStatus(null);
-    setPending(true);
     try {
-      await changePassword(current, next);
+      await changePassword(values.currentPassword, values.newPassword);
       setUser(await fetchCurrentUser());
-      setCurrent("");
-      setNext("");
+      form.reset();
       setStatus({ kind: "ok", message: t("settings.passwordChanged") });
     } catch (cause) {
       setStatus({
         kind: "error",
         message: cause instanceof ApiError ? cause.message : t("error.body"),
       });
-    } finally {
-      setPending(false);
     }
-  }
+  });
 
   if (user && !user.hasPassword) {
     return (
@@ -104,7 +108,11 @@ export function PasswordSection() {
 
   return (
     <Section title={t("settings.password")} labelledBy="settings-password">
-      <form onSubmit={onSubmit} className="max-w-sm space-y-3" noValidate>
+      <form
+        onSubmit={(e) => void onSubmit(e)}
+        className="max-w-sm space-y-3"
+        noValidate
+      >
         <div className="space-y-1.5">
           <Label htmlFor="settings-current">{t("changePassword.current")}</Label>
           <Input
@@ -112,8 +120,7 @@ export function PasswordSection() {
             type="password"
             className="h-11"
             autoComplete="current-password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
+            {...form.register("currentPassword")}
           />
         </div>
         <div className="space-y-1.5">
@@ -123,10 +130,15 @@ export function PasswordSection() {
             type="password"
             className="h-11"
             autoComplete="new-password"
-            minLength={8}
-            value={next}
-            onChange={(e) => setNext(e.target.value)}
+            aria-invalid={newPasswordError ? true : undefined}
+            aria-describedby={newPasswordError ? "settings-new-error" : undefined}
+            {...form.register("newPassword")}
           />
+          {newPasswordError ? (
+            <p id="settings-new-error" className="text-destructive text-sm">
+              {t(newPasswordError.message ?? "changePassword.errors.tooShort")}
+            </p>
+          ) : null}
         </div>
         {status ? (
           <p
@@ -136,8 +148,10 @@ export function PasswordSection() {
             {status.message}
           </p>
         ) : null}
-        <Button type="submit" disabled={pending}>
-          {pending ? t("common.loading") : t("changePassword.submit")}
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting
+            ? t("common.loading")
+            : t("changePassword.submit")}
         </Button>
       </form>
     </Section>
