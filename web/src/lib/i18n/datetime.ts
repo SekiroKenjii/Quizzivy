@@ -23,6 +23,12 @@ export function formatDate(utc: string | Date, locale: AppLocale = "vi") {
   });
 }
 
+export function formatDayMonth(utc: string | Date, locale: AppLocale = "vi") {
+  return formatInTimeZone(utc, APP_TIME_ZONE, "dd/MM", {
+    locale: dateFnsLocale[locale],
+  });
+}
+
 export function formatTime(utc: string | Date, locale: AppLocale = "vi") {
   return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm", {
     locale: dateFnsLocale[locale],

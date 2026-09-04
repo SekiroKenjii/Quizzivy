@@ -29,6 +29,8 @@ describe("/app/classes", () => {
         name: "IELTS Foundation — Lớp tối T3/T5",
         description: "Cô Thương",
         studentCount: 12,
+        openAssignmentCount: 0,
+        archivedAt: null,
         selfJoinEnabled: true,
         createdAt: "2026-06-01T00:00:00Z",
       },

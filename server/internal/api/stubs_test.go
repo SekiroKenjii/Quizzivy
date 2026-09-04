@@ -25,7 +25,6 @@ var unimplemented = []string{
 	"VoidAttempt",
 
 	// Classes and students beyond what §6.4 needed in Phase 1
-	"CreateClass",
 }
 
 // stubbedOperations reads the names off server.gen_stubs.go, which is the file

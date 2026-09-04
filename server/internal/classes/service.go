@@ -57,3 +57,21 @@ func optional(v string) *string {
 func (s *Service) Update(ctx context.Context, classID string, in UpdateInput) (Class, error) {
 	return s.store.Update(ctx, classID, in)
 }
+
+func (s *Service) Facets(ctx context.Context, query string) (Facets, error) {
+	return s.store.Facets(ctx, query)
+}
+
+func (s *Service) Create(ctx context.Context, name string, description *string, selfJoin bool, actorID, ip, userAgent string) (Class, error) {
+	return s.store.Create(ctx, CreateInput{
+		Name: name, Description: description, SelfJoinEnabled: selfJoin, ActorUserID: actorID,
+		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+	})
+}
+
+func (s *Service) Archive(ctx context.Context, classID string, archived bool, actorID, ip, userAgent string) (Class, error) {
+	return s.store.Archive(ctx, ArchiveInput{
+		ClassID: classID, Archived: archived, ActorUserID: actorID,
+		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+	})
+}

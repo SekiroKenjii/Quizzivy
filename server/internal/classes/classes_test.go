@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -598,5 +599,136 @@ func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
 		if seen[id] != 1 {
 			t.Errorf("member %s appeared %d times across the pages, want once", id, seen[id])
 		}
+	}
+}
+
+func TestCreatingAClassReturnsItAndAuditsIt(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	_, teacherID, _ := makeClass(t, pool)
+	desc := "Lịch tối thứ 3 và thứ 5."
+
+	created, err := store.Create(ctx, classes.CreateInput{
+		Name: "Lớp mới " + nonce(t), Description: &desc, SelfJoinEnabled: false,
+		ActorUserID: teacherID, Now: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM app.classes WHERE id = $1`, created.ID) })
+
+	if created.SelfJoinEnabled || created.Description == nil || *created.Description != desc {
+		t.Errorf("created = %+v", created)
+	}
+	if created.StudentCount != 0 || created.OpenAssignmentCount != 0 || created.ArchivedAt != nil {
+		t.Errorf("a new class must start empty and live: %+v", created)
+	}
+	var audited int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM app.audit_log WHERE action = 'class.created' AND entity_id = $1`,
+		created.ID).Scan(&audited); err != nil {
+		t.Fatal(err)
+	}
+	if audited != 1 {
+		t.Errorf("audit rows = %d, want 1", audited)
+	}
+}
+
+func TestArchivingHidesAClassFromPickersAndKeepsEverything(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+	if _, err := store.AddMember(ctx, classes.AddMemberInput{
+		ClassID: classID, UserID: studentID, ActorUserID: teacherID, Now: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var name string
+	if err := pool.QueryRow(ctx, `SELECT name FROM app.classes WHERE id = $1`, classID).Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+
+	archived, err := store.Archive(ctx, classes.ArchiveInput{
+		ClassID: classID, Archived: true, ActorUserID: teacherID, Now: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archived.ArchivedAt == nil || archived.StudentCount != 1 {
+		t.Errorf("archived = %+v; want archived_at set and the roster intact", archived)
+	}
+
+	has := func(in classes.ListInput) bool {
+		t.Helper()
+		found, _, err := store.List(ctx, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range found {
+			if c.ID == classID {
+				return true
+			}
+		}
+		return false
+	}
+	if has(classes.ListInput{Query: name}) {
+		t.Error("the default (active) list still offers the archived class")
+	}
+	if !has(classes.ListInput{Query: name, Status: "archived"}) || !has(classes.ListInput{Query: name, Status: "all"}) {
+		t.Error("the archived and all lists must still carry it")
+	}
+	mine, err := store.ListMine(ctx, studentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != 0 {
+		t.Errorf("the student still lists the archived class: %+v", mine)
+	}
+	facets, err := store.Facets(ctx, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facets != (classes.Facets{All: 1, Joinable: 0, Archived: 1, Students: 1}) {
+		t.Errorf("facets = %+v", facets)
+	}
+
+	if _, err := store.Archive(ctx, classes.ArchiveInput{
+		ClassID: classID, Archived: true, ActorUserID: teacherID, Now: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := store.Archive(ctx, classes.ArchiveInput{
+		ClassID: classID, Archived: false, ActorUserID: teacherID, Now: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.ArchivedAt != nil || !has(classes.ListInput{Query: name}) {
+		t.Error("restoring must put the class back in the default list")
+	}
+	var actions []string
+	rows, err := pool.Query(ctx,
+		`SELECT action FROM app.audit_log WHERE entity = 'class' AND entity_id = $1 ORDER BY occurred_at, id`, classID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var a string
+		if err := rows.Scan(&a); err != nil {
+			t.Fatal(err)
+		}
+		actions = append(actions, a)
+	}
+	if fmt.Sprint(actions) != "[class.archived class.restored]" {
+		t.Errorf("audit actions = %v", actions)
+	}
+
+	if _, err := store.Archive(ctx, classes.ArchiveInput{
+		ClassID: "01935000-0000-7000-8000-00000000dead", Archived: true, ActorUserID: teacherID, Now: time.Now(),
+	}); !errors.Is(err, classes.ErrNotFound) {
+		t.Errorf("archiving a missing class: err = %v, want ErrNotFound", err)
 	}
 }

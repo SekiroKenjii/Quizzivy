@@ -82,10 +82,6 @@ func (s *Server) VoidAttempt(_ context.Context, _ openapi.VoidAttemptRequestObje
 	return nil, httpx.ErrNotImplemented
 }
 
-func (s *Server) CreateClass(_ context.Context, _ openapi.CreateClassRequestObject) (openapi.CreateClassResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
 func (s *Server) GetAttemptResult(_ context.Context, _ openapi.GetAttemptResultRequestObject) (openapi.GetAttemptResultResponseObject, error) {
 	return nil, httpx.ErrNotImplemented
 }

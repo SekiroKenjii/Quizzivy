@@ -55,6 +55,9 @@ type ClassesService interface {
 	ListMine(ctx context.Context, userID string) ([]classes.Class, error)
 	Members(ctx context.Context, classID string, in classes.MembersInput) ([]classes.Member, paging.Page, error)
 	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
+	Facets(ctx context.Context, query string) (classes.Facets, error)
+	Create(ctx context.Context, name string, description *string, selfJoin bool, actorID, ip, userAgent string) (classes.Class, error)
+	Archive(ctx context.Context, classID string, archived bool, actorID, ip, userAgent string) (classes.Class, error)
 	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
 	AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (classes.Member, error)
 }
