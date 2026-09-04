@@ -72,11 +72,11 @@ async function assignTo(page: Page, title: string) {
   await expect(page.getByRole("button", { name: "Đổi đề" })).toBeVisible();
 
   await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
-  // The suggestions are buttons in a list, not <option>s; getByRole("option")
-  // matches the duration <select> further down the form instead.
+  // Scoped to the combobox's own listbox: the duration <select> further down the
+  // form carries options too.
   await page
-    .getByRole("listitem")
-    .getByRole("button", { name: /Tiếng Anh giao tiếp/ })
+    .getByRole("listbox")
+    .getByRole("option", { name: /Tiếng Anh giao tiếp/ })
     .first()
     .click();
 
