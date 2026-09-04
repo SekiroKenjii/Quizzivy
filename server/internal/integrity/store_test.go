@@ -47,6 +47,29 @@ func seedAttempt(t *testing.T, pool *pgxpool.Pool, startedAt time.Time) (attempt
 	var admin, student, testID, versionID, sectionID, assetID, assignmentID string
 	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`, "int-a-"+id+"@example.com").Scan(&admin))
 	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học viên','student') RETURNING id::text`, "int-s-"+id+"@example.com").Scan(&student))
+	// Registered before the rest so a fixture that fails half-way still leaves nothing behind.
+	t.Cleanup(func() {
+		c := context.Background()
+		for _, step := range []struct {
+			q   string
+			arg string
+		}{
+			{`DELETE FROM app.attempt_audio_plays WHERE attempt_id IN (SELECT id FROM app.attempts WHERE student_id = $1::uuid)`, student},
+			{`DELETE FROM app.attempt_events WHERE attempt_id IN (SELECT id FROM app.attempts WHERE student_id = $1::uuid)`, student},
+			{`DELETE FROM app.attempts WHERE student_id = $1::uuid`, student},
+			{`DELETE FROM app.assignment_classes WHERE assignment_id IN (SELECT id FROM app.assignments WHERE created_by = $1::uuid)`, admin},
+			{`DELETE FROM app.assignments WHERE created_by = $1::uuid`, admin},
+			{`DELETE FROM app.test_versions WHERE test_id IN (SELECT id FROM app.tests WHERE created_by = $1::uuid)`, admin},
+			{`DELETE FROM app.media_assets WHERE uploaded_by = $1::uuid`, admin},
+			{`DELETE FROM app.tests WHERE created_by = $1::uuid`, admin},
+			{`DELETE FROM app.users WHERE id = $1::uuid`, student},
+			{`DELETE FROM app.users WHERE id = $1::uuid`, admin},
+		} {
+			if _, err := pool.Exec(c, step.q, step.arg); err != nil {
+				t.Logf("cleanup: %v", err)
+			}
+		}
+	})
 	must(pool.QueryRow(ctx, `INSERT INTO app.tests (title, status, current_version, created_by) VALUES ('Integrity', 'published', 1, $1::uuid) RETURNING id::text`, admin).Scan(&testID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_versions (test_id, version, total_points, published_by) VALUES ($1::uuid, 1, '5.00', $2::uuid) RETURNING id::text`, testID, admin).Scan(&versionID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_version_sections (test_version_id, ordinal, title) VALUES ($1::uuid, 0, 'Phần 1') RETURNING id::text`, versionID).Scan(&sectionID))
@@ -59,20 +82,14 @@ func seedAttempt(t *testing.T, pool *pgxpool.Pool, startedAt time.Time) (attempt
 		VALUES ($1::uuid, $2::uuid, now() - interval '2 hours', now() + interval '2 hours', 45, $3::uuid, now(), 3000) RETURNING id::text`, testID, versionID, admin).Scan(&assignmentID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.attempts (assignment_id, test_version_id, student_id, attempt_no, session_id, shuffle_seed, beacon_token_hash, started_at, deadline_at)
 		VALUES ($1::uuid, $2::uuid, $3::uuid, 1, gen_random_uuid(), 1, sha256('b'::bytea), $4::timestamptz, $4::timestamptz + interval '45 minutes') RETURNING id::text`, assignmentID, versionID, student, startedAt).Scan(&attemptID))
+	// Two options, so the seed's frozen-question invariant holds even mid-run.
+	for i, text := range []string{"Đi bộ", "Đi xe buýt"} {
+		_, err := pool.Exec(ctx, `INSERT INTO app.test_version_options (test_version_question_id, ordinal, text, is_correct)
+			VALUES ($1::uuid, $2, $3, $4)`, questionID, i, text, i == 0)
+		must(err)
+	}
 	_, err := pool.Exec(ctx, `INSERT INTO app.attempt_audio_plays (attempt_id, question_id, plays) VALUES ($1::uuid, $2::uuid, 3)`, attemptID, questionID)
 	must(err)
-
-	t.Cleanup(func() {
-		c := context.Background()
-		_, _ = pool.Exec(c, `DELETE FROM app.attempt_audio_plays WHERE attempt_id = $1::uuid`, attemptID)
-		_, _ = pool.Exec(c, `DELETE FROM app.attempt_events WHERE attempt_id = $1::uuid`, attemptID)
-		_, _ = pool.Exec(c, `DELETE FROM app.attempts WHERE id = $1::uuid`, attemptID)
-		_, _ = pool.Exec(c, `DELETE FROM app.assignments WHERE id = $1::uuid`, assignmentID)
-		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.media_assets WHERE id = $1::uuid`, assetID)
-		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1::uuid`, testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1::uuid, $2::uuid)`, admin, student)
-	})
 	return attemptID, questionID
 }
 

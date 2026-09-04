@@ -120,8 +120,13 @@ func (s *Store) Get(ctx context.Context, attemptID string) (Review, error) {
 	if out.AudioPlays, err = s.audioPlays(ctx, a.ID); err != nil {
 		return Review{}, err
 	}
-	if total != nil {
+	// score_total is written at submit; a paper read before that is out of its questions' points.
+	if total != nil && *total > 0 {
 		out.Score.Total = *total
+	} else {
+		for _, q := range out.Questions {
+			out.Score.Total += q.Points
+		}
 	}
 	for _, ans := range out.Answers {
 		switch {
