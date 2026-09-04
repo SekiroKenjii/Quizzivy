@@ -59,7 +59,8 @@
     "mainNavigation": "Main navigation",
     "sectionTeaching": "Teaching",
     "sectionClasses": "Classes",
-    "account": "{{name}}'s account"
+    "account": "{{name}}'s account",
+    "grading": "To grade"
   },
   "student": {
     "myAssignments": "My assignments",
@@ -1079,5 +1080,258 @@
       "pendingManual": "Awaiting grading",
       "audio": "Has audio"
     }
+  },
+  "monitor": {
+    "loadFailed": "Couldn't load the student list.",
+    "loadFailedHint": "Students' work is unaffected; only this table failed to load.",
+    "empty": "No students have been given this assignment yet.",
+    "addStudents": "Add students to the class",
+    "student": "Student",
+    "state": "Status",
+    "startedAt": "Started",
+    "remaining": "Remaining",
+    "progress": "Progress",
+    "focusLoss": "Left page",
+    "score": "Score",
+    "cards": {
+      "submitted": "Submitted",
+      "inProgress": "In progress",
+      "notStarted": "Not started",
+      "flagged": "Needs review",
+      "closesIn": "Closes in"
+    },
+    "answeredOf": "{{answered}} of {{total}} questions answered",
+    "pendingBadge_one": "{{count}} to grade",
+    "pendingBadge_other": "{{count}} to grade",
+    "menu": {
+      "view": "View paper",
+      "extend": "Extend time",
+      "reset": "Allow a retake",
+      "void": "Void this attempt"
+    },
+    "actionFailed": "That didn't go through. Please try again.",
+    "reason": "Reason",
+    "reasonHint": "Required. The reason is recorded with your name.",
+    "polling": "Refreshes every 15 seconds",
+    "refresh": "Refresh",
+    "extend": {
+      "title": "Extend time for {{name}}",
+      "body": "The student sees the extra time on their clock immediately.",
+      "confirm": "Extend",
+      "minutes": "Add",
+      "placeholder": "e.g. Lost connection for 8 minutes, confirmed"
+    },
+    "reset": {
+      "title": "Let {{name}} retake",
+      "body": "Attempt {{no}} will be marked void and won't count. {{name}} gets attempt {{next}} right away, with the original time limit. Attempt {{no}}'s paper stays readable.",
+      "confirm": "Allow retake",
+      "placeholder": "e.g. Power cut mid-test, confirmed by the whole class"
+    },
+    "void": {
+      "title": "Void attempt {{no}} of {{name}}",
+      "body": "This attempt won't count and the student doesn't get a new one by itself. Nothing is deleted — you can still read it in the attempt record. To grant a new attempt, use Allow a retake.",
+      "confirm": "Void attempt",
+      "placeholder": "e.g. Took another class's paper by mistake, discussed with the student"
+    },
+    "closesInDays_one": "{{count}} day",
+    "closesInDays_other": "{{count}} days",
+    "closesInHours_one": "{{count}} hour",
+    "closesInHours_other": "{{count}} hours"
+  },
+  "review": {
+    "title": "Paper",
+    "loadFailed": "Couldn't load this paper.",
+    "loadFailedHint": "Marks and comments already saved are intact.",
+    "tabs": {
+      "paper": "Paper",
+      "integrity": "Integrity"
+    },
+    "pendingBadge_one": "{{count}} question to grade",
+    "pendingBadge_other": "{{count}} questions to grade",
+    "finish": "Finish grading",
+    "finished": "Grading finished.",
+    "finishFailed": "Couldn't finish. Please try again.",
+    "saveFailed": "Couldn't save the mark. Please try again.",
+    "rail": "Question list",
+    "questions": "Questions",
+    "pendingNote_one": "{{count}} question needs your mark.",
+    "pendingNote_other": "{{count}} questions need your mark.",
+    "noQuestions": "This paper has no questions.",
+    "questionMeta": "Question {{n}} · {{type}} · {{points}} pts",
+    "sampleAnswer": "Sample answer — only you can see this",
+    "attemptOf": "attempt {{n}}/{{total}}",
+    "submittedAt": "submitted {{time}}",
+    "stats": {
+      "auto": "Auto-graded",
+      "manual": "By hand",
+      "duration": "Time taken",
+      "focusLoss": "Left page"
+    },
+    "playsUnlimited": "played {{plays}} times",
+    "playsOf": "played {{plays}}/{{max}} times",
+    "overLimitNote": "The student listened more times than allowed — the system doesn't interrupt playback (§11.4), it only records it for you.",
+    "verdict": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "partial": "Partly correct",
+      "pending": "To grade",
+      "unanswered": "Unanswered"
+    },
+    "studentAnswer": "Student's answer",
+    "unanswered": "The student didn't answer this question.",
+    "accepted": "Accepted answers: {{answers}}",
+    "pickedCorrect": "student's choice · correct",
+    "picked": "student's choice",
+    "correctAnswer": "correct answer",
+    "points": "Points",
+    "decrease": "Decrease",
+    "increase": "Increase",
+    "keyPoints": "enter points",
+    "keyNext": "next question",
+    "comment": "Comment",
+    "commentHint": "— the student can read this",
+    "saveNext": "Save & next",
+    "skip": "Skip",
+    "notYetSubmitted": "The student is still working. Grade after they submit.",
+    "voided": "This attempt was voided, so it isn't graded.",
+    "keyTo": "–",
+    "keySep": "·",
+    "keyEnter": "Enter"
+  },
+  "timeline": {
+    "loadFailed": "Couldn't load this attempt's timeline.",
+    "loadFailedHint": "The paper and marks are still available on the Paper tab.",
+    "strip": {
+      "totalAway": "Total time away",
+      "openNotSummed": "excluding the open one",
+      "episodes": "Times away ≥3s",
+      "oneOpen": "1 open",
+      "pastes": "Pastes",
+      "resumes": "Resumes",
+      "replays": "Replays over limit",
+      "offline": "Offline"
+    },
+    "title": "Timeline",
+    "filter": "Filter events",
+    "filters": {
+      "all": "All",
+      "away": "Left page",
+      "audio": "Audio",
+      "network": "Network"
+    },
+    "viewPaper": "View paper",
+    "empty": "No events were recorded for this attempt.",
+    "columns": {
+      "at": "At",
+      "offset": "From start",
+      "event": "Event",
+      "duration": "Duration",
+      "question": "On question"
+    },
+    "kind": {
+      "started": "Started the test",
+      "tab_hidden": "Switched to another tab",
+      "window_blur": "Switched to another window",
+      "fullscreen_exit": "Left fullscreen",
+      "fullscreen_enter": "Returned to fullscreen",
+      "network_offline": "Lost connection",
+      "network_online": "Back online",
+      "audio_play": "Played audio",
+      "audio_ended": "Audio ended",
+      "audio_blocked": "Browser blocked audio",
+      "paste": "Pasted content",
+      "copy": "Copied content",
+      "cut": "Cut content",
+      "context_menu": "Opened the context menu",
+      "resume": "Resumed the test",
+      "session_takeover": "Resumed from another device",
+      "page_hide": "Closed the page",
+      "tab_visible": "Returned to the tab",
+      "window_focus": "Returned to the window"
+    },
+    "ongoing": "— ongoing",
+    "stillOpen": "· still open",
+    "playNo": "{{label}} · play {{n}}",
+    "overLimit": "— over the limit of {{max}}",
+    "updatedAt": "Updated at {{time}}.",
+    "openResolves": "The open episode's duration is recorded when the student returns to the test tab.",
+    "help": {
+      "title": "How to read this table",
+      "cannotSee": "The system only knows whether the test tab was left. It cannot see a second phone, a person next to them, or a printed sheet.",
+      "duration": "A 2-second absence is usually a notification. A 90-second one is worth asking about. Connection loss is recorded separately so it isn't misread.",
+      "conversation": "This is information to start a conversation, not evidence to conclude one."
+    }
+  },
+  "result": {
+    "title": "Result",
+    "notReady": "The result isn't ready yet.",
+    "pendingTitle_one": "{{count}} question is still being graded",
+    "pendingTitle_other": "{{count}} questions are still being graded",
+    "pendingBody": "The final score appears once grading is done.",
+    "hiddenTitle": "Your teacher hasn't released scores",
+    "hiddenBody": "Your paper was submitted at {{time}} · {{date}}. When your teacher opens the review, your score appears here.",
+    "yourPaper": "Your paper",
+    "answeredWithKey": "You answered {{answered}}/{{total}} questions. You can review the questions, your answers and the correct answers below.",
+    "answeredNoKey": "You answered {{answered}}/{{total}} questions. You can review the questions and your answers, but not the correct answers yet.",
+    "filter": "Filter questions",
+    "chips": {
+      "all": "All {{count}}",
+      "wrong": "Wrong {{count}}",
+      "pending": "To grade {{count}}"
+    },
+    "noKey": "Your teacher isn't showing correct answers for this test.",
+    "noExplanations": "Your teacher isn't showing explanations for this test.",
+    "provisional": "Provisional score",
+    "yourScore": "Your score",
+    "excludesPending": "excluding {{points}} points still being graded",
+    "percent": "{{percent}}% achieved",
+    "submittedMeta": "Submitted {{time}} · {{date}} · Attempt {{n}}/{{total}}",
+    "pointsPending": "— / {{total}} pts",
+    "pointsOf": "{{earned}}/{{total}} pts",
+    "listening": "Listening",
+    "verdict": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "partial": "Partly correct",
+      "pending": "To grade",
+      "graded": "Graded"
+    },
+    "replayFreely": "Replay freely after submitting",
+    "showTranscript": "Show transcript",
+    "noTranscript": "The transcript isn't shown.",
+    "teacherComment": "Teacher's comment",
+    "unanswered": "You didn't answer this question.",
+    "correctAnswerIs": "Correct answer: {{answers}}",
+    "youChose": "your choice",
+    "correctOption": "correct answer",
+    "loadFailed": "Couldn't load the result",
+    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again."
+  },
+  "queue": {
+    "summary": {
+      "pending_one": "{{count}} paper to grade",
+      "pending_other": "{{count}} papers to grade",
+      "flagged_one": "{{count}} paper to review",
+      "flagged_other": "{{count}} papers to review"
+    },
+    "filter": "Filter the queue",
+    "tabs": {
+      "pending": "To grade",
+      "flagged": "Needs review"
+    },
+    "loadFailed": "Couldn't load the queue.",
+    "empty": {
+      "pending": "Nothing left to grade.",
+      "flagged": "Nothing needs review."
+    },
+    "toAssignments": "See assignments",
+    "columns": {
+      "student": "Student",
+      "test": "Test",
+      "state": "Status",
+      "submittedAt": "Submitted",
+      "pending": "To grade"
+    },
+    "open": "Grade"
   }
 }

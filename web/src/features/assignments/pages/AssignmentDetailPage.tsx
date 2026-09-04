@@ -16,6 +16,8 @@ import {
   type AssignmentStatus,
 } from "@/features/assignments/api";
 import { CloseEarlyDialog } from "@/features/assignments/components/CloseEarlyDialog";
+import { Monitor } from "@/features/attempts/components/Monitor";
+import { monitorKey } from "@/features/attempts/keys";
 import { toInput } from "@/features/assignments/input";
 import { statusAt } from "@/features/assignments/status";
 import { listVersions, type TestVersion } from "@/features/tests/api";
@@ -32,6 +34,7 @@ import {
   GraduationCap,
   Lock,
   Pencil,
+  RefreshCw,
   Send,
   X,
 } from "lucide-react";
@@ -62,6 +65,7 @@ export default function AssignmentDetailPage() {
     await queryClient.invalidateQueries({ queryKey: ["admin-assignment", id] });
     await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
     await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    await queryClient.invalidateQueries({ queryKey: monitorKey(id) });
   };
   const publish = useMutation({
     mutationFn: (a: Assignment) =>
@@ -138,6 +142,7 @@ export default function AssignmentDetailPage() {
               publish.mutate(a);
             }}
             onClose={() => setClosing(true)}
+            onRefresh={() => void refresh()}
           />
         }
       />
@@ -185,14 +190,19 @@ export default function AssignmentDetailPage() {
           </Note>
         )}
         {status === "closed" && <ResultsStrip a={a} version={version} />}
+        {/* G-09: open shows the live table (G-02); closed keeps the table under the numbers. */}
+        {status === "open" && <Monitor assignment={a} live />}
+        {status === "closed" && <Monitor assignment={a} live={false} cards={false} />}
 
-        <div className="grid grid-cols-2 gap-4">
-          <TestCard a={a} version={version} closed={status === "closed"} />
-          <TargetsCard a={a} />
-          <TimeCard a={a} />
-          <RulesCard a={a} />
-          <ReviewCard a={a} />
-        </div>
+        {status !== "open" && (
+          <div className="grid grid-cols-2 gap-4">
+            <TestCard a={a} version={version} closed={status === "closed"} />
+            <TargetsCard a={a} />
+            <TimeCard a={a} />
+            <RulesCard a={a} />
+            <ReviewCard a={a} />
+          </div>
+        )}
       </div>
 
       <CloseEarlyDialog
@@ -252,6 +262,7 @@ function Actions({
   publishing,
   onPublish,
   onClose,
+  onRefresh,
 }: {
   status: AssignmentStatus;
   hasTargets: boolean;
@@ -259,6 +270,7 @@ function Actions({
   publishing: boolean;
   onPublish: () => void;
   onClose: () => void;
+  onRefresh: () => void;
 }) {
   const { t } = useTranslation();
   const edit = (
@@ -300,10 +312,17 @@ function Actions({
       );
     case "open":
       return (
-        <Button variant="outline" size="sm" onClick={onClose}>
-          <Lock aria-hidden="true" />
-          {t("assignments.detail.closeEarly")}
-        </Button>
+        <>
+          <span className="text-muted-foreground text-xs">{t("monitor.polling")}</span>
+          <Button variant="outline" size="sm" onClick={onRefresh}>
+            <RefreshCw aria-hidden="true" />
+            {t("monitor.refresh")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            <Lock aria-hidden="true" />
+            {t("assignments.detail.closeEarly")}
+          </Button>
+        </>
       );
     case "closed":
       return null;

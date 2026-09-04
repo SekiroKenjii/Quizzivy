@@ -84,6 +84,22 @@ function serve(a: Assignment) {
         ],
       }),
     ),
+    // G-09: an open assignment draws the monitor (G-02) instead of the summary.
+    http.get(`${BASE}/admin/assignments/${ID}/attempts`, () =>
+      contractJson("/admin/assignments/{id}/attempts", "get", 200, {
+        serverTime: "2026-09-04T02:10:00Z",
+        questionCount: 24,
+        rows: [
+          {
+            studentId: HAN,
+            fullName: "Phạm Gia Hân",
+            state: "not_started",
+            flagged: false,
+            audioOverLimit: false,
+          },
+        ],
+      }),
+    ),
     http.patch(`${BASE}/admin/assignments/${ID}`, async ({ request }) => {
       patches.push(await request.json());
       return contractJson("/admin/assignments/{id}", "patch", 200, a);
@@ -125,7 +141,7 @@ describe("the assignment detail", () => {
   });
 
   it("summarises what G-01 saved", async () => {
-    serve(assignment());
+    serve(assignment({ status: "scheduled", window: scheduledWindow }));
     renderDetail();
 
     expect(

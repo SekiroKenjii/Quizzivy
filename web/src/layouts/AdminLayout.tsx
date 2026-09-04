@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Settings,
   PanelLeft,
+  SquarePen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
@@ -54,6 +55,12 @@ const SECTIONS = [
         icon: ClipboardList,
         key: "nav.assignments",
         count: "openAssignments",
+      },
+      {
+        to: "/admin/grading",
+        icon: SquarePen,
+        key: "nav.grading",
+        count: "awaitingGrading",
       },
       { to: "/admin/students", icon: Users, key: "nav.students" },
       { to: "/admin/classes", icon: GraduationCap, key: "nav.classes" },

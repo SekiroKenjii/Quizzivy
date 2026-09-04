@@ -96,14 +96,14 @@ export default function AdminDashboardPage() {
               label={t("dashboard.awaitingGrading")}
               hint={t("dashboard.awaitingGradingHint")}
               action={t("dashboard.grade")}
-              to="/admin/assignments"
+              to="/admin/grading"
             />
             <QueueCard
               count={summary.data.flaggedAttempts}
               label={t("dashboard.flagged")}
               hint={t("dashboard.flaggedHint")}
               action={t("dashboard.review")}
-              to="/admin/assignments"
+              to="/admin/grading?tab=flagged"
             />
             <QueueCard
               count={summary.data.openAssignments}

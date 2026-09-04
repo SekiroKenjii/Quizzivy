@@ -59,7 +59,8 @@
     "mainNavigation": "Điều hướng chính",
     "sectionTeaching": "Giảng dạy",
     "sectionClasses": "Lớp học",
-    "account": "Tài khoản của {{name}}"
+    "account": "Tài khoản của {{name}}",
+    "grading": "Chờ chấm"
   },
   "student": {
     "myAssignments": "Bài của tôi",
@@ -1079,5 +1080,258 @@
       "pendingManual": "Chờ chấm tay",
       "audio": "Có audio"
     }
+  },
+  "monitor": {
+    "loadFailed": "Không tải được danh sách học viên.",
+    "loadFailedHint": "Bài làm của học viên không bị ảnh hưởng; chỉ bảng này chưa hiện.",
+    "empty": "Chưa có học viên nào được giao bài này.",
+    "addStudents": "Thêm học viên vào lớp",
+    "student": "Học viên",
+    "state": "Trạng thái",
+    "startedAt": "Bắt đầu",
+    "remaining": "Còn lại",
+    "progress": "Tiến độ",
+    "focusLoss": "Rời trang",
+    "score": "Điểm",
+    "cards": {
+      "submitted": "Đã nộp",
+      "inProgress": "Đang làm",
+      "notStarted": "Chưa bắt đầu",
+      "flagged": "Cần xem lại",
+      "closesIn": "Đóng sau"
+    },
+    "answeredOf": "{{answered}} trên {{total}} câu đã trả lời",
+    "pendingBadge_one": "chờ chấm {{count}}",
+    "pendingBadge_other": "chờ chấm {{count}}",
+    "menu": {
+      "view": "Xem bài làm",
+      "extend": "Gia hạn thời gian",
+      "reset": "Cho làm lại",
+      "void": "Huỷ lượt làm này"
+    },
+    "actionFailed": "Không thực hiện được. Vui lòng thử lại.",
+    "reason": "Lý do",
+    "reasonHint": "Bắt buộc. Lý do được ghi lại kèm tên bạn.",
+    "polling": "Tự cập nhật 15 giây/lần",
+    "refresh": "Làm mới",
+    "extend": {
+      "title": "Gia hạn cho {{name}}",
+      "body": "Học viên sẽ thấy đồng hồ cộng thêm ngay lập tức.",
+      "confirm": "Gia hạn",
+      "minutes": "Cộng thêm",
+      "placeholder": "Ví dụ: Mất mạng 8 phút, đã xác nhận"
+    },
+    "reset": {
+      "title": "Cho {{name}} làm lại",
+      "body": "Lượt {{no}} sẽ được đánh dấu đã huỷ và không tính điểm. {{name}} nhận lượt {{next}} ngay, với thời gian làm bài như ban đầu. Bài làm của lượt {{no}} vẫn xem được.",
+      "confirm": "Cho làm lại",
+      "placeholder": "Ví dụ: Mất điện giữa giờ, cả lớp xác nhận"
+    },
+    "void": {
+      "title": "Huỷ lượt {{no}} của {{name}}",
+      "body": "Lượt này sẽ không tính điểm và học viên không tự nhận lượt mới. Bài làm không bị xoá — bạn vẫn xem được trong hồ sơ lượt làm. Nếu muốn cấp lượt mới, dùng Cho làm lại.",
+      "confirm": "Huỷ lượt làm",
+      "placeholder": "Ví dụ: Làm nhầm đề của lớp khác, đã trao đổi với em"
+    },
+    "closesInDays_one": "{{count}} ngày",
+    "closesInDays_other": "{{count}} ngày",
+    "closesInHours_one": "{{count}} giờ",
+    "closesInHours_other": "{{count}} giờ"
+  },
+  "review": {
+    "title": "Bài làm",
+    "loadFailed": "Không tải được bài làm này.",
+    "loadFailedHint": "Điểm và nhận xét đã lưu vẫn còn nguyên.",
+    "tabs": {
+      "paper": "Bài làm",
+      "integrity": "Tính toàn vẹn"
+    },
+    "pendingBadge_one": "còn {{count}} câu chờ chấm",
+    "pendingBadge_other": "còn {{count}} câu chờ chấm",
+    "finish": "Hoàn tất chấm",
+    "finished": "Đã hoàn tất chấm.",
+    "finishFailed": "Không hoàn tất được. Vui lòng thử lại.",
+    "saveFailed": "Không lưu được điểm. Vui lòng thử lại.",
+    "rail": "Danh sách câu",
+    "questions": "Câu hỏi",
+    "pendingNote_one": "{{count}} câu cần bạn chấm.",
+    "pendingNote_other": "{{count}} câu cần bạn chấm.",
+    "noQuestions": "Đề này không có câu hỏi nào.",
+    "questionMeta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "sampleAnswer": "Đáp án mẫu — chỉ bạn nhìn thấy",
+    "attemptOf": "lượt {{n}}/{{total}}",
+    "submittedAt": "nộp {{time}}",
+    "stats": {
+      "auto": "Tự động",
+      "manual": "Chấm tay",
+      "duration": "Thời gian làm",
+      "focusLoss": "Rời trang"
+    },
+    "playsUnlimited": "nghe {{plays}} lần",
+    "playsOf": "nghe {{plays}}/{{max}} lần",
+    "overLimitNote": "Học viên nghe nhiều hơn số lần cho phép — hệ thống không chặn giữa chừng (§11.4), chỉ ghi lại để bạn biết.",
+    "verdict": {
+      "correct": "Đúng",
+      "wrong": "Sai",
+      "partial": "Đúng một phần",
+      "pending": "Chờ chấm",
+      "unanswered": "Chưa trả lời"
+    },
+    "studentAnswer": "Bài làm của học viên",
+    "unanswered": "Học viên không trả lời câu này.",
+    "accepted": "Đáp án được chấp nhận: {{answers}}",
+    "pickedCorrect": "học viên chọn · đúng",
+    "picked": "học viên chọn",
+    "correctAnswer": "đáp án đúng",
+    "points": "Điểm",
+    "decrease": "Giảm",
+    "increase": "Tăng",
+    "keyPoints": "nhập điểm",
+    "keyNext": "câu tiếp theo",
+    "comment": "Nhận xét",
+    "commentHint": "— học viên đọc được",
+    "saveNext": "Lưu & câu tiếp theo",
+    "skip": "Bỏ qua",
+    "notYetSubmitted": "Học viên đang làm bài. Chấm được sau khi nộp.",
+    "voided": "Lượt làm này đã bị huỷ nên không chấm.",
+    "keyTo": "–",
+    "keySep": "·",
+    "keyEnter": "Enter"
+  },
+  "timeline": {
+    "loadFailed": "Không tải được diễn biến của lượt làm này.",
+    "loadFailedHint": "Bài làm và điểm vẫn xem được ở thẻ Bài làm.",
+    "strip": {
+      "totalAway": "Tổng thời gian rời trang",
+      "openNotSummed": "chưa tính lần đang mở",
+      "episodes": "Số lần rời ≥3 giây",
+      "oneOpen": "1 đang mở",
+      "pastes": "Lần dán",
+      "resumes": "Vào lại bài",
+      "replays": "Nghe lại quá số lần",
+      "offline": "Mất mạng"
+    },
+    "title": "Diễn biến",
+    "filter": "Lọc sự kiện",
+    "filters": {
+      "all": "Tất cả",
+      "away": "Rời trang",
+      "audio": "Âm thanh",
+      "network": "Mạng"
+    },
+    "viewPaper": "Xem bài làm",
+    "empty": "Không ghi nhận sự kiện nào trong lượt làm này.",
+    "columns": {
+      "at": "Lúc",
+      "offset": "Từ đầu",
+      "event": "Sự kiện",
+      "duration": "Kéo dài",
+      "question": "Đang ở câu"
+    },
+    "kind": {
+      "started": "Bắt đầu làm bài",
+      "tab_hidden": "Chuyển sang tab khác",
+      "window_blur": "Chuyển sang cửa sổ khác",
+      "fullscreen_exit": "Thoát toàn màn hình",
+      "fullscreen_enter": "Vào lại toàn màn hình",
+      "network_offline": "Mất kết nối",
+      "network_online": "Có mạng trở lại",
+      "audio_play": "Phát âm thanh",
+      "audio_ended": "Nghe xong",
+      "audio_blocked": "Trình duyệt chặn phát âm thanh",
+      "paste": "Dán nội dung",
+      "copy": "Sao chép nội dung",
+      "cut": "Cắt nội dung",
+      "context_menu": "Mở menu chuột phải",
+      "resume": "Vào lại bài",
+      "session_takeover": "Vào lại bài từ thiết bị khác",
+      "page_hide": "Đóng trang",
+      "tab_visible": "Quay lại tab",
+      "window_focus": "Quay lại cửa sổ"
+    },
+    "ongoing": "— đang tiếp diễn",
+    "stillOpen": "· đang mở",
+    "playNo": "{{label}} · lần {{n}}",
+    "overLimit": "— vượt giới hạn {{max}} lần",
+    "updatedAt": "Cập nhật lúc {{time}}.",
+    "openResolves": "Thời lượng của lần đang mở sẽ được ghi khi học viên quay lại tab làm bài.",
+    "help": {
+      "title": "Đọc bảng này thế nào",
+      "cannotSee": "Hệ thống chỉ biết tab làm bài có bị rời đi hay không. Nó không thấy điện thoại thứ hai, người ngồi cạnh, hay tài liệu in ra.",
+      "duration": "Một lần rời 2 giây thường là thông báo. Một lần rời 90 giây thì đáng để hỏi. Mất mạng được ghi riêng để không bị hiểu nhầm.",
+      "conversation": "Đây là thông tin để bắt đầu một cuộc trò chuyện, không phải bằng chứng để kết luận."
+    }
+  },
+  "result": {
+    "title": "Kết quả",
+    "notReady": "Kết quả chưa sẵn sàng.",
+    "pendingTitle_one": "Còn {{count}} câu giáo viên đang chấm",
+    "pendingTitle_other": "Còn {{count}} câu giáo viên đang chấm",
+    "pendingBody": "Điểm cuối cùng sẽ hiện khi chấm xong.",
+    "hiddenTitle": "Giáo viên chưa công bố điểm",
+    "hiddenBody": "Bài của bạn đã được nộp lúc {{time}} · {{date}}. Khi giáo viên mở phần xem lại, bạn sẽ thấy điểm ở đây.",
+    "yourPaper": "Bài làm của bạn",
+    "answeredWithKey": "Bạn đã trả lời {{answered}}/{{total}} câu. Bạn có thể xem lại câu hỏi, câu trả lời của mình và đáp án đúng bên dưới.",
+    "answeredNoKey": "Bạn đã trả lời {{answered}}/{{total}} câu. Bạn có thể xem lại câu hỏi và câu trả lời của mình, nhưng chưa xem được đáp án đúng.",
+    "filter": "Lọc câu hỏi",
+    "chips": {
+      "all": "Tất cả {{count}}",
+      "wrong": "Sai {{count}}",
+      "pending": "Chờ chấm {{count}}"
+    },
+    "noKey": "Giáo viên không hiển thị đáp án đúng cho bài này.",
+    "noExplanations": "Giáo viên không hiển thị giải thích cho bài này.",
+    "provisional": "Điểm tạm tính",
+    "yourScore": "Điểm của bạn",
+    "excludesPending": "chưa gồm {{points}} điểm đang chấm tay",
+    "percent": "Đạt {{percent}}%",
+    "submittedMeta": "Nộp lúc {{time}} · {{date}} · Lượt {{n}}/{{total}}",
+    "pointsPending": "— / {{total}} điểm",
+    "pointsOf": "{{earned}}/{{total}} điểm",
+    "listening": "Nghe",
+    "verdict": {
+      "correct": "Đúng",
+      "wrong": "Sai",
+      "partial": "Đúng một phần",
+      "pending": "Chờ chấm",
+      "graded": "Đã chấm"
+    },
+    "replayFreely": "Nghe lại thoải mái sau khi nộp",
+    "showTranscript": "Xem lời thoại",
+    "noTranscript": "Lời thoại không được hiển thị.",
+    "teacherComment": "Nhận xét của giáo viên",
+    "unanswered": "Bạn chưa trả lời câu này.",
+    "correctAnswerIs": "Đáp án đúng: {{answers}}",
+    "youChose": "bạn chọn",
+    "correctOption": "đáp án đúng",
+    "loadFailed": "Không tải được kết quả",
+    "loadFailedBody": "Bài làm của bạn đã nộp và vẫn được lưu. Kiểm tra kết nối rồi thử lại."
+  },
+  "queue": {
+    "summary": {
+      "pending_one": "{{count}} bài chờ chấm",
+      "pending_other": "{{count}} bài chờ chấm",
+      "flagged_one": "{{count}} bài cần xem lại",
+      "flagged_other": "{{count}} bài cần xem lại"
+    },
+    "filter": "Lọc hàng đợi",
+    "tabs": {
+      "pending": "Chờ chấm",
+      "flagged": "Cần xem lại"
+    },
+    "loadFailed": "Không tải được hàng đợi.",
+    "empty": {
+      "pending": "Không còn bài nào chờ chấm.",
+      "flagged": "Không có bài nào cần xem lại."
+    },
+    "toAssignments": "Xem bài giao",
+    "columns": {
+      "student": "Học viên",
+      "test": "Đề thi",
+      "state": "Trạng thái",
+      "submittedAt": "Nộp lúc",
+      "pending": "Chờ chấm"
+    },
+    "open": "Chấm"
   }
 }
