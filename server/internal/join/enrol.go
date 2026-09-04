@@ -153,7 +153,7 @@ func (c claimedCode) usable(now time.Time) PreviewOutcome {
 func claimCode(ctx context.Context, tx pgx.Tx, codeHash []byte) (claimedCode, error) {
 	const claim = `
 		SELECT jc.id::text, jc.class_id::text, jc.revoked_at, jc.expires_at,
-		       jc.max_uses, jc.uses_count, c.self_join_enabled
+		       jc.max_uses, jc.uses_count, c.self_join_enabled AND c.archived_at IS NULL
 		  FROM app.class_join_codes jc
 		  JOIN app.classes c ON c.id = jc.class_id
 		 WHERE jc.code_hash = $1

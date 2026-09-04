@@ -534,14 +534,23 @@ components:
 
     Class:
       type: object
-      required: [id, name, studentCount, selfJoinEnabled, createdAt]
+      required: [id, name, studentCount, openAssignmentCount, selfJoinEnabled, archivedAt, createdAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         name: { type: string, minLength: 1, maxLength: 120 }
         description: { type: [string, 'null'] }
         studentCount: { type: integer, minimum: 0 }
+        openAssignmentCount:
+          type: integer
+          minimum: 0
+          description: Assignments whose derived status is `open` and that target this class (G-08).
         selfJoinEnabled: { type: boolean }
+        archivedAt:
+          description: Set once archived. An archived class leaves every picker and keeps its record (G-08).
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
         joinCode:
           description: Admin responses only. Never present on a `/app/*` response.
           oneOf:
@@ -563,6 +572,17 @@ components:
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
         maxUses: { type: [integer, 'null'], minimum: 1 }
         usesCount: { type: integer, minimum: 0 }
+
+    ClassFacets:
+      type: object
+      description: G-08's tab counts for the current search, ignoring the status filter; `students` are distinct live members.
+      required: [all, joinable, archived, students]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        joinable: { type: integer, minimum: 0 }
+        archived: { type: integer, minimum: 0 }
+        students: { type: integer, minimum: 0 }
 
     ClassMember:
       type: object
@@ -1008,7 +1028,7 @@ components:
       type: object
       required:
         [id, testId, testVersionId, testVersion, testTitle, targets, window,
-         publishedAt, durationMinutes, maxAttempts, shuffleQuestions,
+         publishedAt, updatedAt, durationMinutes, maxAttempts, shuffleQuestions,
          shuffleOptions, review, integrity, status]
       additionalProperties: false
       properties:
@@ -1019,12 +1039,23 @@ components:
         testTitle: { type: string }
         targets:
           type: object
-          required: [classes, studentIds]
+          required: [classes, students]
           additionalProperties: false
           properties:
             classes:
               type: array
-              description: The classes this assignment targets, with their names.
+              description: The classes this assignment targets, with their names and live member counts.
+              items:
+                type: object
+                required: [id, name, studentCount]
+                additionalProperties: false
+                properties:
+                  id: { $ref: '#/components/schemas/Uuid' }
+                  name: { type: string }
+                  studentCount: { type: integer, minimum: 0 }
+            students:
+              type: array
+              description: The students targeted by name, with their names (G-09's chips).
               items:
                 type: object
                 required: [id, name]
@@ -1032,11 +1063,11 @@ components:
                 properties:
                   id: { $ref: '#/components/schemas/Uuid' }
                   name: { type: string }
-            studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
         publishedAt:
           type: [string, 'null']
           format: date-time
           description: Null while the assignment is a draft.
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
         window:
           type: object
           required: [opensAt, closesAt]
@@ -1062,6 +1093,10 @@ components:
         submittedCount: { type: integer, minimum: 0 }
         targetCount: { type: integer, minimum: 0 }
         flaggedCount: { type: integer, minimum: 0 }
+        pendingGradingCount:
+          type: integer
+          minimum: 0
+          description: Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm").
 
     # ---------------------------------------------------------------- attempts
 
@@ -2968,6 +3003,14 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
+        - name: status
+          in: query
+          required: false
+          description: Defaults to `active`, so every picker drops archived classes without asking (G-08).
+          schema:
+            type: string
+            enum: [active, joinable, archived, all]
+            default: active
       responses:
         '200':
           description: OK
@@ -2977,9 +3020,10 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/Class' } }
+                      facets: { $ref: '#/components/schemas/ClassFacets' }
     post:
       operationId: createClass
       description: Creates a class. A join code is not issued automatically; rotate to get one (§6.4).
@@ -2995,6 +3039,7 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: [string, 'null'] }
+                selfJoinEnabled: { type: boolean, default: true }
       responses:
         '201':
           description: Created.
@@ -3017,7 +3062,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateClass
-      description: Edits name and description, or toggles self-join. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
+      description: Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
       tags: [admin-classes]
       requestBody:
         required: true
@@ -3030,12 +3075,14 @@ paths:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: [string, 'null'] }
                 selfJoinEnabled: { type: boolean }
+                archived: { type: boolean, description: 'true archives, false restores; either is idempotent.' }
       responses:
         '200':
           description: Saved.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Class' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/classes/{id}/members:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]

@@ -1,5 +1,15 @@
 import type { Assignment, AssignmentStatus } from "@/features/assignments/api";
 
+export const STATUS_VARIANT: Record<
+  AssignmentStatus,
+  "success" | "secondary" | "outline"
+> = {
+  draft: "secondary",
+  open: "success",
+  scheduled: "secondary",
+  closed: "outline",
+};
+
 /**
  * D-18's derived status, recomputed from the timestamps the row already
  * carries.

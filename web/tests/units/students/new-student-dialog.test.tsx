@@ -32,6 +32,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/admin/classes`, () =>
       contractJson("/admin/classes", "get", 200, {
+        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
         page: 1,
         pageSize: 50,
         total: 0,

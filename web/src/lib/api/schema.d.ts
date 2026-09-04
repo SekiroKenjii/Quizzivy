@@ -842,7 +842,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Edits name and description, or toggles self-join. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
+        /** @description Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
         patch: operations["updateClass"];
         trace?: never;
     };
@@ -1530,7 +1530,11 @@ export interface components {
             name: string;
             description?: string | null;
             studentCount: number;
+            /** @description Assignments whose derived status is `open` and that target this class (G-08). */
+            openAssignmentCount: number;
             selfJoinEnabled: boolean;
+            /** @description Set once archived. An archived class leaves every picker and keeps its record (G-08). */
+            archivedAt: components["schemas"]["Timestamp"] | null;
             /** @description Admin responses only. Never present on a `/app/*` response. */
             joinCode?: components["schemas"]["JoinCodeInfo"] | null;
             createdAt: components["schemas"]["Timestamp"];
@@ -1547,6 +1551,13 @@ export interface components {
             expiresAt: components["schemas"]["Timestamp"];
             maxUses: number | null;
             usesCount: number;
+        };
+        /** @description G-08's tab counts for the current search, ignoring the status filter; `students` are distinct live members. */
+        ClassFacets: {
+            all: number;
+            joinable: number;
+            archived: number;
+            students: number;
         };
         ClassMember: {
             userId: components["schemas"]["Uuid"];
@@ -1856,18 +1867,24 @@ export interface components {
             testVersion: number;
             testTitle: string;
             targets: {
-                /** @description The classes this assignment targets, with their names. */
+                /** @description The classes this assignment targets, with their names and live member counts. */
                 classes: {
                     id: components["schemas"]["Uuid"];
                     name: string;
+                    studentCount: number;
                 }[];
-                studentIds: components["schemas"]["Uuid"][];
+                /** @description The students targeted by name, with their names (G-09's chips). */
+                students: {
+                    id: components["schemas"]["Uuid"];
+                    name: string;
+                }[];
             };
             /**
              * Format: date-time
              * @description Null while the assignment is a draft.
              */
             publishedAt: string | null;
+            updatedAt: components["schemas"]["Timestamp"];
             window: {
                 opensAt: components["schemas"]["Timestamp"];
                 closesAt: components["schemas"]["Timestamp"];
@@ -1892,6 +1909,8 @@ export interface components {
             submittedCount?: number;
             targetCount?: number;
             flaggedCount?: number;
+            /** @description Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm"). */
+            pendingGradingCount?: number;
         };
         /** @enum {string} */
         AttemptStatus: "in_progress" | "submitted" | "timed_out" | "graded" | "voided";
@@ -3954,6 +3973,8 @@ export interface operations {
                  */
                 page?: components["parameters"]["Page"];
                 limit?: number;
+                /** @description Defaults to `active`, so every picker drops archived classes without asking (G-08). */
+                status?: "active" | "joinable" | "archived" | "all";
             };
             header?: never;
             path?: never;
@@ -3969,6 +3990,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["Class"][];
+                        facets: components["schemas"]["ClassFacets"];
                     };
                 };
             };
@@ -3986,6 +4008,8 @@ export interface operations {
                 "application/json": {
                     name: string;
                     description?: string | null;
+                    /** @default true */
+                    selfJoinEnabled?: boolean;
                 };
             };
         };
@@ -4039,6 +4063,8 @@ export interface operations {
                     name?: string;
                     description?: string | null;
                     selfJoinEnabled?: boolean;
+                    /** @description true archives, false restores; either is idempotent. */
+                    archived?: boolean;
                 };
             };
         };
@@ -4052,6 +4078,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listClassMembers: {

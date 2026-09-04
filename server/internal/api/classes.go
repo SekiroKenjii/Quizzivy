@@ -56,10 +56,41 @@ func (s *Server) UpdateClass(ctx context.Context, request openapi.UpdateClassReq
 	}
 
 	class, err := s.Deps.Classes.Update(ctx, request.Id.String(), in)
+	if err == nil && request.Body.Archived != nil {
+		class, err = s.Deps.Classes.Archive(ctx, request.Id.String(), *request.Body.Archived,
+			actorID(ctx), httpx.RequestMetaFromContext(ctx).IP, httpx.RequestMetaFromContext(ctx).UserAgent)
+	}
 	if err != nil {
+		if errors.Is(err, classes.ErrNotFound) {
+			return openapi.UpdateClass404JSONResponse{
+				NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgClassNotFound)),
+			}, nil
+		}
 		return nil, err
 	}
 	return openapi.UpdateClass200JSONResponse(toAPIAdminClass(class)), nil
+}
+
+func (s *Server) CreateClass(ctx context.Context, request openapi.CreateClassRequestObject) (openapi.CreateClassResponseObject, error) {
+	if s.Deps.Classes == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	selfJoin := true
+	if request.Body.SelfJoinEnabled != nil {
+		selfJoin = *request.Body.SelfJoinEnabled
+	}
+	meta := httpx.RequestMetaFromContext(ctx)
+	class, err := s.Deps.Classes.Create(ctx, request.Body.Name, request.Body.Description, selfJoin,
+		actorID(ctx), meta.IP, meta.UserAgent)
+	if err != nil {
+		return nil, err
+	}
+	return openapi.CreateClass201JSONResponse(toAPIAdminClass(class)), nil
+}
+
+func actorID(ctx context.Context) string {
+	principal, _ := httpx.PrincipalFromContext(ctx)
+	return principal.UserID
 }
 
 // ListClasses implements GET /admin/classes.
@@ -77,8 +108,15 @@ func (s *Server) ListClasses(ctx context.Context, request openapi.ListClassesReq
 	if request.Params.Limit != nil {
 		in.Limit = int(*request.Params.Limit)
 	}
+	if request.Params.Status != nil {
+		in.Status = string(*request.Params.Status)
+	}
 
 	found, page, err := s.Deps.Classes.List(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	facets, err := s.Deps.Classes.Facets(ctx, in.Query)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +126,9 @@ func (s *Server) ListClasses(ctx context.Context, request openapi.ListClassesReq
 	}
 	return openapi.ListClasses200JSONResponse{
 		Items: items, Page: page.Number, PageSize: page.Size, Total: page.Total,
+		Facets: openapi.ClassFacets{
+			All: facets.All, Joinable: facets.Joinable, Archived: facets.Archived, Students: facets.Students,
+		},
 	}, nil
 }
 
@@ -193,12 +234,14 @@ func (s *Server) RemoveClassMember(ctx context.Context, request openapi.RemoveCl
 
 func toAPIAdminClass(c classes.Class) openapi.Class {
 	out := openapi.Class{
-		Id:              parseUUID(c.ID),
-		Name:            c.Name,
-		Description:     c.Description,
-		StudentCount:    c.StudentCount,
-		SelfJoinEnabled: c.SelfJoinEnabled,
-		CreatedAt:       c.CreatedAt,
+		Id:                  parseUUID(c.ID),
+		Name:                c.Name,
+		Description:         c.Description,
+		StudentCount:        c.StudentCount,
+		OpenAssignmentCount: c.OpenAssignmentCount,
+		SelfJoinEnabled:     c.SelfJoinEnabled,
+		ArchivedAt:          c.ArchivedAt,
+		CreatedAt:           c.CreatedAt,
 	}
 	if jc := c.JoinCode; jc != nil {
 		out.JoinCode = &openapi.JoinCodeInfo{

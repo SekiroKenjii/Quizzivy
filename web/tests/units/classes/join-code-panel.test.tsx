@@ -34,6 +34,8 @@ const klass: components["schemas"]["Class"] = {
   id: CLASS_ID,
   name: "Tiếng Anh giao tiếp — Lớp A",
   studentCount: 12,
+  openAssignmentCount: 0,
+  archivedAt: null,
   selfJoinEnabled: true,
   createdAt: "2026-01-01T00:00:00Z",
   joinCode: {

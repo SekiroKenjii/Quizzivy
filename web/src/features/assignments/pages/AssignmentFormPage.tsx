@@ -1,6 +1,6 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Info, SquarePen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,8 +28,15 @@ import {
 } from "@/features/assignments/components/TargetPickers";
 import type { Token } from "@/features/assignments/components/TokenField";
 import { StudentRulesPreview } from "@/features/assignments/components/StudentRulesPreview";
-import { createAssignment } from "@/features/assignments/api";
+import {
+  createAssignment,
+  getAssignment,
+  updateAssignment,
+  type Assignment,
+  type AssignmentInput,
+} from "@/features/assignments/api";
 import { fetchClass } from "@/features/classes/api";
+import { listVersions, type TestVersion } from "@/features/tests/api";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 import { ApiError, fieldMessages } from "@/lib/api/errors";
 
@@ -95,6 +102,8 @@ export default function AssignmentFormPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
+  const { id } = useParams<{ id: string }>();
+  const editing = id !== undefined;
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<{ summary: string; fields: string[] } | null>(
@@ -125,38 +134,41 @@ export default function AssignmentFormPage() {
     );
   }
 
-  const create = useMutation({
+  const existing = useQuery({
+    queryKey: ["admin-assignment", id],
+    queryFn: ({ signal }) => getAssignment(id ?? "", signal),
+    enabled: editing,
+  });
+  const testId = existing.data?.testId;
+  const versions = useQuery({
+    queryKey: ["admin-test-versions", testId],
+    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
+    enabled: testId !== undefined,
+  });
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+  if (existing.data && versions.data && hydratedFor !== existing.data.id) {
+    setHydratedFor(existing.data.id);
+    setDraft(fromAssignment(existing.data, versions.data.items));
+  }
+  const published = existing.data?.publishedAt != null;
+
+  const save = useMutation({
     mutationFn: (asDraft: boolean) => {
-      const picked = draft.picked;
-      if (!picked) throw new Error("no version picked");
-      return createAssignment({
-        draft: asDraft,
-        testVersionId: picked.version.id,
-        targets: {
-          classIds: draft.classes.map((c) => c.id),
-          studentIds: draft.students.map((s) => s.id),
-        },
-        window: {
-          opensAt: fromDateTimeInput(draft.opensAt).toISOString(),
-          closesAt: fromDateTimeInput(draft.closesAt).toISOString(),
-        },
-        durationMinutes: draft.durationMinutes,
-        maxAttempts: draft.maxAttempts,
-        shuffleQuestions: draft.shuffleQuestions,
-        shuffleOptions: draft.shuffleOptions,
-        review: draft.review,
-        integrity: draft.integrity,
-      });
+      const body = { draft: asDraft, ...toBody(draft) };
+      return editing ? updateAssignment(id, body) : createAssignment(body);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-assignment", id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      void navigate("/admin/assignments");
+      void navigate(editing ? `/admin/assignments/${id}` : "/admin/assignments");
     },
     onError: (cause) =>
       setError({
         summary:
-          cause instanceof ApiError ? cause.message : t("assignments.createFailed"),
+          cause instanceof ApiError
+            ? cause.message
+            : t(editing ? "assignments.updateFailed" : "assignments.createFailed"),
         fields: fieldMessages(cause),
       }),
   });
@@ -165,9 +177,24 @@ export default function AssignmentFormPage() {
   const ready = draft.picked !== null && hasTargets;
   const savable = draft.picked !== null;
 
+  if (editing && hydratedFor === null) {
+    return existing.isError || versions.isError ? (
+      <p role="alert" className="text-sm">
+        {t("assignments.detail.loadFailed")}
+      </p>
+    ) : (
+      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+        {t("common.loading")}
+      </p>
+    );
+  }
+
   return (
     <>
-      <PageHeader title={t("assignments.new")} backTo="/admin/assignments" />
+      <PageHeader
+        title={t(editing ? "assignments.edit" : "assignments.new")}
+        backTo={editing ? `/admin/assignments/${id}` : "/admin/assignments"}
+      />
 
       <div className="space-y-6">
         <Card>
@@ -499,26 +526,30 @@ export default function AssignmentFormPage() {
         <div className="space-y-2">
           <Button
             className="w-full"
-            disabled={!ready || create.isPending}
+            disabled={!ready || save.isPending}
             onClick={() => {
               setError(null);
-              create.mutate(false);
+              save.mutate(false);
             }}
           >
-            {create.isPending ? t("common.loading") : t("assignments.assign")}
+            {save.isPending
+              ? t("common.loading")
+              : t(published ? "assignments.saveChanges" : "assignments.assign")}
           </Button>
           {/* A draft needs only the test. */}
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={!savable || create.isPending}
-            onClick={() => {
-              setError(null);
-              create.mutate(true);
-            }}
-          >
-            {t("assignments.saveDraft")}
-          </Button>
+          {published ? null : (
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!savable || save.isPending}
+              onClick={() => {
+                setError(null);
+                save.mutate(true);
+              }}
+            >
+              {t("assignments.saveDraft")}
+            </Button>
+          )}
         </div>
         {ready ? null : (
           <p className="text-muted-foreground text-xs">
@@ -534,6 +565,52 @@ export default function AssignmentFormPage() {
       />
     </>
   );
+}
+
+function toBody(draft: Draft): Omit<AssignmentInput, "draft"> {
+  const picked = draft.picked;
+  if (!picked) throw new Error("no version picked");
+  return {
+    testVersionId: picked.version.id,
+    targets: {
+      classIds: draft.classes.map((c) => c.id),
+      studentIds: draft.students.map((s) => s.id),
+    },
+    window: {
+      opensAt: fromDateTimeInput(draft.opensAt).toISOString(),
+      closesAt: fromDateTimeInput(draft.closesAt).toISOString(),
+    },
+    durationMinutes: draft.durationMinutes,
+    maxAttempts: draft.maxAttempts,
+    shuffleQuestions: draft.shuffleQuestions,
+    shuffleOptions: draft.shuffleOptions,
+    review: draft.review,
+    integrity: draft.integrity,
+  };
+}
+
+function fromAssignment(a: Assignment, versions: TestVersion[]): Draft {
+  const version = versions.find((v) => v.id === a.testVersionId);
+  return {
+    picked: version ? { testId: a.testId, testTitle: a.testTitle, version } : null,
+    classes: a.targets.classes.map((c) => ({
+      id: c.id,
+      label: c.name,
+      hint: String(c.studentCount),
+    })),
+    students: a.targets.students.map((s) => ({ id: s.id, label: s.name })),
+    opensAt: toDateTimeInput(a.window.opensAt),
+    closesAt: toDateTimeInput(a.window.closesAt),
+    durationMinutes: a.durationMinutes,
+    maxAttempts: a.maxAttempts,
+    shuffleQuestions: a.shuffleQuestions,
+    shuffleOptions: a.shuffleOptions,
+    review: a.review,
+    integrity: {
+      ...a.integrity,
+      onLimitExceeded: a.integrity.onLimitExceeded === "warn" ? "warn" : "flag",
+    },
+  };
 }
 
 function Summary({ draft }: { draft: Draft }) {

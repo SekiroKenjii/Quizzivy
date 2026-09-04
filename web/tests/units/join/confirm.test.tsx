@@ -98,6 +98,8 @@ describe("the confirm step", () => {
           id: "019535d9-3df7-79fb-b466-fa907fa17f9e",
           name: CLASS_NAME,
           studentCount: 12,
+          openAssignmentCount: 0,
+          archivedAt: null,
           selfJoinEnabled: true,
           createdAt: "2026-01-01T00:00:00Z",
         }),

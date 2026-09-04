@@ -164,8 +164,8 @@ func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 	if len(created.Classes) == 1 && created.Classes[0].Name == "" {
 		t.Error("class target carries no name")
 	}
-	if len(created.StudentIDs) != 1 || created.StudentIDs[0] != w.student {
-		t.Errorf("student targets: got %v", created.StudentIDs)
+	if len(created.Students) != 1 || created.Students[0].ID != w.student {
+		t.Errorf("student targets: got %v", created.Students)
 	}
 	// The one student is reached both ways; the roster counts them once.
 	if created.TargetCount != 1 {
@@ -315,8 +315,8 @@ func TestUpdateReplacesTargetsRatherThanAddingToThem(t *testing.T) {
 	if len(saved.Classes) != 0 {
 		t.Errorf("dropped class target survived: %v", saved.Classes)
 	}
-	if len(saved.StudentIDs) != 1 {
-		t.Errorf("student targets: got %v", saved.StudentIDs)
+	if len(saved.Students) != 1 {
+		t.Errorf("student targets: got %v", saved.Students)
 	}
 }
 

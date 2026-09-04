@@ -20,6 +20,8 @@ function klass(n: number) {
     name: `Lớp ${n}`,
     description: null,
     studentCount: n,
+    openAssignmentCount: 0,
+    archivedAt: null,
     selfJoinEnabled: false,
     createdAt: "2026-01-01T00:00:00Z",
   };
@@ -41,6 +43,7 @@ beforeEach(() => {
         c.name.includes(q),
       );
       return contractJson("/admin/classes", "get", 200, {
+        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
         items: all.slice((page - 1) * 20, page * 20),
         page,
         pageSize: 20,

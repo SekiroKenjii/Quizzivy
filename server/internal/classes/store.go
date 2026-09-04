@@ -31,6 +31,8 @@ type ListInput struct {
 	Query string
 	Page  int
 	Limit int
+	// One of active (the default), joinable, archived, all.
+	Status string
 }
 
 // MembersInput selects a page of one class's roster. Query matches name or
@@ -56,13 +58,23 @@ type JoinCodeInfo struct {
 }
 
 type Class struct {
-	ID              string
-	Name            string
-	Description     *string
-	StudentCount    int
-	SelfJoinEnabled bool
-	CreatedAt       time.Time
-	JoinCode        *JoinCodeInfo
+	ID                  string
+	Name                string
+	Description         *string
+	StudentCount        int
+	OpenAssignmentCount int
+	SelfJoinEnabled     bool
+	ArchivedAt          *time.Time
+	CreatedAt           time.Time
+	JoinCode            *JoinCodeInfo
+}
+
+// Facets are G-08's tab counts for the current search, ignoring the status filter.
+type Facets struct {
+	All      int
+	Joinable int
+	Archived int
+	Students int
 }
 
 type Member struct {
@@ -74,13 +86,25 @@ type Member struct {
 	JoinCodeHint *string
 }
 
+// The same derivation as the assignments list, so both screens agree on "open".
+const openAssignments = `
+	       (SELECT count(*) FROM app.assignment_classes ac
+	          JOIN app.assignments a ON a.id = ac.assignment_id
+	         WHERE ac.class_id = c.id
+	           AND a.published_at IS NOT NULL
+	           AND NOT (a.closed_at IS NOT NULL AND now() >= a.closed_at)
+	           AND now() >= a.opens_at AND now() < a.closes_at)`
+
+const joinable = `(c.archived_at IS NULL AND c.self_join_enabled AND jc.expires_at > now()
+	           AND (jc.max_uses IS NULL OR jc.uses_count < jc.max_uses))`
+
 const classProjection = `
-	SELECT c.id::text, c.name, c.description, c.self_join_enabled, c.created_at,
+	SELECT c.id::text, c.name, c.description, c.self_join_enabled, c.archived_at, c.created_at,
 	       -- Live members only. A disabled account cannot sign in, so counting
 	       -- it makes every assignment on this class read one short for ever.
 	       (SELECT count(*) FROM app.class_members m
 	          JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
-	         WHERE m.class_id = c.id),
+	         WHERE m.class_id = c.id),` + openAssignments + `,
 	       jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count
 	  FROM app.classes c
 	  -- The active code, if there is one. LEFT JOIN because a class with
@@ -96,8 +120,8 @@ func scanClass(row pgx.Row) (Class, error) {
 	var maxUses *int
 	var uses *int
 
-	err := row.Scan(&c.ID, &c.Name, &c.Description, &c.SelfJoinEnabled, &c.CreatedAt,
-		&c.StudentCount, &hint, &expires, &maxUses, &uses)
+	err := row.Scan(&c.ID, &c.Name, &c.Description, &c.SelfJoinEnabled, &c.ArchivedAt, &c.CreatedAt,
+		&c.StudentCount, &c.OpenAssignmentCount, &hint, &expires, &maxUses, &uses)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Class{}, ErrNotFound
 	}
@@ -126,16 +150,22 @@ func (s *Store) Get(ctx context.Context, classID string) (Class, error) {
 func (s *Store) List(ctx context.Context, in ListInput) ([]Class, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	var args []any
-	where := []string{"TRUE"}
-	if q := strings.TrimSpace(in.Query); q != "" {
-		args = append(args, likeEscaper.Replace(q))
-		where = append(where, fmt.Sprintf(nameSearch, len(args)))
+	args, where := searchClause(in.Query)
+	switch in.Status {
+	case "archived":
+		where = append(where, "c.archived_at IS NOT NULL")
+	case "joinable":
+		where = append(where, joinable)
+	case "all":
+	default:
+		where = append(where, "c.archived_at IS NULL")
 	}
 	condition := " WHERE " + strings.Join(where, " AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.classes c`+condition, args...).Scan(&page.Total); err != nil {
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.classes c
+	  LEFT JOIN app.class_join_codes jc ON jc.class_id = c.id AND jc.revoked_at IS NULL`+condition,
+		args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("count classes: %w", err)
 	}
 
@@ -158,6 +188,35 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Class, paging.Page, e
 	return out, page, rows.Err()
 }
 
+func searchClause(query string) ([]any, []string) {
+	var args []any
+	where := []string{"TRUE"}
+	if q := strings.TrimSpace(query); q != "" {
+		args = append(args, likeEscaper.Replace(q))
+		where = append(where, fmt.Sprintf(nameSearch, len(args)))
+	}
+	return args, where
+}
+
+func (s *Store) Facets(ctx context.Context, query string) (Facets, error) {
+	args, where := searchClause(query)
+	var f Facets
+	err := s.pool.QueryRow(ctx, `
+	SELECT count(*),
+	       count(*) FILTER (WHERE `+joinable+`),
+	       count(*) FILTER (WHERE c.archived_at IS NOT NULL),
+	       (SELECT count(DISTINCT m.user_id) FROM app.class_members m
+	          JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
+	         WHERE m.class_id IN (SELECT c.id FROM app.classes c WHERE `+strings.Join(where, " AND ")+`))
+	  FROM app.classes c
+	  LEFT JOIN app.class_join_codes jc ON jc.class_id = c.id AND jc.revoked_at IS NULL
+	 WHERE `+strings.Join(where, " AND "), args...).Scan(&f.All, &f.Joinable, &f.Archived, &f.Students)
+	if err != nil {
+		return Facets{}, fmt.Errorf("count class facets: %w", err)
+	}
+	return f, nil
+}
+
 // ListMine is §9's /app/classes: the classes this student belongs to, most
 // recently joined first. The join code is never populated -- its hint is the
 // teacher's, and a student who can read four characters of it has four
@@ -166,6 +225,7 @@ func (s *Store) ListMine(ctx context.Context, userID string) ([]Class, error) {
 	rows, err := s.pool.Query(ctx, classProjection+`
 	  JOIN app.class_members me ON me.class_id = c.id AND me.user_id = $1::uuid
 	  JOIN app.users student ON student.id = me.user_id AND student.disabled_at IS NULL
+	 WHERE c.archived_at IS NULL
 	 ORDER BY me.joined_at DESC, c.id DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list my classes: %w", err)
@@ -318,6 +378,101 @@ func (s *Store) Update(ctx context.Context, classID string, in UpdateInput) (Cla
 		return Class{}, ErrNotFound
 	}
 	return s.Get(ctx, classID)
+}
+
+type CreateInput struct {
+	Name            string
+	Description     *string
+	SelfJoinEnabled bool
+	ActorUserID     string
+	Now             time.Time
+	IP              *string
+	UserAgent       *string
+}
+
+func (s *Store) Create(ctx context.Context, in CreateInput) (Class, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Class{}, fmt.Errorf("begin create class: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var id string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO app.classes (name, description, self_join_enabled, created_at)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id::text`,
+		in.Name, in.Description, in.SelfJoinEnabled, in.Now).Scan(&id); err != nil {
+		return Class{}, fmt.Errorf("create class: %w", err)
+	}
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &in.ActorUserID,
+		Action:      "class.created",
+		Entity:      "class",
+		EntityID:    &id,
+		OccurredAt:  in.Now,
+		IP:          in.IP,
+		UserAgent:   in.UserAgent,
+	}); err != nil {
+		return Class{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Class{}, fmt.Errorf("commit create class: %w", err)
+	}
+	return s.Get(ctx, id)
+}
+
+type ArchiveInput struct {
+	ClassID     string
+	Archived    bool
+	ActorUserID string
+	Now         time.Time
+	IP          *string
+	UserAgent   *string
+}
+
+// Archive sets or clears archived_at. Idempotent: a repeat is not audited.
+func (s *Store) Archive(ctx context.Context, in ArchiveInput) (Class, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Class{}, fmt.Errorf("begin archive class: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var changed bool
+	err = tx.QueryRow(ctx, `
+		UPDATE app.classes
+		   SET archived_at = CASE WHEN $2 THEN coalesce(archived_at, $3::timestamptz) END
+		 WHERE id = $1::uuid
+		RETURNING (old.archived_at IS NULL) <> (new.archived_at IS NULL)`,
+		in.ClassID, in.Archived, in.Now).Scan(&changed)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Class{}, ErrNotFound
+	}
+	if err != nil {
+		return Class{}, fmt.Errorf("archive class %s: %w", in.ClassID, err)
+	}
+	if changed {
+		action := "class.restored"
+		if in.Archived {
+			action = "class.archived"
+		}
+		if err := audit.Write(ctx, tx, audit.Entry{
+			ActorUserID: &in.ActorUserID,
+			Action:      action,
+			Entity:      "class",
+			EntityID:    &in.ClassID,
+			OccurredAt:  in.Now,
+			IP:          in.IP,
+			UserAgent:   in.UserAgent,
+		}); err != nil {
+			return Class{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Class{}, fmt.Errorf("commit archive class: %w", err)
+	}
+	return s.Get(ctx, in.ClassID)
 }
 
 type AddMemberInput struct {

@@ -14,6 +14,8 @@ const SAMPLE_CLASS = {
   name: "IELTS Foundation",
   description: null,
   studentCount: 12,
+  openAssignmentCount: 0,
+  archivedAt: null,
   selfJoinEnabled: true,
   createdAt: "2026-06-01T00:00:00Z",
 };

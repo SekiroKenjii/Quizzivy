@@ -23,6 +23,20 @@ export function formatDate(utc: string | Date, locale: AppLocale = "vi") {
   });
 }
 
+/** G-09's moment: "08:00 · Thứ hai, 07/09", weekday capitalised as the deck writes it. */
+export function formatMoment(utc: string | Date, locale: AppLocale = "vi") {
+  const text = formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm · EEEE, dd/MM", {
+    locale: dateFnsLocale[locale],
+  });
+  return text.replace(/· (\p{L})/u, (_, first: string) => `· ${first.toUpperCase()}`);
+}
+
+export function formatDayMonth(utc: string | Date, locale: AppLocale = "vi") {
+  return formatInTimeZone(utc, APP_TIME_ZONE, "dd/MM", {
+    locale: dateFnsLocale[locale],
+  });
+}
+
 export function formatTime(utc: string | Date, locale: AppLocale = "vi") {
   return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm", {
     locale: dateFnsLocale[locale],

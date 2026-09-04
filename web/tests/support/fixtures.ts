@@ -30,6 +30,8 @@ export const sampleClass: components["schemas"]["Class"] = {
   name: "Tiếng Anh giao tiếp - Lớp A",
   description: null,
   studentCount: 12,
+  openAssignmentCount: 0,
+  archivedAt: null,
   selfJoinEnabled: true,
   joinCode: null,
   createdAt: "2026-01-01T00:00:00Z",

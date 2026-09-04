@@ -104,7 +104,7 @@ type codeRow struct {
 // new one and concluding the app is broken.
 func (s *Store) LookupByCodeHash(ctx context.Context, hash []byte) (*codeRow, error) {
 	const q = `
-		SELECT c.id::text, c.name, c.self_join_enabled,
+		SELECT c.id::text, c.name, c.self_join_enabled AND c.archived_at IS NULL,
 		       jc.code_hash, jc.revoked_at, jc.expires_at, jc.max_uses, jc.uses_count,
 		       (SELECT u.full_name
 		          FROM app.users u

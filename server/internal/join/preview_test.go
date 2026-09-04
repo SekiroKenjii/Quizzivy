@@ -244,3 +244,28 @@ func TestPreviewUsesTheServiceClockForExpiry(t *testing.T) {
 		t.Errorf("outcome = %v, want PreviewExpired once the clock passes the expiry", got.Outcome)
 	}
 }
+
+func TestAnArchivedClassRefusesItsCodeLikeAClosedOne(t *testing.T) {
+	pool := newPool(t)
+	svc := newSvc(t, pool)
+	classID, teacherID, _ := makeClass(t, pool)
+	code := issueCode(t, svc, classID, teacherID)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.classes SET archived_at = now() WHERE id = $1`, classID); err != nil {
+		t.Fatal(err)
+	}
+
+	archived, err := svc.Preview(ctx, code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonexistent, err := svc.Preview(ctx, "ZZZZ-ZZZZ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archived.Outcome != nonexistent.Outcome || archived.ClassName != "" {
+		t.Errorf("archived class = %+v, nonexistent = %+v; they must be identical", archived, nonexistent)
+	}
+}
