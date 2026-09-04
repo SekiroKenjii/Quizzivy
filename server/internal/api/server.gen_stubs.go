@@ -1,12 +1,10 @@
 package api
 
 import (
-	"context"
 	"log/slog"
 	"time"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
 )
 
 // Server implements the generated StrictServerInterface.
@@ -38,6 +36,8 @@ type Deps struct {
 	Dashboard    DashboardService
 	Assignments  AssignmentsService
 	Attempts     AttemptsService
+	Review       ReviewService
+	Integrity    IntegrityService
 	Students     StudentsService
 	Tokens       TokenVerifier
 	RefreshTTL   time.Duration
@@ -45,43 +45,3 @@ type Deps struct {
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)
-
-func (s *Server) GetAssignmentMonitor(_ context.Context, _ openapi.GetAssignmentMonitorRequestObject) (openapi.GetAssignmentMonitorResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ListAttempts(_ context.Context, _ openapi.ListAttemptsRequestObject) (openapi.ListAttemptsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetAttemptForReview(_ context.Context, _ openapi.GetAttemptForReviewRequestObject) (openapi.GetAttemptForReviewResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetAttemptEvents(_ context.Context, _ openapi.GetAttemptEventsRequestObject) (openapi.GetAttemptEventsResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ExtendAttempt(_ context.Context, _ openapi.ExtendAttemptRequestObject) (openapi.ExtendAttemptResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) FinishGrading(_ context.Context, _ openapi.FinishGradingRequestObject) (openapi.FinishGradingResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GradeAttempt(_ context.Context, _ openapi.GradeAttemptRequestObject) (openapi.GradeAttemptResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) ResetAttempt(_ context.Context, _ openapi.ResetAttemptRequestObject) (openapi.ResetAttemptResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) VoidAttempt(_ context.Context, _ openapi.VoidAttemptRequestObject) (openapi.VoidAttemptResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
-
-func (s *Server) GetAttemptResult(_ context.Context, _ openapi.GetAttemptResultRequestObject) (openapi.GetAttemptResultResponseObject, error) {
-	return nil, httpx.ErrNotImplemented
-}
