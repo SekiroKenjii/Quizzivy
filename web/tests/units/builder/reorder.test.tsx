@@ -129,3 +129,16 @@ describe("reordering the outline", () => {
     expect(screen.queryByText("Câu hai")).toBeNull();
   });
 });
+
+describe("taking a question out of the test", () => {
+  it("removes it from its section and leaves the rest in order", async () => {
+    const { user, onChange } = renderTree();
+
+    await user.click(screen.getByRole("button", { name: "Gỡ câu 2 khỏi đề" }));
+
+    expect(order(onChange.mock.calls[0]![0])).toEqual([["q1"], ["q3"]]);
+    expect(screen.queryByText("Câu hai")).toBeNull();
+    expect(screen.getByText("Câu một")).toBeInTheDocument();
+    expect(screen.getByText("Câu ba")).toBeInTheDocument();
+  });
+});
