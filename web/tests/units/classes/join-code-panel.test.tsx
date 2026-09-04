@@ -379,3 +379,33 @@ describe("copying the join link", () => {
     }
   });
 });
+
+/** Same rule as the temporary password: the code is shown once, so Esc is not a way out. */
+describe("the fresh code dialog", () => {
+  it("ignores Escape and closes only through Xong", async () => {
+    server.use(
+      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
+        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+          code: FULL_CODE,
+          expiresAt: "2026-09-27T00:00:00Z",
+          maxUses: 40,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Tạo mã mới",
+      }),
+    );
+    expect(await screen.findByText(FULL_CODE)).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByText(FULL_CODE)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Xong" }));
+    expect(screen.queryByText(FULL_CODE)).toBeNull();
+  });
+});
