@@ -250,7 +250,15 @@
     "add": "Add",
     "addFailed": "Could not add the student. Please try again.",
     "assignToClass": "Assign to class",
-    "removed": "Removed from the class"
+    "removed": "Removed from the class",
+    "expiryLabel": "Expires after",
+    "expiryDays": "{{days}} days",
+    "maxUsesLabel": "Use limit",
+    "maxUsesPlaceholder": "Default 40",
+    "maxUsesHint": "Left empty, the server applies its default limit of 40 uses.",
+    "maxUsesRange": "The use limit must be a whole number from 1 to 1000.",
+    "exhaustedBadge": "limit reached",
+    "exhaustedExplainer": "This code has reached its use limit, so students can no longer join with it. Issue a new one."
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -509,7 +517,23 @@
     "bankNoMatches": "No question matches.",
     "bankAllAdded": "Every question found is already in this test.",
     "outlineQuestionsOnly": "{{questions}} questions",
-    "position": "Question {{number}} · {{section}}"
+    "position": "Question {{number}} · {{section}}",
+    "sectionActions": "Section actions",
+    "renameSection": "Rename",
+    "sectionInstructions": "Section instructions",
+    "moveSectionUp": "Move up",
+    "moveSectionDown": "Move down",
+    "removeSection": "Delete section",
+    "sectionNameLabel": "Section name",
+    "renameCommit": "save",
+    "renameDiscard": "cancel",
+    "removeSectionTitle": "Delete the section “{{title}}”?",
+    "removeSectionBody_one": "The question in this section leaves this test. A question that came from the bank stays in the bank.",
+    "removeSectionBody_other": "The {{count}} questions in this section leave this test. A question that came from the bank stays in the bank.",
+    "sectionInstructionsTitle": "Instructions for {{title}}",
+    "sectionInstructionsHint": "Students read this before the questions in this section.",
+    "sectionInstructionsPlaceholder": "For example: listen twice, then choose the right answer.",
+    "dropFromTest": "Remove question {{number}} from the test"
   },
   "bank": {
     "filters": "Filters",

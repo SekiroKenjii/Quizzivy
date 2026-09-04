@@ -250,7 +250,15 @@
     "add": "Thêm",
     "addFailed": "Không thêm được học viên. Vui lòng thử lại.",
     "assignToClass": "Giao bài cho lớp",
-    "removed": "Đã xoá khỏi lớp"
+    "removed": "Đã xoá khỏi lớp",
+    "expiryLabel": "Hết hạn sau",
+    "expiryDays": "{{days}} ngày",
+    "maxUsesLabel": "Giới hạn lượt dùng",
+    "maxUsesPlaceholder": "Mặc định 40",
+    "maxUsesHint": "Để trống thì hệ thống dùng giới hạn mặc định là 40 lượt.",
+    "maxUsesRange": "Giới hạn lượt dùng phải là số nguyên từ 1 đến 1000.",
+    "exhaustedBadge": "đã dùng hết",
+    "exhaustedExplainer": "Mã này đã hết lượt dùng nên học viên không dùng được nữa. Hãy tạo mã mới."
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -509,7 +517,23 @@
     "bankNoMatches": "Không có câu hỏi nào khớp.",
     "bankAllAdded": "Mọi câu hỏi tìm được đều đã có trong đề này.",
     "outlineQuestionsOnly": "{{questions}} câu",
-    "position": "Câu {{number}} · {{section}}"
+    "position": "Câu {{number}} · {{section}}",
+    "sectionActions": "Thao tác với phần",
+    "renameSection": "Đổi tên",
+    "sectionInstructions": "Hướng dẫn phần",
+    "moveSectionUp": "Di chuyển lên",
+    "moveSectionDown": "Di chuyển xuống",
+    "removeSection": "Xoá phần",
+    "sectionNameLabel": "Tên phần",
+    "renameCommit": "lưu",
+    "renameDiscard": "huỷ",
+    "removeSectionTitle": "Xoá phần “{{title}}”?",
+    "removeSectionBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
+    "removeSectionBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
+    "sectionInstructionsTitle": "Hướng dẫn cho {{title}}",
+    "sectionInstructionsHint": "Học viên đọc hướng dẫn này trước các câu trong phần.",
+    "sectionInstructionsPlaceholder": "Ví dụ: Nghe hai lần rồi chọn đáp án đúng.",
+    "dropFromTest": "Gỡ câu {{number}} khỏi đề"
   },
   "bank": {
     "filters": "Bộ lọc",

@@ -68,7 +68,7 @@ describe("the class picker", () => {
   it("pages as the list is scrolled, and searches on the server", async () => {
     const user = renderPicker();
     await user.click(screen.getByRole("combobox"));
-    const list = await screen.findByRole("list");
+    const list = await screen.findByRole("listbox");
     expect(await within(list).findByText("Lớp 20")).toBeInTheDocument();
     expect(within(list).queryByText("Lớp 21")).toBeNull();
 

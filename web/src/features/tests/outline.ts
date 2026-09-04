@@ -74,3 +74,32 @@ export function stepQuestion(
     index: direction === -1 ? into.questionIds.length : 0,
   };
 }
+
+/** A whole section among its siblings, the questions it holds travelling with it. */
+export function moveSection(
+  sections: OutlineSection[],
+  from: number,
+  to: number,
+): OutlineSection[] {
+  const section = sections[from];
+  if (!section || from === to || to < 0 || to > sections.length - 1) return sections;
+  const next = sections.filter((_, i) => i !== from);
+  next.splice(to, 0, section);
+  return next;
+}
+
+/** A question out of this test only; one that came from the bank stays in the bank. */
+export function removeQuestion(
+  sections: OutlineSection[],
+  at: QuestionAt,
+): OutlineSection[] {
+  const section = sections[at.sectionIndex];
+  if (!section || at.index < 0 || at.index > section.questionIds.length - 1) {
+    return sections;
+  }
+  return sections.map((each, i) =>
+    i === at.sectionIndex
+      ? { ...each, questionIds: each.questionIds.filter((_, j) => j !== at.index) }
+      : each,
+  );
+}

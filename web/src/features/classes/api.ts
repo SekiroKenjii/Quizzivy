@@ -1,5 +1,5 @@
 import { api } from "@/lib/api/client";
-import type { components } from "@/lib/api/schema";
+import type { components, operations } from "@/lib/api/schema";
 
 export type Class = components["schemas"]["Class"];
 export type ClassMember = components["schemas"]["ClassMember"];
@@ -67,11 +67,6 @@ export function fetchMembers(
   );
 }
 
-/**
- * The ONE call that ever returns a plaintext code (§13.3). Its result is held
- * in component state and never written anywhere -- not to the query cache,
- * which persists across navigations, and not to storage.
- */
 export interface ClassEdit {
   name?: string;
   description?: string;
@@ -83,8 +78,14 @@ export function updateClass(id: string, body: ClassEdit) {
   return api("patch", "/admin/classes/{id}", { path: { id }, body });
 }
 
-export function rotateJoinCode(id: string) {
-  return api("post", "/admin/classes/{id}/join-code", { path: { id }, body: {} });
+/** G-06's expiry and use cap; an absent field means the server's own default, never "unlimited". */
+export type JoinCodeOptions = NonNullable<
+  operations["rotateJoinCode"]["requestBody"]
+>["content"]["application/json"];
+
+/** The one call that ever returns a plaintext code (§13.3), never cached or stored. */
+export function rotateJoinCode(id: string, options: JoinCodeOptions = {}) {
+  return api("post", "/admin/classes/{id}/join-code", { path: { id }, body: options });
 }
 
 export function revokeJoinCode(id: string) {

@@ -12,7 +12,7 @@ import type { RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, History } from "lucide-react";
+import { ArrowLeft, Eye, History, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,6 +105,7 @@ function Builder({ test }: { test: Test }) {
   );
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const flushQuestion = useRef<(() => Promise<void>) | null>(null);
@@ -162,6 +163,11 @@ function Builder({ test }: { test: Test }) {
   const updateOutline = useCallback(
     (next: OutlineSection[]) => {
       setSections(next);
+      setSelectedId((current) =>
+        current !== null && !next.some((s) => s.questionIds.includes(current))
+          ? null
+          : current,
+      );
       outline.schedule({ title, sections: next });
     },
     [outline, title],
@@ -255,29 +261,42 @@ function Builder({ test }: { test: Test }) {
         <Input
           value={title}
           aria-label={t("builder.titleLabel")}
-          className="h-8 w-96 border-transparent font-medium shadow-none"
+          className="h-8 w-96 min-w-32 border-transparent font-medium shadow-none"
           onChange={(event) => updateTitle(event.target.value)}
         />
         <Badge variant="secondary">{t(`builder.${test.status}`)}</Badge>
         <AutosaveStatusLabel status={saveStatus} onRetry={outline.retry} />
+        {selectedId === null ? null : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            <span className="hidden sm:inline">{t("questionEditor.settings")}</span>
+          </Button>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
             className="text-muted-foreground"
+            aria-label={t("builder.versions")}
             onClick={() => void navigate(`/admin/tests/${test.id}`)}
           >
             <History aria-hidden="true" />
-            {t("builder.versions")}
+            <span className="hidden lg:inline">{t("builder.versions")}</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
+            aria-label={t("builder.previewAsStudent")}
             onClick={() => void navigate(`/admin/tests/${test.id}`)}
           >
             <Eye aria-hidden="true" />
-            {t("builder.previewAsStudent")}
+            <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
           </Button>
           <Button
             size="sm"
@@ -339,6 +358,8 @@ function Builder({ test }: { test: Test }) {
               </p>
             ) : (
               <QuestionPane
+                settingsOpen={settingsOpen}
+                onSettingsOpenChange={setSettingsOpen}
                 key={selectedId}
                 questionId={selectedId}
                 flushRef={flushQuestion}
@@ -381,11 +402,15 @@ function QuestionPane({
   flushRef,
   onStatus,
   contextLabel,
+  settingsOpen,
+  onSettingsOpenChange,
 }: {
   questionId: string;
   flushRef: RefObject<(() => Promise<void>) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
   const question = useQuery({
@@ -415,6 +440,8 @@ function QuestionPane({
       flushRef={flushRef}
       onStatus={onStatus}
       contextLabel={contextLabel}
+      settingsOpen={settingsOpen}
+      onSettingsOpenChange={onSettingsOpenChange}
     />
   );
 }
@@ -425,12 +452,16 @@ function QuestionForm({
   flushRef,
   onStatus,
   contextLabel,
+  settingsOpen,
+  onSettingsOpenChange,
 }: {
   questionId: string;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
 }) {
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
@@ -459,6 +490,11 @@ function QuestionForm({
         value={values}
         asset={asset}
         contextLabel={contextLabel}
+        settings={{
+          hideBelow: "lg",
+          open: settingsOpen,
+          onOpenChange: onSettingsOpenChange,
+        }}
         onChange={(next) => {
           setValues(next);
           autosave.schedule(next);

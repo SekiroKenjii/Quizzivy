@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -21,16 +21,34 @@ import {
   ChevronRight,
   ChevronUp,
   CircleAlert,
+  Ellipsis,
   GripVertical,
   Headphones,
   Library,
+  Pencil,
   Plus,
+  ScrollText,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import {
   findQuestion,
   moveQuestion,
+  removeQuestion,
+  moveSection,
   stepQuestion,
   type OutlineSection,
 } from "@/features/tests/outline";
@@ -76,6 +94,9 @@ export function OutlineTree({
 }: OutlineTreeProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const [instructing, setInstructing] = useState<number | null>(null);
+  const [removing, setRemoving] = useState<number | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -92,6 +113,11 @@ export function OutlineTree({
     onChange(moveQuestion(sections, from, to));
   }
 
+  function drop(questionId: string) {
+    const at = findQuestion(sections, questionId);
+    if (at !== null) onChange(removeQuestion(sections, at));
+  }
+
   function step(questionId: string, direction: -1 | 1) {
     const from = findQuestion(sections, questionId);
     if (!from) return;
@@ -100,9 +126,33 @@ export function OutlineTree({
     onChange(moveQuestion(sections, from, to));
   }
 
+  function rename(index: number, title: string | null) {
+    setRenaming(null);
+    if (title === null || title === sections[index]?.title) return;
+    onChange(sections.map((s, i) => (i === index ? { ...s, title } : s)));
+  }
+
+  function saveInstructions(index: number, instructions: string) {
+    setInstructing(null);
+    const value = instructions.trim();
+    onChange(
+      sections.map((s, i) =>
+        i === index ? { ...s, instructions: value === "" ? null : value } : s,
+      ),
+    );
+  }
+
+  function remove(index: number) {
+    setRemoving(null);
+    onChange(sections.filter((_, i) => i !== index));
+  }
+
   const numbering = numberQuestions(sections);
 
   const settled = [...numbering.keys()].every((id) => questions.has(id));
+
+  const editing = instructing === null ? null : (sections[instructing] ?? null);
+  const doomed = removing === null ? null : (sections[removing] ?? null);
 
   return (
     <div className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-r">
@@ -131,35 +181,35 @@ export function OutlineTree({
             const open = !collapsed.has(key);
             return (
               <div key={key}>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-1.5 px-1.5 py-1 text-left"
-                  aria-expanded={open}
-                  onClick={() => setCollapsed(toggle(collapsed, key))}
-                >
-                  {open ? (
-                    <ChevronDown
-                      className="text-muted-foreground size-3.5"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <ChevronRight
-                      className="text-muted-foreground size-3.5"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className="truncate text-xs font-semibold">
-                    {section.title}
-                  </span>
-                  <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-                    {settled
+                <SectionHeader
+                  title={section.title}
+                  summary={
+                    settled
                       ? t("builder.sectionSummary", {
                           questions: section.questionIds.length,
                           points: sectionPoints(section, questions),
                         })
-                      : section.questionIds.length}
-                  </span>
-                </button>
+                      : String(section.questionIds.length)
+                  }
+                  open={open}
+                  renaming={renaming === sectionIndex}
+                  first={sectionIndex === 0}
+                  last={sectionIndex === sections.length - 1}
+                  onToggle={() => setCollapsed((current) => toggle(current, key))}
+                  onStartRename={() => setRenaming(sectionIndex)}
+                  onRenamed={(next) => rename(sectionIndex, next)}
+                  onInstructions={() => setInstructing(sectionIndex)}
+                  onMove={(direction) =>
+                    onChange(
+                      moveSection(sections, sectionIndex, sectionIndex + direction),
+                    )
+                  }
+                  onRemove={() =>
+                    section.questionIds.length === 0
+                      ? remove(sectionIndex)
+                      : setRemoving(sectionIndex)
+                  }
+                />
 
                 {open ? (
                   <SortableContext
@@ -176,6 +226,7 @@ export function OutlineTree({
                           selected={questionId === selectedId}
                           onSelect={() => onSelect(questionId)}
                           onStep={(direction) => step(questionId, direction)}
+                          onDrop={() => drop(questionId)}
                         />
                       ))}
                       {section.questionIds.length === 0 ? (
@@ -223,7 +274,227 @@ export function OutlineTree({
           {t("builder.addSection")}
         </Button>
       </div>
+
+      {editing === null || instructing === null ? null : (
+        <SectionInstructionsDialog
+          key={editing.id ?? instructing}
+          sectionTitle={editing.title}
+          instructions={editing.instructions ?? ""}
+          onCancel={() => setInstructing(null)}
+          onSave={(value) => saveInstructions(instructing, value)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={doomed !== null}
+        onOpenChange={(open) => !open && setRemoving(null)}
+        title={t("builder.removeSectionTitle", { title: doomed?.title ?? "" })}
+        description={t("builder.removeSectionBody", {
+          count: doomed?.questionIds.length ?? 0,
+        })}
+        confirmLabel={t("builder.removeSection")}
+        destructive
+        onConfirm={() => removing !== null && remove(removing)}
+      />
     </div>
+  );
+}
+
+/** The key caps A-04a prints under the rename field; not translated — they are the keys. */
+const KEY = { enter: "↵", escape: "esc" } as const;
+
+function SectionHeader({
+  title,
+  summary,
+  open,
+  renaming,
+  first,
+  last,
+  onToggle,
+  onStartRename,
+  onRenamed,
+  onInstructions,
+  onMove,
+  onRemove,
+}: {
+  title: string;
+  summary: string;
+  open: boolean;
+  renaming: boolean;
+  first: boolean;
+  last: boolean;
+  onToggle: () => void;
+  onStartRename: () => void;
+  onRenamed: (title: string | null) => void;
+  onInstructions: () => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const wasRenaming = useRef(renaming);
+  const Chevron = open ? ChevronDown : ChevronRight;
+
+  useEffect(() => {
+    if (wasRenaming.current && !renaming && document.activeElement === document.body) {
+      trigger.current?.focus();
+    }
+    wasRenaming.current = renaming;
+  }, [renaming]);
+
+  if (renaming) {
+    return (
+      <div className="flex items-start gap-1.5 px-1.5 py-1">
+        <Chevron
+          className="text-muted-foreground mt-1.5 size-3.5 shrink-0"
+          aria-hidden="true"
+        />
+        <SectionTitleInput title={title} onDone={onRenamed} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="group has-data-[state=open]:bg-accent flex items-center gap-1.5 rounded-md px-1.5 py-1">
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <Chevron
+          className="text-muted-foreground size-3.5 shrink-0"
+          aria-hidden="true"
+        />
+        <span className="truncate text-xs font-semibold">{title}</span>
+        <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+          {summary}
+        </span>
+      </button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            ref={trigger}
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t("builder.sectionActions")}
+            className="text-muted-foreground shrink-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+          >
+            <Ellipsis aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onSelect={onStartRename}>
+            <Pencil aria-hidden="true" />
+            {t("builder.renameSection")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onInstructions}>
+            <ScrollText aria-hidden="true" />
+            {t("builder.sectionInstructions")}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={first} onSelect={() => onMove(-1)}>
+            <ChevronUp aria-hidden="true" />
+            {t("builder.moveSectionUp")}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={last} onSelect={() => onMove(1)}>
+            <ChevronDown aria-hidden="true" />
+            {t("builder.moveSectionDown")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+            <Trash2 aria-hidden="true" />
+            {t("builder.removeSection")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function SectionTitleInput({
+  title,
+  onDone,
+}: {
+  title: string;
+  onDone: (title: string | null) => void;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(title);
+  const field = useRef<HTMLInputElement>(null);
+  const settled = useRef(false);
+
+  useEffect(() => {
+    field.current?.focus();
+    field.current?.select();
+  }, []);
+
+  function finish(next: string | null) {
+    if (settled.current) return;
+    settled.current = true;
+    onDone(next);
+  }
+
+  return (
+    <div className="min-w-0 flex-1">
+      <Input
+        ref={field}
+        value={value}
+        aria-label={t("builder.sectionNameLabel")}
+        className="h-7 px-2 text-xs font-semibold"
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => finish(value.trim() === "" ? null : value.trim())}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            finish(value.trim() === "" ? null : value.trim());
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish(null);
+          }
+        }}
+      />
+      <p className="text-muted-foreground mt-1.5 flex items-center gap-1 text-xs">
+        <Kbd>{KEY.enter}</Kbd> {t("builder.renameCommit")} · <Kbd>{KEY.escape}</Kbd>{" "}
+        {t("builder.renameDiscard")}
+      </p>
+    </div>
+  );
+}
+
+function SectionInstructionsDialog({
+  sectionTitle,
+  instructions,
+  onCancel,
+  onSave,
+}: {
+  sectionTitle: string;
+  instructions: string;
+  onCancel: () => void;
+  onSave: (instructions: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(instructions);
+
+  return (
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && onCancel()}
+      title={t("builder.sectionInstructionsTitle", { title: sectionTitle })}
+      description={t("builder.sectionInstructionsHint")}
+      confirmLabel={t("common.save")}
+      onConfirm={() => onSave(value)}
+    >
+      <Textarea
+        // eslint-disable-next-line jsx-a11y/no-autofocus
+        autoFocus
+        value={value}
+        aria-label={t("builder.sectionInstructions")}
+        placeholder={t("builder.sectionInstructionsPlaceholder")}
+        onChange={(event) => setValue(event.target.value)}
+      />
+    </ConfirmDialog>
   );
 }
 
@@ -234,6 +505,7 @@ function OutlineRow({
   selected,
   onSelect,
   onStep,
+  onDrop,
 }: {
   number: number;
   question: OutlineQuestion | undefined;
@@ -241,6 +513,7 @@ function OutlineRow({
   selected: boolean;
   onSelect: () => void;
   onStep: (direction: -1 | 1) => void;
+  onDrop: () => void;
 }) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -312,6 +585,14 @@ function OutlineRow({
           onClick={() => onStep(1)}
         >
           <ChevronDown aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label={t("builder.dropFromTest", { number })}
+          onClick={onDrop}
+        >
+          <X aria-hidden="true" />
         </Button>
       </span>
     </div>

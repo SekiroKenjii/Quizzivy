@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -60,6 +60,7 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
   const search = useDebounced(query.trim(), 250);
   const searching = search !== "";
 
@@ -108,6 +109,19 @@ export function CommandPalette({
     setActive(0);
   }
 
+  const optionId = (index: number) => `${listId}-option-${index}`;
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!open || list === null) return;
+    const option = list.querySelector<HTMLElement>(`[data-index="${active}"]`);
+    if (option === null) return;
+    const box = option.getBoundingClientRect();
+    const view = list.getBoundingClientRect();
+    if (box.top < view.top) list.scrollTop -= view.top - box.top;
+    else if (box.bottom > view.bottom) list.scrollTop += box.bottom - view.bottom;
+  }, [active, open]);
+
   function close(next: boolean) {
     if (!next) setQuery("");
     onOpenChange(next);
@@ -134,7 +148,12 @@ export function CommandPalette({
     }
   }
 
-  let lastGroup = "";
+  const groups: { name: string; items: { entry: Entry; index: number }[] }[] = [];
+  entries.forEach((entry, index) => {
+    const last = groups.at(-1);
+    if (last?.name === entry.group) last.items.push({ entry, index });
+    else groups.push({ name: entry.group, items: [{ entry, index }] });
+  });
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -152,6 +171,13 @@ export function CommandPalette({
           <input
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
+            role="combobox"
+            aria-expanded={entries.length > 0}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              entries[active] === undefined ? undefined : optionId(active)
+            }
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
@@ -162,25 +188,43 @@ export function CommandPalette({
           <Kbd>{t("palette.escape")}</Kbd>
         </div>
 
-        <div ref={listRef} className="max-h-80 overflow-y-auto p-1.5">
+        <div
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          aria-label={t("palette.title")}
+          className="max-h-80 overflow-y-auto p-1.5"
+        >
           {entries.length === 0 ? (
-            <p className="text-muted-foreground px-2.5 py-6 text-center text-sm">
+            <p
+              role="presentation"
+              className="text-muted-foreground px-2.5 py-6 text-center text-sm"
+            >
               {searching ? t("palette.noMatches") : t("palette.hint")}
             </p>
           ) : (
-            entries.map((entry, index) => {
-              const heading = entry.group !== lastGroup ? entry.group : null;
-              lastGroup = entry.group;
-              return (
-                <div key={entry.id}>
-                  {heading ? (
-                    <p className="text-muted-foreground px-3 pt-2 pb-1 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase">
-                      {heading}
-                    </p>
-                  ) : null}
+            groups.map((group, groupIndex) => (
+              <div
+                key={group.name}
+                role="group"
+                aria-labelledby={`${listId}-group-${groupIndex}`}
+              >
+                <p
+                  id={`${listId}-group-${groupIndex}`}
+                  className="text-muted-foreground px-3 pt-2 pb-1 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase"
+                >
+                  {group.name}
+                </p>
+                {group.items.map(({ entry, index }) => (
                   <button
+                    key={entry.id}
                     type="button"
-                    onMouseEnter={() => setActive(index)}
+                    id={optionId(index)}
+                    role="option"
+                    aria-selected={index === active}
+                    data-index={index}
+                    tabIndex={-1}
+                    onMouseMove={() => setActive(index)}
                     onClick={() => choose(entry)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-[0.8125rem]",
@@ -205,9 +249,9 @@ export function CommandPalette({
                       </span>
                     ) : null}
                   </button>
-                </div>
-              );
-            })
+                ))}
+              </div>
+            ))
           )}
         </div>
       </DialogContent>
