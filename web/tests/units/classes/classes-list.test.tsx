@@ -12,7 +12,6 @@ import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
 
-// Radix's Switch measures itself; jsdom has no ResizeObserver.
 globalThis.ResizeObserver ??= class {
   observe() {}
   unobserve() {}

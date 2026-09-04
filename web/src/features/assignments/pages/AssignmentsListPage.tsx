@@ -20,7 +20,7 @@ import {
   type Assignment,
   type AssignmentStatus,
 } from "@/features/assignments/api";
-import { statusAt } from "@/features/assignments/status";
+import { STATUS_VARIANT, statusAt } from "@/features/assignments/status";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -34,13 +34,6 @@ const TABS: (AssignmentStatus | "all")[] = [
   "scheduled",
   "closed",
 ];
-
-const STATUS_VARIANT: Record<AssignmentStatus, "success" | "secondary" | "outline"> = {
-  draft: "secondary",
-  open: "success",
-  scheduled: "secondary",
-  closed: "outline",
-};
 
 /**
  * §8's assignments list.
@@ -209,7 +202,7 @@ function Row({
       <TableCell className="text-muted-foreground">
         {t("assignments.targetSummary", {
           classes: assignment.targets.classes.length,
-          students: assignment.targets.studentIds.length,
+          students: assignment.targets.students.length,
         })}
       </TableCell>
       <TableCell className="text-muted-foreground text-xs">

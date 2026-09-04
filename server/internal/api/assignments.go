@@ -47,16 +47,22 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 
 func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 	classes := make([]struct {
-		Id   openapi.Uuid `json:"id"`
-		Name string       `json:"name"`
+		Id           openapi.Uuid `json:"id"`
+		Name         string       `json:"name"`
+		StudentCount int          `json:"studentCount"`
 	}, len(a.Classes))
 	for i, c := range a.Classes {
 		classes[i].Id = parseUUID(c.ID)
 		classes[i].Name = c.Name
+		classes[i].StudentCount = c.StudentCount
 	}
-	studentIDs := make([]openapi.Uuid, len(a.StudentIDs))
-	for i, id := range a.StudentIDs {
-		studentIDs[i] = parseUUID(id)
+	students := make([]struct {
+		Id   openapi.Uuid `json:"id"`
+		Name string       `json:"name"`
+	}, len(a.Students))
+	for i, st := range a.Students {
+		students[i].Id = parseUUID(st.ID)
+		students[i].Name = st.Name
 	}
 
 	out := openapi.Assignment{
@@ -67,11 +73,16 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 		TestTitle:     a.TestTitle,
 		Targets: struct {
 			Classes []struct {
+				Id           openapi.Uuid `json:"id"`
+				Name         string       `json:"name"`
+				StudentCount int          `json:"studentCount"`
+			} `json:"classes"`
+			Students []struct {
 				Id   openapi.Uuid `json:"id"`
 				Name string       `json:"name"`
-			} `json:"classes"`
-			StudentIds []openapi.Uuid `json:"studentIds"`
-		}{Classes: classes, StudentIds: studentIDs},
+			} `json:"students"`
+		}{Classes: classes, Students: students},
+		UpdatedAt:        a.UpdatedAt,
 		DurationMinutes:  a.DurationMin,
 		MaxAttempts:      a.MaxAttempts,
 		ShuffleQuestions: a.ShuffleQ,
@@ -91,10 +102,11 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 		Status: openapi.AssignmentStatus(
 			assignments.StatusAt(time.Now(), a.PublishedAt, a.OpensAt, a.ClosesAt, a.ClosedAt),
 		),
-		PublishedAt:    a.PublishedAt,
-		SubmittedCount: &a.SubmittedCount,
-		TargetCount:    &a.TargetCount,
-		FlaggedCount:   &a.FlaggedCount,
+		PublishedAt:         a.PublishedAt,
+		SubmittedCount:      &a.SubmittedCount,
+		TargetCount:         &a.TargetCount,
+		FlaggedCount:        &a.FlaggedCount,
+		PendingGradingCount: &a.PendingGradingCount,
 	}
 	out.Window.OpensAt = a.OpensAt
 	out.Window.ClosesAt = a.ClosesAt

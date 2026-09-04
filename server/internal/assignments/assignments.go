@@ -56,33 +56,42 @@ type Integrity struct {
 	MinAwayMs         int
 }
 
-// ClassRef is a targeted class and its name.
+// ClassRef is a targeted class, its name and its live member count.
 type ClassRef struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	StudentCount int    `json:"studentCount"`
+}
+
+// StudentRef is a student targeted by name.
+type StudentRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
 type Assignment struct {
-	ID             string
-	TestID         string
-	TestVersionID  string
-	TestVersion    int
-	TestTitle      string
-	Classes        []ClassRef
-	StudentIDs     []string
-	OpensAt        time.Time
-	ClosesAt       time.Time
-	ClosedAt       *time.Time
-	PublishedAt    *time.Time
-	DurationMin    int
-	MaxAttempts    int
-	ShuffleQ       bool
-	ShuffleO       bool
-	Review         Review
-	Integrity      Integrity
-	SubmittedCount int
-	TargetCount    int
-	FlaggedCount   int
+	ID                  string
+	TestID              string
+	TestVersionID       string
+	TestVersion         int
+	TestTitle           string
+	Classes             []ClassRef
+	Students            []StudentRef
+	OpensAt             time.Time
+	ClosesAt            time.Time
+	ClosedAt            *time.Time
+	PublishedAt         *time.Time
+	UpdatedAt           time.Time
+	DurationMin         int
+	MaxAttempts         int
+	ShuffleQ            bool
+	ShuffleO            bool
+	Review              Review
+	Integrity           Integrity
+	SubmittedCount      int
+	TargetCount         int
+	FlaggedCount        int
+	PendingGradingCount int
 }
 
 const DefaultLimit = 20
@@ -108,13 +117,25 @@ const selectAssignment = `
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
 		       a.integrity_min_away_ms,
-		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', c.id::text, 'name', c.name)
+		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', c.id::text, 'name', c.name,
+		                                  'studentCount', (SELECT count(*) FROM app.class_members m
+		                                                     JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
+		                                                    WHERE m.class_id = c.id))
 		                                  ORDER BY c.name)
 		                   FROM app.assignment_classes ac
 		                   JOIN app.classes c ON c.id = ac.class_id
 		                  WHERE ac.assignment_id = a.id), '[]'::jsonb),
-		       coalesce((SELECT array_agg(ast.user_id::text) FROM app.assignment_students ast
-		                  WHERE ast.assignment_id = a.id), '{}'),
+		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', u.id::text, 'name', u.full_name)
+		                                  ORDER BY u.full_name)
+		                   FROM app.assignment_students ast
+		                   JOIN app.users u ON u.id = ast.user_id
+		                  WHERE ast.assignment_id = a.id), '[]'::jsonb),
+		       a.updated_at,
+		       (SELECT count(DISTINCT aa.attempt_id) FROM app.attempt_answers aa
+		          JOIN app.attempts at ON at.id = aa.attempt_id
+		         WHERE at.assignment_id = a.id
+		           AND at.status IN ('submitted','timed_out')
+		           AND aa.requires_manual AND aa.manual_score IS NULL),
 		       -- Both sides of submitted/total range over the SAME set: students
 		       -- who are expected to do the work. A disabled account is not, so
 		       -- leaving it in the denominator pinned every assignment at
@@ -160,7 +181,7 @@ func scanAssignment(row pgx.Row) (Assignment, error) {
 		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
 		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
-		&a.Classes, &a.StudentIDs,
+		&a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount,
 		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
 	return a, err
 }

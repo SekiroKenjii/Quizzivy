@@ -1028,7 +1028,7 @@ components:
       type: object
       required:
         [id, testId, testVersionId, testVersion, testTitle, targets, window,
-         publishedAt, durationMinutes, maxAttempts, shuffleQuestions,
+         publishedAt, updatedAt, durationMinutes, maxAttempts, shuffleQuestions,
          shuffleOptions, review, integrity, status]
       additionalProperties: false
       properties:
@@ -1039,12 +1039,23 @@ components:
         testTitle: { type: string }
         targets:
           type: object
-          required: [classes, studentIds]
+          required: [classes, students]
           additionalProperties: false
           properties:
             classes:
               type: array
-              description: The classes this assignment targets, with their names.
+              description: The classes this assignment targets, with their names and live member counts.
+              items:
+                type: object
+                required: [id, name, studentCount]
+                additionalProperties: false
+                properties:
+                  id: { $ref: '#/components/schemas/Uuid' }
+                  name: { type: string }
+                  studentCount: { type: integer, minimum: 0 }
+            students:
+              type: array
+              description: The students targeted by name, with their names (G-09's chips).
               items:
                 type: object
                 required: [id, name]
@@ -1052,11 +1063,11 @@ components:
                 properties:
                   id: { $ref: '#/components/schemas/Uuid' }
                   name: { type: string }
-            studentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
         publishedAt:
           type: [string, 'null']
           format: date-time
           description: Null while the assignment is a draft.
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
         window:
           type: object
           required: [opensAt, closesAt]
@@ -1082,6 +1093,10 @@ components:
         submittedCount: { type: integer, minimum: 0 }
         targetCount: { type: integer, minimum: 0 }
         flaggedCount: { type: integer, minimum: 0 }
+        pendingGradingCount:
+          type: integer
+          minimum: 0
+          description: Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm").
 
     # ---------------------------------------------------------------- attempts
 

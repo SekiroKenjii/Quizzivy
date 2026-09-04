@@ -1867,18 +1867,24 @@ export interface components {
             testVersion: number;
             testTitle: string;
             targets: {
-                /** @description The classes this assignment targets, with their names. */
+                /** @description The classes this assignment targets, with their names and live member counts. */
                 classes: {
                     id: components["schemas"]["Uuid"];
                     name: string;
+                    studentCount: number;
                 }[];
-                studentIds: components["schemas"]["Uuid"][];
+                /** @description The students targeted by name, with their names (G-09's chips). */
+                students: {
+                    id: components["schemas"]["Uuid"];
+                    name: string;
+                }[];
             };
             /**
              * Format: date-time
              * @description Null while the assignment is a draft.
              */
             publishedAt: string | null;
+            updatedAt: components["schemas"]["Timestamp"];
             window: {
                 opensAt: components["schemas"]["Timestamp"];
                 closesAt: components["schemas"]["Timestamp"];
@@ -1903,6 +1909,8 @@ export interface components {
             submittedCount?: number;
             targetCount?: number;
             flaggedCount?: number;
+            /** @description Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm"). */
+            pendingGradingCount?: number;
         };
         /** @enum {string} */
         AttemptStatus: "in_progress" | "submitted" | "timed_out" | "graded" | "voided";
