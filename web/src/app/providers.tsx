@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router";
+import { Toaster } from "@/components/ui/sonner";
 import { useEffect } from "react";
 import { queryClient } from "./queryClient";
 import { router } from "./router";
@@ -26,6 +27,7 @@ export function AppProviders() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>
   );
 }

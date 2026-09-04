@@ -20,10 +20,9 @@ import { Card } from "@/components/ui/card";
 import { enterFullscreen } from "@/features/integrity/fullscreen";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { ApiError } from "@/lib/api/errors";
-import { formatTime } from "@/lib/i18n/datetime";
+import { formatTime, shortDate } from "@/lib/i18n/datetime";
 import { getMyAssignment, type StudentAssignmentDetail } from "../api";
 import { duringRules, type Rule } from "../studentRules";
-import { shortDate } from "../studentTime";
 
 /** S-04: the contract before the clock starts. */
 export default function AssignmentIntroPage() {

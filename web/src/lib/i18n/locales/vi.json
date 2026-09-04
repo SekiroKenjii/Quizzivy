@@ -13,7 +13,12 @@
     "comingSoon": "Phần này sẽ được xây dựng ở giai đoạn sau.",
     "save": "Lưu",
     "saving": "Đang lưu…",
-    "loadingMore": "Đang tải thêm…"
+    "loadingMore": "Đang tải thêm…",
+    "actions": "Thao tác",
+    "undo": "Hoàn tác",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "requestId": "Mã lỗi"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -283,7 +288,6 @@
       "join": "Tham gia bằng mã",
       "created": "Tạo"
     },
-    "actions": "Thao tác",
     "joinOpen": "Đang mở",
     "joinClosed": "Đóng",
     "archivedBadge": "Đã lưu trữ",
@@ -301,7 +305,10 @@
     "archiveNoneOpen": "Không có bài nào đang mở.",
     "archiveRestoreNote": "Bạn khôi phục được bất cứ lúc nào từ mục Đã lưu trữ.",
     "archiveFailed": "Không lưu trữ được lớp.",
-    "codeHint": "••••{{hint}}"
+    "codeHint": "••••{{hint}}",
+    "created": "Đã tạo lớp",
+    "archived": "Đã lưu trữ lớp",
+    "restored": "Đã khôi phục lớp"
   },
   "settings": {
     "profile": "Hồ sơ",
@@ -632,11 +639,6 @@
       "voided": "bị huỷ",
       "expired": "hết giờ"
     },
-    "assignmentStatus": {
-      "scheduled": "Đã lên lịch",
-      "open": "Đang mở",
-      "closed": "Đã đóng"
-    },
     "notifications": "Thông báo",
     "notificationsWith": "Thông báo, {{count}} việc cần xử lý",
     "nothingOutstanding": "Không có việc nào cần xử lý.",
@@ -647,12 +649,6 @@
     "new": "Giao bài mới",
     "all": "Tất cả",
     "statusFilter": "Lọc theo trạng thái",
-    "status": {
-      "draft": "Nháp",
-      "open": "Đang mở",
-      "scheduled": "Sắp mở",
-      "closed": "Đã đóng"
-    },
     "test": "Đề thi",
     "targets": "Giao cho",
     "window": "Cửa sổ",
@@ -994,5 +990,31 @@
     "nextShort": "Sau",
     "more": "Các trang khác",
     "page": "Trang {{n}}"
+  },
+  "status": {
+    "test": {
+      "draft": "Bản nháp",
+      "published": "Đã phát hành",
+      "archived": "Đã lưu trữ"
+    },
+    "assignment": {
+      "draft": "Bản nháp",
+      "scheduled": "Đã lên lịch",
+      "open": "Đang mở",
+      "closed": "Đã đóng"
+    },
+    "attempt": {
+      "not_started": "Chưa bắt đầu",
+      "in_progress": "Đang làm",
+      "submitted": "Đã nộp",
+      "timed_out": "Hết giờ",
+      "graded": "Đã chấm",
+      "voided": "Đã huỷ"
+    },
+    "attention": {
+      "flagged": "Cần xem lại",
+      "pendingManual": "Chờ chấm tay",
+      "audio": "Có audio"
+    }
   }
 }

@@ -45,27 +45,22 @@ import {
   type Test,
   type TestStatus,
 } from "@/features/tests/api";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { ApiError } from "@/lib/api/errors";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 
 const TABS: (TestStatus | "all")[] = ["all", "draft", "published", "archived"];
 
-const STATUS_VARIANT: Record<TestStatus, "success" | "secondary" | "outline"> = {
-  published: "success",
-  draft: "secondary",
-  archived: "outline",
-};
-
 /** §8's tests list, as the deck's A-03. */
 const PAGE_SIZE = 20;
 
 export default function TestsListPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -74,7 +69,7 @@ export default function TestsListPage() {
   const [tags, setTags] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const search = useDebounced(query, 300);
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   const [page] = usePage(
     JSON.stringify({ tab, search: search.trim(), tags: [...tags] }),
@@ -276,9 +271,7 @@ export default function TestsListPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={STATUS_VARIANT[test.status]}>
-                        {t(`builder.${test.status}`)}
-                      </Badge>
+                      <StatusBadge kind="test" status={test.status} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {test.questionCount}
@@ -369,10 +362,4 @@ function RowActions({
 
 function message(cause: unknown, fallback: string): string {
   return cause instanceof ApiError ? cause.message : fallback;
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

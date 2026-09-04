@@ -16,7 +16,7 @@ import {
 } from "@/features/students/api";
 import { removeMember } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 
@@ -28,11 +28,11 @@ export function StudentDrawer({
   student: Student;
   onClose: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [temporary, setTemporary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   // Escape closes it.
   useEffect(() => {
@@ -227,10 +227,4 @@ function Tile({ label, value }: { label: string; value: string }) {
       <p className="text-lg font-semibold tabular-nums">{value}</p>
     </div>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

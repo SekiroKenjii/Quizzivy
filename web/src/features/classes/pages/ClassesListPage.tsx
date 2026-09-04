@@ -10,24 +10,16 @@ import { Link } from "react-router";
 import {
   ArchiveRestore,
   ArrowUpRight,
-  Ellipsis,
   Inbox,
   Plus,
-  Search,
   Send,
   UserPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/sonner";
 import {
   Table,
   TableBody,
@@ -47,11 +39,13 @@ import {
   type ClassStatus,
 } from "@/features/classes/api";
 import { invalidateClass } from "@/features/classes/invalidate";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
+import { RowMenu } from "@/components/shared/RowMenu";
+import { SearchInput } from "@/components/shared/SearchInput";
 import { usePage } from "@/hooks/usePage";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
-import { formatDayMonth } from "@/lib/i18n/datetime";
+import { shortDate } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
 
@@ -61,14 +55,13 @@ const TABS: Tab[] = ["all", "joinable", "archived"];
 
 /** §8's classes list, as the deck's G-08: create and archive, never delete. */
 export default function ClassesListPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const [creating, setCreating] = useState(false);
   const [archiving, setArchiving] = useState<Class | null>(null);
   const search = useDebounced(query, 300).trim();
-  const locale = currentLocale(i18n.language);
 
   const [page] = usePage(JSON.stringify({ search, tab }));
   const classes = useQuery({
@@ -87,7 +80,11 @@ export default function ClassesListPage() {
   });
   const restore = useMutation({
     mutationFn: (id: string) => updateClass(id, { archived: false }),
-    onSuccess: (_, id) => invalidateClass(queryClient, id),
+    onSuccess: async (_, id) => {
+      await invalidateClass(queryClient, id);
+      toast(t("classes.restored"));
+    },
+    onError: () => toast(t("classes.restoreFailed")),
   });
 
   const items = classes.data?.items ?? [];
@@ -115,13 +112,16 @@ export default function ClassesListPage() {
       />
 
       {nothingYet ? (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm">{t("classes.empty")}</p>
-          <Button size="sm" className="mt-3" onClick={() => setCreating(true)}>
-            <Plus aria-hidden="true" />
-            {t("classes.createFirst")}
-          </Button>
-        </div>
+        <EmptyState
+          action={
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <Plus aria-hidden="true" />
+              {t("classes.createFirst")}
+            </Button>
+          }
+        >
+          {t("classes.empty")}
+        </EmptyState>
       ) : (
         <>
           <div className="flex items-center gap-2">
@@ -139,42 +139,20 @@ export default function ClassesListPage() {
                 ))}
               </TabsList>
             </Tabs>
-            <div className="relative ml-auto w-72">
-              <Search
-                className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
-                aria-hidden="true"
-              />
-              <Input
-                className="pl-9"
-                value={query}
-                placeholder={t("classes.searchPlaceholder")}
-                aria-label={t("classes.searchPlaceholder")}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </div>
+            <SearchInput
+              className="ml-auto"
+              value={query}
+              onChange={setQuery}
+              placeholder={t("classes.searchPlaceholder")}
+            />
           </div>
 
           {classes.isPending ? (
-            <p
-              role="status"
-              aria-live="polite"
-              className="text-muted-foreground text-sm"
-            >
-              {t("common.loading")}
-            </p>
+            <ListSkeleton />
           ) : classes.isError ? (
-            <div className="space-y-3">
-              <p role="alert" className="text-sm">
-                {t("classes.loadFailed")}
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void classes.refetch()}
-              >
-                {t("common.retry")}
-              </Button>
-            </div>
+            <LoadError error={classes.error} onRetry={() => void classes.refetch()}>
+              {t("classes.loadFailed")}
+            </LoadError>
           ) : items.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("classes.noMatches")}</p>
           ) : (
@@ -202,7 +180,6 @@ export default function ClassesListPage() {
                       <Row
                         key={klass.id}
                         klass={klass}
-                        locale={locale}
                         onArchive={() => setArchiving(klass)}
                         onRestore={() => restore.mutate(klass.id)}
                       />
@@ -235,12 +212,10 @@ export default function ClassesListPage() {
 
 function Row({
   klass,
-  locale,
   onArchive,
   onRestore,
 }: {
   klass: Class;
-  locale: Locale;
   onArchive: () => void;
   onRestore: () => void;
 }) {
@@ -288,64 +263,46 @@ function Row({
         )}
       </TableCell>
       <TableCell className="text-muted-foreground tabular-nums">
-        {formatDayMonth(klass.createdAt, locale)}
+        {shortDate(klass.createdAt)}
       </TableCell>
       <TableCell className="text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              aria-label={t("classes.actions")}
-            >
-              <Ellipsis className="size-3.5" aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem asChild>
-              <Link to={href}>
-                <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
-                {t("classes.open")}
-              </Link>
+        <RowMenu>
+          <DropdownMenuItem asChild>
+            <Link to={href}>
+              <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
+              {t("classes.open")}
+            </Link>
+          </DropdownMenuItem>
+          {archived ? null : (
+            <>
+              <DropdownMenuItem asChild>
+                <Link to={`/admin/assignments/new?classId=${klass.id}`}>
+                  <Send className="text-muted-foreground" aria-hidden="true" />
+                  {t("classes.assign")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to={href}>
+                  <UserPlus className="text-muted-foreground" aria-hidden="true" />
+                  {t("classes.addStudents")}
+                </Link>
+              </DropdownMenuItem>
+            </>
+          )}
+          <DropdownMenuSeparator />
+          {archived ? (
+            <DropdownMenuItem onSelect={onRestore}>
+              <ArchiveRestore className="text-muted-foreground" aria-hidden="true" />
+              {t("classes.restore")}
             </DropdownMenuItem>
-            {archived ? null : (
-              <>
-                <DropdownMenuItem asChild>
-                  <Link to={`/admin/assignments/new?classId=${klass.id}`}>
-                    <Send className="text-muted-foreground" aria-hidden="true" />
-                    {t("classes.assign")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to={href}>
-                    <UserPlus className="text-muted-foreground" aria-hidden="true" />
-                    {t("classes.addStudents")}
-                  </Link>
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            {archived ? (
-              <DropdownMenuItem onSelect={onRestore}>
-                <ArchiveRestore className="text-muted-foreground" aria-hidden="true" />
-                {t("classes.restore")}
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem className="text-muted-foreground" onSelect={onArchive}>
-                <Inbox aria-hidden="true" />
-                {t("classes.archive")}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          ) : (
+            <DropdownMenuItem className="text-muted-foreground" onSelect={onArchive}>
+              <Inbox aria-hidden="true" />
+              {t("classes.archive")}
+            </DropdownMenuItem>
+          )}
+        </RowMenu>
       </TableCell>
     </TableRow>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

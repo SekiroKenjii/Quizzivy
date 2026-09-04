@@ -14,7 +14,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { listQuestions } from "@/features/question-bank/api";
@@ -193,12 +193,11 @@ export function CommandPalette({
                     />
                     <span className="truncate">{entry.label}</span>
                     {entry.status ? (
-                      <Badge
+                      <StatusBadge
                         className="ml-auto"
-                        variant={entry.status === "published" ? "success" : "secondary"}
-                      >
-                        {t(`builder.${entry.status}`)}
-                      </Badge>
+                        kind="test"
+                        status={entry.status}
+                      />
                     ) : null}
                     {entry.hint ? (
                       <span className="text-muted-foreground ml-auto shrink-0 text-xs">

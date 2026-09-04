@@ -24,7 +24,8 @@ import {
   scorePercent,
   type Student,
 } from "@/features/students/api";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -35,13 +36,13 @@ const PAGE_SIZE = 20;
 
 /** §8's students table, as the deck's G-07. */
 export default function StudentsListPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDisabled, setShowDisabled] = useState(false);
   const [creating, setCreating] = useState(false);
   const search = useDebounced(query, 300).trim();
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   const [page] = usePage(JSON.stringify({ search, showDisabled }));
   const students = useQuery({
@@ -286,10 +287,4 @@ function Row({
       </TableCell>
     </TableRow>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

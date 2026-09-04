@@ -153,7 +153,7 @@ describe("the assignment detail", () => {
     serve(assignment({ publishedAt: null, status: "draft" }));
     const user = renderDetail();
 
-    expect(await screen.findByText("Nháp")).toBeInTheDocument();
+    expect(await screen.findByText("Bản nháp")).toBeInTheDocument();
     expect(screen.getByText(/Học viên chưa thấy bài này/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Chỉnh sửa" })).toHaveAttribute(
       "href",

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/sonner";
 import { createClass } from "@/features/classes/api";
 import { newClassSchema, type NewClassValues } from "@/features/classes/newClassSchema";
 import { ApiError, fieldMessages } from "@/lib/api/errors";
@@ -50,6 +51,7 @@ export function NewClassDialog({
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
       close();
+      toast(t("classes.created"));
       void navigate(`/admin/classes/${created.id}`);
     },
     onError: (cause) => {

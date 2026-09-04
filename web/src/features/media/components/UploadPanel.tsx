@@ -9,7 +9,8 @@ import {
   MAX_DURATION_MS,
   type Rejection,
 } from "@/features/media/limits";
-import { formatBytes, formatDuration } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength } from "@/lib/i18n/datetime";
 import { precheck } from "@/features/media/probe";
 import { ApiError } from "@/lib/api/errors";
 
@@ -178,7 +179,7 @@ function rejectionMessage(t: TFunction, rejection: Rejection): string {
     case "duration":
       return t("media.rejectDuration", {
         name: rejection.name,
-        duration: formatDuration(rejection.durationMs ?? MAX_DURATION_MS),
+        duration: audioLength(rejection.durationMs ?? MAX_DURATION_MS),
       });
     default:
       return t("media.uploadFailed");

@@ -186,7 +186,7 @@ describe("a draft assignment", () => {
     renderList();
 
     const table = await rows();
-    expect(table.getByText("Nháp")).toBeInTheDocument();
+    expect(table.getByText("Bản nháp")).toBeInTheDocument();
     expect(table.queryByText("Đang mở")).toBeNull();
   });
 });

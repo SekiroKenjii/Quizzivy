@@ -32,7 +32,8 @@ import {
 import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
 import { useFileDrop } from "@/features/media/useFileDrop";
 import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api";
-import { formatBytes, formatDuration, formatUploadedAt } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength, shortDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
@@ -287,7 +288,7 @@ function AssetTable({
                   {asset.mimeType}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatDuration(asset.durationMs)}
+                  {audioLength(asset.durationMs)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatBytes(asset.bytes)}
@@ -300,7 +301,7 @@ function AssetTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatUploadedAt(asset.createdAt)}
+                  {shortDate(asset.createdAt)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-0.5">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import vi from "@/lib/i18n/locales/vi.json";
 import en from "@/lib/i18n/locales/en.json";
-import { formatDateTime, formatDuration, APP_TIME_ZONE } from "@/lib/i18n/datetime";
+import { formatDateTime, countdown, APP_TIME_ZONE } from "@/lib/i18n/datetime";
 
 /** Flatten to dotted key paths so a nested drift is caught, not just a top-level one. */
 function keyPaths(obj: unknown, prefix = ""): string[] {
@@ -51,11 +51,11 @@ describe("datetime", () => {
   });
 
   it("formats a countdown", () => {
-    expect(formatDuration(0)).toBe("00:00");
-    expect(formatDuration(59_000)).toBe("00:59");
-    expect(formatDuration(90_000)).toBe("01:30");
-    expect(formatDuration(3_600_000)).toBe("1:00:00");
-    expect(formatDuration(-5_000), "a passed deadline shows zero, never negative").toBe(
+    expect(countdown(0)).toBe("00:00");
+    expect(countdown(59_000)).toBe("00:59");
+    expect(countdown(90_000)).toBe("01:30");
+    expect(countdown(3_600_000)).toBe("1:00:00");
+    expect(countdown(-5_000), "a passed deadline shows zero, never negative").toBe(
       "00:00",
     );
   });

@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from "react";
+import { countdown } from "@/lib/i18n/datetime";
 import { remainingMs, useTakeTestStore } from "../store";
 
 /** The clock, read from the server's time rather than the device's. */
@@ -12,14 +13,7 @@ export function Clock() {
   }, []);
   return (
     <span className="text-sm font-semibold tabular-nums">
-      {mmss(remainingMs({ deadlineAt, offsetMs }))}
+      {countdown(remainingMs({ deadlineAt, offsetMs }))}
     </span>
   );
-}
-
-function mmss(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }

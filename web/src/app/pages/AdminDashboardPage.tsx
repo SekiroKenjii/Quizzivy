@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { useQueries } from "@tanstack/react-query";
 import { Plus, Send } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,9 +19,11 @@ import {
   listAssignments,
   type Assignment,
 } from "@/features/dashboard/api";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime, formatRelative } from "@/lib/i18n/datetime";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 /**
  * §8's /admin, as A-01: a work queue rather than a wall of statistics.
@@ -32,8 +33,8 @@ import { PageHeader } from "@/components/shared/PageHeader";
  * it is, and the one action that clears it.
  */
 export default function AdminDashboardPage() {
-  const { t, i18n } = useTranslation();
-  const locale = currentLocale(i18n.language);
+  const { t } = useTranslation();
+  const locale = useLocale();
 
   const [summary, open] = useQueries({
     queries: [
@@ -302,16 +303,8 @@ function AssignmentRow({
       </TableCell>
       {/* Its own right-aligned column, as A-01 draws it. */}
       <TableCell className="text-right">
-        <Badge variant={status === "open" ? "warning" : "outline"}>
-          {t(`dashboard.assignmentStatus.${status}`)}
-        </Badge>
+        <StatusBadge kind="assignment" status={status} />
       </TableCell>
     </TableRow>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

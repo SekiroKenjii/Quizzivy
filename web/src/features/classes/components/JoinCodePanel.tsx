@@ -15,19 +15,15 @@ import {
 } from "@/components/ui/dialog";
 import { revokeJoinCode, rotateJoinCode, type Class } from "@/features/classes/api";
 import { formatDateTime } from "@/lib/i18n/datetime";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { ApiError } from "@/lib/api/errors";
 
 /** §6.4's join-code panel. */
 /** i18next hands back a plain string; the formatter wants one of ours. */
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
-}
 
 export function JoinCodePanel({ klass }: { klass: Class }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Deliberately component state, not the query cache.
@@ -82,7 +78,7 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   const joinUrl = freshCode
     ? `${window.location.origin}/join/${freshCode.replace("-", "")}`
     : null;
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   function copyJoinUrl(url: string) {
     const clipboard = navigator.clipboard as Clipboard | undefined;

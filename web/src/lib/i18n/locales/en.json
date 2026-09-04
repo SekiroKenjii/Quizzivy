@@ -13,7 +13,12 @@
     "comingSoon": "This section is built in a later phase.",
     "save": "Save",
     "saving": "Saving…",
-    "loadingMore": "Loading more…"
+    "loadingMore": "Loading more…",
+    "actions": "Actions",
+    "undo": "Undo",
+    "copy": "Copy",
+    "copied": "Copied",
+    "requestId": "Request id"
   },
   "error": {
     "title": "Something went wrong",
@@ -283,7 +288,6 @@
       "join": "Join by code",
       "created": "Created"
     },
-    "actions": "Actions",
     "joinOpen": "Open",
     "joinClosed": "Closed",
     "archivedBadge": "Archived",
@@ -301,7 +305,10 @@
     "archiveNoneOpen": "No assignment is open.",
     "archiveRestoreNote": "You can restore it any time from Archived.",
     "archiveFailed": "Could not archive the class.",
-    "codeHint": "••••{{hint}}"
+    "codeHint": "••••{{hint}}",
+    "created": "Class created",
+    "archived": "Class archived",
+    "restored": "Class restored"
   },
   "settings": {
     "profile": "Profile",
@@ -632,11 +639,6 @@
       "voided": "had voided",
       "expired": "ran out of time on"
     },
-    "assignmentStatus": {
-      "scheduled": "Scheduled",
-      "open": "Open",
-      "closed": "Closed"
-    },
     "notifications": "Notifications",
     "notificationsWith": "Notifications, {{count}} outstanding",
     "nothingOutstanding": "Nothing outstanding.",
@@ -647,12 +649,6 @@
     "new": "New assignment",
     "all": "All",
     "statusFilter": "Filter by status",
-    "status": {
-      "draft": "Draft",
-      "open": "Open",
-      "scheduled": "Scheduled",
-      "closed": "Closed"
-    },
     "test": "Test",
     "targets": "Assigned to",
     "window": "Window",
@@ -994,5 +990,31 @@
     "nextShort": "Next",
     "more": "More pages",
     "page": "Page {{n}}"
+  },
+  "status": {
+    "test": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "assignment": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "attempt": {
+      "not_started": "Not started",
+      "in_progress": "In progress",
+      "submitted": "Submitted",
+      "timed_out": "Timed out",
+      "graded": "Graded",
+      "voided": "Voided"
+    },
+    "attention": {
+      "flagged": "Needs review",
+      "pendingManual": "Awaiting grading",
+      "audio": "Has audio"
+    }
   }
 }

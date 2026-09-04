@@ -33,7 +33,8 @@ import {
   type AssignmentStatus,
 } from "@/features/assignments/api";
 import { toInput } from "@/features/assignments/input";
-import { STATUS_VARIANT, statusAt } from "@/features/assignments/status";
+import { statusAt } from "@/features/assignments/status";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { listVersions, type TestVersion } from "@/features/tests/api";
 import { ApiError } from "@/lib/api/errors";
 import { formatDate, formatMoment, formatTime } from "@/lib/i18n/datetime";
@@ -120,9 +121,7 @@ export default function AssignmentDetailPage() {
         backTo="/admin/assignments"
         meta={
           <>
-            <Badge variant={STATUS_VARIANT[status]}>
-              {t(`assignments.status.${status}`)}
-            </Badge>
+            <StatusBadge kind="assignment" status={status} />
             <span className="text-muted-foreground text-xs">
               {barMeta(a, status, now, t)}
             </span>

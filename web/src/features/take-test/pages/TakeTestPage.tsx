@@ -26,7 +26,7 @@ import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { answered } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
 import { useTakeTestStore } from "../store";
-import { hhmm } from "../time";
+import { formatTime } from "@/lib/i18n/datetime";
 
 /**
  * S-05's engine, one question at a time -- and S-06's two other views of the
@@ -427,7 +427,7 @@ function SaveStrip({
             <Check className="size-3.5" aria-hidden="true" />
             {lastSavedAt === null
               ? t("takeTest.savedNothingYet")
-              : t("takeTest.saved", { time: hhmm(lastSavedAt) })}
+              : t("takeTest.saved", { time: formatTime(lastSavedAt) })}
           </>
         )}
         {indicator !== null && <span className="ml-auto">{indicator}</span>}

@@ -26,7 +26,7 @@ import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCa
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { ApiError } from "@/lib/api/errors";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDate } from "@/lib/i18n/datetime";
 import {
   keepPreviousData,
@@ -42,21 +42,15 @@ import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 import { useDebounced } from "@/lib/useDebounced";
 
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
-}
-
 /** §6.4's class screen: the join code, and who is in the class. */
 const MEMBERS_PAGE_SIZE = 20;
 
 export default function ClassDetailPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   const klass = useQuery({
     queryKey: ["admin-class", id],

@@ -2,13 +2,14 @@ import { useTranslation } from "react-i18next";
 import { Check, CircleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { AutosaveStatus } from "@/features/tests/useAutosave";
+import { formatTime } from "@/lib/i18n/datetime";
 
 /**
  * §8: autosave is reported in words, never as a spinner that leaves the teacher
  * guessing whether it is safe to close the tab.
  */
 export function AutosaveStatusLabel({ status }: { status: AutosaveStatus }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   if (status.kind === "idle") return null;
 
@@ -32,7 +33,7 @@ export function AutosaveStatusLabel({ status }: { status: AutosaveStatus }) {
     return (
       <Badge role="status" aria-live="polite">
         <Check aria-hidden="true" />
-        {t("builder.saved", { time: timeOf(status.at, i18n.language) })}
+        {t("builder.saved", { time: formatTime(status.at) })}
       </Badge>
     );
   }
@@ -43,12 +44,4 @@ export function AutosaveStatusLabel({ status }: { status: AutosaveStatus }) {
       {status.kind === "stale" ? t("builder.stale") : t("builder.saveFailed")}
     </Badge>
   );
-}
-
-function timeOf(at: Date, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(at);
 }

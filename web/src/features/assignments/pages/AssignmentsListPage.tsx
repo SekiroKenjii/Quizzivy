@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Flag, Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,8 +19,10 @@ import {
   type Assignment,
   type AssignmentStatus,
 } from "@/features/assignments/api";
-import { STATUS_VARIANT, statusAt } from "@/features/assignments/status";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { statusAt } from "@/features/assignments/status";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
@@ -45,10 +46,10 @@ const TABS: (AssignmentStatus | "all")[] = [
 const PAGE_SIZE = 20;
 
 export default function AssignmentsListPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<AssignmentStatus | "all">("all");
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
   const now = new Date();
 
   const [page] = usePage(tab);
@@ -89,9 +90,7 @@ export default function AssignmentsListPage() {
         <TabsList aria-label={t("assignments.statusFilter")}>
           {TABS.map((value) => (
             <TabsTrigger key={value} value={value}>
-              {value === "all"
-                ? t("assignments.all")
-                : t(`assignments.status.${value}`)}
+              {value === "all" ? t("assignments.all") : t(`status.assignment.${value}`)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -212,9 +211,7 @@ function Row({
         })}
       </TableCell>
       <TableCell>
-        <Badge variant={STATUS_VARIANT[status]}>
-          {t(`assignments.status.${status}`)}
-        </Badge>
+        <StatusBadge kind="assignment" status={status} />
       </TableCell>
       <TableCell className="text-right tabular-nums">
         {t("assignments.progressValue", { submitted, total })}
@@ -231,10 +228,4 @@ function Row({
       </TableCell>
     </TableRow>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }
