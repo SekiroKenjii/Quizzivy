@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ban, KeyRound, UserCheck, X } from "lucide-react";
+import { Ban, KeyRound, Pencil, UserCheck, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageAside } from "@/components/shared/PageAside";
+import { toast } from "@/components/ui/sonner";
+import { EditStudentForm } from "@/features/students/components/EditStudentForm";
 import { TemporaryPasswordCard } from "@/features/students/components/TemporaryPasswordCard";
 import {
   resetStudentPassword,
@@ -16,7 +19,7 @@ import {
 } from "@/features/students/api";
 import { removeMember } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 
@@ -28,25 +31,31 @@ export function StudentDrawer({
   student: Student;
   onClose: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [temporary, setTemporary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
-  // Escape closes it.
+  // Escape closes it, unless a layer above already answered for it.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState<
+    { kind: "disable" } | { kind: "remove"; classId: string; className: string } | null
+  >(null);
   const setDisabled = useMutation({
     mutationFn: (disabled: boolean) => updateStudent(student.id, { disabled }),
-    onSuccess: async () => {
+    onSuccess: async (_, disabled) => {
       setError(null);
+      setConfirming(null);
+      toast(t(disabled ? "students.disabled" : "students.enabled"));
       await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-student", student.id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
@@ -71,6 +80,8 @@ export function StudentDrawer({
     mutationFn: (classId: string) => removeMember(classId, student.id),
     onSuccess: async (_data, classId) => {
       setError(null);
+      setConfirming(null);
+      toast(t("students.removed"));
       await invalidateClassMembership(queryClient, classId);
       await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
     },
@@ -85,23 +96,38 @@ export function StudentDrawer({
     <PageAside label={t("students.detailFor", { name: student.fullName })}>
       <div className="flex items-start gap-3">
         <Avatar size="lg" name={student.fullName} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-semibold">{student.fullName}</p>
-          <p className="text-muted-foreground truncate text-xs">{student.email}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {student.linkedProviders.includes("google") ? (
-              <Badge variant="outline">{t("students.google")}</Badge>
-            ) : null}
-            {student.hasPassword ? (
-              <Badge variant="outline">{t("students.password")}</Badge>
-            ) : null}
-            {student.disabledAt ? (
-              <Badge variant="outline" className="text-destructive-ink">
-                {t("students.disabledBadge")}
-              </Badge>
-            ) : null}
+        {editing ? (
+          <EditStudentForm student={student} onDone={() => setEditing(false)} />
+        ) : (
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 truncate text-base font-semibold">
+              {student.fullName}
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground"
+                aria-label={t("students.editInfo")}
+                onClick={() => setEditing(true)}
+              >
+                <Pencil aria-hidden="true" />
+              </Button>
+            </p>
+            <p className="text-muted-foreground truncate text-xs">{student.email}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {student.linkedProviders.includes("google") ? (
+                <Badge variant="outline">{t("students.google")}</Badge>
+              ) : null}
+              {student.hasPassword ? (
+                <Badge variant="outline">{t("students.password")}</Badge>
+              ) : null}
+              {student.disabledAt ? (
+                <Badge variant="outline" className="text-destructive-ink">
+                  {t("students.disabledBadge")}
+                </Badge>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -158,7 +184,13 @@ export function StudentDrawer({
                 size="xs"
                 className="text-muted-foreground shrink-0"
                 disabled={remove.isPending}
-                onClick={() => remove.mutate(klass.id)}
+                onClick={() =>
+                  setConfirming({
+                    kind: "remove",
+                    classId: klass.id,
+                    className: klass.name,
+                  })
+                }
               >
                 {t("students.removeFromClass")}
               </Button>
@@ -206,7 +238,11 @@ export function StudentDrawer({
           size="sm"
           className="mt-2.5"
           disabled={setDisabled.isPending}
-          onClick={() => setDisabled.mutate(!student.disabledAt)}
+          onClick={() =>
+            student.disabledAt
+              ? setDisabled.mutate(false)
+              : setConfirming({ kind: "disable" })
+          }
         >
           {student.disabledAt ? (
             <UserCheck aria-hidden="true" />
@@ -216,6 +252,35 @@ export function StudentDrawer({
           {student.disabledAt ? t("students.enable") : t("students.disable")}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => !open && setConfirming(null)}
+        title={
+          confirming?.kind === "remove"
+            ? t("students.removeConfirmTitle", {
+                name: student.fullName,
+                klass: confirming.className,
+              })
+            : t("students.disableConfirmTitle", { name: student.fullName })
+        }
+        description={t(
+          confirming?.kind === "remove"
+            ? "students.removeConfirmBody"
+            : "students.disableConfirmBody",
+        )}
+        confirmLabel={t(
+          confirming?.kind === "remove"
+            ? "students.removeFromClass"
+            : "students.disable",
+        )}
+        destructive
+        pending={remove.isPending || setDisabled.isPending}
+        onConfirm={() => {
+          if (confirming?.kind === "remove") remove.mutate(confirming.classId);
+          else setDisabled.mutate(true);
+        }}
+      />
     </PageAside>
   );
 }
@@ -227,10 +292,4 @@ function Tile({ label, value }: { label: string; value: string }) {
       <p className="text-lg font-semibold tabular-nums">{value}</p>
     </div>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

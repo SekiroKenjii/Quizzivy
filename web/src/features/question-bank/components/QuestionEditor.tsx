@@ -40,6 +40,8 @@ interface QuestionEditorProps {
   onAssetChange: (asset: MediaAsset | null) => void;
   /** Refetches the question so an expired media URL can be replaced. */
   onRefresh?: (() => void) | undefined;
+  /** The builder has no room for a third column below 1024px, so it takes the panel as a sheet. */
+  settings?: { hideBelow: "lg"; open: boolean; onOpenChange: (open: boolean) => void };
 }
 
 /**
@@ -52,6 +54,7 @@ export function QuestionEditor({
   asset,
   onRefresh,
   contextLabel = null,
+  settings,
   onChange,
   onAssetChange,
 }: QuestionEditorProps) {
@@ -165,7 +168,15 @@ export function QuestionEditor({
         </div>
       </div>
 
-      <PageAside label={t("questionEditor.settings")}>
+      <PageAside
+        label={t("questionEditor.settings")}
+        {...(settings === undefined
+          ? {}
+          : {
+              hideBelow: settings.hideBelow,
+              sheet: { open: settings.open, onOpenChange: settings.onOpenChange },
+            })}
+      >
         <div>
           <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
             {t("questionEditor.settings")}

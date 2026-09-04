@@ -10,7 +10,8 @@ import {
 import { useFileDrop } from "@/features/media/useFileDrop";
 import type { MediaAsset } from "@/features/media/api";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
-import { formatBytes, formatDuration } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength } from "@/lib/i18n/datetime";
 
 interface QuestionMediaFieldProps {
   /** Refetches the question, minting a fresh signed URL when one expires. */
@@ -66,7 +67,7 @@ export function QuestionMediaField({
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{value.originalFilename}</p>
               <p className="text-muted-foreground text-xs tabular-nums">
-                {formatDuration(value.durationMs)} · {formatBytes(value.bytes)}
+                {audioLength(value.durationMs)} · {formatBytes(value.bytes)}
               </p>
             </div>
             <Button

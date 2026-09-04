@@ -717,6 +717,66 @@
             wrong place.
           </p>
         </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-12</span>
+            <span class="board-name">Admin at 768 — what the side columns do</span>
+            <span class="board-route">§8 · minimum supported width</span>
+          </div>
+          <p class="board-note">
+            §8 sets 768px as the admin minimum and the sidebar already collapses at 1280, so a
+            screen has the full 768 to spend. Measured at that width, every list, both detail
+            screens and the assignment form are fine: their tables scroll inside their own card
+            and nothing is clipped or unreachable. One screen is not. The builder puts an outline
+            (18rem), an editor and a settings panel (20rem) side by side, which leaves the editor
+            <strong>145px</strong> — a prompt field four words wide. This board is the rule that
+            fixes it, and it is deliberately narrow in scope: nothing else needed changing.
+          </p>
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Rail · stays</p>
+              <p class="text-sm text-muted-foreground">
+                14rem out of 768 leaves 544 for the middle, which the question bank's table uses
+                without complaint. A filter rail that disappears takes the results' meaning with
+                it, so it stays drawn at every supported width.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Panel · becomes a sheet</p>
+              <p class="text-sm text-muted-foreground">
+                Below 1024px the panel leaves the layout and its content opens from a button in
+                the screen's own bar, unchanged. This is S-08's move — the take-test navigator is
+                a rail from lg up and a sheet below it — applied to the other column role.
+                Nothing is hidden: the same fields, one tap away.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Bar · labels drop to icons</p>
+              <p class="text-sm text-muted-foreground">
+                A bar carrying a title field, a status, a save state and four buttons cannot hold
+                them all at 768. The secondary actions keep their icon and lose their label below
+                lg, exactly as S-05's flag button already does, so the primary action and the
+                title stay legible.
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-5 mt-4">
+            <div class="callout">
+              <strong>Measured, not assumed.</strong> The rule above comes from walking every
+              admin route at 768 and asking one question per element: does anything sit past the
+              viewport with no scrollable ancestor? On the lists the answer was no — the tables
+              were already scrolling inside their cards, so the earlier report of a clipped table
+              was wrong. Only the builder failed, and only once a question was selected.
+            </div>
+            <div class="callout">
+              <strong>What this is not.</strong> Not a phone layout. §1.1 keeps the admin side
+              desktop-and-tablet, and 768 is the floor, not a target to design toward. The panel
+              still belongs beside the content wherever it fits; the sheet is what happens when
+              the room runs out.
+            </div>
+          </div>
+        </div>
       </section>
     </div>
 

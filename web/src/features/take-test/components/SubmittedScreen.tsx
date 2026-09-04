@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SubmitReason } from "../store";
-import { ddmm, hhmm } from "../time";
+import { formatTime, shortDate } from "@/lib/i18n/datetime";
 
 /**
  * S-06's closed state: the engine chrome is gone, the cause is said once in
@@ -36,8 +36,8 @@ export function SubmittedScreen({
       </p>
       <p className="text-muted-foreground mt-3 text-xs tabular-nums">
         {t("takeTest.submittedMeta", {
-          time: hhmm(submittedAt),
-          date: ddmm(submittedAt),
+          time: formatTime(submittedAt),
+          date: shortDate(submittedAt),
           answered,
           total,
         })}

@@ -13,7 +13,12 @@
     "comingSoon": "This section is built in a later phase.",
     "save": "Save",
     "saving": "Saving…",
-    "loadingMore": "Loading more…"
+    "loadingMore": "Loading more…",
+    "actions": "Actions",
+    "undo": "Undo",
+    "copy": "Copy",
+    "copied": "Copied",
+    "requestId": "Request id"
   },
   "error": {
     "title": "Something went wrong",
@@ -244,7 +249,18 @@
     "alreadyMember": "already a member",
     "add": "Add",
     "addFailed": "Could not add the student. Please try again.",
-    "assignToClass": "Assign to class"
+    "assignToClass": "Assign to class",
+    "removed": "Removed from the class",
+    "expiryLabel": "Expires after",
+    "expiryDays": "{{days}} days",
+    "maxUsesLabel": "Use limit",
+    "maxUsesPlaceholder": "Default 40",
+    "maxUsesHint": "Left empty, the server applies its default limit of 40 uses.",
+    "maxUsesRange": "The use limit must be a whole number from 1 to 1000.",
+    "exhaustedBadge": "limit reached",
+    "exhaustedExplainer": "This code has reached its use limit, so students can no longer join with it. Issue a new one.",
+    "issueConfirmTitle": "Open joining by code?",
+    "issueConfirmBody": "Anyone holding the code can join the class. You can stop accepting it at any time."
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -283,7 +299,6 @@
       "join": "Join by code",
       "created": "Created"
     },
-    "actions": "Actions",
     "joinOpen": "Open",
     "joinClosed": "Closed",
     "archivedBadge": "Archived",
@@ -301,7 +316,11 @@
     "archiveNoneOpen": "No assignment is open.",
     "archiveRestoreNote": "You can restore it any time from Archived.",
     "archiveFailed": "Could not archive the class.",
-    "codeHint": "••••{{hint}}"
+    "codeHint": "••••{{hint}}",
+    "created": "Class created",
+    "archived": "Class archived",
+    "restored": "Class restored",
+    "restoreFailed": "Could not restore the class."
   },
   "settings": {
     "profile": "Profile",
@@ -376,7 +395,8 @@
     "pause": "Pause",
     "seek": "Seek",
     "expired": "This preview link has expired. Reload to listen.",
-    "summaryPaged": "{{count}} files"
+    "summaryPaged": "{{count}} files",
+    "deleted": "File deleted"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -451,7 +471,8 @@
     "removeOptionN": "Remove option {{n}}",
     "removeBlankN": "Remove blank {{n}}",
     "acceptedAnswersFor": "Accepted answers for blank {{n}}",
-    "caseSensitiveFor": "Case sensitivity for blank {{n}}"
+    "caseSensitiveFor": "Case sensitivity for blank {{n}}",
+    "saved": "Question saved"
   },
   "builder": {
     "outline": "Structure",
@@ -499,7 +520,23 @@
     "bankNoMatches": "No question matches.",
     "bankAllAdded": "Every question found is already in this test.",
     "outlineQuestionsOnly": "{{questions}} questions",
-    "position": "Question {{number}} · {{section}}"
+    "position": "Question {{number}} · {{section}}",
+    "sectionActions": "Section actions",
+    "renameSection": "Rename",
+    "sectionInstructions": "Section instructions",
+    "moveSectionUp": "Move up",
+    "moveSectionDown": "Move down",
+    "removeSection": "Delete section",
+    "sectionNameLabel": "Section name",
+    "renameCommit": "save",
+    "renameDiscard": "cancel",
+    "removeSectionTitle": "Delete the section “{{title}}”?",
+    "removeSectionBody_one": "The question in this section leaves this test. A question that came from the bank stays in the bank.",
+    "removeSectionBody_other": "The {{count}} questions in this section leave this test. A question that came from the bank stays in the bank.",
+    "sectionInstructionsTitle": "Instructions for {{title}}",
+    "sectionInstructionsHint": "Students read this before the questions in this section.",
+    "sectionInstructionsPlaceholder": "For example: listen twice, then choose the right answer.",
+    "dropFromTest": "Remove question {{number}} from the test"
   },
   "bank": {
     "filters": "Filters",
@@ -541,7 +578,17 @@
     "noTestsToAddTo": "No tests to add to yet.",
     "noSections": "This test has no sections yet.",
     "addHere": "{{count}} here now",
-    "summaryFiltered": "{{count}} questions · {{filtered}} shown"
+    "summaryFiltered": "{{count}} questions · {{filtered}} shown",
+    "tagged": "Tags applied",
+    "addedToTest": "Added to the test",
+    "open": "Open",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete question",
+    "deleteConfirmBody": "The question leaves the bank. Published tests keep their frozen copy.",
+    "deleteBlockedTitle": "This question cannot be deleted yet",
+    "deleteBlockedBody": "It is still in a draft test. Remove it from those tests first, then delete again.",
+    "deleteFailed": "Could not delete the question.",
+    "deleted": "Question deleted"
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",
@@ -581,7 +628,14 @@
     "summarySoFar": "{{count}} tests loaded",
     "audioCount": "{{count}} listening questions",
     "tagFilter": "Tags",
-    "tagFilterCount": "Tags · {{count}}"
+    "tagFilterCount": "Tags · {{count}}",
+    "archiveConfirmTitle": "Archive {{title}}?",
+    "archiveConfirmBody": "The test leaves the list and can no longer be assigned. Existing assignments and students' work stay as they are.",
+    "archived": "Test archived",
+    "restore": "Restore",
+    "restoreHint": "Restoring returns the test as a draft.",
+    "restored": "Test restored",
+    "restoreFailed": "Could not restore the test."
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -628,14 +682,9 @@
     "status": {
       "in_progress": "started",
       "submitted": "submitted",
+      "timed_out": "ran out of time on",
       "graded": "was graded on",
-      "voided": "had voided",
-      "expired": "ran out of time on"
-    },
-    "assignmentStatus": {
-      "scheduled": "Scheduled",
-      "open": "Open",
-      "closed": "Closed"
+      "voided": "had voided"
     },
     "notifications": "Notifications",
     "notificationsWith": "Notifications, {{count}} outstanding",
@@ -647,12 +696,6 @@
     "new": "New assignment",
     "all": "All",
     "statusFilter": "Filter by status",
-    "status": {
-      "draft": "Draft",
-      "open": "Open",
-      "scheduled": "Scheduled",
-      "closed": "Closed"
-    },
     "test": "Test",
     "targets": "Assigned to",
     "window": "Window",
@@ -888,7 +931,23 @@
     "searchClasses": "Find a class",
     "selectedClasses_one": "{{count}} class selected",
     "selectedClasses_other": "{{count}} classes selected",
-    "noClassMatches": "No class matches."
+    "noClassMatches": "No class matches.",
+    "disableConfirmTitle": "Suspend {{name}}'s account?",
+    "disableConfirmBody": "The student can no longer sign in. Attempts and grades stay; you can restore access at any time.",
+    "disabled": "Account suspended",
+    "enabled": "Access restored",
+    "removeConfirmTitle": "Remove {{name}} from {{klass}}?",
+    "removeConfirmBody": "The student no longer sees this class's assignments. Existing work stays.",
+    "removed": "Removed from the class",
+    "editInfo": "Edit details",
+    "emailHint": "The email is also the sign-in name — the student uses the new one from their next sign-in. With Google sign-in, the Google account must match this email.",
+    "saved": "Details saved",
+    "saveFailed": "Could not save the details.",
+    "errors": {
+      "nameRequired": "Enter the full name.",
+      "nameTooLong": "A name has at most 200 characters.",
+      "emailInvalid": "That email does not look right."
+    }
   },
   "takeTest": {
     "answerOptions": "Answer options",
@@ -994,5 +1053,31 @@
     "nextShort": "Next",
     "more": "More pages",
     "page": "Page {{n}}"
+  },
+  "status": {
+    "test": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "assignment": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "attempt": {
+      "not_started": "Not started",
+      "in_progress": "In progress",
+      "submitted": "Submitted",
+      "timed_out": "Timed out",
+      "graded": "Graded",
+      "voided": "Voided"
+    },
+    "attention": {
+      "flagged": "Needs review",
+      "pendingManual": "Awaiting grading",
+      "audio": "Has audio"
+    }
   }
 }

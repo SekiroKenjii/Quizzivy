@@ -285,7 +285,7 @@ export default function AssignmentFormPage() {
             <CardTitle>{t("assignments.step3")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <Field label={t("assignments.opensAt")}>
                 {(id) => (
                   <Input
@@ -311,7 +311,7 @@ export default function AssignmentFormPage() {
                 )}
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <Field
                 label={t("assignments.duration")}
                 hint={t("assignments.durationHint")}
@@ -446,7 +446,7 @@ export default function AssignmentFormPage() {
                 }))
               }
             />
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 gap-3 pt-1 lg:grid-cols-2">
               <Field label={t("assignments.maxFocusLoss")}>
                 {(id) => (
                   <Select

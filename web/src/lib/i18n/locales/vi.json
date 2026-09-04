@@ -13,7 +13,12 @@
     "comingSoon": "Phần này sẽ được xây dựng ở giai đoạn sau.",
     "save": "Lưu",
     "saving": "Đang lưu…",
-    "loadingMore": "Đang tải thêm…"
+    "loadingMore": "Đang tải thêm…",
+    "actions": "Thao tác",
+    "undo": "Hoàn tác",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "requestId": "Mã lỗi"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -244,7 +249,18 @@
     "alreadyMember": "đã trong lớp",
     "add": "Thêm",
     "addFailed": "Không thêm được học viên. Vui lòng thử lại.",
-    "assignToClass": "Giao bài cho lớp"
+    "assignToClass": "Giao bài cho lớp",
+    "removed": "Đã xoá khỏi lớp",
+    "expiryLabel": "Hết hạn sau",
+    "expiryDays": "{{days}} ngày",
+    "maxUsesLabel": "Giới hạn lượt dùng",
+    "maxUsesPlaceholder": "Mặc định 40",
+    "maxUsesHint": "Để trống thì hệ thống dùng giới hạn mặc định là 40 lượt.",
+    "maxUsesRange": "Giới hạn lượt dùng phải là số nguyên từ 1 đến 1000.",
+    "exhaustedBadge": "đã dùng hết",
+    "exhaustedExplainer": "Mã này đã hết lượt dùng nên học viên không dùng được nữa. Hãy tạo mã mới.",
+    "issueConfirmTitle": "Mở tham gia bằng mã?",
+    "issueConfirmBody": "Ai có mã đều vào được lớp. Bạn ngừng nhận mã bất cứ lúc nào."
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -283,7 +299,6 @@
       "join": "Tham gia bằng mã",
       "created": "Tạo"
     },
-    "actions": "Thao tác",
     "joinOpen": "Đang mở",
     "joinClosed": "Đóng",
     "archivedBadge": "Đã lưu trữ",
@@ -301,7 +316,11 @@
     "archiveNoneOpen": "Không có bài nào đang mở.",
     "archiveRestoreNote": "Bạn khôi phục được bất cứ lúc nào từ mục Đã lưu trữ.",
     "archiveFailed": "Không lưu trữ được lớp.",
-    "codeHint": "••••{{hint}}"
+    "codeHint": "••••{{hint}}",
+    "created": "Đã tạo lớp",
+    "archived": "Đã lưu trữ lớp",
+    "restored": "Đã khôi phục lớp",
+    "restoreFailed": "Không khôi phục được lớp."
   },
   "settings": {
     "profile": "Hồ sơ",
@@ -376,7 +395,8 @@
     "pause": "Tạm dừng",
     "seek": "Tua",
     "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe.",
-    "summaryPaged": "{{count}} tệp"
+    "summaryPaged": "{{count}} tệp",
+    "deleted": "Đã xoá tệp"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -451,7 +471,8 @@
     "removeOptionN": "Xoá lựa chọn {{n}}",
     "removeBlankN": "Xoá chỗ trống {{n}}",
     "acceptedAnswersFor": "Đáp án được chấp nhận cho chỗ trống {{n}}",
-    "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}"
+    "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}",
+    "saved": "Đã lưu câu hỏi"
   },
   "builder": {
     "outline": "Cấu trúc",
@@ -499,7 +520,23 @@
     "bankNoMatches": "Không có câu hỏi nào khớp.",
     "bankAllAdded": "Mọi câu hỏi tìm được đều đã có trong đề này.",
     "outlineQuestionsOnly": "{{questions}} câu",
-    "position": "Câu {{number}} · {{section}}"
+    "position": "Câu {{number}} · {{section}}",
+    "sectionActions": "Thao tác với phần",
+    "renameSection": "Đổi tên",
+    "sectionInstructions": "Hướng dẫn phần",
+    "moveSectionUp": "Di chuyển lên",
+    "moveSectionDown": "Di chuyển xuống",
+    "removeSection": "Xoá phần",
+    "sectionNameLabel": "Tên phần",
+    "renameCommit": "lưu",
+    "renameDiscard": "huỷ",
+    "removeSectionTitle": "Xoá phần “{{title}}”?",
+    "removeSectionBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
+    "removeSectionBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
+    "sectionInstructionsTitle": "Hướng dẫn cho {{title}}",
+    "sectionInstructionsHint": "Học viên đọc hướng dẫn này trước các câu trong phần.",
+    "sectionInstructionsPlaceholder": "Ví dụ: Nghe hai lần rồi chọn đáp án đúng.",
+    "dropFromTest": "Gỡ câu {{number}} khỏi đề"
   },
   "bank": {
     "filters": "Bộ lọc",
@@ -541,7 +578,17 @@
     "noTestsToAddTo": "Chưa có đề nào để thêm vào.",
     "noSections": "Đề này chưa có phần nào.",
     "addHere": "đang có {{count}} câu",
-    "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}"
+    "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}",
+    "tagged": "Đã gắn thẻ",
+    "addedToTest": "Đã thêm vào đề",
+    "open": "Mở",
+    "delete": "Xoá",
+    "deleteConfirmTitle": "Xoá câu hỏi",
+    "deleteConfirmBody": "Câu hỏi sẽ bị xoá khỏi ngân hàng. Các đề đã phát hành vẫn giữ bản sao đã đóng băng.",
+    "deleteBlockedTitle": "Chưa xoá được câu hỏi này",
+    "deleteBlockedBody": "Câu hỏi đang nằm trong đề nháp. Gỡ khỏi các đề đó trước, rồi xoá lại.",
+    "deleteFailed": "Không xoá được câu hỏi.",
+    "deleted": "Đã xoá câu hỏi"
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",
@@ -581,7 +628,14 @@
     "summarySoFar": "{{count}} đề đã tải",
     "audioCount": "{{count}} câu nghe",
     "tagFilter": "Thẻ",
-    "tagFilterCount": "Thẻ · {{count}}"
+    "tagFilterCount": "Thẻ · {{count}}",
+    "archiveConfirmTitle": "Lưu trữ đề {{title}}?",
+    "archiveConfirmBody": "Đề rời khỏi danh sách và không giao được nữa. Bài giao đã có và bài làm của học viên vẫn giữ nguyên.",
+    "archived": "Đã lưu trữ đề",
+    "restore": "Khôi phục",
+    "restoreHint": "Khôi phục đưa đề về trạng thái nháp.",
+    "restored": "Đã khôi phục đề",
+    "restoreFailed": "Không khôi phục được đề."
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
@@ -628,14 +682,9 @@
     "status": {
       "in_progress": "đang làm",
       "submitted": "nộp",
+      "timed_out": "hết giờ",
       "graded": "đã được chấm",
-      "voided": "bị huỷ",
-      "expired": "hết giờ"
-    },
-    "assignmentStatus": {
-      "scheduled": "Đã lên lịch",
-      "open": "Đang mở",
-      "closed": "Đã đóng"
+      "voided": "bị huỷ"
     },
     "notifications": "Thông báo",
     "notificationsWith": "Thông báo, {{count}} việc cần xử lý",
@@ -647,12 +696,6 @@
     "new": "Giao bài mới",
     "all": "Tất cả",
     "statusFilter": "Lọc theo trạng thái",
-    "status": {
-      "draft": "Nháp",
-      "open": "Đang mở",
-      "scheduled": "Sắp mở",
-      "closed": "Đã đóng"
-    },
     "test": "Đề thi",
     "targets": "Giao cho",
     "window": "Cửa sổ",
@@ -888,7 +931,23 @@
     "searchClasses": "Tìm lớp",
     "selectedClasses_one": "Đã chọn {{count}} lớp",
     "selectedClasses_other": "Đã chọn {{count}} lớp",
-    "noClassMatches": "Không có lớp nào khớp."
+    "noClassMatches": "Không có lớp nào khớp.",
+    "disableConfirmTitle": "Khoá tài khoản {{name}}?",
+    "disableConfirmBody": "Học viên không đăng nhập được nữa. Bài làm và điểm vẫn giữ nguyên; bạn mở khoá lại được bất cứ lúc nào.",
+    "disabled": "Đã khoá tài khoản",
+    "enabled": "Đã mở khoá tài khoản",
+    "removeConfirmTitle": "Xoá {{name}} khỏi lớp {{klass}}?",
+    "removeConfirmBody": "Học viên không còn thấy bài của lớp này. Bài đã làm vẫn giữ nguyên.",
+    "removed": "Đã xoá khỏi lớp",
+    "editInfo": "Sửa thông tin",
+    "emailHint": "Email cũng là tên đăng nhập — học viên sẽ dùng email mới từ lần đăng nhập sau. Nếu vào bằng Google, tài khoản Google phải trùng email này.",
+    "saved": "Đã lưu thông tin",
+    "saveFailed": "Không lưu được thông tin.",
+    "errors": {
+      "nameRequired": "Hãy nhập họ và tên.",
+      "nameTooLong": "Họ và tên tối đa 200 ký tự.",
+      "emailInvalid": "Email chưa đúng định dạng."
+    }
   },
   "takeTest": {
     "answerOptions": "Các phương án",
@@ -994,5 +1053,31 @@
     "nextShort": "Sau",
     "more": "Các trang khác",
     "page": "Trang {{n}}"
+  },
+  "status": {
+    "test": {
+      "draft": "Bản nháp",
+      "published": "Đã phát hành",
+      "archived": "Đã lưu trữ"
+    },
+    "assignment": {
+      "draft": "Bản nháp",
+      "scheduled": "Đã lên lịch",
+      "open": "Đang mở",
+      "closed": "Đã đóng"
+    },
+    "attempt": {
+      "not_started": "Chưa bắt đầu",
+      "in_progress": "Đang làm",
+      "submitted": "Đã nộp",
+      "timed_out": "Hết giờ",
+      "graded": "Đã chấm",
+      "voided": "Đã huỷ"
+    },
+    "attention": {
+      "flagged": "Cần xem lại",
+      "pendingManual": "Chờ chấm tay",
+      "audio": "Có audio"
+    }
   }
 }

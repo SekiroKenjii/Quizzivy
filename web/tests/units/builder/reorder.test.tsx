@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   OutlineTree,
@@ -127,5 +127,27 @@ describe("reordering the outline", () => {
 
     expect(screen.getByText("Câu 2 chưa có đáp án đúng")).toBeInTheDocument();
     expect(screen.queryByText("Câu hai")).toBeNull();
+  });
+});
+
+describe("taking a question out of the test", () => {
+  it("removes it from its section and leaves the rest in order", async () => {
+    const { user, onChange } = renderTree();
+
+    await user.click(screen.getByRole("button", { name: "Gỡ câu 2 khỏi đề" }));
+
+    expect(order(onChange.mock.calls[0]![0])).toEqual([["q1"], ["q3"]]);
+    expect(screen.queryByText("Câu hai")).toBeNull();
+    expect(screen.getByText("Câu một")).toBeInTheDocument();
+    expect(screen.getByText("Câu ba")).toBeInTheDocument();
+  });
+});
+
+describe("focus after a question leaves the test", () => {
+  it("lands on a neighbouring row rather than on the body", async () => {
+    const { user } = renderTree();
+
+    await user.click(screen.getByRole("button", { name: "Gỡ câu 1 khỏi đề" }));
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
   });
 });

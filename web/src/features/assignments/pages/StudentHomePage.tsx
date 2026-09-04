@@ -4,25 +4,23 @@ import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, History, List, Repeat, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { fetchMyClasses } from "@/features/classes/api";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
-import { formatTime } from "@/lib/i18n/datetime";
+import {
+  countdown,
+  formatTime,
+  sameAppDay,
+  shortDate,
+  weekdayDate,
+} from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { listMyAssignments, type StudentAssignmentCard } from "../api";
-import {
-  closesLine,
-  countdown,
-  givenName,
-  sameAppDay,
-  scoreText,
-  shortDate,
-  timeLeft,
-  weekdayDate,
-} from "../studentTime";
+import { closesLine, givenName, scoreText, timeLeft } from "../studentTime";
 
 /** S-03: what to do next, in the order it matters. */
 export default function StudentHomePage() {
@@ -134,7 +132,7 @@ export default function StudentHomePage() {
                   })}
                 </p>
               </div>
-              <Badge variant="outline">{t("student.scheduled")}</Badge>
+              <StatusBadge kind="assignment" status="scheduled" />
             </Card>
           ))}
         </Section>
@@ -290,7 +288,7 @@ function ResumeBody({ card }: { card: StudentAssignmentCard }) {
         ? t("student.resumeBody", { title: card.testTitle })
         : t("student.resumeBodyLeft", {
             title: card.testTitle,
-            left: countdown(deadlineAt, new Date()),
+            left: countdown(new Date(deadlineAt).getTime() - new Date().getTime()),
           })}
     </p>
   );

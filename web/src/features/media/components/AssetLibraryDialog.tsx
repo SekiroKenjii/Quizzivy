@@ -8,7 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { listMedia, type MediaAsset } from "@/features/media/api";
-import { formatBytes, formatDuration } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength } from "@/lib/i18n/datetime";
 
 interface AssetLibraryDialogProps {
   open: boolean;
@@ -84,7 +85,7 @@ function AssetList({ onPick }: { onPick: (asset: MediaAsset) => void }) {
           >
             <span className="truncate">{asset.originalFilename}</span>
             <span className="text-muted-foreground shrink-0 tabular-nums">
-              {formatDuration(asset.durationMs)} · {formatBytes(asset.bytes)}
+              {audioLength(asset.durationMs)} · {formatBytes(asset.bytes)}
             </span>
           </button>
         </li>

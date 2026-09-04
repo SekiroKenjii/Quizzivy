@@ -1,16 +1,8 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { toast } from "@/components/ui/sonner";
 import { updateClass, type Class } from "@/features/classes/api";
 import { invalidateClass } from "@/features/classes/invalidate";
 
@@ -24,65 +16,47 @@ export function ArchiveClassDialog({
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [failed, setFailed] = useState(false);
 
+  const restore = useMutation({
+    mutationFn: (id: string) => updateClass(id, { archived: false }),
+    onSuccess: (_, id) => invalidateClass(queryClient, id),
+  });
   const archive = useMutation({
     mutationFn: (id: string) => updateClass(id, { archived: true }),
     onSuccess: async (_, id) => {
       await invalidateClass(queryClient, id);
-      setFailed(false);
       onOpenChange(false);
+      toast(t("classes.archived"), {
+        action: { label: t("common.undo"), onClick: () => restore.mutate(id) },
+      });
     },
-    onError: () => setFailed(true),
   });
 
+  if (klass === null) return null;
   return (
-    <Dialog
-      open={klass !== null}
+    <ConfirmDialog
+      open
       onOpenChange={(next) => {
-        if (!next) setFailed(false);
+        if (!next) archive.reset();
         onOpenChange(next);
       }}
+      title={t("classes.archiveTitle", { name: klass.name })}
+      description={t("classes.archiveBody")}
+      confirmLabel={t("classes.archive")}
+      pending={archive.isPending}
+      error={archive.isError ? t("classes.archiveFailed") : null}
+      onConfirm={() => archive.mutate(klass.id)}
     >
-      {klass === null ? null : (
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("classes.archiveTitle", { name: klass.name })}</DialogTitle>
-            <DialogDescription>{t("classes.archiveBody")}</DialogDescription>
-          </DialogHeader>
-          <ul className="mt-1 space-y-1.5 text-sm">
-            <Line>{t("classes.archiveStudents", { count: klass.studentCount })}</Line>
-            <Line>
-              {klass.openAssignmentCount === 0
-                ? t("classes.archiveNoneOpen")
-                : t("classes.archiveOpen", { count: klass.openAssignmentCount })}
-            </Line>
-            <Line>{t("classes.archiveRestoreNote")}</Line>
-          </ul>
-          {failed && (
-            <p role="alert" className="text-destructive text-sm">
-              {t("classes.archiveFailed")}
-            </p>
-          )}
-          <DialogFooter className="mt-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              className="flex-1"
-              disabled={archive.isPending}
-              onClick={() => archive.mutate(klass.id)}
-            >
-              {t("classes.archive")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      )}
-    </Dialog>
+      <ul className="space-y-1.5 text-sm">
+        <Line>{t("classes.archiveStudents", { count: klass.studentCount })}</Line>
+        <Line>
+          {klass.openAssignmentCount === 0
+            ? t("classes.archiveNoneOpen")
+            : t("classes.archiveOpen", { count: klass.openAssignmentCount })}
+        </Line>
+        <Line>{t("classes.archiveRestoreNote")}</Line>
+      </ul>
+    </ConfirmDialog>
   );
 }
 

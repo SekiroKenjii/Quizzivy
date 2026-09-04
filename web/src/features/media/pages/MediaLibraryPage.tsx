@@ -32,9 +32,13 @@ import {
 import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
 import { useFileDrop } from "@/features/media/useFileDrop";
 import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api";
-import { formatBytes, formatDuration, formatUploadedAt } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength, shortDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { toast } from "@/components/ui/sonner";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 
@@ -65,6 +69,7 @@ export default function MediaLibraryPage() {
       setConfirming(null);
       setError(null);
       await invalidate();
+      toast(t("media.deleted"));
     },
     onError: (cause) => {
       setConfirming(null);
@@ -119,22 +124,16 @@ export default function MediaLibraryPage() {
         </p>
       ) : null}
 
-      <div className="bg-card overflow-hidden rounded-lg border">
-        {library.isPending ? (
-          <p
-            className="text-muted-foreground p-6 text-sm"
-            role="status"
-            aria-live="polite"
-          >
-            {t("media.loading")}
-          </p>
-        ) : library.isError ? (
-          <p role="alert" className="text-destructive p-6 text-sm">
-            {t("media.loadFailed")}
-          </p>
-        ) : assets.length === 0 ? (
-          <p className="text-muted-foreground p-6 text-sm">{t("media.empty")}</p>
-        ) : (
+      {library.isPending ? (
+        <ListSkeleton />
+      ) : library.isError ? (
+        <LoadError error={library.error} onRetry={() => void library.refetch()}>
+          {t("media.loadFailed")}
+        </LoadError>
+      ) : assets.length === 0 ? (
+        <EmptyState>{t("media.empty")}</EmptyState>
+      ) : (
+        <div className="bg-card overflow-hidden rounded-lg border">
           <AssetTable
             assets={assets}
             playing={playing}
@@ -147,34 +146,19 @@ export default function MediaLibraryPage() {
               setConfirming(asset);
             }}
           />
-        )}
-      </div>
+        </div>
+      )}
 
-      <Dialog
+      <ConfirmDialog
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("media.deleteConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {confirming ? `${confirming.originalFilename} — ` : ""}
-              {t("media.deleteConfirmBody")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirming(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              disabled={remove.isPending}
-              onClick={() => confirming && remove.mutate(confirming.id)}
-            >
-              {remove.isPending ? t("common.loading") : t("media.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("media.deleteConfirmTitle")}
+        description={`${confirming?.originalFilename ?? ""} — ${t("media.deleteConfirmBody")}`}
+        confirmLabel={t("media.delete")}
+        destructive
+        pending={remove.isPending}
+        onConfirm={() => confirming && remove.mutate(confirming.id)}
+      />
 
       {library.data && (
         <Pager
@@ -287,7 +271,7 @@ function AssetTable({
                   {asset.mimeType}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatDuration(asset.durationMs)}
+                  {audioLength(asset.durationMs)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatBytes(asset.bytes)}
@@ -300,7 +284,7 @@ function AssetTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatUploadedAt(asset.createdAt)}
+                  {shortDate(asset.createdAt)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-0.5">

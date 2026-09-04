@@ -1,5 +1,7 @@
 import { useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { PageAsideSlot, PageRailSlot } from "@/layouts/slots";
 
@@ -10,6 +12,8 @@ interface PageAsideProps {
   side?: "right" | "left";
   /** S-08: below 1024px the navigator is a sheet, so the rail is not drawn. */
   hideBelow?: "lg";
+  /** Where the same content goes below `hideBelow`, opened from the screen's own chrome. */
+  sheet?: { open: boolean; onOpenChange: (open: boolean) => void };
   children: ReactNode;
 }
 
@@ -23,10 +27,12 @@ export function PageAside({
   label,
   side = "right",
   hideBelow,
+  sheet,
   children,
 }: PageAsideProps) {
   const panelSlot = useContext(PageAsideSlot);
   const railSlot = useContext(PageRailSlot);
+  const wide = useMediaQuery("(min-width: 1024px)");
   const slot = side === "left" ? railSlot : panelSlot;
 
   const aside = (
@@ -41,5 +47,17 @@ export function PageAside({
       {children}
     </aside>
   );
-  return slot === null ? aside : createPortal(aside, slot);
+
+  const column = slot === null ? aside : createPortal(aside, slot);
+  if (sheet === undefined) return column;
+  // One or the other, never both: the same ids cannot exist twice in the document.
+  if (wide) return column;
+  return (
+    <Dialog open={sheet.open} onOpenChange={sheet.onOpenChange}>
+      <DialogContent className="max-h-[80svh] space-y-5 overflow-y-auto">
+        <DialogTitle className="sr-only">{label}</DialogTitle>
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
 }

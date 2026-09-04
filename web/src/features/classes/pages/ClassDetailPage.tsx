@@ -1,16 +1,10 @@
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { toast } from "@/components/ui/sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -26,7 +20,7 @@ import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCa
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { ApiError } from "@/lib/api/errors";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDate } from "@/lib/i18n/datetime";
 import {
   keepPreviousData,
@@ -42,21 +36,15 @@ import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 import { useDebounced } from "@/lib/useDebounced";
 
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
-}
-
 /** §6.4's class screen: the join code, and who is in the class. */
 const MEMBERS_PAGE_SIZE = 20;
 
 export default function ClassDetailPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   const klass = useQuery({
     queryKey: ["admin-class", id],
@@ -89,6 +77,7 @@ export default function ClassDetailPage() {
       setRemoveError(null);
       setConfirmRemove(null);
       await invalidateClassMembership(queryClient, id);
+      toast(t("classDetail.removed"));
     },
     onError: (cause) => {
       setConfirmRemove(null);
@@ -282,31 +271,16 @@ export default function ClassDetailPage() {
         </div>
       </div>
 
-      <Dialog
+      <ConfirmDialog
         open={confirmRemove !== null}
         onOpenChange={(open) => !open && setConfirmRemove(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("classDetail.removeConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {confirmRemove ? `${confirmRemove.name} — ` : ""}
-              {t("classDetail.removeConfirmBody")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmRemove(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              disabled={remove.isPending}
-              onClick={() => confirmRemove && remove.mutate(confirmRemove.userId)}
-            >
-              {remove.isPending ? t("common.loading") : t("classDetail.removeConfirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("classDetail.removeConfirmTitle")}
+        description={`${confirmRemove?.name ?? ""} — ${t("classDetail.removeConfirmBody")}`}
+        confirmLabel={t("classDetail.removeConfirm")}
+        destructive
+        pending={remove.isPending}
+        onConfirm={() => confirmRemove && remove.mutate(confirmRemove.userId)}
+      />
 
       <AddMemberDialog
         classId={id}

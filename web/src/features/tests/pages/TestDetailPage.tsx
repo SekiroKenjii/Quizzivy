@@ -1,24 +1,25 @@
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StudentPreview } from "@/features/tests/components/StudentPreview";
 import { getTest, listVersions, previewTest } from "@/features/tests/api";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 /**
  * §8's test detail: what a student would receive, and the history of what they
  * have received before.
  */
 export default function TestDetailPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { id = "" } = useParams();
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   const test = useQuery({
     queryKey: ["admin-test", id],
@@ -62,11 +63,7 @@ export default function TestDetailPage() {
       <PageHeader
         title={test.data.title}
         backTo="/admin/tests"
-        meta={
-          <Badge variant={test.data.status === "published" ? "success" : "secondary"}>
-            {t(`builder.${test.data.status}`)}
-          </Badge>
-        }
+        meta={<StatusBadge kind="test" status={test.data.status} />}
         actions={
           <Button asChild size="sm" variant="outline">
             <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
@@ -175,10 +172,4 @@ function VersionHistory({
       ))}
     </ol>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

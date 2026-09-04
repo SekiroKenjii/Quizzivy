@@ -12,8 +12,8 @@ import type { RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, History } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Eye, History, SlidersHorizontal } from "lucide-react";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
@@ -105,9 +105,12 @@ function Builder({ test }: { test: Test }) {
   );
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const flushQuestion = useRef<(() => Promise<void>) | null>(null);
+  const retryQuestion = useRef<(() => void) | null>(null);
+  const latestOutline = useRef<OutlineSection[]>(sections);
   const [questionStatus, setQuestionStatus] = useState<AutosaveStatus>({
     kind: "idle",
   });
@@ -159,9 +162,20 @@ function Builder({ test }: { test: Test }) {
     return map;
   }, [loaded, questionIds, violations]);
 
+  useEffect(() => {
+    latestOutline.current = sections;
+  }, [sections]);
+
   const updateOutline = useCallback(
     (next: OutlineSection[]) => {
       setSections(next);
+      setSelectedId((current) => {
+        if (current === null || next.some((s) => s.questionIds.includes(current))) {
+          return current;
+        }
+        setQuestionStatus({ kind: "idle" });
+        return null;
+      });
       outline.schedule({ title, sections: next });
     },
     [outline, title],
@@ -169,13 +183,14 @@ function Builder({ test }: { test: Test }) {
 
   function updateTitle(next: string) {
     setTitle(next);
-    outline.schedule({ title: next, sections });
+    outline.schedule({ title: next, sections: latestOutline.current });
   }
 
   function appendQuestion(questionId: string) {
-    const last = sections.length - 1;
+    const current = latestOutline.current;
+    const last = current.length - 1;
     updateOutline(
-      sections.map((section, i) =>
+      current.map((section, i) =>
         i === last
           ? { ...section, questionIds: [...section.questionIds, questionId] }
           : section,
@@ -255,29 +270,48 @@ function Builder({ test }: { test: Test }) {
         <Input
           value={title}
           aria-label={t("builder.titleLabel")}
-          className="h-8 w-96 border-transparent font-medium shadow-none"
+          className="h-8 w-96 min-w-32 border-transparent font-medium shadow-none"
           onChange={(event) => updateTitle(event.target.value)}
         />
-        <Badge variant="secondary">{t(`builder.${test.status}`)}</Badge>
-        <AutosaveStatusLabel status={saveStatus} />
+        <StatusBadge kind="test" status={test.status} />
+        <AutosaveStatusLabel
+          status={saveStatus}
+          onRetry={() => {
+            outline.retry();
+            retryQuestion.current?.();
+          }}
+        />
+        {selectedId === null ? null : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            <span className="hidden sm:inline">{t("questionEditor.settings")}</span>
+          </Button>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
             className="text-muted-foreground"
+            aria-label={t("builder.versions")}
             onClick={() => void navigate(`/admin/tests/${test.id}`)}
           >
             <History aria-hidden="true" />
-            {t("builder.versions")}
+            <span className="hidden lg:inline">{t("builder.versions")}</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
+            aria-label={t("builder.previewAsStudent")}
             onClick={() => void navigate(`/admin/tests/${test.id}`)}
           >
             <Eye aria-hidden="true" />
-            {t("builder.previewAsStudent")}
+            <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
           </Button>
           <Button
             size="sm"
@@ -339,9 +373,12 @@ function Builder({ test }: { test: Test }) {
               </p>
             ) : (
               <QuestionPane
+                settingsOpen={settingsOpen}
+                onSettingsOpenChange={setSettingsOpen}
                 key={selectedId}
                 questionId={selectedId}
                 flushRef={flushQuestion}
+                retryRef={retryQuestion}
                 onStatus={setQuestionStatus}
                 contextLabel={contextLabel}
               />
@@ -379,13 +416,19 @@ function Builder({ test }: { test: Test }) {
 function QuestionPane({
   questionId,
   flushRef,
+  retryRef,
   onStatus,
   contextLabel,
+  settingsOpen,
+  onSettingsOpenChange,
 }: {
   questionId: string;
   flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
   const question = useQuery({
@@ -413,8 +456,11 @@ function QuestionPane({
       questionId={questionId}
       initial={question.data}
       flushRef={flushRef}
+      retryRef={retryRef}
       onStatus={onStatus}
       contextLabel={contextLabel}
+      settingsOpen={settingsOpen}
+      onSettingsOpenChange={onSettingsOpenChange}
     />
   );
 }
@@ -423,14 +469,20 @@ function QuestionForm({
   questionId,
   initial,
   flushRef,
+  retryRef,
   onStatus,
   contextLabel,
+  settingsOpen,
+  onSettingsOpenChange,
 }: {
   questionId: string;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
 }) {
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
@@ -441,13 +493,15 @@ function QuestionForm({
     },
   });
 
-  const { flush, status } = autosave;
+  const { flush, retry, status } = autosave;
   useEffect(() => {
     flushRef.current = flush;
+    retryRef.current = retry;
     return () => {
       flushRef.current = null;
+      retryRef.current = null;
     };
-  }, [flush, flushRef]);
+  }, [flush, retry, flushRef, retryRef]);
 
   useEffect(() => {
     onStatus(status);
@@ -459,6 +513,11 @@ function QuestionForm({
         value={values}
         asset={asset}
         contextLabel={contextLabel}
+        settings={{
+          hideBelow: "lg",
+          open: settingsOpen,
+          onOpenChange: onSettingsOpenChange,
+        }}
         onChange={(next) => {
           setValues(next);
           autosave.schedule(next);
