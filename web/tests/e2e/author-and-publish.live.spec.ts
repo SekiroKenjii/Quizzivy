@@ -1,10 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
+import { assignToClass } from "./support/live";
 
 /**
- * E2E 1a (§14, phase-2 exit criterion): the teacher logs in, authors a test
- * with one question of each of §7's five types including audio, and publishes
- * it. It stops before assigning, which is Phase 3.
+ * E2E 1 (§14): the teacher logs in, authors a test with one question of each
+ * of §7's five types including audio, publishes it, and assigns it. Phase 2
+ * ran the half up to publishing as 1a; Phase 4 closes it with the assignment.
  */
 
 const ADMIN = { email: "thuong@quizzivy.com", password: "quizzivy-dev" };
@@ -42,7 +43,7 @@ async function addQuestion(page: Page, type: string, prompt: string) {
   await page.getByLabel("Nội dung câu hỏi").fill(prompt);
 }
 
-test("E2E 1a: an admin authors a test with all five question types and publishes it", async ({
+test("E2E 1: an admin authors a test with all five question types, publishes and assigns it", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -129,4 +130,16 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
   await expect(history.getByText("v1", { exact: true })).toBeVisible();
   await expect(history.getByText("6 · 6")).toBeVisible();
   await expect(history.getByText(/Thuong/)).toBeVisible();
+
+  // ---------------------------------------------------------------- assign
+  await assignToClass(page, title);
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("Đang mở")).toBeVisible();
+
+  // The monitor lists the class, nobody started, and says it will keep looking.
+  await row.getByRole("button", { name: title }).click();
+  await expect(page).toHaveURL(/\/admin\/assignments\/[0-9a-f-]+$/);
+  await expect(page.getByText("Tự cập nhật 15 giây/lần")).toBeVisible();
+  await expect(page.getByText("Chưa bắt đầu").first()).toBeVisible();
 });

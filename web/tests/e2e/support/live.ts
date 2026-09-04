@@ -11,6 +11,7 @@ export const ASSIGNMENT = {
   integrity: "01935000-0000-7000-8000-00000000ee02",
   takeover: "01935000-0000-7000-8000-00000000ee03",
   persistence: "01935000-0000-7000-8000-00000000ee05",
+  payload: "01935000-0000-7000-8000-00000000ee09",
 };
 
 export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
@@ -101,4 +102,34 @@ export async function goAway(page: Page, ms: number) {
  */
 export async function chooseOption(page: Page, text: string) {
   await page.locator("label").filter({ hasText: text }).click();
+}
+
+/**
+ * Assigns a published test to the seeded class and lands on the list.
+ *
+ * Two steps in the picker: the test expands, then a version is picked, because
+ * an assignment pins a version rather than a test.
+ */
+export async function assignToClass(page: Page, title: string) {
+  await page.goto("/admin/assignments/new");
+  await page.getByRole("button", { name: "Chọn đề thi" }).click();
+  const picker = page.getByRole("dialog");
+  await picker.getByText(title).click();
+  await picker
+    .getByRole("button", { name: /Dùng bản này/ })
+    .first()
+    .click();
+  await expect(page.getByRole("button", { name: "Đổi đề" })).toBeVisible();
+
+  await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
+  // Scoped to the combobox's own listbox: the duration <select> further down the
+  // form carries options too.
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: /Tiếng Anh giao tiếp/ })
+    .first()
+    .click();
+
+  await page.getByRole("button", { name: "Giao bài", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/assignments$/, { timeout: 30_000 });
 }
