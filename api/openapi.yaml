@@ -213,6 +213,8 @@ components:
         - ASSIGNMENT_NOT_OPEN
         - ATTEMPT_LIMIT_REACHED
         - ATTEMPT_CLOSED
+        - ATTEMPT_IN_PROGRESS
+        - ATTEMPT_VOIDED
         - SESSION_SUPERSEDED
         - DEADLINE_PASSED
         - GRADING_INCOMPLETE
@@ -1303,8 +1305,13 @@ components:
         state: { type: string, enum: [not_started, in_progress, submitted, timed_out, graded, voided] }
         attemptId: { type: [string, 'null'], format: uuid }
         attemptNo: { type: [integer, 'null'] }
+        startedAt: { type: [string, 'null'], format: date-time }
         deadlineAt: { type: [string, 'null'], format: date-time }
         submittedAt: { type: [string, 'null'], format: date-time }
+        answeredCount:
+          type: [integer, 'null']
+          minimum: 0
+          description: Questions with a saved answer, against the response's `questionCount` (G-02's progress column).
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         focusLossCount: { type: [integer, 'null'] }
         flagged: { type: boolean }
@@ -2571,12 +2578,17 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [serverTime, rows]
+                required: [serverTime, questionCount, rows]
                 additionalProperties: false
                 properties:
                   serverTime:
                     $ref: '#/components/schemas/Timestamp'
+                  questionCount:
+                    type: integer
+                    minimum: 0
+                    description: Questions on the pinned version, the denominator of every row's progress.
                   rows: { type: array, items: { $ref: '#/components/schemas/MonitorRow' } }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # ============================================================ admin/attempts
 
@@ -2634,11 +2646,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [attempt, student, questions, answers, audioPlays, integrity]
+                required: [attempt, student, testTitle, maxAttempts, questions, answers, audioPlays, integrity]
                 additionalProperties: false
                 properties:
                   attempt: { $ref: '#/components/schemas/Attempt' }
                   student: { $ref: '#/components/schemas/User' }
+                  testTitle: { type: string }
+                  maxAttempts: { type: integer, minimum: 1, description: For "lượt 1/2" in the header (G-03). }
                   questions: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
                   answers:
                     type: object
@@ -2689,6 +2703,7 @@ paths:
                   startedAt: { $ref: '#/components/schemas/Timestamp' }
                   events: { type: array, items: { $ref: '#/components/schemas/IntegrityEvent' } }
                   summary: { $ref: '#/components/schemas/IntegritySummary' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/attempts/{id}/extend:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2717,6 +2732,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ATTEMPT_CLOSED` — only an attempt still in progress has a deadline to move.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/attempts/{id}/reset:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2743,6 +2764,13 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ATTEMPT_VOIDED` — already voided; nothing to reset.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/attempts/{id}/void:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2766,6 +2794,13 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ATTEMPT_VOIDED` — already voided.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/attempts/{id}/grade:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2803,6 +2838,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AttemptScore' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or nothing that counts.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/attempts/{id}/finish-grading:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2819,8 +2860,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`GRADING_INCOMPLETE` — a `short_answer` is still ungraded.'
+          description: '`GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -3582,15 +3624,17 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [attempt, review, questions]
+                required: [attempt, review, testTitle, maxAttempts, questions]
                 additionalProperties: false
                 properties:
                   attempt: { $ref: '#/components/schemas/Attempt' }
                   review: { $ref: '#/components/schemas/ReviewPolicy' }
+                  testTitle: { type: string }
+                  maxAttempts: { type: integer, minimum: 1, description: For "Lượt 1/2" under the score (S-09). }
                   questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
-          description: Not yet submitted.
+          description: '`ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
