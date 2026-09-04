@@ -70,6 +70,32 @@ describe("submitting", () => {
     expect(submitted.mock.calls[0]?.[1]).toEqual({ reason: "timer_expired" });
   });
 
+  it("keeps when and why it went in, for the screen that follows", async () => {
+    start();
+    submitted.mockResolvedValue({
+      ...attemptRow(),
+      submittedAt: "2026-09-01T08:30:00.000Z",
+    });
+    await useTakeTestStore.getState().submit("timer_expired");
+
+    const state = useTakeTestStore.getState();
+    expect(state.submitReason).toBe("timer_expired");
+    expect(state.submittedAt).toBe("2026-09-01T08:30:00.000Z");
+  });
+
+  it("dates the submission by the server's clock when the reply carries none", async () => {
+    vi.useFakeTimers({ now: Date.parse("2026-09-01T07:59:00.000Z") });
+    try {
+      start();
+      submitted.mockResolvedValue({ ...attemptRow(), submittedAt: null });
+      await useTakeTestStore.getState().submit();
+
+      expect(useTakeTestStore.getState().submittedAt).toBe(now);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("treats ATTEMPT_CLOSED as done rather than as a failure", async () => {
     start();
     submitted.mockRejectedValue(
@@ -85,6 +111,7 @@ describe("submitting", () => {
     const state = useTakeTestStore.getState();
     expect(state.submitState).toBe("done");
     expect(state.lock).toBe("closed");
+    expect(state.submittedAt).not.toBeNull();
   });
 
   it("lets the student try again after a network failure", async () => {

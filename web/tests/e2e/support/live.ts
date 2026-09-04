@@ -65,14 +65,18 @@ export async function freshAttempt(page: Page, assignmentId: string): Promise<st
   return startAttempt(page, assignmentId);
 }
 
-/** Takes the open attempt through the review screen and hands it in. */
+/** Takes the open attempt through the review screen, hands it in and goes home. */
 export async function submitAttempt(page: Page) {
   await page.getByRole("button", { name: "Xem lại & nộp" }).first().click();
   await page.getByRole("button", { name: "Nộp bài", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Nộp bài?")).toBeVisible();
   await dialog.getByRole("button", { name: "Nộp bài", exact: true }).click();
-  await expect(page).toHaveURL(/\/app$/, { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Bài đã được nộp." })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole("button", { name: "Về trang chủ" }).click();
+  await expect(page).toHaveURL(/\/app$/);
 }
 
 /**

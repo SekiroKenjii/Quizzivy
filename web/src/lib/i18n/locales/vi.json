@@ -824,7 +824,15 @@
     "shortcuts": "Phím tắt",
     "shortcutPick": "chọn đáp án",
     "shortcutMove": "chuyển câu",
-    "shortcutFlag": "đánh dấu"
+    "shortcutFlag": "đánh dấu",
+    "submittedTitle_manual": "Bài đã được nộp.",
+    "submittedTitle_timer_expired": "Bài đã hết giờ và được nộp tự động.",
+    "submittedTitle_auto_submit": "Bài đã được nộp vì rời trang lần nữa.",
+    "submittedBody_manual": "Bài làm của bạn đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
+    "submittedBody_timer_expired": "Hết thời gian làm bài, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
+    "submittedBody_auto_submit": "Bài làm ghi nhận bạn rời khỏi trang sau lần cuối được cho phép, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
+    "submittedMeta": "Nộp lúc {{time}} · {{date}} · {{answered}}/{{total}} câu đã trả lời",
+    "backHome": "Về trang chủ"
   },
   "integrity": {
     "leftTitle": "Bạn vừa rời khỏi trang làm bài",

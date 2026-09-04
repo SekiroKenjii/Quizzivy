@@ -26,6 +26,7 @@ export type LockReason =
   | "closed";
 
 export type SubmitState = "idle" | "inFlight" | "done";
+export type SubmitReason = "manual" | "timer_expired" | "auto_submit";
 
 interface TakeTestState {
   attemptId: string | null;
@@ -52,6 +53,9 @@ interface TakeTestState {
 
   lock: LockReason | null;
   submitState: SubmitState;
+  submitReason: SubmitReason | null;
+  /** Per the server's clock, for the screen that follows the submission. */
+  submittedAt: string | null;
   flushInFlight: boolean;
   retryDelayMs: number;
   /** When the server last confirmed a save, per its clock. Null until one lands. */
@@ -62,7 +66,7 @@ interface TakeTestState {
   toggleFlag: (questionId: string) => void;
   notePlay: (questionId: string) => void;
   flush: () => Promise<void>;
-  submit: (reason?: "manual" | "timer_expired" | "auto_submit") => Promise<void>;
+  submit: (reason?: SubmitReason) => Promise<void>;
   lockNow: (reason: LockReason) => void;
   reset: () => void;
 }
@@ -90,6 +94,8 @@ const initial = {
   offsetMs: 0,
   lock: null,
   submitState: "idle" as SubmitState,
+  submitReason: null as SubmitReason | null,
+  submittedAt: null as string | null,
   flushInFlight: false,
   retryDelayMs: RETRY_BASE_MS,
   lastSavedAt: null,
@@ -230,12 +236,22 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     try {
       // Everything typed goes with it.
       await get().flush();
-      await submitAttempt(attemptId, { reason });
-      set({ submitState: "done", lock: "closed" });
+      const attempt = await submitAttempt(attemptId, { reason });
+      set({
+        submitState: "done",
+        lock: "closed",
+        submitReason: reason,
+        submittedAt: attempt.submittedAt ?? serverNow(state),
+      });
     } catch (error) {
       const lock = lockForError(error);
       if (lock === "closed") {
-        set({ submitState: "done", lock });
+        set({
+          submitState: "done",
+          lock,
+          submitReason: reason,
+          submittedAt: serverNow(state),
+        });
         return;
       }
       set({ submitState: "idle", lock: lock ?? state.lock });
@@ -254,6 +270,10 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     set({ ...initial, dirty: new Set<string>(), flags: new Set<string>() });
   },
 }));
+
+function serverNow(state: Pick<TakeTestState, "offsetMs">): string {
+  return new Date(Date.now() + state.offsetMs).toISOString();
+}
 
 /** The deadline, armed as a single timeout rather than polled. */
 let deadlineTimer: ReturnType<typeof setTimeout> | undefined;

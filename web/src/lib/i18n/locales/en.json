@@ -824,7 +824,15 @@
     "shortcuts": "Shortcuts",
     "shortcutPick": "pick an answer",
     "shortcutMove": "move",
-    "shortcutFlag": "flag"
+    "shortcutFlag": "flag",
+    "submittedTitle_manual": "Your test has been submitted.",
+    "submittedTitle_timer_expired": "Time ran out and the test was submitted automatically.",
+    "submittedTitle_auto_submit": "The test was submitted because you left the page again.",
+    "submittedBody_manual": "Your test went in with the questions you answered. Everything saved stays as it was.",
+    "submittedBody_timer_expired": "The time for this test ended, so it went in with the questions you answered. Everything saved stays as it was.",
+    "submittedBody_auto_submit": "You left the page after the last allowed time, so the test went in with the questions you answered. Everything saved stays as it was.",
+    "submittedMeta": "Submitted at {{time}} · {{date}} · {{answered}}/{{total}} questions answered",
+    "backHome": "Back to home"
   },
   "integrity": {
     "leftTitle": "You left the test page",
