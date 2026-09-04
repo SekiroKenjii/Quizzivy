@@ -16,6 +16,11 @@ window.matchMedia ??= (query: string) =>
     dispatchEvent: () => false,
   }) as MediaQueryList;
 
+/** jsdom implements no pointer capture; sonner's swipe handler calls it on every toast press. */
+Element.prototype.setPointerCapture ??= () => {};
+Element.prototype.releasePointerCapture ??= () => {};
+Element.prototype.hasPointerCapture ??= () => false;
+
 beforeAll(() => {
   server.listen({ onUnhandledRequest: "error" });
 });
