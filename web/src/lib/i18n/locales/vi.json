@@ -128,7 +128,10 @@
     "new": "Mật khẩu mới",
     "hint": "Ít nhất 8 ký tự.",
     "submit": "Đổi mật khẩu",
-    "currentHint": "Bỏ trống nếu bạn đăng nhập bằng Google hoặc không nhớ mật khẩu tạm."
+    "currentHint": "Bỏ trống nếu bạn đăng nhập bằng Google hoặc không nhớ mật khẩu tạm.",
+    "errors": {
+      "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự."
+    }
   },
   "login": {
     "title": "Đăng nhập",

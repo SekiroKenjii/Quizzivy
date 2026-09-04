@@ -1,4 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -6,6 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, fetchCurrentUser } from "@/features/auth/api";
+import {
+  changePasswordSchema,
+  type ChangePasswordValues,
+} from "@/features/auth/changePasswordSchema";
 import { ApiError } from "@/lib/api/errors";
 import { homePathFor } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
@@ -16,26 +22,25 @@ export default function ChangePasswordPage() {
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
 
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const form = useForm<ChangePasswordValues>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: { currentPassword: "", newPassword: "" },
+    mode: "onTouched",
+  });
+  const newPasswordError = form.formState.errors.newPassword;
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
-    setPending(true);
     try {
-      await changePassword(current, next);
+      await changePassword(values.currentPassword, values.newPassword);
       const user = await fetchCurrentUser();
       setUser(user);
       await navigate(homePathFor(user), { replace: true });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : t("error.body"));
-    } finally {
-      setPending(false);
     }
-  }
+  });
 
   return (
     <main className="min-h-svh p-4 pt-14">
@@ -47,7 +52,7 @@ export default function ChangePasswordPage() {
           {t("changePassword.body")}
         </p>
 
-        <form onSubmit={onSubmit} className="mt-5" noValidate>
+        <form onSubmit={(e) => void onSubmit(e)} className="mt-5" noValidate>
           <div className="space-y-3">
             {/* Not required, and that is the point. */}
             <div className="space-y-1.5">
@@ -57,9 +62,8 @@ export default function ChangePasswordPage() {
                 type="password"
                 className="h-11"
                 autoComplete="current-password"
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
                 aria-describedby="current-password-hint"
+                {...form.register("currentPassword")}
               />
               <p id="current-password-hint" className="text-muted-foreground text-xs">
                 {t("changePassword.currentHint")}
@@ -72,18 +76,24 @@ export default function ChangePasswordPage() {
                 type="password"
                 className="mt-1.5 h-11"
                 autoComplete="new-password"
-                minLength={8}
-                required
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-                aria-describedby="new-password-hint"
+                aria-invalid={newPasswordError ? true : undefined}
+                aria-describedby={
+                  newPasswordError ? "new-password-error" : "new-password-hint"
+                }
+                {...form.register("newPassword")}
               />
-              <p
-                id="new-password-hint"
-                className="text-muted-foreground mt-1.5 text-xs"
-              >
-                {t("changePassword.hint")}
-              </p>
+              {newPasswordError ? (
+                <p id="new-password-error" className="text-destructive mt-1.5 text-sm">
+                  {t(newPasswordError.message ?? "changePassword.errors.tooShort")}
+                </p>
+              ) : (
+                <p
+                  id="new-password-hint"
+                  className="text-muted-foreground mt-1.5 text-xs"
+                >
+                  {t("changePassword.hint")}
+                </p>
+              )}
             </div>
           </div>
 
@@ -93,8 +103,15 @@ export default function ChangePasswordPage() {
             </p>
           ) : null}
 
-          <Button type="submit" size="lg" className="mt-5 w-full" disabled={pending}>
-            {pending ? t("common.loading") : t("changePassword.submit")}
+          <Button
+            type="submit"
+            size="lg"
+            className="mt-5 w-full"
+            disabled={form.formState.isSubmitting}
+          >
+            {form.formState.isSubmitting
+              ? t("common.loading")
+              : t("changePassword.submit")}
           </Button>
         </form>
       </Card>
