@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { LoadError } from "@/components/shared/ListState";
 import { Clock } from "../components/Clock";
 import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
 import { QuestionCard } from "../components/QuestionCard";
@@ -39,6 +40,7 @@ export default function TakeTestPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [index, setIndex] = useState(0);
   const [view, setView] = useState<"question" | "review">("question");
   const [navOpen, setNavOpen] = useState(false);
@@ -79,8 +81,10 @@ export default function TakeTestPage() {
         hydrate(session);
         setStatus("ready");
       })
-      .catch(() => {
-        if (!abort.signal.aborted) setStatus("failed");
+      .catch((cause: unknown) => {
+        if (abort.signal.aborted) return;
+        setLoadError(cause);
+        setStatus("failed");
       });
     return () => {
       abort.abort();
@@ -123,7 +127,16 @@ export default function TakeTestPage() {
     return <Notice>{t("takeTest.loading")}</Notice>;
   }
   if (status === "failed") {
-    return <Notice>{t("takeTest.loadFailed")}</Notice>;
+    return (
+      <main className="mx-auto w-full max-w-[720px] space-y-3 px-4 py-16">
+        <LoadError error={loadError} onRetry={reload}>
+          {t("takeTest.loadFailed")}
+        </LoadError>
+        <Button variant="ghost" size="sm" onClick={() => void navigate("/app")}>
+          {t("takeTest.backHome")}
+        </Button>
+      </main>
+    );
   }
   if (question === undefined) {
     return <Notice>{t("takeTest.empty")}</Notice>;
@@ -328,7 +341,11 @@ function chooseOption(
 
 function Notice({ children }: { children: string }) {
   return (
-    <main className="mx-auto w-full max-w-[720px] px-4 py-16 text-center">
+    <main
+      role="status"
+      aria-live="polite"
+      className="mx-auto w-full max-w-[720px] px-4 py-16 text-center"
+    >
       <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
     </main>
   );

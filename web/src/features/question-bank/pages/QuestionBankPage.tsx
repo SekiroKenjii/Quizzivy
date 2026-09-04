@@ -1,8 +1,21 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Headphones, Play, Plus, Tag as TagIcon, X } from "lucide-react";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  ArrowUpRight,
+  Headphones,
+  Play,
+  Plus,
+  Tag as TagIcon,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
@@ -20,13 +33,19 @@ import {
 } from "@/components/ui/table";
 import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
 import {
+  deleteQuestion,
   listQuestions,
   type AdminQuestion,
   type QuestionType,
 } from "@/features/question-bank/api";
 import { useDebounced } from "@/lib/useDebounced";
 import { PageAside } from "@/components/shared/PageAside";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { RowMenu } from "@/components/shared/RowMenu";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/sonner";
+import { ApiError } from "@/lib/api/errors";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { Pager } from "@/components/shared/Pager";
@@ -58,6 +77,23 @@ export default function QuestionBankPage() {
   const [audioOnly, setAudioOnly] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [tagging, setTagging] = useState(false);
+  const [addingOne, setAddingOne] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
+  const [blocked, setBlocked] = useState(false);
+  const queryClient = useQueryClient();
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteQuestion(id),
+    onSuccess: async () => {
+      setDeleting(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      toast(t("bank.deleted"));
+    },
+    onError: (cause) => {
+      if (cause instanceof ApiError && cause.code === "QUESTION_REFERENCED")
+        setBlocked(true);
+      else toast(t("bank.deleteFailed"));
+    },
+  });
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
@@ -219,6 +255,7 @@ export default function QuestionBankPage() {
                     <TableHead className="w-9">
                       <span className="sr-only">{t("bank.preview")}</span>
                     </TableHead>
+                    <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,6 +279,11 @@ export default function QuestionBankPage() {
                       onTogglePlay={() =>
                         setPlaying(playing === question.id ? null : question.id)
                       }
+                      onAddToTest={() => setAddingOne(question.id)}
+                      onDelete={() => {
+                        setBlocked(false);
+                        setDeleting(question);
+                      }}
                     />
                   ))}
                 </TableBody>
@@ -262,11 +304,32 @@ export default function QuestionBankPage() {
         onApplied={() => setSelected(new Set())}
       />
       <AddToTestDialog
-        questionIds={[...selected]}
-        open={adding}
-        onOpenChange={setAdding}
-        onAdded={() => setSelected(new Set())}
+        questionIds={addingOne === null ? [...selected] : [addingOne]}
+        open={adding || addingOne !== null}
+        onOpenChange={(open) => {
+          if (open) return;
+          setAdding(false);
+          setAddingOne(null);
+        }}
+        onAdded={() => {
+          if (addingOne === null) setSelected(new Set());
+        }}
       />
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={t(blocked ? "bank.deleteBlockedTitle" : "bank.deleteConfirmTitle")}
+        description={t(blocked ? "bank.deleteBlockedBody" : "bank.deleteConfirmBody")}
+        confirmLabel={t("bank.delete")}
+        destructive
+        disabled={blocked}
+        pending={remove.isPending}
+        onConfirm={() => deleting && remove.mutate(deleting.id)}
+      >
+        <p className="bg-muted truncate rounded-md px-3 py-2 text-sm">
+          {deleting?.prompt}
+        </p>
+      </ConfirmDialog>
     </>
   );
 }
@@ -279,6 +342,8 @@ function Row({
   onTogglePlay,
   selected,
   onToggleSelect,
+  onAddToTest,
+  onDelete,
 }: {
   question: AdminQuestion;
   playing: boolean;
@@ -287,6 +352,8 @@ function Row({
   onRetry: () => void;
   onTogglePlay: () => void;
   onToggleSelect: () => void;
+  onAddToTest: () => void;
+  onDelete: () => void;
 }) {
   const { t } = useTranslation();
   const audio = question.media?.kind === "audio" ? question.media : null;
@@ -345,11 +412,28 @@ function Row({
             </Button>
           ) : null}
         </TableCell>
+        <TableCell className="text-right">
+          <RowMenu>
+            <DropdownMenuItem onSelect={onOpen}>
+              <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
+              {t("bank.open")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onAddToTest}>
+              <Plus className="text-muted-foreground" aria-hidden="true" />
+              {t("bank.addToTest")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+              <Trash2 aria-hidden="true" />
+              {t("bank.delete")}
+            </DropdownMenuItem>
+          </RowMenu>
+        </TableCell>
       </TableRow>
 
       {audio && playing ? (
         <TableRow>
-          <TableCell colSpan={7} className="p-0">
+          <TableCell colSpan={8} className="p-0">
             <AudioPreviewRow
               key={audio.url}
               asset={audio}

@@ -553,7 +553,15 @@
     "addHere": "đang có {{count}} câu",
     "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}",
     "tagged": "Đã gắn thẻ",
-    "addedToTest": "Đã thêm vào đề"
+    "addedToTest": "Đã thêm vào đề",
+    "open": "Mở",
+    "delete": "Xoá",
+    "deleteConfirmTitle": "Xoá câu hỏi",
+    "deleteConfirmBody": "Câu hỏi sẽ bị xoá khỏi ngân hàng. Các đề đã phát hành vẫn giữ bản sao đã đóng băng.",
+    "deleteBlockedTitle": "Chưa xoá được câu hỏi này",
+    "deleteBlockedBody": "Câu hỏi đang nằm trong đề nháp. Gỡ khỏi các đề đó trước, rồi xoá lại.",
+    "deleteFailed": "Không xoá được câu hỏi.",
+    "deleted": "Đã xoá câu hỏi"
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",
@@ -903,7 +911,16 @@
     "enabled": "Đã mở lại tài khoản",
     "removeConfirmTitle": "Xoá {{name}} khỏi lớp {{klass}}?",
     "removeConfirmBody": "Học viên không còn thấy bài của lớp này. Bài đã làm vẫn giữ nguyên.",
-    "removed": "Đã xoá khỏi lớp"
+    "removed": "Đã xoá khỏi lớp",
+    "editInfo": "Sửa thông tin",
+    "emailHint": "Email cũng là tên đăng nhập — học viên sẽ dùng email mới từ lần đăng nhập sau. Nếu vào bằng Google, tài khoản Google phải trùng email này.",
+    "saved": "Đã lưu thông tin",
+    "saveFailed": "Không lưu được thông tin.",
+    "errors": {
+      "nameRequired": "Hãy nhập họ và tên.",
+      "nameTooLong": "Họ và tên tối đa 200 ký tự.",
+      "emailInvalid": "Email chưa đúng định dạng."
+    }
   },
   "takeTest": {
     "answerOptions": "Các phương án",

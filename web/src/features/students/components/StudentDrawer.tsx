@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ban, KeyRound, UserCheck, X } from "lucide-react";
+import { Ban, KeyRound, Pencil, UserCheck, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageAside } from "@/components/shared/PageAside";
 import { toast } from "@/components/ui/sonner";
+import { EditStudentForm } from "@/features/students/components/EditStudentForm";
 import { TemporaryPasswordCard } from "@/features/students/components/TemporaryPasswordCard";
 import {
   resetStudentPassword,
@@ -45,6 +46,7 @@ export function StudentDrawer({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState<
     { kind: "disable" } | { kind: "remove"; classId: string; className: string } | null
   >(null);
@@ -94,23 +96,38 @@ export function StudentDrawer({
     <PageAside label={t("students.detailFor", { name: student.fullName })}>
       <div className="flex items-start gap-3">
         <Avatar size="lg" name={student.fullName} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-semibold">{student.fullName}</p>
-          <p className="text-muted-foreground truncate text-xs">{student.email}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {student.linkedProviders.includes("google") ? (
-              <Badge variant="outline">{t("students.google")}</Badge>
-            ) : null}
-            {student.hasPassword ? (
-              <Badge variant="outline">{t("students.password")}</Badge>
-            ) : null}
-            {student.disabledAt ? (
-              <Badge variant="outline" className="text-destructive-ink">
-                {t("students.disabledBadge")}
-              </Badge>
-            ) : null}
+        {editing ? (
+          <EditStudentForm student={student} onDone={() => setEditing(false)} />
+        ) : (
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 truncate text-base font-semibold">
+              {student.fullName}
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground"
+                aria-label={t("students.editInfo")}
+                onClick={() => setEditing(true)}
+              >
+                <Pencil aria-hidden="true" />
+              </Button>
+            </p>
+            <p className="text-muted-foreground truncate text-xs">{student.email}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {student.linkedProviders.includes("google") ? (
+                <Badge variant="outline">{t("students.google")}</Badge>
+              ) : null}
+              {student.hasPassword ? (
+                <Badge variant="outline">{t("students.password")}</Badge>
+              ) : null}
+              {student.disabledAt ? (
+                <Badge variant="outline" className="text-destructive-ink">
+                  {t("students.disabledBadge")}
+                </Badge>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
         <Button
           variant="ghost"
           size="icon-sm"

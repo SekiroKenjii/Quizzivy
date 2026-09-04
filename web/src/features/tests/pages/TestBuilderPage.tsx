@@ -259,7 +259,7 @@ function Builder({ test }: { test: Test }) {
           onChange={(event) => updateTitle(event.target.value)}
         />
         <Badge variant="secondary">{t(`builder.${test.status}`)}</Badge>
-        <AutosaveStatusLabel status={saveStatus} />
+        <AutosaveStatusLabel status={saveStatus} onRetry={outline.retry} />
 
         <div className="ml-auto flex items-center gap-2">
           <Button

@@ -553,7 +553,15 @@
     "addHere": "{{count}} here now",
     "summaryFiltered": "{{count}} questions · {{filtered}} shown",
     "tagged": "Tags applied",
-    "addedToTest": "Added to the test"
+    "addedToTest": "Added to the test",
+    "open": "Open",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete question",
+    "deleteConfirmBody": "The question leaves the bank. Published tests keep their frozen copy.",
+    "deleteBlockedTitle": "This question cannot be deleted yet",
+    "deleteBlockedBody": "It is still in a draft test. Remove it from those tests first, then delete again.",
+    "deleteFailed": "Could not delete the question.",
+    "deleted": "Question deleted"
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",
@@ -903,7 +911,16 @@
     "enabled": "Account re-enabled",
     "removeConfirmTitle": "Remove {{name}} from {{klass}}?",
     "removeConfirmBody": "The student no longer sees this class's assignments. Existing work stays.",
-    "removed": "Removed from the class"
+    "removed": "Removed from the class",
+    "editInfo": "Edit details",
+    "emailHint": "The email is also the sign-in name — the student uses the new one from their next sign-in. With Google sign-in, the Google account must match this email.",
+    "saved": "Details saved",
+    "saveFailed": "Could not save the details.",
+    "errors": {
+      "nameRequired": "Enter the full name.",
+      "nameTooLong": "A name has at most 200 characters.",
+      "emailInvalid": "That email does not look right."
+    }
   },
   "takeTest": {
     "answerOptions": "Answer options",
