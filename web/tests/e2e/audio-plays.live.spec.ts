@@ -41,7 +41,7 @@ async function publishListeningTest(page: Page, title: string) {
     if (await rejected.isVisible()) {
       throw new Error(`upload rejected: ${await rejected.innerText()}`);
     }
-    await expect(page.getByRole("button", { name: "Gỡ" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "Gỡ", exact: true })).toBeVisible({
       timeout: 1_000,
     });
   }).toPass({ timeout: 60_000 });

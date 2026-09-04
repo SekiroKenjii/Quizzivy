@@ -92,7 +92,7 @@ test("E2E 1a: an admin authors a test with all five question types and publishes
     if (await rejected.isVisible()) {
       throw new Error(`upload rejected: ${await rejected.innerText()}`);
     }
-    await expect(page.getByRole("button", { name: "Gỡ" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "Gỡ", exact: true })).toBeVisible({
       timeout: 1_000,
     });
   }).toPass({ timeout: 60_000 });
