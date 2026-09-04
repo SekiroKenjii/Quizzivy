@@ -37,10 +37,10 @@ export function StudentDrawer({
   const [error, setError] = useState<string | null>(null);
   const locale = useLocale();
 
-  // Escape closes it.
+  // Escape closes it, unless a layer above already answered for it.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

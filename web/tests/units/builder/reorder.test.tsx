@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   OutlineTree,
@@ -140,5 +140,14 @@ describe("taking a question out of the test", () => {
     expect(screen.queryByText("Câu hai")).toBeNull();
     expect(screen.getByText("Câu một")).toBeInTheDocument();
     expect(screen.getByText("Câu ba")).toBeInTheDocument();
+  });
+});
+
+describe("focus after a question leaves the test", () => {
+  it("lands on a neighbouring row rather than on the body", async () => {
+    const { user } = renderTree();
+
+    await user.click(screen.getByRole("button", { name: "Gỡ câu 1 khỏi đề" }));
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
   });
 });

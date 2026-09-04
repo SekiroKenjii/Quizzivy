@@ -103,7 +103,7 @@ export function CommandPalette({
 
   // The highlight has to land somewhere real after the results change under it.
   const [activeFor, setActiveFor] = useState("");
-  const resultKey = `${search}|${entries.length}`;
+  const resultKey = `${open}|${search}|${entries.length}`;
   if (activeFor !== resultKey) {
     setActiveFor(resultKey);
     setActive(0);

@@ -97,10 +97,9 @@ export function TokenField({
       event.preventDefault();
       setActiveId(available[event.key === "Home" ? 0 : available.length - 1]!.id);
     } else if (event.key === "Enter") {
-      const target = activeOption ?? available[0];
-      if (!open || target === undefined) return;
+      if (!open || activeOption === undefined) return;
       event.preventDefault();
-      pick(target);
+      pick(activeOption);
     } else if (event.key === "Escape") {
       if (!open) return;
       event.preventDefault();

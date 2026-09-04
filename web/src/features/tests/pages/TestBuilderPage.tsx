@@ -13,7 +13,7 @@ import type { TFunction } from "i18next";
 import { useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Eye, History, SlidersHorizontal } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
@@ -109,6 +109,8 @@ function Builder({ test }: { test: Test }) {
   const [creating, setCreating] = useState(false);
 
   const flushQuestion = useRef<(() => Promise<void>) | null>(null);
+  const retryQuestion = useRef<(() => void) | null>(null);
+  const latestOutline = useRef<OutlineSection[]>(sections);
   const [questionStatus, setQuestionStatus] = useState<AutosaveStatus>({
     kind: "idle",
   });
@@ -160,14 +162,20 @@ function Builder({ test }: { test: Test }) {
     return map;
   }, [loaded, questionIds, violations]);
 
+  useEffect(() => {
+    latestOutline.current = sections;
+  }, [sections]);
+
   const updateOutline = useCallback(
     (next: OutlineSection[]) => {
       setSections(next);
-      setSelectedId((current) =>
-        current !== null && !next.some((s) => s.questionIds.includes(current))
-          ? null
-          : current,
-      );
+      setSelectedId((current) => {
+        if (current === null || next.some((s) => s.questionIds.includes(current))) {
+          return current;
+        }
+        setQuestionStatus({ kind: "idle" });
+        return null;
+      });
       outline.schedule({ title, sections: next });
     },
     [outline, title],
@@ -175,13 +183,14 @@ function Builder({ test }: { test: Test }) {
 
   function updateTitle(next: string) {
     setTitle(next);
-    outline.schedule({ title: next, sections });
+    outline.schedule({ title: next, sections: latestOutline.current });
   }
 
   function appendQuestion(questionId: string) {
-    const last = sections.length - 1;
+    const current = latestOutline.current;
+    const last = current.length - 1;
     updateOutline(
-      sections.map((section, i) =>
+      current.map((section, i) =>
         i === last
           ? { ...section, questionIds: [...section.questionIds, questionId] }
           : section,
@@ -264,8 +273,14 @@ function Builder({ test }: { test: Test }) {
           className="h-8 w-96 min-w-32 border-transparent font-medium shadow-none"
           onChange={(event) => updateTitle(event.target.value)}
         />
-        <Badge variant="secondary">{t(`builder.${test.status}`)}</Badge>
-        <AutosaveStatusLabel status={saveStatus} onRetry={outline.retry} />
+        <StatusBadge kind="test" status={test.status} />
+        <AutosaveStatusLabel
+          status={saveStatus}
+          onRetry={() => {
+            outline.retry();
+            retryQuestion.current?.();
+          }}
+        />
         {selectedId === null ? null : (
           <Button
             variant="outline"
@@ -363,6 +378,7 @@ function Builder({ test }: { test: Test }) {
                 key={selectedId}
                 questionId={selectedId}
                 flushRef={flushQuestion}
+                retryRef={retryQuestion}
                 onStatus={setQuestionStatus}
                 contextLabel={contextLabel}
               />
@@ -400,6 +416,7 @@ function Builder({ test }: { test: Test }) {
 function QuestionPane({
   questionId,
   flushRef,
+  retryRef,
   onStatus,
   contextLabel,
   settingsOpen,
@@ -407,6 +424,7 @@ function QuestionPane({
 }: {
   questionId: string;
   flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
   settingsOpen: boolean;
@@ -438,6 +456,7 @@ function QuestionPane({
       questionId={questionId}
       initial={question.data}
       flushRef={flushRef}
+      retryRef={retryRef}
       onStatus={onStatus}
       contextLabel={contextLabel}
       settingsOpen={settingsOpen}
@@ -450,6 +469,7 @@ function QuestionForm({
   questionId,
   initial,
   flushRef,
+  retryRef,
   onStatus,
   contextLabel,
   settingsOpen,
@@ -458,6 +478,7 @@ function QuestionForm({
   questionId: string;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
   settingsOpen: boolean;
@@ -472,13 +493,15 @@ function QuestionForm({
     },
   });
 
-  const { flush, status } = autosave;
+  const { flush, retry, status } = autosave;
   useEffect(() => {
     flushRef.current = flush;
+    retryRef.current = retry;
     return () => {
       flushRef.current = null;
+      retryRef.current = null;
     };
-  }, [flush, flushRef]);
+  }, [flush, retry, flushRef, retryRef]);
 
   useEffect(() => {
     onStatus(status);

@@ -154,7 +154,7 @@ export default function ClassesListPage() {
               {t("classes.loadFailed")}
             </LoadError>
           ) : items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">{t("classes.noMatches")}</p>
+            <EmptyState>{t("classes.noMatches")}</EmptyState>
           ) : (
             <>
               <Card className="gap-0 overflow-hidden py-0">

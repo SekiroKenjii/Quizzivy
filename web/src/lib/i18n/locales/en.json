@@ -682,9 +682,9 @@
     "status": {
       "in_progress": "started",
       "submitted": "submitted",
+      "timed_out": "ran out of time on",
       "graded": "was graded on",
-      "voided": "had voided",
-      "expired": "ran out of time on"
+      "voided": "had voided"
     },
     "notifications": "Notifications",
     "notificationsWith": "Notifications, {{count}} outstanding",
@@ -932,10 +932,10 @@
     "selectedClasses_one": "{{count}} class selected",
     "selectedClasses_other": "{{count}} classes selected",
     "noClassMatches": "No class matches.",
-    "disableConfirmTitle": "Disable {{name}}'s account?",
-    "disableConfirmBody": "The student can no longer sign in. Attempts and grades stay; you can re-enable at any time.",
-    "disabled": "Account disabled",
-    "enabled": "Account re-enabled",
+    "disableConfirmTitle": "Suspend {{name}}'s account?",
+    "disableConfirmBody": "The student can no longer sign in. Attempts and grades stay; you can restore access at any time.",
+    "disabled": "Account suspended",
+    "enabled": "Access restored",
     "removeConfirmTitle": "Remove {{name}} from {{klass}}?",
     "removeConfirmBody": "The student no longer sees this class's assignments. Existing work stays.",
     "removed": "Removed from the class",

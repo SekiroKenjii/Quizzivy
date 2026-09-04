@@ -525,6 +525,7 @@ function OutlineRow({
   return (
     <div
       ref={setNodeRef}
+      data-outline-row=""
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         "group flex items-center gap-2 rounded-md px-2 py-1.5 text-xs",
@@ -589,8 +590,15 @@ function OutlineRow({
         <Button
           variant="ghost"
           size="icon-xs"
+          data-drop=""
           aria-label={t("builder.dropFromTest", { number })}
-          onClick={onDrop}
+          onClick={(event) => {
+            const row = event.currentTarget.closest("[data-outline-row]");
+            const neighbour = row?.nextElementSibling ?? row?.previousElementSibling;
+            const target = neighbour?.querySelector<HTMLElement>("[data-drop]") ?? null;
+            onDrop();
+            requestAnimationFrame(() => target?.focus());
+          }}
         >
           <X aria-hidden="true" />
         </Button>

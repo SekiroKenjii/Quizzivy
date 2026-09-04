@@ -682,9 +682,9 @@
     "status": {
       "in_progress": "đang làm",
       "submitted": "nộp",
+      "timed_out": "hết giờ",
       "graded": "đã được chấm",
-      "voided": "bị huỷ",
-      "expired": "hết giờ"
+      "voided": "bị huỷ"
     },
     "notifications": "Thông báo",
     "notificationsWith": "Thông báo, {{count}} việc cần xử lý",
@@ -932,10 +932,10 @@
     "selectedClasses_one": "Đã chọn {{count}} lớp",
     "selectedClasses_other": "Đã chọn {{count}} lớp",
     "noClassMatches": "Không có lớp nào khớp.",
-    "disableConfirmTitle": "Vô hiệu hoá tài khoản {{name}}?",
-    "disableConfirmBody": "Học viên không đăng nhập được nữa. Bài làm và điểm vẫn giữ nguyên; bạn mở lại được bất cứ lúc nào.",
-    "disabled": "Đã vô hiệu hoá tài khoản",
-    "enabled": "Đã mở lại tài khoản",
+    "disableConfirmTitle": "Khoá tài khoản {{name}}?",
+    "disableConfirmBody": "Học viên không đăng nhập được nữa. Bài làm và điểm vẫn giữ nguyên; bạn mở khoá lại được bất cứ lúc nào.",
+    "disabled": "Đã khoá tài khoản",
+    "enabled": "Đã mở khoá tài khoản",
     "removeConfirmTitle": "Xoá {{name}} khỏi lớp {{klass}}?",
     "removeConfirmBody": "Học viên không còn thấy bài của lớp này. Bài đã làm vẫn giữ nguyên.",
     "removed": "Đã xoá khỏi lớp",

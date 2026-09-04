@@ -36,7 +36,10 @@ export function ArchiveClassDialog({
   return (
     <ConfirmDialog
       open
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (!next) archive.reset();
+        onOpenChange(next);
+      }}
       title={t("classes.archiveTitle", { name: klass.name })}
       description={t("classes.archiveBody")}
       confirmLabel={t("classes.archive")}
