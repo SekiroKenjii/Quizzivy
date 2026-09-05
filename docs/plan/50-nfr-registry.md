@@ -117,7 +117,7 @@ at the end says how much is covered and what the next round is.
 | NFR-U05 | The teacher never has to guess which link to bookmark: the dashboard, the sidebar counts and the grading queue are the daily entry points | A-00, G-10 | ✅ | Dashboard queue, `nav.grading` count |
 | NFR-U06 | The deck is authoritative: no screen is built without a board, and a board's route is what ships | `docs/design/README.md` | ✅ | Every route has a board id in its component comment; deck `check.mjs` runs by hand — **not in CI yet** (issue) |
 | NFR-U07 | Side columns keep one width per role (F-11), adjustable and remembered per browser (F-13) | F-11, F-13 | ✅ | `useColumnWidth`, `SideColumn` |
-| NFR-U08 | Icon sizes follow one scale by position (table 14 px, buttons 16, badges 12, nav 16, top bar 20, empty states 20) | §12, F-14 | ⬜ | Being measured on the running app in this round; the rule lands on the foundations sheet and in the `Button`/`TableCell` primitives |
+| NFR-U08 | Icon sizes follow one scale by position: badge or chip 12; table cell, 28px button, tab or text-xs line 14; default 16; student alert 18; top-bar toggle and card list item 20 | §12, F-14 | ✅ | Measured on the running app 2026-09-05; `Badge`, `TableCell` and `Button` xs/icon-xs size their own icons; `tests/units/ui/icon-scale.test.tsx` |
 | NFR-U09 | Destructive actions are reversible where the domain allows: archive not delete, void not delete, close then reopen, undo on the toast | §8, G-08, G-09 | ✅ | No hard delete of a class, test or attempt |
 | NFR-U10 | The admin is usable at 768 px with nothing clipped or unreachable; the panel becomes a sheet below 1024 | §8, F-12 | ✅ | F-12 walk (#65); `PageAside` sheet |
 
@@ -174,14 +174,14 @@ at the end says how much is covered and what the next round is.
 | D. Availability | 6 | 1 | 0 | 1 | 1 | 9 |
 | E. Performance | 5 | 1 | 2 | 0 | 0 | 8 |
 | F. Accessibility | 3 | 2 | 1 | 0 | 0 | 6 |
-| G. Usability | 8 | 1 | 1 | 0 | 0 | 10 |
+| G. Usability | 9 | 1 | 0 | 0 | 0 | 10 |
 | H. i18n | 4 | 0 | 1 | 0 | 0 | 5 |
 | I. Compatibility | 3 | 1 | 1 | 0 | 0 | 5 |
 | J. Maintainability | 6 | 0 | 0 | 1 | 0 | 7 |
 | K. Observability | 3 | 0 | 0 | 1 | 0 | 4 |
-| **Total** | **63** | **10** | **6** | **4** | **2** | **85** |
+| **Total** | **64** | **10** | **5** | **4** | **2** | **85** |
 
-Seventy-three of eighty-five are met or mechanically in place. What remains is
+Seventy-four of eighty-five are met or mechanically in place. What remains is
 almost entirely Phase 5's hardening list plus four things the plan never wrote
 down: browser headers, backups, someone being told when it breaks, and the deck
 check in CI.
@@ -195,7 +195,6 @@ stranger on the internet can do, or what is lost if the database is:
 2. NFR-A04 record Neon's retention and rehearse one restore into a branch (issue).
 3. NFR-S05/S06 **T-5.2** — drive every public limit past its threshold, re-run the leak review.
 4. NFR-M06 deck check in CI (issue; ten lines of YAML).
-5. NFR-U08 icon-size rule (this round).
 6. NFR-A05/A06/O03 — Thuong decides what tells him: the cheapest honest answer is an external uptime check on `/healthz` and `app.` plus Fly's log alerts; error aggregation can wait (issue with options).
 
 **Đợt 5 — Phase 5 proper, after the first release.** T-5.3 accessibility

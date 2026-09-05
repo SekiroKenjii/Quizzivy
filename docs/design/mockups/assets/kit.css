@@ -213,6 +213,8 @@ a {
 .btn-icon { width: 2.25rem; padding-inline: 0; }
 .btn-icon.btn-sm { width: 2rem; }
 .btn-icon.btn-xs { width: 1.75rem; }
+/* F-14: the 28px button carries a 14px icon; every other button 16px. */
+.btn-xs .i { width: 0.875rem; height: 0.875rem; }
 .btn-block { width: 100%; }
 
 /* ---------------------------------------------------------------- cards -- */
@@ -347,7 +349,7 @@ a {
   line-height: 1.35;
   white-space: nowrap;
 }
-.badge .i { width: 0.75rem; height: 0.75rem; }
+.badge .i { width: 0.75rem; height: 0.75rem; } /* F-14: badge 12px */
 .b-primary { background: var(--primary); color: var(--primary-foreground); }
 .b-secondary { background: var(--secondary); color: var(--secondary-foreground); }
 .b-outline { border-color: var(--border); color: var(--muted-foreground); }
@@ -387,6 +389,9 @@ a {
   vertical-align: middle;
 }
 .table tbody tr:last-child td { border-bottom: 0; }
+/* F-14: an icon in a cell is 14px; a badge in a cell keeps its 12px. */
+.table td .i { width: 0.875rem; height: 0.875rem; }
+.table td .badge .i { width: 0.75rem; height: 0.75rem; }
 .table tbody tr:hover { background: color-mix(in oklab, var(--muted) 55%, transparent); }
 .table-roomy td { height: 3.25rem; }
 .num { font-variant-numeric: tabular-nums; }
@@ -414,6 +419,7 @@ a {
   font-weight: 500;
   cursor: pointer;
 }
+.tab .i { width: 0.875rem; height: 0.875rem; } /* F-14: tab 14px */
 .tab.is-active {
   background: var(--background);
   color: var(--foreground);
