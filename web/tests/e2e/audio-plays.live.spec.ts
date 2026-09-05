@@ -46,7 +46,7 @@ async function publishListeningTest(page: Page, title: string) {
     });
   }).toPass({ timeout: 60_000 });
   // §11.1's default, and exactly the allowance this test needs.
-  await expect(page.getByLabel("Số lần được nghe")).toHaveValue("2");
+  await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
 
   for (const [index, text] of ["Gọi lại sau", "Đổi lịch hẹn"].entries()) {
     await page.getByPlaceholder(`Lựa chọn ${index + 1}`).fill(text);
