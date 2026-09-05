@@ -45,7 +45,7 @@ func ReferencesFor(ctx context.Context, q Querier, assetIDs []string) (map[strin
 		  JOIN app.test_versions tv ON tv.id = tvs.test_version_id
 		  JOIN app.tests t ON t.id = tv.test_id
 		 WHERE tvq.media_asset_id = ANY($1::uuid[])
-		 ORDER BY tvq.media_asset_id::text, t.title, tv.version, t.id`, assetIDs)
+		 ORDER BY tvq.media_asset_id::text, t.title, tv.version, t.id::text`, assetIDs)
 	if err != nil {
 		return nil, fmt.Errorf("media: references: %w", err)
 	}

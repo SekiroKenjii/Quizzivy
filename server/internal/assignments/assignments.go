@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Status string
@@ -103,9 +103,19 @@ type ListInput struct {
 	Limit  int
 }
 
-type Store struct{ pool *pgxpool.Pool }
+// DB is what the store queries through: the pool in production, and a
+// transaction in a test that needs one consistent snapshot of tables every
+// package on the shared database inserts into.
+type DB interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
 
-func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+type Store struct{ pool DB }
+
+func NewStore(db DB) *Store { return &Store{pool: db} }
 
 // selectAssignment is shared by List and Get so a row can never mean one thing
 // in the list and another on the detail screen.
