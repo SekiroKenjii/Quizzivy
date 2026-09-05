@@ -1,103 +1,33 @@
-package assignments
+package repositories
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/shared/audit"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-
-	"quizzivy/internal/shared/audit"
 )
 
-var (
-	ErrNotFound         = errors.New("assignments: not found")
-	ErrTestNotPublished = errors.New("assignments: test version is not published")
-	ErrVersionLocked    = errors.New("assignments: attempts exist")
-)
-
-type FieldError struct{ Field, Message string }
-
-type ValidationError struct{ Fields []FieldError }
-
-func (e *ValidationError) Error() string {
-	parts := make([]string, len(e.Fields))
-	for i, f := range e.Fields {
-		parts[i] = f.Field + ": " + f.Message
-	}
-	return "assignments: " + strings.Join(parts, "; ")
-}
-
-// Request is the actor behind a write, for the audit row.
-type Request struct {
-	ID        string
-	ActorID   string
-	IP        string
-	UserAgent string
-}
-
-type WriteInput struct {
-	TestVersionID string
-	ClassIDs      []string
-	StudentIDs    []string
-	OpensAt       time.Time
-	ClosesAt      time.Time
-	DurationMin   int
-	MaxAttempts   int
-	ShuffleQ      bool
-	ShuffleO      bool
-	Review        Review
-	Integrity     Integrity
-	CloseNow      bool
-	// Draft withholds it from students.
-	Draft bool
-	Now   time.Time
-}
-
-func validate(in WriteInput) error {
-	var fields []FieldError
-
-	if !in.ClosesAt.After(in.OpensAt) {
-		fields = append(fields, FieldError{"window.closesAt", "Thời điểm đóng phải sau thời điểm mở."})
-	}
-
-	if !in.Draft && len(in.ClassIDs) == 0 && len(in.StudentIDs) == 0 {
-		fields = append(fields, FieldError{"targets", "Chọn ít nhất một lớp hoặc một học viên."})
-	}
-
-	// Remove together with the auto_submit implementation (T-5.1).
-	if in.Integrity.OnLimitExceeded == "auto_submit" {
-		fields = append(fields, FieldError{
-			"integrity.onLimitExceeded",
-			"Chế độ tự động nộp bài chưa khả dụng.",
-		})
-	}
-
-	if len(fields) > 0 {
-		return &ValidationError{Fields: fields}
-	}
-	return nil
-}
-
-func (s *Store) Create(ctx context.Context, req Request, in WriteInput) (Assignment, error) {
-	if err := validate(in); err != nil {
-		return Assignment{}, err
+func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
+	if err := domain.Validate(in); err != nil {
+		return domain.Assignment{}, err
 	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return Assignment{}, fmt.Errorf("assignments: begin create: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: begin create: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	testID, err := publishedTestFor(ctx, tx, in.TestVersionID)
 	if err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := checkTargets(ctx, tx, in); err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 
 	var id string
@@ -112,17 +42,17 @@ func (s *Store) Create(ctx context.Context, req Request, in WriteInput) (Assignm
 		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
 		        $13, $14, $15, $16::app.integrity_action, $17, $18::uuid, $19)
 		RETURNING id::text`,
-		testID, in.TestVersionID, in.OpensAt, in.ClosesAt, closedAt(in),
+		testID, in.TestVersionID, in.OpensAt, in.ClosesAt, domain.ClosedAtOf(in),
 		in.DurationMin, in.MaxAttempts, in.ShuffleQ, in.ShuffleO,
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded, in.Integrity.MinAwayMs,
-		req.ActorID, publishedAt(in)).Scan(&id); err != nil {
-		return Assignment{}, fmt.Errorf("assignments: insert: %w", err)
+		req.ActorID, domain.PublishedAtOf(in)).Scan(&id); err != nil {
+		return domain.Assignment{}, fmt.Errorf("assignments: insert: %w", err)
 	}
 
 	if err := writeTargets(ctx, tx, id, in); err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
@@ -133,15 +63,15 @@ func (s *Store) Create(ctx context.Context, req Request, in WriteInput) (Assignm
 		IP:          optional(req.IP),
 		UserAgent:   optional(req.UserAgent),
 	}); err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 
 	created, err := s.get(ctx, tx, id)
 	if err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Assignment{}, fmt.Errorf("assignments: commit create: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: commit create: %w", err)
 	}
 	return created, nil
 }
@@ -158,35 +88,35 @@ func versionStillFree(ctx context.Context, tx pgx.Tx, assignmentID, next, curren
 		return fmt.Errorf("assignments: attempt check: %w", err)
 	}
 	if started {
-		return ErrVersionLocked
+		return domain.ErrVersionLocked
 	}
 	return nil
 }
 
-func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignment, error) {
-	if err := validate(in); err != nil {
-		return Assignment{}, err
+func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
+	if err := domain.Validate(in); err != nil {
+		return domain.Assignment{}, err
 	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return Assignment{}, fmt.Errorf("assignments: begin update: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: begin update: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	current, err := lockForUpdate(ctx, tx, req.ID)
 	if err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	testID, err := publishedTestFor(ctx, tx, in.TestVersionID)
 	if err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, current.versionID); err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := checkTargets(ctx, tx, in); err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 
 	next := current.closedAt
@@ -213,11 +143,11 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded,
-		in.Integrity.MinAwayMs, nextPublishedAt(current.publishedAt, in)); err != nil {
-		return Assignment{}, fmt.Errorf("assignments: update: %w", err)
+		in.Integrity.MinAwayMs, domain.NextPublishedAt(current.publishedAt, in)); err != nil {
+		return domain.Assignment{}, fmt.Errorf("assignments: update: %w", err)
 	}
 	if err := replaceTargets(ctx, tx, req.ID, in); err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
@@ -228,15 +158,15 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 		IP:          optional(req.IP),
 		UserAgent:   optional(req.UserAgent),
 	}); err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 
 	saved, err := s.get(ctx, tx, req.ID)
 	if err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Assignment{}, fmt.Errorf("assignments: commit update: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: commit update: %w", err)
 	}
 	return saved, nil
 }
@@ -257,7 +187,7 @@ func lockForUpdate(ctx context.Context, tx pgx.Tx, id string) (lockedRow, error)
 	case err == nil:
 		return row, nil
 	case errors.Is(err, pgx.ErrNoRows):
-		return lockedRow{}, ErrNotFound
+		return lockedRow{}, domain.ErrNotFound
 	default:
 		return lockedRow{}, fmt.Errorf("assignments: load for update: %w", err)
 	}
@@ -265,7 +195,7 @@ func lockForUpdate(ctx context.Context, tx pgx.Tx, id string) (lockedRow, error)
 
 // replaceTargets swaps the roster wholesale: an update replaces targets rather
 // than adding to them.
-func replaceTargets(ctx context.Context, tx pgx.Tx, id string, in WriteInput) error {
+func replaceTargets(ctx context.Context, tx pgx.Tx, id string, in domain.WriteInput) error {
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM app.assignment_classes WHERE assignment_id = $1::uuid`, id); err != nil {
 		return fmt.Errorf("assignments: clear class targets: %w", err)
@@ -279,7 +209,7 @@ func replaceTargets(ctx context.Context, tx pgx.Tx, id string, in WriteInput) er
 
 // updateAction names the audit row: closing early and first publication are
 // the two updates a teacher will be asked about later.
-func updateAction(in WriteInput, current lockedRow) string {
+func updateAction(in domain.WriteInput, current lockedRow) string {
 	switch {
 	case in.CloseNow && current.closedAt == nil:
 		return "assignment.closed"
@@ -288,32 +218,6 @@ func updateAction(in WriteInput, current lockedRow) string {
 	default:
 		return "assignment.updated"
 	}
-}
-
-// nextPublishedAt keeps an already-published assignment published. Saving one
-// with draft:true again does not un-give it -- students may already be sitting
-// it, and the only way back out is closing it.
-func nextPublishedAt(current *time.Time, in WriteInput) *time.Time {
-	if current != nil {
-		return current
-	}
-	return publishedAt(in)
-}
-
-// publishedAt is set once and never cleared: an assignment students have
-// already been given cannot be pulled back into a draft, only closed.
-func publishedAt(in WriteInput) *time.Time {
-	if in.Draft {
-		return nil
-	}
-	return &in.Now
-}
-
-func closedAt(in WriteInput) *time.Time {
-	if in.CloseNow {
-		return &in.Now
-	}
-	return nil
 }
 
 // publishedTestFor resolves the version's test and proves it is assignable.
@@ -329,7 +233,7 @@ func publishedTestFor(ctx context.Context, tx pgx.Tx, versionID string) (string,
 		 WHERE v.id = $1::uuid AND t.deleted_at IS NULL AND t.status = 'published'`,
 		versionID).Scan(&testID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrTestNotPublished
+		return "", domain.ErrTestNotPublished
 	}
 	if err != nil {
 		return "", fmt.Errorf("assignments: resolve version: %w", err)
@@ -341,8 +245,8 @@ func publishedTestFor(ctx context.Context, tx pgx.Tx, versionID string) (string,
 //
 // A foreign-key violation would surface as a 500 with no indication of which of
 // forty ids was wrong.
-func checkTargets(ctx context.Context, tx pgx.Tx, in WriteInput) error {
-	var fields []FieldError
+func checkTargets(ctx context.Context, tx pgx.Tx, in domain.WriteInput) error {
+	var fields []domain.FieldError
 
 	if len(in.ClassIDs) > 0 {
 		missing, err := missingIDs(ctx, tx,
@@ -351,7 +255,7 @@ func checkTargets(ctx context.Context, tx pgx.Tx, in WriteInput) error {
 			return err
 		}
 		for _, id := range missing {
-			fields = append(fields, FieldError{"targets.classIds", "Không tìm thấy lớp " + id + "."})
+			fields = append(fields, domain.FieldError{Field: "targets.classIds", Message: "Không tìm thấy lớp " + id + "."})
 		}
 	}
 
@@ -364,12 +268,12 @@ func checkTargets(ctx context.Context, tx pgx.Tx, in WriteInput) error {
 			return err
 		}
 		for _, id := range missing {
-			fields = append(fields, FieldError{"targets.studentIds", "Không tìm thấy học viên " + id + "."})
+			fields = append(fields, domain.FieldError{Field: "targets.studentIds", Message: "Không tìm thấy học viên " + id + "."})
 		}
 	}
 
 	if len(fields) > 0 {
-		return &ValidationError{Fields: fields}
+		return &domain.ValidationError{Fields: fields}
 	}
 	return nil
 }
@@ -402,7 +306,7 @@ func missingIDs(ctx context.Context, tx pgx.Tx, query string, want []string) ([]
 	return missing, nil
 }
 
-func writeTargets(ctx context.Context, tx pgx.Tx, assignmentID string, in WriteInput) error {
+func writeTargets(ctx context.Context, tx pgx.Tx, assignmentID string, in domain.WriteInput) error {
 	if len(in.ClassIDs) > 0 {
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO app.assignment_classes (assignment_id, class_id)

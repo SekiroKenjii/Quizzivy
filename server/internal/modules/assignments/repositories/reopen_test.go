@@ -1,19 +1,21 @@
-package assignments_test
+//go:build integration
+
+package repositories_test
 
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/modules/assignments/repositories"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-
-	"quizzivy/internal/modules/assignments"
 )
 
 func TestReopeningLiftsAnEarlyCloseAndRecordsWhy(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -40,7 +42,7 @@ func TestReopeningLiftsAnEarlyCloseAndRecordsWhy(t *testing.T) {
 	if !reopened.ClosesAt.Equal(until) {
 		t.Errorf("closesAt = %v, want %v", reopened.ClosesAt, until)
 	}
-	if got := assignments.StatusAt(time.Now(), reopened.PublishedAt, reopened.OpensAt, reopened.ClosesAt, reopened.ClosedAt); got != assignments.Open {
+	if got := domain.StatusAt(time.Now(), reopened.PublishedAt, reopened.OpensAt, reopened.ClosesAt, reopened.ClosedAt); got != domain.Open {
 		t.Errorf("status after reopening: %s, want open", got)
 	}
 
@@ -57,7 +59,7 @@ func TestReopeningLiftsAnEarlyCloseAndRecordsWhy(t *testing.T) {
 
 func TestReopeningRefusesWhatHasNothingToReopen(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -69,18 +71,18 @@ func TestReopeningRefusesWhatHasNothingToReopen(t *testing.T) {
 	req.ID = open.ID
 	later := time.Now().Add(time.Hour)
 
-	if _, err := store.Reopen(ctx, req, later, "lý do", time.Now()); !errors.Is(err, assignments.ErrNotClosed) {
+	if _, err := store.Reopen(ctx, req, later, "lý do", time.Now()); !errors.Is(err, domain.ErrNotClosed) {
 		t.Errorf("reopening an open assignment returned %v, want ErrNotClosed", err)
 	}
-	if _, err := store.Reopen(ctx, req, later, "   ", time.Now()); !errors.Is(err, assignments.ErrBlankReason) {
+	if _, err := store.Reopen(ctx, req, later, "   ", time.Now()); !errors.Is(err, domain.ErrBlankReason) {
 		t.Errorf("a blank reason returned %v, want ErrBlankReason", err)
 	}
-	if _, err := store.Reopen(ctx, req, time.Now().Add(-time.Minute), "lý do", time.Now()); !errors.Is(err, assignments.ErrClosesInPast) {
+	if _, err := store.Reopen(ctx, req, time.Now().Add(-time.Minute), "lý do", time.Now()); !errors.Is(err, domain.ErrClosesInPast) {
 		t.Errorf("a past closesAt returned %v, want ErrClosesInPast", err)
 	}
 	missing := request(w)
 	missing.ID = "00000000-0000-7000-8000-000000000000"
-	if _, err := store.Reopen(ctx, missing, later, "lý do", time.Now()); !errors.Is(err, assignments.ErrNotFound) {
+	if _, err := store.Reopen(ctx, missing, later, "lý do", time.Now()); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("an unknown id returned %v, want ErrNotFound", err)
 	}
 }
@@ -96,9 +98,9 @@ func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	store := assignments.NewStore(tx)
+	store := repositories.NewPostgres(tx)
 
-	before, err := store.Facets(ctx, assignments.ListInput{})
+	before, err := store.Facets(ctx, domain.ListInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,22 +111,22 @@ func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 	scheduled.OpensAt, scheduled.ClosesAt = time.Now().Add(time.Hour), time.Now().Add(2*time.Hour)
 	closed := legalInput(w)
 	closed.OpensAt, closed.ClosesAt = time.Now().Add(-2*time.Hour), time.Now().Add(-time.Hour)
-	for _, in := range []assignments.WriteInput{legalInput(w), draft, scheduled, closed} {
+	for _, in := range []domain.WriteInput{legalInput(w), draft, scheduled, closed} {
 		if _, err := store.Create(ctx, request(w), in); err != nil {
 			t.Fatalf("create: %v", err)
 		}
 	}
 
-	after, err := store.Facets(ctx, assignments.ListInput{})
+	after, err := store.Facets(ctx, domain.ListInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := assignments.Facets{
+	got := domain.Facets{
 		All: after.All - before.All, Draft: after.Draft - before.Draft,
 		Scheduled: after.Scheduled - before.Scheduled, Open: after.Open - before.Open,
 		Closed: after.Closed - before.Closed,
 	}
-	want := assignments.Facets{All: 4, Draft: 1, Scheduled: 1, Open: 1, Closed: 1}
+	want := domain.Facets{All: 4, Draft: 1, Scheduled: 1, Open: 1, Closed: 1}
 	if got != want {
 		t.Errorf("facets moved by %+v, want %+v", got, want)
 	}

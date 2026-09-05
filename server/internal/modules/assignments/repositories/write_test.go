@@ -1,4 +1,6 @@
-package assignments_test
+//go:build integration
+
+package repositories_test
 
 import (
 	"context"
@@ -6,13 +8,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/modules/assignments/repositories"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"quizzivy/internal/modules/assignments"
 )
 
 func newPool(t *testing.T) *pgxpool.Pool {
@@ -108,30 +110,30 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 	return w
 }
 
-func legalInput(w world) assignments.WriteInput {
+func legalInput(w world) domain.WriteInput {
 	now := time.Now()
-	return assignments.WriteInput{
+	return domain.WriteInput{
 		TestVersionID: w.versionID,
 		ClassIDs:      []string{w.class},
 		OpensAt:       now.Add(-time.Hour),
 		ClosesAt:      now.Add(time.Hour),
 		DurationMin:   45,
 		MaxAttempts:   1,
-		Review:        assignments.Review{ShowScore: true},
-		Integrity: assignments.Integrity{
+		Review:        domain.Review{ShowScore: true},
+		Integrity: domain.Integrity{
 			BlockCopyPaste: true, OnLimitExceeded: "flag", MinAwayMs: 3000,
 		},
 		Now: now,
 	}
 }
 
-func request(w world) assignments.Request {
-	return assignments.Request{ActorID: w.admin, IP: "203.0.113.7", UserAgent: "go-test"}
+func request(w world) domain.Request {
+	return domain.Request{ActorID: w.admin, IP: "203.0.113.7", UserAgent: "go-test"}
 }
 
 func fieldsOf(t *testing.T, err error) map[string]string {
 	t.Helper()
-	var invalid *assignments.ValidationError
+	var invalid *domain.ValidationError
 	if !errors.As(err, &invalid) {
 		t.Fatalf("want a ValidationError, got %v", err)
 	}
@@ -144,7 +146,7 @@ func fieldsOf(t *testing.T, err error) map[string]string {
 
 func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -201,14 +203,14 @@ func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 
 func TestOnlyAPublishedVersionCanBeAssigned(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	ctx := context.Background()
 
 	for _, status := range []string{"draft", "archived"} {
 		t.Run(status, func(t *testing.T) {
 			w := seedWorld(t, pool, status)
 			_, err := store.Create(ctx, request(w), legalInput(w))
-			if !errors.Is(err, assignments.ErrTestNotPublished) {
+			if !errors.Is(err, domain.ErrTestNotPublished) {
 				t.Fatalf("want ErrTestNotPublished, got %v", err)
 			}
 		})
@@ -219,7 +221,7 @@ func TestOnlyAPublishedVersionCanBeAssigned(t *testing.T) {
 		in := legalInput(w)
 		in.TestVersionID = "00000000-0000-7000-8000-00000000dead"
 		_, err := store.Create(ctx, request(w), in)
-		if !errors.Is(err, assignments.ErrTestNotPublished) {
+		if !errors.Is(err, domain.ErrTestNotPublished) {
 			t.Fatalf("want ErrTestNotPublished, got %v", err)
 		}
 	})
@@ -227,7 +229,7 @@ func TestOnlyAPublishedVersionCanBeAssigned(t *testing.T) {
 
 func TestAnAssignmentNobodyCanTakeIsRejected(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -241,7 +243,7 @@ func TestAnAssignmentNobodyCanTakeIsRejected(t *testing.T) {
 
 func TestTheWindowMustBeAWindow(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -257,7 +259,7 @@ func TestTheWindowMustBeAWindow(t *testing.T) {
 // form carrying forty of them.
 func TestAnUnknownTargetIsNamed(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	const ghost = "00000000-0000-7000-8000-0000000000aa"
 
@@ -277,7 +279,7 @@ func TestAnUnknownTargetIsNamed(t *testing.T) {
 // An admin is a real user, so only the role check keeps them out of a roster.
 func TestOnlyAStudentCanBeTargetedIndividually(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -291,7 +293,7 @@ func TestOnlyAStudentCanBeTargetedIndividually(t *testing.T) {
 
 func TestUpdateReplacesTargetsRatherThanAddingToThem(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -322,7 +324,7 @@ func TestUpdateReplacesTargetsRatherThanAddingToThem(t *testing.T) {
 
 func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -360,7 +362,7 @@ func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 
 	back := legalInput(w)
 	back.TestVersionID = w.versionID
-	if _, err := store.Update(ctx, req, back); !errors.Is(err, assignments.ErrVersionLocked) {
+	if _, err := store.Update(ctx, req, back); !errors.Is(err, domain.ErrVersionLocked) {
 		t.Fatalf("want ErrVersionLocked, got %v", err)
 	}
 
@@ -379,7 +381,7 @@ func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 
 func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -403,7 +405,7 @@ func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 	if closed.ClosedAt == nil {
 		t.Fatal("closeNow did not set closedAt")
 	}
-	if got := assignments.StatusAt(time.Now(), closed.PublishedAt, closed.OpensAt, closed.ClosesAt, closed.ClosedAt); got != assignments.Closed {
+	if got := domain.StatusAt(time.Now(), closed.PublishedAt, closed.OpensAt, closed.ClosesAt, closed.ClosedAt); got != domain.Closed {
 		t.Errorf("status: want closed, got %s", got)
 	}
 
@@ -419,7 +421,7 @@ func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 
 func TestAutoSubmitIsRefusedUntilItExists(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -433,12 +435,12 @@ func TestAutoSubmitIsRefusedUntilItExists(t *testing.T) {
 
 func TestUpdatingSomethingThatIsNotThereIsNotFound(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 
 	req := request(w)
 	req.ID = "00000000-0000-7000-8000-0000000000bb"
-	if _, err := store.Update(context.Background(), req, legalInput(w)); !errors.Is(err, assignments.ErrNotFound) {
+	if _, err := store.Update(context.Background(), req, legalInput(w)); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }
@@ -450,7 +452,7 @@ func TestUpdatingSomethingThatIsNotThereIsNotFound(t *testing.T) {
 // nothing can ever close.
 func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -502,7 +504,7 @@ func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 // G-01's "Lưu nháp": saved, targeted or not, given to nobody.
 func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -517,8 +519,8 @@ func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 	if draft.PublishedAt != nil {
 		t.Error("a draft reports a publication time")
 	}
-	if got := assignments.StatusAt(time.Now(), draft.PublishedAt,
-		draft.OpensAt, draft.ClosesAt, draft.ClosedAt); got != assignments.Draft {
+	if got := domain.StatusAt(time.Now(), draft.PublishedAt,
+		draft.OpensAt, draft.ClosesAt, draft.ClosedAt); got != domain.Draft {
 		t.Errorf("status = %s, want draft — its window is current", got)
 	}
 
@@ -532,8 +534,8 @@ func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 	if published.PublishedAt == nil {
 		t.Fatal("publishing did not record when")
 	}
-	if got := assignments.StatusAt(time.Now(), published.PublishedAt,
-		published.OpensAt, published.ClosesAt, published.ClosedAt); got != assignments.Open {
+	if got := domain.StatusAt(time.Now(), published.PublishedAt,
+		published.OpensAt, published.ClosesAt, published.ClosedAt); got != domain.Open {
 		t.Errorf("status = %s, want open", got)
 	}
 
@@ -552,7 +554,7 @@ func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 // back out is closing it.
 func TestAPublishedAssignmentCannotBecomeADraftAgain(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -579,7 +581,7 @@ func TestAPublishedAssignmentCannotBecomeADraftAgain(t *testing.T) {
 // whatever its window happens to say.
 func TestTheListFiltersDraftsSeparately(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -590,8 +592,8 @@ func TestTheListFiltersDraftsSeparately(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	drafts := assignments.Draft
-	found, _, err := store.List(ctx, assignments.ListInput{Status: &drafts})
+	drafts := domain.Draft
+	found, _, err := store.List(ctx, domain.ListInput{Status: &drafts})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,8 +607,8 @@ func TestTheListFiltersDraftsSeparately(t *testing.T) {
 		t.Error("status=draft did not return the draft")
 	}
 
-	open := assignments.Open
-	opened, _, err := store.List(ctx, assignments.ListInput{Status: &open})
+	open := domain.Open
+	opened, _, err := store.List(ctx, domain.ListInput{Status: &open})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -619,7 +621,7 @@ func TestTheListFiltersDraftsSeparately(t *testing.T) {
 
 func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
+	store := repositories.NewPostgres(pool)
 	ctx := context.Background()
 	mine := seedWorld(t, pool, "published")
 	other := seedWorld(t, pool, "published")
@@ -632,7 +634,7 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found, page, err := store.List(ctx, assignments.ListInput{ClassID: &mine.class})
+	found, page, err := store.List(ctx, domain.ListInput{ClassID: &mine.class})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -640,11 +642,11 @@ func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 		t.Fatalf("classId=%s returned %d rows (total %d), want only %s", mine.class, len(found), page.Total, kept.ID)
 	}
 
-	facets, err := store.Facets(ctx, assignments.ListInput{ClassID: &mine.class})
+	facets, err := store.Facets(ctx, domain.ListInput{ClassID: &mine.class})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := (assignments.Facets{All: 1, Open: 1}); facets != want {
+	if want := (domain.Facets{All: 1, Open: 1}); facets != want {
 		t.Errorf("facets for the class = %+v, want %+v", facets, want)
 	}
 }

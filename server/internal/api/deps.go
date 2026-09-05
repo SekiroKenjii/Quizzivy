@@ -8,7 +8,6 @@ import (
 	"quizzivy/internal/shared/paging"
 	"time"
 
-	"quizzivy/internal/modules/assignments"
 	"quizzivy/internal/modules/attempts"
 	"quizzivy/internal/modules/integrity"
 	mediaapp "quizzivy/internal/modules/media/application"
@@ -34,18 +33,6 @@ type MediaService interface {
 	// Get resolves one asset, so a question can render its attachment.
 	Get(ctx context.Context, id string) (mediadomain.Asset, error)
 	SignedURLTTL() time.Duration
-}
-
-// AssignmentsService is the slice of internal/assignments the handlers use.
-type AssignmentsService interface {
-	List(ctx context.Context, in assignments.ListInput) ([]assignments.Assignment, paging.Page, error)
-	Get(ctx context.Context, id string) (assignments.Assignment, error)
-	ForStudent(ctx context.Context, studentID string, now time.Time) (assignments.StudentSections, error)
-	StudentDetail(ctx context.Context, id, studentID string) (assignments.StudentDetail, error)
-	Create(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
-	Update(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
-	Facets(ctx context.Context, in assignments.ListInput) (assignments.Facets, error)
-	Reopen(ctx context.Context, req assignments.Request, closesAt time.Time, reason string, now time.Time) (assignments.Assignment, error)
 }
 
 // AttemptsService is the slice of internal/attempts the handlers use.

@@ -6,7 +6,9 @@ import (
 	"log/slog"
 
 	"quizzivy/internal/api"
-	"quizzivy/internal/modules/assignments"
+	assignmentsapp "quizzivy/internal/modules/assignments/application"
+	assignmentshttp "quizzivy/internal/modules/assignments/http"
+	assignmentsrepo "quizzivy/internal/modules/assignments/repositories"
 	"quizzivy/internal/modules/attempts"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	classesapp "quizzivy/internal/modules/classes/application"
@@ -66,24 +68,24 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	}
 
 	deps := api.Deps{
-		DB:          pool,
-		Assignments: assignments.NewStore(pool.Pool),
-		Attempts:    attempts.NewService(attempts.NewStore(pool.Pool)),
-		Review:      review.NewStore(pool.Pool),
-		Integrity:   integrity.NewStore(pool.Pool),
-		Students:    studentsService,
-		Tokens:      tokens,
+		DB:        pool,
+		Attempts:  attempts.NewService(attempts.NewStore(pool.Pool)),
+		Review:    review.NewStore(pool.Pool),
+		Integrity: integrity.NewStore(pool.Pool),
+		Students:  studentsService,
+		Tokens:    tokens,
 	}
 	if mediaService != nil {
 		deps.Media = mediaService
 	}
 	deps.Modules = api.Modules{
-		Dashboard: dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
-		Media:     mediahttp.NewMedia(mediaTransport(mediaService)),
-		Tests:     testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
-		Questions: questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
-		Identity:  identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
-		Classes:   classeshttp.NewClasses(classesapp.NewService(classesRepo, studentStats), joinService),
+		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
+		Media:       mediahttp.NewMedia(mediaTransport(mediaService)),
+		Assignments: assignmentshttp.NewAssignments(assignmentsapp.NewService(assignmentsrepo.NewPostgres(pool.Pool))),
+		Tests:       testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
+		Questions:   questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
+		Identity:    identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
+		Classes:     classeshttp.NewClasses(classesapp.NewService(classesRepo, studentStats), joinService),
 	}
 	return deps, authService, nil
 }

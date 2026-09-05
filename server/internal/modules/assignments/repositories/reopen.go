@@ -1,19 +1,14 @@
-package assignments
+package repositories
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"quizzivy/internal/modules/assignments/domain"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-)
-
-var (
-	ErrNotClosed    = errors.New("assignments: not closed")
-	ErrBlankReason  = errors.New("assignments: reason is blank")
-	ErrClosesInPast = errors.New("assignments: closes_at is not ahead")
 )
 
 // Reopen is G-09's "Gia hạn cho tất cả": a closed assignment gets a later
@@ -21,18 +16,18 @@ var (
 // left can go back in. Only a closed assignment qualifies, judged at the
 // database's clock like the list, and the audit row is written from the
 // UPDATE's own OLD/NEW so the values recorded are the values changed (§13.4).
-func (s *Store) Reopen(ctx context.Context, req Request, closesAt time.Time, reason string, now time.Time) (Assignment, error) {
+func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time.Time, reason string, now time.Time) (domain.Assignment, error) {
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
-		return Assignment{}, ErrBlankReason
+		return domain.Assignment{}, domain.ErrBlankReason
 	}
 	if !closesAt.After(now) {
-		return Assignment{}, ErrClosesInPast
+		return domain.Assignment{}, domain.ErrClosesInPast
 	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return Assignment{}, fmt.Errorf("assignments: begin reopen: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: begin reopen: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -56,30 +51,30 @@ func (s *Store) Reopen(ctx context.Context, req Request, closesAt time.Time, rea
 		SELECT id::text FROM updated`,
 		req.ID, closesAt, req.ActorID, now, req.IP, req.UserAgent, reason).Scan(&reopened)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Assignment{}, s.whyNotReopened(ctx, tx, req.ID)
+		return domain.Assignment{}, s.whyNotReopened(ctx, tx, req.ID)
 	}
 	if err != nil {
-		return Assignment{}, fmt.Errorf("assignments: reopen: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: reopen: %w", err)
 	}
 
 	saved, err := s.get(ctx, tx, req.ID)
 	if err != nil {
-		return Assignment{}, err
+		return domain.Assignment{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Assignment{}, fmt.Errorf("assignments: commit reopen: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: commit reopen: %w", err)
 	}
 	return saved, nil
 }
 
-func (s *Store) whyNotReopened(ctx context.Context, q querier, id string) error {
+func (s *Postgres) whyNotReopened(ctx context.Context, q querier, id string) error {
 	var exists bool
 	if err := q.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM app.assignments WHERE id = $1::uuid)`, id).Scan(&exists); err != nil {
 		return fmt.Errorf("assignments: reopen check: %w", err)
 	}
 	if !exists {
-		return ErrNotFound
+		return domain.ErrNotFound
 	}
-	return ErrNotClosed
+	return domain.ErrNotClosed
 }

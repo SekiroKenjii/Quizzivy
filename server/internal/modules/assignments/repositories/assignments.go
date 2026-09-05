@@ -1,109 +1,19 @@
-// Package assignments reads §7's assignment rows. Status is derived, never
-// stored (D-18).
-package assignments
+package repositories
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/shared/paging"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type Status string
-
-const (
-	Draft     Status = "draft"
-	Scheduled Status = "scheduled"
-	Open      Status = "open"
-	Closed    Status = "closed"
-)
-
-// StatusAt is D-18's pure function: no scheduler, no stale row.
-//
-// The draft case does not weaken that. Publishing is an act by the teacher, not
-// a timestamp arriving, so nothing has to flip a row when a clock passes -- the
-// window rule reads exactly as it did once publishedAt exists.
-func StatusAt(now time.Time, publishedAt *time.Time, opensAt, closesAt time.Time, closedAt *time.Time) Status {
-	if publishedAt == nil {
-		return Draft
-	}
-	if closedAt != nil && !now.Before(*closedAt) {
-		return Closed
-	}
-	switch {
-	case now.Before(opensAt):
-		return Scheduled
-	case now.Before(closesAt):
-		return Open
-	default:
-		return Closed
-	}
-}
-
-type Review struct {
-	ShowScore, ShowCorrectAnswers, ShowExplanations bool
-}
-
-type Integrity struct {
-	RequireFullscreen bool
-	BlockCopyPaste    bool
-	MaxFocusLoss      int
-	OnLimitExceeded   string
-	MinAwayMs         int
-}
-
-// ClassRef is a targeted class, its name and its live member count.
-type ClassRef struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	StudentCount int    `json:"studentCount"`
-}
-
-// StudentRef is a student targeted by name.
-type StudentRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-type Assignment struct {
-	ID                  string
-	TestID              string
-	TestVersionID       string
-	TestVersion         int
-	TestTitle           string
-	Classes             []ClassRef
-	Students            []StudentRef
-	OpensAt             time.Time
-	ClosesAt            time.Time
-	ClosedAt            *time.Time
-	PublishedAt         *time.Time
-	UpdatedAt           time.Time
-	DurationMin         int
-	MaxAttempts         int
-	ShuffleQ            bool
-	ShuffleO            bool
-	Review              Review
-	Integrity           Integrity
-	SubmittedCount      int
-	TargetCount         int
-	FlaggedCount        int
-	PendingGradingCount int
-}
-
 const DefaultLimit = 20
-const MaxLimit = 100
 
-type ListInput struct {
-	Status *Status
-	// ClassID narrows the list to assignments that target the class (G-12).
-	ClassID *string
-	Page    int
-	Limit   int
-}
+const MaxLimit = 100
 
 // DB is what the store queries through: the pool in production, and a
 // transaction in a test that needs one consistent snapshot of tables every
@@ -115,9 +25,9 @@ type DB interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-type Store struct{ pool DB }
+type Postgres struct{ pool DB }
 
-func NewStore(db DB) *Store { return &Store{pool: db} }
+func NewPostgres(db DB) *Postgres { return &Postgres{pool: db} }
 
 // selectAssignment is shared by List and Get so a row can never mean one thing
 // in the list and another on the detail screen.
@@ -185,8 +95,8 @@ type querier interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-func scanAssignment(row pgx.Row) (Assignment, error) {
-	var a Assignment
+func scanAssignment(row pgx.Row) (domain.Assignment, error) {
+	var a domain.Assignment
 	err := row.Scan(&a.ID, &a.TestID, &a.TestVersionID, &a.TestVersion, &a.TestTitle,
 		&a.OpensAt, &a.ClosesAt, &a.ClosedAt, &a.PublishedAt,
 		&a.DurationMin, &a.MaxAttempts, &a.ShuffleQ, &a.ShuffleO,
@@ -199,18 +109,18 @@ func scanAssignment(row pgx.Row) (Assignment, error) {
 }
 
 // Get returns one assignment.
-func (s *Store) Get(ctx context.Context, id string) (Assignment, error) {
+func (s *Postgres) Get(ctx context.Context, id string) (domain.Assignment, error) {
 	return s.get(ctx, s.pool, id)
 }
 
-func (s *Store) get(ctx context.Context, q querier, id string) (Assignment, error) {
+func (s *Postgres) get(ctx context.Context, q querier, id string) (domain.Assignment, error) {
 	a, err := scanAssignment(q.QueryRow(ctx, selectAssignment+`
 		 WHERE a.id = $1::uuid`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Assignment{}, ErrNotFound
+		return domain.Assignment{}, domain.ErrNotFound
 	}
 	if err != nil {
-		return Assignment{}, fmt.Errorf("assignments: get: %w", err)
+		return domain.Assignment{}, fmt.Errorf("assignments: get: %w", err)
 	}
 	return a, nil
 }
@@ -230,17 +140,11 @@ const derivedStatus = `
 			  ELSE 'closed'
 			END`
 
-// Facets are the list's tab counts: every assignment by its status right now,
-// ignoring the status filter, so picking one tab does not zero the others.
-type Facets struct {
-	All, Draft, Scheduled, Open, Closed int
-}
-
 // Facets counts every status within the same narrowing List applies, minus
 // the status itself, so the tabs never disagree with the rows.
-func (s *Store) Facets(ctx context.Context, in ListInput) (Facets, error) {
-	where, args := narrow(ListInput{ClassID: in.ClassID})
-	var f Facets
+func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
+	where, args := narrow(domain.ListInput{ClassID: in.ClassID})
+	var f domain.Facets
 	err := s.pool.QueryRow(ctx, `
 		SELECT count(*),
 		       count(*) FILTER (WHERE `+derivedStatus+` = 'draft'),
@@ -250,13 +154,13 @@ func (s *Store) Facets(ctx context.Context, in ListInput) (Facets, error) {
 		  FROM app.assignments a
 		 WHERE `+join(where), args...).Scan(&f.All, &f.Draft, &f.Scheduled, &f.Open, &f.Closed)
 	if err != nil {
-		return Facets{}, fmt.Errorf("assignments: facets: %w", err)
+		return domain.Facets{}, fmt.Errorf("assignments: facets: %w", err)
 	}
 	return f, nil
 }
 
 // narrow is the WHERE clause List and Facets share.
-func narrow(in ListInput) ([]string, []any) {
+func narrow(in domain.ListInput) ([]string, []any) {
 	var args []any
 	where := []string{"TRUE"}
 	if in.Status != nil {
@@ -271,7 +175,7 @@ func narrow(in ListInput) ([]string, []any) {
 	return where, args
 }
 
-func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, paging.Page, error) {
+func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assignment, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 	where, args := narrow(in)
 
@@ -291,7 +195,7 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, paging.Pa
 	}
 	defer rows.Close()
 
-	out := make([]Assignment, 0, limit)
+	out := make([]domain.Assignment, 0, limit)
 	for rows.Next() {
 		a, err := scanAssignment(rows)
 		if err != nil {

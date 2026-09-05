@@ -1,73 +1,14 @@
-package assignments
+package repositories
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"quizzivy/internal/modules/assignments/domain"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
-
-// ErrForbidden covers not targeted, not published and not found alike. Which
-// assignments exist is not a student's to enumerate.
-var ErrForbidden = errors.New("assignments: not this student's")
-
-// StudentCard is what a student may know about an assignment before opening
-// it: §9's card, and nothing about anyone else's work. No targets, no counts,
-// no roster -- those are the teacher's projection (Assignment), and the two
-// are separate types so a field added to one cannot leak through the other.
-type StudentCard struct {
-	ID        string
-	TestTitle string
-	// ClassName is set only when exactly one targeted class contains them.
-	ClassName     *string
-	OpensAt       time.Time
-	ClosesAt      time.Time
-	ClosedAt      *time.Time
-	PublishedAt   *time.Time
-	DurationMin   int
-	MaxAttempts   int
-	QuestionCount int
-	TotalPoints   float64
-	AttemptsUsed  int
-	// HasLiveAttempt means resumable: in progress and before its deadline.
-	HasLiveAttempt bool
-	// LiveDeadlineAt is non-nil exactly when HasLiveAttempt is true.
-	LiveDeadlineAt *time.Time
-	// LastAttemptID is the most recent non-voided attempt, live or finished.
-	LastAttemptID *string
-	// LastSubmittedAt is nil while that attempt is still live.
-	LastSubmittedAt *time.Time
-	Score           *Score
-}
-
-type Score struct {
-	Earned        float64
-	Total         float64
-	PendingManual int
-}
-
-// StudentDetail is the intro page: the card plus every policy §10.2 has to
-// state before the clock starts.
-type StudentDetail struct {
-	StudentCard
-	// TeacherName is the assignment's author.
-	TeacherName *string
-	Review      Review
-	Integrity   Integrity
-	HasAudio    bool
-	// ShowsTranscript is true when any listening question releases one.
-	ShowsTranscript bool
-	AudioMaxPlays   *int
-}
-
-// StudentSections is §9's home, already sorted into its three lists.
-type StudentSections struct {
-	DueNow    []StudentCard
-	Upcoming  []StudentCard
-	Completed []StudentCard
-}
 
 // targeted is the roster test, written once. Both routes -- through a class
 // and by name -- are checked with EXISTS rather than a join, so a student on
@@ -153,18 +94,18 @@ type lastAttempt struct {
 
 // apply fills the card's attempt-derived fields. A score is shown only for a
 // finished attempt with one recorded, and only when the assignment says so.
-func (l lastAttempt) apply(c *StudentCard, showScore bool) {
+func (l lastAttempt) apply(c *domain.StudentCard, showScore bool) {
 	c.LastAttemptID = l.id
 	c.LastSubmittedAt = l.submittedAt
 	finished := l.status != nil && *l.status != "in_progress"
 	if showScore && finished && l.earned != nil && l.total != nil && l.pending != nil {
-		c.Score = &Score{Earned: *l.earned, Total: *l.total, PendingManual: *l.pending}
+		c.Score = &domain.Score{Earned: *l.earned, Total: *l.total, PendingManual: *l.pending}
 	}
 }
 
-func scanStudentCard(row pgx.Row) (StudentCard, error) {
+func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 	var (
-		c         StudentCard
+		c         domain.StudentCard
 		showScore bool
 		l         lastAttempt
 	)
@@ -175,35 +116,35 @@ func scanStudentCard(row pgx.Row) (StudentCard, error) {
 		&c.AttemptsUsed, &c.HasLiveAttempt, &c.LiveDeadlineAt,
 		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending)
 	if err != nil {
-		return StudentCard{}, err
+		return domain.StudentCard{}, err
 	}
 	l.apply(&c, showScore)
 	return c, nil
 }
 
 // ForStudent returns the home screen's three sections.
-func (s *Store) ForStudent(ctx context.Context, studentID string, now time.Time) (StudentSections, error) {
+func (s *Postgres) ForStudent(ctx context.Context, studentID string, now time.Time) (domain.StudentSections, error) {
 	rows, err := s.pool.Query(ctx, studentCardColumns+studentCardFrom+`
 	 WHERE a.published_at IS NOT NULL AND `+targeted+`
 	 ORDER BY a.closes_at ASC, a.id DESC`, studentID)
 	if err != nil {
-		return StudentSections{}, fmt.Errorf("assignments: list for student: %w", err)
+		return domain.StudentSections{}, fmt.Errorf("assignments: list for student: %w", err)
 	}
 	defer rows.Close()
 
-	var out StudentSections
+	var out domain.StudentSections
 	for rows.Next() {
 		c, err := scanStudentCard(rows)
 		if err != nil {
-			return StudentSections{}, fmt.Errorf("assignments: scan student card: %w", err)
+			return domain.StudentSections{}, fmt.Errorf("assignments: scan student card: %w", err)
 		}
-		status := StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)
+		status := domain.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)
 		switch {
 		case c.HasLiveAttempt:
 			out.DueNow = append(out.DueNow, c)
-		case status == Open && c.AttemptsUsed < c.MaxAttempts:
+		case status == domain.Open && c.AttemptsUsed < c.MaxAttempts:
 			out.DueNow = append(out.DueNow, c)
-		case status == Scheduled:
+		case status == domain.Scheduled:
 			out.Upcoming = append(out.Upcoming, c)
 		case c.AttemptsUsed > 0:
 			out.Completed = append(out.Completed, c)
@@ -215,9 +156,9 @@ func (s *Store) ForStudent(ctx context.Context, studentID string, now time.Time)
 // StudentDetail returns the intro for one assignment the student is targeted
 // by. Not targeted, not published and not found are one answer, ErrForbidden:
 // which assignments exist is not a student's to enumerate.
-func (s *Store) StudentDetail(ctx context.Context, id, studentID string) (StudentDetail, error) {
+func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (domain.StudentDetail, error) {
 	var (
-		d         StudentDetail
+		d         domain.StudentDetail
 		showScore bool
 		l         lastAttempt
 		onLimit   string
@@ -258,10 +199,10 @@ func (s *Store) StudentDetail(ctx context.Context, id, studentID string) (Studen
 		&d.Integrity.MaxFocusLoss, &onLimit, &d.Integrity.MinAwayMs,
 		&d.HasAudio, &d.ShowsTranscript, &maxPlays)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return StudentDetail{}, ErrForbidden
+		return domain.StudentDetail{}, domain.ErrForbidden
 	}
 	if err != nil {
-		return StudentDetail{}, fmt.Errorf("assignments: student detail: %w", err)
+		return domain.StudentDetail{}, fmt.Errorf("assignments: student detail: %w", err)
 	}
 	d.Review.ShowScore = showScore
 	d.Integrity.OnLimitExceeded = onLimit

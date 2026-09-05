@@ -1,17 +1,18 @@
-package api
+package http
 
 import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/assignments"
+	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 	"time"
 )
 
 // ListMyAssignments backs §9's /app: the three sections, already sorted.
-func (s *Server) ListMyAssignments(ctx context.Context, _ openapi.ListMyAssignmentsRequestObject) (openapi.ListMyAssignmentsResponseObject, error) {
-	if s.Deps.Assignments == nil {
+func (h Assignments) ListMyAssignments(ctx context.Context, _ openapi.ListMyAssignmentsRequestObject) (openapi.ListMyAssignmentsResponseObject, error) {
+	if h.assignments == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -20,7 +21,7 @@ func (s *Server) ListMyAssignments(ctx context.Context, _ openapi.ListMyAssignme
 	}
 
 	now := time.Now()
-	sections, err := s.Deps.Assignments.ForStudent(ctx, principal.UserID, now)
+	sections, err := h.assignments.ForStudent(ctx, principal.UserID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +35,8 @@ func (s *Server) ListMyAssignments(ctx context.Context, _ openapi.ListMyAssignme
 // GetMyAssignment backs the intro page: the policies stated before the clock
 // starts (§10.2). Not targeted, not published and not found are one 403 --
 // which assignments exist is not a student's to enumerate.
-func (s *Server) GetMyAssignment(ctx context.Context, request openapi.GetMyAssignmentRequestObject) (openapi.GetMyAssignmentResponseObject, error) {
-	if s.Deps.Assignments == nil {
+func (h Assignments) GetMyAssignment(ctx context.Context, request openapi.GetMyAssignmentRequestObject) (openapi.GetMyAssignmentResponseObject, error) {
+	if h.assignments == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -43,11 +44,11 @@ func (s *Server) GetMyAssignment(ctx context.Context, request openapi.GetMyAssig
 		return nil, httpx.ErrNotImplemented
 	}
 
-	d, err := s.Deps.Assignments.StudentDetail(ctx, request.Id.String(), principal.UserID)
-	if errors.Is(err, assignments.ErrForbidden) {
+	d, err := h.assignments.StudentDetail(ctx, request.Id.String(), principal.UserID)
+	if errors.Is(err, domain.ErrForbidden) {
 		return openapi.GetMyAssignment403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
-				authError(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem bài này.")),
+				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem bài này.")),
 		}, nil
 	}
 	if err != nil {
@@ -89,13 +90,13 @@ func (s *Server) GetMyAssignment(ctx context.Context, request openapi.GetMyAssig
 		AudioMaxPlays:   d.AudioMaxPlays,
 	}
 	if d.LastAttemptID != nil {
-		id := parseUUID(*d.LastAttemptID)
+		id := httpapi.ParseUUID(*d.LastAttemptID)
 		out.LastAttemptId = &id
 	}
 	return openapi.GetMyAssignment200JSONResponse(out), nil
 }
 
-func toAPIStudentCards(cards []assignments.StudentCard, now time.Time) []openapi.StudentAssignmentCard {
+func toAPIStudentCards(cards []domain.StudentCard, now time.Time) []openapi.StudentAssignmentCard {
 	out := make([]openapi.StudentAssignmentCard, 0, len(cards))
 	for _, c := range cards {
 		out = append(out, toAPIStudentCard(c, now))
@@ -103,13 +104,13 @@ func toAPIStudentCards(cards []assignments.StudentCard, now time.Time) []openapi
 	return out
 }
 
-func toAPIStudentCard(c assignments.StudentCard, now time.Time) openapi.StudentAssignmentCard {
+func toAPIStudentCard(c domain.StudentCard, now time.Time) openapi.StudentAssignmentCard {
 	live := c.HasLiveAttempt
 	out := openapi.StudentAssignmentCard{
-		Id:              parseUUID(c.ID),
+		Id:              httpapi.ParseUUID(c.ID),
 		TestTitle:       c.TestTitle,
 		ClassName:       c.ClassName,
-		Status:          openapi.AssignmentStatus(assignments.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)),
+		Status:          openapi.AssignmentStatus(domain.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)),
 		OpensAt:         c.OpensAt,
 		ClosesAt:        c.ClosesAt,
 		DurationMinutes: c.DurationMin,
@@ -122,7 +123,7 @@ func toAPIStudentCard(c assignments.StudentCard, now time.Time) openapi.StudentA
 		LastSubmittedAt: c.LastSubmittedAt,
 	}
 	if c.LastAttemptID != nil {
-		id := parseUUID(*c.LastAttemptID)
+		id := httpapi.ParseUUID(*c.LastAttemptID)
 		out.LastAttemptId = &id
 	}
 	if c.Score != nil {

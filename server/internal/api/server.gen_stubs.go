@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"quizzivy/gen/openapi"
+	assignmentshttp "quizzivy/internal/modules/assignments/http"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 	identityhttp "quizzivy/internal/modules/identity/http"
@@ -20,6 +21,7 @@ type Server struct {
 	questionshttp.Questions
 	mediahttp.Media
 	testshttp.Tests
+	assignmentshttp.Assignments
 	Deps Deps
 	// Logger is nil in tests; read it through logOf.
 	Logger *slog.Logger
@@ -36,15 +38,14 @@ func logOf(s *Server) *slog.Logger {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	Modules     Modules
-	DB          DB
-	Media       MediaService
-	Assignments AssignmentsService
-	Attempts    AttemptsService
-	Review      ReviewService
-	Integrity   IntegrityService
-	Students    StudentsService
-	Tokens      TokenVerifier
+	Modules   Modules
+	DB        DB
+	Media     MediaService
+	Attempts  AttemptsService
+	Review    ReviewService
+	Integrity IntegrityService
+	Students  StudentsService
+	Tokens    TokenVerifier
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)

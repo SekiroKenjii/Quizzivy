@@ -1,24 +1,24 @@
-package api
+package http
 
 import (
 	"context"
 	"errors"
-	"time"
-
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/assignments"
+	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"time"
 )
 
 // ListAssignments backs §8's assignments list and A-01's "Bài đang mở".
-func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
-	if s.Deps.Assignments == nil {
+func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
+	if h.assignments == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := assignments.ListInput{}
+	in := domain.ListInput{}
 	if request.Params.Status != nil {
-		status := assignments.Status(*request.Params.Status)
+		status := domain.Status(*request.Params.Status)
 		in.Status = &status
 	}
 	if request.Params.ClassId != nil {
@@ -32,11 +32,11 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, page, err := s.Deps.Assignments.List(ctx, in)
+	found, page, err := h.assignments.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}
-	facets, err := s.Deps.Assignments.Facets(ctx, in)
+	facets, err := h.assignments.Facets(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,14 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 	return out, nil
 }
 
-func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
+func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 	classes := make([]struct {
 		Id           openapi.Uuid `json:"id"`
 		Name         string       `json:"name"`
 		StudentCount int          `json:"studentCount"`
 	}, len(a.Classes))
 	for i, c := range a.Classes {
-		classes[i].Id = parseUUID(c.ID)
+		classes[i].Id = httpapi.ParseUUID(c.ID)
 		classes[i].Name = c.Name
 		classes[i].StudentCount = c.StudentCount
 	}
@@ -73,14 +73,14 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 		Name string       `json:"name"`
 	}, len(a.Students))
 	for i, st := range a.Students {
-		students[i].Id = parseUUID(st.ID)
+		students[i].Id = httpapi.ParseUUID(st.ID)
 		students[i].Name = st.Name
 	}
 
 	out := openapi.Assignment{
-		Id:            parseUUID(a.ID),
-		TestId:        parseUUID(a.TestID),
-		TestVersionId: parseUUID(a.TestVersionID),
+		Id:            httpapi.ParseUUID(a.ID),
+		TestId:        httpapi.ParseUUID(a.TestID),
+		TestVersionId: httpapi.ParseUUID(a.TestVersionID),
 		TestVersion:   a.TestVersion,
 		TestTitle:     a.TestTitle,
 		Targets: struct {
@@ -112,7 +112,7 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 			MinAwayMs:         a.Integrity.MinAwayMs,
 		},
 		Status: openapi.AssignmentStatus(
-			assignments.StatusAt(time.Now(), a.PublishedAt, a.OpensAt, a.ClosesAt, a.ClosedAt),
+			domain.StatusAt(time.Now(), a.PublishedAt, a.OpensAt, a.ClosesAt, a.ClosedAt),
 		),
 		PublishedAt:         a.PublishedAt,
 		SubmittedCount:      &a.SubmittedCount,
@@ -126,14 +126,14 @@ func toAPIAssignment(a assignments.Assignment) openapi.Assignment {
 	return out
 }
 
-func (s *Server) GetAssignment(ctx context.Context, request openapi.GetAssignmentRequestObject) (openapi.GetAssignmentResponseObject, error) {
-	if s.Deps.Assignments == nil {
+func (h Assignments) GetAssignment(ctx context.Context, request openapi.GetAssignmentRequestObject) (openapi.GetAssignmentResponseObject, error) {
+	if h.assignments == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	a, err := s.Deps.Assignments.Get(ctx, request.Id.String())
-	if errors.Is(err, assignments.ErrNotFound) {
+	a, err := h.assignments.Get(ctx, request.Id.String())
+	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy bài giao."))}, nil
+			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -141,8 +141,8 @@ func (s *Server) GetAssignment(ctx context.Context, request openapi.GetAssignmen
 	return openapi.GetAssignment200JSONResponse(toAPIAssignment(a)), nil
 }
 
-func (s *Server) CreateAssignment(ctx context.Context, request openapi.CreateAssignmentRequestObject) (openapi.CreateAssignmentResponseObject, error) {
-	if s.Deps.Assignments == nil || request.Body == nil {
+func (h Assignments) CreateAssignment(ctx context.Context, request openapi.CreateAssignmentRequestObject) (openapi.CreateAssignmentResponseObject, error) {
+	if h.assignments == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := assignmentRequest(ctx, "")
@@ -150,15 +150,15 @@ func (s *Server) CreateAssignment(ctx context.Context, request openapi.CreateAss
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := s.Deps.Assignments.Create(ctx, req, toWriteInput(*request.Body))
-	var invalid *assignments.ValidationError
+	a, err := h.assignments.Create(ctx, req, toWriteInput(*request.Body))
+	var invalid *domain.ValidationError
 	switch {
 	case err == nil:
 	case errors.As(err, &invalid):
 		return openapi.CreateAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			assignmentValidationError(ctx, invalid))}, nil
-	case errors.Is(err, assignments.ErrTestNotPublished):
-		return openapi.CreateAssignment409JSONResponse(authError(ctx, openapi.TESTNOTPUBLISHED,
+	case errors.Is(err, domain.ErrTestNotPublished):
+		return openapi.CreateAssignment409JSONResponse(httpapi.Error(ctx, openapi.TESTNOTPUBLISHED,
 			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
 	default:
 		return nil, err
@@ -166,8 +166,8 @@ func (s *Server) CreateAssignment(ctx context.Context, request openapi.CreateAss
 	return openapi.CreateAssignment201JSONResponse(toAPIAssignment(a)), nil
 }
 
-func (s *Server) UpdateAssignment(ctx context.Context, request openapi.UpdateAssignmentRequestObject) (openapi.UpdateAssignmentResponseObject, error) {
-	if s.Deps.Assignments == nil || request.Body == nil {
+func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.UpdateAssignmentRequestObject) (openapi.UpdateAssignmentResponseObject, error) {
+	if h.assignments == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := assignmentRequest(ctx, request.Id.String())
@@ -175,21 +175,21 @@ func (s *Server) UpdateAssignment(ctx context.Context, request openapi.UpdateAss
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := s.Deps.Assignments.Update(ctx, req, toWriteInput(*request.Body))
-	var invalid *assignments.ValidationError
+	a, err := h.assignments.Update(ctx, req, toWriteInput(*request.Body))
+	var invalid *domain.ValidationError
 	switch {
 	case err == nil:
 	case errors.As(err, &invalid):
 		return openapi.UpdateAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			assignmentValidationError(ctx, invalid))}, nil
-	case errors.Is(err, assignments.ErrNotFound):
+	case errors.Is(err, domain.ErrNotFound):
 		return openapi.UpdateAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy bài giao."))}, nil
-	case errors.Is(err, assignments.ErrTestNotPublished):
-		return openapi.UpdateAssignment409JSONResponse(authError(ctx, openapi.TESTNOTPUBLISHED,
+			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+	case errors.Is(err, domain.ErrTestNotPublished):
+		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.TESTNOTPUBLISHED,
 			"Chỉ có thể giao một phiên bản đề đã xuất bản.")), nil
-	case errors.Is(err, assignments.ErrVersionLocked):
-		return openapi.UpdateAssignment409JSONResponse(authError(ctx, openapi.VERSIONLOCKED,
+	case errors.Is(err, domain.ErrVersionLocked):
+		return openapi.UpdateAssignment409JSONResponse(httpapi.Error(ctx, openapi.VERSIONLOCKED,
 			"Đã có học viên làm bài, không thể đổi phiên bản đề.")), nil
 	default:
 		return nil, err
@@ -198,8 +198,8 @@ func (s *Server) UpdateAssignment(ctx context.Context, request openapi.UpdateAss
 }
 
 // ReopenAssignment is G-09's "Gia hạn cho tất cả".
-func (s *Server) ReopenAssignment(ctx context.Context, request openapi.ReopenAssignmentRequestObject) (openapi.ReopenAssignmentResponseObject, error) {
-	if s.Deps.Assignments == nil || request.Body == nil {
+func (h Assignments) ReopenAssignment(ctx context.Context, request openapi.ReopenAssignmentRequestObject) (openapi.ReopenAssignmentResponseObject, error) {
+	if h.assignments == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := assignmentRequest(ctx, request.Id.String())
@@ -207,20 +207,20 @@ func (s *Server) ReopenAssignment(ctx context.Context, request openapi.ReopenAss
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := s.Deps.Assignments.Reopen(ctx, req, request.Body.ClosesAt, request.Body.Reason, time.Now())
+	a, err := h.assignments.Reopen(ctx, req, request.Body.ClosesAt, request.Body.Reason, time.Now())
 	switch {
 	case err == nil:
-	case errors.Is(err, assignments.ErrBlankReason):
+	case errors.Is(err, domain.ErrBlankReason):
 		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			fieldError(ctx, "reason", "Hãy ghi lý do mở lại."))}, nil
-	case errors.Is(err, assignments.ErrClosesInPast):
+			httpapi.FieldError(ctx, "reason", "Hãy ghi lý do mở lại."))}, nil
+	case errors.Is(err, domain.ErrClosesInPast):
 		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
-			fieldError(ctx, "closesAt", "Thời điểm đóng mới phải ở phía trước."))}, nil
-	case errors.Is(err, assignments.ErrNotFound):
+			httpapi.FieldError(ctx, "closesAt", "Thời điểm đóng mới phải ở phía trước."))}, nil
+	case errors.Is(err, domain.ErrNotFound):
 		return openapi.ReopenAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			notFound(ctx, "Không tìm thấy bài giao."))}, nil
-	case errors.Is(err, assignments.ErrNotClosed):
-		return openapi.ReopenAssignment409JSONResponse(authError(ctx, openapi.ASSIGNMENTNOTCLOSED,
+			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
+	case errors.Is(err, domain.ErrNotClosed):
+		return openapi.ReopenAssignment409JSONResponse(httpapi.Error(ctx, openapi.ASSIGNMENTNOTCLOSED,
 			"Bài giao chưa đóng nên không có gì để mở lại.")), nil
 	default:
 		return nil, err
@@ -228,19 +228,19 @@ func (s *Server) ReopenAssignment(ctx context.Context, request openapi.ReopenAss
 	return openapi.ReopenAssignment200JSONResponse(toAPIAssignment(a)), nil
 }
 
-func assignmentRequest(ctx context.Context, id string) (assignments.Request, bool) {
+func assignmentRequest(ctx context.Context, id string) (domain.Request, bool) {
 	principal, ok := httpx.PrincipalFromContext(ctx)
 	if !ok {
-		return assignments.Request{}, false
+		return domain.Request{}, false
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
-	return assignments.Request{
+	return domain.Request{
 		ID: id, ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent,
 	}, true
 }
 
-func assignmentValidationError(ctx context.Context, invalid *assignments.ValidationError) openapi.ErrorResponse {
-	resp := authError(ctx, openapi.VALIDATIONFAILED, "Dữ liệu bài giao không hợp lệ.")
+func assignmentValidationError(ctx context.Context, invalid *domain.ValidationError) openapi.ErrorResponse {
+	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, "Dữ liệu bài giao không hợp lệ.")
 	details := map[string]interface{}{}
 	for _, f := range invalid.Fields {
 		if _, seen := details[f.Field]; !seen {
@@ -251,19 +251,19 @@ func assignmentValidationError(ctx context.Context, invalid *assignments.Validat
 	return resp
 }
 
-func toWriteInput(body openapi.AssignmentInput) assignments.WriteInput {
-	in := assignments.WriteInput{
+func toWriteInput(body openapi.AssignmentInput) domain.WriteInput {
+	in := domain.WriteInput{
 		TestVersionID: body.TestVersionId.String(),
 		OpensAt:       body.Window.OpensAt,
 		ClosesAt:      body.Window.ClosesAt,
 		DurationMin:   body.DurationMinutes,
 		MaxAttempts:   body.MaxAttempts,
-		Review: assignments.Review{
+		Review: domain.Review{
 			ShowScore:          body.Review.ShowScore,
 			ShowCorrectAnswers: body.Review.ShowCorrectAnswers,
 			ShowExplanations:   body.Review.ShowExplanations,
 		},
-		Integrity: assignments.Integrity{
+		Integrity: domain.Integrity{
 			RequireFullscreen: body.Integrity.RequireFullscreen,
 			BlockCopyPaste:    body.Integrity.BlockCopyPaste,
 			MaxFocusLoss:      body.Integrity.MaxFocusLoss,

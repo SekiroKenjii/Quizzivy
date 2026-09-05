@@ -13,10 +13,6 @@ func authError(ctx context.Context, code openapi.ErrorCode, message string) open
 	return httpapi.Error(ctx, code, message)
 }
 
-func fieldError(ctx context.Context, field, message string) openapi.ErrorResponse {
-	return httpapi.FieldError(ctx, field, message)
-}
-
 func notFound(ctx context.Context, message string) openapi.ErrorResponse {
 	return httpapi.NotFound(ctx, message)
 }

@@ -1,10 +1,9 @@
-package assignments_test
+package domain_test
 
 import (
+	"quizzivy/internal/modules/assignments/domain"
 	"testing"
 	"time"
-
-	"quizzivy/internal/modules/assignments"
 )
 
 // D-18: status is a pure function of the window and an optional early close.
@@ -20,18 +19,18 @@ func TestStatusIsDerivedFromTheWindow(t *testing.T) {
 		name     string
 		now      time.Time
 		closedAt *time.Time
-		want     assignments.Status
+		want     domain.Status
 	}{
-		{"before it opens", opens.Add(-time.Second), nil, assignments.Scheduled},
-		{"exactly at opens_at is open", opens, nil, assignments.Open},
-		{"inside the window", opens.Add(time.Hour), nil, assignments.Open},
-		{"exactly at closes_at is closed", closes, nil, assignments.Closed},
-		{"after it closes", closes.Add(time.Second), nil, assignments.Closed},
-		{"closed early wins over an open window", early.Add(time.Minute), &early, assignments.Closed},
-		{"a future early-close has not happened yet", opens.Add(time.Hour), &closes, assignments.Open},
+		{"before it opens", opens.Add(-time.Second), nil, domain.Scheduled},
+		{"exactly at opens_at is open", opens, nil, domain.Open},
+		{"inside the window", opens.Add(time.Hour), nil, domain.Open},
+		{"exactly at closes_at is closed", closes, nil, domain.Closed},
+		{"after it closes", closes.Add(time.Second), nil, domain.Closed},
+		{"closed early wins over an open window", early.Add(time.Minute), &early, domain.Closed},
+		{"a future early-close has not happened yet", opens.Add(time.Hour), &closes, domain.Open},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := assignments.StatusAt(tc.now, &published, opens, closes, tc.closedAt)
+			got := domain.StatusAt(tc.now, &published, opens, closes, tc.closedAt)
 			if got != tc.want {
 				t.Errorf("want %s, got %s", tc.want, got)
 			}
@@ -51,7 +50,7 @@ func TestAnUnpublishedAssignmentIsADraftWhateverTheWindowSays(t *testing.T) {
 		opens.Add(time.Hour),
 		closes.Add(time.Hour),
 	} {
-		if got := assignments.StatusAt(now, nil, opens, closes, nil); got != assignments.Draft {
+		if got := domain.StatusAt(now, nil, opens, closes, nil); got != domain.Draft {
 			t.Errorf("at %s: want draft, got %s", now, got)
 		}
 	}
