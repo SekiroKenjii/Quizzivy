@@ -66,7 +66,7 @@ func makeUser(t *testing.T, pool *pgxpool.Pool, opts ...func(*userSpec)) (id, em
 		fullName: "Nguyễn Văn A",
 		role:     "student",
 	}
-	hash, err := domain.HashPassword(context.Background(), testPassword)
+	hash, err := domain.Passwords.Hash(context.Background(), testPassword)
 	if err != nil {
 		t.Fatal(err)
 	}

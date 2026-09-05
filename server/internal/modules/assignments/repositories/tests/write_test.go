@@ -406,7 +406,7 @@ func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 	if closed.ClosedAt == nil {
 		t.Fatal("closeNow did not set closedAt")
 	}
-	if got := domain.StatusAt(time.Now(), closed.PublishedAt, closed.OpensAt, closed.ClosesAt, closed.ClosedAt); got != domain.Closed {
+	if got := domain.Schedule.StatusAt(time.Now(), closed.PublishedAt, closed.OpensAt, closed.ClosesAt, closed.ClosedAt); got != domain.Closed {
 		t.Errorf("status: want closed, got %s", got)
 	}
 
@@ -520,7 +520,7 @@ func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 	if draft.PublishedAt != nil {
 		t.Error("a draft reports a publication time")
 	}
-	if got := domain.StatusAt(time.Now(), draft.PublishedAt,
+	if got := domain.Schedule.StatusAt(time.Now(), draft.PublishedAt,
 		draft.OpensAt, draft.ClosesAt, draft.ClosedAt); got != domain.Draft {
 		t.Errorf("status = %s, want draft — its window is current", got)
 	}
@@ -535,7 +535,7 @@ func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 	if published.PublishedAt == nil {
 		t.Fatal("publishing did not record when")
 	}
-	if got := domain.StatusAt(time.Now(), published.PublishedAt,
+	if got := domain.Schedule.StatusAt(time.Now(), published.PublishedAt,
 		published.OpensAt, published.ClosesAt, published.ClosedAt); got != domain.Open {
 		t.Errorf("status = %s, want open", got)
 	}

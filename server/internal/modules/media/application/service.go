@@ -88,8 +88,8 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (domain.Asset, err
 	if err != nil {
 		return domain.Asset{}, err
 	}
-	if durationMs != nil && *durationMs > domain.MaxDurationMs {
-		return domain.Asset{}, fmt.Errorf("%w: %d ms", domain.ErrTooLong, *durationMs)
+	if err := domain.Assets.CheckDuration(durationMs); err != nil {
+		return domain.Asset{}, err
 	}
 
 	checksum := hasher.Sum(nil)

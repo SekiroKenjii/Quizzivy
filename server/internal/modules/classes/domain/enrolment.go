@@ -1,15 +1,8 @@
 package domain
 
 import (
-	"errors"
 	"time"
 )
-
-// ErrEmailTaken is a signup racing another signup for the same address. The
-// §5.3 resolution order makes this nearly unreachable -- an existing email is
-// matched and linked one branch earlier -- so it means two requests arrived
-// inside the same microseconds, and the caller should simply try again.
-var ErrEmailTaken = errors.New("join: email already registered")
 
 // NewMember describes an account to create as part of enrolling. Nil when the
 // student already has one.
@@ -48,4 +41,10 @@ type EnrolledClass struct {
 	StudentCount    int
 	SelfJoinEnabled bool
 	CreatedAt       time.Time
+}
+
+// Meta is the request context §6.5 requires on every enrolment audit row.
+type Meta struct {
+	IP        string
+	UserAgent string
 }

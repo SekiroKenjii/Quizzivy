@@ -202,7 +202,7 @@ func (s *Service) session(ctx context.Context, a domain.AttemptRecord, beacon st
 	}
 	return domain.Session{
 		Attempt:     a.Attempt,
-		Questions:   domain.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, questions),
+		Questions:   domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, questions),
 		SessionID:   a.SessionID,
 		BeaconToken: beacon,
 		ServerTime:  s.now(),

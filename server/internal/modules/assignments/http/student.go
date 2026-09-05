@@ -110,7 +110,7 @@ func toAPIStudentCard(c domain.StudentCard, now time.Time) openapi.StudentAssign
 		Id:              httpapi.ParseUUID(c.ID),
 		TestTitle:       c.TestTitle,
 		ClassName:       c.ClassName,
-		Status:          openapi.AssignmentStatus(domain.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)),
+		Status:          openapi.AssignmentStatus(domain.Schedule.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)),
 		OpensAt:         c.OpensAt,
 		ClosesAt:        c.ClosesAt,
 		DurationMinutes: c.DurationMin,

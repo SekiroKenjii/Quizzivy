@@ -43,7 +43,7 @@ func TestReopeningLiftsAnEarlyCloseAndRecordsWhy(t *testing.T) {
 	if !reopened.ClosesAt.Equal(until) {
 		t.Errorf("closesAt = %v, want %v", reopened.ClosesAt, until)
 	}
-	if got := domain.StatusAt(time.Now(), reopened.PublishedAt, reopened.OpensAt, reopened.ClosesAt, reopened.ClosedAt); got != domain.Open {
+	if got := domain.Schedule.StatusAt(time.Now(), reopened.PublishedAt, reopened.OpensAt, reopened.ClosesAt, reopened.ClosedAt); got != domain.Open {
 		t.Errorf("status after reopening: %s, want open", got)
 	}
 

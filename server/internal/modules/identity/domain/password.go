@@ -5,41 +5,17 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
 )
 
-const (
-	DefaultMemory  = 64 * 1024
-	DefaultTime    = 3
-	DefaultThreads = 2
-	DefaultKeyLen  = 32
-	SaltLen        = 16
-)
-
-// DefaultMaxConcurrentHashes bounds how many Argon2id operations run at once.
-const DefaultMaxConcurrentHashes = 4
-
-var (
-	ErrInvalidHash        = errors.New("password hash is not in PHC format")
-	ErrUnsupportedVariant = errors.New("password hash is not argon2id")
-	ErrIncompatibleAlg    = errors.New("password hash uses an unsupported argon2 version")
-)
-
-type params struct {
-	memory  uint32
-	time    uint32
-	threads uint8
-	keyLen  uint32
-}
-
-// hashSlots bounds concurrent Argon2id work. A buffered channel rather than a
-// semaphore package: the whole contract is "hold one of N tokens", and adding a
-// dependency for that would be more code than this is.
-var hashSlots = make(chan struct{}, DefaultMaxConcurrentHashes)
+// PasswordManager is the password policy: Argon2id hashing under a memory
+// bound, verification in constant shape, and the temporary passwords a teacher
+// hands out.
+type PasswordManager struct{}
 
 // SetMaxConcurrentHashes resizes the bound.
 //
@@ -47,36 +23,15 @@ var hashSlots = make(chan struct{}, DefaultMaxConcurrentHashes)
 // this is safe without a lock: every handler goroutine is created after, and
 // goroutine creation is a happens-before edge. Calling it once main is running
 // is a data race.
-func SetMaxConcurrentHashes(n int) {
+func (PasswordManager) SetMaxConcurrentHashes(n int) {
 	if n < 1 {
 		n = 1
 	}
 	hashSlots = make(chan struct{}, n)
 }
 
-// withHashSlot runs fn holding one of the concurrency tokens.
-//
-// Callers WAIT rather than being refused. A student queueing behind three
-// classmates waits a few hundred milliseconds; being told to try again is a
-// worse answer to "the lesson started". The context is what stops that queue
-// growing without limit -- a caller whose client has already gone gives its
-// place up instead of allocating 64 MiB for nobody.
-func withHashSlot(ctx context.Context, fn func()) error {
-	// Captured once: re-reading at release would deadlock across a resize.
-	slots := hashSlots
-
-	select {
-	case slots <- struct{}{}:
-	case <-ctx.Done():
-		return fmt.Errorf("waiting for a password-hash slot: %w", ctx.Err())
-	}
-	defer func() { <-slots }()
-	fn()
-	return nil
-}
-
 // HashPassword produces a PHC-format Argon2id hash.
-func HashPassword(ctx context.Context, password string) (string, error) {
+func (PasswordManager) Hash(ctx context.Context, password string) (string, error) {
 	salt := make([]byte, SaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("generate salt: %w", err)
@@ -102,7 +57,7 @@ func HashPassword(ctx context.Context, password string) (string, error) {
 // how much of the derived key matched, which over many attempts narrows the
 // search — the reason §13.5 asks for constant-time comparison on the join code
 // applies here too.
-func VerifyPassword(ctx context.Context, password, encoded string) (bool, error) {
+func (PasswordManager) Verify(ctx context.Context, password, encoded string) (bool, error) {
 	p, salt, want, err := decodeHash(encoded)
 	if err != nil {
 		return false, err
@@ -114,6 +69,88 @@ func VerifyPassword(ctx context.Context, password, encoded string) (bool, error)
 		return false, err
 	}
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
+}
+
+// BurnPasswordTime performs the same work as a real verification and discards
+// the result. Called when no user matches.
+func (PasswordManager) BurnTime(ctx context.Context, password string) {
+	_, _ = Passwords.Verify(ctx, password, dummyHash)
+}
+
+// TemporaryPassword returns a password a teacher can read across a room.
+func (PasswordManager) Temporary() (string, error) {
+	first, err := word()
+	if err != nil {
+		return "", err
+	}
+	second, err := word()
+	if err != nil {
+		return "", err
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(90))
+	if err != nil {
+		return "", fmt.Errorf("temporary password: %w", err)
+	}
+
+	out := fmt.Sprintf("%s-%s-%d", first, second, n.Int64()+10)
+	if len(out) < MinPasswordLength {
+		return "", fmt.Errorf("temporary password %q is shorter than the minimum", out)
+	}
+	return out, nil
+}
+
+var Passwords PasswordManager
+
+// Password bounds from api/openapi.yaml. The maximum exists because Argon2id
+// hashes whatever it is given, and a megabyte of "password" is a free way to
+// burn CPU on an authenticated endpoint.
+const (
+	MinPasswordLength = 8
+	MaxPasswordLength = 512
+)
+
+const (
+	DefaultMemory  = 64 * 1024
+	DefaultTime    = 3
+	DefaultThreads = 2
+	DefaultKeyLen  = 32
+	SaltLen        = 16
+)
+
+// DefaultMaxConcurrentHashes bounds how many Argon2id operations run at once.
+const DefaultMaxConcurrentHashes = 4
+
+type params struct {
+	memory  uint32
+	time    uint32
+	threads uint8
+	keyLen  uint32
+}
+
+// hashSlots bounds concurrent Argon2id work. A buffered channel rather than a
+// semaphore package: the whole contract is "hold one of N tokens", and adding a
+// dependency for that would be more code than this is.
+var hashSlots = make(chan struct{}, DefaultMaxConcurrentHashes)
+
+// withHashSlot runs fn holding one of the concurrency tokens.
+//
+// Callers WAIT rather than being refused. A student queueing behind three
+// classmates waits a few hundred milliseconds; being told to try again is a
+// worse answer to "the lesson started". The context is what stops that queue
+// growing without limit -- a caller whose client has already gone gives its
+// place up instead of allocating 64 MiB for nobody.
+func withHashSlot(ctx context.Context, fn func()) error {
+	// Captured once: re-reading at release would deadlock across a resize.
+	slots := hashSlots
+
+	select {
+	case slots <- struct{}{}:
+	case <-ctx.Done():
+		return fmt.Errorf("waiting for a password-hash slot: %w", ctx.Err())
+	}
+	defer func() { <-slots }()
+	fn()
+	return nil
 }
 
 func decodeHash(encoded string) (params, []byte, []byte, error) {
@@ -159,15 +196,28 @@ func decodeHash(encoded string) (params, []byte, []byte, error) {
 var dummyHash string
 
 func init() {
-	h, err := HashPassword(context.Background(), "quizzivy-timing-equaliser")
+	h, err := Passwords.Hash(context.Background(), "quizzivy-timing-equaliser")
 	if err != nil {
 		panic("auth: cannot initialise dummy hash: " + err.Error())
 	}
 	dummyHash = h
 }
 
-// BurnPasswordTime performs the same work as a real verification and discards
-// the result. Called when no user matches.
-func BurnPasswordTime(ctx context.Context, password string) {
-	_, _ = VerifyPassword(ctx, password, dummyHash)
+// temporaryWords is the vocabulary a temporary password is built from.
+var temporaryWords = []string{
+	"ao", "bao", "bien", "bo", "bong", "buom", "ca", "cam", "canh", "cao",
+	"cay", "che", "chim", "cho", "com", "cua", "dao", "den", "deo", "dua",
+	"duong", "ga", "gao", "gio", "hat", "hoa", "hong", "keo", "kem", "khoai",
+	"la", "lam", "meo", "mua", "mut", "nai", "nam", "nau", "ngo",
+	"nho", "nui", "oi", "ong", "pho", "quat", "rung", "sao", "sen", "song",
+	"suoi", "tau", "thap", "tho", "thom", "tim", "trang", "tre", "trong",
+	"vang", "voi", "xanh", "xoai", "yen",
+}
+
+func word() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(temporaryWords))))
+	if err != nil {
+		return "", fmt.Errorf("temporary password: %w", err)
+	}
+	return temporaryWords[n.Int64()], nil
 }

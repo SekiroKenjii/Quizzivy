@@ -37,7 +37,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 		return domain.PublishedVersion{}, err
 	}
 
-	total, count := domain.Totals(draft)
+	total, count := domain.Publishing.Totals(draft)
 
 	versionID, err := insertVersion(ctx, tx, req, current+1, total, now)
 	if err != nil {

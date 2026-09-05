@@ -18,5 +18,5 @@ func NewPublisher(repo domain.Repository) *Publisher {
 }
 
 func (p *Publisher) Publish(ctx context.Context, req domain.PublishRequest) (domain.PublishedVersion, error) {
-	return p.repo.Publish(ctx, req, p.now(), domain.ValidateDraft)
+	return p.repo.Publish(ctx, req, p.now(), domain.Publishing.Validate)
 }

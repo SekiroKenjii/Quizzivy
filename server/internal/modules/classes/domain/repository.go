@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-
 	"quizzivy/internal/shared/paging"
 )
 

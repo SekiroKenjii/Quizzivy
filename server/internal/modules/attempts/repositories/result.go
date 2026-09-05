@@ -25,7 +25,7 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord) (doma
 	if err != nil {
 		return domain.Result{}, err
 	}
-	base = domain.Present(a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, base)
+	base = domain.Deal.Present(a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, base)
 
 	extras, err := s.resultExtras(ctx, a.TestVersionID, rules.Review)
 	if err != nil {

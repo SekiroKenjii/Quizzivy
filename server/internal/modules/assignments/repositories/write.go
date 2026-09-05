@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
-	if err := domain.Validate(in); err != nil {
+	if err := in.Validate(); err != nil {
 		return domain.Assignment{}, err
 	}
 
@@ -42,12 +42,12 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
 		        $13, $14, $15, $16::app.integrity_action, $17, $18::uuid, $19)
 		RETURNING id::text`,
-		testID, in.TestVersionID, in.OpensAt, in.ClosesAt, domain.ClosedAtOf(in),
+		testID, in.TestVersionID, in.OpensAt, in.ClosesAt, domain.Schedule.ClosedAtOf(in),
 		in.DurationMin, in.MaxAttempts, in.ShuffleQ, in.ShuffleO,
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded, in.Integrity.MinAwayMs,
-		req.ActorID, domain.PublishedAtOf(in)).Scan(&id); err != nil {
+		req.ActorID, domain.Schedule.PublishedAtOf(in)).Scan(&id); err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: insert: %w", err)
 	}
 
@@ -94,7 +94,7 @@ func versionStillFree(ctx context.Context, tx pgx.Tx, assignmentID, next, curren
 }
 
 func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
-	if err := domain.Validate(in); err != nil {
+	if err := in.Validate(); err != nil {
 		return domain.Assignment{}, err
 	}
 
@@ -143,7 +143,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded,
-		in.Integrity.MinAwayMs, domain.NextPublishedAt(current.publishedAt, in)); err != nil {
+		in.Integrity.MinAwayMs, domain.Schedule.NextPublishedAt(current.publishedAt, in)); err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: update: %w", err)
 	}
 	if err := replaceTargets(ctx, tx, req.ID, in); err != nil {

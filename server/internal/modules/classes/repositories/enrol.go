@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
-	"quizzivy/internal/modules/classes/domain/joincode"
 	"quizzivy/internal/shared/audit"
 	"strings"
 	"time"
@@ -22,7 +21,7 @@ import (
 // uses_count increments only when the membership is new, so a student
 // re-submitting a code they already used does not exhaust it.
 func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.EnrolResult, error) {
-	normalized := joincode.Normalize(in.RawCode)
+	normalized := domain.JoinCodes.Normalize(in.RawCode)
 	if normalized == "" {
 		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
 	}
@@ -33,7 +32,7 @@ func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.Enro
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	code, err := claimCode(ctx, tx, joincode.Hash(normalized))
+	code, err := claimCode(ctx, tx, domain.JoinCodes.Hash(normalized))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
 	}

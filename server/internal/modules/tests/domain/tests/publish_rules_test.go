@@ -32,7 +32,7 @@ func base() domain.DraftQuestion {
 
 func onlyViolation(t *testing.T, d domain.DraftContent) domain.Violation {
 	t.Helper()
-	err := domain.ValidateDraft(d)
+	err := domain.Publishing.Validate(d)
 	var invalid *domain.PublishValidationError
 	if !errors.As(err, &invalid) {
 		t.Fatalf("ValidateDraft returned %v, want a PublishValidationError", err)
@@ -87,7 +87,7 @@ func TestRuleAudioPolicyNeedsAnAudioAsset(t *testing.T) {
 		q := base()
 		q.AllowSeek, q.ShowTranscript = &allow, &show
 		q.MediaAssetID, q.MediaAssetKind = &id, &kind
-		if err := domain.ValidateDraft(draftWith(q)); err != nil {
+		if err := domain.Publishing.Validate(draftWith(q)); err != nil {
 			t.Errorf("a valid audio question was rejected: %v", err)
 		}
 	})
@@ -103,7 +103,7 @@ func TestRuleChoiceNeedsACorrectOption(t *testing.T) {
 		}
 
 		q.Options[1].IsCorrect = true
-		if err := domain.ValidateDraft(draftWith(q)); err != nil {
+		if err := domain.Publishing.Validate(draftWith(q)); err != nil {
 			t.Errorf("%s with a correct option was rejected: %v", questionType, err)
 		}
 	}
@@ -120,7 +120,7 @@ func TestRuleBlankNeedsAnAcceptedAnswer(t *testing.T) {
 	}
 
 	q.Blanks[0].AcceptedAnswers = []string{"đi"}
-	if err := domain.ValidateDraft(draftWith(q)); err != nil {
+	if err := domain.Publishing.Validate(draftWith(q)); err != nil {
 		t.Errorf("a blank with an answer was rejected: %v", err)
 	}
 }
@@ -146,7 +146,7 @@ func TestRulePlaceholdersMustMatchTheBlanks(t *testing.T) {
 				q.Blanks = append(q.Blanks, domain.DraftBlank{Ordinal: n, AcceptedAnswers: []string{"x"}})
 			}
 
-			err := domain.ValidateDraft(draftWith(q))
+			err := domain.Publishing.Validate(draftWith(q))
 			if !tc.wantBad {
 				if err != nil {
 					t.Errorf("rejected a valid fill_blank: %v", err)
@@ -199,7 +199,7 @@ func TestAnEmptySectionDoesNotCascade(t *testing.T) {
 			{ID: "00000000-0000-7000-8000-000000000004", Title: "Cũng rỗng"},
 		},
 	}
-	err := domain.ValidateDraft(d)
+	err := domain.Publishing.Validate(d)
 	var invalid *domain.PublishValidationError
 	if !errors.As(err, &invalid) {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func TestAValidDraftPasses(t *testing.T) {
 	q := base()
 	q.Type = "single_choice"
 	q.Options = []domain.DraftOption{{Ordinal: 0, Text: "A", IsCorrect: true}, {Ordinal: 1, Text: "B"}}
-	if err := domain.ValidateDraft(draftWith(q)); err != nil {
+	if err := domain.Publishing.Validate(draftWith(q)); err != nil {
 		t.Errorf("a valid draft was rejected: %v", err)
 	}
 }

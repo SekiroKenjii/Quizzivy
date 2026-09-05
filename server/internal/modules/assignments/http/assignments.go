@@ -112,7 +112,7 @@ func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 			MinAwayMs:         a.Integrity.MinAwayMs,
 		},
 		Status: openapi.AssignmentStatus(
-			domain.StatusAt(time.Now(), a.PublishedAt, a.OpensAt, a.ClosesAt, a.ClosedAt),
+			domain.Schedule.StatusAt(time.Now(), a.PublishedAt, a.OpensAt, a.ClosesAt, a.ClosedAt),
 		),
 		PublishedAt:         a.PublishedAt,
 		SubmittedCount:      &a.SubmittedCount,

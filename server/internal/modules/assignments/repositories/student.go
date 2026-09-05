@@ -138,7 +138,7 @@ func (s *Postgres) ForStudent(ctx context.Context, studentID string, now time.Ti
 		if err != nil {
 			return domain.StudentSections{}, fmt.Errorf("assignments: scan student card: %w", err)
 		}
-		status := domain.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)
+		status := domain.Schedule.StatusAt(now, c.PublishedAt, c.OpensAt, c.ClosesAt, c.ClosedAt)
 		switch {
 		case c.HasLiveAttempt:
 			out.DueNow = append(out.DueNow, c)

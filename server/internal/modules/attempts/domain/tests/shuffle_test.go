@@ -33,10 +33,10 @@ func order(qs []domain.Question) string {
 
 func TestTheSameSeedAlwaysDealsTheSamePaper(t *testing.T) {
 	const seed = 0x5eed
-	want := order(domain.Present(seed, true, true, questions(12)))
+	want := order(domain.Deal.Present(seed, true, true, questions(12)))
 
 	for i := range 1000 {
-		if got := order(domain.Present(seed, true, true, questions(12))); got != want {
+		if got := order(domain.Deal.Present(seed, true, true, questions(12))); got != want {
 			t.Fatalf("run %d dealt a different paper\n got %s\nwant %s", i, got, want)
 		}
 	}
@@ -46,7 +46,7 @@ func TestDifferentSeedsDealDifferentPapers(t *testing.T) {
 	seen := map[string]int64{}
 	var collisions int
 	for seed := int64(1); seed <= 200; seed++ {
-		got := order(domain.Present(seed, true, false, questions(12)))
+		got := order(domain.Deal.Present(seed, true, false, questions(12)))
 		if prior, ok := seen[got]; ok {
 			collisions++
 			t.Logf("seeds %d and %d agree: %s", prior, seed, got)
@@ -64,7 +64,7 @@ func TestDifferentSeedsDealDifferentPapers(t *testing.T) {
 // index or changing a JOIN would silently re-deal a paper mid-attempt.
 func TestThePaperDoesNotDependOnTheOrderRowsArriveIn(t *testing.T) {
 	const seed = 918273645
-	want := order(domain.Present(seed, true, true, questions(20)))
+	want := order(domain.Deal.Present(seed, true, true, questions(20)))
 
 	shuffled := questions(20)
 	source := rand.New(rand.NewPCG(1, 2))
@@ -72,14 +72,14 @@ func TestThePaperDoesNotDependOnTheOrderRowsArriveIn(t *testing.T) {
 		source.Shuffle(len(shuffled), func(i, j int) {
 			shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 		})
-		if got := order(domain.Present(seed, true, true, slices.Clone(shuffled))); got != want {
+		if got := order(domain.Deal.Present(seed, true, true, slices.Clone(shuffled))); got != want {
 			t.Fatalf("a reordered query re-dealt the paper\n got %s\nwant %s", got, want)
 		}
 	}
 }
 
 func TestOptionsOfDifferentQuestionsDoNotMoveInLockstep(t *testing.T) {
-	dealt := domain.Present(7, false, true, questions(30))
+	dealt := domain.Deal.Present(7, false, true, questions(30))
 
 	shapes := map[string]bool{}
 	for _, q := range dealt {
@@ -98,7 +98,7 @@ func TestBlanksAreNeverShuffled(t *testing.T) {
 	// A blank's ordinal is its position in the prompt text.
 	q := domain.Question{ID: "q1", Blanks: []domain.Blank{{ID: "b1", Ordinal: 1}, {ID: "b2", Ordinal: 2}, {ID: "b3", Ordinal: 3}}}
 	for seed := int64(1); seed <= 100; seed++ {
-		got := domain.Present(seed, true, true, []domain.Question{q})[0].Blanks
+		got := domain.Deal.Present(seed, true, true, []domain.Question{q})[0].Blanks
 		for i, b := range got {
 			if b.Ordinal != i+1 {
 				t.Fatalf("seed %d reordered blanks: %v", seed, got)
@@ -109,7 +109,7 @@ func TestBlanksAreNeverShuffled(t *testing.T) {
 
 func TestNothingIsLostOrDuplicatedInTheDeal(t *testing.T) {
 	for seed := int64(1); seed <= 100; seed++ {
-		dealt := domain.Present(seed, true, true, questions(25))
+		dealt := domain.Deal.Present(seed, true, true, questions(25))
 		if len(dealt) != 25 {
 			t.Fatalf("seed %d dealt %d of 25 questions", seed, len(dealt))
 		}

@@ -8,11 +8,11 @@ import (
 
 // NewTemporaryPassword returns a fresh temporary password and its hash.
 func temporaryPassword(ctx context.Context) (password, hash string, err error) {
-	password, err = domain.TemporaryPassword()
+	password, err = domain.Passwords.Temporary()
 	if err != nil {
 		return "", "", err
 	}
-	hash, err = domain.HashPassword(ctx, password)
+	hash, err = domain.Passwords.Hash(ctx, password)
 	if err != nil {
 		return "", "", err
 	}

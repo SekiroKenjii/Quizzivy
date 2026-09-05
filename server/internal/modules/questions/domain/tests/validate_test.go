@@ -115,7 +115,7 @@ func TestFillBlankPlaceholdersMustMatchTheBlanks(t *testing.T) {
 }
 
 func TestPromptPlaceholdersIgnoresWhatIsNotOne(t *testing.T) {
-	got := domain.PromptPlaceholders("a {{1}} b {{0}} c {{x}} d {{12}}")
+	got := domain.Questions.PromptPlaceholders("a {{1}} b {{0}} c {{x}} d {{12}}")
 	want := []int{1, 12}
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)

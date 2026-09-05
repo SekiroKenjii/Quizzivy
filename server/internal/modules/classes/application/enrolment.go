@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
-	"quizzivy/internal/modules/classes/domain/joincode"
 	"time"
 )
 
@@ -22,7 +21,7 @@ func (s *Enrolment) SetClock(now func() time.Time) { s.now = now }
 
 // Rotate issues a new join code, revoking any existing one.
 func (s *Enrolment) Rotate(ctx context.Context, req domain.RotateRequest) (domain.Rotated, error) {
-	code, err := joincode.Generate()
+	code, err := domain.JoinCodes.Generate()
 	if err != nil {
 		return domain.Rotated{}, err
 	}
@@ -40,8 +39,8 @@ func (s *Enrolment) Rotate(ctx context.Context, req domain.RotateRequest) (domai
 	issued, err := s.repo.Rotate(ctx, domain.RotateInput{
 		ClassID:     req.ClassID,
 		ActorUserID: req.ActorUserID,
-		CodeHash:    joincode.Hash(code),
-		Hint:        joincode.Hint(code),
+		CodeHash:    domain.JoinCodes.Hash(code),
+		Hint:        domain.JoinCodes.Hint(code),
 		ExpiresAt:   now.AddDate(0, 0, days),
 		MaxUses:     &maxUses,
 		Now:         now,
@@ -53,7 +52,7 @@ func (s *Enrolment) Rotate(ctx context.Context, req domain.RotateRequest) (domai
 	}
 
 	return domain.Rotated{
-		Code:      joincode.Format(code),
+		Code:      domain.JoinCodes.Format(code),
 		Hint:      issued.Hint,
 		ExpiresAt: issued.ExpiresAt,
 		MaxUses:   issued.MaxUses,

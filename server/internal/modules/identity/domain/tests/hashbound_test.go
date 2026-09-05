@@ -16,22 +16,22 @@ import (
 )
 
 func TestAWaiterGivesUpItsPlaceWhenItsCallerIsGone(t *testing.T) {
-	domain.SetMaxConcurrentHashes(1)
-	t.Cleanup(func() { domain.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
+	domain.Passwords.SetMaxConcurrentHashes(1)
+	t.Cleanup(func() { domain.Passwords.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
 
 	var holders sync.WaitGroup
 	for range 3 {
 		holders.Add(1)
 		go func() {
 			defer holders.Done()
-			_, _ = domain.HashPassword(context.Background(), "giữ-chỗ-trong-lúc-đợi")
+			_, _ = domain.Passwords.Hash(context.Background(), "giữ-chỗ-trong-lúc-đợi")
 		}()
 	}
 	time.Sleep(10 * time.Millisecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
 	defer cancel()
-	_, err := domain.HashPassword(ctx, "người-đợi")
+	_, err := domain.Passwords.Hash(ctx, "người-đợi")
 	holders.Wait()
 
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -40,12 +40,12 @@ func TestAWaiterGivesUpItsPlaceWhenItsCallerIsGone(t *testing.T) {
 }
 
 func TestTheSlotIsReturnedAfterEachHash(t *testing.T) {
-	domain.SetMaxConcurrentHashes(1)
-	t.Cleanup(func() { domain.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
+	domain.Passwords.SetMaxConcurrentHashes(1)
+	t.Cleanup(func() { domain.Passwords.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
 
 	for i := range 5 {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		if _, err := domain.HashPassword(ctx, "mật-khẩu"); err != nil {
+		if _, err := domain.Passwords.Hash(ctx, "mật-khẩu"); err != nil {
 			t.Fatalf("hash %d: %v", i+1, err)
 		}
 		cancel()
@@ -76,8 +76,8 @@ func TestTheBoundActuallyCapsMemory(t *testing.T) {
 		t.Skip("RSS measurement is Linux-specific")
 	}
 	const limit = 2
-	domain.SetMaxConcurrentHashes(limit)
-	t.Cleanup(func() { domain.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
+	domain.Passwords.SetMaxConcurrentHashes(limit)
+	t.Cleanup(func() { domain.Passwords.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
 
 	runtime.GC()
 	baseline := currentRSSMiB(t)
@@ -107,7 +107,7 @@ func TestTheBoundActuallyCapsMemory(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, _ = domain.HashPassword(context.Background(), "mật-khẩu-của-học-viên")
+			_, _ = domain.Passwords.Hash(context.Background(), "mật-khẩu-của-học-viên")
 		}()
 	}
 	wg.Wait()

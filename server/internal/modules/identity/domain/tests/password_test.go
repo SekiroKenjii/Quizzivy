@@ -23,7 +23,7 @@ import (
 const seedHash = `$argon2id$v=19$m=65536,t=3,p=2$NsEIYu5N8g+iv1W9zV2hfQ$HgTGHdo9uosWEPKpMFDPDSUvBOTCc0oVcPvq7FeVIR4`
 
 func TestVerifiesTheSeedHash(t *testing.T) {
-	ok, err := domain.VerifyPassword(context.Background(), "quizzivy-dev", seedHash)
+	ok, err := domain.Passwords.Verify(context.Background(), "quizzivy-dev", seedHash)
 	if err != nil {
 		t.Fatalf("seed hash did not decode: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestVerifiesTheSeedHash(t *testing.T) {
 }
 
 func TestRoundTrip(t *testing.T) {
-	hash, err := domain.HashPassword(context.Background(), "mật khẩu của tôi")
+	hash, err := domain.Passwords.Hash(context.Background(), "mật khẩu của tôi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,12 +41,12 @@ func TestRoundTrip(t *testing.T) {
 		t.Errorf("hash is not PHC argon2id: %.30s", hash)
 	}
 
-	ok, err := domain.VerifyPassword(context.Background(), "mật khẩu của tôi", hash)
+	ok, err := domain.Passwords.Verify(context.Background(), "mật khẩu của tôi", hash)
 	if err != nil || !ok {
 		t.Errorf("correct password did not verify (ok=%v err=%v)", ok, err)
 	}
 
-	ok, err = domain.VerifyPassword(context.Background(), "mật khẩu khác", hash)
+	ok, err = domain.Passwords.Verify(context.Background(), "mật khẩu khác", hash)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,8 +56,8 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestSaltIsPerHash(t *testing.T) {
-	a, _ := domain.HashPassword(context.Background(), "same")
-	b, _ := domain.HashPassword(context.Background(), "same")
+	a, _ := domain.Passwords.Hash(context.Background(), "same")
+	b, _ := domain.Passwords.Hash(context.Background(), "same")
 	if a == b {
 		t.Error("two hashes of the same password are identical; the salt is not random")
 	}
@@ -75,7 +75,7 @@ func TestRejectsMalformedHashesRatherThanReturningFalse(t *testing.T) {
 		"truncated fields": "$argon2id$v=19$m=65536,t=3,p=2$c2FsdA",
 	} {
 		t.Run(name, func(t *testing.T) {
-			ok, err := domain.VerifyPassword(context.Background(), "anything", encoded)
+			ok, err := domain.Passwords.Verify(context.Background(), "anything", encoded)
 			if err == nil {
 				t.Errorf("malformed hash was accepted as decodable (ok=%v)", ok)
 			}
@@ -94,14 +94,14 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 		base64.RawStdEncoding.EncodeToString(salt),
 		base64.RawStdEncoding.EncodeToString(weakKey))
 
-	ok, err := domain.VerifyPassword(context.Background(), "x", weak)
+	ok, err := domain.Passwords.Verify(context.Background(), "x", weak)
 	if err != nil {
 		t.Fatalf("a hash with non-default parameters failed to decode: %v", err)
 	}
 	if !ok {
 		t.Error("a hash with non-default parameters did not verify")
 	}
-	fresh, err := domain.HashPassword(context.Background(), "x")
+	fresh, err := domain.Passwords.Hash(context.Background(), "x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,10 +121,10 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 // whether anything still uses it.
 func TestBurnPasswordTimeDoesRealWork(t *testing.T) {
 	// Untimed: the first Argon2id call faults in a fresh 64 MiB arena.
-	domain.BurnPasswordTime(context.Background(), "warm-up")
+	domain.Passwords.BurnTime(context.Background(), "warm-up")
 
 	start := time.Now()
-	domain.BurnPasswordTime(context.Background(), "wrong")
+	domain.Passwords.BurnTime(context.Background(), "wrong")
 	elapsed := time.Since(start)
 
 	const floor = 5 * time.Millisecond
@@ -140,18 +140,18 @@ func TestBurnPasswordTimeDoesRealWork(t *testing.T) {
 // should be within noise of each other, and a real divergence would show as a
 // difference no amount of noise explains.
 func BenchmarkPasswordPathsAreEqualCost(b *testing.B) {
-	hash, err := domain.HashPassword(context.Background(), "correct-horse")
+	hash, err := domain.Passwords.Hash(context.Background(), "correct-horse")
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.Run("wrong-password", func(b *testing.B) {
 		for b.Loop() {
-			_, _ = domain.VerifyPassword(context.Background(), "wrong", hash)
+			_, _ = domain.Passwords.Verify(context.Background(), "wrong", hash)
 		}
 	})
 	b.Run("no-such-user", func(b *testing.B) {
 		for b.Loop() {
-			domain.BurnPasswordTime(context.Background(), "wrong")
+			domain.Passwords.BurnTime(context.Background(), "wrong")
 		}
 	})
 }

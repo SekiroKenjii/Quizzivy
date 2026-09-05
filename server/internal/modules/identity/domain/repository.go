@@ -2,10 +2,9 @@ package domain
 
 import (
 	"context"
-	"time"
-
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/paging"
+	"time"
 )
 
 // Users persists accounts, their provider identities and their refresh-token families.

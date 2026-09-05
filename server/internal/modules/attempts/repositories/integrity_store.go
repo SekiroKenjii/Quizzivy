@@ -64,5 +64,5 @@ func (s *Timelines) Timeline(ctx context.Context, attemptID string) (domain.Time
 	if err := rows.Err(); err != nil {
 		return domain.Timeline{}, fmt.Errorf("integrity: read events: %w", err)
 	}
-	return domain.BuildTimeline(startedAt, minAwayMs, audioReplays, events, s.now()), nil
+	return domain.Timelines.Build(startedAt, minAwayMs, audioReplays, events, s.now()), nil
 }

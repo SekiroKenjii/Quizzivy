@@ -28,7 +28,7 @@ func TestAnAwayEpisodeIsOneRowWithADurationHoweverManySignalsFired(t *testing.T)
 		event(3, "tab_visible", 82, "s1", seq(2)),
 		event(4, "window_focus", 82.1, "s1", seq(3)),
 	}
-	got := domain.BuildTimeline(start, 3000, 0, events, at(200))
+	got := domain.Timelines.Build(start, 3000, 0, events, at(200))
 
 	if got.Events[0].DurationMs == nil || *got.Events[0].DurationMs != 72000 {
 		t.Fatalf("the first leave should carry the episode's 72s, got %v", got.Events[0].DurationMs)
@@ -48,7 +48,7 @@ func TestAnEpisodeUnderTheThresholdIsTimedButNotCounted(t *testing.T) {
 		event(1, "window_blur", 10, "s1", seq(0)),
 		event(2, "window_focus", 12, "s1", seq(1)),
 	}
-	got := domain.BuildTimeline(start, 3000, 0, events, at(200))
+	got := domain.Timelines.Build(start, 3000, 0, events, at(200))
 	if got.Summary.AwayEpisodes != 0 {
 		t.Errorf("a 2s notification counted as an episode")
 	}
@@ -63,7 +63,7 @@ func TestATrailingLeaveStaysOpenEndedAndIsCountedNotSummed(t *testing.T) {
 		event(2, "window_focus", 20, "s1", seq(1)),
 		event(3, "tab_hidden", 100, "s1", seq(2)),
 	}
-	got := domain.BuildTimeline(start, 3000, 0, events, at(160))
+	got := domain.Timelines.Build(start, 3000, 0, events, at(160))
 
 	last := got.Events[len(got.Events)-1]
 	if last.Kind != "tab_hidden" || last.DurationMs != nil {
@@ -89,7 +89,7 @@ func TestPairingCrossesAResumeBoundaryAndSessionsKeepTheirOwnOrder(t *testing.T)
 		event(4, "resume", 30, "s2", nil),
 		event(5, "window_focus", 31, "s2", seq(0)),
 	}
-	got := domain.BuildTimeline(start, 3000, 0, events, at(200))
+	got := domain.Timelines.Build(start, 3000, 0, events, at(200))
 
 	kinds := make([]string, len(got.Events))
 	for i, e := range got.Events {
@@ -118,7 +118,7 @@ func TestOfflineAndAudioPairByTheirOwnKindsAndOffsetsRunFromTheStart(t *testing.
 		event(4, "network_offline", 20, "s1", seq(3)),
 		event(5, "network_online", 68, "s1", seq(4)),
 	}
-	got := domain.BuildTimeline(start, 3000, 1, events, at(200))
+	got := domain.Timelines.Build(start, 3000, 1, events, at(200))
 
 	if got.Events[0].DurationMs != nil {
 		t.Errorf("q1's play never ended and should stay open")
@@ -138,7 +138,7 @@ func TestOfflineAndAudioPairByTheirOwnKindsAndOffsetsRunFromTheStart(t *testing.
 }
 
 func TestAnEmptyLogIsAnEmptyTimelineNotAPanic(t *testing.T) {
-	got := domain.BuildTimeline(start, 3000, 0, nil, at(1))
+	got := domain.Timelines.Build(start, 3000, 0, nil, at(1))
 	if len(got.Events) != 0 || got.Summary != (domain.IntegritySummary{}) {
 		t.Errorf("got %+v", got)
 	}

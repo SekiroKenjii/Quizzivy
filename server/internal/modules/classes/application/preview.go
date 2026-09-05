@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"quizzivy/internal/modules/classes/domain"
-	"quizzivy/internal/modules/classes/domain/joincode"
 )
 
 // Preview backs the /join/:code/confirm step (§6.2), which exists so a student
@@ -14,19 +13,19 @@ import (
 // answers exactly as a nonexistent one does -- checking revocation or expiry
 // first would confirm that a code, and therefore a class, exists.
 func (s *Enrolment) Preview(ctx context.Context, rawCode string) (domain.PreviewResult, error) {
-	normalized := joincode.Normalize(rawCode)
+	normalized := domain.JoinCodes.Normalize(rawCode)
 	if normalized == "" {
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
 	}
 
-	row, err := s.repo.LookupByCodeHash(ctx, joincode.Hash(normalized))
+	row, err := s.repo.LookupByCodeHash(ctx, domain.JoinCodes.Hash(normalized))
 	if err != nil {
 		return domain.PreviewResult{}, err
 	}
 	if row == nil {
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
 	}
-	if !joincode.Equal(row.CodeHash, joincode.Hash(normalized)) {
+	if !domain.JoinCodes.Equal(row.CodeHash, domain.JoinCodes.Hash(normalized)) {
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
 	}
 

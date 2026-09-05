@@ -28,7 +28,7 @@ func TestSingleChoice(t *testing.T) {
 		{"an option from another question", `{"type":"choice","optionIds":["a","zz"]}`, 0},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if got := domain.Grade(q, []byte(c.payload)).Score; got != c.want {
+			if got := domain.Grading.Grade(q, []byte(c.payload)).Score; got != c.want {
 				t.Errorf("score %v, want %v", got, c.want)
 			}
 		})
@@ -51,7 +51,7 @@ func TestMultipleChoiceIsAllOrNothing(t *testing.T) {
 		{"everything selected", `{"type":"choice","optionIds":["a","b","c","d"]}`, 0},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if got := domain.Grade(q, []byte(c.payload)).Score; got != c.want {
+			if got := domain.Grading.Grade(q, []byte(c.payload)).Score; got != c.want {
 				t.Errorf("score %v, want %v", got, c.want)
 			}
 		})
@@ -79,7 +79,7 @@ func TestTrueFalseReadsTheKeyByOrdinalNotByText(t *testing.T) {
 		{"no value at all", trueIsCorrect, `{"type":"true_false"}`, 0},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if got := domain.Grade(c.q, []byte(c.payload)).Score; got != c.want {
+			if got := domain.Grading.Grade(c.q, []byte(c.payload)).Score; got != c.want {
 				t.Errorf("score %v, want %v", got, c.want)
 			}
 		})
@@ -109,7 +109,7 @@ func TestFillBlankForgivesTypingAndNotTheAnswer(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			payload := `{"type":"fill_blank","values":{"b1":` + quote(c.given) + `}}`
-			if got := domain.Grade(q, []byte(payload)).Score; got != c.want {
+			if got := domain.Grading.Grade(q, []byte(payload)).Score; got != c.want {
 				t.Errorf("score %v, want %v for %q", got, c.want, c.given)
 			}
 		})
@@ -137,7 +137,7 @@ func TestFillBlankKeepsDiacritics(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			payload := `{"type":"fill_blank","values":{"b1":` + quote(c.given) + `}}`
-			if got := domain.Grade(q, []byte(payload)).Score; got != c.want {
+			if got := domain.Grading.Grade(q, []byte(payload)).Score; got != c.want {
 				t.Errorf("score %v, want %v for %q", got, c.want, c.given)
 			}
 		})
@@ -173,7 +173,7 @@ func TestFillBlankIgnoresUnicodeComposition(t *testing.T) {
 				Blanks: []domain.GradableBlank{{ID: "b1", Accepted: []string{c.accepted}, CaseSensitive: c.caseSensitive}},
 			}
 			payload := `{"type":"fill_blank","values":{"b1":` + quote(c.given) + `}}`
-			if got := domain.Grade(q, []byte(payload)).Score; got != 3 {
+			if got := domain.Grading.Grade(q, []byte(payload)).Score; got != 3 {
 				t.Errorf("score %v, want 3: the same word in another encoding was marked wrong", got)
 			}
 		})
@@ -185,10 +185,10 @@ func TestACaseSensitiveBlankSaysSo(t *testing.T) {
 		Type: "fill_blank", Points: 3,
 		Blanks: []domain.GradableBlank{{ID: "b1", CaseSensitive: true, Accepted: []string{"London"}}},
 	}
-	if got := domain.Grade(q, []byte(`{"type":"fill_blank","values":{"b1":"London "}}`)).Score; got != 3 {
+	if got := domain.Grading.Grade(q, []byte(`{"type":"fill_blank","values":{"b1":"London "}}`)).Score; got != 3 {
 		t.Errorf("score %v, want 3 — whitespace is forgiven even when case is not", got)
 	}
-	if got := domain.Grade(q, []byte(`{"type":"fill_blank","values":{"b1":"london"}}`)).Score; got != 0 {
+	if got := domain.Grading.Grade(q, []byte(`{"type":"fill_blank","values":{"b1":"london"}}`)).Score; got != 0 {
 		t.Errorf("score %v, want 0 — the teacher asked for case to matter", got)
 	}
 }
@@ -216,7 +216,7 @@ func TestFillBlankPaysPerBlank(t *testing.T) {
 		{"neither", `{"type":"fill_blank","values":{"b1":"x","b2":"y"}}`, 0},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if got := domain.Grade(q, []byte(c.payload)).Score; got != c.want {
+			if got := domain.Grading.Grade(q, []byte(c.payload)).Score; got != c.want {
 				t.Errorf("score %v, want %v", got, c.want)
 			}
 		})
@@ -236,12 +236,12 @@ func TestEveryBlankRightIsExactlyTheQuestionsPoints(t *testing.T) {
 	}
 
 	all := `{"type":"fill_blank","values":{"b1":"a","b2":"b","b3":"c"}}`
-	if got := domain.Grade(q, []byte(all)).Score; got != 2 {
+	if got := domain.Grading.Grade(q, []byte(all)).Score; got != 2 {
 		t.Errorf("all three blanks scored %v, want exactly 2", got)
 	}
 
 	two := `{"type":"fill_blank","values":{"b1":"a","b2":"b","b3":"z"}}`
-	if got := domain.Grade(q, []byte(two)).Score; got != 1.33 {
+	if got := domain.Grading.Grade(q, []byte(two)).Score; got != 1.33 {
 		t.Errorf("two of three scored %v, want 1.33", got)
 	}
 }
@@ -250,7 +250,7 @@ func TestEveryBlankRightIsExactlyTheQuestionsPoints(t *testing.T) {
 // §7's pendingManual counts.
 func TestShortAnswerIsLeftForTheTeacher(t *testing.T) {
 	q := domain.GradableQuestion{Type: "short_answer", Points: 5}
-	got := domain.Grade(q, []byte(`{"type":"text","value":"Tôi dậy lúc 6 giờ."}`))
+	got := domain.Grading.Grade(q, []byte(`{"type":"text","value":"Tôi dậy lúc 6 giờ."}`))
 	if !got.RequiresManual {
 		t.Error("short_answer must be marked for manual grading")
 	}
@@ -264,7 +264,7 @@ func TestShortAnswerIsLeftForTheTeacher(t *testing.T) {
 func TestAnUnanswerableAnswerScoresZeroRatherThanFailing(t *testing.T) {
 	q := domain.GradableQuestion{Type: "single_choice", Points: 5, Options: choice(true, false)}
 	for _, payload := range []string{"", "not json at all", `{"type":"choice"}`, `null`} {
-		if got := domain.Grade(q, []byte(payload)).Score; got != 0 {
+		if got := domain.Grading.Grade(q, []byte(payload)).Score; got != 0 {
 			t.Errorf("payload %q scored %v, want 0", payload, got)
 		}
 	}

@@ -9,7 +9,6 @@ import (
 
 	"quizzivy/internal/modules/classes/application"
 	"quizzivy/internal/modules/classes/domain"
-	"quizzivy/internal/modules/classes/domain/joincode"
 )
 
 // /join/preview is unauthenticated and takes a bearer secret. What it returns
@@ -55,7 +54,7 @@ func TestPreviewAcceptsTheCodeHoweverItWasTyped(t *testing.T) {
 	classID, teacherID, _ := makeClassRow(t, pool)
 	code := issueCode(t, svc, classID, teacherID) // grouped XXXX-XXXX
 
-	plain := joincode.Normalize(code)
+	plain := domain.JoinCodes.Normalize(code)
 	for _, typed := range []string{code, plain, "  " + plain + "  ", lower(plain), lower(code)} {
 		got, err := svc.Preview(context.Background(), typed)
 		if err != nil {

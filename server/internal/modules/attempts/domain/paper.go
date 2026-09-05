@@ -1,0 +1,90 @@
+package domain
+
+import (
+	"time"
+)
+
+type Question struct {
+	ID      string
+	Type    string
+	Prompt  string
+	Points  float64
+	Media   *Media
+	Audio   *AudioPolicy
+	Options []Option
+	Blanks  []Blank
+}
+
+// Option carries no IsCorrect, and Blank no accepted answers: these types are
+// the projection a student receives, and the surest way not to leak a grading
+// key is to have nowhere to put one (§13.5).
+type Option struct {
+	ID   string
+	Text string
+}
+
+type Blank struct {
+	ID      string
+	Ordinal int
+}
+
+// Media is the asset metadata a paper carries. The signed URL is not here:
+// it expires, so it is minted per response by the media service rather than
+// read alongside rows that do not (§11.2).
+type Media struct {
+	ID         string
+	Kind       string
+	MimeType   string
+	Filename   string
+	Bytes      int
+	DurationMs *int
+	CreatedAt  time.Time
+}
+
+// AudioPolicy is §11.4's per-question rules. A nil MaxPlays is unlimited.
+type AudioPolicy struct {
+	MaxPlays                  *int
+	AllowSeek                 bool
+	ShowTranscriptAfterSubmit bool
+}
+
+type Integrity struct {
+	RequireFullscreen bool
+	BlockCopyPaste    bool
+	MaxFocusLoss      int
+	OnLimitExceeded   string
+	MinAwayMs         int
+}
+
+// Answer is one saved answer, kept as the raw JSON the contract defines.
+//
+// The server has no reason to understand a choice from a text answer until
+// grading, and decoding it here would be a second place for the shape to drift
+// from api/openapi.yaml. The column is jsonb, so Postgres validates that it is
+// an object and the CHECK on the table enforces the rest.
+type Answer struct {
+	QuestionID string
+	Payload    []byte
+}
+
+// BlankAnswer is one canonical accepted answer, never the full list.
+type BlankAnswer struct {
+	BlankID string
+	Answer  string
+}
+
+// Event is one client-sourced integrity event (§10.1). Kind is deliberately not
+// an enum here for the same reason it is not one in the column.
+type Event struct {
+	Kind       string
+	OccurredAt time.Time
+	ClientSeq  int
+	QuestionID *string
+	Meta       []byte
+}
+
+// Plays is what the client renders "còn N lượt nghe" from.
+type Plays struct {
+	Plays    int
+	MaxPlays *int
+}

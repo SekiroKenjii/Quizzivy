@@ -27,7 +27,7 @@ func main() {
 		password[i] = alphabet[n.Int64()]
 	}
 
-	hash, err := identitydomain.HashPassword(context.Background(), string(password))
+	hash, err := identitydomain.Passwords.Hash(context.Background(), string(password))
 	if err != nil {
 		panic(err)
 	}

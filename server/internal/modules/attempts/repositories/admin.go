@@ -19,7 +19,7 @@ import (
 // is what an accommodation is for, and the constraint only requires it to
 // exceed `started_at`.
 func (s *Postgres) Extend(ctx context.Context, req domain.Request, attemptID string, minutes int, reason string, now time.Time) (domain.Attempt, error) {
-	reason, err := domain.CleanReason(reason)
+	reason, err := domain.Interventions.CleanReason(reason)
 	if err != nil {
 		return domain.Attempt{}, err
 	}
@@ -64,7 +64,7 @@ func (s *Postgres) Reset(ctx context.Context, req domain.Request, attemptID, rea
 }
 
 func (s *Postgres) void(ctx context.Context, req domain.Request, attemptID, reason, action string, now time.Time) (domain.Attempt, error) {
-	reason, err := domain.CleanReason(reason)
+	reason, err := domain.Interventions.CleanReason(reason)
 	if err != nil {
 		return domain.Attempt{}, err
 	}

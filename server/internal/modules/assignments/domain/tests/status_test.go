@@ -31,7 +31,7 @@ func TestStatusIsDerivedFromTheWindow(t *testing.T) {
 		{"a future early-close has not happened yet", opens.Add(time.Hour), &closes, domain.Open},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := domain.StatusAt(tc.now, &published, opens, closes, tc.closedAt)
+			got := domain.Schedule.StatusAt(tc.now, &published, opens, closes, tc.closedAt)
 			if got != tc.want {
 				t.Errorf("want %s, got %s", tc.want, got)
 			}
@@ -51,7 +51,7 @@ func TestAnUnpublishedAssignmentIsADraftWhateverTheWindowSays(t *testing.T) {
 		opens.Add(time.Hour),
 		closes.Add(time.Hour),
 	} {
-		if got := domain.StatusAt(now, nil, opens, closes, nil); got != domain.Draft {
+		if got := domain.Schedule.StatusAt(now, nil, opens, closes, nil); got != domain.Draft {
 			t.Errorf("at %s: want draft, got %s", now, got)
 		}
 	}

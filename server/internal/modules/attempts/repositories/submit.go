@@ -76,7 +76,7 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 			// No AttemptRecord, nothing to update, and zero either way.
 			continue
 		}
-		result := domain.Grade(q, payload)
+		result := domain.Grading.Grade(q, payload)
 		earned += result.Score
 		ids = append(ids, q.ID)
 		scores = append(scores, result.Score)

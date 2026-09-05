@@ -80,7 +80,7 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 }
 
 func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
-	identitydomain.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
+	identitydomain.Passwords.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
 	logger.Info("password hashing bounded",
 		"max_concurrent", cfg.MaxConcurrentPasswordHashes,
 		"peak_arena_mib", cfg.MaxConcurrentPasswordHashes*64)

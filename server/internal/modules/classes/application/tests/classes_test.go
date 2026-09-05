@@ -15,7 +15,6 @@ import (
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/modules/classes/application"
 	"quizzivy/internal/modules/classes/domain"
-	"quizzivy/internal/modules/classes/domain/joincode"
 	"quizzivy/internal/modules/classes/repositories"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -94,7 +93,7 @@ func TestAClassCarriesItsCodesMetadataAndNeverTheCode(t *testing.T) {
 	if got.JoinCode == nil {
 		t.Fatal("no join code metadata on a class that has an active code")
 	}
-	canonical := joincode.Normalize(rotated.Code)
+	canonical := domain.JoinCodes.Normalize(rotated.Code)
 	if got.JoinCode.Hint != canonical[len(canonical)-4:] {
 		t.Errorf("hint = %q", got.JoinCode.Hint)
 	}

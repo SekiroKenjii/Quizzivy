@@ -7,8 +7,9 @@ import (
 	"net/http"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/classes/domain/joincode"
+	classesdomain "quizzivy/internal/modules/classes/domain"
 	identityhttp "quizzivy/internal/modules/identity/http"
+	"quizzivy/internal/platform/apidocs"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/ratelimit"
 )
@@ -20,15 +21,15 @@ func RateLimits() *ratelimit.Registry {
 	const capacity = 10_000
 	const maxKeyBodyBytes = 8 * 1024
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, joincode.Normalize), capacity, ratelimit.PerHour(30))
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, joincode.Normalize), capacity, ratelimit.PerHour(30))
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
 		WithKey(ratelimit.JSONFieldKey("email", maxKeyBodyBytes), capacity, ratelimit.PerHour(20))
 	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
 	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, joincode.Normalize), capacity, ratelimit.PerHour(30))
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
 
 	reg.Add("POST /admin/students/{id}/reset-password", capacity,
@@ -76,6 +77,8 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthz(deps.DB))
+	mux.Handle("GET /docs", apidocs.Reference("/docs/openapi.json"))
+	mux.Handle("GET /docs/openapi.json", apidocs.Spec(openapi.GetSpecJSON))
 
 	handler := openapi.HandlerWithOptions(strict, openapi.StdHTTPServerOptions{
 		BaseRouter: mux,

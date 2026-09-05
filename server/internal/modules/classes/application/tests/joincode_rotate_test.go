@@ -11,7 +11,6 @@ import (
 
 	"quizzivy/internal/modules/classes/application"
 	"quizzivy/internal/modules/classes/domain"
-	"quizzivy/internal/modules/classes/domain/joincode"
 	"quizzivy/internal/modules/classes/repositories"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -107,7 +106,7 @@ func TestRotationRetiresTheOldCodeAndLeavesMembersAlone(t *testing.T) {
 	var revoked bool
 	if err := pool.QueryRow(ctx,
 		`SELECT revoked_at IS NOT NULL FROM app.class_join_codes WHERE code_hash = $1`,
-		joincode.Hash(joincode.Normalize(first.Code))).Scan(&revoked); err != nil {
+		domain.JoinCodes.Hash(domain.JoinCodes.Normalize(first.Code))).Scan(&revoked); err != nil {
 		t.Fatalf("old code row: %v", err)
 	}
 	if !revoked {
@@ -139,7 +138,7 @@ func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	canonical := joincode.Normalize(rotated.Code)
+	canonical := domain.JoinCodes.Normalize(rotated.Code)
 
 	var hint string
 	var hash []byte
@@ -151,7 +150,7 @@ func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
 	if hint != canonical[len(canonical)-4:] {
 		t.Errorf("hint = %q, want the last four of %q", hint, canonical)
 	}
-	if !joincode.Equal(hash, joincode.Hash(canonical)) {
+	if !domain.JoinCodes.Equal(hash, domain.JoinCodes.Hash(canonical)) {
 		t.Error("the stored hash does not match the issued code")
 	}
 

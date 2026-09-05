@@ -53,7 +53,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 	user, err := s.users.FindUserByEmail(ctx, in.Email)
 	switch {
 	case errors.Is(err, domain.ErrUserNotFound):
-		domain.BurnPasswordTime(ctx, in.Password)
+		domain.Passwords.BurnTime(ctx, in.Password)
 		return Session{}, domain.ErrInvalidCredentials
 	case err != nil:
 		return Session{}, fmt.Errorf("look up user: %w", err)
@@ -61,11 +61,11 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 
 	if !user.HasPassword() {
 		// A Google-only account (§5.1). Indistinguishable from a wrong password.
-		domain.BurnPasswordTime(ctx, in.Password)
+		domain.Passwords.BurnTime(ctx, in.Password)
 		return Session{}, domain.ErrInvalidCredentials
 	}
 
-	ok, err := domain.VerifyPassword(ctx, in.Password, *user.PasswordHash)
+	ok, err := domain.Passwords.Verify(ctx, in.Password, *user.PasswordHash)
 	if err != nil {
 		return Session{}, fmt.Errorf("verify password for %s: %w", user.ID, err)
 	}

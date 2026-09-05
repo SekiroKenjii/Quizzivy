@@ -57,7 +57,7 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 
 	// A forced change skips the current-password check.
 	if !user.MustChangePassword {
-		ok, err := domain.VerifyPassword(ctx, in.CurrentPassword, *user.PasswordHash)
+		ok, err := domain.Passwords.Verify(ctx, in.CurrentPassword, *user.PasswordHash)
 		if err != nil {
 			return fmt.Errorf("verify current password for %s: %w", user.ID, err)
 		}
@@ -66,7 +66,7 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 		}
 	}
 
-	newHash, err := domain.HashPassword(ctx, in.NewPassword)
+	newHash, err := domain.Passwords.Hash(ctx, in.NewPassword)
 	if err != nil {
 		return fmt.Errorf("hash new password: %w", err)
 	}

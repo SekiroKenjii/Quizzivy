@@ -11,7 +11,7 @@ import (
 
 func TestTheWordsStayTypeable(t *testing.T) {
 	for range 300 {
-		got, err := domain.TemporaryPassword()
+		got, err := domain.Passwords.Temporary()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -27,7 +27,7 @@ func TestTheWordsStayTypeable(t *testing.T) {
 
 func TestATemporaryPasswordCanActuallyBeUsed(t *testing.T) {
 	for range 200 {
-		got, err := domain.TemporaryPassword()
+		got, err := domain.Passwords.Temporary()
 		if err != nil {
 			t.Fatalf("TemporaryPassword: %v", err)
 		}
@@ -53,7 +53,7 @@ func TestATemporaryPasswordCanActuallyBeUsed(t *testing.T) {
 func TestTemporaryPasswordsDiffer(t *testing.T) {
 	seen := map[string]bool{}
 	for range 100 {
-		got, err := domain.TemporaryPassword()
+		got, err := domain.Passwords.Temporary()
 		if err != nil {
 			t.Fatal(err)
 		}
