@@ -26,9 +26,11 @@ Backend first so each screen has real data the day it is built.
 - The monitor response carries `questionCount`, and each row `startedAt` and
   `answeredCount`; the review and result responses carry `testTitle` and
   `maxAttempts`. G-02, G-03 and S-09 draw all five and §15 had no source.
-- G-04 (grade by question) is marked "proposal" on the sheet and is not
-  built. G-05's "Ghi chú của bạn" and the manual flag/unflag button have no
-  contract and are not built; both are filed as issues.
+- G-04 (grade by question), G-05's "Ghi chú của bạn" and the manual
+  flag/unflag were left out of the phase for want of a contract and filed as
+  #75–#77; all three were built on 2026-09-05 (`GET
+  /admin/assignments/{id}/answers`, `PATCH /admin/attempts/{id}/note`,
+  `POST /admin/attempts/{id}/flag`) in the post-Đợt-2 re-evaluation.
 - "Chờ chấm" is a nav item with a route, `/admin/grading`, as A-00 argued;
   the sheet gained board G-10 for it. The dashboard's two queue cards land
   there instead of on the assignments list.
