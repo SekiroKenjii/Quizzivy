@@ -164,15 +164,20 @@ export default function AttemptReviewPage() {
         leading={<Avatar name={student.fullName} size="sm" />}
         meta={
           <>
-            <span className="text-muted-foreground text-xs">{headerMeta(data, t)}</span>
+            {/* F-12: the bar keeps the title and the primary action legible at 768; the rest yields. */}
+            <span className="text-muted-foreground hidden text-xs xl:inline">
+              {headerMeta(data, t)}
+            </span>
             <Tabs
               value={tab}
               onValueChange={(value) => setTab(value as Tab)}
               className="ml-4"
             >
               <TabsList>
-                <TabsTrigger value="paper">{t("review.tabs.paper")}</TabsTrigger>
-                <TabsTrigger value="integrity">
+                <TabsTrigger value="paper" className="whitespace-nowrap">
+                  {t("review.tabs.paper")}
+                </TabsTrigger>
+                <TabsTrigger value="integrity" className="whitespace-nowrap">
                   {t("review.tabs.integrity")}
                 </TabsTrigger>
               </TabsList>
@@ -190,7 +195,7 @@ export default function AttemptReviewPage() {
               </span>
             )}
             {pending > 0 && gradable && (
-              <Badge variant="outline">
+              <Badge variant="outline" className="hidden lg:inline-flex">
                 {t("review.pendingBadge", { count: pending })}
               </Badge>
             )}
@@ -204,22 +209,24 @@ export default function AttemptReviewPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={t("review.unflag")}
                   disabled={attempt.status === "voided" || flag.isPending}
                   onClick={() => flag.mutate(false)}
                 >
                   <FlagOff aria-hidden="true" />
-                  {t("review.unflag")}
+                  <span className="hidden lg:inline">{t("review.unflag")}</span>
                 </Button>
               </>
             ) : (
               <Button
                 variant="outline"
                 size="sm"
+                aria-label={t("review.flag")}
                 disabled={attempt.status === "voided" || flag.isPending}
                 onClick={() => flag.mutate(true)}
               >
                 <Flag aria-hidden="true" />
-                {t("review.flag")}
+                <span className="hidden lg:inline">{t("review.flag")}</span>
               </Button>
             )}
             <Button
