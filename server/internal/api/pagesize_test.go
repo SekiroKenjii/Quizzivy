@@ -8,7 +8,7 @@ import (
 	identityrepo "quizzivy/internal/modules/identity/repositories"
 	mediarepo "quizzivy/internal/modules/media/repositories"
 	questionsrepo "quizzivy/internal/modules/questions/repositories"
-	"quizzivy/internal/modules/tests"
+	testsrepo "quizzivy/internal/modules/tests/repositories"
 )
 
 // The contract used to declare one shared `limit` default of 25 that no server
@@ -22,7 +22,7 @@ func TestEveryPageSizeMatchesItsContract(t *testing.T) {
 	}
 
 	want := map[string]int{
-		"ListTests":       tests.DefaultLimit,
+		"ListTests":       testsrepo.DefaultLimit,
 		"ListQuestions":   questionsrepo.DefaultLimit,
 		"ListMedia":       mediarepo.DefaultLimit,
 		"ListAssignments": assignments.DefaultLimit,

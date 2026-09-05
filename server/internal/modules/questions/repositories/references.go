@@ -61,3 +61,7 @@ func LockForDraftUse(ctx context.Context, q Querier, questionID string) error {
 	}
 	return nil
 }
+
+func (s *Postgres) LockForDraftUse(ctx context.Context, tx pgx.Tx, questionID string) error {
+	return LockForDraftUse(ctx, tx, questionID)
+}

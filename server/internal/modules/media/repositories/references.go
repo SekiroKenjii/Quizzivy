@@ -102,3 +102,7 @@ func (s *Postgres) ReferencesFor(ctx context.Context, assetIDs []string) (map[st
 func (s *Postgres) ReachableByStudent(ctx context.Context, studentID, assetID string) (bool, error) {
 	return ReachableByStudent(ctx, s.pool, studentID, assetID)
 }
+
+func (s *Postgres) LockForVersionUse(ctx context.Context, tx pgx.Tx, assetID string) error {
+	return LockForVersionUse(ctx, tx, assetID)
+}

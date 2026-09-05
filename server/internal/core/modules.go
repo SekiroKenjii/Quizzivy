@@ -29,8 +29,9 @@ import (
 	questionshttp "quizzivy/internal/modules/questions/http"
 	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/modules/review"
-	"quizzivy/internal/modules/tests"
-	"quizzivy/internal/modules/tests/publish"
+	testsapp "quizzivy/internal/modules/tests/application"
+	testshttp "quizzivy/internal/modules/tests/http"
+	testsrepo "quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/google"
@@ -56,15 +57,16 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	joinService := classesapp.NewEnrolment(classesRepo)
 	attachGoogle(cfg, logger, authService, joinService)
 
-	mediaService, err := newMediaService(ctx, cfg, logger, pool)
+	mediaRepo := mediarepo.NewPostgres(pool.Pool)
+	questionsRepo := questionsrepo.NewPostgres(pool.Pool)
+	testsRepo := testsrepo.NewPostgres(pool.Pool, questionsRepo, mediaRepo)
+	mediaService, err := newMediaService(ctx, cfg, logger, mediaRepo)
 	if err != nil {
 		return api.Deps{}, nil, err
 	}
 
 	deps := api.Deps{
 		DB:          pool,
-		Tests:       tests.NewService(tests.NewStore(pool.Pool)),
-		Publisher:   publish.NewPublisher(pool.Pool),
 		Assignments: assignments.NewStore(pool.Pool),
 		Attempts:    attempts.NewService(attempts.NewStore(pool.Pool)),
 		Review:      review.NewStore(pool.Pool),
@@ -78,7 +80,8 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	deps.Modules = api.Modules{
 		Dashboard: dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
 		Media:     mediahttp.NewMedia(mediaTransport(mediaService)),
-		Questions: questionshttp.NewQuestions(questionsapp.NewService(questionsrepo.NewPostgres(pool.Pool), mediaKinds{mediaService}), questionsMedia(mediaService)),
+		Tests:     testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
+		Questions: questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
 		Identity:  identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
 		Classes:   classeshttp.NewClasses(classesapp.NewService(classesRepo, studentStats), joinService),
 	}
@@ -110,7 +113,7 @@ func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identitya
 
 // newMediaService returns nil when object storage is not configured, which is a
 // supported deployment: everything but upload still works.
-func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (*mediaapp.Service, error) {
+func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, repo *mediarepo.Postgres) (*mediaapp.Service, error) {
 	if !cfg.MediaEnabled() {
 		logger.Info("media storage disabled (no bucket configured)")
 		return nil, nil
@@ -129,7 +132,7 @@ func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger
 	}
 	logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
 
-	return mediaapp.NewService(mediarepo.NewPostgres(pool.Pool), objects).
+	return mediaapp.NewService(repo, objects).
 		WithSignedURLTTL(cfg.SignedURLTTL), nil
 }
 
@@ -158,6 +161,13 @@ func questionsMedia(svc *mediaapp.Service) questionshttp.Media {
 }
 
 func mediaTransport(svc *mediaapp.Service) mediahttp.Service {
+	if svc == nil {
+		return nil
+	}
+	return svc
+}
+
+func testsMedia(svc *mediaapp.Service) testshttp.Media {
 	if svc == nil {
 		return nil
 	}

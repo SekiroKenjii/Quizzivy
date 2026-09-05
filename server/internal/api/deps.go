@@ -14,8 +14,6 @@ import (
 	mediaapp "quizzivy/internal/modules/media/application"
 	mediadomain "quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/modules/review"
-	"quizzivy/internal/modules/tests"
-	"quizzivy/internal/modules/tests/publish"
 	"quizzivy/internal/platform/httpx"
 )
 
@@ -36,19 +34,6 @@ type MediaService interface {
 	// Get resolves one asset, so a question can render its attachment.
 	Get(ctx context.Context, id string) (mediadomain.Asset, error)
 	SignedURLTTL() time.Duration
-}
-
-// TestsService is the slice of internal/tests the handlers use.
-type TestsService interface {
-	List(ctx context.Context, in tests.ListInput) ([]tests.Test, paging.Page, error)
-	Facets(ctx context.Context, in tests.ListInput) (tests.StatusFacets, error)
-	Tags(ctx context.Context, in tests.ListInput) ([]string, error)
-	Get(ctx context.Context, id string) (tests.Test, error)
-	Create(ctx context.Context, req tests.Request, title string, description *string) (tests.Test, error)
-	Update(ctx context.Context, req tests.Request, in tests.UpdateInput) (tests.Test, error)
-	Duplicate(ctx context.Context, req tests.Request) (tests.Test, error)
-	ListVersions(ctx context.Context, testID string) ([]tests.Version, error)
-	Preview(ctx context.Context, testID string, version int) (int, []tests.PreviewQuestion, error)
 }
 
 // AssignmentsService is the slice of internal/assignments the handlers use.
@@ -96,11 +81,6 @@ type IntegrityService interface {
 // StudentsService is what the attempt review still reads from identity until attempts moves.
 type StudentsService interface {
 	Get(ctx context.Context, id string) (identitydomain.Student, error)
-}
-
-// PublishService is the slice of internal/tests/publish the handlers use.
-type PublishService interface {
-	Publish(ctx context.Context, req publish.Request) (publish.Version, error)
 }
 
 // TokenVerifier checks an access token. Separate from AuthService because the
