@@ -112,7 +112,7 @@ type AssignmentsService interface {
 	StudentDetail(ctx context.Context, id, studentID string) (assignments.StudentDetail, error)
 	Create(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
 	Update(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
-	Facets(ctx context.Context) (assignments.Facets, error)
+	Facets(ctx context.Context, in assignments.ListInput) (assignments.Facets, error)
 	Reopen(ctx context.Context, req assignments.Request, closesAt time.Time, reason string, now time.Time) (assignments.Assignment, error)
 }
 

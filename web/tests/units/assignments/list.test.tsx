@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -90,14 +90,14 @@ async function rows() {
   return within(await screen.findByRole("table"));
 }
 
-function renderList() {
+function renderList(initial = "/admin/assignments") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
       { path: "/admin/assignments", element: <AssignmentsListPage /> },
       { path: "/admin/assignments/new", element: <p>form</p> },
     ],
-    { initialEntries: ["/admin/assignments"] },
+    { initialEntries: [initial] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -229,5 +229,51 @@ describe("a draft assignment", () => {
     const table = await rows();
     expect(table.getByText("Bản nháp")).toBeInTheDocument();
     expect(table.queryByText("Đang mở")).toBeNull();
+  });
+});
+
+describe("the list narrowed to one class (G-12)", () => {
+  const CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
+
+  it("arrives filtered from G-06, says which class, and the chip drops it", async () => {
+    const classIds: (string | null)[] = [];
+    server.use(
+      http.get(`${BASE}/admin/classes/${CLASS_ID}`, () =>
+        contractJson("/admin/classes/{id}", "get", 200, {
+          id: CLASS_ID,
+          name: "IELTS Foundation — Lớp tối T3/T5",
+          description: null,
+          studentCount: 18,
+          openAssignmentCount: 1,
+          archivedAt: null,
+          selfJoinEnabled: true,
+          joinCode: null,
+          createdAt: "2026-06-01T00:00:00Z",
+        }),
+      ),
+      http.get(`${BASE}/admin/assignments`, ({ request }) => {
+        classIds.push(new URL(request.url).searchParams.get("classId"));
+        return contractJson("/admin/assignments", "get", 200, {
+          page: 1,
+          pageSize: 20,
+          total: 1,
+          items: [assignment()],
+          facets: { all: 1, draft: 0, scheduled: 0, open: 1, closed: 0 },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderList(`/admin/assignments?classId=${CLASS_ID}`);
+
+    await rows();
+    expect(classIds).toEqual([CLASS_ID]);
+    expect(
+      await screen.findByText("IELTS Foundation — Lớp tối T3/T5"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 bài giao · 1 đang mở")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Bỏ lọc theo lớp" }));
+    await waitFor(() => expect(classIds).toEqual([CLASS_ID, null]));
+    expect(screen.queryByText("IELTS Foundation — Lớp tối T3/T5")).toBeNull();
   });
 });

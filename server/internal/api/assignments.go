@@ -21,6 +21,10 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 		status := assignments.Status(*request.Params.Status)
 		in.Status = &status
 	}
+	if request.Params.ClassId != nil {
+		classID := request.Params.ClassId.String()
+		in.ClassID = &classID
+	}
 	if request.Params.Page != nil {
 		in.Page = int(*request.Params.Page)
 	}
@@ -32,7 +36,7 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 	if err != nil {
 		return nil, err
 	}
-	facets, err := s.Deps.Assignments.Facets(ctx)
+	facets, err := s.Deps.Assignments.Facets(ctx, in)
 	if err != nil {
 		return nil, err
 	}

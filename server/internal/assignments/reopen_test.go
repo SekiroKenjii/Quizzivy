@@ -98,7 +98,7 @@ func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 	store := assignments.NewStore(tx)
 
-	before, err := store.Facets(ctx)
+	before, err := store.Facets(ctx, assignments.ListInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 		}
 	}
 
-	after, err := store.Facets(ctx)
+	after, err := store.Facets(ctx, assignments.ListInput{})
 	if err != nil {
 		t.Fatal(err)
 	}

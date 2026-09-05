@@ -5202,6 +5202,16 @@ Làm nhầm đề của lớp khác, đã trao đổi với em</textarea
             >
             <span class="board-route">/admin/classes/:id</span>
           </div>
+          <p class="board-note">
+            A class is two lists: who is in it, and what it has been given.
+            The first drawing had only the first, so “which assignments does
+            this class have?” meant scanning the whole assignments list and
+            reading every “Giao cho” cell. The second card answers it in
+            place: the class's assignments, open ones first, each row a link
+            to G-09, and “Xem tất cả” leading to the assignments list already
+            narrowed to this class (G-12). Its heading counts what the list
+            would: the class's total and how many are open.
+          </p>
           <div class="board-scroll">
             <div class="frame frame-wide">
               <div class="shell">
@@ -5493,6 +5503,72 @@ Làm nhầm đề của lớp khác, đã trao đổi với em</textarea
                           </p>
                         </div>
                       </div>
+                      <div class="card">
+                        <div
+                          class="card-head flex items-center justify-between"
+                        >
+                          <div>
+                            <p class="card-title">Bài giao cho lớp</p>
+                            <p class="card-desc">3 bài · 1 đang mở</p>
+                          </div>
+                          <button class="btn btn-sm btn-link">
+                            Xem tất cả
+                            <svg class="i" aria-hidden="true">
+                              <use href="#i-arrow-right" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div class="card-body pt-1">
+                          <table class="table">
+                            <thead>
+                              <tr>
+                                <th style="width: 46%">Đề thi</th>
+                                <th>Trạng thái</th>
+                                <th>Đóng lúc</th>
+                                <th class="text-right">Đã nộp</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td>
+                                  <a class="font-medium" href="#">Unit 5 — Present perfect &amp; listening</a>
+                                  <span
+                                    class="text-xs text-muted-foreground num ml-2"
+                                    >v3</span
+                                  >
+                                </td>
+                                <td><span class="badge b-success">Đang mở</span></td>
+                                <td class="text-muted-foreground num">21:00 · Thứ hai, 31/08</td>
+                                <td class="text-right num">12/18</td>
+                              </tr>
+                              <tr>
+                                <td>
+                                  <a class="font-medium" href="#">Mid-term listening mock</a>
+                                  <span
+                                    class="text-xs text-muted-foreground num ml-2"
+                                    >v1</span
+                                  >
+                                </td>
+                                <td><span class="badge b-secondary">Đã lên lịch</span></td>
+                                <td class="text-muted-foreground num">21:00 · Thứ sáu, 11/09</td>
+                                <td class="text-right num"><span class="text-muted-foreground">—</span></td>
+                              </tr>
+                              <tr>
+                                <td>
+                                  <a class="font-medium" href="#">Unit 4 — Past simple review</a>
+                                  <span
+                                    class="text-xs text-muted-foreground num ml-2"
+                                    >v2</span
+                                  >
+                                </td>
+                                <td><span class="badge b-secondary">Đã đóng</span></td>
+                                <td class="text-muted-foreground num">21:00 · Thứ hai, 24/08</td>
+                                <td class="text-right num">18/18</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
 
                     <div class="space-y-5">
@@ -5670,6 +5746,175 @@ Lớp nền tảng, thứ 3 và thứ 5, 19:30–21:00.</textarea
               <strong>The QR is generated client-side</strong> and downloadable,
               because the real distribution channel is a projector at the start
               of class or a photo in a Zalo group.
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">G-12</span>
+            <span class="board-name">Assignments list · narrowed to one class</span>
+            <span class="board-route">/admin/assignments?classId=… · from G-06's “Xem tất cả”</span>
+          </div>
+          <p class="board-note">
+            The assignments list is A-03's shape (title, tabs with counts, one
+            table); this board adds the one thing G-06 needs from it — a way
+            to arrive already narrowed to a class. The filter is a chip beside
+            the tabs, the same token G-01 uses for a chosen class, with the
+            same × to drop it; the tab counts and the subtitle follow the
+            filter, so “3 bài giao · 1 đang mở” is the class's, not the
+            school's. Nothing else about the list changes, which is why this
+            is drawn as a crop and not a frame.
+          </p>
+          <div class="board-scroll">
+            <div class="frame" style="width: 1100px">
+              <div class="p-6 space-y-4">
+                <div class="flex items-end justify-between">
+                  <div>
+                    <h1 class="text-xl font-semibold tracking-tight">
+                      Bài giao
+                    </h1>
+                    <p class="text-sm text-muted-foreground mt-0.5">
+                      3 bài giao · 1 đang mở
+                    </p>
+                  </div>
+                  <button class="btn btn-sm btn-primary">
+                    <svg class="i" aria-hidden="true">
+                      <use href="#i-plus" />
+                    </svg>
+                    Giao bài mới
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <div class="tabs">
+                    <button class="tab is-active">Tất cả 3</button>
+                    <button class="tab">Bản nháp 0</button>
+                    <button class="tab">Đang mở 1</button>
+                    <button class="tab">Đã lên lịch 1</button>
+                    <button class="tab">Đã đóng 1</button>
+                  </div>
+                  <!-- G-01's class token, reused as the filter chip. The × drops the filter and the counts go back to the school's. -->
+                  <span class="badge b-secondary">
+                    <svg class="i" aria-hidden="true">
+                      <use href="#i-graduation-cap" />
+                    </svg>
+                    IELTS Foundation — Lớp tối T3/T5
+                    <button
+                      class="btn btn-icon btn-xs btn-ghost"
+                      aria-label="Bỏ lọc theo lớp"
+                      style="height: 1rem; width: 1rem"
+                    >
+                      <svg class="i i-3.5" aria-hidden="true">
+                        <use href="#i-x" />
+                      </svg>
+                    </button>
+                  </span>
+                </div>
+
+                <div class="card overflow-hidden">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th style="width: 34%">Đề thi</th>
+                        <th>Giao cho</th>
+                        <th>Cửa sổ</th>
+                        <th>Trạng thái</th>
+                        <th class="text-right">Đã nộp</th>
+                        <th class="text-right">Đánh dấu</th>
+                        <th style="width: 40px"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                          <tr>
+                            <td>
+                              <a class="font-medium" href="#">Unit 5 — Present perfect &amp; listening</a>
+                              <span class="text-xs text-muted-foreground num ml-2"
+                                >v3</span
+                              >
+                            </td>
+                            <td class="text-muted-foreground">1 lớp · 2 học viên lẻ</td>
+                            <td class="text-xs text-muted-foreground num">08:00, 29/08/2026 → 21:00, 31/08/2026</td>
+                            <td><span class="badge b-success">Đang mở</span></td>
+                            <td class="text-right num">12/19</td>
+                            <td class="text-right"><span class="text-warning-ink num"><svg class="i i-3.5" aria-hidden="true"><use href="#i-flag" /></svg> 2</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <a class="font-medium" href="#">Mid-term listening mock</a>
+                              <span class="text-xs text-muted-foreground num ml-2"
+                                >v1</span
+                              >
+                            </td>
+                            <td class="text-muted-foreground">1 lớp · 0 học viên lẻ</td>
+                            <td class="text-xs text-muted-foreground num">08:00, 09/09/2026 → 21:00, 11/09/2026</td>
+                            <td><span class="badge b-secondary">Đã lên lịch</span></td>
+                            <td class="text-right num">0/18</td>
+                            <td class="text-right"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <a class="font-medium" href="#">Unit 4 — Past simple review</a>
+                              <span class="text-xs text-muted-foreground num ml-2"
+                                >v2</span
+                              >
+                            </td>
+                            <td class="text-muted-foreground">1 lớp · 0 học viên lẻ</td>
+                            <td class="text-xs text-muted-foreground num">08:00, 22/08/2026 → 21:00, 24/08/2026</td>
+                            <td><span class="badge b-secondary">Đã đóng</span></td>
+                            <td class="text-right num">18/18</td>
+                            <td class="text-right"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mt-4">
+            <div class="callout">
+              <strong>One parameter, both directions.</strong> G-02 links an
+              open assignment to its class; G-06 links a class to its
+              assignments. The second direction is a query parameter on the
+              list endpoint, not a new endpoint, and the same
+              <code class="font-mono">classId</code> narrows the facets, so the
+              tabs never disagree with the rows.
+            </div>
+            <div class="callout">
+              <strong>Why a chip and not a select.</strong> The teacher never
+              types a class here; they arrive from G-06 with one already
+              chosen. A chip shows what was chosen and how to undo it, and
+              costs no width when it is not there — the common case.
             </div>
           </div>
         </div>

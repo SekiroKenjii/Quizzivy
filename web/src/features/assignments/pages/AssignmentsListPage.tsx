@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Flag, Pencil, Plus } from "lucide-react";
+import { ArrowUpRight, Flag, GraduationCap, Pencil, Plus, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -22,6 +23,7 @@ import {
   type AssignmentStatus,
 } from "@/features/assignments/api";
 import { statusAt } from "@/features/assignments/status";
+import { fetchClass } from "@/features/classes/api";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -54,13 +56,26 @@ export default function AssignmentsListPage() {
   const [tab, setTab] = useState<AssignmentStatus | "all">("all");
   const locale = useLocale();
   const now = new Date();
+  // G-12: arriving from a class narrows the list, and the chip is the way out.
+  const [params, setParams] = useSearchParams();
+  const classId = params.get("classId") ?? undefined;
+  const klass = useQuery({
+    queryKey: ["admin-class", classId],
+    queryFn: ({ signal }) => fetchClass(classId ?? "", signal),
+    enabled: classId !== undefined,
+  });
 
-  const [page] = usePage(tab);
+  const [page] = usePage(`${tab}:${classId ?? ""}`);
   const assignments = useQuery({
-    queryKey: ["admin-assignments", { tab, page }],
+    queryKey: ["admin-assignments", { tab, page, classId }],
     queryFn: ({ signal }) =>
       listAssignments(
-        { limit: PAGE_SIZE, page, ...(tab === "all" ? {} : { status: tab }) },
+        {
+          limit: PAGE_SIZE,
+          page,
+          ...(tab === "all" ? {} : { status: tab }),
+          ...(classId === undefined ? {} : { classId }),
+        },
         signal,
       ),
     placeholderData: keepPreviousData,
@@ -87,23 +102,51 @@ export default function AssignmentsListPage() {
         }
       />
 
-      <Tabs
-        value={tab}
-        onValueChange={(next) => setTab(next as AssignmentStatus | "all")}
-      >
-        <TabsList aria-label={t("assignments.statusFilter")}>
-          {TABS.map((value) => (
-            <TabsTrigger key={value} value={value}>
-              {value === "all" ? t("assignments.all") : t(`status.assignment.${value}`)}
-              {facets ? (
-                <span className="text-muted-foreground ml-1 tabular-nums">
-                  {facets[value]}
-                </span>
-              ) : null}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="flex items-center gap-2">
+        <Tabs
+          value={tab}
+          onValueChange={(next) => setTab(next as AssignmentStatus | "all")}
+        >
+          <TabsList aria-label={t("assignments.statusFilter")}>
+            {TABS.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {value === "all"
+                  ? t("assignments.all")
+                  : t(`status.assignment.${value}`)}
+                {facets ? (
+                  <span className="text-muted-foreground ml-1 tabular-nums">
+                    {facets[value]}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {classId === undefined ? null : (
+          <Badge variant="secondary" className="gap-1.5 py-0.5">
+            <GraduationCap aria-hidden="true" />
+            {klass.data?.name ?? t("assignments.classFilterLoading")}
+            <button
+              type="button"
+              aria-label={t("assignments.clearClassFilter")}
+              className="hover:bg-accent -mr-1 rounded-sm p-0.5"
+              onClick={() =>
+                setParams(
+                  (current) => {
+                    const out = new URLSearchParams(current);
+                    out.delete("classId");
+                    out.delete("page");
+                    return out;
+                  },
+                  { replace: true },
+                )
+              }
+            >
+              <X className="size-3" aria-hidden="true" />
+            </button>
+          </Badge>
+        )}
+      </div>
 
       {assignments.isPending ? (
         <ListSkeleton />
@@ -119,7 +162,11 @@ export default function AssignmentsListPage() {
             </Button>
           }
         >
-          {tab === "all" ? t("assignments.empty") : t("assignments.noneWithStatus")}
+          {classId !== undefined && tab === "all"
+            ? t("assignments.emptyForClass")
+            : tab === "all"
+              ? t("assignments.empty")
+              : t("assignments.noneWithStatus")}
         </EmptyState>
       ) : (
         <>

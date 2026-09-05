@@ -616,3 +616,35 @@ func TestTheListFiltersDraftsSeparately(t *testing.T) {
 		}
 	}
 }
+
+func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
+	pool := newPool(t)
+	store := assignments.NewStore(pool)
+	ctx := context.Background()
+	mine := seedWorld(t, pool, "published")
+	other := seedWorld(t, pool, "published")
+
+	kept, err := store.Create(ctx, request(mine), legalInput(mine))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Create(ctx, request(other), legalInput(other)); err != nil {
+		t.Fatal(err)
+	}
+
+	found, page, err := store.List(ctx, assignments.ListInput{ClassID: &mine.class})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 1 || len(found) != 1 || found[0].ID != kept.ID {
+		t.Fatalf("classId=%s returned %d rows (total %d), want only %s", mine.class, len(found), page.Total, kept.ID)
+	}
+
+	facets, err := store.Facets(ctx, assignments.ListInput{ClassID: &mine.class})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (assignments.Facets{All: 1, Open: 1}); facets != want {
+		t.Errorf("facets for the class = %+v, want %+v", facets, want)
+	}
+}

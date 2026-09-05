@@ -270,7 +270,12 @@
     "exhaustedBadge": "limit reached",
     "exhaustedExplainer": "This code has reached its use limit, so students can no longer join with it. Issue a new one.",
     "issueConfirmTitle": "Open joining by code?",
-    "issueConfirmBody": "Anyone holding the code can join the class. You can stop accepting it at any time."
+    "issueConfirmBody": "Anyone holding the code can join the class. You can stop accepting it at any time.",
+    "assignments": "Assignments for this class",
+    "assignmentsSummary": "{{count}} assignments · {{open}} open",
+    "assignmentsEmpty": "Nothing has been assigned to this class yet.",
+    "assignmentsFailed": "Could not load the class's assignments.",
+    "viewAllAssignments": "View all"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -927,7 +932,10 @@
         "done": "Graded",
         "voided": "Voided"
       }
-    }
+    },
+    "classFilterLoading": "Class…",
+    "clearClassFilter": "Clear the class filter",
+    "emptyForClass": "Nothing has been assigned to this class yet."
   },
   "students": {
     "summary": "{{count}} students · {{active}} active in the last 7 days",
