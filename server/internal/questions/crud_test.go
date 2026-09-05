@@ -281,6 +281,10 @@ func TestDeletingAQuestionADraftUsesIsRefused(t *testing.T) {
 	if !errors.Is(err, questions.ErrReferenced) {
 		t.Fatalf("delete returned %v, want ErrReferenced", err)
 	}
+	var blocked *questions.ReferencedError
+	if !errors.As(err, &blocked) || len(blocked.Tests) != 1 || blocked.Tests[0].Title != "Đề nháp" {
+		t.Errorf("the refusal names %+v, want the one draft \"Đề nháp\"", blocked)
+	}
 
 	// Refused, not half-done: the question is still live and still listed.
 	if _, err := svc.Get(ctx, q.ID); err != nil {

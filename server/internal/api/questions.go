@@ -183,8 +183,17 @@ func (s *Server) DeleteQuestion(ctx context.Context, request openapi.DeleteQuest
 	case err == nil:
 		return openapi.DeleteQuestion204Response{}, nil
 	case errors.Is(err, questions.ErrReferenced):
-		return openapi.DeleteQuestion409JSONResponse(authError(ctx, openapi.QUESTIONREFERENCED,
-			"Câu hỏi đang được dùng trong một đề nháp nên không thể xoá.")), nil
+		resp := authError(ctx, openapi.QUESTIONREFERENCED,
+			"Câu hỏi đang được dùng trong một đề nháp nên không thể xoá.")
+		var blocked *questions.ReferencedError
+		if errors.As(err, &blocked) {
+			refs := make([]openapi.ReferencingTest, len(blocked.Tests))
+			for i, ref := range blocked.Tests {
+				refs[i] = openapi.ReferencingTest{Id: parseUUID(ref.ID), Title: ref.Title}
+			}
+			resp.Error.Details = &map[string]interface{}{"tests": refs}
+		}
+		return openapi.DeleteQuestion409JSONResponse(resp), nil
 	case errors.Is(err, questions.ErrNotFound):
 		return openapi.DeleteQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			notFound(ctx, "Không tìm thấy câu hỏi."))}, nil

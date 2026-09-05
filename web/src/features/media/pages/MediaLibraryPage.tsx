@@ -1,5 +1,6 @@
 import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import {
   keepPreviousData,
   useMutation,
@@ -185,6 +186,25 @@ export default function MediaLibraryPage() {
                 : ""}
             </DialogDescription>
           </DialogHeader>
+          {blocked === null || (blocked.usedIn ?? []).length === 0 ? null : (
+            <ul className="space-y-1 text-sm">
+              {(blocked.usedIn ?? []).map((test) => (
+                <li key={`${test.id}-${test.version ?? 0}`}>
+                  <Link
+                    to={`/admin/tests/${test.id}`}
+                    className="font-medium underline underline-offset-4"
+                  >
+                    {test.title}
+                  </Link>
+                  {test.version === undefined ? null : (
+                    <span className="text-muted-foreground ml-1.5 tabular-nums">
+                      {t("tests.versionNumber", { n: test.version })}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="text-muted-foreground text-sm leading-relaxed">
             {t("media.blockedNote")}
           </p>

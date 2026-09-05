@@ -48,6 +48,22 @@ export function fieldMessages(cause: unknown): string[] {
   );
 }
 
+export type ReferencingTest = components["schemas"]["ReferencingTest"];
+
+/** The tests a QUESTION_REFERENCED or MEDIA_REFERENCED refusal names, if any. */
+export function referencingTests(cause: unknown): ReferencingTest[] {
+  if (!(cause instanceof ApiError)) return [];
+  const tests = cause.details?.["tests"];
+  if (!Array.isArray(tests)) return [];
+  return tests.filter(
+    (value): value is ReferencingTest =>
+      typeof value === "object" &&
+      value !== null &&
+      typeof (value as ReferencingTest).id === "string" &&
+      typeof (value as ReferencingTest).title === "string",
+  );
+}
+
 function isEnvelope(value: unknown): value is ErrorEnvelope {
   return (
     typeof value === "object" &&

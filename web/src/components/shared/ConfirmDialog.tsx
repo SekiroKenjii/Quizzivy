@@ -10,7 +10,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-/** One dialog shape for every action that asks first; destructive confirms are the app's only red (§12). */
+/**
+ * One dialog shape for every action that asks first; destructive confirms are
+ * the app's only red (§12). Without `onConfirm` it is a notice: one button
+ * that closes it, for a refusal that has nothing left to ask (A-06a, A-07).
+ */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -34,7 +38,7 @@ export function ConfirmDialog({
   disabled?: boolean;
   pending?: boolean;
   error?: string | null;
-  onConfirm: () => void;
+  onConfirm?: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -53,21 +57,29 @@ export function ConfirmDialog({
           </p>
         )}
         <DialogFooter>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => onOpenChange(false)}
-          >
-            {t("common.cancel")}
-          </Button>
-          <Button
-            variant={destructive ? "destructive" : "default"}
-            className="flex-1"
-            disabled={disabled || pending}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
+          {onConfirm === undefined ? (
+            <Button className="w-full" onClick={() => onOpenChange(false)}>
+              {confirmLabel}
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => onOpenChange(false)}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                variant={destructive ? "destructive" : "default"}
+                className="flex-1"
+                disabled={disabled || pending}
+                onClick={onConfirm}
+              >
+                {confirmLabel}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

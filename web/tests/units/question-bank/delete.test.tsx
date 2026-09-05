@@ -63,6 +63,12 @@ beforeEach(() => {
               code: "QUESTION_REFERENCED",
               message: "Câu hỏi đang nằm trong đề nháp.",
               requestId: "req_1",
+              details: {
+                tests: [
+                  { id: "018f0000-0000-7000-8000-0000000000d1", title: "Unit 5" },
+                  { id: "018f0000-0000-7000-8000-0000000000d2", title: "Mid-term" },
+                ],
+              },
             },
           },
           { status: 409, headers: { "x-request-id": "req_1" } },
@@ -116,6 +122,16 @@ describe("deleting a question", () => {
     expect(
       await within(dialog).findByText("Chưa xoá được câu hỏi này"),
     ).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Xoá" })).toBeDisabled();
+    expect(within(dialog).getByText("Đang dùng trong 2 đề nháp:")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Unit 5" })).toHaveAttribute(
+      "href",
+      "/admin/tests/018f0000-0000-7000-8000-0000000000d1/edit",
+    );
+    expect(within(dialog).getByRole("link", { name: "Mid-term" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Xoá" })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: "Huỷ" })).toBeNull();
+
+    await user.click(within(dialog).getAllByRole("button", { name: "Đóng" }).at(-1)!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

@@ -370,12 +370,12 @@ func (s *Store) SoftDelete(ctx context.Context, in WriteInput) error {
 		return ErrNotFound
 	}
 
-	refs, err := CountDraftReferences(ctx, tx, in.ID)
+	refs, err := DraftReferences(ctx, tx, in.ID)
 	if err != nil {
 		return err
 	}
-	if refs > 0 {
-		return ErrReferenced
+	if len(refs) > 0 {
+		return &ReferencedError{Tests: refs}
 	}
 
 	if _, err := tx.Exec(ctx,

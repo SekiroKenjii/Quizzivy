@@ -16,6 +16,14 @@ import (
 // asset, the asset is simply not deletable while something depends on it.
 var ErrReferenced = errors.New("media: asset is referenced by a published version")
 
+// ReferencedError is ErrReferenced carrying the versions that block the
+// delete, so the refusal can name them (A-07). errors.Is(err, ErrReferenced)
+// still holds.
+type ReferencedError struct{ Tests []TestRef }
+
+func (e *ReferencedError) Error() string        { return ErrReferenced.Error() }
+func (e *ReferencedError) Is(target error) bool { return target == ErrReferenced }
+
 // DeleteInput is one soft delete, with the audit context it must record.
 type DeleteInput struct {
 	ID        string
@@ -50,12 +58,12 @@ func (s *Store) SoftDelete(ctx context.Context, in DeleteInput) error {
 	if alreadyDeleted {
 		return ErrNotFound
 	}
-	refs, err := CountReferences(ctx, tx, in.ID)
+	refs, err := References(ctx, tx, in.ID)
 	if err != nil {
 		return err
 	}
-	if refs > 0 {
-		return ErrReferenced
+	if len(refs) > 0 {
+		return &ReferencedError{Tests: refs}
 	}
 
 	if _, err := tx.Exec(ctx,

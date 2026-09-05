@@ -132,6 +132,7 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 	out.Body.Items = make([]openapi.LibraryAsset, len(assets))
 	for i, a := range assets {
 		usage := a.UsageCount
+		usedIn := toAPIReferencingTests(a.UsedIn)
 		out.Body.Items[i] = openapi.LibraryAsset{
 			Bytes:            int(a.Bytes),
 			CreatedAt:        a.CreatedAt,
@@ -142,10 +143,20 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 			OriginalFilename: a.OriginalFilename,
 			Url:              a.URL,
 			UsageCount:       &usage,
+			UsedIn:           &usedIn,
 		}
 	}
 	out.Body.Page, out.Body.PageSize, out.Body.Total = page.Number, page.Size, page.Total
 	return out, nil
+}
+
+func toAPIReferencingTests(refs []media.TestRef) []openapi.ReferencingTest {
+	out := make([]openapi.ReferencingTest, len(refs))
+	for i, ref := range refs {
+		version := ref.Version
+		out[i] = openapi.ReferencingTest{Id: parseUUID(ref.ID), Title: ref.Title, Version: &version}
+	}
+	return out
 }
 
 // DeleteMedia implements DELETE /admin/media/{id}.
@@ -173,8 +184,14 @@ func (s *Server) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReq
 		return openapi.DeleteMedia204Response{}, nil
 
 	case errors.Is(err, media.ErrReferenced):
-		return openapi.DeleteMedia409JSONResponse(authError(ctx, openapi.MEDIAREFERENCED,
-			"Tệp đang được dùng trong một đề đã xuất bản nên không thể xoá.")), nil
+		resp := authError(ctx, openapi.MEDIAREFERENCED,
+			"Tệp đang được dùng trong một đề đã xuất bản nên không thể xoá.")
+		var blocked *media.ReferencedError
+		if errors.As(err, &blocked) {
+			refs := toAPIReferencingTests(blocked.Tests)
+			resp.Error.Details = &map[string]interface{}{"tests": refs}
+		}
+		return openapi.DeleteMedia409JSONResponse(resp), nil
 
 	case errors.Is(err, media.ErrNotFound):
 		return openapi.DeleteMedia404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(

@@ -336,6 +336,24 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PublishValidationError' }
 
+    ReferencingTest:
+      type: object
+      description: |
+        A test that holds a reference the caller asked to remove, named so a
+        blocked delete can say where to look instead of only that it is
+        blocked (A-06a, A-07).
+      required: [id, title]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        version:
+          type: integer
+          minimum: 1
+          description: |
+            The published version holding the reference. Absent when the
+            reference is a draft outline, which has no version yet.
+
     LibraryAsset:
       type: object
       description: |
@@ -360,6 +378,12 @@ components:
         usageCount:
           type: integer
           description: Published-version references. Non-zero blocks delete (§8).
+        usedIn:
+          type: array
+          items: { $ref: '#/components/schemas/ReferencingTest' }
+          description: |
+            The published tests behind `usageCount`, one entry per version,
+            so the blocked-delete dialog can name them (A-07).
 
     StudentAssignmentDetail:
       type: object
@@ -2344,7 +2368,10 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`QUESTION_REFERENCED` — still referenced by a draft test outline.'
+          description: |
+            `QUESTION_REFERENCED` — still referenced by a draft test outline.
+            `details.tests` names those drafts as `ReferencingTest[]`, sorted
+            by title, so the dialog can link to them (A-06a).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -2459,7 +2486,10 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`MEDIA_REFERENCED` — a published version still uses it (§8, §15).'
+          description: |
+            `MEDIA_REFERENCED` — a published version still uses it (§8, §15).
+            `details.tests` names those versions as `ReferencingTest[]`,
+            sorted by title then version (A-07).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
