@@ -9,7 +9,8 @@ import (
 	assignmentsapp "quizzivy/internal/modules/assignments/application"
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
 	assignmentsrepo "quizzivy/internal/modules/assignments/repositories"
-	"quizzivy/internal/modules/attempts"
+	attemptsapp "quizzivy/internal/modules/attempts/application"
+	attemptshttp "quizzivy/internal/modules/attempts/http"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	classesapp "quizzivy/internal/modules/classes/application"
 	classeshttp "quizzivy/internal/modules/classes/http"
@@ -21,7 +22,6 @@ import (
 	identitydomain "quizzivy/internal/modules/identity/domain"
 	identityhttp "quizzivy/internal/modules/identity/http"
 	identityrepo "quizzivy/internal/modules/identity/repositories"
-	"quizzivy/internal/modules/integrity"
 	mediaapp "quizzivy/internal/modules/media/application"
 	mediadomain "quizzivy/internal/modules/media/domain"
 	mediahttp "quizzivy/internal/modules/media/http"
@@ -30,7 +30,6 @@ import (
 	questionsdomain "quizzivy/internal/modules/questions/domain"
 	questionshttp "quizzivy/internal/modules/questions/http"
 	questionsrepo "quizzivy/internal/modules/questions/repositories"
-	"quizzivy/internal/modules/review"
 	testsapp "quizzivy/internal/modules/tests/application"
 	testshttp "quizzivy/internal/modules/tests/http"
 	testsrepo "quizzivy/internal/modules/tests/repositories"
@@ -68,19 +67,13 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	}
 
 	deps := api.Deps{
-		DB:        pool,
-		Attempts:  attempts.NewService(attempts.NewStore(pool.Pool)),
-		Review:    review.NewStore(pool.Pool),
-		Integrity: integrity.NewStore(pool.Pool),
-		Students:  studentsService,
-		Tokens:    tokens,
-	}
-	if mediaService != nil {
-		deps.Media = mediaService
+		DB:     pool,
+		Tokens: tokens,
 	}
 	deps.Modules = api.Modules{
 		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
 		Media:       mediahttp.NewMedia(mediaTransport(mediaService)),
+		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(pool.Pool)), attemptsapp.NewReview(attemptsrepo.NewReviews(pool.Pool)), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(pool.Pool)), attemptsMedia(mediaService), studentsService, logger),
 		Assignments: assignmentshttp.NewAssignments(assignmentsapp.NewService(assignmentsrepo.NewPostgres(pool.Pool))),
 		Tests:       testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
 		Questions:   questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
@@ -170,6 +163,13 @@ func mediaTransport(svc *mediaapp.Service) mediahttp.Service {
 }
 
 func testsMedia(svc *mediaapp.Service) testshttp.Media {
+	if svc == nil {
+		return nil
+	}
+	return svc
+}
+
+func attemptsMedia(svc *mediaapp.Service) attemptshttp.Media {
 	if svc == nil {
 		return nil
 	}

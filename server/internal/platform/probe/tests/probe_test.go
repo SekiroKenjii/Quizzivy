@@ -16,7 +16,7 @@ import (
 
 func open(t *testing.T, name string) (*bytes.Reader, int64) {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", name))
+	data, err := os.ReadFile(filepath.Join("..", "testdata", name))
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

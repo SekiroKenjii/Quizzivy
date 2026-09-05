@@ -1,31 +1,11 @@
 package core
 
-import (
-	"testing"
+import "testing"
 
-	"quizzivy/internal/api"
-	mediaapp "quizzivy/internal/modules/media/application"
-)
-
-// TestMediaDisabledLeavesDepsMediaNil pins the nil-interface trap that the
-// guard in buildModules exists for: assigning a nil *mediaapp.Service to the
-// interface field would produce a non-nil interface, and every handler's
-// `Deps.Media == nil` check would then call methods on a nil pointer.
-func TestMediaDisabledLeavesDepsMediaNil(t *testing.T) {
-	var disabled *mediaapp.Service
-
-	var deps api.Deps
-	if disabled != nil {
-		deps.Media = disabled
-	}
-	if deps.Media != nil {
-		t.Error("Deps.Media is non-nil with media disabled; handlers would 500 rather than 501")
-	}
-
-	// The shape the guard prevents, so the test states what it is protecting.
-	var unguarded api.Deps
-	unguarded.Media = disabled
-	if unguarded.Media == nil {
-		t.Skip("interface no longer wraps a typed nil; the guard may be unnecessary")
+// A disabled object store must leave every media-facing port a nil interface,
+// not an interface wrapping a nil pointer, or the 501s become nil-pointer 500s.
+func TestADisabledObjectStoreLeavesEveryMediaPortNil(t *testing.T) {
+	if mediaTransport(nil) != nil || questionsMedia(nil) != nil || testsMedia(nil) != nil || attemptsMedia(nil) != nil {
+		t.Fatal("a media port wraps a typed nil; handlers would 500 rather than 501")
 	}
 }

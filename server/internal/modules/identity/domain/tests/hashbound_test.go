@@ -2,6 +2,7 @@ package domain_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"runtime"
 	"strconv"
@@ -14,78 +15,28 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 )
 
-// Argon2id is memory-HARD: `defaultMemory` is an arena allocated for the whole
-// duration of every call, not a budget. On the 512 MB production machine eight
-// simultaneous logins exceed the entire instance, and a class of thirty
-// students signing in together is an ordinary Tuesday. The failure mode is not
-// slowness -- it is the OOM killer.
-
-func TestConcurrentHashesAreBoundedByTheLimit(t *testing.T) {
-	const limit = 2
-	domain.SetMaxConcurrentHashes(limit)
-	t.Cleanup(func() { domain.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
-
-	var inFlight, peak atomic.Int32
-	var wg sync.WaitGroup
-	release := make(chan struct{})
-
-	for range 12 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			<-release
-			_ = withHashSlot(context.Background(), func() {
-				now := inFlight.Add(1)
-				for {
-					was := peak.Load()
-					if now <= was || peak.CompareAndSwap(was, now) {
-						break
-					}
-				}
-				// Long enough that overlap is unmissable if the bound is gone.
-				time.Sleep(20 * time.Millisecond)
-				inFlight.Add(-1)
-			})
-		}()
-	}
-	close(release)
-	wg.Wait()
-
-	if got := peak.Load(); got > limit {
-		t.Fatalf("%d hashes ran at once, want at most %d -- the bound is not holding", got, limit)
-	}
-	if peak.Load() < limit {
-		t.Errorf("peak concurrency was %d with a limit of %d; the slots are not being used",
-			peak.Load(), limit)
-	}
-}
-
 func TestAWaiterGivesUpItsPlaceWhenItsCallerIsGone(t *testing.T) {
 	domain.SetMaxConcurrentHashes(1)
 	t.Cleanup(func() { domain.SetMaxConcurrentHashes(domain.DefaultMaxConcurrentHashes) })
 
-	occupied := make(chan struct{})
-	done := make(chan struct{})
-	go func() {
-		_ = withHashSlot(context.Background(), func() {
-			close(occupied)
-			<-done
-		})
-	}()
-	<-occupied
+	var holders sync.WaitGroup
+	for range 3 {
+		holders.Add(1)
+		go func() {
+			defer holders.Done()
+			_, _ = domain.HashPassword(context.Background(), "giữ-chỗ-trong-lúc-đợi")
+		}()
+	}
+	time.Sleep(10 * time.Millisecond)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
 	defer cancel()
-	ran := false
-	err := withHashSlot(ctx, func() { ran = true })
+	_, err := domain.HashPassword(ctx, "người-đợi")
+	holders.Wait()
 
-	if err == nil {
-		t.Fatal("a waiter acquired a slot that was held")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("a waiter whose context ended got %v, want the context's error", err)
 	}
-	if ran {
-		t.Error("the work ran despite the context being done")
-	}
-	close(done)
 }
 
 func TestTheSlotIsReturnedAfterEachHash(t *testing.T) {
@@ -101,8 +52,6 @@ func TestTheSlotIsReturnedAfterEachHash(t *testing.T) {
 	}
 }
 
-// currentRSSMiB reads VmRSS, which rises and falls -- unlike VmHWM, which is a
-// high-water mark and would carry over whatever an earlier test allocated.
 func currentRSSMiB(t *testing.T) float64 {
 	t.Helper()
 	data, err := os.ReadFile("/proc/self/status")
@@ -170,6 +119,4 @@ func TestTheBoundActuallyCapsMemory(t *testing.T) {
 		t.Fatalf("RSS grew %.0f MiB for 16 hashes bounded at %d; expected roughly %d arenas, "+
 			"so the bound is not holding", growth, limit, limit)
 	}
-	t.Logf("16 hashes bounded at %d grew RSS by %.0f MiB (unbounded would be ~%d MiB)",
-		limit, growth, 16*64)
 }

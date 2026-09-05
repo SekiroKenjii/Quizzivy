@@ -2,6 +2,7 @@ package api
 
 import (
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
+	attemptshttp "quizzivy/internal/modules/attempts/http"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 	identityhttp "quizzivy/internal/modules/identity/http"
@@ -19,4 +20,5 @@ type Modules struct {
 	Media       mediahttp.Media
 	Tests       testshttp.Tests
 	Assignments assignmentshttp.Assignments
+	Attempts    attemptshttp.Attempts
 }

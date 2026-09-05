@@ -49,7 +49,7 @@ func flyEnv(t *testing.T) map[string]string {
 		t.Fatal("cannot resolve caller")
 	}
 	// server/internal/config -> repo root
-	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "fly.toml"))
+	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "..", "fly.toml"))
 	if err != nil {
 		t.Fatalf("read fly.toml: %v", err)
 	}

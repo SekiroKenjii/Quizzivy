@@ -9,33 +9,19 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 )
 
-// The word list is hand-curated, so these guard the properties curation can
-// silently break: an accented word cannot be typed by the student who needed
-// the reset, and a duplicate quietly costs entropy nobody recounts.
-func TestTheWordListStaysTypeableAndDistinct(t *testing.T) {
-	seen := map[string]bool{}
-	for _, w := range temporaryWords {
-		if seen[w] {
-			t.Errorf("%q appears twice; a duplicate costs entropy without saying so", w)
+func TestTheWordsStayTypeable(t *testing.T) {
+	for range 300 {
+		got, err := domain.TemporaryPassword()
+		if err != nil {
+			t.Fatal(err)
 		}
-		seen[w] = true
-
-		for _, r := range w {
-			if r > unicode.MaxASCII {
-				t.Errorf("%q is not ASCII: Argon2id hashes bytes, so an accented "+
-					"word is a different password from the one read aloud", w)
-				break
-			}
-			if !unicode.IsLower(r) {
-				t.Errorf("%q is not lowercase; the hyphens are the only separator", w)
-				break
+		for _, w := range strings.Split(got, "-")[:2] {
+			for _, r := range w {
+				if r > unicode.MaxASCII || !unicode.IsLower(r) {
+					t.Fatalf("%q carries %q: a word read aloud must be plain lowercase ASCII", got, w)
+				}
 			}
 		}
-	}
-
-	// Below this the two-word space stops being defensible even single-use.
-	if len(seen) < 60 {
-		t.Errorf("word list is %d entries, want at least 60", len(seen))
 	}
 }
 

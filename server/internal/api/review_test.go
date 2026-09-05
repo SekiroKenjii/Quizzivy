@@ -7,27 +7,26 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	attemptshttp "quizzivy/internal/modules/attempts/http"
 	"testing"
 	"time"
 
-	"quizzivy/internal/modules/attempts"
+	attemptsdomain "quizzivy/internal/modules/attempts/domain"
 	identitydomain "quizzivy/internal/modules/identity/domain"
-	"quizzivy/internal/modules/integrity"
-	"quizzivy/internal/modules/review"
 )
 
-type fakeReview struct{ rv review.Review }
+type fakeReview struct{ rv attemptsdomain.Review }
 
-func (f fakeReview) Get(context.Context, string) (review.Review, error) { return f.rv, nil }
-func (f fakeReview) Grade(context.Context, string, string, []review.Item) (attempts.Score, error) {
-	return attempts.Score{}, nil
+func (f fakeReview) Get(context.Context, string) (attemptsdomain.Review, error) { return f.rv, nil }
+func (f fakeReview) Grade(context.Context, string, string, []attemptsdomain.GradeItem) (attemptsdomain.Score, error) {
+	return attemptsdomain.Score{}, nil
 }
 func (f fakeReview) SetNote(context.Context, string, *string) error { return nil }
-func (f fakeReview) AnswersForQuestion(context.Context, string, string) (review.ByQuestion, error) {
-	return review.ByQuestion{}, nil
+func (f fakeReview) AnswersForQuestion(context.Context, string, string) (attemptsdomain.ByQuestion, error) {
+	return attemptsdomain.ByQuestion{}, nil
 }
-func (f fakeReview) Finish(context.Context, string) (attempts.Attempt, error) {
-	return attempts.Attempt{}, nil
+func (f fakeReview) Finish(context.Context, string) (attemptsdomain.Attempt, error) {
+	return attemptsdomain.Attempt{}, nil
 }
 
 type fakeStudents struct{ student identitydomain.Student }
@@ -38,8 +37,8 @@ func (f fakeStudents) Get(context.Context, string) (identitydomain.Student, erro
 
 type fakeIntegrity struct{}
 
-func (fakeIntegrity) Timeline(context.Context, string) (integrity.Timeline, error) {
-	return integrity.Timeline{}, nil
+func (fakeIntegrity) Timeline(context.Context, string) (attemptsdomain.Timeline, error) {
+	return attemptsdomain.Timeline{}, nil
 }
 
 // A disabled account is refused a session, but its papers are still the
@@ -49,22 +48,22 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 	disabledAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	issuer := testIssuer(t)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	review := fakeReview{rv: attemptsdomain.Review{
+		Attempt: attemptsdomain.Attempt{
+			ID: "01935000-0000-7000-8000-00000000dd07", StudentID: studentID,
+			Status: attemptsdomain.Submitted, StartedAt: disabledAt, DeadlineAt: disabledAt.Add(time.Hour),
+		},
+		TestTitle: "Unit 5", MaxAttempts: 1,
+		Answers: map[string]attemptsdomain.ReviewAnswer{}, AudioPlays: map[string]int{},
+	}}
+	students := fakeStudents{student: identitydomain.Student{
+		ID: studentID, Email: "an@example.com", FullName: "Nguyễn Văn An",
+		HasPassword: true, CreatedAt: disabledAt, DisabledAt: &disabledAt,
+	}}
 	router, err := NewRouter(Deps{
-		DB: fakeDB{},
-		Review: fakeReview{rv: review.Review{
-			Attempt: attempts.Attempt{
-				ID: "01935000-0000-7000-8000-00000000dd07", StudentID: studentID,
-				Status: attempts.Submitted, StartedAt: disabledAt, DeadlineAt: disabledAt.Add(time.Hour),
-			},
-			TestTitle: "Unit 5", MaxAttempts: 1,
-			Answers: map[string]review.Answer{}, AudioPlays: map[string]int{},
-		}},
-		Students: fakeStudents{student: identitydomain.Student{
-			ID: studentID, Email: "an@example.com", FullName: "Nguyễn Văn An",
-			HasPassword: true, CreatedAt: disabledAt, DisabledAt: &disabledAt,
-		}},
-		Integrity: fakeIntegrity{},
-		Tokens:    issuer,
+		DB:      fakeDB{},
+		Modules: Modules{Attempts: attemptshttp.NewAttempts(nil, review, fakeIntegrity{}, nil, students, nil)},
+		Tokens:  issuer,
 	}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("NewRouter: %v", err)

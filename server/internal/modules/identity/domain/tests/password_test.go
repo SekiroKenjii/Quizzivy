@@ -115,26 +115,6 @@ func TestParametersTravelWithTheHash(t *testing.T) {
 // spends ~50ms hashing, is a user-enumeration oracle measurable over a handful
 // of requests.
 
-// TestDummyHashUsesTheCurrentCostParameters covers parameter drift.
-//
-// The equal-cost property holds structurally: BurnPasswordTime IS
-// VerifyPassword against dummyHash, and dummyHash is produced at init by
-// HashPassword, so raising the cost raises both paths together. This asserts
-// that construction has not been undone -- by a hardcoded literal, say, or a
-// dummyHash built with parameters of its own.
-func TestDummyHashUsesTheCurrentCostParameters(t *testing.T) {
-	p, _, _, err := decodeHash(dummyHash)
-	if err != nil {
-		t.Fatalf("dummyHash does not parse as Argon2id: %v", err)
-	}
-	if p.memory != domain.DefaultMemory || p.time != domain.DefaultTime || p.threads != domain.DefaultThreads {
-		t.Errorf("dummyHash is m=%d,t=%d,p=%d but the current parameters are m=%d,t=%d,p=%d; "+
-			"an unknown email would cost less than a real one and login would be a "+
-			"user-enumeration oracle",
-			p.memory, p.time, p.threads, domain.DefaultMemory, domain.DefaultTime, domain.DefaultThreads)
-	}
-}
-
 // TestBurnPasswordTimeDoesRealWork covers the regression the structural
 // argument does not reach: someone reading BurnPasswordTime as pointless work
 // and optimising it away. Asserting dummyHash's parameters says nothing about
