@@ -1449,5 +1449,13 @@
     "emptyTab": "No papers in this view.",
     "noMatches": "No student matches “{{query}}”.",
     "hint": "One row per student, the latest attempt. Earlier attempts stay readable from the paper."
+  },
+  "layout": {
+    "resize": {
+      "sidebar": "Menu width",
+      "rail": "Filter column width",
+      "panel": "Side panel width",
+      "outline": "Outline width"
+    }
   }
 }

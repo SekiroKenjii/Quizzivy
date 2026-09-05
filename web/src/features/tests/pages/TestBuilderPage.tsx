@@ -361,7 +361,7 @@ function Builder({ test }: { test: Test }) {
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div data-columns className="flex min-h-0 flex-1 overflow-hidden">
         <Suspense
           fallback={<div className="w-72 shrink-0 border-r" aria-hidden="true" />}
         >
@@ -378,7 +378,7 @@ function Builder({ test }: { test: Test }) {
           />
         </Suspense>
 
-        <div className="min-w-0 flex-1 overflow-y-auto p-6">
+        <div data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-6">
           <PageAsideSlot.Provider value={asideSlot}>
             {selectedId === null ? (
               <p className="text-muted-foreground text-sm">
