@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"quizzivy/internal/assignments"
 )
 
@@ -85,9 +87,16 @@ func TestReopeningRefusesWhatHasNothingToReopen(t *testing.T) {
 
 func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 	pool := newPool(t)
-	store := assignments.NewStore(pool)
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
+	// Other packages create assignments while this counts them, so both
+	// readings come from one REPEATABLE READ snapshot; rolling back is the cleanup.
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	store := assignments.NewStore(tx)
 
 	before, err := store.Facets(ctx)
 	if err != nil {

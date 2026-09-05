@@ -40,7 +40,7 @@ func DraftReferences(ctx context.Context, q Querier, questionID string) ([]TestR
 		  JOIN app.test_sections ts ON ts.id = tsq.test_section_id
 		  JOIN app.tests t ON t.id = ts.test_id
 		 WHERE tsq.question_id = $1
-		 ORDER BY t.title, t.id`, questionID)
+		 ORDER BY t.title, t.id::text`, questionID)
 	if err != nil {
 		return nil, fmt.Errorf("questions: draft references: %w", err)
 	}
