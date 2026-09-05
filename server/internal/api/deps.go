@@ -137,6 +137,7 @@ type ReviewService interface {
 	Grade(ctx context.Context, attemptID, graderID string, items []review.Item) (attempts.Score, error)
 	Finish(ctx context.Context, attemptID string) (attempts.Attempt, error)
 	SetNote(ctx context.Context, attemptID string, note *string) error
+	AnswersForQuestion(ctx context.Context, assignmentID, questionID string) (review.ByQuestion, error)
 }
 
 // IntegrityService is the slice of internal/integrity the handlers use.

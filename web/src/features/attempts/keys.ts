@@ -5,3 +5,5 @@ export const monitorKey = (assignmentId: string) =>
 export const reviewKey = (attemptId: string) => ["admin-attempt", attemptId] as const;
 export const eventsKey = (attemptId: string) =>
   ["admin-attempt-events", attemptId] as const;
+export const answersKey = (assignmentId: string, questionId: string) =>
+  ["admin-answers-by-question", assignmentId, questionId] as const;

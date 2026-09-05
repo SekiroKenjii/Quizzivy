@@ -51,6 +51,24 @@ export function getAttemptForReview(id: string, signal?: AbortSignal) {
   });
 }
 
+export type AnswersByQuestion =
+  paths["/admin/assignments/{id}/answers"]["get"]["responses"][200]["content"]["application/json"];
+export type QuestionAnswerRow = components["schemas"]["QuestionAnswerRow"];
+
+/** G-04's read: one question across every handed-in paper of the assignment. */
+export function listAnswersForQuestion(
+  assignmentId: string,
+  questionId: string,
+  signal?: AbortSignal,
+) {
+  const params = { path: { id: assignmentId }, query: { questionId } };
+  return api(
+    "get",
+    "/admin/assignments/{id}/answers",
+    signal ? { ...params, signal } : params,
+  );
+}
+
 export function getAttemptEvents(id: string, signal?: AbortSignal) {
   return api("get", "/admin/attempts/{id}/events", {
     path: { id },

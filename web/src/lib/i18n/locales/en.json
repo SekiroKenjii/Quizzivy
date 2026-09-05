@@ -1377,5 +1377,27 @@
       "pending": "To grade"
     },
     "open": "Grade"
+  },
+  "byQuestion": {
+    "title": "Grade by question",
+    "questionOf": "Question {{n}} / {{count}}",
+    "graded": "Graded {{done}}/{{total}}",
+    "next": "Next question",
+    "exit": "Grade per paper",
+    "meta": "Question {{n}} · {{type}} · {{points}} points",
+    "rubric": "Rubric",
+    "namesHidden": "Names stay hidden until this question is graded.",
+    "showNames": "Show names",
+    "hideNames": "Hide names",
+    "student": "Student {{n}}",
+    "attemptNo": "attempt {{n}}",
+    "blank": "No answer",
+    "gradedBadge": "Graded",
+    "save": "Save",
+    "pointsFor": "Points for {{who}}",
+    "keys": "↓ next student · 0 – {{max}} to score · ⌘⏎ save and go to the next question",
+    "notManual": "This question is graded automatically.",
+    "empty": "No paper has answered this question yet.",
+    "loadFailed": "Could not load the answers."
   }
 }
