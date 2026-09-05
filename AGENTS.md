@@ -44,16 +44,14 @@ conflict to know: the skill teaches the pre-18
 
 ## Code style
 
-**Comments.** Comment abstractions, shared code, common utilities, and
-definitions — types, interfaces, exported functions. Implementation code must
-explain itself; where a comment is genuinely unavoidable inside a function body,
-**one line is the maximum**. This applies to the frontend as well.
+**Comments.** The code says what it does; a comment says only what the code
+cannot: the contract of an exported identifier, in one paragraph, and a
+package comment naming the context's model. No comment inside a function
+body. No doc comment on an unexported identifier. Directives (`//go:`,
+`//nolint`) are not comments. The reasoning behind a decision belongs in the
+commit message or in `docs/plan/`. This applies to the frontend as well.
 
-The reasoning behind a decision belongs in the commit message or in
-`docs/plan/`, not beside the statement. If a comment is running to a paragraph,
-it is documentation that has been pasted into the wrong file.
-
-- **No comment on the `package` declaration** in Go.
+- **No comment on the `package` declaration** except the package comment.
 - Doc comments follow Google's style: start with the identifier's name, state
   what it is and any non-obvious contract, and stop.
 - **Never use an identifier marked `Deprecated`.** `make lint` runs staticcheck,
@@ -105,26 +103,31 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
   `CREATE TABLE` grammar and not available via `SET NOT NULL`. On a greenfield
   table, declare `NOT NULL` inline — it is free.
 
-`server/internal/db/pg18_test.go` pins all four. If it fails, the docs changed
+`server/internal/platform/db/tests/pg18_test.go` pins all four. If it fails, the docs changed
 and the plan needs revisiting.
 
 ## The composition root
 
-`cmd/api/main.go` is the entry point and nothing else: build a logger, call
-`core.Run`, set the exit code. Everything it used to do lives in
-`internal/core`, which is the composition root:
+`cmd/api/main.go` builds a logger, calls `core.Run`, sets the exit code.
+`internal/core` is the composition root and the only package that knows every
+module:
 
 | file | holds |
 |---|---|
-| `core.go` | `App`, the kernel: config, signals, lifecycle |
-| `modules.go` | wiring each feature module into `api.Deps` |
+| `core.go` | `App`: config, signals, lifecycle, `Handler()` |
+| `modules.go` | building every module's repository, service and transport |
+| `adapters.go` | the adapters between the ports modules declare and what provides them |
+| `composite.go` | `Server`, the generated strict interface satisfied by embedding each module's `http` type; `Deps` |
+| `router.go` | middleware order, rate limits, `/healthz`, `/docs` |
 | `server.go` | the HTTP server and graceful shutdown |
 | `jobs.go` | background jobs |
 
-A new module is wired in `modules.go`, not in `main`. A module that is optional
-returns a nil service and `buildModules` leaves the interface field unset —
-assigning a typed nil would make `Deps.X == nil` false and turn a 501 into a
-nil-pointer 500.
+A new module is wired in `modules.go`. An optional dependency stays a nil
+interface (see `adapters.go`) so its operations answer 501, never a
+nil-pointer 500. The dependency rules between `domain`, `application`,
+`repositories`, `http`, `platform`, `shared` and `core` are in
+`docs/plan/60-backend-architecture.md` and enforced by
+`core/tests/architecture_test.go`.
 
 ## Repository map
 
@@ -133,16 +136,27 @@ api/openapi.yaml   the contract — edit this first, then `make gen`
 web/               quizzivy-web
   src/             spec §3 layout, unchanged -- source only, no tests
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
-server/            Go module `quizzivy`; internal/ mirrors the feature folders
-  gen/openapi/     generated, committed, never hand-edited
-  media/probe/     pure-Go mp3 + mp4 duration; no ffprobe
+server/            Go module `quizzivy`: a modular monolith
+  internal/core/     composition root
+  internal/platform/ technical adapters (db, storage, google, probe, httpx, apidocs, ...)
+  internal/shared/   kernel: paging, audit, stats
+  internal/modules/  one directory per bounded context, four layers each:
+                     domain/ application/ repositories/ http/, tests in <layer>/tests/
+  tests/             end-to-end tests (build tag e2e)
+  gen/openapi/       generated, committed, never hand-edited
 migrations/        goose, forward-only, 00001…
 seed/              seed data — never in a migration
 docs/plan/         the plan; 20-data-model.md is the schema authority
 ```
 
 A vertical slice is one `web/src/features/<name>/`, one
-`server/internal/<name>/`, and one section of `api/openapi.yaml`.
+`server/internal/modules/<name>/`, and one section of `api/openapi.yaml`.
+
+**Tests use the public surface.** Every Go test file lives in a `tests/`
+directory under its layer as an external package; a test that needs a
+private identifier is testing the wrong thing. Database-backed tests carry
+the `integration` tag, end-to-end tests the `e2e` tag; `make test-api` runs
+unit, integration and end-to-end in that order.
 
 ## Authentication and authorization
 
