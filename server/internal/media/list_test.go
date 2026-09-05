@@ -171,8 +171,15 @@ func TestAPagePastTheEndIsEmptyWithTheSameTotal(t *testing.T) {
 func TestTotalBytesSumsTheWholeShelfNotThePage(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := media.NewService(media.NewStore(pool), newFakeStore())
 	ctx := context.Background()
+	// Other tests upload and delete the same fixture while this sums, so both
+	// readings come from one snapshot; the upload inside it is the only change.
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	svc := media.NewService(media.NewStore(tx), newFakeStore())
 
 	before, err := svc.TotalBytes(ctx, nil)
 	if err != nil {
@@ -183,7 +190,7 @@ func TestTotalBytesSumsTheWholeShelfNotThePage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after < before+a.Bytes {
+	if after != before+a.Bytes {
 		t.Errorf("total moved from %d to %d after a %d-byte upload", before, after, a.Bytes)
 	}
 	audio := media.Kind("audio")
