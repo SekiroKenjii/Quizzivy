@@ -206,8 +206,8 @@ export default function TakeTestPage() {
       {watching && integrity.requireFullscreen && !fullscreen && <FullscreenBar />}
       {strikeDialog}
 
-      <div className="flex min-h-0 flex-1">
-        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5">
+      <div data-columns className="flex min-h-0 flex-1">
+        <main data-resize-middle className="min-w-0 flex-1 overflow-y-auto px-4 py-5">
           <div className="mx-auto w-full max-w-[720px]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-muted-foreground text-xs">

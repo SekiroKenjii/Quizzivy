@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { SideColumn } from "@/components/shared/SideColumn";
 import { cn } from "@/lib/utils";
 import {
   findQuestion,
@@ -172,7 +173,12 @@ export function OutlineTree({
   const doomed = removing === null ? null : (sections[removing] ?? null);
 
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-r">
+    <SideColumn
+      as="div"
+      column="outline"
+      side="left"
+      className="flex h-full flex-col overflow-hidden border-r"
+    >
       <div className="flex shrink-0 items-center gap-2 border-b p-3">
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           {t("builder.outline")}
@@ -309,7 +315,7 @@ export function OutlineTree({
         destructive
         onConfirm={() => removing !== null && remove(removing)}
       />
-    </div>
+    </SideColumn>
   );
 }
 

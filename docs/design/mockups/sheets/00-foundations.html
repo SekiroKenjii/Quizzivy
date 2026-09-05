@@ -777,6 +777,105 @@
             </div>
           </div>
         </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-13</span>
+            <span class="board-name">Side columns resize — one handle, one remembered width per role</span>
+            <span class="board-route">every screen with a rail, a panel, the shell's sidebar, the builder's outline</span>
+          </div>
+          <p class="board-note">
+            F-11 gave each role one width so the next screen had an answer to
+            “how wide is this?”. The answer is still one width per role — the
+            teacher now picks it. Every side column carries a handle on its
+            inner edge: a 6px hit area over the border, a col-resize cursor,
+            and a 2px line that only shows on hover or while dragging, so at
+            rest the column looks exactly as F-11 drew it. Drag it, or focus it
+            and use the arrow keys (16px a step, Home and End for the limits);
+            double-click puts the deck's width back. The width is remembered in
+            the browser <em>per role</em>, not per screen: a panel dragged
+            wider on G-07 is the same width on A-04, because it is the same
+            component.
+          </p>
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5 space-y-3 col-span-2">
+              <p class="card-title">At rest, and with the panel's handle under the pointer</p>
+              <div class="border rounded-md overflow-hidden" style="height: 220px">
+                <div class="flex h-full">
+                  <div class="col-handle-host border-r shrink-0 p-3" style="width: 9rem">
+                    <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Rail · 14rem</p>
+                    <div class="skeleton h-3 w-24 mb-2"></div>
+                    <div class="skeleton h-3 w-16 mb-2"></div>
+                    <div class="skeleton h-3 w-20"></div>
+                    <span class="col-handle col-handle-right"></span>
+                  </div>
+                  <div class="flex-1 min-w-0 p-3">
+                    <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Middle · never under 24rem</p>
+                    <div class="skeleton h-3 w-48 mb-2"></div>
+                    <div class="skeleton h-3 w-56 mb-2"></div>
+                    <div class="skeleton h-3 w-40"></div>
+                  </div>
+                  <div class="col-handle-host border-l shrink-0 p-3" style="width: 12rem">
+                    <span class="col-handle col-handle-left is-hover"></span>
+                    <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Panel · 20rem</p>
+                    <div class="skeleton h-3 w-28 mb-2"></div>
+                    <div class="skeleton h-3 w-20 mb-2"></div>
+                    <div class="skeleton h-3 w-24"></div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                The handle straddles the border (3px either side) so the 1px line is never the
+                target. The visible line is <code class="font-mono">foreground</code> at 30% on
+                hover, 40% while dragging — the same ink the focus ring uses, never the accent.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Limits, in rem</p>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Role</th>
+                    <th class="text-right">Min</th>
+                    <th class="text-right">Default</th>
+                    <th class="text-right">Max</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Sidebar (shell)</td><td class="text-right num">12</td><td class="text-right num">15</td><td class="text-right num">20</td></tr>
+                  <tr><td>Rail (F-11)</td><td class="text-right num">12</td><td class="text-right num">14</td><td class="text-right num">20</td></tr>
+                  <tr><td>Panel (F-11)</td><td class="text-right num">16</td><td class="text-right num">20</td><td class="text-right num">32</td></tr>
+                  <tr><td>Outline (A-04)</td><td class="text-right num">14</td><td class="text-right num">18</td><td class="text-right num">24</td></tr>
+                </tbody>
+              </table>
+              <p class="text-xs text-muted-foreground">
+                The max is also bounded live: a side may not grow past the point where the
+                middle column would fall under 24rem, which keeps F-12's builder rule true at
+                every width the teacher can reach.
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-5 mt-4">
+            <div class="callout">
+              <strong>Why per role and not per screen.</strong> A width remembered per screen
+              would give the teacher twelve widths to keep in their head and the deck twelve
+              answers again — the drift F-11 removed. One width per role means the panel is
+              the panel everywhere, only now at the width this teacher reads best at.
+            </div>
+            <div class="callout">
+              <strong>Keyboard is not an afterthought.</strong> The handle is a
+              <code class="font-mono">separator</code> with a value, so it is reachable by Tab,
+              announces its width, and moves by arrow key. A resize that only exists for a
+              mouse would fail §12's accessibility bar on the one control that changes the
+              whole layout.
+            </div>
+            <div class="callout">
+              <strong>The sheet is untouched.</strong> Below 1024px the panel is a sheet
+              (F-12) and has no handle: a sheet is as wide as the viewport lets it be. The
+              remembered width waits for the next wide screen.
+            </div>
+          </div>
+        </div>
       </section>
     </div>
 

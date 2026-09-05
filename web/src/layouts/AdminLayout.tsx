@@ -29,6 +29,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getDashboard } from "@/features/dashboard/api";
 import { NotificationsButton } from "@/features/dashboard/NotificationsButton";
 import { BrandLockup } from "@/components/shared/Brand";
+import { SideColumn } from "@/components/shared/SideColumn";
 
 /**
  * §8: "sidebar + top bar. Collapsible sidebar ≤1280px. Minimum supported width
@@ -103,12 +104,15 @@ export default function AdminLayout() {
   const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   const [railSlot, setRailSlot] = useState<HTMLDivElement | null>(null);
   return (
-    <div className="flex h-svh min-w-[768px] overflow-hidden">
-      <nav
+    <div data-columns className="flex h-svh min-w-[768px] overflow-hidden">
+      <SideColumn
+        as="nav"
+        column="sidebar"
+        side="left"
         id="admin-sidebar"
         aria-label={t("nav.mainNavigation")}
         hidden={!open}
-        className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r p-2"
+        className="flex flex-col gap-0.5 overflow-y-auto border-r p-2"
       >
         {SECTIONS.map((section) => (
           <Fragment key={section.label}>
@@ -140,9 +144,9 @@ export default function AdminLayout() {
             {t(SETTINGS.key)}
           </NavLink>
         </div>
-      </nav>
+      </SideColumn>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div data-resize-middle className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Outside the scroll container now, so it stays put without sticky. */}
         <header className="bg-background shrink-0 border-b">
           <div className="flex h-14 items-center gap-3 px-4">
@@ -183,9 +187,9 @@ export default function AdminLayout() {
 
         <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />
 
-        <div className="flex min-h-0 flex-1">
+        <div data-columns className="flex min-h-0 flex-1">
           <div ref={setRailSlot} className="contents" />
-          <main className="min-w-0 flex-1 overflow-y-auto p-6">
+          <main data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-6">
             <PageBarSlot.Provider value={barSlot}>
               <PageAsideSlot.Provider value={asideSlot}>
                 <PageRailSlot.Provider value={railSlot}>

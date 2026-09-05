@@ -1449,5 +1449,13 @@
     "emptyTab": "Không có bài làm nào ở mục này.",
     "noMatches": "Không có học viên nào khớp “{{query}}”.",
     "hint": "Mỗi học viên một dòng, lượt mới nhất. Lượt trước vẫn xem được từ trang bài làm."
+  },
+  "layout": {
+    "resize": {
+      "sidebar": "Độ rộng menu",
+      "rail": "Độ rộng cột lọc",
+      "panel": "Độ rộng bảng bên",
+      "outline": "Độ rộng dàn ý"
+    }
   }
 }

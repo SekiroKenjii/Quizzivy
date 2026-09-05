@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { PageAside } from "@/components/shared/PageAside";
 import { PageAsideSlot, PageRailSlot } from "@/layouts/slots";
+import "@/lib/i18n";
 
 /** A shell the way AdminLayout builds one: slots either side of the scroll. */
 function Shell({ children }: { children: React.ReactNode }) {
@@ -110,7 +111,7 @@ describe("the filter rail", () => {
     expect(within(screen.getByTestId("main")).queryByRole("complementary")).toBeNull();
   });
 
-  // F-11: one width per role.
+  // F-11: one width per role; F-13 makes each a remembered, draggable width.
   it("is narrower than the panel and borders the other side", () => {
     render(
       <>
@@ -122,14 +123,18 @@ describe("the filter rail", () => {
         </PageAside>
       </>,
     );
-    expect(screen.getByRole("complementary", { name: "Bộ lọc" })).toHaveClass(
-      "w-56",
-      "border-r",
-    );
-    expect(screen.getByRole("complementary", { name: "Tóm tắt" })).toHaveClass(
-      "w-80",
-      "border-l",
-    );
+    const rail = screen.getByRole("complementary", { name: "Bộ lọc" });
+    const panel = screen.getByRole("complementary", { name: "Tóm tắt" });
+    expect(rail).toHaveClass("border-r");
+    expect(rail).toHaveStyle({ width: "224px" });
+    expect(panel).toHaveClass("border-l");
+    expect(panel).toHaveStyle({ width: "320px" });
+    expect(
+      screen.getByRole("separator", { name: "Độ rộng cột lọc" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("separator", { name: "Độ rộng bảng bên" }),
+    ).toBeInTheDocument();
   });
 
   it("both roles scroll themselves rather than with the content", () => {
