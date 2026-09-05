@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
-import { useQueries } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router";
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Plus, Send } from "lucide-react";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { Skeleton } from "@/components/ui/skeleton";
+import { createTest } from "@/features/tests/api";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,6 +38,16 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 export default function AdminDashboardPage() {
   const { t } = useTranslation();
   const locale = useLocale();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  // A-01's "Đề thi mới" does what the tests list's does: a draft, then the builder.
+  const create = useMutation({
+    mutationFn: () => createTest(t("tests.untitled")),
+    onSuccess: async (test) => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-tests"] });
+      void navigate(`/admin/tests/${test.id}/edit`);
+    },
+  });
 
   const [summary, open] = useQueries({
     queries: [
@@ -57,14 +70,17 @@ export default function AdminDashboardPage() {
         subtitle={formatDateTime(new Date(), locale)}
         actions={
           <>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/admin/tests">
-                <Plus aria-hidden="true" />
-                {t("tests.new")}
-              </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={create.isPending}
+              onClick={() => create.mutate()}
+            >
+              <Plus aria-hidden="true" />
+              {t("tests.new")}
             </Button>
             <Button asChild size="sm">
-              <Link to="/admin/assignments">
+              <Link to="/admin/assignments/new">
                 <Send aria-hidden="true" />
                 {t("dashboard.assign")}
               </Link>
@@ -82,13 +98,20 @@ export default function AdminDashboardPage() {
         </h2>
 
         {summary.isPending ? (
-          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-            {t("common.loading")}
-          </p>
+          <div
+            role="status"
+            aria-live="polite"
+            aria-label={t("common.loading")}
+            className="grid gap-4 lg:grid-cols-3"
+          >
+            <Skeleton className="h-[4.5rem]" />
+            <Skeleton className="h-[4.5rem]" />
+            <Skeleton className="h-[4.5rem]" />
+          </div>
         ) : summary.isError ? (
-          <p role="alert" className="text-destructive text-sm">
+          <LoadError error={summary.error} onRetry={() => void summary.refetch()}>
             {t("dashboard.loadFailed")}
-          </p>
+          </LoadError>
         ) : (
           <div className="grid gap-4 lg:grid-cols-3">
             <QueueCard
@@ -135,17 +158,15 @@ export default function AdminDashboardPage() {
             </div>
 
             {open.isPending ? (
-              <p
-                role="status"
-                aria-live="polite"
-                className="text-muted-foreground px-5 pb-6 text-sm"
-              >
-                {t("common.loading")}
-              </p>
+              <div className="px-5 pb-5">
+                <ListSkeleton rows={3} />
+              </div>
             ) : open.isError ? (
-              <p role="alert" className="text-destructive px-5 pb-6 text-sm">
-                {t("dashboard.loadFailed")}
-              </p>
+              <div className="px-5 pb-5">
+                <LoadError error={open.error} onRetry={() => void open.refetch()}>
+                  {t("dashboard.loadFailed")}
+                </LoadError>
+              </div>
             ) : open.data.items.length === 0 ? (
               <p className="text-muted-foreground px-5 pb-6 text-sm">
                 {t("dashboard.noAssignments")}
@@ -254,9 +275,16 @@ function QueueCard({
         <p className="text-sm font-medium">{label}</p>
         <p className="text-muted-foreground text-xs leading-relaxed">{hint}</p>
       </div>
-      <Button asChild variant="outline" size="sm" disabled={count === 0}>
-        <Link to={to}>{action}</Link>
-      </Button>
+      {/* A link cannot be disabled, so an empty queue gets a button that is. */}
+      {count === 0 ? (
+        <Button variant="outline" size="sm" disabled>
+          {action}
+        </Button>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <Link to={to}>{action}</Link>
+        </Button>
+      )}
     </Card>
   );
 }

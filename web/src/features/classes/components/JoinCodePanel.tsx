@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, RotateCw } from "lucide-react";
+import { Copy, Download, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/sonner";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +22,11 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import {
   revokeJoinCode,
   rotateJoinCode,
+  updateClass,
   type Class,
   type JoinCodeOptions,
 } from "@/features/classes/api";
+import { invalidateClass } from "@/features/classes/invalidate";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -80,6 +84,17 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
     },
   });
 
+  // G-06's "Cho tham gia": pausing enrolment without reissuing the code (§6.4).
+  const selfJoin = useMutation({
+    mutationFn: (enabled: boolean) =>
+      updateClass(klass.id, { selfJoinEnabled: enabled }),
+    onSuccess: async (_, enabled) => {
+      await invalidateClass(queryClient, klass.id);
+      toast(t(enabled ? "classDetail.selfJoinOn" : "classDetail.selfJoinOff"));
+    },
+    onError: () => toast(t("classDetail.selfJoinFailed")),
+  });
+
   const revoke = useMutation({
     mutationFn: () => revokeJoinCode(klass.id),
     onSuccess: async () => {
@@ -115,6 +130,18 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
     rotate.mutate(options);
   }
 
+  function copyCode(value: string) {
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (!clipboard) {
+      setError(t("classDetail.copyFailed"));
+      return;
+    }
+    void clipboard.writeText(value).then(
+      () => toast(t("classDetail.codeCopied")),
+      () => setError(t("classDetail.copyFailed")),
+    );
+  }
+
   function copyJoinUrl(url: string) {
     const clipboard = navigator.clipboard as Clipboard | undefined;
     if (!clipboard) {
@@ -137,16 +164,30 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   return (
     <Card asChild className="gap-0 py-0">
       <section aria-labelledby="join-code-heading">
-        <div className="px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
           <h2
             id="join-code-heading"
             className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
           >
             {t("classDetail.joinCode")}
           </h2>
+          <label className="flex items-center gap-2 text-xs">
+            {t("classDetail.selfJoinSwitch")}
+            <Switch
+              checked={klass.selfJoinEnabled}
+              disabled={selfJoin.isPending}
+              aria-label={t("classDetail.selfJoinSwitch")}
+              onCheckedChange={(next) => selfJoin.mutate(next)}
+            />
+          </label>
         </div>
 
         <div className="space-y-3 px-5 pb-4">
+          {klass.selfJoinEnabled ? null : (
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {t("classDetail.selfJoinOffHint")}
+            </p>
+          )}
           {code ? (
             <CodeSummary
               code={code}
@@ -240,6 +281,7 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
           joinUrl={joinUrl}
           copied={copied}
           onCopy={copyJoinUrl}
+          onCopyCode={copyCode}
           onClose={() => setFreshCode(null)}
         />
       </section>
@@ -368,6 +410,43 @@ function CodeSummary({
   );
 }
 
+/**
+ * G-06's "Tải QR": the projector and the Zalo group want an image, so the
+ * on-screen SVG is rasterised through a canvas; where there is no canvas the
+ * SVG itself is what gets saved.
+ */
+function downloadQr(host: HTMLDivElement | null, filename: string) {
+  const svg = host?.querySelector("svg");
+  if (!svg) return;
+  const markup = new XMLSerializer().serializeToString(svg);
+  const svgBlob = new Blob([markup], { type: "image/svg+xml" });
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    save(svgBlob, filename.replace(/\.png$/, ".svg"));
+    return;
+  }
+  const image = new Image();
+  const url = URL.createObjectURL(svgBlob);
+  image.onload = () => {
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 32, 32, 448, 448);
+    URL.revokeObjectURL(url);
+    canvas.toBlob((png) => png && save(png, filename), "image/png");
+  };
+  image.src = url;
+}
+
+function save(blob: Blob, filename: string) {
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(anchor.href);
+}
+
 // The deck's "còn 13 ngày": what makes §6.5's 30-day default read as safety, not friction.
 function daysUntil(expiresAt: string): number {
   const ms = new Date(expiresAt).getTime() - Date.now();
@@ -380,15 +459,18 @@ function FreshCodeDialog({
   joinUrl,
   copied,
   onCopy,
+  onCopyCode,
   onClose,
 }: {
   code: string | null;
   joinUrl: string | null;
   copied: boolean;
   onCopy: (joinUrl: string) => void;
+  onCopyCode: (code: string) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const qr = useRef<HTMLDivElement>(null);
 
   return (
     <Dialog open={code !== null} onOpenChange={(open) => !open && onClose()}>
@@ -410,22 +492,38 @@ function FreshCodeDialog({
           </p>
         </div>
 
-        {joinUrl ? (
+        {joinUrl && code ? (
           <div className="flex items-center gap-3">
-            <QRCodeSVG
-              value={joinUrl}
-              size={80}
-              level="M"
-              aria-label={t("classDetail.qrAlt")}
-            />
+            <div ref={qr}>
+              <QRCodeSVG
+                value={joinUrl}
+                size={80}
+                level="M"
+                aria-label={t("classDetail.qrAlt")}
+              />
+            </div>
             <div className="min-w-0 space-y-1.5">
               <p className="text-muted-foreground font-mono text-xs break-words">
                 {joinUrl}
               </p>
-              <Button variant="outline" size="xs" onClick={() => onCopy(joinUrl)}>
-                <Copy aria-hidden="true" />
-                {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
-              </Button>
+              <div className="flex flex-wrap gap-1.5">
+                <Button variant="outline" size="xs" onClick={() => onCopy(joinUrl)}>
+                  <Copy aria-hidden="true" />
+                  {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
+                </Button>
+                <Button variant="outline" size="xs" onClick={() => onCopyCode(code)}>
+                  <Copy aria-hidden="true" />
+                  {t("classDetail.copyCode")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => downloadQr(qr.current, `quizzivy-${code}.png`)}
+                >
+                  <Download aria-hidden="true" />
+                  {t("classDetail.downloadQr")}
+                </Button>
+              </div>
             </div>
           </div>
         ) : null}

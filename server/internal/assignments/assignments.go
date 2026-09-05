@@ -208,6 +208,37 @@ func (s *Store) get(ctx context.Context, q querier, id string) (Assignment, erro
 //
 // The status filter is applied in SQL over the same expression StatusAt
 // computes, so the list and the row never disagree about what "open" means.
+// derivedStatus is StatusAt in SQL, at the database's clock.
+const derivedStatus = `
+			CASE
+			  WHEN a.published_at IS NULL THEN 'draft'
+			  WHEN a.closed_at IS NOT NULL AND now() >= a.closed_at THEN 'closed'
+			  WHEN now() < a.opens_at THEN 'scheduled'
+			  WHEN now() < a.closes_at THEN 'open'
+			  ELSE 'closed'
+			END`
+
+// Facets are the list's tab counts: every assignment by its status right now,
+// ignoring the status filter, so picking one tab does not zero the others.
+type Facets struct {
+	All, Draft, Scheduled, Open, Closed int
+}
+
+func (s *Store) Facets(ctx context.Context) (Facets, error) {
+	var f Facets
+	err := s.pool.QueryRow(ctx, `
+		SELECT count(*),
+		       count(*) FILTER (WHERE `+derivedStatus+` = 'draft'),
+		       count(*) FILTER (WHERE `+derivedStatus+` = 'scheduled'),
+		       count(*) FILTER (WHERE `+derivedStatus+` = 'open'),
+		       count(*) FILTER (WHERE `+derivedStatus+` = 'closed')
+		  FROM app.assignments a`).Scan(&f.All, &f.Draft, &f.Scheduled, &f.Open, &f.Closed)
+	if err != nil {
+		return Facets{}, fmt.Errorf("assignments: facets: %w", err)
+	}
+	return f, nil
+}
+
 func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
@@ -215,14 +246,7 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, paging.Pa
 	where := []string{"TRUE"}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
-		where = append(where, fmt.Sprintf(`
-			CASE
-			  WHEN a.published_at IS NULL THEN 'draft'
-			  WHEN a.closed_at IS NOT NULL AND now() >= a.closed_at THEN 'closed'
-			  WHEN now() < a.opens_at THEN 'scheduled'
-			  WHEN now() < a.closes_at THEN 'open'
-			  ELSE 'closed'
-			END = $%d`, len(args)))
+		where = append(where, fmt.Sprintf(derivedStatus+` = $%d`, len(args)))
 	}
 
 	page := paging.Page{Number: number, Size: limit}

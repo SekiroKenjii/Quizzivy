@@ -235,10 +235,58 @@ describe("the assignment detail", () => {
     expect(await screen.findByText("Chờ chấm")).toBeInTheDocument();
     expect(screen.getByText("17")).toBeInTheDocument();
     expect(screen.getByText("/19")).toBeInTheDocument();
-    expect(screen.getByText("Chưa nộp: 2")).toBeInTheDocument();
+    expect(await screen.findByText("Chưa nộp: Phạm Gia Hân")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.getByText("Rời trang quá 2 lần")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Đóng sớm" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Chỉnh sửa" })).toBeNull();
+    // G-09's closed bar: the way back in, and the papers one scroll away.
+    expect(screen.getByRole("link", { name: "Xem bài làm" })).toHaveAttribute(
+      "href",
+      "#attempts",
+    );
+    expect(screen.getByRole("link", { name: "Mở bảng học viên" })).toHaveAttribute(
+      "href",
+      "#attempts",
+    );
+    expect(
+      screen.getByRole("button", { name: "Gia hạn cho tất cả" }),
+    ).toBeInTheDocument();
+  });
+
+  it("closed: Gia hạn cho tất cả asks for a moment and a reason, then reopens", async () => {
+    let sent: { closesAt: string; reason: string } | null = null;
+    server.use(
+      http.post(`${BASE}/admin/assignments/${ID}/reopen`, async ({ request }) => {
+        sent = (await request.json()) as { closesAt: string; reason: string };
+        return contractJson(
+          "/admin/assignments/{id}/reopen",
+          "post",
+          200,
+          assignment(),
+        );
+      }),
+    );
+    serve(assignment({ status: "closed", window: pastWindow }));
+    const user = renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Gia hạn cho tất cả" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Mở lại cho cả 19 học viên")).toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", { name: "Mở lại" });
+    expect(confirm).toBeDisabled();
+
+    await user.click(within(dialog).getByRole("radio", { name: "Thêm 3 ngày" }));
+    await user.type(within(dialog).getByLabelText("Lý do"), "mất điện cả lớp");
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => expect(sent).not.toBeNull());
+    expect(sent!.reason).toBe("mất điện cả lớp");
+    const inThreeDays = Date.now() + 3 * 24 * 60 * 60 * 1000;
+    expect(Math.abs(new Date(sent!.closesAt).getTime() - inThreeDays)).toBeLessThan(
+      60_000,
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

@@ -413,6 +413,28 @@ export interface paths {
         patch: operations["updateQuestion"];
         trace?: never;
     };
+    "/admin/questions/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A-06a's "Nhân bản": copies the question, its options, blanks and
+         *     tags into a new bank row that no test references yet.
+         */
+        post: operations["duplicateQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/media": {
         parameters: {
             query?: never;
@@ -506,6 +528,30 @@ export interface paths {
          *     Existing attempts always carry their own version regardless (§7).
          */
         patch: operations["updateAssignment"];
+        trace?: never;
+    };
+    "/admin/assignments/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description G-09's "Gia hạn cho tất cả": a closed assignment gets a later
+         *     `closesAt` and its early close, if any, is lifted, so every student
+         *     with attempts left can go back in. Only a closed assignment can be
+         *     reopened, and only to a moment still ahead. Audited with the reason.
+         */
+        post: operations["reopenAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/assignments/{id}/attempts": {
@@ -1287,7 +1333,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -1580,6 +1626,8 @@ export interface components {
         };
         ClassMember: {
             userId: components["schemas"]["Uuid"];
+            /** @description The same figures G-07 shows, so G-06's roster carries "Bài đã nộp" and "Điểm TB". */
+            stats: components["schemas"]["StudentStats"];
             fullName: string;
             /** Format: email */
             email: string;
@@ -1595,6 +1643,18 @@ export interface components {
              *     current one" (D-10).
              */
             joinCodeHint?: string | null;
+        };
+        /**
+         * @description A class as its student sees it (S-10): the name, who teaches it and
+         *     when they joined. Never the join code or the roster.
+         */
+        MyClass: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            description: string | null;
+            /** @description The teacher's display name, null only while no admin account exists. */
+            teacherName: string | null;
+            joinedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
         MediaKind: "image" | "audio";
@@ -1653,6 +1713,18 @@ export interface components {
             draft: number;
             published: number;
             archived: number;
+        };
+        /**
+         * @description How many assignments each derived status holds right now, ignoring
+         *     the status filter itself, so the list's tabs carry counts the way
+         *     A-03's do.
+         */
+        AssignmentStatusFacets: {
+            all: number;
+            draft: number;
+            scheduled: number;
+            open: number;
+            closed: number;
         };
         /**
          * @description How many questions each type holds for the CURRENT tag and search,
@@ -3247,6 +3319,29 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    duplicateQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuestion"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     listMedia: {
         parameters: {
             query?: {
@@ -3406,6 +3501,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["Assignment"][];
+                        facets: components["schemas"]["AssignmentStatusFacets"];
                     };
                 };
             };
@@ -3495,6 +3591,46 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `VERSION_LOCKED` — attempts exist, so the version cannot be changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reopenAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    closesAt: components["schemas"]["Timestamp"];
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Reopened. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ASSIGNMENT_NOT_CLOSED` — only a closed assignment has anything to reopen. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4330,14 +4466,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description `joinCode` is never populated on this response — it is admin-only. */
+            /** @description The student's own view of each class; never a join code. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        items: components["schemas"]["Class"][];
+                        items: components["schemas"]["MyClass"][];
                     };
                 };
             };

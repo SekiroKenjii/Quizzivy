@@ -10,9 +10,11 @@ import {
 import { useTranslation } from "react-i18next";
 import type { RefObject } from "react";
 import type { TFunction } from "i18next";
-import { useNavigate, useParams } from "react-router";
+import { useBlocker, useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Eye, History, SlidersHorizontal } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +36,7 @@ import {
   type PublishViolation,
   type Test,
 } from "@/features/tests/api";
+import { DraftPreviewDialog } from "@/features/tests/components/DraftPreviewDialog";
 import { PublishDialog } from "@/features/tests/components/PublishDialog";
 import { AutosaveStatusLabel } from "@/features/tests/components/AutosaveStatusLabel";
 import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
@@ -67,23 +70,14 @@ export default function TestBuilderPage() {
   });
 
   if (test.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={8} />;
   }
 
   if (test.isError) {
     return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t("builder.loadFailed")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void test.refetch()}>
-          {t("common.retry")}
-        </Button>
-      </div>
+      <LoadError error={test.error} onRetry={() => void test.refetch()}>
+        {t("builder.loadFailed")}
+      </LoadError>
     );
   }
 
@@ -107,6 +101,7 @@ function Builder({ test }: { test: Test }) {
   const [picking, setPicking] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   const flushQuestion = useRef<(() => Promise<void>) | null>(null);
   const retryQuestion = useRef<(() => void) | null>(null);
@@ -255,6 +250,26 @@ function Builder({ test }: { test: Test }) {
 
   const saveStatus = mergeAutosave([outline.status, questionStatus]);
   const stale = saveStatus.kind === "stale";
+  // Typed but not yet on the server: leaving now would lose it (F-14).
+  const unsaved =
+    saveStatus.kind === "dirty" ||
+    saveStatus.kind === "saving" ||
+    saveStatus.kind === "failed";
+  const leaving = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      unsaved && currentLocation.pathname !== nextLocation.pathname,
+  );
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsaved]);
+
+  const draftQuestions = questionIds.flatMap((questionId) => {
+    const found = loaded[questionIds.indexOf(questionId)]?.data;
+    return found ? [found] : [];
+  });
 
   return (
     <div className="-m-6 flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden">
@@ -299,7 +314,7 @@ function Builder({ test }: { test: Test }) {
             size="sm"
             className="text-muted-foreground"
             aria-label={t("builder.versions")}
-            onClick={() => void navigate(`/admin/tests/${test.id}`)}
+            onClick={() => void navigate(`/admin/tests/${test.id}#versions`)}
           >
             <History aria-hidden="true" />
             <span className="hidden lg:inline">{t("builder.versions")}</span>
@@ -308,7 +323,7 @@ function Builder({ test }: { test: Test }) {
             variant="outline"
             size="sm"
             aria-label={t("builder.previewAsStudent")}
-            onClick={() => void navigate(`/admin/tests/${test.id}`)}
+            onClick={() => setPreviewing(true)}
           >
             <Eye aria-hidden="true" />
             <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
@@ -403,6 +418,23 @@ function Builder({ test }: { test: Test }) {
           setSelectedId(questionId);
           setViolations(null);
         }}
+      />
+
+      <DraftPreviewDialog
+        open={previewing}
+        questions={draftQuestions}
+        onOpenChange={setPreviewing}
+      />
+
+      <ConfirmDialog
+        open={leaving.state === "blocked"}
+        onOpenChange={(open) => !open && leaving.reset?.()}
+        title={t("builder.leaveTitle")}
+        description={t("builder.leaveBody")}
+        confirmLabel={t("builder.leave")}
+        cancelLabel={t("builder.stay")}
+        destructive
+        onConfirm={() => leaving.proceed?.()}
       />
     </div>
   );

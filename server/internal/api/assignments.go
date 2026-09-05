@@ -32,12 +32,20 @@ func (s *Server) ListAssignments(ctx context.Context, request openapi.ListAssign
 	if err != nil {
 		return nil, err
 	}
+	facets, err := s.Deps.Assignments.Facets(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	out := openapi.ListAssignments200JSONResponse{
 		Items:    make([]openapi.Assignment, len(found)),
 		Page:     page.Number,
 		PageSize: page.Size,
 		Total:    page.Total,
+		Facets: openapi.AssignmentStatusFacets{
+			All: facets.All, Draft: facets.Draft, Scheduled: facets.Scheduled,
+			Open: facets.Open, Closed: facets.Closed,
+		},
 	}
 	for i, a := range found {
 		out.Items[i] = toAPIAssignment(a)
@@ -183,6 +191,43 @@ func (s *Server) UpdateAssignment(ctx context.Context, request openapi.UpdateAss
 		return nil, err
 	}
 	return openapi.UpdateAssignment200JSONResponse(toAPIAssignment(a)), nil
+}
+
+// ReopenAssignment is G-09's "Gia hạn cho tất cả".
+func (s *Server) ReopenAssignment(ctx context.Context, request openapi.ReopenAssignmentRequestObject) (openapi.ReopenAssignmentResponseObject, error) {
+	if s.Deps.Assignments == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := assignmentRequest(ctx, request.Id.String())
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	a, err := s.Deps.Assignments.Reopen(ctx, req, request.Body.ClosesAt, request.Body.Reason, time.Now())
+	switch {
+	case err == nil:
+	case errors.Is(err, assignments.ErrBlankReason):
+		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			fieldError(ctx, "reason", "Hãy ghi lý do mở lại."))}, nil
+	case errors.Is(err, assignments.ErrClosesInPast):
+		return openapi.ReopenAssignment400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			fieldError(ctx, "closesAt", "Thời điểm đóng mới phải ở phía trước."))}, nil
+	case errors.Is(err, assignments.ErrNotFound):
+		return openapi.ReopenAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			notFound(ctx, "Không tìm thấy bài giao."))}, nil
+	case errors.Is(err, assignments.ErrNotClosed):
+		return openapi.ReopenAssignment409JSONResponse(authError(ctx, openapi.ASSIGNMENTNOTCLOSED,
+			"Bài giao chưa đóng nên không có gì để mở lại.")), nil
+	default:
+		return nil, err
+	}
+	return openapi.ReopenAssignment200JSONResponse(toAPIAssignment(a)), nil
+}
+
+func fieldError(ctx context.Context, field, message string) openapi.ErrorResponse {
+	resp := authError(ctx, openapi.VALIDATIONFAILED, message)
+	resp.Error.Details = &map[string]interface{}{field: message}
+	return resp
 }
 
 func assignmentRequest(ctx context.Context, id string) (assignments.Request, bool) {

@@ -21,7 +21,7 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Class, paging.Page,
 	return s.store.List(ctx, in)
 }
 
-func (s *Service) ListMine(ctx context.Context, userID string) ([]Class, error) {
+func (s *Service) ListMine(ctx context.Context, userID string) ([]MyClass, error) {
 	return s.store.ListMine(ctx, userID)
 }
 

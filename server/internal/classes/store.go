@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/audit"
+	"quizzivy/internal/students"
 )
 
 var ErrNotFound = errors.New("classes: not found")
@@ -84,6 +85,17 @@ type Member struct {
 	JoinedVia    string
 	JoinedAt     time.Time
 	JoinCodeHint *string
+	// The same figures G-07 shows, so the roster reads "Bài đã nộp" and "Điểm TB" (G-06).
+	Stats students.Stats
+}
+
+// MyClass is a class as its student sees it (S-10): no code, no roster.
+type MyClass struct {
+	ID          string
+	Name        string
+	Description *string
+	TeacherName *string
+	JoinedAt    time.Time
 }
 
 // The same derivation as the assignments list, so both screens agree on "open".
@@ -218,11 +230,16 @@ func (s *Store) Facets(ctx context.Context, query string) (Facets, error) {
 }
 
 // ListMine is §9's /app/classes: the classes this student belongs to, most
-// recently joined first. The join code is never populated -- its hint is the
-// teacher's, and a student who can read four characters of it has four
-// characters more than they should.
-func (s *Store) ListMine(ctx context.Context, userID string) ([]Class, error) {
-	rows, err := s.pool.Query(ctx, classProjection+`
+// recently joined first, in the student's own shape -- never the join code,
+// whose hint is the teacher's, and never the roster. The teacher is the
+// practice's one admin account (§1.1).
+func (s *Store) ListMine(ctx context.Context, userID string) ([]MyClass, error) {
+	rows, err := s.pool.Query(ctx, `
+	SELECT c.id::text, c.name, c.description, me.joined_at,
+	       (SELECT t.full_name FROM app.users t
+	         WHERE t.role = 'admin' AND t.disabled_at IS NULL
+	         ORDER BY t.created_at, t.id LIMIT 1)
+	  FROM app.classes c
 	  JOIN app.class_members me ON me.class_id = c.id AND me.user_id = $1::uuid
 	  JOIN app.users student ON student.id = me.user_id AND student.disabled_at IS NULL
 	 WHERE c.archived_at IS NULL
@@ -232,13 +249,12 @@ func (s *Store) ListMine(ctx context.Context, userID string) ([]Class, error) {
 	}
 	defer rows.Close()
 
-	var out []Class
+	var out []MyClass
 	for rows.Next() {
-		c, err := scanClass(rows)
-		if err != nil {
+		var c MyClass
+		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.JoinedAt, &c.TeacherName); err != nil {
 			return nil, fmt.Errorf("list my classes: %w", err)
 		}
-		c.JoinCode = nil
 		out = append(out, c)
 	}
 	return out, rows.Err()
@@ -272,8 +288,12 @@ func (s *Store) Members(ctx context.Context, classID string, in MembersInput) ([
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.pool.Query(ctx, `
-		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint`+from+
+	rows, err := s.pool.Query(ctx, memberColumns+`
+		  FROM app.class_members m
+		  JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
+		  LEFT JOIN app.class_join_codes jc ON jc.id = m.join_code_id
+		  `+students.StatsJoins+`
+		 WHERE `+strings.Join(where, "\n		   AND ")+
 		fmt.Sprintf(`
 		 -- u.id breaks joined_at ties, or a row lands on two pages.
 		 ORDER BY m.joined_at DESC, u.id DESC
@@ -285,13 +305,30 @@ func (s *Store) Members(ctx context.Context, classID string, in MembersInput) ([
 
 	out := make([]Member, 0, limit)
 	for rows.Next() {
-		var m Member
-		if err := rows.Scan(&m.UserID, &m.FullName, &m.Email, &m.JoinedVia, &m.JoinedAt, &m.JoinCodeHint); err != nil {
+		m, err := scanMember(rows)
+		if err != nil {
 			return nil, paging.Page{}, fmt.Errorf("list members of %s: %w", classID, err)
 		}
 		out = append(out, m)
 	}
 	return out, page, rows.Err()
+}
+
+// memberColumns is one roster row plus the G-07 figures, read back by scanMember.
+const memberColumns = `
+		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint,
+		       ` + students.StatsColumns
+
+func scanMember(row pgx.Row) (Member, error) {
+	var m Member
+	var stats students.StatsScanner
+	targets := append([]any{&m.UserID, &m.FullName, &m.Email, &m.JoinedVia, &m.JoinedAt, &m.JoinCodeHint},
+		stats.Targets()...)
+	if err := row.Scan(targets...); err != nil {
+		return Member{}, err
+	}
+	m.Stats = stats.Stats()
+	return m, nil
 }
 
 type RemoveMemberInput struct {
@@ -543,15 +580,14 @@ func (s *Store) AddMember(ctx context.Context, in AddMemberInput) (Member, error
 		}
 	}
 
-	var m Member
-	if err := tx.QueryRow(ctx, `
-		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint
+	m, err := scanMember(tx.QueryRow(ctx, memberColumns+`
 		  FROM app.class_members m
 		  JOIN app.users u ON u.id = m.user_id
 		  LEFT JOIN app.class_join_codes jc ON jc.id = m.join_code_id
+		  `+students.StatsJoins+`
 		 WHERE m.class_id = $1::uuid AND m.user_id = $2::uuid`,
-		in.ClassID, in.UserID).
-		Scan(&m.UserID, &m.FullName, &m.Email, &m.JoinedVia, &m.JoinedAt, &m.JoinCodeHint); err != nil {
+		in.ClassID, in.UserID))
+	if err != nil {
 		return Member{}, fmt.Errorf("add member: read back: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {

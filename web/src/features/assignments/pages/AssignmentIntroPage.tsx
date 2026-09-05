@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { Card } from "@/components/ui/card";
 import { enterFullscreen } from "@/features/integrity/fullscreen";
 import { startOrResumeAttempt } from "@/features/take-test/api";
@@ -36,22 +37,13 @@ export default function AssignmentIntroPage() {
   });
 
   if (detail.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={6} />;
   }
   if (detail.isError) {
     return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t("student.loadFailed")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void detail.refetch()}>
-          {t("common.retry")}
-        </Button>
-      </div>
+      <LoadError error={detail.error} onRetry={() => void detail.refetch()}>
+        {t("student.loadFailed")}
+      </LoadError>
     );
   }
 

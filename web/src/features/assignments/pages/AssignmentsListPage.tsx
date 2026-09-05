@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Flag, Plus } from "lucide-react";
+import { ArrowUpRight, Flag, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { RowMenu } from "@/components/shared/RowMenu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -65,6 +67,7 @@ export default function AssignmentsListPage() {
   });
 
   const items = assignments.data?.items ?? [];
+  const facets = assignments.data?.facets;
 
   return (
     <div className="space-y-4">
@@ -72,8 +75,8 @@ export default function AssignmentsListPage() {
         variant="title"
         title={t("nav.assignments")}
         subtitle={
-          assignments.isSuccess
-            ? t("assignments.summary", { count: items.length })
+          facets
+            ? t("assignments.summary", { count: facets.all, open: facets.open })
             : " "
         }
         actions={
@@ -92,6 +95,11 @@ export default function AssignmentsListPage() {
           {TABS.map((value) => (
             <TabsTrigger key={value} value={value}>
               {value === "all" ? t("assignments.all") : t(`status.assignment.${value}`)}
+              {facets ? (
+                <span className="text-muted-foreground ml-1 tabular-nums">
+                  {facets[value]}
+                </span>
+              ) : null}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -129,6 +137,9 @@ export default function AssignmentsListPage() {
                   <TableHead className="text-right">
                     {t("assignments.flagged")}
                   </TableHead>
+                  <TableHead className="w-10">
+                    <span className="sr-only">{t("common.actions")}</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -138,7 +149,6 @@ export default function AssignmentsListPage() {
                     assignment={assignment}
                     locale={locale}
                     now={now}
-                    onOpen={() => void navigate(`/admin/assignments/${assignment.id}`)}
                   />
                 ))}
               </TableBody>
@@ -162,29 +172,24 @@ function Row({
   assignment,
   locale,
   now,
-  onOpen,
 }: {
   assignment: Assignment;
   locale: Locale;
   now: Date;
-  onOpen: () => void;
 }) {
   const { t } = useTranslation();
   const status = statusAt(assignment, now);
   const submitted = assignment.submittedCount ?? 0;
   const total = assignment.targetCount ?? 0;
   const flagged = assignment.flaggedCount ?? 0;
+  const href = `/admin/assignments/${assignment.id}`;
 
   return (
     <TableRow>
       <TableCell>
-        <button
-          type="button"
-          className="truncate text-left font-medium"
-          onClick={onOpen}
-        >
+        <Link to={href} className="truncate font-medium hover:underline">
           {assignment.testTitle}
-        </button>
+        </Link>
         <span className="text-muted-foreground ml-2 text-xs tabular-nums">
           {t("tests.versionNumber", { n: assignment.testVersion })}
         </span>
@@ -216,6 +221,24 @@ function Row({
             {flagged}
           </span>
         )}
+      </TableCell>
+      <TableCell className="text-right">
+        <RowMenu>
+          <DropdownMenuItem asChild>
+            <Link to={href}>
+              <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
+              {t("assignments.rowOpen")}
+            </Link>
+          </DropdownMenuItem>
+          {status === "draft" || status === "scheduled" ? (
+            <DropdownMenuItem asChild>
+              <Link to={`${href}/edit`}>
+                <Pencil className="text-muted-foreground" aria-hidden="true" />
+                {t("assignments.detail.edit")}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+        </RowMenu>
       </TableCell>
     </TableRow>
   );

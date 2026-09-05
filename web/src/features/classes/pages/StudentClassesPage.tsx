@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { shortDate } from "@/lib/i18n/datetime";
 import { fetchMyClasses } from "../api";
 
 /** S-10's classes list: what the student is in, and the way into another. */
@@ -29,29 +31,34 @@ export default function StudentClassesPage() {
       </div>
 
       {classes.isPending ? (
-        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-          {t("common.loading")}
-        </p>
+        <ListSkeleton rows={3} />
       ) : classes.isError ? (
-        <div className="space-y-3">
-          <p role="alert" className="text-sm">
-            {t("student.loadFailed")}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => void classes.refetch()}>
-            {t("common.retry")}
-          </Button>
-        </div>
+        <LoadError error={classes.error} onRetry={() => void classes.refetch()}>
+          {t("student.loadFailed")}
+        </LoadError>
       ) : classes.data.items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm">{t("student.noClasses")}</p>
-          <Button asChild size="sm" className="mt-3">
-            <Link to="/join">{t("student.joinClass")}</Link>
-          </Button>
-        </div>
+        <EmptyState
+          action={
+            <Button asChild size="sm">
+              <Link to="/join">{t("student.joinClass")}</Link>
+            </Button>
+          }
+        >
+          {t("student.noClasses")}
+        </EmptyState>
       ) : (
         classes.data.items.map((c) => (
           <Card key={c.id} className="gap-0 p-4">
             <p className="text-sm font-medium">{c.name}</p>
+            {/* S-10's second line: who teaches it, and since when. */}
+            <p className="text-muted-foreground mt-1 text-xs">
+              {c.teacherName === null
+                ? t("student.joinedOn", { date: shortDate(c.joinedAt) })
+                : t("student.taughtBySince", {
+                    teacher: c.teacherName,
+                    date: shortDate(c.joinedAt),
+                  })}
+            </p>
             {c.description && (
               <p className="text-muted-foreground mt-1 text-xs">{c.description}</p>
             )}

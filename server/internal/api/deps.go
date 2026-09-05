@@ -54,7 +54,7 @@ type JoinService interface {
 type ClassesService interface {
 	Get(ctx context.Context, classID string) (classes.Class, error)
 	List(ctx context.Context, in classes.ListInput) ([]classes.Class, paging.Page, error)
-	ListMine(ctx context.Context, userID string) ([]classes.Class, error)
+	ListMine(ctx context.Context, userID string) ([]classes.MyClass, error)
 	Members(ctx context.Context, classID string, in classes.MembersInput) ([]classes.Member, paging.Page, error)
 	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
 	Facets(ctx context.Context, query string) (classes.Facets, error)
@@ -84,6 +84,7 @@ type QuestionsService interface {
 	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	Delete(ctx context.Context, req questions.WriteRequest) error
+	Duplicate(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
 	AddTags(ctx context.Context, ids []string, tags []string) (int, error)
 	Tags(ctx context.Context, in questions.ListInput) ([]string, error)
 	Counts(ctx context.Context, in questions.ListInput) (int, int, error)
@@ -110,6 +111,8 @@ type AssignmentsService interface {
 	StudentDetail(ctx context.Context, id, studentID string) (assignments.StudentDetail, error)
 	Create(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
 	Update(ctx context.Context, req assignments.Request, in assignments.WriteInput) (assignments.Assignment, error)
+	Facets(ctx context.Context) (assignments.Facets, error)
+	Reopen(ctx context.Context, req assignments.Request, closesAt time.Time, reason string, now time.Time) (assignments.Assignment, error)
 }
 
 // AttemptsService is the slice of internal/attempts the handlers use.

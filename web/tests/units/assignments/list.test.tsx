@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
@@ -61,9 +62,15 @@ function serve(items: ReturnType<typeof assignment>[]) {
       contractJson("/admin/assignments", "get", 200, {
         page: 1,
         pageSize: 50,
-        total: 0,
+        total: items.length,
         items,
-        nextCursor: null,
+        facets: {
+          all: items.length,
+          draft: 1,
+          scheduled: 0,
+          open: items.length,
+          closed: 2,
+        },
       }),
     ),
   );
@@ -109,6 +116,40 @@ describe("the assignments list", () => {
     expect(table.getByText("v3")).toBeInTheDocument();
     expect(table.getByText("12/19")).toBeInTheDocument();
     expect(table.getByText("Đang mở")).toBeInTheDocument();
+  });
+
+  it("counts the whole list in the subtitle and on every tab, as A-03 does", async () => {
+    serve([assignment()]);
+    renderList();
+    await rows();
+
+    expect(screen.getByText("1 bài giao · 1 đang mở")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Tất cả/ })).toHaveTextContent(/1$/);
+    expect(screen.getByRole("tab", { name: /^Bản nháp/ })).toHaveTextContent(/1$/);
+    expect(screen.getByRole("tab", { name: /^Đã đóng/ })).toHaveTextContent(/2$/);
+  });
+
+  it("opens from the title as a link, and edits from the row menu while editable", async () => {
+    serve([assignment({ publishedAt: null, status: "draft" })]);
+    renderList();
+
+    const table = await rows();
+    expect(table.getByRole("link", { name: "Unit 5" })).toHaveAttribute(
+      "href",
+      "/admin/assignments/018f0000-0000-7000-8000-0000000000d1",
+    );
+    const user = userEvent.setup();
+    await user.click(table.getByRole("button", { name: "Thao tác" }));
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent?.trim()),
+    ).toEqual(["Mở", "Chỉnh sửa"]);
+    expect(within(menu).getByRole("menuitem", { name: "Chỉnh sửa" })).toHaveAttribute(
+      "href",
+      "/admin/assignments/018f0000-0000-7000-8000-0000000000d1/edit",
+    );
   });
 
   // The server sent status "open"; the window says it closed 14 hours ago.

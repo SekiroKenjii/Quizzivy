@@ -22,6 +22,7 @@ export function ConfirmDialog({
   description,
   children,
   confirmLabel,
+  cancelLabel,
   destructive = false,
   disabled = false,
   pending = false,
@@ -34,6 +35,7 @@ export function ConfirmDialog({
   description?: ReactNode;
   children?: ReactNode;
   confirmLabel: string;
+  cancelLabel?: string;
   destructive?: boolean;
   disabled?: boolean;
   pending?: boolean;
@@ -68,7 +70,7 @@ export function ConfirmDialog({
                 className="flex-1"
                 onClick={() => onOpenChange(false)}
               >
-                {t("common.cancel")}
+                {cancelLabel ?? t("common.cancel")}
               </Button>
               <Button
                 variant={destructive ? "destructive" : "default"}

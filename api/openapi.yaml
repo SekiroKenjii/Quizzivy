@@ -211,6 +211,7 @@ components:
         - MEDIA_UNREADABLE
         # attempts
         - ASSIGNMENT_NOT_OPEN
+        - ASSIGNMENT_NOT_CLOSED
         - ATTEMPT_LIMIT_REACHED
         - ATTEMPT_CLOSED
         - ATTEMPT_IN_PROGRESS
@@ -612,10 +613,13 @@ components:
 
     ClassMember:
       type: object
-      required: [userId, fullName, email, joinedVia, joinedAt]
+      required: [userId, fullName, email, joinedVia, joinedAt, stats]
       additionalProperties: false
       properties:
         userId: { $ref: '#/components/schemas/Uuid' }
+        stats:
+          $ref: '#/components/schemas/StudentStats'
+          description: The same figures G-07 shows, so G-06's roster carries "Bài đã nộp" and "Điểm TB".
         fullName: { type: string }
         email: { type: string, format: email }
         joinedVia:
@@ -629,6 +633,22 @@ components:
             Which code this member used, if any. After a rotation this
             distinguishes "joined via the code that leaked" from "joined via the
             current one" (D-10).
+
+    MyClass:
+      type: object
+      description: |
+        A class as its student sees it (S-10): the name, who teaches it and
+        when they joined. Never the join code or the roster.
+      required: [id, name, description, teacherName, joinedAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        teacherName:
+          type: [string, 'null']
+          description: The teacher's display name, null only while no admin account exists.
+        joinedAt: { $ref: '#/components/schemas/Timestamp' }
 
     # ------------------------------------------------------------------ media
 
@@ -747,6 +767,21 @@ components:
         draft: { type: integer, minimum: 0 }
         published: { type: integer, minimum: 0 }
         archived: { type: integer, minimum: 0 }
+
+    AssignmentStatusFacets:
+      type: object
+      description: |
+        How many assignments each derived status holds right now, ignoring
+        the status filter itself, so the list's tabs carry counts the way
+        A-03's do.
+      required: [all, draft, scheduled, open, closed]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        draft: { type: integer, minimum: 0 }
+        scheduled: { type: integer, minimum: 0 }
+        open: { type: integer, minimum: 0 }
+        closed: { type: integer, minimum: 0 }
 
     QuestionTypeFacets:
       type: object
@@ -2376,6 +2411,22 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  /admin/questions/{id}/duplicate:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: duplicateQuestion
+      tags: [admin-questions]
+      description: |
+        A-06a's "Nhân bản": copies the question, its options, blanks and
+        tags into a new bank row that no test references yet.
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   # =============================================================== admin/media
 
   /admin/media:
@@ -2523,9 +2574,10 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/Assignment' } }
+                      facets: { $ref: '#/components/schemas/AssignmentStatusFacets' }
     post:
       operationId: createAssignment
       tags: [admin-assignments]
@@ -2584,6 +2636,41 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`VERSION_LOCKED` — attempts exist, so the version cannot be changed.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/assignments/{id}/reopen:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: reopenAssignment
+      tags: [admin-assignments]
+      description: |
+        G-09's "Gia hạn cho tất cả": a closed assignment gets a later
+        `closesAt` and its early close, if any, is lifted, so every student
+        with attempts left can go back in. Only a closed assignment can be
+        reopened, and only to a moment still ahead. Audited with the reason.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [closesAt, reason]
+              additionalProperties: false
+              properties:
+                closesAt: { $ref: '#/components/schemas/Timestamp' }
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: Reopened.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ASSIGNMENT_NOT_CLOSED` — only a closed assignment has anything to reopen.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -3315,7 +3402,7 @@ paths:
       tags: [student]
       responses:
         '200':
-          description: '`joinCode` is never populated on this response — it is admin-only.'
+          description: The student's own view of each class; never a join code.
           content:
             application/json:
               schema:
@@ -3323,7 +3410,7 @@ paths:
                 required: [items]
                 additionalProperties: false
                 properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/Class' } }
+                  items: { type: array, items: { $ref: '#/components/schemas/MyClass' } }
 
   /app/classes/join:
     post:

@@ -2,6 +2,7 @@ import { api } from "@/lib/api/client";
 import type { components, operations } from "@/lib/api/schema";
 
 export type Class = components["schemas"]["Class"];
+export type MyClass = components["schemas"]["MyClass"];
 export type ClassMember = components["schemas"]["ClassMember"];
 export type ClassFacets = components["schemas"]["ClassFacets"];
 export type ClassStatus = "active" | "joinable" | "archived" | "all";
