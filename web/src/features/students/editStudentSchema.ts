@@ -9,8 +9,8 @@ export const editStudentSchema = z.object({
   email: z
     .string()
     .trim()
-    .email("students.errors.emailInvalid")
-    .max(254, "students.errors.emailInvalid"),
+    .max(254, "students.errors.emailInvalid")
+    .pipe(z.email("students.errors.emailInvalid")),
 });
 
 export type EditStudentValues = z.infer<typeof editStudentSchema>;

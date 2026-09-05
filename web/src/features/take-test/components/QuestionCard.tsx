@@ -12,11 +12,11 @@ import type { StudentQuestion } from "../api";
 export function QuestionCard({
   question,
   onAudioExpired,
-}: {
+}: Readonly<{
   question: StudentQuestion;
   /** Refetches the attempt when a signed URL has expired (§11.2). */
   onAudioExpired: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const answer = useTakeTestStore((s) => s.answers[question.id]);
   const setAnswer = useTakeTestStore((s) => s.setAnswer);

@@ -308,7 +308,7 @@ function Actions({
   onClose,
   onReopen,
   onRefresh,
-}: {
+}: Readonly<{
   status: AssignmentStatus;
   hasTargets: boolean;
   targetCount: number;
@@ -320,7 +320,7 @@ function Actions({
   onClose: () => void;
   onReopen: (choice: ReopenChoice) => void;
   onRefresh: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const edit = (
     <Button variant="outline" size="sm" asChild>
@@ -393,7 +393,7 @@ function Actions({
   }
 }
 
-function Note({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+function Note({ icon, children }: Readonly<{ icon: ReactNode; children: ReactNode }>) {
   return (
     <div className="bg-muted/40 flex items-start gap-2 rounded-md px-3 py-2.5">
       {icon}
@@ -407,12 +407,12 @@ function ResultsStrip({
   version,
   panelOpen,
   onTogglePanel,
-}: {
+}: Readonly<{
   a: Assignment;
   version: TestVersion | undefined;
   panelOpen: boolean;
   onTogglePanel: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const submitted = a.submittedCount ?? 0;
   const total = a.targetCount ?? 0;
@@ -490,11 +490,11 @@ function Stat({
   label,
   value,
   hint,
-}: {
+}: Readonly<{
   label: string;
   value: ReactNode;
   hint: string | null;
-}) {
+}>) {
   return (
     <div>
       <p className="text-muted-foreground text-xs">{label}</p>
@@ -510,11 +510,11 @@ function TestCard({
   a,
   version,
   closed,
-}: {
+}: Readonly<{
   a: Assignment;
   version: TestVersion | undefined;
   closed: boolean;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <Card className="md:col-span-2">
@@ -558,7 +558,7 @@ function TestCard({
   );
 }
 
-function TargetsCard({ a }: { a: Assignment }) {
+function TargetsCard({ a }: Readonly<{ a: Assignment }>) {
   const { t } = useTranslation();
   const { classes, students } = a.targets;
   const reached = classes.reduce((sum, c) => sum + c.studentCount, 0) + students.length;
@@ -619,7 +619,7 @@ function TargetsCard({ a }: { a: Assignment }) {
   );
 }
 
-function TimeCard({ a }: { a: Assignment }) {
+function TimeCard({ a }: Readonly<{ a: Assignment }>) {
   const { t } = useTranslation();
   return (
     <Card>
@@ -652,7 +652,7 @@ function TimeCard({ a }: { a: Assignment }) {
   );
 }
 
-function RulesCard({ a }: { a: Assignment }) {
+function RulesCard({ a }: Readonly<{ a: Assignment }>) {
   const { t } = useTranslation();
   const { integrity } = a;
   return (
@@ -706,7 +706,7 @@ function RulesCard({ a }: { a: Assignment }) {
   );
 }
 
-function ReviewCard({ a }: { a: Assignment }) {
+function ReviewCard({ a }: Readonly<{ a: Assignment }>) {
   const { t } = useTranslation();
   const { review } = a;
   return (
@@ -730,7 +730,7 @@ function ReviewCard({ a }: { a: Assignment }) {
   );
 }
 
-function Flag({ on, children }: { on: boolean; children: string }) {
+function Flag({ on, children }: Readonly<{ on: boolean; children: string }>) {
   return (
     <div
       className={
@@ -747,7 +747,7 @@ function Flag({ on, children }: { on: boolean; children: string }) {
   );
 }
 
-function Line({ label, value }: { label: string; value: string }) {
+function Line({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex justify-between gap-3">
       <span className="text-muted-foreground">{label}</span>

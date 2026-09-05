@@ -19,11 +19,11 @@ export function ReopenMenu({
   count,
   todayPossible,
   onChoose,
-}: {
+}: Readonly<{
   count: number;
   todayPossible: boolean;
   onChoose: (choice: ReopenChoice) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <DropdownMenu>

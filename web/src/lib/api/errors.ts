@@ -41,6 +41,11 @@ export class ApiError extends Error {
  * The per-field reasons behind a validation failure, if the response carried
  * any.
  */
+/** What to show for a failed call: the server's own message, else the caller's fallback. */
+export function failureMessage(cause: unknown, fallback: string): string {
+  return cause instanceof ApiError ? cause.message : fallback;
+}
+
 export function fieldMessages(cause: unknown): string[] {
   if (!(cause instanceof ApiError) || !cause.details) return [];
   return Object.values(cause.details).filter(

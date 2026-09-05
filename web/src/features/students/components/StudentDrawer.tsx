@@ -21,16 +21,20 @@ import { removeMember } from "@/features/classes/api";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDate } from "@/lib/i18n/datetime";
-import { ApiError } from "@/lib/api/errors";
+import { failureMessage } from "@/lib/api/errors";
+import type { TFunction } from "i18next";
+
+type Confirming =
+  { kind: "disable" } | { kind: "remove"; classId: string; className: string } | null;
 
 /** G-07's detail panel. */
 export function StudentDrawer({
   student,
   onClose,
-}: {
+}: Readonly<{
   student: Student;
   onClose: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [temporary, setTemporary] = useState<string | null>(null);
@@ -47,9 +51,7 @@ export function StudentDrawer({
   }, [onClose]);
 
   const [editing, setEditing] = useState(false);
-  const [confirming, setConfirming] = useState<
-    { kind: "disable" } | { kind: "remove"; classId: string; className: string } | null
-  >(null);
+  const [confirming, setConfirming] = useState<Confirming>(null);
   const setDisabled = useMutation({
     mutationFn: (disabled: boolean) => updateStudent(student.id, { disabled }),
     onSuccess: async (_, disabled) => {
@@ -61,8 +63,7 @@ export function StudentDrawer({
       await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
     },
-    onError: (cause) =>
-      setError(cause instanceof ApiError ? cause.message : t("students.disableFailed")),
+    onError: (cause) => setError(failureMessage(cause, t("students.disableFailed"))),
   });
 
   const reset = useMutation({
@@ -72,8 +73,7 @@ export function StudentDrawer({
       setTemporary(result.temporaryPassword);
       await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
     },
-    onError: (cause) =>
-      setError(cause instanceof ApiError ? cause.message : t("students.resetFailed")),
+    onError: (cause) => setError(failureMessage(cause, t("students.resetFailed"))),
   });
 
   const remove = useMutation({
@@ -85,8 +85,7 @@ export function StudentDrawer({
       await invalidateClassMembership(queryClient, classId);
       await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
     },
-    onError: (cause) =>
-      setError(cause instanceof ApiError ? cause.message : t("students.removeFailed")),
+    onError: (cause) => setError(failureMessage(cause, t("students.removeFailed"))),
   });
 
   const percent = scorePercent(student.stats);
@@ -113,19 +112,7 @@ export function StudentDrawer({
               </Button>
             </p>
             <p className="text-muted-foreground truncate text-xs">{student.email}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {student.linkedProviders.includes("google") ? (
-                <Badge variant="outline">{t("students.google")}</Badge>
-              ) : null}
-              {student.hasPassword ? (
-                <Badge variant="outline">{t("students.password")}</Badge>
-              ) : null}
-              {student.disabledAt ? (
-                <Badge variant="outline" className="text-destructive-ink">
-                  {t("students.disabledBadge")}
-                </Badge>
-              ) : null}
-            </div>
+            <IdentityBadges student={student} />
           </div>
         )}
         <Button
@@ -229,7 +216,7 @@ export function StudentDrawer({
           {t("students.access")}
         </p>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          {student.disabledAt === null || student.disabledAt === undefined
+          {student.disabledAt === null
             ? t("students.enabledHint")
             : t("students.disabledHint")}
         </p>
@@ -256,24 +243,7 @@ export function StudentDrawer({
       <ConfirmDialog
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
-        title={
-          confirming?.kind === "remove"
-            ? t("students.removeConfirmTitle", {
-                name: student.fullName,
-                klass: confirming.className,
-              })
-            : t("students.disableConfirmTitle", { name: student.fullName })
-        }
-        description={t(
-          confirming?.kind === "remove"
-            ? "students.removeConfirmBody"
-            : "students.disableConfirmBody",
-        )}
-        confirmLabel={t(
-          confirming?.kind === "remove"
-            ? "students.removeFromClass"
-            : "students.disable",
-        )}
+        {...confirmCopy(confirming, student.fullName, t)}
         destructive
         pending={remove.isPending || setDisabled.isPending}
         onConfirm={() => {
@@ -285,11 +255,47 @@ export function StudentDrawer({
   );
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+function Tile({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="rounded-lg border p-3">
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className="text-lg font-semibold tabular-nums">{value}</p>
     </div>
   );
+}
+
+function IdentityBadges({ student }: Readonly<{ student: Student }>) {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {student.linkedProviders.includes("google") && (
+        <Badge variant="outline">{t("students.google")}</Badge>
+      )}
+      {student.hasPassword && <Badge variant="outline">{t("students.password")}</Badge>}
+      {student.disabledAt && (
+        <Badge variant="outline" className="text-destructive-ink">
+          {t("students.disabledBadge")}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+function confirmCopy(
+  confirming: Confirming,
+  name: string,
+  t: TFunction,
+): { title: string; description: string; confirmLabel: string } {
+  if (confirming?.kind === "remove") {
+    return {
+      title: t("students.removeConfirmTitle", { name, klass: confirming.className }),
+      description: t("students.removeConfirmBody"),
+      confirmLabel: t("students.removeFromClass"),
+    };
+  }
+  return {
+    title: t("students.disableConfirmTitle", { name }),
+    description: t("students.disableConfirmBody"),
+    confirmLabel: t("students.disable"),
+  };
 }

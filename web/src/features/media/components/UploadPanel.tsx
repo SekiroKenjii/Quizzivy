@@ -33,7 +33,7 @@ type State =
   | { status: "error"; message: string };
 
 /** The drop target for §11.1's audio uploads, and the progress it reports. */
-export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
+export function UploadPanel({ ref, onUploaded }: Readonly<UploadPanelProps>) {
   const { t, i18n } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);

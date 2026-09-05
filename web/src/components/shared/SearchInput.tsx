@@ -8,12 +8,12 @@ export function SearchInput({
   onChange,
   placeholder,
   className,
-}: {
+}: Readonly<{
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   className?: string;
-}) {
+}>) {
   return (
     <div className={cn("relative w-72", className)}>
       <Search

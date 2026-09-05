@@ -10,10 +10,10 @@ import { setAttemptNote } from "../api";
 export function TeacherNoteCard({
   attemptId,
   note,
-}: {
+}: Readonly<{
   attemptId: string;
   note: string | null;
-}) {
+}>) {
   const { t } = useTranslation();
   const [value, setValue] = useState(note ?? "");
   const autosave = useAutosave<string>({

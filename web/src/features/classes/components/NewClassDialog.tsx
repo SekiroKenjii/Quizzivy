@@ -26,10 +26,10 @@ import { ApiError, fieldMessages } from "@/lib/api/errors";
 export function NewClassDialog({
   open,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

@@ -97,7 +97,7 @@ func validatorUnderTest(t *testing.T) func(http.Handler) http.Handler {
 // so the sniffer that actually decides the type never ran.
 func TestUploadReachesHandlerWithOctetStreamPart(t *testing.T) {
 	var reached bool
-	h := validatorUnderTest(t)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := validatorUnderTest(t)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		reached = true
 		w.WriteHeader(http.StatusCreated)
 	}))
@@ -116,7 +116,7 @@ func TestUploadReachesHandlerWithOctetStreamPart(t *testing.T) {
 // which is what the temp-file path in media.Service exists to avoid.
 func TestUploadBodyIsNotBufferedByValidator(t *testing.T) {
 	const bodySize = 10 << 20 // the §11.1 cap
-	h := validatorUnderTest(t)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := validatorUnderTest(t)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	}))
 

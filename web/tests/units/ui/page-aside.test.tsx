@@ -6,7 +6,7 @@ import { PageAsideSlot, PageRailSlot } from "@/layouts/slots";
 import "@/lib/i18n";
 
 /** A shell the way AdminLayout builds one: slots either side of the scroll. */
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const [rail, setRail] = useState<HTMLDivElement | null>(null);
   return (
@@ -57,7 +57,7 @@ describe("the side panel", () => {
 
   // A-04: the builder's own row wins over the shell's.
   it("prefers the nearest slot", () => {
-    function Builder({ children }: { children: React.ReactNode }) {
+    function Builder({ children }: Readonly<{ children: React.ReactNode }>) {
       const [slot, setSlot] = useState<HTMLDivElement | null>(null);
       return (
         <div>

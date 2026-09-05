@@ -20,11 +20,11 @@ export function Pager({
   page,
   pageSize,
   total,
-}: {
+}: Readonly<{
   page: number;
   pageSize: number;
   total: number;
-}) {
+}>) {
   const { t } = useTranslation();
   const { search } = useLocation();
   const pageCount = pageCountOf(total, pageSize);

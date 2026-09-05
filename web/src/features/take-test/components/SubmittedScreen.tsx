@@ -14,13 +14,13 @@ export function SubmittedScreen({
   answered,
   total,
   onHome,
-}: {
+}: Readonly<{
   reason: SubmitReason;
   submittedAt: string;
   answered: number;
   total: number;
   onHome: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <main className="mx-auto w-full max-w-[720px] px-4 pt-16 text-center">

@@ -10,7 +10,7 @@ import { updateClass, type Class } from "@/features/classes/api";
 import { ApiError } from "@/lib/api/errors";
 
 /** G-06's "Lớp" card: the class's own name and description. */
-export function ClassSettingsCard({ klass }: { klass: Class }) {
+export function ClassSettingsCard({ klass }: Readonly<{ klass: Class }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [name, setName] = useState(klass.name);

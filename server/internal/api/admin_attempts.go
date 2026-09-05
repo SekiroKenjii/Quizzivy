@@ -147,29 +147,13 @@ func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAtt
 	if err != nil {
 		return nil, err
 	}
-
-	questions := make([]openapi.AdminQuestion, len(rv.Questions))
-	for i, q := range rv.Questions {
-		converted, err := s.toAPIReviewQuestion(ctx, q, rv.PublishedAt)
-		if err != nil {
-			return nil, err
-		}
-		questions[i] = converted
+	questions, err := s.toAPIReviewQuestions(ctx, rv)
+	if err != nil {
+		return nil, err
 	}
-	answers := make(map[string]reviewAnswer, len(rv.Answers))
-	for id, a := range rv.Answers {
-		entry := reviewAnswer{
-			AutoScore: a.AutoScore, ManualScore: a.ManualScore,
-			GraderComment: a.GraderComment, RequiresManual: ptr(a.RequiresManual),
-		}
-		if len(a.Payload) > 0 {
-			var decoded openapi.Answer
-			if err := json.Unmarshal(a.Payload, &decoded); err != nil {
-				return nil, fmt.Errorf("decode stored answer for %s: %w", id, err)
-			}
-			entry.Answer = &decoded
-		}
-		answers[id] = entry
+	answers, err := toAPIReviewAnswers(rv.Answers)
+	if err != nil {
+		return nil, err
 	}
 
 	attempt := toAPIAttempt(rv.Attempt)
@@ -187,6 +171,38 @@ func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAtt
 		Integrity:   toAPIIntegritySummary(timeline.Summary),
 		TeacherNote: rv.TeacherNote,
 	}, nil
+}
+
+func (s *Server) toAPIReviewQuestions(ctx context.Context, rv review.Review) ([]openapi.AdminQuestion, error) {
+	questions := make([]openapi.AdminQuestion, len(rv.Questions))
+	for i, q := range rv.Questions {
+		converted, err := s.toAPIReviewQuestion(ctx, q, rv.PublishedAt)
+		if err != nil {
+			return nil, err
+		}
+		questions[i] = converted
+	}
+	return questions, nil
+}
+
+// toAPIReviewAnswers decodes each stored payload once, beside its marks.
+func toAPIReviewAnswers(stored map[string]review.Answer) (map[string]reviewAnswer, error) {
+	answers := make(map[string]reviewAnswer, len(stored))
+	for id, a := range stored {
+		entry := reviewAnswer{
+			AutoScore: a.AutoScore, ManualScore: a.ManualScore,
+			GraderComment: a.GraderComment, RequiresManual: ptr(a.RequiresManual),
+		}
+		if len(a.Payload) > 0 {
+			var decoded openapi.Answer
+			if err := json.Unmarshal(a.Payload, &decoded); err != nil {
+				return nil, fmt.Errorf("decode stored answer for %s: %w", id, err)
+			}
+			entry.Answer = &decoded
+		}
+		answers[id] = entry
+	}
+	return answers, nil
 }
 
 // ListAnswersForQuestion is G-04's read: one question, every paper.
@@ -426,44 +442,70 @@ func (s *Server) ResetAttempt(ctx context.Context, request openapi.ResetAttemptR
 	if s.Deps.Attempts == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	req, ok := attemptRequest(ctx)
-	if !ok {
-		return nil, httpx.ErrNotImplemented
-	}
-	voided, err := s.Deps.Attempts.Reset(ctx, req, request.Id.String(), request.Body.Reason)
+	done, refused, err := s.intervene(ctx, request.Id.String(), request.Body.Reason, s.Deps.Attempts.Reset)
 	switch {
-	case errors.Is(err, attempts.ErrBlankReason):
-		return openapi.ResetAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(blankReason(ctx))}, nil
-	case errors.Is(err, attempts.ErrNotFound):
-		return openapi.ResetAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgAttemptNotFound))}, nil
-	case errors.Is(err, attempts.ErrAttemptVoided):
-		return openapi.ResetAttempt409JSONResponse(authError(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
 	case err != nil:
 		return nil, err
+	case refused == refusedBlankReason:
+		return openapi.ResetAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(blankReason(ctx))}, nil
+	case refused == refusedNotFound:
+		return openapi.ResetAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgAttemptNotFound))}, nil
+	case refused == refusedVoided:
+		return openapi.ResetAttempt409JSONResponse(authError(ctx, openapi.ATTEMPTVOIDED, msgAttemptVoided)), nil
 	}
-	return openapi.ResetAttempt200JSONResponse(toAPIAttempt(voided)), nil
+	return openapi.ResetAttempt200JSONResponse(toAPIAttempt(done)), nil
 }
 
 func (s *Server) VoidAttempt(ctx context.Context, request openapi.VoidAttemptRequestObject) (openapi.VoidAttemptResponseObject, error) {
 	if s.Deps.Attempts == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	req, ok := attemptRequest(ctx)
-	if !ok {
-		return nil, httpx.ErrNotImplemented
-	}
-	voided, err := s.Deps.Attempts.Void(ctx, req, request.Id.String(), request.Body.Reason)
+	done, refused, err := s.intervene(ctx, request.Id.String(), request.Body.Reason, s.Deps.Attempts.Void)
 	switch {
-	case errors.Is(err, attempts.ErrBlankReason):
-		return openapi.VoidAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(blankReason(ctx))}, nil
-	case errors.Is(err, attempts.ErrNotFound):
-		return openapi.VoidAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgAttemptNotFound))}, nil
-	case errors.Is(err, attempts.ErrAttemptVoided):
-		return openapi.VoidAttempt409JSONResponse(authError(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
 	case err != nil:
 		return nil, err
+	case refused == refusedBlankReason:
+		return openapi.VoidAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(blankReason(ctx))}, nil
+	case refused == refusedNotFound:
+		return openapi.VoidAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgAttemptNotFound))}, nil
+	case refused == refusedVoided:
+		return openapi.VoidAttempt409JSONResponse(authError(ctx, openapi.ATTEMPTVOIDED, msgAttemptVoided)), nil
 	}
-	return openapi.VoidAttempt200JSONResponse(toAPIAttempt(voided)), nil
+	return openapi.VoidAttempt200JSONResponse(toAPIAttempt(done)), nil
+}
+
+const msgAttemptVoided = "Lượt làm này đã bị huỷ."
+
+// interventionRefusal is why a reset or void was refused, for each handler
+// to map onto its own 4xx types.
+type interventionRefusal int
+
+const (
+	refusedNone interventionRefusal = iota
+	refusedBlankReason
+	refusedNotFound
+	refusedVoided
+)
+
+// intervene runs one of the reason-carrying interventions and sorts its refusals.
+func (s *Server) intervene(ctx context.Context, id, reason string,
+	act func(context.Context, attempts.Request, string, string) (attempts.Attempt, error)) (attempts.Attempt, interventionRefusal, error) {
+	req, ok := attemptRequest(ctx)
+	if !ok {
+		return attempts.Attempt{}, refusedNone, httpx.ErrNotImplemented
+	}
+	done, err := act(ctx, req, id, reason)
+	switch {
+	case errors.Is(err, attempts.ErrBlankReason):
+		return attempts.Attempt{}, refusedBlankReason, nil
+	case errors.Is(err, attempts.ErrNotFound):
+		return attempts.Attempt{}, refusedNotFound, nil
+	case errors.Is(err, attempts.ErrAttemptVoided):
+		return attempts.Attempt{}, refusedVoided, nil
+	case err != nil:
+		return attempts.Attempt{}, refusedNone, err
+	}
+	return done, refusedNone, nil
 }
 
 // GradeAttempt saves manual marks, per call rather than as one submit.

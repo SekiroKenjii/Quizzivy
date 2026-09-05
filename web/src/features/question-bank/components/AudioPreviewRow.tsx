@@ -14,7 +14,11 @@ interface AudioPreviewRowProps {
  * again, forty times, is the difference between a usable bank and an abandoned
  * one -- so the audio plays in the row it belongs to.
  */
-export function AudioPreviewRow({ asset, onRetry, onClose }: AudioPreviewRowProps) {
+export function AudioPreviewRow({
+  asset,
+  onRetry,
+  onClose,
+}: Readonly<AudioPreviewRowProps>) {
   const { t } = useTranslation();
 
   return (

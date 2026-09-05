@@ -8,6 +8,7 @@ import {
   propertyNames,
   resolveRef,
   type Json,
+  type Operation,
 } from "@tests/support/openapi";
 import { MAX_BYTES, MAX_DURATION_MS } from "@/features/media/limits";
 
@@ -30,6 +31,29 @@ const FORBIDDEN = [
 ] as const;
 const TRANSCRIPT_ALLOWED_AT = new Set(["/app/attempts/{id}/result"]);
 
+function leaksIn({ path, method, op }: Operation): string[] {
+  const leaks: string[] = [];
+  for (const status of successStatuses(op)) {
+    const schema = jsonResponseSchema(op, status);
+    if (!schema) continue;
+    const names = propertyNames(doc, schema);
+    for (const bad of FORBIDDEN) {
+      if (names.has(bad) && !allowedAt(bad, path)) {
+        leaks.push(`${method.toUpperCase()} ${path} ${status} exposes '${bad}'`);
+      }
+    }
+  }
+  return leaks;
+}
+
+function successStatuses(op: Json): string[] {
+  return Object.keys(op.responses ?? {}).filter((status) => status.startsWith("2"));
+}
+
+function allowedAt(bad: string, path: string): boolean {
+  return bad === "transcript" && TRANSCRIPT_ALLOWED_AT.has(path);
+}
+
 describe("references", () => {
   it("has no dangling $ref", () => {
     const dangling = [...new Set(collectRefs(doc))]
@@ -41,21 +65,7 @@ describe("references", () => {
 
 describe("§13.5: the student-payload boundary", () => {
   it("exposes no grading key from any /app/* success response", () => {
-    const leaks: string[] = [];
-    for (const { path, method, op } of ops) {
-      if (!path.startsWith("/app/")) continue;
-      for (const status of Object.keys(op.responses ?? {})) {
-        if (!status.startsWith("2")) continue;
-        const schema = jsonResponseSchema(op, status);
-        if (!schema) continue;
-        const names = propertyNames(doc, schema);
-        for (const bad of FORBIDDEN) {
-          if (!names.has(bad)) continue;
-          if (bad === "transcript" && TRANSCRIPT_ALLOWED_AT.has(path)) continue;
-          leaks.push(`${method.toUpperCase()} ${path} ${status} exposes '${bad}'`);
-        }
-      }
-    }
+    const leaks = ops.filter(({ path }) => path.startsWith("/app/")).flatMap(leaksIn);
     expect(leaks).toEqual([]);
   });
 

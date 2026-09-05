@@ -29,12 +29,13 @@ export function QuestionMediaField({
   value,
   onChange,
   onRefresh,
-}: QuestionMediaFieldProps) {
+}: Readonly<QuestionMediaFieldProps>) {
   const { t } = useTranslation();
   const uploader = useRef<UploadHandle>(null);
   const [picking, setPicking] = useState(false);
   const dragging = useFileDrop((files) => uploader.current?.dropped(files));
 
+  const retryProps = onRefresh ? { onRetry: onRefresh } : {};
   return (
     <div className="space-y-2">
       {value === null ? (
@@ -86,7 +87,7 @@ export function QuestionMediaField({
               label={value.originalFilename}
               durationMs={value.durationMs}
               size="sm"
-              {...(onRefresh ? { onRetry: onRefresh } : {})}
+              {...retryProps}
             />
           ) : null}
         </div>

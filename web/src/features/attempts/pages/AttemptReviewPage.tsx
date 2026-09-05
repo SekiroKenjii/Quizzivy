@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { Eye, Flag, FlagOff, Headphones, Rows3 } from "lucide-react";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
@@ -18,7 +23,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Timeline } from "@/features/integrity/components/Timeline";
 import { clockSpan } from "@/features/integrity/timeline";
 import { scoreText } from "@/features/assignments/studentTime";
-import { ApiError } from "@/lib/api/errors";
+import { failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatTime } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -55,15 +60,8 @@ export default function AttemptReviewPage() {
     queryFn: ({ signal }) => getAttemptForReview(id, signal),
   });
 
-  const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: reviewKey(id) });
-    if (review.data) {
-      await queryClient.invalidateQueries({
-        queryKey: monitorKey(review.data.attempt.assignmentId),
-      });
-    }
-    await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-  };
+  const invalidate = () =>
+    invalidateReview(queryClient, id, review.data?.attempt.assignmentId);
   const grade = useMutation({
     mutationFn: ({
       questionId,
@@ -78,18 +76,16 @@ export default function AttemptReviewPage() {
       setFailure(null);
       await invalidate();
     },
-    onError: (cause) =>
-      setFailure(cause instanceof ApiError ? cause.message : t("review.saveFailed")),
+    onError: (cause) => setFailure(failureMessage(cause, t("review.saveFailed"))),
   });
   const flag = useMutation({
     mutationFn: (flagged: boolean) => flagAttempt(id, { flagged }),
     onSuccess: async (_, flagged) => {
-      toast(t(flagged ? "review.flaggedToast" : "review.unflaggedToast"));
+      toast(t(flagToastKey(flagged)));
       await invalidate();
       await queryClient.invalidateQueries({ queryKey: ["admin-attempts"] });
     },
-    onError: (cause) =>
-      setFailure(cause instanceof ApiError ? cause.message : t("review.flagFailed")),
+    onError: (cause) => setFailure(failureMessage(cause, t("review.flagFailed"))),
   });
   const finish = useMutation({
     mutationFn: () => finishGrading(id),
@@ -97,17 +93,13 @@ export default function AttemptReviewPage() {
       toast(t("review.finished"));
       await invalidate();
     },
-    onError: (cause) =>
-      setFailure(cause instanceof ApiError ? cause.message : t("review.finishFailed")),
+    onError: (cause) => setFailure(failureMessage(cause, t("review.finishFailed"))),
   });
 
   const data = review.data;
   const questions = data?.questions ?? [];
-  const pendingIndexes = questions
-    .map((q, i) => (isPending(data?.answers[q.id]) ? i : -1))
-    .filter((i) => i >= 0);
-  // Until the teacher picks, the first thing that needs a person, else the first question.
-  const current = picked ?? pendingIndexes[0] ?? (questions.length > 0 ? 0 : null);
+  const pendingIndexes = pendingIndexesOf(questions, data?.answers ?? {});
+  const current = picked ?? firstIndex(pendingIndexes, questions.length);
 
   if (review.isPending) return <ReviewSkeleton />;
   if (review.isError || data === undefined) {
@@ -130,22 +122,17 @@ export default function AttemptReviewPage() {
   const live = attempt.status === "in_progress";
   const gradable = !live && attempt.status !== "voided";
   const verdicts = questions.map((q) => verdictOf(q, data.answers[q.id]));
-  const question = current === null ? null : (questions[current] ?? null);
-  const answer = question === null ? undefined : data.answers[question.id];
+  const { question, answer } = at(questions, data.answers, current);
 
   const next = () => {
-    if (current === null) return;
-    const after = pendingIndexes.find((i) => i > current) ?? pendingIndexes[0];
-    setCurrent(after ?? Math.min(current + 1, questions.length - 1));
+    if (current !== null)
+      setCurrent(nextIndex(current, pendingIndexes, questions.length));
   };
 
   // G-04: the same route, a toggle; it starts on this paper's essay when there is one.
   const manualIds = questions.filter((q) => q.type === "short_answer").map((q) => q.id);
   if (byQuestion && manualIds.length > 0) {
-    const from =
-      question !== null && question.type === "short_answer"
-        ? question.id
-        : manualIds[0]!;
+    const from = startManualId(question, manualIds);
     return (
       <GradeByQuestion
         assignmentId={attempt.assignmentId}
@@ -390,7 +377,7 @@ function headerMeta(data: AttemptReview, t: TFunction): string {
   return parts.join(" · ");
 }
 
-function RailStats({ data }: { data: AttemptReview }) {
+function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   const { t } = useTranslation();
   const { attempt, questions, answers, integrity } = data;
   let autoEarned = 0;
@@ -448,7 +435,7 @@ function trim(n: number): string {
   return String(Math.round(n * 100) / 100);
 }
 
-function Line({ label, value }: { label: string; value: string }) {
+function Line({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex justify-between gap-2">
       <span className="text-muted-foreground">{label}</span>
@@ -457,7 +444,10 @@ function Line({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AudioNote({ question, plays }: { question: AdminQuestion; plays: number }) {
+function AudioNote({
+  question,
+  plays,
+}: Readonly<{ question: AdminQuestion; plays: number }>) {
   const { t } = useTranslation();
   const max = question.audio?.maxPlays ?? null;
   const over = max !== null && plays > max;
@@ -478,16 +468,9 @@ function AudioNote({ question, plays }: { question: AdminQuestion; plays: number
   );
 }
 
-function VerdictBadge({ verdict }: { verdict: Verdict }) {
+function VerdictBadge({ verdict }: Readonly<{ verdict: Verdict }>) {
   const { t } = useTranslation();
-  const variant =
-    verdict === "correct"
-      ? "success"
-      : verdict === "wrong"
-        ? "danger"
-        : verdict === "partial"
-          ? "warning"
-          : "outline";
+  const variant = VERDICT_VARIANT[verdict] ?? "outline";
   return (
     <Badge variant={variant} className="ml-auto">
       {t(`review.verdict.${verdict}`)}
@@ -508,8 +491,15 @@ function verdictOf(question: AdminQuestion, answer: ReviewAnswer | undefined): V
   return "wrong";
 }
 
+const VERDICT_VARIANT: Partial<Record<Verdict, "success" | "danger" | "warning">> = {
+  correct: "success",
+  wrong: "danger",
+  partial: "warning",
+};
+
 function dotLabel(index: number, verdict: Verdict, t: TFunction): string {
-  return `${t("takeTest.dotLabel", { n: index + 1 })}, ${t(`review.verdict.${verdict}`)}`;
+  const verdictLabel = t(`review.verdict.${verdict}`);
+  return `${t("takeTest.dotLabel", { n: index + 1 })}, ${verdictLabel}`;
 }
 
 function ReviewSkeleton() {
@@ -545,4 +535,62 @@ function ReviewSkeleton() {
       </Card>
     </div>
   );
+}
+
+function pendingIndexesOf(
+  questions: readonly { readonly id: string }[],
+  answers: Readonly<Record<string, Parameters<typeof isPending>[0]>>,
+): number[] {
+  return questions
+    .map((q, i) => (isPending(answers[q.id]) ? i : -1))
+    .filter((i) => i >= 0);
+}
+
+/** Until the teacher picks, the first thing that needs a person, else the first question. */
+function firstIndex(pendingIndexes: readonly number[], total: number): number | null {
+  return pendingIndexes[0] ?? (total > 0 ? 0 : null);
+}
+
+/** The next unmarked answer after this one, wrapping, else simply the next question. */
+function nextIndex(
+  current: number,
+  pendingIndexes: readonly number[],
+  total: number,
+): number {
+  const after = pendingIndexes.find((i) => i > current) ?? pendingIndexes[0];
+  return after ?? Math.min(current + 1, total - 1);
+}
+
+/** A change to this paper is also a change to its assignment's monitor and the dashboard. */
+async function invalidateReview(
+  queryClient: QueryClient,
+  id: string,
+  assignmentId: string | undefined,
+) {
+  await queryClient.invalidateQueries({ queryKey: reviewKey(id) });
+  if (assignmentId !== undefined) {
+    await queryClient.invalidateQueries({ queryKey: monitorKey(assignmentId) });
+  }
+  await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+}
+
+function flagToastKey(flagged: boolean): string {
+  return flagged ? "review.flaggedToast" : "review.unflaggedToast";
+}
+
+function at<Q extends { readonly id: string }, A>(
+  questions: readonly Q[],
+  answers: Readonly<Record<string, A>>,
+  index: number | null,
+): { question: Q | null; answer: A | undefined } {
+  const question = index === null ? null : (questions[index] ?? null);
+  return { question, answer: question === null ? undefined : answers[question.id] };
+}
+
+/** G-04 opens on this paper's essay when the teacher was already looking at one. */
+function startManualId(
+  question: { readonly id: string; readonly type: string } | null,
+  manualIds: readonly string[],
+): string {
+  return question?.type === "short_answer" ? question.id : manualIds[0]!;
 }

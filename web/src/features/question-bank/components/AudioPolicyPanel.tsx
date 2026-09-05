@@ -25,7 +25,7 @@ export function AudioPolicyPanel({
   transcript,
   onPolicyChange,
   onTranscriptChange,
-}: AudioPolicyPanelProps) {
+}: Readonly<AudioPolicyPanelProps>) {
   const { t } = useTranslation();
 
   return (

@@ -56,7 +56,7 @@ func Audio(r io.ReaderAt, size int64) (mime string, durationMs int, err error) {
 }
 
 // sniff identifies the container from its leading bytes.
-func sniff(r io.ReaderAt, size int64) string {
+func sniff(r io.ReaderAt, _ int64) string {
 	head := make([]byte, 16)
 	n, err := r.ReadAt(head, 0)
 	if err != nil && n < 12 {

@@ -59,7 +59,7 @@ function Bar({ title, leading, meta, actions, backTo }: BarProps) {
   return slot === null ? bar : createPortal(bar, slot);
 }
 
-function TitleBlock({ title, subtitle, actions }: TitleProps) {
+function TitleBlock({ title, subtitle, actions }: Readonly<TitleProps>) {
   return (
     <div className="flex items-end justify-between">
       <div>

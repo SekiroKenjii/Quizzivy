@@ -13,13 +13,16 @@ type Token = { name: string; l: number; c: number; h: number; raw: string };
 
 function parseTokens(css: string): Token[] {
   const out: Token[] = [];
-  const re = /(--[a-z0-9-]+)\s*:\s*oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/gi;
-  for (const m of css.matchAll(re)) {
+  const re = /^(--[a-z0-9][a-z0-9-]*):\s*oklch\(([^)]*)\)/i;
+  for (const declaration of css.split(/[;\n]/)) {
+    const m = re.exec(declaration.trim());
+    if (m === null) continue;
+    const [l = "", c = "", h = ""] = m[2]!.trim().split(/\s+/);
     out.push({
       name: m[1]!,
-      l: Number(m[2]),
-      c: Number(m[3]),
-      h: Number(m[4]),
+      l: Number(l),
+      c: Number(c),
+      h: Number(h),
       raw: m[0],
     });
   }

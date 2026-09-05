@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { SideColumn } from "@/components/shared/SideColumn";
 import "@/lib/i18n";
 
-function Layout({ children }: { children: React.ReactNode }) {
+function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div data-columns style={{ display: "flex" }}>
       {children}

@@ -12,10 +12,10 @@ import {
 export function RowMenu({
   children,
   className,
-}: {
+}: Readonly<{
   children: ReactNode;
   className?: string;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <DropdownMenu>

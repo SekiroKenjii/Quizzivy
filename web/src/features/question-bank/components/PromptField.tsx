@@ -13,7 +13,7 @@ interface PromptFieldProps {
  * The deck's A-04 prompt field: a bordered box with a small toolbar and a
  * "Markdown" hint, over a plain textarea.
  */
-export function PromptField({ value, onChange, id }: PromptFieldProps) {
+export function PromptField({ value, onChange, id }: Readonly<PromptFieldProps>) {
   const { t } = useTranslation();
 
   function wrap(marker: string) {

@@ -14,6 +14,12 @@ import (
 	"quizzivy/internal/questions"
 )
 
+// entityTest names the audit rows every write to a test leaves.
+const entityTest = "test"
+
+// liveTests is the clause every read of app.tests carries: soft-deleted rows are gone.
+const liveTests = `t.deleted_at IS NULL`
+
 type Store struct{ pool *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
@@ -148,7 +154,7 @@ func (s *Store) Create(ctx context.Context, in CreateInput) (Test, error) {
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &in.ActorID,
 		Action:      "test.created",
-		Entity:      "test",
+		Entity:      entityTest,
 		EntityID:    &id,
 		OccurredAt:  in.Now,
 		IP:          optional(in.IP),

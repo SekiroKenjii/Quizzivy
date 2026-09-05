@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/attempts"
+	"quizzivy/internal/db"
 )
 
 var (
@@ -178,41 +179,9 @@ func (s *Store) questions(ctx context.Context, versionID string) ([]Question, er
 	var out []Question
 	at := map[string]int{}
 	for rows.Next() {
-		var (
-			q                                      Question
-			mediaID, mediaKind, mimeType, filename *string
-			mediaBytes, durationMs, maxPlays       *int
-			createdAt                              *time.Time
-			allowSeek, showTranscript              *bool
-		)
-		if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
-			&mediaID, &mediaKind, &mimeType, &filename, &mediaBytes, &durationMs, &createdAt,
-			&maxPlays, &allowSeek, &showTranscript,
-			&q.Transcript, &q.Explanation, &q.SampleAnswer); err != nil {
-			return nil, fmt.Errorf("review: scan question: %w", err)
-		}
-		if mediaID != nil {
-			q.Media = &attempts.Media{ID: *mediaID, DurationMs: durationMs}
-			if mediaKind != nil {
-				q.Media.Kind = *mediaKind
-			}
-			if mimeType != nil {
-				q.Media.MimeType = *mimeType
-			}
-			if filename != nil {
-				q.Media.Filename = *filename
-			}
-			if mediaBytes != nil {
-				q.Media.Bytes = *mediaBytes
-			}
-			if createdAt != nil {
-				q.Media.CreatedAt = *createdAt
-			}
-		}
-		if allowSeek != nil && showTranscript != nil {
-			q.Audio = &attempts.AudioPolicy{
-				MaxPlays: maxPlays, AllowSeek: *allowSeek, ShowTranscriptAfterSubmit: *showTranscript,
-			}
+		q, err := scanQuestion(rows)
+		if err != nil {
+			return nil, err
 		}
 		at[q.ID] = len(out)
 		out = append(out, q)
@@ -226,33 +195,72 @@ func (s *Store) questions(ctx context.Context, versionID string) ([]Question, er
 	return out, s.attachBlanks(ctx, versionID, out, at)
 }
 
+// scanQuestion reads one row of questions(). The media and the audio policy
+// are nullable as a group, so each becomes a pointer only when its key is set.
+func scanQuestion(rows pgx.Rows) (Question, error) {
+	var (
+		q                                      Question
+		mediaID, mediaKind, mimeType, filename *string
+		mediaBytes, durationMs, maxPlays       *int
+		createdAt                              *time.Time
+		allowSeek, showTranscript              *bool
+	)
+	if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
+		&mediaID, &mediaKind, &mimeType, &filename, &mediaBytes, &durationMs, &createdAt,
+		&maxPlays, &allowSeek, &showTranscript,
+		&q.Transcript, &q.Explanation, &q.SampleAnswer); err != nil {
+		return Question{}, fmt.Errorf("review: scan question: %w", err)
+	}
+	if mediaID != nil {
+		q.Media = &attempts.Media{
+			ID: *mediaID, Kind: orZero(mediaKind), MimeType: orZero(mimeType),
+			Filename: orZero(filename), Bytes: orZero(mediaBytes), DurationMs: durationMs,
+			CreatedAt: orZero(createdAt),
+		}
+	}
+	if allowSeek != nil && showTranscript != nil {
+		q.Audio = &attempts.AudioPolicy{
+			MaxPlays: maxPlays, AllowSeek: *allowSeek, ShowTranscriptAfterSubmit: *showTranscript,
+		}
+	}
+	return q, nil
+}
+
+func orZero[T any](p *T) T {
+	if p == nil {
+		var zero T
+		return zero
+	}
+	return *p
+}
+
 func (s *Store) attachOptions(ctx context.Context, versionID string, qs []Question, at map[string]int) error {
-	rows, err := s.pool.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $1::uuid
-		 ORDER BY o.ordinal`, versionID)
+		 ORDER BY o.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, Option, error) {
+			var questionID string
+			var o Option
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect)
+			return questionID, o, err
+		})
 	if err != nil {
 		return fmt.Errorf("review: read options: %w", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var questionID string
-		var o Option
-		if err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect); err != nil {
-			return fmt.Errorf("review: scan option: %w", err)
-		}
+	for questionID, options := range byQuestion {
 		if i, ok := at[questionID]; ok {
-			qs[i].Options = append(qs[i].Options, o)
+			qs[i].Options = options
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func (s *Store) attachBlanks(ctx context.Context, versionID string, qs []Question, at map[string]int) error {
-	rows, err := s.pool.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.case_sensitive,
 		       coalesce((SELECT array_agg(ba.answer ORDER BY ba.id)
 		                   FROM app.test_version_blank_answers ba
@@ -261,22 +269,22 @@ func (s *Store) attachBlanks(ctx context.Context, versionID string, qs []Questio
 		  JOIN app.test_version_questions q ON q.id = b.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $1::uuid
-		 ORDER BY b.ordinal`, versionID)
+		 ORDER BY b.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, Blank, error) {
+			var questionID string
+			var b Blank
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.Accepted)
+			return questionID, b, err
+		})
 	if err != nil {
 		return fmt.Errorf("review: read blanks: %w", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var questionID string
-		var b Blank
-		if err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.Accepted); err != nil {
-			return fmt.Errorf("review: scan blank: %w", err)
-		}
+	for questionID, blanks := range byQuestion {
 		if i, ok := at[questionID]; ok {
-			qs[i].Blanks = append(qs[i].Blanks, b)
+			qs[i].Blanks = blanks
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func (s *Store) answers(ctx context.Context, attemptID string) (map[string]Answer, error) {

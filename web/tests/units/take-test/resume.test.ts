@@ -100,7 +100,11 @@ describe("the resume merge", () => {
     );
 
     const { answers } = useTakeTestStore.getState();
-    expect(Object.keys(answers).sort()).toEqual(["q1", "q2", "q3"]);
+    expect(Object.keys(answers).sort((a, b) => a.localeCompare(b))).toEqual([
+      "q1",
+      "q2",
+      "q3",
+    ]);
     expect(answers["q2"]).toEqual(text("local only"));
   });
 });

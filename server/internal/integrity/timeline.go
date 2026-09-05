@@ -70,8 +70,16 @@ func Build(startedAt time.Time, minAwayMs, audioReplays int, events []Event, now
 		events[i].OffsetMs = max(0, int(events[i].OccurredAt.Sub(startedAt)/time.Millisecond))
 		events[i].DurationMs = nil
 	}
+	summary := tally(events, minAwayMs, now)
+	summary.AudioReplays = audioReplays
+	pairOthers(events)
+	return Timeline{StartedAt: startedAt, Events: events, Summary: summary}
+}
 
-	summary := Summary{AudioReplays: audioReplays}
+// tally pairs each leave with the next return, writing the duration onto the
+// leave, and counts the rest of the strip as it goes.
+func tally(events []Event, minAwayMs int, now time.Time) Summary {
+	var summary Summary
 	open := -1
 	for i := range events {
 		e := &events[i]
@@ -81,15 +89,16 @@ func Build(startedAt time.Time, minAwayMs, audioReplays int, events []Event, now
 				open = i
 			}
 		case returns[e.Kind]:
-			if open >= 0 {
-				d := span(events[open].OccurredAt, e.OccurredAt)
-				events[open].DurationMs = &d
-				summary.TotalAwayMs += d
-				if d >= minAwayMs {
-					summary.AwayEpisodes++
-				}
-				open = -1
+			if open < 0 {
+				continue
 			}
+			d := span(events[open].OccurredAt, e.OccurredAt)
+			events[open].DurationMs = &d
+			summary.TotalAwayMs += d
+			if d >= minAwayMs {
+				summary.AwayEpisodes++
+			}
+			open = -1
 		case e.Kind == "paste":
 			summary.PasteCount++
 		case e.Kind == "resume":
@@ -102,9 +111,7 @@ func Build(startedAt time.Time, minAwayMs, audioReplays int, events []Event, now
 	if open >= 0 && span(events[open].OccurredAt, now) >= minAwayMs {
 		summary.AwayEpisodes++
 	}
-
-	pairOthers(events)
-	return Timeline{StartedAt: startedAt, Events: events, Summary: summary}
+	return summary
 }
 
 // pairOthers closes each opener with the next closer of its kind -- per
@@ -147,25 +154,28 @@ func order(events []Event) {
 			began[e.SessionID] = e.ReceivedAt
 		}
 	}
-	sort.SliceStable(events, func(i, j int) bool {
-		a, b := events[i], events[j]
-		if a.SessionID != b.SessionID {
-			if !began[a.SessionID].Equal(began[b.SessionID]) {
-				return began[a.SessionID].Before(began[b.SessionID])
-			}
-			return a.SessionID < b.SessionID
+	sort.SliceStable(events, func(i, j int) bool { return before(events[i], events[j], began) })
+}
+
+// before is order()'s comparator: session start, then the server's place for
+// resume/takeover, then the client's own sequence, then the wall clock.
+func before(a, b Event, began map[string]time.Time) bool {
+	if a.SessionID != b.SessionID {
+		if !began[a.SessionID].Equal(began[b.SessionID]) {
+			return began[a.SessionID].Before(began[b.SessionID])
 		}
-		if ra, rb := place(a), place(b); ra != rb {
-			return ra < rb
-		}
-		if a.ClientSeq != nil && b.ClientSeq != nil && *a.ClientSeq != *b.ClientSeq {
-			return *a.ClientSeq < *b.ClientSeq
-		}
-		if !a.OccurredAt.Equal(b.OccurredAt) {
-			return a.OccurredAt.Before(b.OccurredAt)
-		}
-		return a.ID < b.ID
-	})
+		return a.SessionID < b.SessionID
+	}
+	if ra, rb := place(a), place(b); ra != rb {
+		return ra < rb
+	}
+	if a.ClientSeq != nil && b.ClientSeq != nil && *a.ClientSeq != *b.ClientSeq {
+		return *a.ClientSeq < *b.ClientSeq
+	}
+	if !a.OccurredAt.Equal(b.OccurredAt) {
+		return a.OccurredAt.Before(b.OccurredAt)
+	}
+	return a.ID < b.ID
 }
 
 func place(e Event) int {

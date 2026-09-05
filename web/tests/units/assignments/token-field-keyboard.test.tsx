@@ -11,7 +11,7 @@ const OPTIONS: Token[] = [
   { id: "c3", label: "Lớp 7A", hint: "30" },
 ];
 
-function Picker({ onAdd }: { onAdd: (token: Token) => void }) {
+function Picker({ onAdd }: Readonly<{ onAdd: (token: Token) => void }>) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Token[]>([]);
   return (

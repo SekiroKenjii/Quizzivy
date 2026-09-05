@@ -31,7 +31,7 @@ export function PageAside({
   hideBelow,
   sheet,
   children,
-}: PageAsideProps) {
+}: Readonly<PageAsideProps>) {
   const panelSlot = useContext(PageAsideSlot);
   const railSlot = useContext(PageRailSlot);
   const wide = useMediaQuery("(min-width: 1024px)");

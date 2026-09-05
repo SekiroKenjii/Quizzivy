@@ -11,13 +11,13 @@ export function AuthLayout({
   children,
   footer,
   art,
-}: {
+}: Readonly<{
   children: ReactNode;
   /** Sits below the card, per the deck: it is about the product, not the form. */
   footer?: ReactNode;
   // The panel drawing the failure screens pass (E-01..E-03).
   art?: ReactNode;
-}) {
+}>) {
   const { t } = useTranslation();
 
   return (

@@ -25,7 +25,7 @@ const KEY = (role: ColumnRole) => `quizzivy.column.${role}`;
 function read(role: ColumnRole): number | null {
   try {
     const raw = localStorage.getItem(KEY(role));
-    const value = raw === null ? NaN : Number(raw);
+    const value = raw === null ? Number.NaN : Number(raw);
     return Number.isFinite(value) ? value : null;
   } catch {
     return null;

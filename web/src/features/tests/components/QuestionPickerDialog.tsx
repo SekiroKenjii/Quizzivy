@@ -25,7 +25,7 @@ export function QuestionPickerDialog({
   excluded,
   onOpenChange,
   onPick,
-}: QuestionPickerDialogProps) {
+}: Readonly<QuestionPickerDialogProps>) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
@@ -60,11 +60,11 @@ function BankList({
   query,
   excluded,
   onPick,
-}: {
+}: Readonly<{
   query: string;
   excluded: ReadonlySet<string>;
   onPick: (questionId: string) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const bank = useQuery({
     queryKey: ["admin-questions", query],
@@ -93,12 +93,7 @@ function BankList({
   const fetched = bank.data.items;
   const items = fetched.filter((question) => !excluded.has(question.id));
   if (items.length === 0) {
-    const message =
-      fetched.length === 0
-        ? query.trim() === ""
-          ? "builder.bankEmpty"
-          : "builder.bankNoMatches"
-        : "builder.bankAllAdded";
+    const message = messageKey(fetched.length === 0, query.trim() === "");
     return <p className="text-muted-foreground text-sm">{t(message)}</p>;
   }
 
@@ -123,4 +118,9 @@ function BankList({
       ))}
     </ul>
   );
+}
+
+function messageKey(nothingFetched: boolean, noQuery: boolean): string {
+  if (!nothingFetched) return "builder.bankAllAdded";
+  return noQuery ? "builder.bankEmpty" : "builder.bankNoMatches";
 }

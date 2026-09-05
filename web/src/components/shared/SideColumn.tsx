@@ -29,7 +29,7 @@ export function SideColumn({
   style,
   children,
   ...rest
-}: SideColumnProps) {
+}: Readonly<SideColumnProps>) {
   const { t } = useTranslation();
   const { width, setWidth, reset, limits } = useColumnWidth(role);
   const column = useRef<HTMLElement | null>(null);

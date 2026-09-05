@@ -21,33 +21,35 @@ type Principal struct {
 func RequireAuth(open map[string]struct{}, verify func(bearer string) (Principal, error)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if _, isOpen := open[r.Pattern]; isOpen {
-				// Open means authentication is not REQUIRED, not that it is ignored.
-				if token, ok := bearerToken(r); ok {
-					if principal, err := verify(token); err == nil {
-						r = r.WithContext(
-							context.WithValue(r.Context(), principalKey, principal))
-					}
-				}
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			token, ok := bearerToken(r)
-			if !ok {
-				writeUnauthenticated(w, r)
+			_, isOpen := open[r.Pattern]
+			token, hasToken := bearerToken(r)
+			if !hasToken {
+				serveOrRefuse(next, w, r, isOpen)
 				return
 			}
 			principal, err := verify(token)
 			if err != nil {
-				writeUnauthenticated(w, r)
+				serveOrRefuse(next, w, r, isOpen)
 				return
 			}
-
-			next.ServeHTTP(w, r.WithContext(
-				context.WithValue(r.Context(), principalKey, principal)))
+			next.ServeHTTP(w, withPrincipal(r, principal))
 		})
 	}
+}
+
+// serveOrRefuse is the no-credential path: an open route is served anyway --
+// open means authentication is not REQUIRED, not that it is ignored -- and
+// every other route is refused.
+func serveOrRefuse(next http.Handler, w http.ResponseWriter, r *http.Request, isOpen bool) {
+	if isOpen {
+		next.ServeHTTP(w, r)
+		return
+	}
+	writeUnauthenticated(w, r)
+}
+
+func withPrincipal(r *http.Request, principal Principal) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), principalKey, principal))
 }
 
 // PrincipalFromContext returns the authenticated caller. The second result is

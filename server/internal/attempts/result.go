@@ -108,29 +108,12 @@ func (s *Store) result(ctx context.Context, a row) (Result, error) {
 	pending := 0
 	earned := 0.0
 	for i, q := range base {
-		rq := ResultQuestion{Question: q}
-		if ex, ok := extras[q.ID]; ok {
-			rq.Explanation, rq.Transcript = ex.explanation, ex.transcript
-			rq.CorrectOptions, rq.CorrectAnswers = ex.correctOptions, ex.correctAnswers
-		}
-		if q.Audio != nil {
-			used := plays[q.ID]
-			rq.AudioPlaysUsed = &used
-		}
-		if ans, ok := answers[q.ID]; ok {
-			rq.Answer = ans.payload
-			rq.GraderComment = ans.comment
-			rq.PendingManual = ans.requiresManual && ans.manual == nil
-		}
-		if rq.PendingManual {
+		rq, value := resultQuestion(q, extras, plays, answers, rules.Review.ShowScore)
+		switch {
+		case rq.PendingManual:
 			pending++
-		} else if rules.Review.ShowScore {
-			value := 0.0
-			if ans, ok := answers[q.ID]; ok && ans.final != nil {
-				value = *ans.final
-			}
-			earned += value
-			rq.Earned = &value
+		case value != nil:
+			earned += *value
 		}
 		out.Questions[i] = rq
 	}
@@ -142,6 +125,37 @@ func (s *Store) result(ctx context.Context, a row) (Result, error) {
 		out.Score = &Score{Earned: earned, Total: total, PendingManual: pending}
 	}
 	return out, nil
+}
+
+// resultQuestion is one line of the paper as the student may see it. The
+// second result is what the line adds to the score: nil while the answer is
+// unmarked, or while the policy hides scores altogether.
+func resultQuestion(q Question, extras map[string]resultExtra, plays map[string]int,
+	answers map[string]gradedAnswer, showScore bool) (ResultQuestion, *float64) {
+	rq := ResultQuestion{Question: q}
+	if ex, ok := extras[q.ID]; ok {
+		rq.Explanation, rq.Transcript = ex.explanation, ex.transcript
+		rq.CorrectOptions, rq.CorrectAnswers = ex.correctOptions, ex.correctAnswers
+	}
+	if q.Audio != nil {
+		used := plays[q.ID]
+		rq.AudioPlaysUsed = &used
+	}
+	ans, answered := answers[q.ID]
+	if answered {
+		rq.Answer = ans.payload
+		rq.GraderComment = ans.comment
+		rq.PendingManual = ans.requiresManual && ans.manual == nil
+	}
+	if rq.PendingManual || !showScore {
+		return rq, nil
+	}
+	value := 0.0
+	if answered && ans.final != nil {
+		value = *ans.final
+	}
+	rq.Earned = &value
+	return rq, &value
 }
 
 func (s *Store) resultRules(ctx context.Context, assignmentID string) (resultRules, error) {

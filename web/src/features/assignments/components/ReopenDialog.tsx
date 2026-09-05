@@ -24,13 +24,13 @@ export function ReopenDialog({
   open,
   onOpenChange,
   onDone,
-}: {
+}: Readonly<{
   assignment: Assignment;
   choice: ReopenChoice;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDone: () => Promise<void> | void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [picked, setPicked] = useState(() =>
     toDateTimeInput(new Date(Date.now() + DAY_MS)),

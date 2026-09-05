@@ -17,7 +17,7 @@ export const SPEC_PATH = resolve(import.meta.dirname, "../../../api/openapi.yaml
  * deliberately shape-agnostic, which is the point (§14 permits `any` with a
  * stated reason; this is it).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, sonarjs/redundant-type-aliases -- the alias is where the reason above lives
 export type Json = any;
 
 export function loadSpec(): Json {
@@ -64,38 +64,47 @@ export function propertyNames(
 ): Set<string> {
   const names = new Set<string>();
   if (!node || typeof node !== "object" || depth > 40) return names;
-
-  if (Array.isArray(node)) {
-    for (const v of node)
-      for (const n of propertyNames(doc, v, seen, depth + 1)) names.add(n);
-    return names;
-  }
-
-  if (typeof node.$ref === "string") {
-    if (seen.has(node.$ref)) return names;
-    seen.add(node.$ref);
-    return propertyNames(doc, resolveRef(doc, node.$ref), seen, depth + 1);
-  }
-
-  if (node.properties && typeof node.properties === "object") {
-    for (const [key, value] of Object.entries(node.properties)) {
-      names.add(key);
-      for (const n of propertyNames(doc, value, seen, depth + 1)) names.add(n);
-    }
-  }
-  for (const key of [
-    "items",
-    "allOf",
-    "oneOf",
-    "anyOf",
-    "additionalProperties",
-    "not",
-  ]) {
-    if (key in node) {
-      for (const n of propertyNames(doc, node[key], seen, depth + 1)) names.add(n);
-    }
+  if (typeof node.$ref === "string") return refNames(doc, node.$ref, seen, depth);
+  for (const key of ownProperties(node)) names.add(key);
+  const kids: Json[] = Array.isArray(node) ? node : children(node);
+  for (const kid of kids) {
+    for (const n of propertyNames(doc, kid, seen, depth + 1)) names.add(n);
   }
   return names;
+}
+
+function refNames(
+  doc: Json,
+  ref: string,
+  seen: Set<string>,
+  depth: number,
+): Set<string> {
+  if (seen.has(ref)) return new Set();
+  seen.add(ref);
+  return propertyNames(doc, resolveRef(doc, ref), seen, depth + 1);
+}
+
+function ownProperties(node: Json): string[] {
+  const props = node.properties;
+  return props && typeof props === "object" ? Object.keys(props) : [];
+}
+
+const COMPOSITE_KEYS = [
+  "items",
+  "allOf",
+  "oneOf",
+  "anyOf",
+  "additionalProperties",
+  "not",
+];
+
+/** The sub-schemas one level down: property schemas and the composite keywords. */
+function children(node: Json): Json[] {
+  const out: Json[] = [];
+  const props = node.properties;
+  if (props && typeof props === "object") out.push(...Object.values(props));
+  for (const key of COMPOSITE_KEYS) if (key in node) out.push(node[key]);
+  return out;
 }
 
 export interface Operation {

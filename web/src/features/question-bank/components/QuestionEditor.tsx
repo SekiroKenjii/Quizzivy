@@ -57,7 +57,7 @@ export function QuestionEditor({
   settings,
   onChange,
   onAssetChange,
-}: QuestionEditorProps) {
+}: Readonly<QuestionEditorProps>) {
   const { t } = useTranslation();
   const isChoice = CHOICE_TYPES.has(value.type);
   const isAudio = asset?.kind === "audio";

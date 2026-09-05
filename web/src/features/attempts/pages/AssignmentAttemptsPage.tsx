@@ -3,13 +3,18 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, Eye, RotateCw } from "lucide-react";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import {
+  EmptyState,
+  ListSkeleton,
+  LoadError,
+  QueryStates,
+} from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RowMenu } from "@/components/shared/RowMenu";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, badgeVariants } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -30,6 +35,7 @@ import {
   type Intervention,
 } from "@/features/attempts/components/InterventionDialog";
 import { getMonitor, isHandedIn, type MonitorRow } from "@/features/attempts/api";
+import { FocusLossCell } from "@/features/attempts/components/FocusLossCell";
 import { monitorKey } from "@/features/attempts/keys";
 import { ApiError } from "@/lib/api/errors";
 import { fold } from "@/lib/fold";
@@ -37,6 +43,7 @@ import { formatDateTime } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
+import type { TFunction } from "i18next";
 
 const TABS = ["all", "submitted", "pending", "flagged", "notStarted"] as const;
 type Tab = (typeof TABS)[number];
@@ -102,6 +109,14 @@ export default function AssignmentAttemptsPage() {
   const shown = rows.filter(
     (row) => inTab(row, tab) && (search === "" || fold(row.fullName).includes(search)),
   );
+  let emptyMessage: string | null = null;
+  if (rows.length === 0) emptyMessage = t("monitor.empty");
+  else if (shown.length === 0) {
+    emptyMessage =
+      search === ""
+        ? t("papers.emptyTab")
+        : t("papers.noMatches", { query: query.trim() });
+  }
 
   return (
     <>
@@ -159,50 +174,48 @@ export default function AssignmentAttemptsPage() {
           />
         </div>
 
-        {monitor.isPending ? (
-          <ListSkeleton />
-        ) : monitor.isError ? (
-          <LoadError error={monitor.error} onRetry={() => void monitor.refetch()}>
-            {t("monitor.loadFailed")}
-          </LoadError>
-        ) : rows.length === 0 ? (
-          <EmptyState>{t("monitor.empty")}</EmptyState>
-        ) : shown.length === 0 ? (
-          <EmptyState>
-            {search === ""
-              ? t("papers.emptyTab")
-              : t("papers.noMatches", { query: query.trim() })}
-          </EmptyState>
-        ) : (
-          <Card className="gap-0 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[24%]">{t("monitor.student")}</TableHead>
-                  <TableHead>{t("monitor.state")}</TableHead>
-                  <TableHead>{t("papers.attempt")}</TableHead>
-                  <TableHead>{t("papers.submittedAt")}</TableHead>
-                  <TableHead className="text-right">{t("papers.took")}</TableHead>
-                  <TableHead className="text-right">{t("monitor.focusLoss")}</TableHead>
-                  <TableHead className="text-right">{t("monitor.score")}</TableHead>
-                  <TableHead className="w-10">
-                    <span className="sr-only">{t("common.actions")}</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {shown.map((row) => (
-                  <Row
-                    key={row.studentId}
-                    row={row}
-                    maxAttempts={a.maxAttempts}
-                    onAct={(kind) => setDialog({ kind, row })}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        )}
+        <QueryStates
+          query={monitor}
+          skeleton={<ListSkeleton />}
+          failed={t("monitor.loadFailed")}
+        >
+          {() =>
+            emptyMessage === null ? (
+              <Card className="gap-0 overflow-hidden py-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[24%]">{t("monitor.student")}</TableHead>
+                      <TableHead>{t("monitor.state")}</TableHead>
+                      <TableHead>{t("papers.attempt")}</TableHead>
+                      <TableHead>{t("papers.submittedAt")}</TableHead>
+                      <TableHead className="text-right">{t("papers.took")}</TableHead>
+                      <TableHead className="text-right">
+                        {t("monitor.focusLoss")}
+                      </TableHead>
+                      <TableHead className="text-right">{t("monitor.score")}</TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("common.actions")}</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {shown.map((row) => (
+                      <Row
+                        key={row.studentId}
+                        row={row}
+                        maxAttempts={a.maxAttempts}
+                        onAct={(kind) => setDialog({ kind, row })}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            ) : (
+              <EmptyState>{emptyMessage}</EmptyState>
+            )
+          }
+        </QueryStates>
         {rows.length > 0 ? (
           <p className="text-muted-foreground text-xs">{t("papers.hint")}</p>
         ) : null}
@@ -243,11 +256,11 @@ function Row({
   row,
   maxAttempts,
   onAct,
-}: {
+}: Readonly<{
   row: MonitorRow;
   maxAttempts: number;
   onAct: (kind: Intervention) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const dash = <span className="text-muted-foreground">—</span>;
@@ -280,22 +293,10 @@ function Row({
         {row.submittedAt ? formatDateTime(row.submittedAt, locale) : dash}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {took === null
-          ? dash
-          : took < 1
-            ? t("papers.tookUnderMinute")
-            : t("papers.tookMinutes", { count: took })}
+        {took === null ? dash : tookText(took, t)}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {row.focusLossCount == null ? (
-          dash
-        ) : row.flagged ? (
-          <Badge variant="warning" className="tabular-nums">
-            {row.focusLossCount}
-          </Badge>
-        ) : (
-          row.focusLossCount
-        )}
+        <FocusLossCell count={row.focusLossCount} flagged={row.flagged} />
       </TableCell>
       <TableCell className="text-right">
         {row.score && handedIn ? (
@@ -345,4 +346,10 @@ function Row({
       </TableCell>
     </TableRow>
   );
+}
+
+function tookText(minutes: number, t: TFunction): string {
+  return minutes < 1
+    ? t("papers.tookUnderMinute")
+    : t("papers.tookMinutes", { count: minutes });
 }

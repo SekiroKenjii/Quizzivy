@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ClipboardList } from "lucide-react";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,7 +24,7 @@ const SHOWN = 5;
 const ORDER = { open: 0, scheduled: 1, draft: 2, closed: 3 } as const;
 
 /** G-06's second list: what the class has been given, open ones first. */
-export function ClassAssignmentsCard({ classId }: { classId: string }) {
+export function ClassAssignmentsCard({ classId }: Readonly<{ classId: string }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const now = new Date();
@@ -65,53 +65,49 @@ export function ClassAssignmentsCard({ classId }: { classId: string }) {
             </Link>
           </Button>
         </div>
-        {assignments.isPending ? (
-          <div className="px-5 pb-5">
-            <ListSkeleton rows={3} />
-          </div>
-        ) : assignments.isError ? (
-          <div className="px-5 pb-5">
-            <LoadError
-              error={assignments.error}
-              onRetry={() => void assignments.refetch()}
-            >
-              {t("classDetail.assignmentsFailed")}
-            </LoadError>
-          </div>
-        ) : items.length === 0 ? (
-          <div className="px-5 pb-5">
-            <EmptyState
-              action={
-                <Button variant="outline" size="sm" asChild>
-                  <Link to={`/admin/assignments/new?classId=${classId}`}>
-                    <ClipboardList aria-hidden="true" />
-                    {t("classDetail.assignToClass")}
-                  </Link>
-                </Button>
-              }
-            >
-              {t("classDetail.assignmentsEmpty")}
-            </EmptyState>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[46%]">{t("assignments.test")}</TableHead>
-                <TableHead>{t("assignments.statusColumn")}</TableHead>
-                <TableHead>{t("assignments.detail.closes")}</TableHead>
-                <TableHead className="text-right">
-                  {t("assignments.progress")}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((a) => (
-                <Row key={a.id} assignment={a} now={now} locale={locale} />
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <QueryStates
+          query={assignments}
+          skeleton={<ListSkeleton rows={3} />}
+          failed={t("classDetail.assignmentsFailed")}
+          className="px-5 pb-5"
+        >
+          {() =>
+            items.length === 0 ? (
+              <div className="px-5 pb-5">
+                <EmptyState
+                  action={
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/admin/assignments/new?classId=${classId}`}>
+                        <ClipboardList aria-hidden="true" />
+                        {t("classDetail.assignToClass")}
+                      </Link>
+                    </Button>
+                  }
+                >
+                  {t("classDetail.assignmentsEmpty")}
+                </EmptyState>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[46%]">{t("assignments.test")}</TableHead>
+                    <TableHead>{t("assignments.statusColumn")}</TableHead>
+                    <TableHead>{t("assignments.detail.closes")}</TableHead>
+                    <TableHead className="text-right">
+                      {t("assignments.progress")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((a) => (
+                    <Row key={a.id} assignment={a} now={now} locale={locale} />
+                  ))}
+                </TableBody>
+              </Table>
+            )
+          }
+        </QueryStates>
       </section>
     </Card>
   );
@@ -121,11 +117,11 @@ function Row({
   assignment,
   now,
   locale,
-}: {
+}: Readonly<{
   assignment: Assignment;
   now: Date;
   locale: Locale;
-}) {
+}>) {
   const { t } = useTranslation();
   const status = statusAt(assignment, now);
   const submitted = assignment.submittedCount ?? 0;

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
+	"quizzivy/internal/db"
 )
 
 // ErrNotPublished is returned when a test has no version to render.
@@ -107,55 +109,53 @@ func (s *Store) previewQuestions(ctx context.Context, versionID string) ([]Previ
 func (s *Store) attachPreviewOptions(
 	ctx context.Context, versionID string, out []PreviewQuestion, byID map[string]int,
 ) error {
-	rows, err := s.pool.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT o.test_version_question_id::text, o.id::text, o.text
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		  JOIN app.test_version_options o ON o.test_version_question_id = q.id
 		 WHERE s.test_version_id = $1
-		 ORDER BY o.ordinal`, versionID)
+		 ORDER BY o.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, PreviewOption, error) {
+			var questionID string
+			var option PreviewOption
+			err := rows.Scan(&questionID, &option.ID, &option.Text)
+			return questionID, option, err
+		})
 	if err != nil {
 		return fmt.Errorf("tests: preview options: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var option PreviewOption
-		if err := rows.Scan(&questionID, &option.ID, &option.Text); err != nil {
-			return fmt.Errorf("tests: scan preview option: %w", err)
-		}
+	for questionID, options := range byQuestion {
 		if i, ok := byID[questionID]; ok {
-			out[i].Options = append(out[i].Options, option)
+			out[i].Options = options
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func (s *Store) attachPreviewBlanks(
 	ctx context.Context, versionID string, out []PreviewQuestion, byID map[string]int,
 ) error {
-	rows, err := s.pool.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT b.test_version_question_id::text, b.id::text, b.ordinal
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		  JOIN app.test_version_blanks b ON b.test_version_question_id = q.id
 		 WHERE s.test_version_id = $1
-		 ORDER BY b.ordinal`, versionID)
+		 ORDER BY b.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, PreviewBlank, error) {
+			var questionID string
+			var blank PreviewBlank
+			err := rows.Scan(&questionID, &blank.ID, &blank.Ordinal)
+			return questionID, blank, err
+		})
 	if err != nil {
 		return fmt.Errorf("tests: preview blanks: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var blank PreviewBlank
-		if err := rows.Scan(&questionID, &blank.ID, &blank.Ordinal); err != nil {
-			return fmt.Errorf("tests: scan preview blank: %w", err)
-		}
+	for questionID, blanks := range byQuestion {
 		if i, ok := byID[questionID]; ok {
-			out[i].Blanks = append(out[i].Blanks, blank)
+			out[i].Blanks = blanks
 		}
 	}
-	return rows.Err()
+	return nil
 }

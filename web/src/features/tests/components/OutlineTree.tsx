@@ -53,6 +53,7 @@ import {
   stepQuestion,
   type OutlineSection,
 } from "@/features/tests/outline";
+import type { TFunction } from "i18next";
 
 export interface OutlineQuestion {
   id: string;
@@ -92,7 +93,7 @@ export function OutlineTree({
   onCreateQuestion,
   onPickFromBank,
   onAddSection,
-}: OutlineTreeProps) {
+}: Readonly<OutlineTreeProps>) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   // A section without a server id yet is keyed by a client key that travels
@@ -335,7 +336,7 @@ function SectionHeader({
   onInstructions,
   onMove,
   onRemove,
-}: {
+}: Readonly<{
   title: string;
   summary: string;
   open: boolean;
@@ -348,7 +349,7 @@ function SectionHeader({
   onInstructions: () => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const trigger = useRef<HTMLButtonElement>(null);
   const wasRenaming = useRef(renaming);
@@ -434,10 +435,10 @@ function SectionHeader({
 function SectionTitleInput({
   title,
   onDone,
-}: {
+}: Readonly<{
   title: string;
   onDone: (title: string | null) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [value, setValue] = useState(title);
   const field = useRef<HTMLInputElement>(null);
@@ -487,12 +488,12 @@ function SectionInstructionsDialog({
   instructions,
   onCancel,
   onSave,
-}: {
+}: Readonly<{
   sectionTitle: string;
   instructions: string;
   onCancel: () => void;
   onSave: (instructions: string) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [value, setValue] = useState(instructions);
 
@@ -525,7 +526,7 @@ function OutlineRow({
   onSelect,
   onStep,
   onDrop,
-}: {
+}: Readonly<{
   number: number;
   question: OutlineQuestion | undefined;
   questionId: string;
@@ -533,7 +534,7 @@ function OutlineRow({
   onSelect: () => void;
   onStep: (direction: -1 | 1) => void;
   onDrop: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: questionId });
@@ -580,7 +581,7 @@ function OutlineRow({
         {loading ? (
           <span className="bg-muted inline-block h-3 w-full animate-pulse rounded" />
         ) : (
-          (question.problem ?? (label === "" ? t("builder.untitledQuestion") : label))
+          (question.problem ?? titleOf(label, t))
         )}
       </button>
 
@@ -657,11 +658,15 @@ function totalPoints(
 }
 
 function clientKey(): string {
-  return `new-${Math.random().toString(36).slice(2)}`;
+  return `new-${crypto.randomUUID()}`;
 }
 
 function toggle(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
   const next = new Set(set);
   if (!next.delete(key)) next.add(key);
   return next;
+}
+
+function titleOf(label: string, t: TFunction): string {
+  return label === "" ? t("builder.untitledQuestion") : label;
 }

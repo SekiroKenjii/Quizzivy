@@ -70,17 +70,9 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 	if s.google == nil {
 		return GoogleSignInResult{}, ErrGoogleUnavailable
 	}
-
-	rawIDToken, err := s.google.Exchange(ctx, in.Code, in.CodeVerifier, in.RedirectURI)
+	identity, err := s.verifiedIdentity(ctx, in.Code, in.CodeVerifier, in.RedirectURI)
 	if err != nil {
 		return GoogleSignInResult{}, err
-	}
-	identity, err := s.google.Verify(ctx, rawIDToken)
-	if err != nil {
-		return GoogleSignInResult{}, err
-	}
-	if !identity.EmailVerified {
-		return GoogleSignInResult{}, google.ErrEmailUnverified
 	}
 
 	// 1. The identity is known.
@@ -96,46 +88,77 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 	user, err = s.store.FindUserByEmail(ctx, identity.Email)
 	switch {
 	case err == nil:
-		if err := s.store.LinkIdentity(ctx, user.ID, "google", identity.Subject, identity.Email); err != nil {
+		linked, err := s.linkAndReload(ctx, user.ID, identity)
+		if err != nil {
 			return GoogleSignInResult{}, err
 		}
-		user, err = s.store.FindUserByID(ctx, user.ID)
-		if err != nil {
-			return GoogleSignInResult{}, fmt.Errorf("reload linked user: %w", err)
-		}
-		return s.googleSession(ctx, user, in, nil)
+		return s.googleSession(ctx, linked, in, nil)
 	case !errors.Is(err, ErrUserNotFound):
 		return GoogleSignInResult{}, fmt.Errorf("look up user by email: %w", err)
 	}
 
 	// 3. No match, but a join code: create and enrol (§6.3).
 	if in.JoinCode != "" {
-		if s.enroller == nil {
-			return GoogleSignInResult{}, ErrSelfEnrolNotAvailable
-		}
-		result, err := s.enroller.EnrolNewMember(ctx,
-			join.NewMember{
-				Email:          identity.Email,
-				FullName:       identity.Name,
-				Provider:       "google",
-				ProviderUserID: identity.Subject,
-			}, in.JoinCode, join.Meta{IP: in.IP, UserAgent: in.UserAgent})
-		if err != nil {
-			return GoogleSignInResult{}, err
-		}
-		if result.Outcome != join.PreviewOK {
-			return GoogleSignInResult{}, JoinCodeRejected{Outcome: result.Outcome}
-		}
-
-		created, err := s.store.FindUserByID(ctx, result.UserID)
-		if err != nil {
-			return GoogleSignInResult{}, fmt.Errorf("load enrolled member: %w", err)
-		}
-		return s.googleSession(ctx, created, in, &result.Class)
+		return s.enrolByCode(ctx, identity, in)
 	}
 
 	// 4. No match, no join code.
 	return GoogleSignInResult{}, ErrAccountNotProvisioned
+}
+
+// verifiedIdentity exchanges the code and applies §5.1's one rule: an
+// unverified address is refused outright.
+func (s *Service) verifiedIdentity(ctx context.Context, code, verifier, redirectURI string) (google.Identity, error) {
+	rawIDToken, err := s.google.Exchange(ctx, code, verifier, redirectURI)
+	if err != nil {
+		return google.Identity{}, err
+	}
+	identity, err := s.google.Verify(ctx, rawIDToken)
+	if err != nil {
+		return google.Identity{}, err
+	}
+	if !identity.EmailVerified {
+		return google.Identity{}, google.ErrEmailUnverified
+	}
+	return identity, nil
+}
+
+// linkAndReload attaches the identity to an existing account and reads the
+// account back with the link on it.
+func (s *Service) linkAndReload(ctx context.Context, userID string, identity google.Identity) (User, error) {
+	if err := s.store.LinkIdentity(ctx, userID, "google", identity.Subject, identity.Email); err != nil {
+		return User{}, err
+	}
+	user, err := s.store.FindUserByID(ctx, userID)
+	if err != nil {
+		return User{}, fmt.Errorf("reload linked user: %w", err)
+	}
+	return user, nil
+}
+
+// enrolByCode is §6.3: a stranger with a valid code becomes a member.
+func (s *Service) enrolByCode(ctx context.Context, identity google.Identity, in GoogleSignInInput) (GoogleSignInResult, error) {
+	if s.enroller == nil {
+		return GoogleSignInResult{}, ErrSelfEnrolNotAvailable
+	}
+	result, err := s.enroller.EnrolNewMember(ctx,
+		join.NewMember{
+			Email:          identity.Email,
+			FullName:       identity.Name,
+			Provider:       "google",
+			ProviderUserID: identity.Subject,
+		}, in.JoinCode, join.Meta{IP: in.IP, UserAgent: in.UserAgent})
+	if err != nil {
+		return GoogleSignInResult{}, err
+	}
+	if result.Outcome != join.PreviewOK {
+		return GoogleSignInResult{}, JoinCodeRejected{Outcome: result.Outcome}
+	}
+	created, err := s.store.FindUserByID(ctx, result.UserID)
+	if err != nil {
+		return GoogleSignInResult{}, fmt.Errorf("load enrolled member: %w", err)
+	}
+	return s.googleSession(ctx, created, in, &result.Class)
 }
 
 func (s *Service) googleSession(ctx context.Context, user User, in GoogleSignInInput, class *join.EnrolledClass) (GoogleSignInResult, error) {

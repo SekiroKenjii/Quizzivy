@@ -148,7 +148,7 @@ function decimal(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
 }
 
-function Fact({ label, children }: { label: string; children: string }) {
+function Fact({ label, children }: Readonly<{ label: string; children: string }>) {
   return (
     <div>
       <p className="text-muted-foreground text-xs">{label}</p>
@@ -157,7 +157,7 @@ function Fact({ label, children }: { label: string; children: string }) {
   );
 }
 
-function RuleIcon({ kind }: { kind: Rule["kind"] }) {
+function RuleIcon({ kind }: Readonly<{ kind: Rule["kind"] }>) {
   const Icon = {
     clock: Timer,
     attempts: Repeat,
@@ -173,7 +173,11 @@ function RuleIcon({ kind }: { kind: Rule["kind"] }) {
   );
 }
 
-function Permission({ on, yes, no }: { on: boolean; yes: string; no: string }) {
+function Permission({
+  on,
+  yes,
+  no,
+}: Readonly<{ on: boolean; yes: string; no: string }>) {
   const { t } = useTranslation();
   return (
     <li
@@ -197,10 +201,10 @@ function Permission({ on, yes, no }: { on: boolean; yes: string; no: string }) {
 function StartControl({
   assignment: a,
   live,
-}: {
+}: Readonly<{
   assignment: StudentAssignmentDetail;
   live: boolean;
-}) {
+}>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -227,14 +231,7 @@ function StartControl({
   if (!canStart) {
     return (
       <p className="text-muted-foreground text-center text-sm leading-relaxed">
-        {exhausted
-          ? t("student.intro.exhausted")
-          : a.status === "scheduled"
-            ? t("student.intro.opensLater", {
-                time: formatTime(a.opensAt),
-                date: shortDate(a.opensAt),
-              })
-            : t("student.intro.closed")}
+        {blockedText(exhausted, a, t)}
       </p>
     );
   }
@@ -256,4 +253,19 @@ function StartControl({
       )}
     </div>
   );
+}
+
+function blockedText(
+  exhausted: boolean,
+  a: { readonly status: string; readonly opensAt: string },
+  t: TFunction,
+): string {
+  if (exhausted) return t("student.intro.exhausted");
+  if (a.status === "scheduled") {
+    return t("student.intro.opensLater", {
+      time: formatTime(a.opensAt),
+      date: shortDate(a.opensAt),
+    });
+  }
+  return t("student.intro.closed");
 }

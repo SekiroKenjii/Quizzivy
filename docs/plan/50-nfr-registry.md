@@ -146,12 +146,13 @@ at the end says how much is covered and what the next round is.
 | ID | Requirement | Source | Status | Evidence / gap |
 |---|---|---|---|---|
 | NFR-M01 | The contract is the source of truth: Go and TS are generated and CI fails on drift; test fixtures are validated against it | overview §3 | ✅ | `make gen-check`, `contractJson` in every MSW handler |
-| NFR-M02 | CI runs every check a merge needs: Contract, Web (lint, typecheck, format, unit, integration, build), E2E stubbed, E2E live against a real PG18, Server (vet, staticcheck, gofmt, DB tests), Sonar | §14 | ✅ | `.github/workflows/ci.yml`, six jobs |
+| NFR-M02 | CI runs every check a merge needs: Contract, Web (lint, typecheck, format, unit, integration, build), E2E stubbed, E2E live against a real PG18, Server (vet, staticcheck, golangci-lint, gofmt, DB tests), Sonar | §14 | ✅ | `.github/workflows/ci.yml`, six jobs |
 | NFR-M03 | Gitflow: features off `develop`, `--no-ff` merges, releases through `release/*` to `main`, back-merged | overview §10 | ✅ | History |
 | NFR-M04 | Comments describe abstractions and definitions, one line inside a function, none in tests; descriptions in `openapi.yaml` are the generated docs | AGENTS.md | ✅ | Convention held in review |
 | NFR-M05 | Migrations are sequential, one concern each, never edited once merged | §13.7 | ✅ | `migrations/00001`–`00028` |
 | NFR-M06 | The deck's self-check (undefined class, missing icon, unbalanced tag) runs in CI, not only by hand | `docs/design/README.md` | ❌ | Not in `ci.yml`. Tracked as an issue |
 | NFR-M07 | Every finding becomes a self-contained issue; the queue is worked in rounds and closed with a comment saying what changed | working agreement | ✅ | #1–#77 closed |
+| NFR-M08 | Sonar's rules fail locally and in CI before SonarCloud sees them: `eslint-plugin-sonarjs` in `pnpm lint`, `golangci-lint` with `server/.golangci.yml` in `make lint`; both at zero findings | §14 DoD | ✅ | `web/eslint.config.js`, `server/.golangci.yml`, CI `Web`/`Server` jobs |
 
 ## K. Observability
 

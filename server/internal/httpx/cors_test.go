@@ -76,7 +76,7 @@ func TestPreflightIsAnswered(t *testing.T) {
 }
 
 func TestWildcardIsNeverEmitted(t *testing.T) {
-	h := CORS([]string{"*"})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	h := CORS([]string{"*"})(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
 	req.Header.Set("Origin", "https://anything.example")
 	rec := httptest.NewRecorder()

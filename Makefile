@@ -13,6 +13,8 @@ export
 # contract. oapi-codegen is pinned by the `tool` directive in server/go.mod.
 SPECTRAL_VERSION ?= 6.16.3
 OPENAPI_TS_VERSION ?= 7.13.0
+# Same pin as .github/workflows/ci.yml's golangci-lint step.
+GOLANGCI_VERSION ?= v2.13.2
 
 MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),migrate)@localhost:5432/quizzivy?sslmode=disable
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
@@ -133,3 +135,7 @@ lint: ## Lint both sides
 	cd server && go vet ./...
 	# staticcheck's SA1019 is what enforces "never use a deprecated identifier".
 	cd server && go tool staticcheck ./...
+	# server/.golangci.yml carries the Sonar-shaped rules (cognitive complexity,
+	# nesting, duplication, unused parameters), so a finding fails here before
+	# it reaches SonarLint or SonarCloud. Web gets the same from eslint-plugin-sonarjs.
+	cd server && go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION) run

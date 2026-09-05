@@ -28,7 +28,7 @@ export function ConfirmDialog({
   pending = false,
   error = null,
   onConfirm,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -41,7 +41,7 @@ export function ConfirmDialog({
   pending?: boolean;
   error?: string | null;
   onConfirm?: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

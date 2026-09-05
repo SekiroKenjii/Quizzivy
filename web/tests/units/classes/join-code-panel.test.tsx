@@ -77,7 +77,9 @@ describe("the join code panel", () => {
   });
 
   it("says the class is closed when there is no active code", () => {
-    const { joinCode: _omitted, ...closed } = klass;
+    const closed = Object.fromEntries(
+      Object.entries(klass).filter(([key]) => key !== "joinCode"),
+    );
     renderPanel(closed as components["schemas"]["Class"]);
     expect(screen.getByText(/chưa mở tham gia bằng mã/)).toBeInTheDocument();
   });

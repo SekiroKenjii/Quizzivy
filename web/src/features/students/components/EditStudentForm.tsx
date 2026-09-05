@@ -17,10 +17,10 @@ import { ApiError, fieldMessages } from "@/lib/api/errors";
 export function EditStudentForm({
   student,
   onDone,
-}: {
+}: Readonly<{
   student: Student;
   onDone: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const form = useForm<EditStudentValues>({

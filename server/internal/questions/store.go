@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/audit"
+	"quizzivy/internal/db"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -107,30 +108,24 @@ func (s *Store) loadOptions(ctx context.Context, q querier, questionID string) (
 // loadOptionsFor reads the options for a whole page in one query, keyed by
 // question id. Callers must default a missing key to an empty slice.
 func (s *Store) loadOptionsFor(ctx context.Context, q querier, questionIDs []string) (map[string][]Option, error) {
-	byQuestion := make(map[string][]Option, len(questionIDs))
 	if len(questionIDs) == 0 {
-		return byQuestion, nil
+		return map[string][]Option{}, nil
 	}
-
-	rows, err := q.Query(ctx,
+	byQuestion, err := db.GroupBy(ctx, q,
 		`SELECT question_id::text, id::text, ordinal, text, is_correct
 		   FROM app.question_options
 		  WHERE question_id = ANY($1::uuid[])
-		  ORDER BY question_id, ordinal`, questionIDs)
+		  ORDER BY question_id, ordinal`, []any{questionIDs},
+		func(rows pgx.Rows) (string, Option, error) {
+			var questionID string
+			var o Option
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect)
+			return questionID, o, err
+		})
 	if err != nil {
 		return nil, fmt.Errorf("questions: load options: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var o Option
-		if err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect); err != nil {
-			return nil, fmt.Errorf("questions: scan option: %w", err)
-		}
-		byQuestion[questionID] = append(byQuestion[questionID], o)
-	}
-	return byQuestion, rows.Err()
+	return byQuestion, nil
 }
 
 func (s *Store) loadBlanks(ctx context.Context, q querier, questionID string) ([]Blank, error) {
@@ -144,12 +139,10 @@ func (s *Store) loadBlanks(ctx context.Context, q querier, questionID string) ([
 // loadBlanksFor reads the blanks for a whole page in one query, with each
 // blank's accepted answers aggregated in SQL rather than fetched per blank.
 func (s *Store) loadBlanksFor(ctx context.Context, q querier, questionIDs []string) (map[string][]Blank, error) {
-	byQuestion := make(map[string][]Blank, len(questionIDs))
 	if len(questionIDs) == 0 {
-		return byQuestion, nil
+		return map[string][]Blank{}, nil
 	}
-
-	rows, err := q.Query(ctx,
+	byQuestion, err := db.GroupBy(ctx, q,
 		`SELECT b.question_id::text, b.id::text, b.ordinal, b.case_sensitive,
 		        coalesce(array_agg(a.answer ORDER BY a.answer)
 		                 FILTER (WHERE a.answer IS NOT NULL), '{}')
@@ -157,21 +150,17 @@ func (s *Store) loadBlanksFor(ctx context.Context, q querier, questionIDs []stri
 		   LEFT JOIN app.question_blank_answers a ON a.blank_id = b.id
 		  WHERE b.question_id = ANY($1::uuid[])
 		  GROUP BY b.question_id, b.id, b.ordinal, b.case_sensitive
-		  ORDER BY b.question_id, b.ordinal`, questionIDs)
+		  ORDER BY b.question_id, b.ordinal`, []any{questionIDs},
+		func(rows pgx.Rows) (string, Blank, error) {
+			var questionID string
+			var b Blank
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.AcceptedAnswers)
+			return questionID, b, err
+		})
 	if err != nil {
 		return nil, fmt.Errorf("questions: load blanks: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var b Blank
-		if err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.AcceptedAnswers); err != nil {
-			return nil, fmt.Errorf("questions: scan blank: %w", err)
-		}
-		byQuestion[questionID] = append(byQuestion[questionID], b)
-	}
-	return byQuestion, rows.Err()
+	return byQuestion, nil
 }
 
 // WriteInput is a create or an update, depending on whether ID is set.

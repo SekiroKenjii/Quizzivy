@@ -7,7 +7,7 @@ import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListSta
 import { RowMenu } from "@/components/shared/RowMenu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, badgeVariants } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -32,7 +32,9 @@ import {
   type MonitorRow,
 } from "../api";
 import { POLL_MS, monitorKey } from "../keys";
+import { FocusLossCell } from "./FocusLossCell";
 import { InterventionDialog, type Intervention } from "./InterventionDialog";
+import type { TFunction } from "i18next";
 
 /** Under five minutes the remaining time turns warning ink, as G-02 draws it. */
 const URGENT_MS = 5 * 60_000;
@@ -47,11 +49,11 @@ const DAY_MS = 24 * HOUR_MS;
 export function Monitor({
   assignment,
   live,
-}: {
+}: Readonly<{
   assignment: Assignment;
   /** Polls and shows a countdown while true; a closed assignment reads once. */
   live: boolean;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<{ kind: Intervention; row: MonitorRow } | null>(
@@ -158,12 +160,12 @@ function Cards({
   assignment,
   receivedAt,
   live,
-}: {
+}: Readonly<{
   data: MonitorData;
   assignment: Assignment;
   receivedAt: number;
   live: boolean;
-}) {
+}>) {
   const { t } = useTranslation();
   const rows = data.rows;
   const submitted = rows.filter((r) => isHandedIn(r.state)).length;
@@ -186,11 +188,7 @@ function Cards({
       <Stat label={t("monitor.cards.notStarted")}>{notStarted}</Stat>
       <Stat label={t("monitor.cards.flagged")}>{flagged}</Stat>
       <Stat label={t("monitor.cards.closesIn")} urgent={closesIn < URGENT_MS}>
-        {closesIn >= DAY_MS
-          ? t("monitor.closesInDays", { count: Math.floor(closesIn / DAY_MS) })
-          : closesIn >= HOUR_MS
-            ? t("monitor.closesInHours", { count: Math.floor(closesIn / HOUR_MS) })
-            : countdown(closesIn)}
+        {closesInText(closesIn, t)}
       </Stat>
     </div>
   );
@@ -200,11 +198,11 @@ function Stat({
   label,
   urgent = false,
   children,
-}: {
+}: Readonly<{
   label: string;
   urgent?: boolean;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <Card>
       <CardContent>
@@ -245,14 +243,14 @@ function Row({
   receivedAt,
   live,
   onAct,
-}: {
+}: Readonly<{
   row: MonitorRow;
   questionCount: number;
   serverTime: string;
   receivedAt: number;
   live: boolean;
   onAct: (kind: Intervention) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const remaining = useCountdown(
@@ -262,10 +260,6 @@ function Row({
     live && row.state === "in_progress",
   );
   const answered = row.answeredCount ?? null;
-  const percent =
-    answered === null || questionCount === 0
-      ? 0
-      : Math.round((answered / questionCount) * 100);
   const handedIn = isHandedIn(row.state);
   const dash = <span className="text-muted-foreground">—</span>;
 
@@ -296,38 +290,16 @@ function Row({
       <TableCell>
         {answered === null ? (
           dash
-        ) : handedIn && row.state !== "timed_out" ? (
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {answered}/{questionCount}
-          </span>
         ) : (
-          <div className="flex items-center gap-2">
-            <span
-              className="bg-secondary h-1.5 flex-1 overflow-hidden rounded-full"
-              role="img"
-              aria-label={t("monitor.answeredOf", { answered, total: questionCount })}
-            >
-              <span
-                className="bg-foreground block h-full rounded-full"
-                style={{ width: `${percent}%` }}
-              />
-            </span>
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {answered}/{questionCount}
-            </span>
-          </div>
+          <ProgressCell
+            answered={answered}
+            total={questionCount}
+            settled={handedIn && row.state !== "timed_out"}
+          />
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {row.focusLossCount == null ? (
-          dash
-        ) : row.flagged ? (
-          <Badge variant="warning" className="tabular-nums">
-            {row.focusLossCount}
-          </Badge>
-        ) : (
-          row.focusLossCount
-        )}
+        <FocusLossCell count={row.focusLossCount} flagged={row.flagged} />
       </TableCell>
       <TableCell className="text-right">
         {row.score ? (
@@ -382,5 +354,48 @@ function Row({
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+/** "Đóng sau": days, then hours, then the running clock, as G-02 draws it. */
+function closesInText(closesIn: number, t: TFunction): string {
+  if (closesIn >= DAY_MS)
+    return t("monitor.closesInDays", { count: Math.floor(closesIn / DAY_MS) });
+  if (closesIn >= HOUR_MS)
+    return t("monitor.closesInHours", { count: Math.floor(closesIn / HOUR_MS) });
+  return countdown(closesIn);
+}
+
+/** A handed-in paper shows its count; a running one draws the bar. */
+function ProgressCell({
+  answered,
+  total,
+  settled,
+}: Readonly<{ answered: number; total: number; settled: boolean }>) {
+  const { t } = useTranslation();
+  if (settled) {
+    return (
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {answered}/{total}
+      </span>
+    );
+  }
+  const percent = total === 0 ? 0 : Math.round((answered / total) * 100);
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="bg-secondary h-1.5 flex-1 overflow-hidden rounded-full"
+        role="img"
+        aria-label={t("monitor.answeredOf", { answered, total })}
+      >
+        <span
+          className="bg-foreground block h-full rounded-full"
+          style={{ width: `${percent}%` }}
+        />
+      </span>
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {answered}/{total}
+      </span>
+    </div>
   );
 }

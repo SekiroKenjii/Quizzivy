@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Flag } from "lucide-react";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -84,59 +84,57 @@ export default function GradingQueuePage() {
         </TabsList>
       </Tabs>
 
-      {attempts.isPending ? (
-        <ListSkeleton />
-      ) : attempts.isError ? (
-        <LoadError error={attempts.error} onRetry={() => void attempts.refetch()}>
-          {t("queue.loadFailed")}
-        </LoadError>
-      ) : items.length === 0 ? (
-        <EmptyState
-          action={
-            <Button size="sm" variant="outline" asChild>
-              <Link to="/admin/assignments">{t("queue.toAssignments")}</Link>
-            </Button>
-          }
-        >
-          {t(`queue.empty.${tab}`)}
-        </EmptyState>
-      ) : (
-        <>
-          <Card className="gap-0 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[28%]">
-                    {t("queue.columns.student")}
-                  </TableHead>
-                  <TableHead>{t("queue.columns.test")}</TableHead>
-                  <TableHead>{t("queue.columns.state")}</TableHead>
-                  <TableHead>{t("queue.columns.submittedAt")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("queue.columns.pending")}
-                  </TableHead>
-                  <TableHead className="w-28" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((row) => (
-                  <Row key={row.id} row={row} locale={locale} />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-          <Pager
-            page={attempts.data.page}
-            pageSize={attempts.data.pageSize}
-            total={attempts.data.total}
-          />
-        </>
-      )}
+      <QueryStates
+        query={attempts}
+        skeleton={<ListSkeleton />}
+        failed={t("queue.loadFailed")}
+      >
+        {(data) =>
+          items.length === 0 ? (
+            <EmptyState
+              action={
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/admin/assignments">{t("queue.toAssignments")}</Link>
+                </Button>
+              }
+            >
+              {t(`queue.empty.${tab}`)}
+            </EmptyState>
+          ) : (
+            <>
+              <Card className="gap-0 overflow-hidden py-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[28%]">
+                        {t("queue.columns.student")}
+                      </TableHead>
+                      <TableHead>{t("queue.columns.test")}</TableHead>
+                      <TableHead>{t("queue.columns.state")}</TableHead>
+                      <TableHead>{t("queue.columns.submittedAt")}</TableHead>
+                      <TableHead className="text-right">
+                        {t("queue.columns.pending")}
+                      </TableHead>
+                      <TableHead className="w-28" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((row) => (
+                      <Row key={row.id} row={row} locale={locale} />
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+              <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+            </>
+          )
+        }
+      </QueryStates>
     </div>
   );
 }
 
-function Row({ row, locale }: { row: AttemptListRow; locale: "vi" | "en" }) {
+function Row({ row, locale }: Readonly<{ row: AttemptListRow; locale: "vi" | "en" }>) {
   const { t } = useTranslation();
   return (
     <TableRow>

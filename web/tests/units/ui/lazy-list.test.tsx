@@ -18,7 +18,7 @@ function fetchPage(page: number): Promise<PagedResult<{ id: string }>> {
   return Promise.resolve({ items, page, pageSize: 20, total: 40 });
 }
 
-function List({ fetch = fetchPage }: { fetch?: typeof fetchPage }) {
+function List({ fetch = fetchPage }: Readonly<{ fetch?: typeof fetchPage }>) {
   const list = useLazyList({ queryKey: ["lazy"], fetchPage: (page) => fetch(page) });
   return (
     <ul>

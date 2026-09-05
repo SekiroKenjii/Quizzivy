@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"quizzivy/internal/audit"
 	"quizzivy/internal/auth/google"
@@ -42,25 +43,12 @@ func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (User, err
 		return User{}, ErrAccountDisabled
 	}
 
-	rawIDToken, err := s.google.Exchange(ctx, in.Code, in.CodeVerifier, in.RedirectURI)
+	identity, err := s.verifiedIdentity(ctx, in.Code, in.CodeVerifier, in.RedirectURI)
 	if err != nil {
 		return User{}, err
 	}
-	identity, err := s.google.Verify(ctx, rawIDToken)
-	if err != nil {
-		return User{}, err
-	}
-	if !identity.EmailVerified {
-		return User{}, google.ErrEmailUnverified
-	}
-	for _, provider := range user.LinkedProviders {
-		if provider == "google" {
-			existing, err := s.store.FindUserByProviderIdentity(ctx, "google", identity.Subject)
-			if err == nil && existing.ID == user.ID {
-				return user, nil
-			}
-			return User{}, ErrIdentityAlreadyLinked
-		}
+	if slices.Contains(user.LinkedProviders, "google") {
+		return s.alreadyLinked(ctx, user, identity)
 	}
 
 	owner, err := s.store.FindUserByEmail(ctx, identity.Email)
@@ -86,6 +74,16 @@ func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (User, err
 		return User{}, err
 	}
 	return s.store.FindUserByID(ctx, user.ID)
+}
+
+// alreadyLinked answers a second link: the same Google account is a no-op,
+// a different one is refused.
+func (s *Service) alreadyLinked(ctx context.Context, user User, identity google.Identity) (User, error) {
+	existing, err := s.store.FindUserByProviderIdentity(ctx, "google", identity.Subject)
+	if err == nil && existing.ID == user.ID {
+		return user, nil
+	}
+	return User{}, ErrIdentityAlreadyLinked
 }
 
 // UnlinkGoogle detaches the Google identity (§15).

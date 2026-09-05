@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Plus, Send } from "lucide-react";
-import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createTest } from "@/features/tests/api";
 import { Avatar } from "@/components/ui/avatar";
@@ -97,46 +97,48 @@ export default function AdminDashboardPage() {
           {t("dashboard.needsYou")}
         </h2>
 
-        {summary.isPending ? (
-          <div
-            role="status"
-            aria-live="polite"
-            aria-label={t("common.loading")}
-            className="grid gap-4 lg:grid-cols-3"
-          >
-            <Skeleton className="h-[4.5rem]" />
-            <Skeleton className="h-[4.5rem]" />
-            <Skeleton className="h-[4.5rem]" />
-          </div>
-        ) : summary.isError ? (
-          <LoadError error={summary.error} onRetry={() => void summary.refetch()}>
-            {t("dashboard.loadFailed")}
-          </LoadError>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-3">
-            <QueueCard
-              count={summary.data.awaitingGrading}
-              label={t("dashboard.awaitingGrading")}
-              hint={t("dashboard.awaitingGradingHint")}
-              action={t("dashboard.grade")}
-              to="/admin/grading"
-            />
-            <QueueCard
-              count={summary.data.flaggedAttempts}
-              label={t("dashboard.flagged")}
-              hint={t("dashboard.flaggedHint")}
-              action={t("dashboard.review")}
-              to="/admin/grading?tab=flagged"
-            />
-            <QueueCard
-              count={summary.data.openAssignments}
-              label={t("dashboard.openAssignments")}
-              hint={t("dashboard.openAssignmentsHint")}
-              action={t("dashboard.monitor")}
-              to="/admin/assignments"
-            />
-          </div>
-        )}
+        <QueryStates
+          query={summary}
+          skeleton={
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label={t("common.loading")}
+              className="grid gap-4 lg:grid-cols-3"
+            >
+              <Skeleton className="h-[4.5rem]" />
+              <Skeleton className="h-[4.5rem]" />
+              <Skeleton className="h-[4.5rem]" />
+            </div>
+          }
+          failed={t("dashboard.loadFailed")}
+        >
+          {(data) => (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <QueueCard
+                count={data.awaitingGrading}
+                label={t("dashboard.awaitingGrading")}
+                hint={t("dashboard.awaitingGradingHint")}
+                action={t("dashboard.grade")}
+                to="/admin/grading"
+              />
+              <QueueCard
+                count={data.flaggedAttempts}
+                label={t("dashboard.flagged")}
+                hint={t("dashboard.flaggedHint")}
+                action={t("dashboard.review")}
+                to="/admin/grading?tab=flagged"
+              />
+              <QueueCard
+                count={data.openAssignments}
+                label={t("dashboard.openAssignments")}
+                hint={t("dashboard.openAssignmentsHint")}
+                action={t("dashboard.monitor")}
+                to="/admin/assignments"
+              />
+            </div>
+          )}
+        </QueryStates>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -157,46 +159,45 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
 
-            {open.isPending ? (
-              <div className="px-5 pb-5">
-                <ListSkeleton rows={3} />
-              </div>
-            ) : open.isError ? (
-              <div className="px-5 pb-5">
-                <LoadError error={open.error} onRetry={() => void open.refetch()}>
-                  {t("dashboard.loadFailed")}
-                </LoadError>
-              </div>
-            ) : open.data.items.length === 0 ? (
-              <p className="text-muted-foreground px-5 pb-6 text-sm">
-                {t("dashboard.noAssignments")}
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("dashboard.assignment")}</TableHead>
-                    <TableHead>{t("assignments.classes")}</TableHead>
-                    <TableHead>{t("dashboard.closesAt")}</TableHead>
-                    <TableHead className="w-[180px]">
-                      {t("dashboard.progress")}
-                    </TableHead>
-                    <TableHead className="w-24">
-                      <span className="sr-only">{t("dashboard.state")}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {open.data.items.map((assignment) => (
-                    <AssignmentRow
-                      key={assignment.id}
-                      assignment={assignment}
-                      locale={locale}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <QueryStates
+              query={open}
+              skeleton={<ListSkeleton rows={3} />}
+              failed={t("dashboard.loadFailed")}
+              className="px-5 pb-5"
+            >
+              {(data) =>
+                data.items.length === 0 ? (
+                  <p className="text-muted-foreground px-5 pb-6 text-sm">
+                    {t("dashboard.noAssignments")}
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("dashboard.assignment")}</TableHead>
+                        <TableHead>{t("assignments.classes")}</TableHead>
+                        <TableHead>{t("dashboard.closesAt")}</TableHead>
+                        <TableHead className="w-[180px]">
+                          {t("dashboard.progress")}
+                        </TableHead>
+                        <TableHead className="w-24">
+                          <span className="sr-only">{t("dashboard.state")}</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.items.map((assignment) => (
+                        <AssignmentRow
+                          key={assignment.id}
+                          assignment={assignment}
+                          locale={locale}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                )
+              }
+            </QueryStates>
           </section>
         </Card>
 
@@ -261,13 +262,13 @@ function QueueCard({
   hint,
   action,
   to,
-}: {
+}: Readonly<{
   count: number;
   label: string;
   hint: string;
   action: string;
   to: string;
-}) {
+}>) {
   return (
     <Card className="flex-row items-center gap-4 p-4">
       <span className="text-2xl font-semibold tabular-nums">{count}</span>
@@ -292,10 +293,10 @@ function QueueCard({
 function AssignmentRow({
   assignment,
   locale,
-}: {
+}: Readonly<{
   assignment: Assignment;
   locale: Locale;
-}) {
+}>) {
   const { t } = useTranslation();
   const status = statusAt(assignment, new Date());
   const submitted = assignment.submittedCount ?? 0;

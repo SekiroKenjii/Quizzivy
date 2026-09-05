@@ -42,7 +42,7 @@ import {
 import { useDebounced } from "@/lib/useDebounced";
 import { PageAside } from "@/components/shared/PageAside";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { RowMenu } from "@/components/shared/RowMenu";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/sonner";
@@ -51,6 +51,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
+import type { TFunction } from "i18next";
 
 const TYPES: QuestionType[] = [
   "single_choice",
@@ -138,6 +139,20 @@ export default function QuestionBankPage() {
 
   const items = bank.data?.items ?? [];
   const data = bank.data;
+  const pageIds = new Set(items.map((q) => q.id));
+  // Only this page: a filtered-away selection is still a selection the teacher made.
+  const selectPage = (checked: boolean) =>
+    setSelected(
+      checked
+        ? new Set([...selected, ...pageIds])
+        : new Set([...selected].filter((id) => !pageIds.has(id))),
+    );
+  const toggleSelected = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const facets = data?.facets;
   // From the server, not from `items`.
   const shownTags = [...new Set([...tags, ...(bank.data?.tags ?? [])])].sort((a, b) =>
@@ -164,16 +179,7 @@ export default function QuestionBankPage() {
         <PageHeader
           variant="title"
           title={t("nav.questionBank")}
-          subtitle={
-            data === undefined
-              ? "\u00a0"
-              : data.total === data.bankTotal
-                ? t("bank.summary", { count: data.bankTotal })
-                : t("bank.summaryFiltered", {
-                    count: data.bankTotal,
-                    filtered: data.total,
-                  })
-          }
+          subtitle={bankSubtitle(data, t)}
           actions={
             <Button asChild size="sm">
               <Link to="/admin/question-bank/new">
@@ -217,93 +223,79 @@ export default function QuestionBankPage() {
           </div>
         )}
 
-        {bank.isPending ? (
-          <ListSkeleton />
-        ) : bank.isError ? (
-          <LoadError error={bank.error} onRetry={() => void bank.refetch()}>
-            {t("bank.loadFailed")}
-          </LoadError>
-        ) : items.length === 0 ? (
-          <EmptyState
-            action={
-              <Button asChild size="sm">
-                <Link to="/admin/question-bank/new">{t("bank.newQuestion")}</Link>
-              </Button>
-            }
-          >
-            {filtering || search.trim() !== "" ? t("bank.noMatches") : t("bank.empty")}
-          </EmptyState>
-        ) : (
-          <>
-            <Card className="gap-0 overflow-hidden py-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-9">
-                      <Checkbox
-                        aria-label={t("bank.selectAll")}
-                        checked={allSelected}
-                        onChange={(event) =>
-                          setSelected(
-                            event.target.checked
-                              ? new Set([...selected, ...items.map((q) => q.id)])
-                              : // Only this page: a filtered-away selection is
-                                // still a selection the teacher made.
-                                new Set(
-                                  [...selected].filter(
-                                    (id) => !items.some((q) => q.id === id),
-                                  ),
-                                ),
-                          )
-                        }
-                      />
-                    </TableHead>
-                    <TableHead className="w-[42%]">{t("bank.prompt")}</TableHead>
-                    <TableHead>{t("bank.type")}</TableHead>
-                    <TableHead>{t("bank.tags")}</TableHead>
-                    <TableHead className="text-right">{t("bank.points")}</TableHead>
-                    <TableHead>{t("bank.usedIn")}</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((question) => (
-                    <Row
-                      key={question.id}
-                      selected={selected.has(question.id)}
-                      onToggleSelect={() =>
-                        setSelected((current) => {
-                          const next = new Set(current);
-                          if (!next.delete(question.id)) next.add(question.id);
-                          return next;
-                        })
-                      }
-                      question={question}
-                      playing={playing === question.id}
-                      onOpen={() =>
-                        void navigate(`/admin/question-bank/${question.id}`)
-                      }
-                      onRetry={() => void bank.refetch()}
-                      onTogglePlay={() =>
-                        setPlaying(playing === question.id ? null : question.id)
-                      }
-                      onAddToTest={() => setAddingOne(question.id)}
-                      onDuplicate={() => duplicate.mutate(question.id)}
-                      onDelete={() => {
-                        setBlocked(null);
-                        setDeleting(question);
-                      }}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
+        <QueryStates
+          query={bank}
+          skeleton={<ListSkeleton />}
+          failed={t("bank.loadFailed")}
+        >
+          {(data) =>
+            items.length === 0 ? (
+              <EmptyState
+                action={
+                  <Button asChild size="sm">
+                    <Link to="/admin/question-bank/new">{t("bank.newQuestion")}</Link>
+                  </Button>
+                }
+              >
+                {filtering || search.trim() !== ""
+                  ? t("bank.noMatches")
+                  : t("bank.empty")}
+              </EmptyState>
+            ) : (
+              <>
+                <Card className="gap-0 overflow-hidden py-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-9">
+                          <Checkbox
+                            aria-label={t("bank.selectAll")}
+                            checked={allSelected}
+                            onChange={(event) => selectPage(event.target.checked)}
+                          />
+                        </TableHead>
+                        <TableHead className="w-[42%]">{t("bank.prompt")}</TableHead>
+                        <TableHead>{t("bank.type")}</TableHead>
+                        <TableHead>{t("bank.tags")}</TableHead>
+                        <TableHead className="text-right">{t("bank.points")}</TableHead>
+                        <TableHead>{t("bank.usedIn")}</TableHead>
+                        <TableHead className="w-10" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((question) => (
+                        <Row
+                          key={question.id}
+                          selected={selected.has(question.id)}
+                          onToggleSelect={() => toggleSelected(question.id)}
+                          question={question}
+                          playing={playing === question.id}
+                          onOpen={() =>
+                            void navigate(`/admin/question-bank/${question.id}`)
+                          }
+                          onRetry={() => void bank.refetch()}
+                          onTogglePlay={() =>
+                            setPlaying(playing === question.id ? null : question.id)
+                          }
+                          onAddToTest={() => setAddingOne(question.id)}
+                          onDuplicate={() => duplicate.mutate(question.id)}
+                          onDelete={() => {
+                            setBlocked(null);
+                            setDeleting(question);
+                          }}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
 
-            {data && (
-              <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
-            )}
-          </>
-        )}
+                {data && (
+                  <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+                )}
+              </>
+            )
+          }
+        </QueryStates>
       </div>
       <BulkTagDialog
         questionIds={[...selected]}
@@ -372,7 +364,7 @@ function Row({
   onAddToTest,
   onDuplicate,
   onDelete,
-}: {
+}: Readonly<{
   question: AdminQuestion;
   playing: boolean;
   selected: boolean;
@@ -383,7 +375,7 @@ function Row({
   onAddToTest: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const audio = question.media?.kind === "audio" ? question.media : null;
 
@@ -431,11 +423,7 @@ function Row({
         </TableCell>
         <TableCell className="text-right tabular-nums">{question.points}</TableCell>
         <TableCell className="text-muted-foreground tabular-nums">
-          {question.usedInTests === undefined
-            ? "—"
-            : question.usedInTests === 0
-              ? "—"
-              : t("bank.usedInCount", { count: question.usedInTests })}
+          {usedInText(question.usedInTests, t)}
         </TableCell>
         <TableCell className="text-right">
           <RowMenu>
@@ -488,7 +476,7 @@ function FilterRail({
   onTypes,
   onTags,
   onAudioOnly,
-}: {
+}: Readonly<{
   facets: Record<string, number> | undefined;
   types: readonly QuestionType[];
   tags: readonly string[];
@@ -498,7 +486,7 @@ function FilterRail({
   onTypes: (next: readonly QuestionType[]) => void;
   onTags: (next: readonly string[]) => void;
   onAudioOnly: (next: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <PageAside side="left" label={t("bank.filters")}>
@@ -531,28 +519,29 @@ function FilterRail({
         <p className="text-muted-foreground mb-2.5 text-xs font-medium tracking-wide uppercase">
           {t("bank.tagFilter")}
         </p>
-        {!tagsReady ? null : shownTags.length === 0 ? (
-          <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {shownTags.map((value) => {
-              const picked = tags.includes(value);
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={picked}
-                  onClick={() => onTags(toggle(tags, value))}
-                >
-                  <Badge variant={picked ? "primary" : "outline"} className="gap-1">
-                    {value}
-                    {picked ? <X className="size-3" aria-hidden="true" /> : null}
-                  </Badge>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {tagsReady &&
+          (shownTags.length === 0 ? (
+            <p className="text-muted-foreground text-xs">{t("bank.noTags")}</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {shownTags.map((value) => {
+                const picked = tags.includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={picked}
+                    onClick={() => onTags(toggle(tags, value))}
+                  >
+                    <Badge variant={picked ? "primary" : "outline"} className="gap-1">
+                      {value}
+                      {picked ? <X className="size-3" aria-hidden="true" /> : null}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
       </div>
 
       <Separator />
@@ -573,12 +562,12 @@ function FilterOption({
   count,
   checked,
   onChange,
-}: {
+}: Readonly<{
   label: string;
   count: number | undefined;
   checked: boolean;
   onChange: () => void;
-}) {
+}>) {
   return (
     <label className="flex items-center gap-2.5 text-sm">
       <Checkbox checked={checked} onChange={onChange} />
@@ -597,4 +586,18 @@ function toggle<T>(values: readonly T[], value: T): readonly T[] {
   return values.includes(value)
     ? values.filter((v) => v !== value)
     : [...values, value];
+}
+
+function bankSubtitle(
+  data: { readonly total: number; readonly bankTotal: number } | undefined,
+  t: TFunction,
+): string {
+  if (data === undefined) return "\u00a0";
+  if (data.total === data.bankTotal)
+    return t("bank.summary", { count: data.bankTotal });
+  return t("bank.summaryFiltered", { count: data.bankTotal, filtered: data.total });
+}
+
+function usedInText(count: number | undefined, t: TFunction): string {
+  return count ? t("bank.usedInCount", { count }) : "—";
 }
