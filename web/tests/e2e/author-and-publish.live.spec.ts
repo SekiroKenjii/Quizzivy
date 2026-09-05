@@ -138,7 +138,7 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(row.getByText("Đang mở")).toBeVisible();
 
   // The monitor lists the class, nobody started, and says it will keep looking.
-  await row.getByRole("button", { name: title }).click();
+  await row.getByRole("link", { name: title }).click();
   await expect(page).toHaveURL(/\/admin\/assignments\/[0-9a-f-]+$/);
   await expect(page.getByText("Tự cập nhật 15 giây/lần")).toBeVisible();
   await expect(page.getByText("Chưa bắt đầu").first()).toBeVisible();
