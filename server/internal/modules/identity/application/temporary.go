@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+
 	"quizzivy/internal/modules/identity/domain"
 )
 

@@ -4,8 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"quizzivy/internal/modules/identity/domain"
 	"unicode/utf8"
+
+	"quizzivy/internal/modules/identity/domain"
 )
 
 // CurrentUser backs GET /auth/me (§7).

@@ -2777,7 +2777,6 @@ func (t *Answer) UnmarshalJSON(b []byte) error {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-
 	// (GET /admin/assignments)
 	ListAssignments(w http.ResponseWriter, r *http.Request, params ListAssignmentsParams)
 
@@ -3003,7 +3002,6 @@ type MiddlewareFunc func(http.Handler) http.Handler
 
 // ListAssignments operation middleware
 func (siw *ServerInterfaceWrapper) ListAssignments(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3075,7 +3073,6 @@ func (siw *ServerInterfaceWrapper) ListAssignments(w http.ResponseWriter, r *htt
 
 // CreateAssignment operation middleware
 func (siw *ServerInterfaceWrapper) CreateAssignment(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateAssignment(w, r)
 	}))
@@ -3089,7 +3086,6 @@ func (siw *ServerInterfaceWrapper) CreateAssignment(w http.ResponseWriter, r *ht
 
 // GetAssignment operation middleware
 func (siw *ServerInterfaceWrapper) GetAssignment(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3115,7 +3111,6 @@ func (siw *ServerInterfaceWrapper) GetAssignment(w http.ResponseWriter, r *http.
 
 // UpdateAssignment operation middleware
 func (siw *ServerInterfaceWrapper) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3141,7 +3136,6 @@ func (siw *ServerInterfaceWrapper) UpdateAssignment(w http.ResponseWriter, r *ht
 
 // ListAnswersForQuestion operation middleware
 func (siw *ServerInterfaceWrapper) ListAnswersForQuestion(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3183,7 +3177,6 @@ func (siw *ServerInterfaceWrapper) ListAnswersForQuestion(w http.ResponseWriter,
 
 // GetAssignmentMonitor operation middleware
 func (siw *ServerInterfaceWrapper) GetAssignmentMonitor(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3209,7 +3202,6 @@ func (siw *ServerInterfaceWrapper) GetAssignmentMonitor(w http.ResponseWriter, r
 
 // ReopenAssignment operation middleware
 func (siw *ServerInterfaceWrapper) ReopenAssignment(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3235,7 +3227,6 @@ func (siw *ServerInterfaceWrapper) ReopenAssignment(w http.ResponseWriter, r *ht
 
 // ListAttempts operation middleware
 func (siw *ServerInterfaceWrapper) ListAttempts(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3320,7 +3311,6 @@ func (siw *ServerInterfaceWrapper) ListAttempts(w http.ResponseWriter, r *http.R
 
 // GetAttemptForReview operation middleware
 func (siw *ServerInterfaceWrapper) GetAttemptForReview(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3346,7 +3336,6 @@ func (siw *ServerInterfaceWrapper) GetAttemptForReview(w http.ResponseWriter, r 
 
 // GetAttemptEvents operation middleware
 func (siw *ServerInterfaceWrapper) GetAttemptEvents(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3372,7 +3361,6 @@ func (siw *ServerInterfaceWrapper) GetAttemptEvents(w http.ResponseWriter, r *ht
 
 // ExtendAttempt operation middleware
 func (siw *ServerInterfaceWrapper) ExtendAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3398,7 +3386,6 @@ func (siw *ServerInterfaceWrapper) ExtendAttempt(w http.ResponseWriter, r *http.
 
 // FinishGrading operation middleware
 func (siw *ServerInterfaceWrapper) FinishGrading(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3424,7 +3411,6 @@ func (siw *ServerInterfaceWrapper) FinishGrading(w http.ResponseWriter, r *http.
 
 // FlagAttempt operation middleware
 func (siw *ServerInterfaceWrapper) FlagAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3450,7 +3436,6 @@ func (siw *ServerInterfaceWrapper) FlagAttempt(w http.ResponseWriter, r *http.Re
 
 // GradeAttempt operation middleware
 func (siw *ServerInterfaceWrapper) GradeAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3476,7 +3461,6 @@ func (siw *ServerInterfaceWrapper) GradeAttempt(w http.ResponseWriter, r *http.R
 
 // SetAttemptNote operation middleware
 func (siw *ServerInterfaceWrapper) SetAttemptNote(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3502,7 +3486,6 @@ func (siw *ServerInterfaceWrapper) SetAttemptNote(w http.ResponseWriter, r *http
 
 // ResetAttempt operation middleware
 func (siw *ServerInterfaceWrapper) ResetAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3528,7 +3511,6 @@ func (siw *ServerInterfaceWrapper) ResetAttempt(w http.ResponseWriter, r *http.R
 
 // VoidAttempt operation middleware
 func (siw *ServerInterfaceWrapper) VoidAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3554,7 +3536,6 @@ func (siw *ServerInterfaceWrapper) VoidAttempt(w http.ResponseWriter, r *http.Re
 
 // ListClasses operation middleware
 func (siw *ServerInterfaceWrapper) ListClasses(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3626,7 +3607,6 @@ func (siw *ServerInterfaceWrapper) ListClasses(w http.ResponseWriter, r *http.Re
 
 // CreateClass operation middleware
 func (siw *ServerInterfaceWrapper) CreateClass(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateClass(w, r)
 	}))
@@ -3640,7 +3620,6 @@ func (siw *ServerInterfaceWrapper) CreateClass(w http.ResponseWriter, r *http.Re
 
 // GetClass operation middleware
 func (siw *ServerInterfaceWrapper) GetClass(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3666,7 +3645,6 @@ func (siw *ServerInterfaceWrapper) GetClass(w http.ResponseWriter, r *http.Reque
 
 // UpdateClass operation middleware
 func (siw *ServerInterfaceWrapper) UpdateClass(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3692,7 +3670,6 @@ func (siw *ServerInterfaceWrapper) UpdateClass(w http.ResponseWriter, r *http.Re
 
 // RevokeJoinCode operation middleware
 func (siw *ServerInterfaceWrapper) RevokeJoinCode(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3718,7 +3695,6 @@ func (siw *ServerInterfaceWrapper) RevokeJoinCode(w http.ResponseWriter, r *http
 
 // RotateJoinCode operation middleware
 func (siw *ServerInterfaceWrapper) RotateJoinCode(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3744,7 +3720,6 @@ func (siw *ServerInterfaceWrapper) RotateJoinCode(w http.ResponseWriter, r *http
 
 // ListClassMembers operation middleware
 func (siw *ServerInterfaceWrapper) ListClassMembers(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3812,7 +3787,6 @@ func (siw *ServerInterfaceWrapper) ListClassMembers(w http.ResponseWriter, r *ht
 
 // AddClassMember operation middleware
 func (siw *ServerInterfaceWrapper) AddClassMember(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3838,7 +3812,6 @@ func (siw *ServerInterfaceWrapper) AddClassMember(w http.ResponseWriter, r *http
 
 // RemoveClassMember operation middleware
 func (siw *ServerInterfaceWrapper) RemoveClassMember(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3873,7 +3846,6 @@ func (siw *ServerInterfaceWrapper) RemoveClassMember(w http.ResponseWriter, r *h
 
 // GetDashboard operation middleware
 func (siw *ServerInterfaceWrapper) GetDashboard(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDashboard(w, r)
 	}))
@@ -3887,7 +3859,6 @@ func (siw *ServerInterfaceWrapper) GetDashboard(w http.ResponseWriter, r *http.R
 
 // ListMedia operation middleware
 func (siw *ServerInterfaceWrapper) ListMedia(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3946,7 +3917,6 @@ func (siw *ServerInterfaceWrapper) ListMedia(w http.ResponseWriter, r *http.Requ
 
 // UploadMedia operation middleware
 func (siw *ServerInterfaceWrapper) UploadMedia(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UploadMedia(w, r)
 	}))
@@ -3960,7 +3930,6 @@ func (siw *ServerInterfaceWrapper) UploadMedia(w http.ResponseWriter, r *http.Re
 
 // DeleteMedia operation middleware
 func (siw *ServerInterfaceWrapper) DeleteMedia(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -3986,7 +3955,6 @@ func (siw *ServerInterfaceWrapper) DeleteMedia(w http.ResponseWriter, r *http.Re
 
 // ListQuestions operation middleware
 func (siw *ServerInterfaceWrapper) ListQuestions(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4084,7 +4052,6 @@ func (siw *ServerInterfaceWrapper) ListQuestions(w http.ResponseWriter, r *http.
 
 // CreateQuestion operation middleware
 func (siw *ServerInterfaceWrapper) CreateQuestion(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateQuestion(w, r)
 	}))
@@ -4098,7 +4065,6 @@ func (siw *ServerInterfaceWrapper) CreateQuestion(w http.ResponseWriter, r *http
 
 // TagQuestions operation middleware
 func (siw *ServerInterfaceWrapper) TagQuestions(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TagQuestions(w, r)
 	}))
@@ -4112,7 +4078,6 @@ func (siw *ServerInterfaceWrapper) TagQuestions(w http.ResponseWriter, r *http.R
 
 // DeleteQuestion operation middleware
 func (siw *ServerInterfaceWrapper) DeleteQuestion(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4138,7 +4103,6 @@ func (siw *ServerInterfaceWrapper) DeleteQuestion(w http.ResponseWriter, r *http
 
 // GetQuestion operation middleware
 func (siw *ServerInterfaceWrapper) GetQuestion(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4164,7 +4128,6 @@ func (siw *ServerInterfaceWrapper) GetQuestion(w http.ResponseWriter, r *http.Re
 
 // UpdateQuestion operation middleware
 func (siw *ServerInterfaceWrapper) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4190,7 +4153,6 @@ func (siw *ServerInterfaceWrapper) UpdateQuestion(w http.ResponseWriter, r *http
 
 // DuplicateQuestion operation middleware
 func (siw *ServerInterfaceWrapper) DuplicateQuestion(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4216,7 +4178,6 @@ func (siw *ServerInterfaceWrapper) DuplicateQuestion(w http.ResponseWriter, r *h
 
 // ListStudents operation middleware
 func (siw *ServerInterfaceWrapper) ListStudents(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4301,7 +4262,6 @@ func (siw *ServerInterfaceWrapper) ListStudents(w http.ResponseWriter, r *http.R
 
 // CreateStudent operation middleware
 func (siw *ServerInterfaceWrapper) CreateStudent(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateStudent(w, r)
 	}))
@@ -4315,7 +4275,6 @@ func (siw *ServerInterfaceWrapper) CreateStudent(w http.ResponseWriter, r *http.
 
 // GetStudent operation middleware
 func (siw *ServerInterfaceWrapper) GetStudent(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4341,7 +4300,6 @@ func (siw *ServerInterfaceWrapper) GetStudent(w http.ResponseWriter, r *http.Req
 
 // UpdateStudent operation middleware
 func (siw *ServerInterfaceWrapper) UpdateStudent(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4367,7 +4325,6 @@ func (siw *ServerInterfaceWrapper) UpdateStudent(w http.ResponseWriter, r *http.
 
 // ResetStudentPassword operation middleware
 func (siw *ServerInterfaceWrapper) ResetStudentPassword(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4393,7 +4350,6 @@ func (siw *ServerInterfaceWrapper) ResetStudentPassword(w http.ResponseWriter, r
 
 // ListTests operation middleware
 func (siw *ServerInterfaceWrapper) ListTests(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4478,7 +4434,6 @@ func (siw *ServerInterfaceWrapper) ListTests(w http.ResponseWriter, r *http.Requ
 
 // CreateTest operation middleware
 func (siw *ServerInterfaceWrapper) CreateTest(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateTest(w, r)
 	}))
@@ -4492,7 +4447,6 @@ func (siw *ServerInterfaceWrapper) CreateTest(w http.ResponseWriter, r *http.Req
 
 // GetTest operation middleware
 func (siw *ServerInterfaceWrapper) GetTest(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4518,7 +4472,6 @@ func (siw *ServerInterfaceWrapper) GetTest(w http.ResponseWriter, r *http.Reques
 
 // UpdateTest operation middleware
 func (siw *ServerInterfaceWrapper) UpdateTest(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4544,7 +4497,6 @@ func (siw *ServerInterfaceWrapper) UpdateTest(w http.ResponseWriter, r *http.Req
 
 // DuplicateTest operation middleware
 func (siw *ServerInterfaceWrapper) DuplicateTest(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4570,7 +4522,6 @@ func (siw *ServerInterfaceWrapper) DuplicateTest(w http.ResponseWriter, r *http.
 
 // PreviewTest operation middleware
 func (siw *ServerInterfaceWrapper) PreviewTest(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4612,7 +4563,6 @@ func (siw *ServerInterfaceWrapper) PreviewTest(w http.ResponseWriter, r *http.Re
 
 // PublishTest operation middleware
 func (siw *ServerInterfaceWrapper) PublishTest(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4638,7 +4588,6 @@ func (siw *ServerInterfaceWrapper) PublishTest(w http.ResponseWriter, r *http.Re
 
 // ListTestVersions operation middleware
 func (siw *ServerInterfaceWrapper) ListTestVersions(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4664,7 +4613,6 @@ func (siw *ServerInterfaceWrapper) ListTestVersions(w http.ResponseWriter, r *ht
 
 // ListMyAssignments operation middleware
 func (siw *ServerInterfaceWrapper) ListMyAssignments(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListMyAssignments(w, r)
 	}))
@@ -4678,7 +4626,6 @@ func (siw *ServerInterfaceWrapper) ListMyAssignments(w http.ResponseWriter, r *h
 
 // GetMyAssignment operation middleware
 func (siw *ServerInterfaceWrapper) GetMyAssignment(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4704,7 +4651,6 @@ func (siw *ServerInterfaceWrapper) GetMyAssignment(w http.ResponseWriter, r *htt
 
 // StartOrResumeAttempt operation middleware
 func (siw *ServerInterfaceWrapper) StartOrResumeAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4730,7 +4676,6 @@ func (siw *ServerInterfaceWrapper) StartOrResumeAttempt(w http.ResponseWriter, r
 
 // GetAttempt operation middleware
 func (siw *ServerInterfaceWrapper) GetAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4756,7 +4701,6 @@ func (siw *ServerInterfaceWrapper) GetAttempt(w http.ResponseWriter, r *http.Req
 
 // SaveAnswers operation middleware
 func (siw *ServerInterfaceWrapper) SaveAnswers(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4782,7 +4726,6 @@ func (siw *ServerInterfaceWrapper) SaveAnswers(w http.ResponseWriter, r *http.Re
 
 // RecordAudioPlay operation middleware
 func (siw *ServerInterfaceWrapper) RecordAudioPlay(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4808,7 +4751,6 @@ func (siw *ServerInterfaceWrapper) RecordAudioPlay(w http.ResponseWriter, r *htt
 
 // FlushEvents operation middleware
 func (siw *ServerInterfaceWrapper) FlushEvents(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4834,7 +4776,6 @@ func (siw *ServerInterfaceWrapper) FlushEvents(w http.ResponseWriter, r *http.Re
 
 // GetAttemptResult operation middleware
 func (siw *ServerInterfaceWrapper) GetAttemptResult(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4860,7 +4801,6 @@ func (siw *ServerInterfaceWrapper) GetAttemptResult(w http.ResponseWriter, r *ht
 
 // SubmitAttempt operation middleware
 func (siw *ServerInterfaceWrapper) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4886,7 +4826,6 @@ func (siw *ServerInterfaceWrapper) SubmitAttempt(w http.ResponseWriter, r *http.
 
 // ListMyClasses operation middleware
 func (siw *ServerInterfaceWrapper) ListMyClasses(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListMyClasses(w, r)
 	}))
@@ -4900,7 +4839,6 @@ func (siw *ServerInterfaceWrapper) ListMyClasses(w http.ResponseWriter, r *http.
 
 // JoinClass operation middleware
 func (siw *ServerInterfaceWrapper) JoinClass(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.JoinClass(w, r)
 	}))
@@ -4914,7 +4852,6 @@ func (siw *ServerInterfaceWrapper) JoinClass(w http.ResponseWriter, r *http.Requ
 
 // GetMediaUrl operation middleware
 func (siw *ServerInterfaceWrapper) GetMediaUrl(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 	_ = err
 
@@ -4940,7 +4877,6 @@ func (siw *ServerInterfaceWrapper) GetMediaUrl(w http.ResponseWriter, r *http.Re
 
 // ChangePassword operation middleware
 func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangePassword(w, r)
 	}))
@@ -4954,7 +4890,6 @@ func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http
 
 // GoogleAuth operation middleware
 func (siw *ServerInterfaceWrapper) GoogleAuth(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GoogleAuth(w, r)
 	}))
@@ -4968,7 +4903,6 @@ func (siw *ServerInterfaceWrapper) GoogleAuth(w http.ResponseWriter, r *http.Req
 
 // UnlinkGoogle operation middleware
 func (siw *ServerInterfaceWrapper) UnlinkGoogle(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UnlinkGoogle(w, r)
 	}))
@@ -4982,7 +4916,6 @@ func (siw *ServerInterfaceWrapper) UnlinkGoogle(w http.ResponseWriter, r *http.R
 
 // LinkGoogle operation middleware
 func (siw *ServerInterfaceWrapper) LinkGoogle(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.LinkGoogle(w, r)
 	}))
@@ -4996,7 +4929,6 @@ func (siw *ServerInterfaceWrapper) LinkGoogle(w http.ResponseWriter, r *http.Req
 
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Login(w, r)
 	}))
@@ -5010,7 +4942,6 @@ func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request)
 
 // Logout operation middleware
 func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Logout(w, r)
 	}))
@@ -5024,7 +4955,6 @@ func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request
 
 // GetCurrentUser operation middleware
 func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentUser(w, r)
 	}))
@@ -5038,7 +4968,6 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 
 // RefreshSession operation middleware
 func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RefreshSession(w, r)
 	}))
@@ -5052,7 +4981,6 @@ func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http
 
 // PreviewJoinCode operation middleware
 func (siw *ServerInterfaceWrapper) PreviewJoinCode(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PreviewJoinCode(w, r)
 	}))
@@ -5263,8 +5191,7 @@ type BadRequestJSONResponse ErrorResponse
 
 type ForbiddenJSONResponse ErrorResponse
 
-type NoContentResponse struct {
-}
+type NoContentResponse struct{}
 
 type NotFoundJSONResponse ErrorResponse
 
@@ -5299,7 +5226,6 @@ type ListAssignments200JSONResponse struct {
 }
 
 func (response ListAssignments200JSONResponse) VisitListAssignmentsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5321,7 +5247,6 @@ type CreateAssignmentResponseObject interface {
 type CreateAssignment201JSONResponse Assignment
 
 func (response CreateAssignment201JSONResponse) VisitCreateAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5335,7 +5260,6 @@ func (response CreateAssignment201JSONResponse) VisitCreateAssignmentResponse(w 
 type CreateAssignment400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response CreateAssignment400JSONResponse) VisitCreateAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5349,7 +5273,6 @@ func (response CreateAssignment400JSONResponse) VisitCreateAssignmentResponse(w 
 type CreateAssignment409JSONResponse ErrorResponse
 
 func (response CreateAssignment409JSONResponse) VisitCreateAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5371,7 +5294,6 @@ type GetAssignmentResponseObject interface {
 type GetAssignment200JSONResponse Assignment
 
 func (response GetAssignment200JSONResponse) VisitGetAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5385,7 +5307,6 @@ func (response GetAssignment200JSONResponse) VisitGetAssignmentResponse(w http.R
 type GetAssignment404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetAssignment404JSONResponse) VisitGetAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5408,7 +5329,6 @@ type UpdateAssignmentResponseObject interface {
 type UpdateAssignment200JSONResponse Assignment
 
 func (response UpdateAssignment200JSONResponse) VisitUpdateAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5422,7 +5342,6 @@ func (response UpdateAssignment200JSONResponse) VisitUpdateAssignmentResponse(w 
 type UpdateAssignment400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response UpdateAssignment400JSONResponse) VisitUpdateAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5436,7 +5355,6 @@ func (response UpdateAssignment400JSONResponse) VisitUpdateAssignmentResponse(w 
 type UpdateAssignment404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response UpdateAssignment404JSONResponse) VisitUpdateAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5450,7 +5368,6 @@ func (response UpdateAssignment404JSONResponse) VisitUpdateAssignmentResponse(w 
 type UpdateAssignment409JSONResponse ErrorResponse
 
 func (response UpdateAssignment409JSONResponse) VisitUpdateAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5483,7 +5400,6 @@ type ListAnswersForQuestion200JSONResponse struct {
 }
 
 func (response ListAnswersForQuestion200JSONResponse) VisitListAnswersForQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5497,7 +5413,6 @@ func (response ListAnswersForQuestion200JSONResponse) VisitListAnswersForQuestio
 type ListAnswersForQuestion404JSONResponse ErrorResponse
 
 func (response ListAnswersForQuestion404JSONResponse) VisitListAnswersForQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5526,7 +5441,6 @@ type GetAssignmentMonitor200JSONResponse struct {
 }
 
 func (response GetAssignmentMonitor200JSONResponse) VisitGetAssignmentMonitorResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5540,7 +5454,6 @@ func (response GetAssignmentMonitor200JSONResponse) VisitGetAssignmentMonitorRes
 type GetAssignmentMonitor404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetAssignmentMonitor404JSONResponse) VisitGetAssignmentMonitorResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5563,7 +5476,6 @@ type ReopenAssignmentResponseObject interface {
 type ReopenAssignment200JSONResponse Assignment
 
 func (response ReopenAssignment200JSONResponse) VisitReopenAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5577,7 +5489,6 @@ func (response ReopenAssignment200JSONResponse) VisitReopenAssignmentResponse(w 
 type ReopenAssignment400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response ReopenAssignment400JSONResponse) VisitReopenAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5591,7 +5502,6 @@ func (response ReopenAssignment400JSONResponse) VisitReopenAssignmentResponse(w 
 type ReopenAssignment404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response ReopenAssignment404JSONResponse) VisitReopenAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5605,7 +5515,6 @@ func (response ReopenAssignment404JSONResponse) VisitReopenAssignmentResponse(w 
 type ReopenAssignment409JSONResponse ErrorResponse
 
 func (response ReopenAssignment409JSONResponse) VisitReopenAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5632,7 +5541,6 @@ type ListAttempts200JSONResponse struct {
 }
 
 func (response ListAttempts200JSONResponse) VisitListAttemptsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5680,7 +5588,6 @@ type GetAttemptForReview200JSONResponse struct {
 }
 
 func (response GetAttemptForReview200JSONResponse) VisitGetAttemptForReviewResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5694,7 +5601,6 @@ func (response GetAttemptForReview200JSONResponse) VisitGetAttemptForReviewRespo
 type GetAttemptForReview404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetAttemptForReview404JSONResponse) VisitGetAttemptForReviewResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5724,7 +5630,6 @@ type GetAttemptEvents200JSONResponse struct {
 }
 
 func (response GetAttemptEvents200JSONResponse) VisitGetAttemptEventsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5738,7 +5643,6 @@ func (response GetAttemptEvents200JSONResponse) VisitGetAttemptEventsResponse(w 
 type GetAttemptEvents404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetAttemptEvents404JSONResponse) VisitGetAttemptEventsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5761,7 +5665,6 @@ type ExtendAttemptResponseObject interface {
 type ExtendAttempt200JSONResponse Attempt
 
 func (response ExtendAttempt200JSONResponse) VisitExtendAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5775,7 +5678,6 @@ func (response ExtendAttempt200JSONResponse) VisitExtendAttemptResponse(w http.R
 type ExtendAttempt400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response ExtendAttempt400JSONResponse) VisitExtendAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5789,7 +5691,6 @@ func (response ExtendAttempt400JSONResponse) VisitExtendAttemptResponse(w http.R
 type ExtendAttempt404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response ExtendAttempt404JSONResponse) VisitExtendAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5803,7 +5704,6 @@ func (response ExtendAttempt404JSONResponse) VisitExtendAttemptResponse(w http.R
 type ExtendAttempt409JSONResponse ErrorResponse
 
 func (response ExtendAttempt409JSONResponse) VisitExtendAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5825,7 +5725,6 @@ type FinishGradingResponseObject interface {
 type FinishGrading200JSONResponse Attempt
 
 func (response FinishGrading200JSONResponse) VisitFinishGradingResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5839,7 +5738,6 @@ func (response FinishGrading200JSONResponse) VisitFinishGradingResponse(w http.R
 type FinishGrading404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response FinishGrading404JSONResponse) VisitFinishGradingResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5853,7 +5751,6 @@ func (response FinishGrading404JSONResponse) VisitFinishGradingResponse(w http.R
 type FinishGrading409JSONResponse ErrorResponse
 
 func (response FinishGrading409JSONResponse) VisitFinishGradingResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5876,7 +5773,6 @@ type FlagAttemptResponseObject interface {
 type FlagAttempt200JSONResponse Attempt
 
 func (response FlagAttempt200JSONResponse) VisitFlagAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5890,7 +5786,6 @@ func (response FlagAttempt200JSONResponse) VisitFlagAttemptResponse(w http.Respo
 type FlagAttempt404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response FlagAttempt404JSONResponse) VisitFlagAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5904,7 +5799,6 @@ func (response FlagAttempt404JSONResponse) VisitFlagAttemptResponse(w http.Respo
 type FlagAttempt409JSONResponse ErrorResponse
 
 func (response FlagAttempt409JSONResponse) VisitFlagAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5927,7 +5821,6 @@ type GradeAttemptResponseObject interface {
 type GradeAttempt200JSONResponse AttemptScore
 
 func (response GradeAttempt200JSONResponse) VisitGradeAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5941,7 +5834,6 @@ func (response GradeAttempt200JSONResponse) VisitGradeAttemptResponse(w http.Res
 type GradeAttempt400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response GradeAttempt400JSONResponse) VisitGradeAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5955,7 +5847,6 @@ func (response GradeAttempt400JSONResponse) VisitGradeAttemptResponse(w http.Res
 type GradeAttempt404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GradeAttempt404JSONResponse) VisitGradeAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5969,7 +5860,6 @@ func (response GradeAttempt404JSONResponse) VisitGradeAttemptResponse(w http.Res
 type GradeAttempt409JSONResponse ErrorResponse
 
 func (response GradeAttempt409JSONResponse) VisitGradeAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -5994,7 +5884,6 @@ type SetAttemptNote200JSONResponse struct {
 }
 
 func (response SetAttemptNote200JSONResponse) VisitSetAttemptNoteResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6008,7 +5897,6 @@ func (response SetAttemptNote200JSONResponse) VisitSetAttemptNoteResponse(w http
 type SetAttemptNote404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response SetAttemptNote404JSONResponse) VisitSetAttemptNoteResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6031,7 +5919,6 @@ type ResetAttemptResponseObject interface {
 type ResetAttempt200JSONResponse Attempt
 
 func (response ResetAttempt200JSONResponse) VisitResetAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6045,7 +5932,6 @@ func (response ResetAttempt200JSONResponse) VisitResetAttemptResponse(w http.Res
 type ResetAttempt400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response ResetAttempt400JSONResponse) VisitResetAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6059,7 +5945,6 @@ func (response ResetAttempt400JSONResponse) VisitResetAttemptResponse(w http.Res
 type ResetAttempt404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response ResetAttempt404JSONResponse) VisitResetAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6073,7 +5958,6 @@ func (response ResetAttempt404JSONResponse) VisitResetAttemptResponse(w http.Res
 type ResetAttempt409JSONResponse ErrorResponse
 
 func (response ResetAttempt409JSONResponse) VisitResetAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6096,7 +5980,6 @@ type VoidAttemptResponseObject interface {
 type VoidAttempt200JSONResponse Attempt
 
 func (response VoidAttempt200JSONResponse) VisitVoidAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6110,7 +5993,6 @@ func (response VoidAttempt200JSONResponse) VisitVoidAttemptResponse(w http.Respo
 type VoidAttempt400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response VoidAttempt400JSONResponse) VisitVoidAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6124,7 +6006,6 @@ func (response VoidAttempt400JSONResponse) VisitVoidAttemptResponse(w http.Respo
 type VoidAttempt404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response VoidAttempt404JSONResponse) VisitVoidAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6138,7 +6019,6 @@ func (response VoidAttempt404JSONResponse) VisitVoidAttemptResponse(w http.Respo
 type VoidAttempt409JSONResponse ErrorResponse
 
 func (response VoidAttempt409JSONResponse) VisitVoidAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6167,7 +6047,6 @@ type ListClasses200JSONResponse struct {
 }
 
 func (response ListClasses200JSONResponse) VisitListClassesResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6189,7 +6068,6 @@ type CreateClassResponseObject interface {
 type CreateClass201JSONResponse Class
 
 func (response CreateClass201JSONResponse) VisitCreateClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6211,7 +6089,6 @@ type GetClassResponseObject interface {
 type GetClass200JSONResponse Class
 
 func (response GetClass200JSONResponse) VisitGetClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6225,7 +6102,6 @@ func (response GetClass200JSONResponse) VisitGetClassResponse(w http.ResponseWri
 type GetClass404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetClass404JSONResponse) VisitGetClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6248,7 +6124,6 @@ type UpdateClassResponseObject interface {
 type UpdateClass200JSONResponse Class
 
 func (response UpdateClass200JSONResponse) VisitUpdateClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6262,7 +6137,6 @@ func (response UpdateClass200JSONResponse) VisitUpdateClassResponse(w http.Respo
 type UpdateClass404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response UpdateClass404JSONResponse) VisitUpdateClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6291,7 +6165,6 @@ func (response RevokeJoinCode204Response) VisitRevokeJoinCodeResponse(w http.Res
 type RevokeJoinCode403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response RevokeJoinCode403JSONResponse) VisitRevokeJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6305,7 +6178,6 @@ func (response RevokeJoinCode403JSONResponse) VisitRevokeJoinCodeResponse(w http
 type RevokeJoinCode404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response RevokeJoinCode404JSONResponse) VisitRevokeJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6337,7 +6209,6 @@ type RotateJoinCode201JSONResponse struct {
 }
 
 func (response RotateJoinCode201JSONResponse) VisitRotateJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6351,7 +6222,6 @@ func (response RotateJoinCode201JSONResponse) VisitRotateJoinCodeResponse(w http
 type RotateJoinCode403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response RotateJoinCode403JSONResponse) VisitRotateJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6365,7 +6235,6 @@ func (response RotateJoinCode403JSONResponse) VisitRotateJoinCodeResponse(w http
 type RotateJoinCode404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response RotateJoinCode404JSONResponse) VisitRotateJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6393,7 +6262,6 @@ type ListClassMembers200JSONResponse struct {
 }
 
 func (response ListClassMembers200JSONResponse) VisitListClassMembersResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6416,7 +6284,6 @@ type AddClassMemberResponseObject interface {
 type AddClassMember201JSONResponse ClassMember
 
 func (response AddClassMember201JSONResponse) VisitAddClassMemberResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6430,7 +6297,6 @@ func (response AddClassMember201JSONResponse) VisitAddClassMemberResponse(w http
 type AddClassMember400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response AddClassMember400JSONResponse) VisitAddClassMemberResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6444,7 +6310,6 @@ func (response AddClassMember400JSONResponse) VisitAddClassMemberResponse(w http
 type AddClassMember404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response AddClassMember404JSONResponse) VisitAddClassMemberResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6474,7 +6339,6 @@ func (response RemoveClassMember204Response) VisitRemoveClassMemberResponse(w ht
 type RemoveClassMember403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response RemoveClassMember403JSONResponse) VisitRemoveClassMemberResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6488,7 +6352,6 @@ func (response RemoveClassMember403JSONResponse) VisitRemoveClassMemberResponse(
 type RemoveClassMember404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response RemoveClassMember404JSONResponse) VisitRemoveClassMemberResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6499,8 +6362,7 @@ func (response RemoveClassMember404JSONResponse) VisitRemoveClassMemberResponse(
 	return err
 }
 
-type GetDashboardRequestObject struct {
-}
+type GetDashboardRequestObject struct{}
 
 type GetDashboardResponseObject interface {
 	VisitGetDashboardResponse(w http.ResponseWriter) error
@@ -6509,7 +6371,6 @@ type GetDashboardResponseObject interface {
 type GetDashboard200JSONResponse Dashboard
 
 func (response GetDashboard200JSONResponse) VisitGetDashboardResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6546,7 +6407,6 @@ type ListMedia200JSONResponse struct {
 }
 
 func (response ListMedia200JSONResponse) VisitListMediaResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -6561,7 +6421,6 @@ func (response ListMedia200JSONResponse) VisitListMediaResponse(w http.ResponseW
 type ListMedia400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response ListMedia400JSONResponse) VisitListMediaResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6583,7 +6442,6 @@ type UploadMediaResponseObject interface {
 type UploadMedia201JSONResponse MediaAsset
 
 func (response UploadMedia201JSONResponse) VisitUploadMediaResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6597,7 +6455,6 @@ func (response UploadMedia201JSONResponse) VisitUploadMediaResponse(w http.Respo
 type UploadMedia413JSONResponse ErrorResponse
 
 func (response UploadMedia413JSONResponse) VisitUploadMediaResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6611,7 +6468,6 @@ func (response UploadMedia413JSONResponse) VisitUploadMediaResponse(w http.Respo
 type UploadMedia415JSONResponse ErrorResponse
 
 func (response UploadMedia415JSONResponse) VisitUploadMediaResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6640,7 +6496,6 @@ func (response DeleteMedia204Response) VisitDeleteMediaResponse(w http.ResponseW
 type DeleteMedia404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response DeleteMedia404JSONResponse) VisitDeleteMediaResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6654,7 +6509,6 @@ func (response DeleteMedia404JSONResponse) VisitDeleteMediaResponse(w http.Respo
 type DeleteMedia409JSONResponse ErrorResponse
 
 func (response DeleteMedia409JSONResponse) VisitDeleteMediaResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6704,7 +6558,6 @@ type ListQuestions200JSONResponse struct {
 }
 
 func (response ListQuestions200JSONResponse) VisitListQuestionsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6718,7 +6571,6 @@ func (response ListQuestions200JSONResponse) VisitListQuestionsResponse(w http.R
 type ListQuestions400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response ListQuestions400JSONResponse) VisitListQuestionsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6740,7 +6592,6 @@ type CreateQuestionResponseObject interface {
 type CreateQuestion201JSONResponse AdminQuestion
 
 func (response CreateQuestion201JSONResponse) VisitCreateQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6754,7 +6605,6 @@ func (response CreateQuestion201JSONResponse) VisitCreateQuestionResponse(w http
 type CreateQuestion400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response CreateQuestion400JSONResponse) VisitCreateQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6780,7 +6630,6 @@ type TagQuestions200JSONResponse struct {
 }
 
 func (response TagQuestions200JSONResponse) VisitTagQuestionsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6794,7 +6643,6 @@ func (response TagQuestions200JSONResponse) VisitTagQuestionsResponse(w http.Res
 type TagQuestions400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response TagQuestions400JSONResponse) VisitTagQuestionsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6823,7 +6671,6 @@ func (response DeleteQuestion204Response) VisitDeleteQuestionResponse(w http.Res
 type DeleteQuestion404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response DeleteQuestion404JSONResponse) VisitDeleteQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6837,7 +6684,6 @@ func (response DeleteQuestion404JSONResponse) VisitDeleteQuestionResponse(w http
 type DeleteQuestion409JSONResponse ErrorResponse
 
 func (response DeleteQuestion409JSONResponse) VisitDeleteQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6859,7 +6705,6 @@ type GetQuestionResponseObject interface {
 type GetQuestion200JSONResponse AdminQuestion
 
 func (response GetQuestion200JSONResponse) VisitGetQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6873,7 +6718,6 @@ func (response GetQuestion200JSONResponse) VisitGetQuestionResponse(w http.Respo
 type GetQuestion404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetQuestion404JSONResponse) VisitGetQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6896,7 +6740,6 @@ type UpdateQuestionResponseObject interface {
 type UpdateQuestion200JSONResponse AdminQuestion
 
 func (response UpdateQuestion200JSONResponse) VisitUpdateQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6910,7 +6753,6 @@ func (response UpdateQuestion200JSONResponse) VisitUpdateQuestionResponse(w http
 type UpdateQuestion400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response UpdateQuestion400JSONResponse) VisitUpdateQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6924,7 +6766,6 @@ func (response UpdateQuestion400JSONResponse) VisitUpdateQuestionResponse(w http
 type UpdateQuestion404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response UpdateQuestion404JSONResponse) VisitUpdateQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6946,7 +6787,6 @@ type DuplicateQuestionResponseObject interface {
 type DuplicateQuestion201JSONResponse AdminQuestion
 
 func (response DuplicateQuestion201JSONResponse) VisitDuplicateQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6960,7 +6800,6 @@ func (response DuplicateQuestion201JSONResponse) VisitDuplicateQuestionResponse(
 type DuplicateQuestion404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response DuplicateQuestion404JSONResponse) VisitDuplicateQuestionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -6993,7 +6832,6 @@ type ListStudents200JSONResponse struct {
 }
 
 func (response ListStudents200JSONResponse) VisitListStudentsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7007,7 +6845,6 @@ func (response ListStudents200JSONResponse) VisitListStudentsResponse(w http.Res
 type ListStudents400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response ListStudents400JSONResponse) VisitListStudentsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7037,7 +6874,6 @@ type CreateStudent201JSONResponse struct {
 }
 
 func (response CreateStudent201JSONResponse) VisitCreateStudentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7051,7 +6887,6 @@ func (response CreateStudent201JSONResponse) VisitCreateStudentResponse(w http.R
 type CreateStudent409JSONResponse ErrorResponse
 
 func (response CreateStudent409JSONResponse) VisitCreateStudentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7073,7 +6908,6 @@ type GetStudentResponseObject interface {
 type GetStudent200JSONResponse StudentRow
 
 func (response GetStudent200JSONResponse) VisitGetStudentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7087,7 +6921,6 @@ func (response GetStudent200JSONResponse) VisitGetStudentResponse(w http.Respons
 type GetStudent404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetStudent404JSONResponse) VisitGetStudentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7110,7 +6943,6 @@ type UpdateStudentResponseObject interface {
 type UpdateStudent200JSONResponse StudentRow
 
 func (response UpdateStudent200JSONResponse) VisitUpdateStudentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7124,7 +6956,6 @@ func (response UpdateStudent200JSONResponse) VisitUpdateStudentResponse(w http.R
 type UpdateStudent404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response UpdateStudent404JSONResponse) VisitUpdateStudentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7138,7 +6969,6 @@ func (response UpdateStudent404JSONResponse) VisitUpdateStudentResponse(w http.R
 type UpdateStudent409JSONResponse ErrorResponse
 
 func (response UpdateStudent409JSONResponse) VisitUpdateStudentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7162,7 +6992,6 @@ type ResetStudentPassword200JSONResponse struct {
 }
 
 func (response ResetStudentPassword200JSONResponse) VisitResetStudentPasswordResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7176,7 +7005,6 @@ func (response ResetStudentPassword200JSONResponse) VisitResetStudentPasswordRes
 type ResetStudentPassword404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response ResetStudentPassword404JSONResponse) VisitResetStudentPasswordResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7212,7 +7040,6 @@ type ListTests200JSONResponse struct {
 }
 
 func (response ListTests200JSONResponse) VisitListTestsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7226,7 +7053,6 @@ func (response ListTests200JSONResponse) VisitListTestsResponse(w http.ResponseW
 type ListTests400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response ListTests400JSONResponse) VisitListTestsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7240,7 +7066,6 @@ func (response ListTests400JSONResponse) VisitListTestsResponse(w http.ResponseW
 type ListTests401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response ListTests401JSONResponse) VisitListTestsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7254,7 +7079,6 @@ func (response ListTests401JSONResponse) VisitListTestsResponse(w http.ResponseW
 type ListTests403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response ListTests403JSONResponse) VisitListTestsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7276,7 +7100,6 @@ type CreateTestResponseObject interface {
 type CreateTest201JSONResponse Test
 
 func (response CreateTest201JSONResponse) VisitCreateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7290,7 +7113,6 @@ func (response CreateTest201JSONResponse) VisitCreateTestResponse(w http.Respons
 type CreateTest400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response CreateTest400JSONResponse) VisitCreateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7304,7 +7126,6 @@ func (response CreateTest400JSONResponse) VisitCreateTestResponse(w http.Respons
 type CreateTest403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response CreateTest403JSONResponse) VisitCreateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7326,7 +7147,6 @@ type GetTestResponseObject interface {
 type GetTest200JSONResponse Test
 
 func (response GetTest200JSONResponse) VisitGetTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7340,7 +7160,6 @@ func (response GetTest200JSONResponse) VisitGetTestResponse(w http.ResponseWrite
 type GetTest404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetTest404JSONResponse) VisitGetTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7363,7 +7182,6 @@ type UpdateTestResponseObject interface {
 type UpdateTest200JSONResponse Test
 
 func (response UpdateTest200JSONResponse) VisitUpdateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7377,7 +7195,6 @@ func (response UpdateTest200JSONResponse) VisitUpdateTestResponse(w http.Respons
 type UpdateTest400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response UpdateTest400JSONResponse) VisitUpdateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7391,7 +7208,6 @@ func (response UpdateTest400JSONResponse) VisitUpdateTestResponse(w http.Respons
 type UpdateTest404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response UpdateTest404JSONResponse) VisitUpdateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7405,7 +7221,6 @@ func (response UpdateTest404JSONResponse) VisitUpdateTestResponse(w http.Respons
 type UpdateTest409JSONResponse ErrorResponse
 
 func (response UpdateTest409JSONResponse) VisitUpdateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7427,7 +7242,6 @@ type DuplicateTestResponseObject interface {
 type DuplicateTest201JSONResponse Test
 
 func (response DuplicateTest201JSONResponse) VisitDuplicateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7441,7 +7255,6 @@ func (response DuplicateTest201JSONResponse) VisitDuplicateTestResponse(w http.R
 type DuplicateTest404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response DuplicateTest404JSONResponse) VisitDuplicateTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7467,7 +7280,6 @@ type PreviewTest200JSONResponse struct {
 }
 
 func (response PreviewTest200JSONResponse) VisitPreviewTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7481,7 +7293,6 @@ func (response PreviewTest200JSONResponse) VisitPreviewTestResponse(w http.Respo
 type PreviewTest409JSONResponse ErrorResponse
 
 func (response PreviewTest409JSONResponse) VisitPreviewTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7503,7 +7314,6 @@ type PublishTestResponseObject interface {
 type PublishTest201JSONResponse TestVersion
 
 func (response PublishTest201JSONResponse) VisitPublishTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7517,7 +7327,6 @@ func (response PublishTest201JSONResponse) VisitPublishTestResponse(w http.Respo
 type PublishTest404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response PublishTest404JSONResponse) VisitPublishTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7531,7 +7340,6 @@ func (response PublishTest404JSONResponse) VisitPublishTestResponse(w http.Respo
 type PublishTest409JSONResponse PublishConflict
 
 func (response PublishTest409JSONResponse) VisitPublishTestResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7555,7 +7363,6 @@ type ListTestVersions200JSONResponse struct {
 }
 
 func (response ListTestVersions200JSONResponse) VisitListTestVersionsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7566,8 +7373,7 @@ func (response ListTestVersions200JSONResponse) VisitListTestVersionsResponse(w 
 	return err
 }
 
-type ListMyAssignmentsRequestObject struct {
-}
+type ListMyAssignmentsRequestObject struct{}
 
 type ListMyAssignmentsResponseObject interface {
 	VisitListMyAssignmentsResponse(w http.ResponseWriter) error
@@ -7580,7 +7386,6 @@ type ListMyAssignments200JSONResponse struct {
 }
 
 func (response ListMyAssignments200JSONResponse) VisitListMyAssignmentsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7602,7 +7407,6 @@ type GetMyAssignmentResponseObject interface {
 type GetMyAssignment200JSONResponse StudentAssignmentDetail
 
 func (response GetMyAssignment200JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7616,7 +7420,6 @@ func (response GetMyAssignment200JSONResponse) VisitGetMyAssignmentResponse(w ht
 type GetMyAssignment403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response GetMyAssignment403JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7630,7 +7433,6 @@ func (response GetMyAssignment403JSONResponse) VisitGetMyAssignmentResponse(w ht
 type GetMyAssignment404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetMyAssignment404JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7652,7 +7454,6 @@ type StartOrResumeAttemptResponseObject interface {
 type StartOrResumeAttempt200JSONResponse AttemptSession
 
 func (response StartOrResumeAttempt200JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7666,7 +7467,6 @@ func (response StartOrResumeAttempt200JSONResponse) VisitStartOrResumeAttemptRes
 type StartOrResumeAttempt403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response StartOrResumeAttempt403JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7680,7 +7480,6 @@ func (response StartOrResumeAttempt403JSONResponse) VisitStartOrResumeAttemptRes
 type StartOrResumeAttempt409JSONResponse ErrorResponse
 
 func (response StartOrResumeAttempt409JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7702,7 +7501,6 @@ type GetAttemptResponseObject interface {
 type GetAttempt200JSONResponse AttemptSession
 
 func (response GetAttempt200JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7716,7 +7514,6 @@ func (response GetAttempt200JSONResponse) VisitGetAttemptResponse(w http.Respons
 type GetAttempt403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response GetAttempt403JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7730,7 +7527,6 @@ func (response GetAttempt403JSONResponse) VisitGetAttemptResponse(w http.Respons
 type GetAttempt404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetAttempt404JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7759,7 +7555,6 @@ type SaveAnswers200JSONResponse struct {
 }
 
 func (response SaveAnswers200JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7773,7 +7568,6 @@ func (response SaveAnswers200JSONResponse) VisitSaveAnswersResponse(w http.Respo
 type SaveAnswers403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response SaveAnswers403JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7787,7 +7581,6 @@ func (response SaveAnswers403JSONResponse) VisitSaveAnswersResponse(w http.Respo
 type SaveAnswers409JSONResponse ErrorResponse
 
 func (response SaveAnswers409JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7813,7 +7606,6 @@ type RecordAudioPlay200JSONResponse struct {
 }
 
 func (response RecordAudioPlay200JSONResponse) VisitRecordAudioPlayResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7827,7 +7619,6 @@ func (response RecordAudioPlay200JSONResponse) VisitRecordAudioPlayResponse(w ht
 type RecordAudioPlay403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response RecordAudioPlay403JSONResponse) VisitRecordAudioPlayResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7848,8 +7639,7 @@ type FlushEventsResponseObject interface {
 	VisitFlushEventsResponse(w http.ResponseWriter) error
 }
 
-type FlushEvents202Response struct {
-}
+type FlushEvents202Response struct{}
 
 func (response FlushEvents202Response) VisitFlushEventsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(202)
@@ -7859,7 +7649,6 @@ func (response FlushEvents202Response) VisitFlushEventsResponse(w http.ResponseW
 type FlushEvents403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response FlushEvents403JSONResponse) VisitFlushEventsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7873,7 +7662,6 @@ func (response FlushEvents403JSONResponse) VisitFlushEventsResponse(w http.Respo
 type FlushEvents429JSONResponse struct{ TooManyRequestsJSONResponse }
 
 func (response FlushEvents429JSONResponse) VisitFlushEventsResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -7904,7 +7692,6 @@ type GetAttemptResult200JSONResponse struct {
 }
 
 func (response GetAttemptResult200JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7918,7 +7705,6 @@ func (response GetAttemptResult200JSONResponse) VisitGetAttemptResultResponse(w 
 type GetAttemptResult403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response GetAttemptResult403JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7932,7 +7718,6 @@ func (response GetAttemptResult403JSONResponse) VisitGetAttemptResultResponse(w 
 type GetAttemptResult409JSONResponse ErrorResponse
 
 func (response GetAttemptResult409JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7955,7 +7740,6 @@ type SubmitAttemptResponseObject interface {
 type SubmitAttempt200JSONResponse Attempt
 
 func (response SubmitAttempt200JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7969,7 +7753,6 @@ func (response SubmitAttempt200JSONResponse) VisitSubmitAttemptResponse(w http.R
 type SubmitAttempt403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response SubmitAttempt403JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7983,7 +7766,6 @@ func (response SubmitAttempt403JSONResponse) VisitSubmitAttemptResponse(w http.R
 type SubmitAttempt409JSONResponse ErrorResponse
 
 func (response SubmitAttempt409JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -7994,8 +7776,7 @@ func (response SubmitAttempt409JSONResponse) VisitSubmitAttemptResponse(w http.R
 	return err
 }
 
-type ListMyClassesRequestObject struct {
-}
+type ListMyClassesRequestObject struct{}
 
 type ListMyClassesResponseObject interface {
 	VisitListMyClassesResponse(w http.ResponseWriter) error
@@ -8006,7 +7787,6 @@ type ListMyClasses200JSONResponse struct {
 }
 
 func (response ListMyClasses200JSONResponse) VisitListMyClassesResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8028,7 +7808,6 @@ type JoinClassResponseObject interface {
 type JoinClass200JSONResponse Class
 
 func (response JoinClass200JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8042,7 +7821,6 @@ func (response JoinClass200JSONResponse) VisitJoinClassResponse(w http.ResponseW
 type JoinClass404JSONResponse ErrorResponse
 
 func (response JoinClass404JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8056,7 +7834,6 @@ func (response JoinClass404JSONResponse) VisitJoinClassResponse(w http.ResponseW
 type JoinClass429JSONResponse struct{ TooManyRequestsJSONResponse }
 
 func (response JoinClass429JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8090,7 +7867,6 @@ type GetMediaUrl200JSONResponse struct {
 }
 
 func (response GetMediaUrl200JSONResponse) VisitGetMediaUrlResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8105,7 +7881,6 @@ func (response GetMediaUrl200JSONResponse) VisitGetMediaUrlResponse(w http.Respo
 type GetMediaUrl403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response GetMediaUrl403JSONResponse) VisitGetMediaUrlResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8124,8 +7899,7 @@ type ChangePasswordResponseObject interface {
 	VisitChangePasswordResponse(w http.ResponseWriter) error
 }
 
-type ChangePassword204Response struct {
-}
+type ChangePassword204Response struct{}
 
 func (response ChangePassword204Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
@@ -8135,7 +7909,6 @@ func (response ChangePassword204Response) VisitChangePasswordResponse(w http.Res
 type ChangePassword400JSONResponse ErrorResponse
 
 func (response ChangePassword400JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8149,7 +7922,6 @@ func (response ChangePassword400JSONResponse) VisitChangePasswordResponse(w http
 type ChangePassword401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response ChangePassword401JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8178,7 +7950,6 @@ type GoogleAuth200JSONResponse struct {
 }
 
 func (response GoogleAuth200JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8195,7 +7966,6 @@ func (response GoogleAuth200JSONResponse) VisitGoogleAuthResponse(w http.Respons
 type GoogleAuth401JSONResponse ErrorResponse
 
 func (response GoogleAuth401JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8209,7 +7979,6 @@ func (response GoogleAuth401JSONResponse) VisitGoogleAuthResponse(w http.Respons
 type GoogleAuth403JSONResponse ErrorResponse
 
 func (response GoogleAuth403JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8223,7 +7992,6 @@ func (response GoogleAuth403JSONResponse) VisitGoogleAuthResponse(w http.Respons
 type GoogleAuth404JSONResponse ErrorResponse
 
 func (response GoogleAuth404JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8237,7 +8005,6 @@ func (response GoogleAuth404JSONResponse) VisitGoogleAuthResponse(w http.Respons
 type GoogleAuth429JSONResponse struct{ TooManyRequestsJSONResponse }
 
 func (response GoogleAuth429JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8249,8 +8016,7 @@ func (response GoogleAuth429JSONResponse) VisitGoogleAuthResponse(w http.Respons
 	return err
 }
 
-type UnlinkGoogleRequestObject struct {
-}
+type UnlinkGoogleRequestObject struct{}
 
 type UnlinkGoogleResponseObject interface {
 	VisitUnlinkGoogleResponse(w http.ResponseWriter) error
@@ -8266,7 +8032,6 @@ func (response UnlinkGoogle204Response) VisitUnlinkGoogleResponse(w http.Respons
 type UnlinkGoogle401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response UnlinkGoogle401JSONResponse) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8280,7 +8045,6 @@ func (response UnlinkGoogle401JSONResponse) VisitUnlinkGoogleResponse(w http.Res
 type UnlinkGoogle409JSONResponse ErrorResponse
 
 func (response UnlinkGoogle409JSONResponse) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8302,7 +8066,6 @@ type LinkGoogleResponseObject interface {
 type LinkGoogle200JSONResponse User
 
 func (response LinkGoogle200JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8316,7 +8079,6 @@ func (response LinkGoogle200JSONResponse) VisitLinkGoogleResponse(w http.Respons
 type LinkGoogle401JSONResponse ErrorResponse
 
 func (response LinkGoogle401JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8330,7 +8092,6 @@ func (response LinkGoogle401JSONResponse) VisitLinkGoogleResponse(w http.Respons
 type LinkGoogle409JSONResponse ErrorResponse
 
 func (response LinkGoogle409JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8359,7 +8120,6 @@ type Login200JSONResponse struct {
 }
 
 func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8376,7 +8136,6 @@ func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) e
 type Login401JSONResponse ErrorResponse
 
 func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8390,7 +8149,6 @@ func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) e
 type Login429JSONResponse struct{ TooManyRequestsJSONResponse }
 
 func (response Login429JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8402,8 +8160,7 @@ func (response Login429JSONResponse) VisitLoginResponse(w http.ResponseWriter) e
 	return err
 }
 
-type LogoutRequestObject struct {
-}
+type LogoutRequestObject struct{}
 
 type LogoutResponseObject interface {
 	VisitLogoutResponse(w http.ResponseWriter) error
@@ -8428,7 +8185,6 @@ func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) err
 type Logout401JSONResponse ErrorResponse
 
 func (response Logout401JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8439,8 +8195,7 @@ func (response Logout401JSONResponse) VisitLogoutResponse(w http.ResponseWriter)
 	return err
 }
 
-type GetCurrentUserRequestObject struct {
-}
+type GetCurrentUserRequestObject struct{}
 
 type GetCurrentUserResponseObject interface {
 	VisitGetCurrentUserResponse(w http.ResponseWriter) error
@@ -8449,7 +8204,6 @@ type GetCurrentUserResponseObject interface {
 type GetCurrentUser200JSONResponse User
 
 func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8463,7 +8217,6 @@ func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http
 type GetCurrentUser401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8474,8 +8227,7 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 	return err
 }
 
-type RefreshSessionRequestObject struct {
-}
+type RefreshSessionRequestObject struct{}
 
 type RefreshSessionResponseObject interface {
 	VisitRefreshSessionResponse(w http.ResponseWriter) error
@@ -8494,7 +8246,6 @@ type RefreshSession200JSONResponse struct {
 }
 
 func (response RefreshSession200JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8511,7 +8262,6 @@ func (response RefreshSession200JSONResponse) VisitRefreshSessionResponse(w http
 type RefreshSession401JSONResponse ErrorResponse
 
 func (response RefreshSession401JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8525,7 +8275,6 @@ func (response RefreshSession401JSONResponse) VisitRefreshSessionResponse(w http
 type RefreshSession429JSONResponse struct{ TooManyRequestsJSONResponse }
 
 func (response RefreshSession429JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8555,7 +8304,6 @@ type PreviewJoinCode200JSONResponse struct {
 }
 
 func (response PreviewJoinCode200JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8569,7 +8317,6 @@ func (response PreviewJoinCode200JSONResponse) VisitPreviewJoinCodeResponse(w ht
 type PreviewJoinCode404JSONResponse ErrorResponse
 
 func (response PreviewJoinCode404JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
@@ -8583,7 +8330,6 @@ func (response PreviewJoinCode404JSONResponse) VisitPreviewJoinCodeResponse(w ht
 type PreviewJoinCode429JSONResponse struct{ TooManyRequestsJSONResponse }
 
 func (response PreviewJoinCode429JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
-
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
@@ -8597,7 +8343,6 @@ func (response PreviewJoinCode429JSONResponse) VisitPreviewJoinCodeResponse(w ht
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-
 	// (GET /admin/assignments)
 	ListAssignments(ctx context.Context, request ListAssignmentsRequestObject) (ListAssignmentsResponseObject, error)
 
@@ -8812,8 +8557,10 @@ type StrictServerInterface interface {
 	PreviewJoinCode(ctx context.Context, request PreviewJoinCodeRequestObject) (PreviewJoinCodeResponseObject, error)
 }
 
-type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
-type StrictMiddlewareFunc func(f StrictHandlerFunc, operationID string) StrictHandlerFunc
+type (
+	StrictHandlerFunc    func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
+	StrictMiddlewareFunc func(f StrictHandlerFunc, operationID string) StrictHandlerFunc
+)
 
 type StrictHTTPServerOptions struct {
 	RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)

@@ -53,7 +53,8 @@ func Load() (Config, error) {
 	if strings.EqualFold(cfg.ClientIPHeader, "X-Forwarded-For") {
 		return cfg, fmt.Errorf(
 			"CLIENT_IP_HEADER must not be X-Forwarded-For: proxies append to it, so a " +
-				"client can prepend a value and choose its own rate-limit bucket (§6.5)")
+				"client can prepend a value and choose its own rate-limit bucket (§6.5)",
+		)
 	}
 
 	if cfg.DatabaseURL == "" {

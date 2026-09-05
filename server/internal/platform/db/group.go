@@ -16,7 +16,8 @@ type Querier interface {
 // returns: the "children of a whole page in one round trip" shape §13.8 asks
 // of every store, written once.
 func GroupBy[T any](ctx context.Context, q Querier, sql string, args []any,
-	scan func(pgx.Rows) (string, T, error)) (map[string][]T, error) {
+	scan func(pgx.Rows) (string, T, error),
+) (map[string][]T, error) {
 	rows, err := q.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err

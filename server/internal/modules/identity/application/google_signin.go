@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/google"

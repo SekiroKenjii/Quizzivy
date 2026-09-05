@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/google"
 	"quizzivy/internal/shared/audit"
-	"slices"
 )
 
 type LinkGoogleInput struct {

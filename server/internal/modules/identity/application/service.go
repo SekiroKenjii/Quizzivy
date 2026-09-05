@@ -7,8 +7,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"quizzivy/internal/modules/identity/domain"
 	"time"
+
+	"quizzivy/internal/modules/identity/domain"
 
 	"github.com/google/uuid"
 )

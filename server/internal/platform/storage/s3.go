@@ -35,10 +35,12 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		return nil, errors.New("storage: bucket is required")
 	}
 
-	loaded, err := awsconfig.LoadDefaultConfig(ctx,
+	loaded, err := awsconfig.LoadDefaultConfig(
+		ctx,
 		awsconfig.WithRegion(cfg.Region),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
-			cfg.AccessKeyID, cfg.SecretAccessKey, "")),
+			cfg.AccessKeyID, cfg.SecretAccessKey, "",
+		)),
 		// Only when the operation requires it -- never opportunistically.
 		awsconfig.WithRequestChecksumCalculation(aws.RequestChecksumCalculationWhenRequired),
 		awsconfig.WithResponseChecksumValidation(aws.ResponseChecksumValidationWhenRequired),

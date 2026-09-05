@@ -11,18 +11,14 @@ import (
 
 // Entry is one audited action (§13.4).
 type Entry struct {
-	// ActorUserID is nil for something the system did on nobody's behalf.
 	ActorUserID *string
-	// Action is `<entity>.<verb>`, past tense: "class.join_code_rotated".
-	Action   string
-	Entity   string
-	EntityID *string
-
-	OccurredAt time.Time
-	IP         *string
-	UserAgent  *string
-	// Diff is optional jsonb, for actions where "what changed" is the point.
-	Diff []byte
+	Action      string
+	Entity      string
+	EntityID    *string
+	OccurredAt  time.Time
+	IP          *string
+	UserAgent   *string
+	Diff        []byte
 }
 
 // Execer is satisfied by both *pgxpool.Pool and pgx.Tx.

@@ -65,12 +65,13 @@ func (i *TokenIssuer) Issue(userID, role string) (string, error) {
 // the public key of an asymmetric pair treated as an HMAC secret, would verify.
 func (i *TokenIssuer) Verify(raw string) (*Claims, error) {
 	claims := &Claims{}
-	_, err := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method %v", t.Header["alg"])
-		}
-		return i.key, nil
-	},
+	_, err := jwt.ParseWithClaims(
+		raw, claims, func(t *jwt.Token) (any, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method %v", t.Header["alg"])
+			}
+			return i.key, nil
+		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 		jwt.WithIssuer(i.issuer),
 		jwt.WithTimeFunc(i.now),

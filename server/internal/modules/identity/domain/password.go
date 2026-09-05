@@ -12,13 +12,12 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// §13.5: "Passwords: Argon2id (bcrypt cost >= 12 if unavailable)."
 const (
-	defaultMemory  = 64 * 1024 // 64 MiB
-	defaultTime    = 3
-	defaultThreads = 2
-	defaultKeyLen  = 32
-	saltLen        = 16
+	DefaultMemory  = 64 * 1024
+	DefaultTime    = 3
+	DefaultThreads = 2
+	DefaultKeyLen  = 32
+	SaltLen        = 16
 )
 
 // DefaultMaxConcurrentHashes bounds how many Argon2id operations run at once.
@@ -78,20 +77,20 @@ func withHashSlot(ctx context.Context, fn func()) error {
 
 // HashPassword produces a PHC-format Argon2id hash.
 func HashPassword(ctx context.Context, password string) (string, error) {
-	salt := make([]byte, saltLen)
+	salt := make([]byte, SaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("generate salt: %w", err)
 	}
 
 	var key []byte
 	if err := withHashSlot(ctx, func() {
-		key = argon2.IDKey([]byte(password), salt, defaultTime, defaultMemory, defaultThreads, defaultKeyLen)
+		key = argon2.IDKey([]byte(password), salt, DefaultTime, DefaultMemory, DefaultThreads, DefaultKeyLen)
 	}); err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version, defaultMemory, defaultTime, defaultThreads,
+		argon2.Version, DefaultMemory, DefaultTime, DefaultThreads,
 		base64.RawStdEncoding.EncodeToString(salt),
 		base64.RawStdEncoding.EncodeToString(key),
 	), nil
