@@ -494,7 +494,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Backs the §8 assignments list. `status` is derived per assignment, not stored (D-18). */
+        /**
+         * @description Backs the §8 assignments list. `status` is derived per assignment, not
+         *     stored (D-18). `classId` narrows the list to assignments that target
+         *     that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
+         *     tab counts are the class's and never disagree with the rows.
+         */
         get: operations["listAssignments"];
         put?: never;
         /** @description Only a **published** version may be assigned (§8). */
@@ -3559,6 +3564,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["AssignmentStatus"];
+                classId?: components["schemas"]["Uuid"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin

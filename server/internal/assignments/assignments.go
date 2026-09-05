@@ -99,8 +99,10 @@ const MaxLimit = 100
 
 type ListInput struct {
 	Status *Status
-	Page   int
-	Limit  int
+	// ClassID narrows the list to assignments that target the class (G-12).
+	ClassID *string
+	Page    int
+	Limit   int
 }
 
 // DB is what the store queries through: the pool in production, and a
@@ -234,7 +236,10 @@ type Facets struct {
 	All, Draft, Scheduled, Open, Closed int
 }
 
-func (s *Store) Facets(ctx context.Context) (Facets, error) {
+// Facets counts every status within the same narrowing List applies, minus
+// the status itself, so the tabs never disagree with the rows.
+func (s *Store) Facets(ctx context.Context, in ListInput) (Facets, error) {
+	where, args := narrow(ListInput{ClassID: in.ClassID})
 	var f Facets
 	err := s.pool.QueryRow(ctx, `
 		SELECT count(*),
@@ -242,22 +247,33 @@ func (s *Store) Facets(ctx context.Context) (Facets, error) {
 		       count(*) FILTER (WHERE `+derivedStatus+` = 'scheduled'),
 		       count(*) FILTER (WHERE `+derivedStatus+` = 'open'),
 		       count(*) FILTER (WHERE `+derivedStatus+` = 'closed')
-		  FROM app.assignments a`).Scan(&f.All, &f.Draft, &f.Scheduled, &f.Open, &f.Closed)
+		  FROM app.assignments a
+		 WHERE `+join(where), args...).Scan(&f.All, &f.Draft, &f.Scheduled, &f.Open, &f.Closed)
 	if err != nil {
 		return Facets{}, fmt.Errorf("assignments: facets: %w", err)
 	}
 	return f, nil
 }
 
-func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, paging.Page, error) {
-	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
-
+// narrow is the WHERE clause List and Facets share.
+func narrow(in ListInput) ([]string, []any) {
 	var args []any
 	where := []string{"TRUE"}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(derivedStatus+` = $%d`, len(args)))
 	}
+	if in.ClassID != nil {
+		args = append(args, *in.ClassID)
+		where = append(where, fmt.Sprintf(`EXISTS (SELECT 1 FROM app.assignment_classes ac
+		                   WHERE ac.assignment_id = a.id AND ac.class_id = $%d::uuid)`, len(args)))
+	}
+	return where, args
+}
+
+func (s *Store) List(ctx context.Context, in ListInput) ([]Assignment, paging.Page, error) {
+	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
+	where, args := narrow(in)
 
 	page := paging.Page{Number: number, Size: limit}
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.assignments a WHERE `+join(where), args...).

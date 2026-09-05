@@ -270,7 +270,12 @@
     "exhaustedBadge": "đã dùng hết",
     "exhaustedExplainer": "Mã này đã hết lượt dùng nên học viên không dùng được nữa. Hãy tạo mã mới.",
     "issueConfirmTitle": "Mở tham gia bằng mã?",
-    "issueConfirmBody": "Ai có mã đều vào được lớp. Bạn ngừng nhận mã bất cứ lúc nào."
+    "issueConfirmBody": "Ai có mã đều vào được lớp. Bạn ngừng nhận mã bất cứ lúc nào.",
+    "assignments": "Bài giao cho lớp",
+    "assignmentsSummary": "{{count}} bài · {{open}} đang mở",
+    "assignmentsEmpty": "Chưa giao bài nào cho lớp này.",
+    "assignmentsFailed": "Không tải được bài giao của lớp.",
+    "viewAllAssignments": "Xem tất cả"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -927,7 +932,10 @@
         "done": "Đã chấm",
         "voided": "Đã huỷ"
       }
-    }
+    },
+    "classFilterLoading": "Lớp…",
+    "clearClassFilter": "Bỏ lọc theo lớp",
+    "emptyForClass": "Chưa giao bài nào cho lớp này."
   },
   "students": {
     "summary": "{{count}} học viên · {{active}} hoạt động 7 ngày qua",

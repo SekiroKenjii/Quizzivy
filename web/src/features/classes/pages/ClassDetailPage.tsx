@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
 import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
+import { ClassAssignmentsCard } from "@/features/classes/components/ClassAssignmentsCard";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
@@ -284,6 +285,7 @@ export default function ClassDetailPage() {
               </p>
             </section>
           </Card>
+          <ClassAssignmentsCard classId={id} />
         </div>
 
         <div className="space-y-5">

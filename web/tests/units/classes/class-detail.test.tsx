@@ -27,6 +27,43 @@ const klass = {
   createdAt: "2026-06-01T00:00:00Z",
 };
 
+let assignmentQueries: (string | null)[] = [];
+
+function assignmentRow(over: Record<string, unknown>) {
+  return {
+    id: "018f0000-0000-7000-8000-0000000000d1",
+    testId: "018f0000-0000-7000-8000-0000000000a1",
+    testVersionId: "018f0000-0000-7000-8000-0000000000f1",
+    testVersion: 3,
+    testTitle: "Unit 5",
+    targets: {
+      classes: [{ id: CLASS_ID, name: klass.name, studentCount: 18 }],
+      students: [],
+    },
+    publishedAt: "2026-08-27T00:00:00Z",
+    updatedAt: "2026-08-27T00:00:00Z",
+    window: {
+      opensAt: "2020-09-07T01:00:00Z",
+      closesAt: "2099-09-09T14:00:00Z",
+      closedAt: null,
+    },
+    durationMinutes: 45,
+    maxAttempts: 1,
+    shuffleQuestions: false,
+    shuffleOptions: false,
+    review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
+    integrity: {
+      requireFullscreen: false,
+      blockCopyPaste: true,
+      maxFocusLoss: 2,
+      onLimitExceeded: "flag",
+      minAwayMs: 3000,
+    },
+    status: "open",
+    ...over,
+  };
+}
+
 const stats = (over: Record<string, unknown>) => ({
   submittedCount: 0,
   score: null,
@@ -36,6 +73,7 @@ const stats = (over: Record<string, unknown>) => ({
 });
 
 beforeEach(() => {
+  assignmentQueries = [];
   server.use(
     http.get(`${BASE}/admin/classes/${CLASS_ID}`, () =>
       contractJson("/admin/classes/{id}", "get", 200, klass),
@@ -70,6 +108,36 @@ beforeEach(() => {
         total: 2,
       }),
     ),
+    http.get(`${BASE}/admin/assignments`, ({ request }) => {
+      assignmentQueries.push(new URL(request.url).searchParams.get("classId"));
+      return contractJson("/admin/assignments", "get", 200, {
+        page: 1,
+        pageSize: 100,
+        total: 2,
+        facets: { all: 2, draft: 0, scheduled: 0, open: 1, closed: 1 },
+        items: [
+          assignmentRow({
+            id: "018f0000-0000-7000-8000-0000000000d2",
+            testTitle: "Unit 4 — Past simple review",
+            testVersion: 2,
+            window: {
+              opensAt: "2020-08-22T01:00:00Z",
+              closesAt: "2020-08-24T14:00:00Z",
+              closedAt: null,
+            },
+            submittedCount: 18,
+            targetCount: 18,
+          }),
+          assignmentRow({
+            id: "018f0000-0000-7000-8000-0000000000d1",
+            testTitle: "Unit 5 — Present perfect & listening",
+            testVersion: 3,
+            submittedCount: 12,
+            targetCount: 18,
+          }),
+        ],
+      });
+    }),
     http.get(`${BASE}/admin/students`, () =>
       contractJson("/admin/students", "get", 200, {
         items: [
@@ -166,5 +234,35 @@ describe("adding a student who already belongs", () => {
     expect(within(minh).queryByRole("button", { name: "Thêm" })).toBeNull();
     const han = screen.getByText("Phạm Gia Hân").closest("li")!;
     expect(within(han).getByRole("button", { name: "Thêm" })).toBeInTheDocument();
+  });
+});
+
+describe("the class's assignments (G-06)", () => {
+  it("lists what the class has been given, open first, with the way to the full list", async () => {
+    renderDetail();
+
+    const card = await screen.findByRole("region", { name: "Bài giao cho lớp" });
+    expect(await within(card).findByText("2 bài · 1 đang mở")).toBeInTheDocument();
+    expect(assignmentQueries).toEqual([CLASS_ID]);
+
+    const titles = within(card)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => within(row).getByRole("link").textContent);
+    expect(titles).toEqual([
+      "Unit 5 — Present perfect & listening",
+      "Unit 4 — Past simple review",
+    ]);
+    expect(
+      within(card).getByRole("link", { name: "Unit 4 — Past simple review" }),
+    ).toHaveAttribute(
+      "href",
+      "/admin/assignments/018f0000-0000-7000-8000-0000000000d2",
+    );
+    expect(within(card).getByText("18/18")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "Xem tất cả" })).toHaveAttribute(
+      "href",
+      `/admin/assignments?classId=${CLASS_ID}`,
+    );
   });
 });

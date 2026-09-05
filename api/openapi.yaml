@@ -2570,10 +2570,15 @@ paths:
   /admin/assignments:
     get:
       operationId: listAssignments
-      description: Backs the §8 assignments list. `status` is derived per assignment, not stored (D-18).
+      description: |
+        Backs the §8 assignments list. `status` is derived per assignment, not
+        stored (D-18). `classId` narrows the list to assignments that target
+        that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
+        tab counts are the class's and never disagree with the rows.
       tags: [admin-assignments]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AssignmentStatus' } }
+        - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
         - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
