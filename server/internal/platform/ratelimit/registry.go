@@ -19,9 +19,6 @@ type Route struct {
 }
 
 // Registry maps a Go 1.22 mux pattern ("POST /join/preview") to its policy.
-//
-// Keyed by pattern rather than by concrete URL so `/admin/tests/{id}` is one
-// entry, and so it lines up with the OpenAPI paths the startup assertion reads.
 type Registry struct {
 	routes map[string]*Route
 }
@@ -64,10 +61,6 @@ func normalize(pattern string) string {
 
 // ClientIP derives the per-IP bucket key from one named header, falling back to
 // RemoteAddr.
-//
-// The header is named explicitly and X-Forwarded-For is rejected in config: a
-// proxy appends to it, so the client controls the first entry and therefore its
-// own bucket. CF-Connecting-IP is overwritten on every request.
 func ClientIP(header string) KeyFunc {
 	header = strings.TrimSpace(header)
 	return func(r *http.Request) string {

@@ -1,9 +1,9 @@
 package core
 
 import (
-	"net/http"
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,14 +14,10 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-// dbReadyBudget is how long to wait for the database on a cold start. Fly can
-// bring the app up before Neon has finished waking.
 const dbReadyBudget = 60 * time.Second
 
 // Run is the composition root: load configuration, build every module against a
 // live database, then serve until the process is signalled.
-//
-// cmd/api owns nothing but the logger and the exit code.
 func Run(ctx context.Context, logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {

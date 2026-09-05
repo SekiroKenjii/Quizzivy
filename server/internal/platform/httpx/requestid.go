@@ -13,10 +13,6 @@ const requestIDKey ctxKey = 0
 
 // RequestID assigns every request an id, exposes it as a response header, and
 // puts it in the context.
-//
-// The same value goes into the error envelope's requestId (§7), so the code a
-// student reads aloud off the error screen is the one that finds the request in
-// the logs. That is the entire point of §9's "copyable error ID".
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := uuid.NewString()

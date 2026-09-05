@@ -7,11 +7,6 @@ import (
 )
 
 // ListVersions returns the test's publish history, newest first.
-//
-// The question count is counted from the frozen rows rather than stored: a
-// version is written once and never edited, so the count cannot drift, and one
-// fewer denormalised column is one fewer thing a future publish path can forget
-// to maintain.
 func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Version, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT v.id::text,

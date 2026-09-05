@@ -29,5 +29,4 @@ func (QuestionManager) PromptPlaceholders(prompt string) []int {
 
 var Questions QuestionManager
 
-// placeholderPattern matches the 1-indexed {{n}} fill_blank markers.
 var placeholderPattern = regexp.MustCompile(`\{\{(\d+)\}\}`)

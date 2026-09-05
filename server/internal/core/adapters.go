@@ -18,9 +18,6 @@ import (
 	"quizzivy/internal/platform/probe"
 )
 
-// The adapters that let modules talk to each other and to the platform through
-// the ports they declared, without importing either side.
-
 type googleProvider struct{ provider *google.Provider }
 
 func (g googleProvider) Exchange(ctx context.Context, code, codeVerifier, redirectURI string) (string, error) {
@@ -82,9 +79,6 @@ func (m mediaKinds) Kind(ctx context.Context, assetID string) (string, error) {
 	}
 	return string(asset.Kind), nil
 }
-
-// The media ports stay nil interfaces when object storage is off, so the
-// operations answer 501 instead of calling through a nil pointer.
 
 func mediaTransport(svc *mediaapp.Service) mediahttp.Service {
 	if svc == nil {

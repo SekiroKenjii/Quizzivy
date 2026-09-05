@@ -22,7 +22,7 @@ type Input struct {
 }
 
 type WriteRequest struct {
-	ID        string // empty to create
+	ID        string
 	Input     Input
 	ActorID   string
 	IP        string
@@ -31,7 +31,7 @@ type WriteRequest struct {
 
 // WriteInput is a create or an update, depending on whether ID is set.
 type WriteInput struct {
-	ID             string // empty to create
+	ID             string
 	Input          Input
 	MediaAssetKind *string
 	ActorID        string
@@ -54,10 +54,6 @@ type BlankInput struct {
 }
 
 // ListInput selects a page of the bank.
-//
-// Types and Tags are each OR-ed within themselves and AND-ed with each other,
-// which is what A-06's rail of checkboxes and chips means: ticking a second
-// type widens the results, adding a tag from the other group narrows them.
 type ListInput struct {
 	Types    []Type
 	Tags     []string

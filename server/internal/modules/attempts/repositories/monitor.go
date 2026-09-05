@@ -77,8 +77,6 @@ func (s *Postgres) Monitor(ctx context.Context, assignmentID string, now time.Ti
 	return out, nil
 }
 
-// attachAttempts picks one attempt per student: the latest that still counts,
-// or the latest voided one when nothing else exists.
 func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows []domain.MonitorRow, at map[string]int) error {
 	found, err := s.pool.Query(ctx, `
 		SELECT DISTINCT ON (at.student_id)
@@ -137,9 +135,6 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 	return found.Err()
 }
 
-// before is G-02's order: the rows that need a decision float up -- in
-// progress with the least time left, then not started, then everything
-// settled, by name.
 func before(a, b domain.MonitorRow) bool {
 	ra, rb := stateRank(a.State), stateRank(b.State)
 	if ra != rb {

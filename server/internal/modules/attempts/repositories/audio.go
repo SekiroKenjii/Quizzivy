@@ -10,8 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// RecordPlay increments the server-authoritative counter and returns the new
-// value (§11.4).
 const recordPlayQuery = `
 	WITH allowed AS (
 	  SELECT q.id, q.audio_max_plays
@@ -34,7 +32,7 @@ func (s *Postgres) RecordPlay(ctx context.Context, attemptID, studentID, questio
 	err := s.pool.QueryRow(ctx, recordPlayQuery, attemptID, studentID, questionID, now).
 		Scan(&out.Plays, &out.MaxPlays)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Not this student's attempt, or not a question on its paper.
+
 		return domain.Plays{}, domain.ErrForbidden
 	}
 	if err != nil {

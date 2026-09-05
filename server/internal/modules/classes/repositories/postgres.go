@@ -30,7 +30,6 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 const nameSearch = `app.immutable_unaccent(lower(c.name))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
 
-// The same derivation as the assignments list, so both screens agree on "open".
 const openAssignments = `
 	       (SELECT count(*) FROM app.assignment_classes ac
 	          JOIN app.assignments a ON a.id = ac.assignment_id
@@ -193,10 +192,6 @@ func (s *Postgres) ListMine(ctx context.Context, userID string) ([]domain.MyClas
 }
 
 // Members lists who is in the class and HOW they got in.
-//
-// joined_via and the code hint are the point (§6.4): they are what lets a
-// teacher spot an unexpected enrolment, which is the mitigation §17.2 chose
-// instead of building an approval queue.
 func (s *Postgres) Members(ctx context.Context, classID string, in domain.MembersInput) ([]domain.Member, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
@@ -245,7 +240,6 @@ func (s *Postgres) Members(ctx context.Context, classID string, in domain.Member
 	return out, page, rows.Err()
 }
 
-// memberColumns is one roster row plus the G-07 figures, read back by scanMember.
 const memberColumns = `
 		SELECT u.id::text, u.full_name, u.email, m.joined_via::text, m.joined_at, jc.code_hint`
 
@@ -290,10 +284,6 @@ func (s *Postgres) RemoveMember(ctx context.Context, in domain.RemoveMemberInput
 }
 
 // Update edits a class's own fields.
-//
-// Disabling self-join deliberately does NOT revoke the code: §6.4 separates the
-// two, and a teacher pausing enrolment for a week should not have to reissue a
-// code and re-share it afterwards. Revoking is its own endpoint.
 func (s *Postgres) Update(ctx context.Context, classID string, in domain.UpdateInput) (domain.Class, error) {
 	sets := []string{}
 	args := []any{classID}
@@ -402,11 +392,6 @@ func (s *Postgres) Archive(ctx context.Context, in domain.ArchiveInput) (domain.
 }
 
 // AddMember enrols an existing student directly, as joined_via 'admin'.
-//
-// Idempotent like RemoveMember: adding someone already in the class returns
-// their existing row rather than an error, because the teacher asked for a
-// state and that state already holds. The second add is not audited -- nothing
-// changed, and an audit log that records non-events is one nobody reads.
 func (s *Postgres) AddMember(ctx context.Context, in domain.AddMemberInput) (domain.Member, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

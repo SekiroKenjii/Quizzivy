@@ -12,10 +12,6 @@ import (
 
 // Save writes a batch of answers and the events that accompanied them, in one
 // transaction.
-//
-// One transaction is the §15 requirement and the reason is ordering: a partial
-// flush that recorded a `paste` event for an answer it failed to save would put
-// a claim about the student in the teacher's timeline with no work behind it.
 func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time) (domain.SaveResult, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -41,13 +37,6 @@ func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time)
 	return domain.SaveResult{SavedAt: now, Saved: saved, Dropped: dropped}, nil
 }
 
-// writable locks the attempt and decides whether this write may happen at all,
-// returning the version whose questions it is allowed to touch.
-//
-// The order of the refusals is the order of what the client should do about
-// them. A closed attempt is over and nothing else is worth saying. A superseded
-// session must hear that first even if the deadline has also passed, because
-// "submit" is advice it cannot act on -- it is not the session any more.
 func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time) (string, error) {
 	var (
 		session    string
@@ -78,8 +67,6 @@ func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time
 	return versionID, nil
 }
 
-// upsertAnswers writes by (attempt, question), so a retried batch overwrites
-// rather than duplicating.
 func upsertAnswers(ctx context.Context, tx pgx.Tx, in domain.SaveInput, versionID string) (int, []string, error) {
 	if len(in.Answers) == 0 {
 		return 0, nil, nil
@@ -139,7 +126,6 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in domain.SaveInput, versionI
 	return len(landed), dropped, nil
 }
 
-// insertEvents appends the batch, ignoring anything already recorded.
 func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, events []domain.Event, versionID string) error {
 	if len(events) == 0 {
 		return nil
@@ -181,8 +167,6 @@ func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, e
 	return deriveFocusLoss(ctx, q, attemptID)
 }
 
-// deriveFocusLoss recounts the attempt's away episodes from its event log and
-// sets the two columns the dashboard, the monitor and the resume payload read.
 func deriveFocusLoss(ctx context.Context, q querier, attemptID string) error {
 	_, err := q.Exec(ctx, `
 		UPDATE app.attempts at

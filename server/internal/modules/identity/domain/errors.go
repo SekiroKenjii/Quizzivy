@@ -25,11 +25,6 @@ var ErrRefreshRejected = errors.New("refresh rejected")
 
 // ErrRefreshReused is §5.2 reuse detection firing: the presented token had
 // already been rotated, and the whole family has now been revoked.
-//
-// Kept distinct from ErrRefreshRejected for the VICTIM's benefit, not the
-// attacker's. By the time this is returned the family is dead, so the fact
-// leaks no access; but "someone else used your session" is a thing a student
-// can act on, and "your session expired" is not.
 var ErrRefreshReused = errors.New("refresh token reused")
 
 var ErrRefreshTokenNotFound = errors.New("refresh token not found")

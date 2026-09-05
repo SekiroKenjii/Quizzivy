@@ -32,15 +32,9 @@ type Config struct {
 	RefreshCookieSecure bool
 }
 
-// defaultMaxConcurrentPasswordHashes bounds Argon2id arenas: four slots is 256 MiB at peak.
 const defaultMaxConcurrentPasswordHashes = 4
 
 // Load reads the environment and fails loudly on anything missing.
-//
-// No silent defaults for security-relevant values. A DATABASE_URL that falls
-// back to something plausible, or an empty CORS allowlist treated as "allow
-// all", are the kind of defaults that work in development and are wrong in
-// production without anyone noticing.
 func Load() (Config, error) {
 	cfg := Config{
 		Port:           getenv("API_PORT", "8080"),
@@ -49,7 +43,6 @@ func Load() (Config, error) {
 		ClientIPHeader: os.Getenv("CLIENT_IP_HEADER"),
 	}
 
-	// Fail rather than silently accept a header that cannot be trusted.
 	if strings.EqualFold(cfg.ClientIPHeader, "X-Forwarded-For") {
 		return cfg, fmt.Errorf(
 			"CLIENT_IP_HEADER must not be X-Forwarded-For: proxies append to it, so a " +
@@ -85,7 +78,6 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-// loadTokens reads the §5.2 session settings.
 func loadTokens(cfg *Config) error {
 	var err error
 	cfg.JWTSigningKey = []byte(os.Getenv("JWT_SIGNING_KEY"))
@@ -103,7 +95,6 @@ func loadTokens(cfg *Config) error {
 	return nil
 }
 
-// loadHashing reads R-13's bound on concurrent Argon2 work.
 func loadHashing(cfg *Config) error {
 	var err error
 	cfg.MaxConcurrentPasswordHashes, err = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
@@ -117,7 +108,6 @@ func loadHashing(cfg *Config) error {
 	return nil
 }
 
-// parseOrigins splits the CORS allowlist: exact origins, never '*' (§4.1).
 func parseOrigins(raw string) ([]string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, fmt.Errorf("CORS_ALLOWED_ORIGINS is required (exact origins, never '*')")
@@ -126,7 +116,7 @@ func parseOrigins(raw string) ([]string, error) {
 	for _, o := range strings.Split(raw, ",") {
 		trimmed := strings.TrimSpace(o)
 		if trimmed == "*" {
-			// Illegal with credentials, and this API always sends them.
+
 			return nil, fmt.Errorf("CORS_ALLOWED_ORIGINS must not contain '*' (§4.1)")
 		}
 		if trimmed != "" {
@@ -136,13 +126,6 @@ func parseOrigins(raw string) ([]string, error) {
 	return origins, nil
 }
 
-// loadGoogle reads the §5.3 credentials.
-//
-// The client id is deliberately read from VITE_GOOGLE_CLIENT_ID when
-// GOOGLE_CLIENT_ID is unset. It is the same public value the frontend bundles,
-// and the backend needs it as the `aud` it verifies ID tokens against. Two
-// names for one value is how they end up different, and the failure -- every
-// Google sign-in rejected for a bad audience -- says nothing about the cause.
 func loadGoogle(cfg *Config) error {
 	cfg.GoogleClientID = getenv("GOOGLE_CLIENT_ID", os.Getenv("VITE_GOOGLE_CLIENT_ID"))
 	cfg.GoogleClientSecret = os.Getenv("GOOGLE_CLIENT_SECRET")
@@ -156,7 +139,7 @@ func loadGoogle(cfg *Config) error {
 	}
 	switch set {
 	case 0:
-		return nil // Google sign-in is simply off.
+		return nil
 	case 3:
 	default:
 		return fmt.Errorf("google sign-in needs GOOGLE_CLIENT_ID (or VITE_GOOGLE_CLIENT_ID), " +
@@ -178,8 +161,6 @@ func (c Config) MediaEnabled() bool {
 		c.S3AccessKeyID != "" && c.S3SecretAccessKey != ""
 }
 
-// loadMedia reads the object-storage group, all-or-nothing, the same way
-// loadGoogle reads Google's.
 func loadMedia(cfg *Config) error {
 	cfg.S3Endpoint = os.Getenv("S3_ENDPOINT")
 	cfg.S3Region = getenv("S3_REGION", "auto")
@@ -220,8 +201,6 @@ func (c Config) GoogleEnabled() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && len(c.GoogleRedirectURIs) > 0
 }
 
-// getenvInt reads an integer setting. An ABSENT value takes the fallback; a
-// PRESENT but unparseable one is an error.
 func getenvInt(key string, fallback int) (int, error) {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
@@ -234,13 +213,6 @@ func getenvInt(key string, fallback int) (int, error) {
 	return n, nil
 }
 
-// getenvBool parses a boolean the way getenvInt parses an integer: anything
-// unparseable is an error, not a silent fallback.
-//
-// The previous form was `getenv(key, "true") != "false"`, under which `0`,
-// `False`, `FALSE` and `no` all quietly meant true -- the same shape that was
-// fixed for getenvInt one commit earlier, and for the same reason: every other
-// input here fails loudly.
 func getenvBool(key string, fallback bool) (bool, error) {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {

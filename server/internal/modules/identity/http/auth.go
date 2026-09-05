@@ -13,12 +13,6 @@ import (
 )
 
 // Login implements POST /auth/login (§5.1).
-//
-// Every failure returns the same 401 with the same code and the same message.
-// §6.5 requires the join endpoints not to reveal which classes exist; the same
-// reasoning applies here to which accounts exist and which are suspended. The
-// service layer additionally equalises the TIMING, which a response body alone
-// cannot do.
 func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject) (openapi.LoginResponseObject, error) {
 	if h.auth == nil {
 		return nil, httpx.ErrNotImplemented
@@ -69,10 +63,6 @@ func invalidCredentials(ctx context.Context) openapi.ErrorResponse {
 }
 
 // RefreshSession implements POST /auth/refresh (§5.2).
-//
-// The rotated cookie is the whole point of the response: the predecessor is
-// revoked server-side before this returns, so a client that does not receive
-// the replacement is already logged out and does not know it yet.
 func (h Identity) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRequestObject) (openapi.RefreshSessionResponseObject, error) {
 	if h.auth == nil {
 		return nil, httpx.ErrNotImplemented
@@ -103,10 +93,6 @@ func (h Identity) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRe
 }
 
 // Logout implements POST /auth/logout (§5.4).
-//
-// Authenticated by the refresh cookie rather than the access token: a user
-// whose access token has already expired must still be able to end their
-// session, and that is precisely when they are most likely to try.
 func (h Identity) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (openapi.LogoutResponseObject, error) {
 	if h.auth == nil {
 		return nil, httpx.ErrNotImplemented

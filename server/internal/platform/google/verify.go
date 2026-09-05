@@ -16,14 +16,11 @@ var (
 	ErrEmailUnverified = errors.New("google: email is not verified")
 )
 
-// googleIssuers are both spellings Google uses. It issues ID tokens with either,
-// and a verifier that accepts only the URL form rejects perfectly valid tokens
-// intermittently -- which looks like a flaky login, not a bug.
 var googleIssuers = []string{"https://accounts.google.com", "accounts.google.com"}
 
 // Identity is what §5.3 step 3 reads out of a verified ID token.
 type Identity struct {
-	Subject       string // Google `sub`: immutable, unlike the email
+	Subject       string
 	Email         string
 	EmailVerified bool
 	Name          string
@@ -72,7 +69,6 @@ func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (Identity, err
 		return Identity{}, fmt.Errorf("%w: %v", ErrTokenInvalid, err)
 	}
 
-	// jwt.WithIssuer takes one value, and Google uses two spellings.
 	if !validIssuer(claims.Issuer) {
 		return Identity{}, fmt.Errorf("%w: issuer %q", ErrTokenInvalid, claims.Issuer)
 	}
@@ -101,12 +97,6 @@ func validIssuer(iss string) bool {
 	return false
 }
 
-// flexibleBool accepts `true` and `"true"`.
-//
-// Google's ID tokens carry a JSON boolean, but its userinfo responses have
-// historically used a string, and the two get confused in libraries and in
-// fixtures. Anything that is not recognisably true decodes as FALSE, so the
-// ambiguity fails towards rejecting a sign-in rather than accepting one.
 type flexibleBool bool
 
 func (b *flexibleBool) UnmarshalJSON(data []byte) error {

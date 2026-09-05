@@ -21,10 +21,6 @@ type TokenVerifier interface {
 	Verify(raw string) (*identityapp.Claims, error)
 }
 
-// verifyAccessToken adapts the token issuer to what the middleware wants.
-//
-// A nil verifier is a wiring mistake, not a caller error: refusing every
-// request is the only safe response, and it is loud enough to find in one run.
 func (d Deps) verifyAccessToken(bearer string) (httpx.Principal, error) {
 	if d.Tokens == nil {
 		return httpx.Principal{}, errors.New("no token verifier configured")

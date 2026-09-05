@@ -62,7 +62,6 @@ func (in WriteInput) Validate() error {
 		fields = append(fields, FieldError{"targets", "Chọn ít nhất một lớp hoặc một học viên."})
 	}
 
-	// Remove together with the auto_submit implementation (T-5.1).
 	if in.Integrity.OnLimitExceeded == "auto_submit" {
 		fields = append(fields, FieldError{
 			"integrity.onLimitExceeded",

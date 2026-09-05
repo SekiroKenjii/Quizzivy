@@ -11,10 +11,6 @@ import (
 )
 
 // PublishTest validates the draft and freezes it as a new version.
-//
-// A validation failure returns EVERY problem at once, each anchored to a
-// question, so the builder marks them inline rather than surfacing one per
-// attempt.
 func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestRequestObject) (openapi.PublishTestResponseObject, error) {
 	if h.publisher == nil {
 		return nil, httpx.ErrNotImplemented

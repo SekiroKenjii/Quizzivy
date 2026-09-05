@@ -19,25 +19,15 @@ const (
 // EXPLAIN test in search_test.go.
 const TrigramExpression = `app.immutable_unaccent(lower(q.prompt))`
 
-// searchCondition ORs word matching against the tsvector index with
-// accent-folded substring matching against the trigram index, so both serve one
-// query. The fold is explicit because pg_trgm is case- but not
-// accent-insensitive.
 const searchCondition = `(
 		to_tsvector('simple', q.prompt) @@ plainto_tsquery('simple', $%[1]d)
 		OR ` + TrigramExpression + ` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'
 	)`
 
-// likeEscaper neutralises LIKE wildcards in user input. Backslash first, or it
-// would double the escapes the others add.
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func escapeLike(s string) string { return likeEscaper.Replace(s) }
 
-// buildFilters returns the bound arguments and WHERE clauses for one page.
-// appendFilters adds the bank's WHERE clauses onto whatever arguments the
-// caller has already bound, so a paged query and a bare count can share one
-// definition of "what is being filtered" instead of drifting apart.
 func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
 	var args []any
 	where := []string{`q.deleted_at IS NULL`}
@@ -71,7 +61,6 @@ type filterOpts struct {
 	tags  bool
 }
 
-// allFilters is every dimension: what the page itself is filtered by.
 func allFilters() filterOpts {
 	return filterOpts{types: true, tags: true}
 }
@@ -118,8 +107,6 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Ques
 	return questions, page, nil
 }
 
-// attachChildren fills in the options and blanks for a whole page in two
-// queries rather than two per row.
 func (s *Postgres) attachChildren(ctx context.Context, questions []domain.Question) error {
 	if len(questions) == 0 {
 		return nil
@@ -140,7 +127,7 @@ func (s *Postgres) attachChildren(ctx context.Context, questions []domain.Questi
 	}
 
 	for i := range questions {
-		// Non-nil even when absent: the contract's arrays are never null.
+
 		questions[i].Options = []domain.Option{}
 		questions[i].Blanks = []domain.Blank{}
 		if got, ok := options[questions[i].ID]; ok {

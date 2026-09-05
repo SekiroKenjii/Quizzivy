@@ -57,7 +57,7 @@ func (s *Reviews) Get(ctx context.Context, attemptID string) (domain.Review, err
 	if out.AudioPlays, err = s.audioPlays(ctx, a.ID); err != nil {
 		return domain.Review{}, err
 	}
-	// score_total is written at submit; a paper read before that is out of its questions' points.
+
 	if total != nil && *total > 0 {
 		out.Score.Total = *total
 	} else {
@@ -129,8 +129,6 @@ func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.Rev
 	return out, s.attachBlanks(ctx, versionID, out, at)
 }
 
-// scanReviewQuestion reads one row of questions(). The media and the audio policy
-// are nullable as a group, so each becomes a pointer only when its key is set.
 func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
 	var (
 		q                                      domain.ReviewQuestion

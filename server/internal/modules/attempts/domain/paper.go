@@ -57,11 +57,6 @@ type Integrity struct {
 }
 
 // Answer is one saved answer, kept as the raw JSON the contract defines.
-//
-// The server has no reason to understand a choice from a text answer until
-// grading, and decoding it here would be a second place for the shape to drift
-// from api/openapi.yaml. The column is jsonb, so Postgres validates that it is
-// an object and the CHECK on the table enforces the rest.
 type Answer struct {
 	QuestionID string
 	Payload    []byte

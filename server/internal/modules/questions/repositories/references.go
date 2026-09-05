@@ -17,9 +17,6 @@ type Querier interface {
 
 // DraftReferences lists the draft tests whose outline uses the question, by
 // title. Any at all blocks deletion with a 409.
-//
-// Runs on the caller's querier so it can share the transaction that locked the
-// question, and is served by test_section_questions_question_idx.
 func DraftReferences(ctx context.Context, q Querier, questionID string) ([]domain.TestRef, error) {
 	rows, err := q.Query(ctx, `
 		SELECT DISTINCT t.id::text, t.title

@@ -16,10 +16,6 @@ type RequestMeta struct {
 }
 
 // WithRequestMeta records the client address and user agent.
-//
-// The address comes from the same resolver the rate limiter uses, so the value
-// stored against a session is the same one that was limited -- rather than two
-// notions of "the client" that disagree behind a proxy.
 func WithRequestMeta(clientIP func(*http.Request) string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

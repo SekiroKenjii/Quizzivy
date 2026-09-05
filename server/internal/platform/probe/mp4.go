@@ -33,7 +33,7 @@ func mp4Duration(r io.ReaderAt, size int64) (int, error) {
 
 	switch head[0] {
 	case 0:
-		body := make([]byte, 12) // created, modified, timescale
+		body := make([]byte, 12)
 		if _, err := r.ReadAt(body, mvhdOffset+4); err != nil {
 			return 0, errors.New("mp4: short mvhd (v0)")
 		}
@@ -45,7 +45,7 @@ func mp4Duration(r io.ReaderAt, size int64) (int, error) {
 		return scaled(uint64(binary.BigEndian.Uint32(durationRaw)), uint64(timescale))
 
 	case 1:
-		body := make([]byte, 20) // created(8), modified(8), timescale(4)
+		body := make([]byte, 20)
 		if _, err := r.ReadAt(body, mvhdOffset+4); err != nil {
 			return 0, errors.New("mp4: short mvhd (v1)")
 		}
@@ -93,10 +93,10 @@ func findAtom(r io.ReaderAt, from, until int64, want string) (int64, int64, erro
 
 		switch size {
 		case 0:
-			// "To the end of file" -- legal for the last atom.
+
 			size = until - offset
 		case 1:
-			// 64-bit size follows the header.
+
 			wide := make([]byte, 8)
 			if _, err := r.ReadAt(wide, offset+8); err != nil {
 				return 0, 0, errors.New("unreadable 64-bit atom size")

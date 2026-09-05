@@ -12,11 +12,6 @@ import (
 )
 
 // Submit closes an attempt and grades everything a machine can.
-//
-// Idempotent by the lock plus the status check: a manual tap racing the timer's
-// auto-submit means one of them takes the AttemptRecord and the other reads a status that
-// is no longer in_progress. That is 409 ATTEMPT_CLOSED, not a second grading
-// pass over the same answers.
 func (s *Postgres) Submit(ctx context.Context, attemptID, studentID string, reason domain.Reason, now time.Time) (domain.AttemptRecord, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -73,7 +68,7 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 	for _, q := range questions {
 		payload, answered := answers[q.ID]
 		if !answered {
-			// No AttemptRecord, nothing to update, and zero either way.
+
 			continue
 		}
 		result := domain.Grading.Grade(q, payload)
@@ -95,7 +90,6 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 		}
 	}
 
-	// §7: the total comes from the frozen version, not from summing the questions here.
 	var total float64
 	if err := tx.QueryRow(ctx,
 		`SELECT total_points FROM app.test_versions WHERE id = $1::uuid`, versionID).
@@ -124,7 +118,6 @@ func gradeAndClose(ctx context.Context, tx pgx.Tx, attemptID, versionID string, 
 	return closed, nil
 }
 
-// closingStatus records HOW the attempt ended, and nothing about grading.
 func closingStatus(reason domain.Reason) domain.Status {
 	if reason == domain.TimerExpired {
 		return domain.TimedOut
@@ -132,9 +125,6 @@ func closingStatus(reason domain.Reason) domain.Status {
 	return domain.Submitted
 }
 
-// gradingKey reads the answers. This is the one place in the package that does,
-// and it is reachable only from Submit -- the student payload has no field to
-// put any of it in (§13.5).
 func gradingKey(ctx context.Context, tx pgx.Tx, versionID string) ([]domain.GradableQuestion, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT q.id, q.type, q.points

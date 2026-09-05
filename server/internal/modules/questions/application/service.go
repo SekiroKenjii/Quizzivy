@@ -24,8 +24,6 @@ func NewService(repo domain.Repository, media MediaKinds) *Service {
 	return &Service{repo: repo, media: media, now: time.Now}
 }
 
-// resolveMediaKind reads the kind from the database rather than the request, so
-// a caller cannot declare an image to be audio.
 func (s *Service) resolveMediaKind(ctx context.Context, assetID *string) (*string, error) {
 	if assetID == nil {
 		return nil, nil

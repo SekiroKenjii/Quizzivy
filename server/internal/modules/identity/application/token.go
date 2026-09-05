@@ -59,10 +59,6 @@ func (i *TokenIssuer) Issue(userID, role string) (string, error) {
 }
 
 // Verify parses and validates a token.
-//
-// The signing method is pinned. Accepting whatever the token's header declares
-// is the classic JWT vulnerability: a token with alg "none", or one signed with
-// the public key of an asymmetric pair treated as an HMAC secret, would verify.
 func (i *TokenIssuer) Verify(raw string) (*Claims, error) {
 	claims := &Claims{}
 	_, err := jwt.ParseWithClaims(

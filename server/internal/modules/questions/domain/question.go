@@ -19,7 +19,7 @@ type Question struct {
 	Transcript     *string
 	Options        []Option
 	Blanks         []Blank
-	Points         string // numeric(8,2) as text -- never a float (§13.2)
+	Points         string
 	Explanation    *string
 	SampleAnswer   *string
 	Tags           []string

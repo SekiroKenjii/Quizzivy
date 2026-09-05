@@ -22,11 +22,6 @@ type Entry struct {
 }
 
 // Execer is satisfied by both *pgxpool.Pool and pgx.Tx.
-//
-// Almost every audit row belongs in the same transaction as the thing it
-// records -- an audited action that committed without its audit row is
-// indistinguishable from one that never happened -- so the transaction is the
-// normal argument and the pool is the exception.
 type Execer interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }

@@ -50,7 +50,6 @@ type DraftBlank struct {
 	AcceptedAnswers []string
 }
 
-// isChoice reports whether the type's answer is a set of options.
 func isChoice(questionType string) bool {
 	switch questionType {
 	case "single_choice", "multiple_choice", "true_false":
@@ -60,11 +59,6 @@ func isChoice(questionType string) bool {
 }
 
 // PreviewQuestion is one question as a student receives it.
-//
-// It carries no is_correct, no accepted answer, no sample answer and no
-// transcript. That is not a projection applied on the way out -- those columns
-// are never selected, so nothing downstream can leak one by forgetting to strip
-// it (§14 E2E 9).
 type PreviewQuestion struct {
 	ID           string
 	Type         string

@@ -100,10 +100,6 @@ const (
 
 // Deadline is the §9 rule, server-side and authoritative: a student gets their
 // full duration unless the assignment closes first.
-//
-// 40-open-items.md P3 settles the other direction -- once started, deadline_at
-// wins and the student finishes even if closes_at passes mid-attempt. That is
-// why this is computed once at creation and never recomputed on resume.
 func (r Rules) Deadline(now time.Time) time.Time {
 	full := now.Add(time.Duration(r.DurationMinutes) * time.Minute)
 	if r.ClosesAt.Before(full) {

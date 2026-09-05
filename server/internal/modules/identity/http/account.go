@@ -11,11 +11,6 @@ import (
 )
 
 // GetCurrentUser implements GET /auth/me (§5.4).
-//
-// The SPA calls this on every load to decide between the app and /login, so it
-// re-reads the user rather than reflecting the token's claims back. A student
-// suspended five minutes ago still holds a valid access token; this is where
-// that stops working.
 func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRequestObject) (openapi.GetCurrentUserResponseObject, error) {
 	if h.auth == nil {
 		return nil, httpx.ErrNotImplemented
@@ -41,12 +36,6 @@ func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRe
 }
 
 // ChangePassword implements POST /auth/change-password (§5.4).
-//
-// Every rejection that is about the SUBMITTED password is a 400, never a 401.
-// The SPA treats 401 as a dead session: it refreshes once, retries, and signs
-// the user out on the second 401 (client.ts). A 401 here would mean mistyping
-// your own current password silently signs you out, with nothing pointing at
-// the typo. 401 on this endpoint means the session is invalid, and nothing else.
 func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePasswordRequestObject) (openapi.ChangePasswordResponseObject, error) {
 	if h.auth == nil {
 		return nil, httpx.ErrNotImplemented

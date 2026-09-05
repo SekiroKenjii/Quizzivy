@@ -20,11 +20,6 @@ type LinkGoogleInput struct {
 }
 
 // LinkGoogle attaches a Google identity to the signed-in account (§15).
-//
-// The email does NOT have to match the account's own: a teacher linking a
-// personal Gmail to a work address is the ordinary case. What is checked is
-// that the address is verified -- the same §5.1 rule sign-in applies, for the
-// same reason -- and that it is not already some other account's email.
 func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (domain.User, error) {
 	if s.google == nil {
 		return domain.User{}, domain.ErrGoogleUnavailable
@@ -71,8 +66,6 @@ func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (domain.Us
 	return s.users.FindUserByID(ctx, user.ID)
 }
 
-// alreadyLinked answers a second link: the same Google account is a no-op,
-// a different one is refused.
 func (s *Service) alreadyLinked(ctx context.Context, user domain.User, identity GoogleIdentity) (domain.User, error) {
 	existing, err := s.users.FindUserByProviderIdentity(ctx, "google", identity.Subject)
 	if err == nil && existing.ID == user.ID {
@@ -82,11 +75,6 @@ func (s *Service) alreadyLinked(ctx context.Context, user domain.User, identity 
 }
 
 // UnlinkGoogle detaches the Google identity (§15).
-//
-// Refused when the account has no password, because the result would be an
-// account nobody can sign into -- still holding its attempts and enrolments,
-// and unreachable by its owner. The client disables the control and explains
-// why; this is the server making sure that explanation is true.
 func (s *Service) UnlinkGoogle(ctx context.Context, userID, ip, userAgent string) error {
 	user, err := s.users.FindUserByID(ctx, userID)
 	if err != nil {

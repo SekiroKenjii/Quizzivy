@@ -29,8 +29,6 @@ type Postgres struct{ pool DB }
 
 func NewPostgres(db DB) *Postgres { return &Postgres{pool: db} }
 
-// selectAssignment is shared by List and Get so a row can never mean one thing
-// in the list and another on the detail screen.
 const selectAssignment = `
 		SELECT a.id::text, a.test_id::text, a.test_version_id::text, v.version, t.title,
 		       a.opens_at, a.closes_at, a.closed_at, a.published_at,
@@ -125,12 +123,6 @@ func (s *Postgres) get(ctx context.Context, q querier, id string) (domain.Assign
 	return a, nil
 }
 
-// List returns one page of assignments, newest first, with the paging
-// beside it (O-20: OFFSET, so the client can draw numbered pages).
-//
-// The status filter is applied in SQL over the same expression StatusAt
-// computes, so the list and the row never disagree about what "open" means.
-// derivedStatus is StatusAt in SQL, at the database's clock.
 const derivedStatus = `
 			CASE
 			  WHEN a.published_at IS NULL THEN 'draft'
@@ -159,7 +151,6 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Face
 	return f, nil
 }
 
-// narrow is the WHERE clause List and Facets share.
 func narrow(in domain.ListInput) ([]string, []any) {
 	var args []any
 	where := []string{"TRUE"}

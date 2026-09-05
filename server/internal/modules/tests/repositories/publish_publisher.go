@@ -13,10 +13,6 @@ import (
 
 // Publish validates the draft, freezes it as a new version, bumps
 // current_version, sets status published, and audits -- all in one transaction.
-//
-// Republishing an unchanged test still creates a version. Versions are an
-// append-only history of what was published and when, not a diff: an assignment
-// names a version, so "nothing changed" still needs a row to point at.
 func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now time.Time, validate func(domain.DraftContent) error) (domain.PublishedVersion, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -76,8 +72,6 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 	return published, nil
 }
 
-// lockTest takes the row lock and returns the current version number, so two
-// concurrent publishes of the same test cannot both claim the same number.
 func lockTest(ctx context.Context, tx pgx.Tx, testID string) (int, error) {
 	var current int
 	err := tx.QueryRow(ctx,

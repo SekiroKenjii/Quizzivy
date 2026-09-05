@@ -10,10 +10,6 @@ import (
 )
 
 // Preview renders a published version the way a student would receive it.
-//
-// version 0 means the test's current one. A draft that has never been published
-// has nothing to render, which is ErrNotPublished rather than an empty list: an
-// empty preview would look like a published test with no questions.
 func (s *Postgres) Preview(ctx context.Context, testID string, version int) (int, []domain.PreviewQuestion, error) {
 	var versionID string
 	var resolved int
@@ -73,8 +69,6 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 	return out, s.attachPreviewBlanks(ctx, versionID, out, byID)
 }
 
-// Two queries for the children regardless of page size, the same shape the
-// question bank uses: one per question would be a round trip per row.
 func (s *Postgres) attachPreviewOptions(
 	ctx context.Context, versionID string, out []domain.PreviewQuestion, byID map[string]int,
 ) error {

@@ -10,10 +10,6 @@ import (
 )
 
 // Generate returns a new code in canonical form (ungrouped, upper case).
-//
-// len(Alphabet) is 32, which divides 256, so masking a random byte with 31
-// selects uniformly with no modulo bias and no rejection loop. If the alphabet
-// ever changes length this stops being true, hence the assertion.
 func (JoinCodeManager) Generate() (string, error) {
 	if len(Alphabet) != 32 {
 		return "", fmt.Errorf("join: alphabet is %d characters; uniform selection assumes 32", len(Alphabet))
@@ -61,10 +57,6 @@ func (JoinCodeManager) Hash(normalized string) []byte {
 }
 
 // Equal compares two code hashes in constant time (§13.5).
-//
-// The lookup itself is a b-tree probe on code_hash and is not constant-time;
-// this guards the place §13.5 actually names, and keeps the property if a
-// caller ever compares two hashes it already holds.
 func (JoinCodeManager) Equal(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }

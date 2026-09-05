@@ -37,8 +37,6 @@ func AssertPublicRoutesLimited(spec *openapi3.T, reg *ratelimit.Registry) error 
 	)
 }
 
-// isPublicOperation reports whether the operation opts out of the global
-// security requirement -- `security: []`, or an entry with no schemes.
 func isPublicOperation(op *openapi3.Operation) bool {
 	if op.Security == nil {
 		return false

@@ -13,16 +13,9 @@ const (
 	MaxLimit     = 100
 )
 
-// titleSearch folds accents on both sides, so a teacher typing without
-// diacritics finds a title that has them -- the same rule the Query parameter
-// states for the question bank.
 const titleSearch = `app.immutable_unaccent(lower(t.title))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
 
-// tagCondition matches a test through its DRAFT outline, which is the copy the
-// list's other numbers already describe -- questionCount and totalPoints are
-// computed the same way. Overlap, not containment: two chips widen, as in the
-// bank.
 const tagCondition = `EXISTS (
 		SELECT 1
 		  FROM app.test_sections s
@@ -90,8 +83,6 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Test
 	return list, page, nil
 }
 
-// attachSections fills the outline for a whole page in one query rather than
-// one per row.
 func (s *Postgres) attachSections(ctx context.Context, list []domain.Test) error {
 	if len(list) == 0 {
 		return nil
@@ -116,9 +107,6 @@ func (s *Postgres) attachSections(ctx context.Context, list []domain.Test) error
 
 // Tags returns every tag reachable through the current status and search, so
 // A-03's filter cannot offer a chip that returns nothing.
-//
-// The tag filter itself is NOT applied, for the same reason the status facets
-// ignore the status filter: picking one chip must not empty the rail.
 func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, error) {
 	args := []any{}
 	where := []string{liveTests}

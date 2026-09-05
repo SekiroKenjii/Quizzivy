@@ -8,11 +8,6 @@ import (
 )
 
 // Duplicate copies the draft outline and nothing else.
-//
-// The copy starts as a draft with current_version 0: versions are snapshots of
-// a publish that happened, and the copy has not been published. Copying them
-// would give the new test a history it never had, and an assignment pointing at
-// a version whose test never went through publish validation.
 func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (domain.Test, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

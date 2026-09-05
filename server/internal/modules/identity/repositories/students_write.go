@@ -11,14 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// entityUser names the audit rows every write to a student account leaves.
 const entityUser = "user"
 
-// isUniqueViolation reports a collision with the case-insensitive email index.
-//
-// There is no UNIQUE constraint on the column -- uniqueness comes from
-// users_email_lower_key, an expression index -- so `ON CONFLICT (email)` does
-// not compile and the error has to be read after the fact.
 func isUniqueViolation(err error) bool {
 	var pg *pgconn.PgError
 	return errors.As(err, &pg) && pg.Code == "23505" &&
@@ -74,10 +68,6 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 }
 
 // Update edits profile fields, or disables the account.
-//
-// Disabling never deletes: app.users has no deleted_at, and attempts reference
-// users with ON DELETE RESTRICT, so the history a disabled student leaves
-// behind is exactly what must survive (§6.4).
 func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domain.StudentPatch) (domain.Student, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -120,17 +110,12 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Student{}, fmt.Errorf("students: commit update: %w", err)
 	}
-	// includeDisabled: a successful disable must return the row it just wrote, not 404.
+
 	return s.get(ctx, in.ID, true)
 }
 
 // ResetPassword sets a temporary password and revokes every session the student
 // has.
-//
-// All of them, with no exception carved: the acting principal is the admin, so
-// unlike a self-service change there is no caller session worth preserving --
-// and a reset performed because access may be compromised is worthless if the
-// attacker's refresh family survives it.
 func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

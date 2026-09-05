@@ -8,12 +8,6 @@ import (
 )
 
 // Facets counts tests per status for the given search.
-//
-// The status filter itself is deliberately NOT applied: A-03 shows every tab's
-// count at once, and applying it would zero the tabs the teacher is not on --
-// which is the one thing the numbers are there to prevent them having to guess.
-//
-// One grouped query rather than four counts: the same scan answers all of them.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.StatusFacets, error) {
 	args := []any{}
 	where := []string{liveTests}

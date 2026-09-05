@@ -8,9 +8,6 @@ import (
 )
 
 // TestDSN returns the migrate-role DSN for integration tests, or skips.
-//
-// Skipping rather than failing keeps `go test ./...` useful on a machine with
-// no database, while CI sets the variable and therefore always runs these.
 func TestDSN(t *testing.T) string {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")

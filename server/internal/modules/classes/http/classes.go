@@ -14,10 +14,6 @@ import (
 const msgClassNotFound = "Không tìm thấy lớp học."
 
 // GetClass implements GET /admin/classes/{id} (§6.4).
-//
-// Carries the active code's METADATA -- hint, expiry, uses -- and never the
-// code. Only a hash is stored (§13.3), so there is nothing here that could
-// return it even if a handler wanted to.
 func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestObject) (openapi.GetClassResponseObject, error) {
 	if h.classes == nil {
 		return nil, httpx.ErrNotImplemented
@@ -35,10 +31,6 @@ func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestOb
 }
 
 // UpdateClass implements PATCH /admin/classes/{id}.
-//
-// Only the fields actually present in the body are written, so renaming a class
-// cannot silently clear its description -- the difference between "absent" and
-// "null" is the whole point of a PATCH.
 func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
 	if h.classes == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -188,7 +180,7 @@ func toAPIMember(m domain.Member) openapi.ClassMember {
 		UserId:   httpapi.ParseUUID(m.UserID),
 		FullName: m.FullName,
 		Email:    openapi_types.Email(m.Email),
-		// The teacher's own signal for an unexpected enrolment (§6.4).
+
 		JoinedVia:    openapi.ClassMemberJoinedVia(m.JoinedVia),
 		JoinedAt:     m.JoinedAt,
 		JoinCodeHint: m.JoinCodeHint,
@@ -197,11 +189,6 @@ func toAPIMember(m domain.Member) openapi.ClassMember {
 }
 
 // RemoveClassMember implements DELETE /admin/classes/{id}/members/{userId}.
-//
-// Revokes access and RETAINS attempts (§6.4). The membership grants access;
-// the attempts are the student's work and the teacher's record of it, and
-// deleting those because someone left a class would destroy the only evidence
-// of what happened.
 func (h Classes) RemoveClassMember(ctx context.Context, request openapi.RemoveClassMemberRequestObject) (openapi.RemoveClassMemberResponseObject, error) {
 	if h.classes == nil {
 		return nil, httpx.ErrNotImplemented

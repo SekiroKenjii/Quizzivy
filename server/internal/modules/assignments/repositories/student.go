@@ -10,12 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// targeted is the roster test, written once. Both routes -- through a class
-// and by name -- are checked with EXISTS rather than a join, so a student on
-// both lists is one row, not two.
-//
-// Disabled accounts are excluded here because bearer verification is pure, so
-// a token outlives the account by its TTL.
 const targeted = `
 	(EXISTS (SELECT 1 FROM app.users me
 	          WHERE me.id = $1::uuid AND me.disabled_at IS NULL)
@@ -25,11 +19,6 @@ const targeted = `
 	                   JOIN app.class_members m ON m.class_id = ac.class_id
 	                  WHERE ac.assignment_id = a.id AND m.user_id = $1::uuid)))`
 
-// The student's view of an assignment, in two halves so the intro can add its
-// columns between them. `last` is their most recent non-voided attempt, live
-// or finished; its score is the one submit wrote (score_earned/score_total,
-// as students.go reads them), cast to float8 so numeric(8,2) lands in the wire
-// type the contract promises (`format: double`).
 const studentCardColumns = `
 	SELECT a.id::text, t.title,
 	       (SELECT CASE WHEN count(*) = 1 THEN min(c.name) END
@@ -82,7 +71,6 @@ const studentCardFrom = `
 	        ORDER BY at.started_at DESC
 	        LIMIT 1) last ON true`
 
-// lastAttempt is the tail of a card row: what the LATERAL found, if anything.
 type lastAttempt struct {
 	id          *string
 	status      *string
@@ -92,8 +80,6 @@ type lastAttempt struct {
 	pending     *int
 }
 
-// apply fills the card's attempt-derived fields. A score is shown only for a
-// finished attempt with one recorded, and only when the assignment says so.
 func (l lastAttempt) apply(c *domain.StudentCard, showScore bool) {
 	c.LastAttemptID = l.id
 	c.LastSubmittedAt = l.submittedAt
@@ -164,7 +150,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		onLimit   string
 		maxPlays  *int
 	)
-	// $1 is the student, so `targeted` and the card read unchanged; $2 is the assignment.
+
 	err := s.pool.QueryRow(ctx, studentCardColumns+`,
 	       (SELECT au.full_name FROM app.users au WHERE au.id = a.created_by),
 	       a.review_show_correct_answers, a.review_show_explanations,

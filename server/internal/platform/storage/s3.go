@@ -41,7 +41,7 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			cfg.AccessKeyID, cfg.SecretAccessKey, "",
 		)),
-		// Only when the operation requires it -- never opportunistically.
+
 		awsconfig.WithRequestChecksumCalculation(aws.RequestChecksumCalculationWhenRequired),
 		awsconfig.WithResponseChecksumValidation(aws.ResponseChecksumValidationWhenRequired),
 	)
@@ -92,9 +92,6 @@ func (c *Client) Delete(ctx context.Context, key string) error {
 }
 
 // SignedURL mints a time-limited GET URL (§11.2).
-//
-// Per request, never cached and never stored: the URL IS the capability, so one
-// that outlives its purpose is a leak that no later revocation can undo.
 func (c *Client) SignedURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	req, err := c.presign.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),

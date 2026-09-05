@@ -12,10 +12,6 @@ import (
 )
 
 // Rotate consumes one refresh token and issues its successor, atomically.
-//
-// The outcome distinguishes a replay from an ordinary logout by replaced_by:
-// set means the token was already exchanged, so the family is revoked; nil with
-// revoked_at set means the user logged out.
 func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.RefreshTokenRecord, now time.Time) (domain.RotateResult, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -59,7 +55,6 @@ func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.Refres
 	return domain.RotateResult{Outcome: domain.RotateOK, User: user, FamilyID: claimed.familyID}, nil
 }
 
-// claimedToken is the presented row, locked FOR UPDATE.
 type claimedToken struct {
 	id         string
 	userID     string
@@ -82,8 +77,6 @@ func claimToken(ctx context.Context, tx pgx.Tx, tokenHash []byte) (claimedToken,
 	return c, err
 }
 
-// revokeReusedFamily ends every session descended from the same login, because
-// a token that was already exchanged has been presented twice.
 func revokeReusedFamily(ctx context.Context, tx pgx.Tx, claimed claimedToken, next domain.RefreshTokenRecord, now time.Time) (domain.RotateResult, error) {
 	if err := revokeFamily(ctx, tx, claimed.familyID, now); err != nil {
 		return domain.RotateResult{}, err
@@ -115,9 +108,6 @@ func revokeDisabledFamily(ctx context.Context, tx pgx.Tx, claimed claimedToken, 
 	return domain.RotateResult{Outcome: domain.RotateUserDisabled, FamilyID: claimed.familyID}, nil
 }
 
-// issueSuccessor writes the replacement and marks the predecessor consumed,
-// pointing at it. A non-nil replaced_by is what later tells a replay from a
-// logout.
 func issueSuccessor(ctx context.Context, tx pgx.Tx, claimed claimedToken, next domain.RefreshTokenRecord, now time.Time) error {
 	const issue = `
 		INSERT INTO app.refresh_tokens
@@ -146,8 +136,6 @@ func issueSuccessor(ctx context.Context, tx pgx.Tx, claimed claimedToken, next d
 // what logout does, and it does not care whether the presented token is still
 // live: revoking an already-revoked family is a no-op, and refusing to would
 // make logout fail exactly when the user needs it most.
-//
-// Returns the family id, or ErrRefreshTokenNotFound if the token is unknown.
 func (s *Users) RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now time.Time) (string, error) {
 	const q = `
 		WITH presented AS (
@@ -200,10 +188,6 @@ func revokeFamily(ctx context.Context, tx pgx.Tx, familyID string, now time.Time
 }
 
 // DeleteExpired prunes refresh-token families whose every member has expired.
-//
-// By family, not by row: replaced_by is ON DELETE SET NULL, and a NULL
-// replaced_by is how Rotate tells a logout from a replay. Pruning row by row
-// would turn a detected reuse into an ordinary logout weeks later.
 func (s *Users) DeleteExpired(ctx context.Context, before time.Time) (int64, error) {
 	const q = `
 		DELETE FROM app.refresh_tokens
@@ -221,10 +205,6 @@ func (s *Users) DeleteExpired(ctx context.Context, before time.Time) (int64, err
 
 // ChangePassword swaps the hash, clears must_change_password, and revokes every
 // refresh family except the caller's -- all in one transaction.
-//
-// One transaction because the halves are useless apart. A password changed
-// without the revocation leaves a stolen session alive under a password its
-// holder no longer knows, which is the whole reason the user changed it.
 func (s *Users) ChangePassword(ctx context.Context, in domain.ChangePasswordRecord) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

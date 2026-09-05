@@ -233,9 +233,6 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 	}
 }
 
-// questionWriteError maps the cross-field failures to a 400 carrying per-field
-// details, so the client can put each message beside its input rather than
-// showing one banner for a form with three problems.
 func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, bool) {
 	var invalid *domain.ValidationError
 	if errors.As(err, &invalid) {
@@ -257,11 +254,6 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 	return openapi.ErrorResponse{}, false
 }
 
-// toQuestionInput converts the generated body into the domain input.
-//
-// Points crosses here as a decimal STRING. The wire type is a float64 and the
-// column is numeric(8,2); formatting with 'f' and two places is what stops a
-// binary fraction becoming 2.4999999999 in the database (§13.2).
 func toQuestionInput(body openapi.QuestionInput) domain.Input {
 	in := domain.Input{
 		Type:         domain.Type(body.Type),
@@ -308,8 +300,6 @@ func toQuestionInput(body openapi.QuestionInput) domain.Input {
 	return in
 }
 
-// toAPIQuestion renders a bank question, resolving its media asset to a signed
-// URL when there is one.
 func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openapi.AdminQuestion, error) {
 	points, err := strconv.ParseFloat(q.Points, 64)
 	if err != nil {

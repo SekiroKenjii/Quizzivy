@@ -14,11 +14,6 @@ type Pool struct {
 }
 
 // Open connects using the supplied DSN.
-//
-// The DSN must name quizzivy_app, never the owner (§13.5). The app role has DML
-// on schema app and nothing else -- it cannot run DDL, and migration 00022
-// revokes UPDATE and DELETE on the append-only tables, so "attempt_events is
-// append-only" is a privilege rather than a promise.
 func Open(ctx context.Context, dsn string) (*Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {

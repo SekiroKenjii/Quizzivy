@@ -10,10 +10,6 @@ import (
 )
 
 // CurrentUser backs GET /auth/me (§7).
-//
-// It reads the user afresh rather than trusting the access token's claims. A
-// role change or a suspension made a minute ago must take effect now, not when
-// the token happens to expire.
 func (s *Service) CurrentUser(ctx context.Context, userID string) (domain.User, error) {
 	user, err := s.users.FindUserByID(ctx, userID)
 	if err != nil {
@@ -55,7 +51,6 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 		return domain.ErrNoPasswordSet
 	}
 
-	// A forced change skips the current-password check.
 	if !user.MustChangePassword {
 		ok, err := domain.Passwords.Verify(ctx, in.CurrentPassword, *user.PasswordHash)
 		if err != nil {

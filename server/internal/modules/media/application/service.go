@@ -75,7 +75,6 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (domain.Asset, err
 		_ = os.Remove(tmp.Name())
 	}()
 
-	// 1. Size.
 	hasher := sha256.New()
 	size, err := boundedCopy(io.MultiWriter(tmp, hasher), in.Body, domain.MaxBytes)
 	if err != nil {
@@ -127,7 +126,6 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (domain.Asset, err
 	return asset, nil
 }
 
-// identify sniffs the container and, for audio, probes the duration.
 func (s *Service) identify(r io.ReaderAt, size int64) (domain.Kind, string, *int, error) {
 	head := make([]byte, 16)
 	if n, err := r.ReadAt(head, 0); err != nil && n < 12 {
@@ -161,11 +159,6 @@ func extensionFor(mime string) string {
 	return ""
 }
 
-// sanitiseFilename keeps a recognisable label without keeping a path.
-//
-// The name is shown in the library and nothing else -- it never becomes a
-// storage key, which is derived from the asset id. So the only job here is to
-// stop a display string carrying directory separators or arriving empty.
 func sanitiseFilename(name string) string {
 	name = path.Base(strings.ReplaceAll(strings.TrimSpace(name), "\\", "/"))
 	name = strings.TrimSpace(name)
@@ -187,9 +180,6 @@ func optional(v string) *string {
 
 // DefaultSignedURLTTL is §11.2's ten minutes. Short because the URL IS the
 // capability: one that outlives its purpose cannot be revoked afterwards.
-//
-// The value a Service actually signs with is its ttl field, set from
-// SIGNED_URL_TTL. This is the fallback for a Service built without one.
 const DefaultSignedURLTTL = 10 * time.Minute
 
 // SignedURL mints a fresh URL for an asset, per request (§11.2).
@@ -205,9 +195,6 @@ type SignedURLResult struct {
 
 // MintForStudent issues a signed URL only for an asset the student can reach
 // through an attempt of their own (§11.2).
-//
-// Authorization is decided before the URL is minted, and the same error is
-// returned whether the asset is unreachable or absent.
 func (s *Service) MintForStudent(ctx context.Context, studentID, assetID string) (SignedURLResult, error) {
 	ok, err := s.repo.ReachableByStudent(ctx, studentID, assetID)
 	if err != nil {
@@ -227,8 +214,6 @@ func (s *Service) MintForStudent(ctx context.Context, studentID, assetID string)
 	return s.mint(ctx, asset)
 }
 
-// mint is the one place a signature and its stated expiry are produced, so the
-// expiresAt a client caches against cannot drift from the TTL actually signed.
 func (s *Service) mint(ctx context.Context, asset domain.Asset) (SignedURLResult, error) {
 	url, err := s.object.SignedURL(ctx, asset.StorageKey, s.ttl)
 	if err != nil {

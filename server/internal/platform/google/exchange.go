@@ -49,12 +49,6 @@ func NewExchanger(clientID, clientSecret string, redirectURIs []string, tokenURL
 }
 
 // Exchange posts the code to Google and returns the raw ID token.
-//
-// redirectURI arrives from the browser and is therefore untrusted. Google does
-// check it against the registered URIs for this client, so this second check is
-// defence in depth -- but it is the cheap kind: it keeps a misconfigured or
-// newly-registered redirect from becoming usable here without anyone deciding
-// it should be.
 func (e *Exchanger) Exchange(ctx context.Context, code, codeVerifier, redirectURI string) (string, error) {
 	if !e.redirectAllowed(redirectURI) {
 		return "", fmt.Errorf("%w: %s", ErrRedirectNotAllowed, redirectURI)
@@ -93,7 +87,7 @@ func (e *Exchanger) Exchange(ctx context.Context, code, codeVerifier, redirectUR
 			Description string `json:"error_description"`
 		}
 		_ = json.Unmarshal(body, &oauthErr)
-		// Wrapped, so the detail reaches the log and not the caller.
+
 		return "", fmt.Errorf("%w: status %d: %s: %s",
 			ErrExchangeFailed, resp.StatusCode, oauthErr.Error, oauthErr.Description)
 	}

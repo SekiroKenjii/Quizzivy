@@ -37,9 +37,6 @@ func RequireAuth(open map[string]struct{}, verify func(bearer string) (Principal
 	}
 }
 
-// serveOrRefuse is the no-credential path: an open route is served anyway --
-// open means authentication is not REQUIRED, not that it is ignored -- and
-// every other route is refused.
 func serveOrRefuse(next http.Handler, w http.ResponseWriter, r *http.Request, isOpen bool) {
 	if isOpen {
 		next.ServeHTTP(w, r)
@@ -59,13 +56,12 @@ func PrincipalFromContext(ctx context.Context) (Principal, bool) {
 	return p, ok
 }
 
-// bearerToken pulls the credential out of an Authorization header.
 func bearerToken(r *http.Request) (string, bool) {
 	header := r.Header.Get("Authorization")
 	if header == "" {
 		return "", false
 	}
-	// The scheme is case-insensitive per RFC 7235; some clients send "bearer".
+
 	scheme, token, found := strings.Cut(header, " ")
 	if !found || !strings.EqualFold(scheme, "bearer") {
 		return "", false
@@ -82,10 +78,6 @@ func writeUnauthenticated(w http.ResponseWriter, r *http.Request) {
 
 // OpenRoutes lists the operations that do NOT require the named security
 // scheme, keyed by the `METHOD /path` pattern the mux matches on.
-//
-// The contract is the source of truth: an operation inherits the document's
-// top-level `security` unless it overrides it, so adding an endpoint without
-// thinking about auth gets the safe default rather than none.
 func OpenRoutes(spec *openapi3.T, scheme string) map[string]struct{} {
 	open := map[string]struct{}{}
 	for path, item := range spec.Paths.Map() {
@@ -101,8 +93,6 @@ func OpenRoutes(spec *openapi3.T, scheme string) map[string]struct{} {
 	return open
 }
 
-// requiresScheme reports whether the caller CANNOT satisfy the operation
-// without the named scheme.
 func requiresScheme(opSecurity *openapi3.SecurityRequirements, global openapi3.SecurityRequirements, scheme string) bool {
 	reqs := global
 	if opSecurity != nil {
@@ -126,10 +116,6 @@ const RoleAdmin = "admin"
 const AdminPathPrefix = "/admin/"
 
 // RequireRole gates the /admin/ tree on the admin role.
-//
-// Driven by the path rather than a per-operation annotation, because the path is
-// the contract's own structure and the cost of forgetting an annotation is a
-// student reading every attempt in the school.
 func RequireRole(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !IsAdminPattern(r.Pattern) {

@@ -34,8 +34,8 @@ const (
 
 type RotateResult struct {
 	Outcome  RotateOutcome
-	User     User   // populated only on RotateOK
-	FamilyID string // populated whenever the token was found
+	User     User
+	FamilyID string
 }
 
 // ChangePasswordRecord is what the store needs to swap a password and prune the

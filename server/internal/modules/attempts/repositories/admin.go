@@ -12,12 +12,6 @@ import (
 )
 
 // Extend moves a live attempt's deadline and records why, in one statement.
-//
-// The audit AttemptRecord is written by a data-modifying CTE fed from the UPDATE's own
-// OLD/NEW, so there is no read-then-write between the value the teacher saw
-// and the value that changed (§13.4). The deadline may pass `closes_at`: that
-// is what an accommodation is for, and the constraint only requires it to
-// exceed `started_at`.
 func (s *Postgres) Extend(ctx context.Context, req domain.Request, attemptID string, minutes int, reason string, now time.Time) (domain.Attempt, error) {
 	reason, err := domain.Interventions.CleanReason(reason)
 	if err != nil {
@@ -136,8 +130,6 @@ func (s *Postgres) whyNotFlaggable(ctx context.Context, attemptID string) error 
 	return err
 }
 
-// whyNotLive turns "no AttemptRecord updated" into the reason: missing, or in a status
-// the action does not apply to.
 func (s *Postgres) whyNotLive(ctx context.Context, attemptID string) error {
 	var status domain.Status
 	err := s.pool.QueryRow(ctx,

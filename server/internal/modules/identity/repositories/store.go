@@ -19,10 +19,6 @@ type Users struct {
 
 func NewUsers(pool *pgxpool.Pool) *Users { return &Users{pool: pool} }
 
-// userProjection is shared by every user lookup so the two cannot drift into
-// returning different shapes of the same entity.
-//
-// Explicit column list, never SELECT * (§13.8).
 const userProjection = `
 	SELECT u.id::text, u.email, u.full_name, u.role::text, u.password_hash,
 	       u.must_change_password, u.disabled_at, u.created_at,
@@ -66,10 +62,6 @@ func (s *Users) FindUserByID(ctx context.Context, id string) (domain.User, error
 }
 
 // CreateRefreshToken stores the hash of a newly minted refresh token.
-//
-// The plaintext is never stored (§13.5): a database dump must not hand over
-// live sessions. `familyID` chains rotations so §5.2's reuse detection can
-// revoke an entire lineage at once — T-1.3 uses it.
 func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRecord) error {
 	const q = `
 		INSERT INTO app.refresh_tokens

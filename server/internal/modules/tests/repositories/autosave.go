@@ -61,11 +61,6 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 	return saved, nil
 }
 
-// checkVersion locks the test and compares the client's version.
-//
-// Compared at microsecond precision, which is what timestamptz stores: the
-// value came from this column and round-tripped through JSON, so anything
-// finer would be a difference the client could not have introduced.
 func checkVersion(ctx context.Context, tx pgx.Tx, id string, expected time.Time) error {
 	var current time.Time
 	err := tx.QueryRow(ctx,
@@ -83,9 +78,6 @@ func checkVersion(ctx context.Context, tx pgx.Tx, id string, expected time.Time)
 	return nil
 }
 
-// applyMetadata always writes the tests row, even when no field changed, so the
-// updated_at trigger advances the version. Without that, two successive
-// outline-only saves would both pass the same guard.
 func applyMetadata(ctx context.Context, tx pgx.Tx, in domain.UpdateRequest) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE app.tests
@@ -108,7 +100,6 @@ func statusArg(s *domain.Status) *string {
 	return &v
 }
 
-// replaceOutline writes the sections and their question ordering.
 func replaceOutline(ctx context.Context, tx pgx.Tx, testID string, sections []domain.SectionInput) error {
 	if _, err := tx.Exec(ctx,
 		`SET CONSTRAINTS app.test_sections_ordinal_key,
@@ -160,7 +151,7 @@ func upsertSection(ctx context.Context, tx pgx.Tx, testID string, ordinal int, s
 		return "", fmt.Errorf("tests: update section: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		// A section id from another test, or one already removed.
+
 		return "", domain.ErrNotFound
 	}
 	return sec.ID, nil

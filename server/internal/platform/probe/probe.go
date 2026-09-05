@@ -11,11 +11,6 @@ var ErrUnsupportedType = errors.New("probe: unsupported media type")
 
 // ErrUnmeasurable is a file that sniffs as audio but whose duration cannot be
 // read.
-//
-// It is an ERROR rather than a null duration on purpose. media_assets CHECKs
-// that an audio row has a duration, so storing one without would fail at the
-// database with a 500 -- and "we could not read this file" is a better thing to
-// tell a teacher than "something went wrong".
 var ErrUnmeasurable = errors.New("probe: cannot determine duration")
 
 // The audio MIME types this package identifies, per §11.1's allowlist.
@@ -25,11 +20,6 @@ const (
 )
 
 // Audio identifies and measures an audio file.
-//
-// Identification is by MAGIC BYTES, never by extension or by the
-// Content-Type header (§11.1). Both are attacker-supplied on an upload, and the
-// question being answered is "what is this file", not "what does the uploader
-// say it is".
 func Audio(r io.ReaderAt, size int64) (mime string, durationMs int, err error) {
 	if size <= 0 {
 		return "", 0, fmt.Errorf("%w: empty file", ErrUnsupportedType)
@@ -55,7 +45,6 @@ func Audio(r io.ReaderAt, size int64) (mime string, durationMs int, err error) {
 	}
 }
 
-// sniff identifies the container from its leading bytes.
 func sniff(r io.ReaderAt, _ int64) string {
 	head := make([]byte, 16)
 	n, err := r.ReadAt(head, 0)
@@ -72,7 +61,6 @@ func sniff(r io.ReaderAt, _ int64) string {
 		}
 	}
 
-	// An ID3v2 tag means mp3 in every practical case.
 	if len(head) >= 3 && string(head[0:3]) == "ID3" {
 		return MIMEMP3
 	}

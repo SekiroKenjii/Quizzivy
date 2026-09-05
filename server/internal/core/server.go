@@ -13,7 +13,7 @@ import (
 const (
 	readHeaderTimeout = 10 * time.Second
 	readTimeout       = 30 * time.Second
-	// Long enough for a 10 MB media upload on a slow connection.
+
 	writeTimeout    = 120 * time.Second
 	idleTimeout     = 90 * time.Second
 	shutdownTimeout = 15 * time.Second

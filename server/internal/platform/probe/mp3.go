@@ -49,7 +49,7 @@ func parseFrameHeader(b []byte) (frameHeader, error) {
 	if len(b) < 4 {
 		return frameHeader{}, errors.New("short header")
 	}
-	// 11 sync bits.
+
 	if b[0] != 0xFF || b[1]&0xE0 != 0xE0 {
 		return frameHeader{}, errors.New("no frame sync")
 	}
@@ -84,7 +84,7 @@ func parseFrameHeader(b []byte) (frameHeader, error) {
 	padding := int((b[2] >> 1) & 0x01)
 	channelMode := (b[3] >> 6) & 0x03
 	channels := 2
-	if channelMode == 3 { // single channel
+	if channelMode == 3 {
 		channels = 1
 	}
 	coefficient := 144
@@ -113,12 +113,12 @@ func parseFrameHeader(b []byte) (frameHeader, error) {
 func skipID3v2(r io.ReaderAt, size int64) (int64, error) {
 	header := make([]byte, 10)
 	if _, err := r.ReadAt(header, 0); err != nil {
-		return 0, nil // Too small to have a tag; let the frame scan decide.
+		return 0, nil
 	}
 	if string(header[0:3]) != "ID3" {
 		return 0, nil
 	}
-	// A syncsafe integer: seven bits per byte, high bit always clear.
+
 	for _, b := range header[6:10] {
 		if b&0x80 != 0 {
 			return 0, errors.New("mp3: malformed ID3v2 size")
@@ -126,7 +126,7 @@ func skipID3v2(r io.ReaderAt, size int64) (int64, error) {
 	}
 	tagSize := int64(header[6])<<21 | int64(header[7])<<14 | int64(header[8])<<7 | int64(header[9])
 	offset := 10 + tagSize
-	// A footer is present when bit 4 of the flags is set.
+
 	if header[5]&0x10 != 0 {
 		offset += 10
 	}
@@ -245,7 +245,7 @@ func resync(r io.ReaderAt, size, from int64) (int64, error) {
 
 // vbrFrameCount reads a Xing/Info or VBRI header out of the first frame.
 func vbrFrameCount(r io.ReaderAt, frameOffset int64, f frameHeader) (int, int64, bool) {
-	sideInfo := int64(32) // MPEG1 stereo
+	sideInfo := int64(32)
 	switch {
 	case f.version == mpeg1 && f.channels == 1:
 		sideInfo = 17

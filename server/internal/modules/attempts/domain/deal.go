@@ -50,9 +50,6 @@ type rankedItem[T any] struct {
 	item T
 }
 
-// rank folds the salt in so that one seed permutes each question's options
-// differently -- without it every question of the same length would Present its
-// options in a visibly parallel order.
 func rank(seed int64, salt, id string) uint64 {
 	h := sha256.New()
 	var b [8]byte

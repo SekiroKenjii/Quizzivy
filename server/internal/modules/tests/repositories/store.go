@@ -13,10 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// entityTest names the audit rows every write to a test leaves.
 const entityTest = "test"
 
-// liveTests is the clause every read of app.tests carries: soft-deleted rows are gone.
 const liveTests = `t.deleted_at IS NULL`
 
 // QuestionLocks and MediaLocks are the row locks other modules take on this
@@ -39,10 +37,6 @@ func NewPostgres(pool *pgxpool.Pool, questions QuestionLocks, media MediaLocks) 
 	return &Postgres{pool: pool, questions: questions, media: media}
 }
 
-// testColumns is explicit rather than SELECT *.
-//
-// total_points and question_count are derived from the draft outline in SQL, so
-// the list does not need a second pass per row to compute them.
 const testColumns = `
 	       t.id::text, t.title, t.description, t.status::text, t.current_version,
 	       coalesce((SELECT sum(q.points)
@@ -98,8 +92,6 @@ func (s *Postgres) get(ctx context.Context, q querier, id string) (domain.Test, 
 	return t, nil
 }
 
-// loadSections reads the outline for a whole page in one query per level, so a
-// list does not cost two round trips per test.
 func (s *Postgres) loadSections(ctx context.Context, q querier, testIDs []string) ([]domain.Section, error) {
 	byTest, err := s.sectionsFor(ctx, q, testIDs)
 	if err != nil {
@@ -185,12 +177,6 @@ func optional(v string) *string {
 	return &v
 }
 
-// lockQuestions takes the row lock on every question an outline names, so a
-// concurrent soft delete of one of them cannot slip between the check and the
-// write (see questionsrepo.LockForDraftUse).
-//
-// Sorted, because two outline writes naming overlapping questions in different
-// orders would otherwise deadlock.
 func (s *Postgres) lockQuestions(ctx context.Context, tx pgx.Tx, sections []domain.SectionInput) error {
 	seen := map[string]bool{}
 	var ids []string

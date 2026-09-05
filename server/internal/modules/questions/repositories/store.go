@@ -17,8 +17,6 @@ type Postgres struct{ pool *pgxpool.Pool }
 
 func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
-// questionColumns is explicit rather than SELECT *, so admin-only columns such
-// as sample_answer cannot leak into a payload by accident.
 const questionColumns = `
 	       q.id::text, q.type::text, q.prompt,
 	       q.media_asset_id::text, q.media_asset_kind::text,
@@ -49,7 +47,6 @@ func scanQuestion(row pgx.Row) (domain.Question, error) {
 	}
 	q.Type = domain.Type(typ)
 
-	// The two booleans are non-null exactly when the asset is audio [D-04].
 	if allowSeek != nil && showTranscript != nil {
 		q.Audio = &domain.AudioPolicy{
 			MaxPlays:                  maxPlays,
@@ -103,8 +100,6 @@ func (s *Postgres) loadOptions(ctx context.Context, q querier, questionID string
 	return byQuestion[questionID], nil
 }
 
-// loadOptionsFor reads the options for a whole page in one query, keyed by
-// question id. Callers must default a missing key to an empty slice.
 func (s *Postgres) loadOptionsFor(ctx context.Context, q querier, questionIDs []string) (map[string][]domain.Option, error) {
 	if len(questionIDs) == 0 {
 		return map[string][]domain.Option{}, nil
@@ -134,8 +129,6 @@ func (s *Postgres) loadBlanks(ctx context.Context, q querier, questionID string)
 	return byQuestion[questionID], nil
 }
 
-// loadBlanksFor reads the blanks for a whole page in one query, with each
-// blank's accepted answers aggregated in SQL rather than fetched per blank.
 func (s *Postgres) loadBlanksFor(ctx context.Context, q querier, questionIDs []string) (map[string][]domain.Blank, error) {
 	if len(questionIDs) == 0 {
 		return map[string][]domain.Blank{}, nil
@@ -186,7 +179,7 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 		allowSeek = &in.Input.Audio.AllowSeek
 		showTranscript = &in.Input.Audio.ShowTranscriptAfterSubmit
 	}
-	// The composite FK needs both halves or neither.
+
 	var kind *string
 	if in.Input.MediaAssetID != nil {
 		kind = in.MediaAssetKind
@@ -262,9 +255,6 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 	return written, nil
 }
 
-// replaceOptions rewrites the options with dense ordinals 0..n-1, taking array
-// position as the ordinal. Delete-then-insert because the editor sends the
-// whole question and a wrong diff would re-point the correct answer.
 func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain.Input) error {
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM app.question_options WHERE question_id = $1`, questionID); err != nil {
@@ -287,8 +277,6 @@ func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain
 	return nil
 }
 
-// replaceBlanks rewrites the blanks, keeping the ordinals validation has
-// already matched against the prompt's {{n}} placeholders.
 func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in domain.Input) error {
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM app.question_blanks WHERE question_id = $1`, questionID); err != nil {
@@ -331,7 +319,6 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Locked before the reference count.
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,
@@ -383,12 +370,6 @@ func optional(v string) *string {
 }
 
 // AddTags attaches tags to several bank questions at once (A-06's "Gắn thẻ").
-//
-// One statement, and additive by set union rather than by replacing the array:
-// two teachers tagging overlapping selections at the same time would otherwise
-// have the later write erase the earlier one's tags. `tags <> excluded` keeps
-// the count honest -- a question that already carried everything is not
-// "updated", and saying it was would make a retry look like it did work.
 func (s *Postgres) AddTags(ctx context.Context, ids []string, tags []string) (int, error) {
 	rows, err := s.pool.Query(ctx, `
 		UPDATE app.questions q

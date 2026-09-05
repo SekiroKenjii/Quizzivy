@@ -9,10 +9,6 @@ import (
 )
 
 // RateLimit applies the policy registered for the matched route.
-//
-// It runs as a per-route middleware so `r.Pattern` is already populated by the
-// mux — which means the key is the OpenAPI path template, not a concrete URL,
-// and `/admin/tests/{id}` shares one bucket rather than creating one per test.
 func RateLimit(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,8 +21,6 @@ func RateLimit(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc) func(http.Ha
 	}
 }
 
-// exceeded reports whether the request has spent either of its route's buckets,
-// and how long until the spent one refills.
 func exceeded(reg *ratelimit.Registry, clientIP ratelimit.KeyFunc, r *http.Request) (time.Duration, bool) {
 	route, ok := reg.Lookup(r.Pattern)
 	if !ok {

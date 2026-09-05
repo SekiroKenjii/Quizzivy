@@ -99,7 +99,7 @@ type RotateRequest struct {
 
 // Rotated is the ONE time the plaintext exists outside the caller's browser.
 type Rotated struct {
-	Code      string // grouped XXXX-XXXX, for display
+	Code      string
 	Hint      string
 	ExpiresAt time.Time
 	MaxUses   *int

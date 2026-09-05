@@ -25,7 +25,7 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 	session, err := h.attempts.StartOrResume(ctx, request.Id.String(), principal.UserID)
 	switch {
 	case errors.Is(err, domain.ErrForbidden), errors.Is(err, domain.ErrNotFound):
-		// One answer for "not yours", "no such assignment" and "still a draft".
+
 		return openapi.StartOrResumeAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
 				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền làm bài này.")),
@@ -130,8 +130,6 @@ func toAPIAttempt(a domain.Attempt) openapi.Attempt {
 	return out
 }
 
-// toAPIStudentQuestion has no branch that could add a grading key: the domain
-// type it reads from has no field for one (§13.5).
 func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q domain.Question) (openapi.StudentQuestion, error) {
 	out := openapi.StudentQuestion{
 		Id:     httpapi.ParseUUID(q.ID),
@@ -181,9 +179,6 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 	return out, nil
 }
 
-// toAPIAnswers re-reads the stored jsonb through the generated union so a
-// payload that no longer matches the contract fails here, on the way out, and
-// not in the student's browser mid-test.
 func toAPIAnswers(stored map[string][]byte) (map[string]openapi.Answer, error) {
 	out := make(map[string]openapi.Answer, len(stored))
 	for questionID, payload := range stored {
@@ -240,7 +235,6 @@ func (h Attempts) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRe
 		return nil, err
 	}
 
-	// The 200 the client gets is the same either way, so this is the only trace.
 	if len(saved.Dropped) > 0 {
 		h.log().WarnContext(ctx, "autosave dropped answers not on the paper",
 			"attempt_id", in.AttemptID,
@@ -257,9 +251,6 @@ func (h Attempts) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRe
 	}, nil
 }
 
-// toDomainAnswers re-encodes each answer through the generated union, so a
-// payload that does not match the contract is refused here rather than stored
-// and discovered at grading.
 func toDomainAnswers(in *map[string]openapi.Answer) ([]domain.Answer, error) {
 	if in == nil {
 		return nil, nil
@@ -302,11 +293,6 @@ func toDomainEvents(in *[]openapi.IntegrityEventInput) ([]domain.Event, error) {
 }
 
 // RecordAudioPlay increments the server-authoritative counter (§11.4).
-//
-// It never refuses a play on count. The client plays first and posts after, so
-// a failure here costs a number rather than the audio, and a limit enforced
-// over a round trip would punish bad wifi far more often than it would catch
-// anyone.
 func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAudioPlayRequestObject) (openapi.RecordAudioPlayResponseObject, error) {
 	if h.attempts == nil {
 		return nil, httpx.ErrNotImplemented
@@ -333,13 +319,6 @@ func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAud
 	}, nil
 }
 
-// beaconFlush is the text/plain body, which the contract types only as a
-// string because navigator.sendBeacon has nowhere else to put a credential.
-//
-// text/plain is CORS-safelisted, so the request skips preflight. That matters
-// specifically on unload: a preflight fired from `pagehide` is not reliably
-// delivered, and an event log that loses the last thing that happened loses the
-// part the teacher most wants (§10.6, D-03).
 type beaconFlush struct {
 	BeaconToken string                        `json:"beaconToken"`
 	SessionID   openapi.Uuid                  `json:"sessionId"`
@@ -347,11 +326,6 @@ type beaconFlush struct {
 }
 
 // FlushEvents accepts the ordinary authenticated flush and the beacon one.
-//
-// Always 202, whatever happened, unless the credential is bad. §10.6 makes this
-// fire-and-forget: the client cannot act on the outcome, and a flush that
-// blocks answering or submitting is worse than a flush that silently did
-// nothing.
 func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRequestObject) (openapi.FlushEventsResponseObject, error) {
 	if h.attempts == nil {
 		return nil, httpx.ErrNotImplemented
@@ -375,7 +349,7 @@ func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRe
 	case request.TextBody != nil:
 		var body beaconFlush
 		if err := json.Unmarshal([]byte(*request.TextBody), &body); err != nil {
-			// Unparseable is refused rather than 202'd.
+
 			return forbiddenFlush(ctx), nil
 		}
 		in.BeaconToken = body.BeaconToken
@@ -408,11 +382,6 @@ func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {
 }
 
 // SubmitAttempt closes an attempt and grades everything a machine can.
-//
-// `sessionId` is accepted and not checked. The contract gives this operation no
-// SESSION_SUPERSEDED, and rightly: a student on the tab that lost the race is
-// still the student, and refusing their submit would strand finished work
-// behind a technicality about which tab it came from.
 func (h Attempts) SubmitAttempt(ctx context.Context, request openapi.SubmitAttemptRequestObject) (openapi.SubmitAttemptResponseObject, error) {
 	if h.attempts == nil {
 		return nil, httpx.ErrNotImplemented

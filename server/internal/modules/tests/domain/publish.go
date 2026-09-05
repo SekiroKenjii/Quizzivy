@@ -25,11 +25,6 @@ func (PublishManager) Totals(d DraftContent) (string, int) {
 }
 
 // ValidateDraft runs §8's publish checks and returns every failure at once.
-//
-// These overlap with the bank's own validation on purpose. The bank stays
-// editable after a question is accepted, so a question can be made invalid
-// between authoring and publishing -- and publish is the last point at which a
-// student can be spared it.
 func (PublishManager) Validate(d DraftContent) error {
 	var violations []Violation
 	add := func(v Violation) { violations = append(violations, v) }
@@ -79,9 +74,6 @@ const (
 )
 
 // PublishValidationError carries every violation at once.
-//
-// Returning the first would make publishing a long test a sequence of attempts,
-// each surfacing one more problem. §8 wants them marked inline together.
 type PublishValidationError struct{ Violations []Violation }
 
 // PublishedVersion is the snapshot that was created.
@@ -169,10 +161,6 @@ func validateBlanks(q DraftQuestion, anchor func(Rule, string) Violation, add fu
 	}
 }
 
-// Points cross package boundaries as decimal strings, because the column is
-// numeric(8,2) and a binary float cannot represent every value it holds.
-// Summing goes through float64, which is exact for the two-decimal values in
-// range, and the result is formatted straight back to two places.
 func parsePoints(s string) float64 {
 	v, err := strconv.ParseFloat(s, 64)
 	if err != nil {

@@ -5,10 +5,6 @@ import (
 )
 
 // StatusAt is D-18's pure function: no scheduler, no stale row.
-//
-// The draft case does not weaken that. Publishing is an act by the teacher, not
-// a timestamp arriving, so nothing has to flip a row when a clock passes -- the
-// window rule reads exactly as it did once PublishedAtOf exists.
 func (ScheduleManager) StatusAt(now time.Time, PublishedAtOf *time.Time, opensAt, closesAt time.Time, ClosedAtOf *time.Time) Status {
 	if PublishedAtOf == nil {
 		return Draft

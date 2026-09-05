@@ -10,9 +10,6 @@ import (
 
 // JSONFieldKey builds a KeyFunc that buckets on one field of a JSON body,
 // reading at most maxBytes and restoring the body for the handler.
-//
-// Callers pass a normaliser so that two spellings of the same value cannot buy
-// two buckets.
 func JSONFieldKey(field string, maxBytes int64) KeyFunc {
 	return JSONFieldKeyFunc(field, maxBytes, nil)
 }

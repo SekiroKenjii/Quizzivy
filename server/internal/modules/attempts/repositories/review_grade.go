@@ -10,11 +10,6 @@ import (
 )
 
 // Grade writes manual marks for a closed attempt and returns the live score.
-//
-// Saved per call rather than as one submit, so a half-graded paper survives a
-// refresh (§8). `points` above the question's ceiling is refused; a question
-// the student never answered has no row to mark and is refused too, because
-// a mark with no work behind it is a number nobody can explain later.
 func (s *Reviews) Grade(ctx context.Context, attemptID, graderID string, items []domain.GradeItem) (domain.Score, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -97,8 +92,6 @@ func (s *Reviews) Finish(ctx context.Context, attemptID string) (domain.Attempt,
 	return a, nil
 }
 
-// lockGradable takes the row lock and refuses the two states grading cannot
-// apply to: nothing handed in yet, or nothing that counts.
 func lockGradable(ctx context.Context, tx pgx.Tx, attemptID string) (string, error) {
 	var status domain.Status
 	var versionID string
@@ -168,8 +161,6 @@ func validateGrades(ctx context.Context, tx pgx.Tx, attemptID, versionID string,
 	return nil
 }
 
-// recomputeScore folds `final_score` -- the VIRTUAL column, so manual
-// precedence over auto cannot drift (§13.3) -- back onto the attempt.
 func recomputeScore(ctx context.Context, tx pgx.Tx, attemptID string) (domain.Score, error) {
 	var out domain.Score
 	var total *float64

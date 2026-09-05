@@ -60,8 +60,6 @@ func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (d
 	return r, nil
 }
 
-// Unaliased so the identical list serves both SELECT and RETURNING; a
-// RETURNING clause has no table alias in scope.
 const attemptColumns = `
 	id, assignment_id, student_id, test_version_id, attempt_no, status,
 	started_at, deadline_at, submitted_at, graded_at,
@@ -127,10 +125,6 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.At
 	return out, nil
 }
 
-// isUniqueViolation deliberately does not name which index lost. Both
-// attempts_one_live and the (assignment, student, attempt_no) unique mean the
-// same thing here -- someone else got there first -- and PostgreSQL does not
-// promise which one it reports when a AttemptRecord violates both.
 func isUniqueViolation(err error) bool {
 	var pg *pgconn.PgError
 	return errors.As(err, &pg) && pg.Code == "23505"
@@ -139,9 +133,6 @@ func isUniqueViolation(err error) bool {
 // Resume hands the attempt to a new tab and records why, in one transaction:
 // the session swap and the events explaining it are the same fact, and a
 // timeline missing the takeover it caused is worse than no timeline.
-//
-// It returns whether the superseded session still looked alive, so the caller
-// can say so; the decision itself is made here because it depends on rows.
 func (s *Postgres) Resume(ctx context.Context, in domain.ResumeInput) (domain.AttemptRecord, bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -190,12 +181,6 @@ func (s *Postgres) Resume(ctx context.Context, in domain.ResumeInput) (domain.At
 	return updated, takeover, nil
 }
 
-// sessionWasLive asks whether the session being superseded still had a tab
-// open. There is no heartbeat, so the last thing it actually sent stands in.
-//
-// Server-written kinds are excluded: they are written on a session's behalf,
-// not by it, so counting them would make two reloads in a AttemptRecord read the first
-// reload's own `resume` as a live rival and report a takeover that never was.
 func sessionWasLive(ctx context.Context, q querier, attemptID, sessionID string, now time.Time) (bool, error) {
 	var live bool
 	err := q.QueryRow(ctx, `
@@ -211,10 +196,6 @@ func sessionWasLive(ctx context.Context, q querier, attemptID, sessionID string,
 	return live, nil
 }
 
-// appendEvent writes one of this package's own events. Client events take a
-// different path (T-3.8): they carry a client clock and a sequence number that
-// have to be reconciled, and these have neither -- client_seq is left NULL,
-// which is what keeps a server AttemptRecord out of the client's dedup space.
 func appendEvent(ctx context.Context, q querier, attemptID, sessionID, kind string, now time.Time) error {
 	_, err := q.Exec(ctx, `
 		INSERT INTO app.attempt_events (attempt_id, session_id, kind, occurred_at)
@@ -232,8 +213,6 @@ type querier interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-// questionsQuery is §13.5's rule made structural: an explicit column list, so
-// the grading key cannot arrive by accident.
 const questionsQuery = `
 	SELECT q.id, q.type, q.prompt, q.points,
 	       q.media_asset_id, q.media_asset_kind, m.mime_type, m.original_filename,
@@ -245,7 +224,6 @@ const questionsQuery = `
 	 WHERE s.test_version_id = $1::uuid
 	 ORDER BY s.ordinal, q.ordinal`
 
-// questionRow is the nullable half of questionsQuery.
 type questionRow struct {
 	mediaID, mediaKind, mimeType, filename *string
 	mediaBytes, durationMs, maxPlays       *int
@@ -314,7 +292,6 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 	return out, s.attachBlanks(ctx, testVersionID, out, byID)
 }
 
-// attachOptions selects id and text. Not is_correct -- see questionsQuery.
 func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT o.test_version_question_id, o.id, o.text
@@ -340,8 +317,6 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 	return nil
 }
 
-// attachBlanks selects id and ordinal. Not case_sensitive, and never the
-// accepted answers -- see questionsQuery.
 func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT b.test_version_question_id, b.id, b.ordinal
@@ -442,11 +417,6 @@ func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Ru
 }
 
 // Rebeacon issues a fresh append-only token WITHOUT touching session_id.
-//
-// Refetching the payload is not taking the attempt over, so it must not
-// supersede the tab doing it. The token still has to change: it is stored
-// hashed and cannot be read back, so a response that must carry one can only
-// carry a new one.
 func (s *Postgres) Rebeacon(ctx context.Context, attemptID string, hash []byte) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE app.attempts SET beacon_token_hash = $2 WHERE id = $1::uuid`, attemptID, hash)

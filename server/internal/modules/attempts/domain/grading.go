@@ -9,13 +9,9 @@ import (
 )
 
 // Grade scores one answer.
-//
-// An unparseable or absent payload scores zero rather than erroring. A student
-// who never answered and a student whose answer did not survive are the same
-// zero, and there is nobody to hand an error to at grading time.
 func (GradingManager) Grade(q GradableQuestion, payload []byte) GradeResult {
 	if q.Type == "short_answer" {
-		// [D-19] Not zero-because-wrong.
+
 		return GradeResult{RequiresManual: true}
 	}
 	if len(payload) == 0 {
@@ -29,7 +25,7 @@ func (GradingManager) Grade(q GradableQuestion, payload []byte) GradeResult {
 	case "true_false":
 		correct = gradeTrueFalse(q, payload)
 	case "fill_blank":
-		// The one type that is not all-or-nothing. See gradeFillBlank.
+
 		return GradeResult{Score: gradeFillBlank(q, payload)}
 	default:
 		return GradeResult{}
@@ -74,13 +70,6 @@ type GradeResult struct {
 	RequiresManual bool
 }
 
-// gradeChoice is all-or-nothing: every correct option selected and no incorrect
-// one (O-09).
-//
-// §7 gives multiple_choice a points value and an isCorrect flag per option but
-// never states the rule. Partial credit is a real pedagogical choice that
-// changes this code, the result display, and what "correct" means in review, so
-// it is a decision to take deliberately rather than to fall into.
 func gradeChoice(q GradableQuestion, payload []byte) bool {
 	var answer struct {
 		OptionIDs []string `json:"optionIds"`
@@ -103,12 +92,10 @@ func gradeChoice(q GradableQuestion, payload []byte) bool {
 			recognised++
 		}
 	}
-	// Everything chosen has to be an option of THIS question.
+
 	return recognised == len(chosen)
 }
 
-// gradeTrueFalse compares against the option list, because that is where the
-// key lives.
 func gradeTrueFalse(q GradableQuestion, payload []byte) bool {
 	var answer struct {
 		Value *bool `json:"value"`
@@ -129,7 +116,6 @@ func gradeTrueFalse(q GradableQuestion, payload []byte) bool {
 	return false
 }
 
-// gradeFillBlank awards each blank its share (O-17).
 func gradeFillBlank(q GradableQuestion, payload []byte) float64 {
 	var answer struct {
 		Values map[string]string `json:"values"`
@@ -166,7 +152,6 @@ func matches(blank GradableBlank, given string) bool {
 	return false
 }
 
-// normalise forgives the typing, never the answer.
 func normalise(s string, caseSensitive bool) string {
 	out := strings.Join(strings.Fields(norm.NFC.String(s)), " ")
 	if caseSensitive {

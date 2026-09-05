@@ -37,12 +37,6 @@ func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Tim
 	return insertEvents(ctx, s.pool, in.AttemptID, in.SessionID, in.Events, versionID)
 }
 
-// authorizeFlush accepts either credential and nothing else.
-//
-// The bearer path ignores the deadline: a `page_hide` arriving a moment after
-// time runs out is exactly the event worth having. The beacon path does not,
-// because the token was issued "valid until deadlineAt" and a bearer credential
-// that outlives its stated life is one an attacker can sit on.
 func authorizeFlush(in domain.FlushInput, studentID string, beaconHash []byte, deadlineAt, now time.Time) error {
 	switch {
 	case in.StudentID != "":
@@ -53,7 +47,7 @@ func authorizeFlush(in domain.FlushInput, studentID string, beaconHash []byte, d
 
 	case in.BeaconToken != "":
 		presented := sha256.Sum256([]byte(in.BeaconToken))
-		// Constant time: an early-returning compare leaks the guess a byte at a time.
+
 		if subtle.ConstantTimeCompare(presented[:], beaconHash) != 1 {
 			return domain.ErrForbidden
 		}

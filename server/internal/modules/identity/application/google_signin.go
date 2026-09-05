@@ -27,12 +27,6 @@ type GoogleProvider interface {
 }
 
 // SelfEnroller creates an account from a join code and enrols it (§6.3).
-//
-// Defined in terms of internal/join's types rather than a local copy, so
-// *join.Service satisfies it directly and there is no adapter to keep in step.
-// The dependency runs one way -- join knows nothing about auth -- and §5.3's
-// third branch genuinely is "sign-in creates an enrolment", so auth depending
-// on enrolment is the real shape rather than a convenience.
 type SelfEnroller interface {
 	EnrolNewMember(ctx context.Context, m classesdomain.NewMember, rawCode string, meta classesdomain.Meta) (classesdomain.EnrolResult, error)
 }
@@ -68,7 +62,6 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 		return GoogleSignInResult{}, err
 	}
 
-	// 1. The identity is known.
 	user, err := s.users.FindUserByProviderIdentity(ctx, "google", identity.Subject)
 	switch {
 	case err == nil:
@@ -77,7 +70,6 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 		return GoogleSignInResult{}, fmt.Errorf("look up google identity: %w", err)
 	}
 
-	// 2. A verified email matches an account the teacher already created.
 	user, err = s.users.FindUserByEmail(ctx, identity.Email)
 	switch {
 	case err == nil:
@@ -90,17 +82,13 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 		return GoogleSignInResult{}, fmt.Errorf("look up user by email: %w", err)
 	}
 
-	// 3. No match, but a join code: create and enrol (§6.3).
 	if in.JoinCode != "" {
 		return s.enrolByCode(ctx, identity, in)
 	}
 
-	// 4. No match, no join code.
 	return GoogleSignInResult{}, domain.ErrAccountNotProvisioned
 }
 
-// verifiedIdentity exchanges the code and applies §5.1's one rule: an
-// unverified address is refused outright.
 func (s *Service) verifiedIdentity(ctx context.Context, code, verifier, redirectURI string) (GoogleIdentity, error) {
 	rawIDToken, err := s.google.Exchange(ctx, code, verifier, redirectURI)
 	if err != nil {
@@ -116,8 +104,6 @@ func (s *Service) verifiedIdentity(ctx context.Context, code, verifier, redirect
 	return identity, nil
 }
 
-// linkAndReload attaches the identity to an existing account and reads the
-// account back with the link on it.
 func (s *Service) linkAndReload(ctx context.Context, userID string, identity GoogleIdentity) (domain.User, error) {
 	if err := s.users.LinkIdentity(ctx, userID, "google", identity.Subject, identity.Email); err != nil {
 		return domain.User{}, err
@@ -129,7 +115,6 @@ func (s *Service) linkAndReload(ctx context.Context, userID string, identity Goo
 	return user, nil
 }
 
-// enrolByCode is §6.3: a stranger with a valid code becomes a member.
 func (s *Service) enrolByCode(ctx context.Context, identity GoogleIdentity, in GoogleSignInInput) (GoogleSignInResult, error) {
 	if s.enroller == nil {
 		return GoogleSignInResult{}, domain.ErrSelfEnrolNotAvailable

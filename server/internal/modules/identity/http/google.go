@@ -13,9 +13,6 @@ import (
 
 // GoogleAuth completes the §5.3 sign-in: verify the ID token, then resolve the
 // account by provider identity, then by verified email, then create one.
-//
-// Public, so a join code is required for a new student and the outcome is the
-// same shape whether the code was wrong, expired, revoked or exhausted.
 func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequestObject) (openapi.GoogleAuthResponseObject, error) {
 	if h.auth == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -38,7 +35,6 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 	switch {
 	case err == nil:
 
-	// Nothing proved yet -- one answer for all of it.
 	case errors.Is(err, domain.ErrGoogleExchangeFailed),
 		errors.Is(err, domain.ErrGoogleRedirectNotAllowed),
 		errors.Is(err, domain.ErrGoogleTokenInvalid):
@@ -72,7 +68,7 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 	response.Body.AccessToken = result.Session.AccessToken
 	response.Body.ExpiresIn = result.Session.ExpiresIn
 	response.Body.User = toAPIUser(result.Session.User)
-	// §5.3 step 5: the sign-in has no session without this.
+
 	response.Headers.SetCookie = httpapi.Ptr(refreshCookie(
 		result.Session.RefreshToken, h.refreshTTL, h.cookieSecure).String())
 
@@ -84,10 +80,6 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 }
 
 // LinkGoogle implements POST /auth/google/link (§15).
-//
-// Authenticated: this attaches a credential to an account that already exists,
-// so the session is the proof of ownership and the Google exchange is the proof
-// of the other side.
 func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
 	if h.auth == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -136,10 +128,6 @@ func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequ
 }
 
 // UnlinkGoogle implements DELETE /auth/google/link (§15).
-//
-// Refused when Google is the account's only way in. The result would be an
-// account that still exists, still holds its attempts and enrolments, and that
-// nobody can sign into -- including the person asking.
 func (h Identity) UnlinkGoogle(ctx context.Context, _ openapi.UnlinkGoogleRequestObject) (openapi.UnlinkGoogleResponseObject, error) {
 	if h.auth == nil {
 		return nil, httpx.ErrNotImplemented

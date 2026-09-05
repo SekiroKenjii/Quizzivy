@@ -11,11 +11,6 @@ import (
 )
 
 // SoftDelete marks an unreferenced asset deleted and audits it.
-//
-// The object in R2 is deliberately left in place: §15 scopes lifecycle cleanup
-// out of v1, and an asset row can still be referenced by a frozen test version
-// whose file must keep resolving. Soft delete removes it from the library, not
-// from storage.
 func (s *Postgres) SoftDelete(ctx context.Context, in domain.DeleteInput) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

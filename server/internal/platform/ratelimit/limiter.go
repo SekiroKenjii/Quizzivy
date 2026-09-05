@@ -18,11 +18,6 @@ type bucket struct {
 }
 
 // Limiter is a fixed-capacity keyed token-bucket store.
-//
-// Capacity is bounded on purpose. An unbounded map keyed by client IP is a
-// memory-exhaustion vector on precisely the endpoints §6.5 exists to protect:
-// an attacker spraying distinct source addresses would grow it without limit.
-// When full, the least-recently-seen entry is evicted.
 type Limiter struct {
 	mu       sync.Mutex
 	rules    []Rule
@@ -65,7 +60,6 @@ func (l *Limiter) Allow(key string) (bool, time.Duration) {
 		}
 	}
 
-	// Refill first, then check every rule before consuming from any.
 	var retry time.Duration
 	blocked := false
 	for i, rule := range l.rules {
@@ -86,7 +80,7 @@ func (l *Limiter) Allow(key string) (bool, time.Duration) {
 	if blocked {
 		l.buckets[key] = state
 		if retry < time.Second {
-			retry = time.Second // Retry-After is whole seconds; never advertise 0
+			retry = time.Second
 		}
 		return false, retry
 	}

@@ -126,7 +126,6 @@ func (s *Service) resumeIfLive(ctx context.Context, assignmentID, studentID stri
 	return session, err == nil, err
 }
 
-// canStart is the open-window check, and applies only to a NEW attempt.
 func (s *Service) canStart(r domain.Rules) error {
 	now := s.now()
 	switch {
@@ -185,8 +184,6 @@ func (s *Service) resume(ctx context.Context, live domain.AttemptRecord, r domai
 	return s.session(ctx, updated, beacon, r)
 }
 
-// session builds the payload both the create and resume paths return, so there
-// is exactly one definition of what a student may see.
 func (s *Service) session(ctx context.Context, a domain.AttemptRecord, beacon string, r domain.Rules) (domain.Session, error) {
 	questions, err := s.store.Questions(ctx, a.TestVersionID)
 	if err != nil {
@@ -206,16 +203,13 @@ func (s *Service) session(ctx context.Context, a domain.AttemptRecord, beacon st
 		SessionID:   a.SessionID,
 		BeaconToken: beacon,
 		ServerTime:  s.now(),
-		// Server-authoritative (§11.4).
+
 		AudioPlays: plays,
 		Answers:    answers,
 		Integrity:  r.Integrity,
 	}, nil
 }
 
-// newSeed draws the Shuffle seed from a CSPRNG rather than the clock. A
-// predictable seed is a predictable paper, and the answer order of a paper is
-// worth guessing.
 func newSeed() (int64, error) {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -224,12 +218,6 @@ func newSeed() (int64, error) {
 	return int64(binary.BigEndian.Uint64(b[:])), nil
 }
 
-// newBeaconToken returns the opaque token and its SHA-256 hash.
-//
-// [D-03] navigator.sendBeacon cannot set an Authorization header, and the
-// 15-minute access token has normally expired by the pagehide of a 60-minute
-// test. This is append-only event access, scoped to one attempt and one
-// session; it grants no reads.
 func newBeaconToken() (string, []byte, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {

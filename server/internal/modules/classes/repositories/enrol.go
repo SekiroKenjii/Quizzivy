@@ -17,9 +17,6 @@ import (
 
 // Enrol validates a join code and enrols a student, creating the account first
 // when there is none, in a single transaction.
-//
-// uses_count increments only when the membership is new, so a student
-// re-submitting a code they already used does not exhaust it.
 func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.EnrolResult, error) {
 	normalized := domain.JoinCodes.Normalize(in.RawCode)
 	if normalized == "" {
@@ -76,8 +73,6 @@ func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.Enro
 	}, nil
 }
 
-// claimedCode is a join code row locked FOR UPDATE, with its class's self-join
-// setting.
 type claimedCode struct {
 	domain.CodeState
 	id      string
@@ -99,7 +94,6 @@ func claimCode(ctx context.Context, tx pgx.Tx, codeHash []byte) (claimedCode, er
 	return c, err
 }
 
-// addMember reports whether the student was already in the class.
 func addMember(ctx context.Context, tx pgx.Tx, code claimedCode, userID string, now time.Time) (bool, error) {
 	const enrol = `
 		INSERT INTO app.class_members (class_id, user_id, joined_via, joined_at, join_code_id)
@@ -113,8 +107,6 @@ func addMember(ctx context.Context, tx pgx.Tx, code claimedCode, userID string, 
 	return tag.RowsAffected() == 0, nil
 }
 
-// countUse spends a seat and audits the enrolment. Only called for a new
-// membership, so re-submitting a code does not exhaust it.
 func countUse(ctx context.Context, tx pgx.Tx, code claimedCode, userID string, in domain.EnrolInput) error {
 	if _, err := tx.Exec(ctx,
 		`UPDATE app.class_join_codes SET uses_count = uses_count + 1 WHERE id = $1`,

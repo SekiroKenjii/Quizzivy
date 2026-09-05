@@ -8,10 +8,6 @@ import (
 )
 
 // Facets counts questions per type for the given tag and search.
-//
-// The type filter is deliberately not applied, for the same reason as the tests
-// list: A-06 shows every type's count at once, and applying the filter would
-// zero the rows the teacher has not selected.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.TypeFacets, error) {
 	args, where := appendFilters(in, filterOpts{tags: true})
 
@@ -44,13 +40,8 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Type
 
 // Tags returns every tag reachable through the current type, audio and search
 // filters, so A-06's rail cannot offer a chip that returns nothing.
-//
-// Server-derived rather than collected from the returned page. A rail built
-// from one page can only offer the tags that page happens to carry: with 72
-// questions and a page of 50, two of the bank's three tags were invisible, so a
-// second chip could not be selected and multi-tag filtering looked unbuilt.
 func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, error) {
-	// tags: false -- picking one chip must not empty the rail.
+
 	args, where := appendFilters(in, filterOpts{types: true})
 
 	rows, err := s.pool.Query(ctx, `
@@ -76,9 +67,6 @@ func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, err
 
 // Counts returns the bank's size and how much of it the current filters match --
 // A-06's "180 câu · đang lọc 41".
-//
-// `filtered` applies EVERY dimension, unlike facets.All which skips the type
-// filter so the "Tất cả" row has something to show.
 func (s *Postgres) Counts(ctx context.Context, in domain.ListInput) (total int, filtered int, err error) {
 	args, where := appendFilters(in, allFilters())
 

@@ -46,11 +46,11 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 	}
 
 	limits := RateLimits()
-	// Refuses to start rather than shipping an unprotected public endpoint.
+
 	if err := httpx.AssertPublicRoutesLimited(spec, limits); err != nil {
 		return nil, err
 	}
-	// Everything the contract does not explicitly open requires a bearer token.
+
 	openRoutes := httpx.OpenRoutes(spec, "bearerAuth")
 
 	validate, err := httpx.ValidateRequests(spec)
@@ -95,7 +95,6 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		},
 	})
 
-	// Outermost first: an id and a log line exist even for a rejected preflight.
 	return httpx.RequestID(httpx.Logging(logger)(httpx.CORS(allowedOrigins)(handler))), nil
 }
 
@@ -117,7 +116,6 @@ func healthz(database DB) http.HandlerFunc {
 	}
 }
 
-// inExecutionOrder reverses the middleware slice.
 func inExecutionOrder(mw ...openapi.MiddlewareFunc) []openapi.MiddlewareFunc {
 	out := make([]openapi.MiddlewareFunc, 0, len(mw))
 	for i := len(mw) - 1; i >= 0; i-- {

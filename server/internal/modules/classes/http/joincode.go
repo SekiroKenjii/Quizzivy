@@ -10,11 +10,6 @@ import (
 )
 
 // RotateJoinCode implements POST /admin/classes/{id}/join-code (§6.1).
-//
-// This response is the only place the plaintext code ever exists outside the
-// browser that receives it. Only a SHA-256 hash is stored (§13.3), so it cannot
-// be shown again and there is no endpoint that could -- if the teacher loses
-// it, they rotate.
 func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinCodeRequestObject) (openapi.RotateJoinCodeResponseObject, error) {
 	if h.enrolment == nil {
 		return nil, httpx.ErrNotImplemented
@@ -54,10 +49,6 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 }
 
 // RevokeJoinCode implements DELETE /admin/classes/{id}/join-code (§6.4).
-//
-// Revokes without issuing a replacement AND closes self-join. Both, or the
-// class is left either advertising a join flow that cannot work or holding a
-// live bearer secret the teacher believes they cancelled.
 func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinCodeRequestObject) (openapi.RevokeJoinCodeResponseObject, error) {
 	if h.enrolment == nil {
 		return nil, httpx.ErrNotImplemented
@@ -86,9 +77,6 @@ func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinC
 }
 
 // PreviewJoinCode resolves a join code for an anonymous caller.
-//
-// Public and rate-limited by IP and by normalised code. Every rejection returns
-// the same shape so the endpoint cannot enumerate which classes exist.
 func (h Classes) PreviewJoinCode(ctx context.Context, request openapi.PreviewJoinCodeRequestObject) (openapi.PreviewJoinCodeResponseObject, error) {
 	if h.enrolment == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -110,10 +98,6 @@ func (h Classes) PreviewJoinCode(ctx context.Context, request openapi.PreviewJoi
 }
 
 // JoinCodeError maps a refusal to its §9 error code and message.
-//
-// One mapping, used by /join/preview, /app/classes/join and the joinCode branch
-// of /auth/google. Three copies would drift, and the thing they would drift on
-// is how much each endpoint gives away about a class (§6.5).
 func JoinCodeError(ctx context.Context, outcome domain.PreviewOutcome) openapi.ErrorResponse {
 	switch outcome {
 	case domain.PreviewRevoked:

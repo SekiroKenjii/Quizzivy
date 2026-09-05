@@ -34,7 +34,7 @@ func (s *Service) SetClock(now func() time.Time) { s.now = now }
 type Session struct {
 	AccessToken  string
 	ExpiresIn    int
-	RefreshToken string // opaque; goes into the httpOnly cookie, never a body
+	RefreshToken string
 	User         domain.User
 }
 
@@ -46,9 +46,6 @@ type LoginInput struct {
 }
 
 // Login verifies a password and mints a session.
-//
-// An unknown email still runs a full hash against dummyHash, so the response
-// time does not reveal which accounts exist.
 func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 	user, err := s.users.FindUserByEmail(ctx, in.Email)
 	switch {
@@ -60,7 +57,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 	}
 
 	if !user.HasPassword() {
-		// A Google-only account (§5.1). Indistinguishable from a wrong password.
+
 		domain.Passwords.BurnTime(ctx, in.Password)
 		return Session{}, domain.ErrInvalidCredentials
 	}
@@ -73,7 +70,6 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (Session, error) {
 		return Session{}, domain.ErrInvalidCredentials
 	}
 
-	// Deliberately after verification, so the timing matches.
 	if user.Disabled() {
 		return Session{}, domain.ErrInvalidCredentials
 	}
@@ -118,11 +114,6 @@ func (s *Service) issueSession(ctx context.Context, user domain.User, userAgent,
 	}, nil
 }
 
-// newRefreshToken returns the opaque token and its SHA-256 hash.
-//
-// 32 bytes from a CSPRNG: this is a bearer credential with a 30-day life, so it
-// must not be guessable, and unlike the access token it carries no structure an
-// attacker could exploit.
 func newRefreshToken() (string, []byte, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {

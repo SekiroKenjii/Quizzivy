@@ -89,8 +89,7 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 	if err != nil {
 		return nil, err
 	}
-	// Through the students store, not the session's CurrentUser: a disabled
-	// account is refused a session, but its papers are still the teacher's to read.
+
 	student, err := h.students.Get(ctx, rv.Attempt.StudentID)
 	if err != nil {
 		return nil, err
@@ -137,7 +136,6 @@ func (h Attempts) toAPIReviewQuestions(ctx context.Context, rv domain.Review) ([
 	return questions, nil
 }
 
-// toAPIReviewAnswers decodes each stored payload once, beside its marks.
 func toAPIReviewAnswers(stored map[string]domain.ReviewAnswer) (map[string]reviewAnswer, error) {
 	answers := make(map[string]reviewAnswer, len(stored))
 	for id, a := range stored {
@@ -421,8 +419,6 @@ func (h Attempts) VoidAttempt(ctx context.Context, request openapi.VoidAttemptRe
 
 const msgAttemptVoided = "Lượt làm này đã bị huỷ."
 
-// interventionRefusal is why a reset or void was refused, for each handler
-// to map onto its own 4xx types.
 type interventionRefusal int
 
 const (
@@ -432,7 +428,6 @@ const (
 	refusedVoided
 )
 
-// intervene runs one of the reason-carrying interventions and sorts its refusals.
 func (h Attempts) intervene(ctx context.Context, id, reason string,
 	act func(context.Context, domain.Request, string, string) (domain.Attempt, error)) (domain.Attempt, interventionRefusal, error) {
 	req, ok := attemptRequest(ctx)
@@ -525,8 +520,6 @@ func (h Attempts) FinishGrading(ctx context.Context, request openapi.FinishGradi
 	return openapi.FinishGrading200JSONResponse(toAPIAttempt(graded)), nil
 }
 
-// toAPIUserFromStudent renders the contract's User from the admin's student
-// row, which carries the same facts without the session checks.
 func toAPIUserFromStudent(st identitydomain.Student) openapi.User {
 	providers := make([]openapi.UserLinkedProviders, 0, len(st.LinkedProviders))
 	for _, p := range st.LinkedProviders {

@@ -67,11 +67,6 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 	return openapi.UploadMedia201JSONResponse(ToAPIMediaAsset(asset, url)), nil
 }
 
-// nextFilePart walks to the first part that carries a filename.
-//
-// The contract names the field `file`, but a browser's FormData can put other
-// fields alongside it and their order is not guaranteed. Matching on "has a
-// filename" rather than on position is what makes that irrelevant.
 func nextFilePart(reader *multipart.Reader) (*multipart.Part, error) {
 	for {
 		part, err := reader.NextPart()
@@ -102,10 +97,6 @@ func ToAPIMediaAsset(a domain.Asset, url string) openapi.MediaAsset {
 }
 
 // ListMedia implements GET /admin/media -- the §8 media library.
-//
-// Keyset pagination (§13.8): an upload landing mid-pagination shifts every
-// OFFSET page by one and shows the reader a duplicate row. A keyset asks for
-// "older than this exact row", so a concurrent insert is simply not on the page.
 func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestObject) (openapi.ListMediaResponseObject, error) {
 	if h.media == nil {
 		return nil, httpx.ErrNotImplemented
@@ -165,9 +156,6 @@ func ToAPIReferencingTests(refs []domain.TestRef) []openapi.ReferencingTest {
 }
 
 // DeleteMedia implements DELETE /admin/media/{id}.
-//
-// A referenced asset is 409, not 403: the teacher has every right to it, it is
-// simply not deletable while a published version depends on it (§8, §15).
 func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaRequestObject) (openapi.DeleteMediaResponseObject, error) {
 	if h.media == nil {
 		return nil, httpx.ErrNotImplemented
@@ -209,9 +197,6 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 
 // GetMediaUrl implements GET /app/media/{assetId}/url -- a student minting a
 // signed URL for a listening file (§11.2).
-//
-// The Cache-Control max-age and the signature TTL are the same constant, so a
-// cached response cannot outlive the URL inside it.
 func (h Media) GetMediaUrl(ctx context.Context, request openapi.GetMediaUrlRequestObject) (openapi.GetMediaUrlResponseObject, error) {
 	if h.media == nil {
 		return nil, httpx.ErrNotImplemented
@@ -244,13 +229,8 @@ func (h Media) GetMediaUrl(ctx context.Context, request openapi.GetMediaUrlReque
 	}, nil
 }
 
-// cacheControlForSignedURL is §11.2's directive, derived from the TTL the
-// service actually signs with rather than written twice. Two independent copies
-// of "ten minutes" is precisely how a cache entry comes to outlive the
-// signature it holds, which is the failure the directive exists to prevent.
 func cacheControlForSignedURL(ttl time.Duration) string {
 	return fmt.Sprintf("private, max-age=%d", int(ttl.Seconds()))
 }
 
-// cacheControlForSignedURLList is the list endpoint's answer.
 const cacheControlForSignedURLList = "private, no-store"

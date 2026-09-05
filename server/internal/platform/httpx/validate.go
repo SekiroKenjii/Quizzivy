@@ -13,12 +13,6 @@ import (
 )
 
 // ValidateRequests checks every incoming request against api/openapi.yaml.
-//
-// Without it the contract's constraints are decorative server-side: oapi-codegen
-// binds types but enforces no minLength, format, enum or additionalProperties.
-// Authentication is not delegated here -- RequireAuth has already run, so the
-// AuthenticationFunc always succeeds. File-upload routes are skipped; see
-// StreamingBodyRoutes.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
 	stripped := *spec
 	stripped.Servers = nil
@@ -49,9 +43,6 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 		}), nil
 }
 
-// validationMessage turns kin-openapi's error into something a person can act
-// on. Its default rendering embeds the whole failing schema, which is both
-// unreadable and hands an anonymous caller the internals of the contract.
 func validationMessage(err error) string {
 	const generic = "Dữ liệu gửi lên không hợp lệ."
 
@@ -69,9 +60,6 @@ func validationMessage(err error) string {
 	return generic
 }
 
-// failingField names the offending field, preferring the JSON pointer from the
-// schema error because it locates a field inside the body; a parameter name
-// only applies when the failure was in the path or query string.
 func failingField(reqErr *openapi3filter.RequestError) string {
 	var schemaErr *openapi3.SchemaError
 	if errors.As(reqErr.Err, &schemaErr) {

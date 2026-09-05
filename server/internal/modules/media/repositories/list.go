@@ -15,12 +15,6 @@ const (
 
 // List returns one page of live assets, newest first, with the paging
 // beside it.
-//
-// OFFSET rather than keyset (O-20 overrides §13.8 here): the teacher wants
-// numbered pages, and at this library's size an upload landing mid-pagination
-// shifting a page by one row is a smaller cost than a grid that cannot jump.
-// TotalBytes sums every live asset the kind filter matches, for the library's
-// subtitle: the whole shelf, not the page on screen.
 func (s *Postgres) TotalBytes(ctx context.Context, kind *domain.Kind) (int64, error) {
 	var kindArg *string
 	if kind != nil {

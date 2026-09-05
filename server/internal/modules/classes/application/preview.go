@@ -7,11 +7,6 @@ import (
 
 // Preview backs the /join/:code/confirm step (§6.2), which exists so a student
 // sees WHICH class they are joining before authenticating.
-//
-// The order of the checks is a leak decision, not an implementation detail.
-// self_join_enabled is tested before the code's own state, so a closed class
-// answers exactly as a nonexistent one does -- checking revocation or expiry
-// first would confirm that a code, and therefore a class, exists.
 func (s *Enrolment) Preview(ctx context.Context, rawCode string) (domain.PreviewResult, error) {
 	normalized := domain.JoinCodes.Normalize(rawCode)
 	if normalized == "" {

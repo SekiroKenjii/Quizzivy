@@ -17,9 +17,6 @@ type Querier interface {
 
 // References lists the published versions whose questions use the asset, by
 // title then version. Any at all blocks deletion with a 409 (§8).
-//
-// Runs on the caller's querier so it can share the transaction that locked the
-// asset, and is served by tvq_media_idx.
 func References(ctx context.Context, q Querier, assetID string) ([]domain.TestRef, error) {
 	byAsset, err := ReferencesFor(ctx, q, []string{assetID})
 	if err != nil {

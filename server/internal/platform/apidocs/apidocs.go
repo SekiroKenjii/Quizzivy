@@ -5,7 +5,6 @@ import (
 	"net/http"
 )
 
-// scalarVersion pins the reference UI; bump it deliberately, with a look at the page.
 const scalarVersion = "1.67.0"
 
 // Reference serves the API reference: our own page that loads Scalar's

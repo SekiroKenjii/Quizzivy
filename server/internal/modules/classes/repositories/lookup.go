@@ -10,11 +10,6 @@ import (
 )
 
 // LookupByCodeHash finds a code by its hash, revoked or not.
-//
-// Revoked rows are deliberately included. code_hash is UNIQUE, so keeping them
-// is what lets "revoked" be distinguished from "never existed" -- and telling a
-// student their code was cancelled is the difference between them asking for a
-// new one and concluding the app is broken.
 func (s *Postgres) LookupByCodeHash(ctx context.Context, hash []byte) (*domain.CodeRow, error) {
 	const q = `
 		SELECT c.id::text, c.name, c.self_join_enabled AND c.archived_at IS NULL,

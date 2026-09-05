@@ -18,10 +18,6 @@ func (s *statusRecorder) WriteHeader(code int) {
 
 // Logging emits one structured line per request, keyed by the same request id
 // the client sees.
-//
-// It deliberately logs no query string and no body: join codes travel in
-// request bodies (§6.5) and are bearer secrets, so a log line is exactly the
-// wrong place for them.
 func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

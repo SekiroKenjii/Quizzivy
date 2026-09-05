@@ -25,12 +25,6 @@ type RefreshResult struct {
 }
 
 // Refresh rotates a refresh token (§5.2).
-//
-// Lookup is BY the SHA-256 of the presented token, so the database index does
-// the matching and the plaintext is never stored. §13.5's constant-time
-// requirement is about join codes, which are short and low-entropy; a refresh
-// token is 256 bits from a CSPRNG, and an attacker cannot probe index timing
-// without already holding a candidate token.
 func (s *Service) Refresh(ctx context.Context, in RefreshInput) (RefreshResult, error) {
 	if in.Token == "" {
 		return RefreshResult{}, domain.ErrRefreshRejected
@@ -62,7 +56,7 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (RefreshResult, 
 	switch res.Outcome {
 	case domain.RotateOK:
 	case domain.RotateReused:
-		// Rotate has already revoked the family and written the audit row.
+
 		return RefreshResult{}, domain.ErrRefreshReused
 	default:
 		return RefreshResult{}, domain.ErrRefreshRejected
@@ -83,11 +77,6 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (RefreshResult, 
 
 // Logout revokes the whole family the presented token belongs to, ending every
 // session descended from that login rather than only the current one.
-//
-// Idempotent: an already-revoked or already-expired token still returns
-// success. The caller's intent -- end this session -- is satisfied either way,
-// and reporting "that token was not valid" would answer a question about
-// another party's credential.
 func (s *Service) Logout(ctx context.Context, token string) error {
 	if token == "" {
 		return domain.ErrRefreshRejected
