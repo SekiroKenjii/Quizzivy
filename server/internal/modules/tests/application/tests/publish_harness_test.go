@@ -58,7 +58,7 @@ func newBuilder(t *testing.T, pool *pgxpool.Pool, author string) *builder {
 	return &builder{
 		t: t, pool: pool, author: author,
 		tests: application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool))),
-		qsvc:  questionsapp.NewService(questionsrepo.NewPostgres(pool), nil),
+		qsvc:  questionsapp.NewService(questionsrepo.NewPostgres(pool), mediaKinds{pool}),
 	}
 }
 

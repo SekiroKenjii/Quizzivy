@@ -41,7 +41,7 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 	var audited int
 	if err := pool.QueryRow(ctx,
 		`SELECT count(*) FROM app.audit_log
-		  WHERE action = 'application.deleted' AND entity_id = $1 AND actor_user_id = $2`,
+		  WHERE action = 'media.deleted' AND entity_id = $1 AND actor_user_id = $2`,
 		asset.ID, uploader).Scan(&audited); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestDeleteTwiceIsNotFound(t *testing.T) {
 
 	var audited int
 	if err := pool.QueryRow(ctx,
-		`SELECT count(*) FROM app.audit_log WHERE action = 'application.deleted' AND entity_id = $1`,
+		`SELECT count(*) FROM app.audit_log WHERE action = 'media.deleted' AND entity_id = $1`,
 		asset.ID).Scan(&audited); err != nil {
 		t.Fatal(err)
 	}

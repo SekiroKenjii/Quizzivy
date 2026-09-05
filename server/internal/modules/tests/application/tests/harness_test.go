@@ -73,7 +73,7 @@ func reqFor(id, author string) domain.Request {
 // newQuestion adds a bank question the outline can reference.
 func newQuestion(t *testing.T, pool *pgxpool.Pool, author, prompt string) string {
 	t.Helper()
-	svc := questionsapp.NewService(questionsrepo.NewPostgres(pool), nil)
+	svc := questionsapp.NewService(questionsrepo.NewPostgres(pool), mediaKinds{pool})
 	q, err := svc.Create(context.Background(), questionsdomain.WriteRequest{
 		Input: questionsdomain.Input{
 			Type: questionsdomain.ShortAnswer, Prompt: prompt, Points: "2.00", Tags: []string{},
