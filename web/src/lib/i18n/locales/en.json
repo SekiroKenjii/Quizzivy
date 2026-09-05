@@ -889,7 +889,7 @@
       "targetCount": "{{count}} students",
       "classes": "Classes",
       "students": "Individual students",
-      "classChip": "{{name}} · {{count}}",
+      "classChip": "{{name}}",
       "overlap": "{{count}} of them are already in a class and count once.",
       "noTargets": "No class or student chosen yet.",
       "time": "Time",

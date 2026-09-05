@@ -586,10 +586,7 @@ function TargetsCard({ a }: Readonly<{ a: Assignment }>) {
               {classes.map((c) => (
                 <Badge key={c.id} variant="secondary">
                   <GraduationCap aria-hidden="true" />
-                  {t("assignments.detail.classChip", {
-                    name: c.name,
-                    count: c.studentCount,
-                  })}
+                  {t("assignments.detail.classChip", { name: c.name })}
                 </Badge>
               ))}
             </div>
