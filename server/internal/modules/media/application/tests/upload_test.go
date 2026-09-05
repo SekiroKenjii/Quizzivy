@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -103,13 +104,9 @@ func (f *fakeStore) SignedURL(_ context.Context, key string, _ time.Duration) (s
 
 func fixture(t *testing.T, name string) []byte {
 	t.Helper()
-	data, err := os.ReadFile("../media/probe/testdata/" + name)
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "platform", "probe", "testdata", name))
 	if err != nil {
-		// Run from internal/media, so the probe corpus is one level across.
-		data, err = os.ReadFile("probe/testdata/" + name)
-		if err != nil {
-			t.Fatalf("fixture %s: %v", name, err)
-		}
+		t.Fatalf("fixture %s: %v", name, err)
 	}
 	return data
 }

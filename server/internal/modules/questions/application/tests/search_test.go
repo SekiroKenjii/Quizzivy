@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -234,7 +235,7 @@ func TestTrigramIndexIsActuallyUsed(t *testing.T) {
 // this, someone could rewrite search.go's condition and leave TrigramExpression
 // behind as an unused constant that both other tests keep happily checking.
 func TestTheSearchQueryUsesTheSharedExpression(t *testing.T) {
-	source, err := os.ReadFile("search.go")
+	source, err := os.ReadFile(filepath.Join("..", "..", "repositories", "search.go"))
 	if err != nil {
 		t.Fatalf("reading search.go: %v", err)
 	}

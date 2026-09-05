@@ -18,7 +18,7 @@ import {
 describe("the join code alphabet", () => {
   it("matches the server's, character for character", () => {
     const go = readFileSync(
-      resolve(import.meta.dirname, "../../../../server/internal/join/code.go"),
+      resolve(import.meta.dirname, "../../../../server/internal/modules/classes/domain/joincode.go"),
       "utf8",
     );
     const declared = /const Alphabet = "([^"]+)"/.exec(go);
