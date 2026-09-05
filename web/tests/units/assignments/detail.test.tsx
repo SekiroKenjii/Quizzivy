@@ -228,6 +228,19 @@ describe("the assignment detail", () => {
     expect(patches[0]).toMatchObject({ closeNow: true, draft: false });
   });
 
+  it("open: names who the work went to, with the class one click away", async () => {
+    serve(assignment());
+    renderDetail();
+
+    expect(await screen.findByText("Tự cập nhật 15 giây/lần")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "IELTS Foundation · 18" })).toHaveAttribute(
+      "href",
+      `/admin/classes/${CLASS_ID}`,
+    );
+    expect(screen.getByText("+2 học viên lẻ")).toBeInTheDocument();
+    expect(screen.getByText("· 19 học viên")).toBeInTheDocument();
+  });
+
   it("closed: the numbers come first and nothing invites an edit", async () => {
     serve(assignment({ status: "closed", window: pastWindow }));
     renderDetail();
@@ -240,18 +253,73 @@ describe("the assignment detail", () => {
     expect(screen.getByText("Rời trang quá 2 lần")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Đóng sớm" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Chỉnh sửa" })).toBeNull();
-    // G-09's closed bar: the way back in, and the papers one scroll away.
+    // G-09's closed bar: the way back in, and the papers on their own page (G-11).
     expect(screen.getByRole("link", { name: "Xem bài làm" })).toHaveAttribute(
       "href",
-      "#attempts",
-    );
-    expect(screen.getByRole("link", { name: "Mở bảng học viên" })).toHaveAttribute(
-      "href",
-      "#attempts",
+      `/admin/assignments/${ID}/attempts`,
     );
     expect(
       screen.getByRole("button", { name: "Gia hạn cho tất cả" }),
     ).toBeInTheDocument();
+    // The table does not follow the assignment into its closed state.
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Tiến độ" })).toBeNull();
+  });
+
+  it("closed: Mở bảng học viên opens the panel beside the page, grouped by what is left to do", async () => {
+    serve(assignment({ status: "closed", window: pastWindow }));
+    server.use(
+      http.get(`${BASE}/admin/assignments/${ID}/attempts`, () =>
+        contractJson("/admin/assignments/{id}/attempts", "get", 200, {
+          serverTime: "2026-09-04T02:10:00Z",
+          questionCount: 24,
+          rows: [
+            {
+              studentId: HAN,
+              fullName: "Phạm Gia Hân",
+              state: "submitted",
+              attemptId: "018f0000-0000-7000-8000-0000000000a7",
+              attemptNo: 1,
+              submittedAt: "2026-09-04T02:47:00Z",
+              score: { earned: 22, total: 30, pendingManual: 2 },
+              focusLossCount: 3,
+              flagged: true,
+              audioOverLimit: false,
+            },
+            {
+              studentId: KHOA,
+              fullName: "Vũ Minh Khoa",
+              state: "not_started",
+              flagged: false,
+              audioOverLimit: false,
+            },
+          ],
+        }),
+      ),
+    );
+    const user = renderDetail();
+
+    expect(screen.queryByRole("complementary")).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Mở bảng học viên" }));
+    const panel = await screen.findByRole("complementary", { name: "Bảng học viên" });
+    expect(within(panel).getByText("2 học viên · 1 đã nộp")).toBeInTheDocument();
+    // A paper that is both unmarked and flagged is two pieces of work.
+    expect(within(panel).getByText("Chờ chấm · 1")).toBeInTheDocument();
+    expect(within(panel).getByText("Cần xem lại · 1")).toBeInTheDocument();
+    expect(within(panel).getByText("Chưa nộp · 1")).toBeInTheDocument();
+    expect(
+      within(panel).getAllByRole("link", { name: /Phạm Gia Hân/ })[0],
+    ).toHaveAttribute("href", "/admin/attempts/018f0000-0000-7000-8000-0000000000a7");
+    expect(
+      within(panel).getByRole("link", { name: "Xem tất cả bài làm" }),
+    ).toHaveAttribute("href", `/admin/assignments/${ID}/attempts`);
+    // The strip's link turns into the way to close it; the panel has its own.
+    expect(screen.getAllByRole("button", { name: "Đóng bảng học viên" })).toHaveLength(
+      2,
+    );
+
+    await user.click(within(panel).getByRole("button", { name: "Đóng bảng học viên" }));
+    await waitFor(() => expect(screen.queryByRole("complementary")).toBeNull());
   });
 
   it("closed: Gia hạn cho tất cả asks for a moment and a reason, then reopens", async () => {
@@ -270,13 +338,18 @@ describe("the assignment detail", () => {
     serve(assignment({ status: "closed", window: pastWindow }));
     const user = renderDetail();
 
+    // The menu of moments comes first, so the common case is two clicks.
     await user.click(await screen.findByRole("button", { name: "Gia hạn cho tất cả" }));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByText("Mở lại cho cả 19 học viên")).toBeInTheDocument();
+    expect(within(menu).getByText(/Bước sau sẽ hỏi lý do/)).toBeInTheDocument();
+    await user.click(within(menu).getByRole("menuitem", { name: "Thêm 3 ngày" }));
+
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Mở lại cho cả 19 học viên")).toBeInTheDocument();
     const confirm = within(dialog).getByRole("button", { name: "Mở lại" });
     expect(confirm).toBeDisabled();
-
-    await user.click(within(dialog).getByRole("radio", { name: "Thêm 3 ngày" }));
+    expect(within(dialog).queryByRole("radio")).toBeNull();
     await user.type(within(dialog).getByLabelText("Lý do"), "mất điện cả lớp");
     expect(confirm).toBeEnabled();
     await user.click(confirm);

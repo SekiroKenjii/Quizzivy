@@ -581,7 +581,10 @@
             window closing, then everything settled. The three interventions §8
             requires — extend, reset, void — sit behind one menu and each one
             asks for a reason, because each one is a thing the teacher will be
-            asked about later.
+            asked about later. The line under the bar names who the work went
+            to: this is the screen the teacher has open while the class sits
+            the test, and “which class is this?” must not cost a trip back to
+            the list. The class chip leads to G-06.
           </p>
           <div class="board-scroll">
             <div class="frame frame-wide">
@@ -702,6 +705,20 @@
                     </div>
                   </div>
                   <div class="p-6 space-y-4">
+                    <!-- Who the work went to. One roster after de-duplication; the class chip is a link to G-06. -->
+                    <div
+                      class="flex items-center gap-2 text-xs text-muted-foreground"
+                    >
+                      <span>Giao cho</span>
+                      <a class="badge b-secondary" href="#">
+                        <svg class="i" aria-hidden="true">
+                          <use href="#i-graduation-cap" />
+                        </svg>
+                        IELTS Foundation · 18
+                      </a>
+                      <span class="badge b-secondary">+2 học viên lẻ</span>
+                      <span>· 19 học viên</span>
+                    </div>
                     <div class="grid grid-cols-5 gap-4">
                       <div class="card">
                         <div class="card-body">
@@ -1087,8 +1104,13 @@
             legal right now — and the block under it: draft and scheduled show
             the read-only summary of what G-01 saved, open shows the live table
             (G-02), and closed puts a results strip above the summary because
-            the numbers are now the point. Nothing here is red: closing is
-            reversible through “Gia hạn cho tất cả”, and a draft is not a
+            the numbers are now the point — and only the numbers: the table
+            does not follow the assignment into its closed state. The strip's
+            link opens the student panel beside the page (frame 4, F-11's
+            20rem), and the bar's primary action leads to G-11, the full list
+            of papers. Nothing here is red: closing is reversible through “Gia
+            hạn cho tất cả”, which is a menu of moments (frame 3's overlay)
+            before it is a dialog asking for the reason, and a draft is not a
             warning, it is a thing that has not happened yet.
           </p>
           <div class="board-scroll">
@@ -1771,7 +1793,7 @@
                 </div>
               </div>
 
-              <!-- 3 · CLOSED. Window over; results strip first, then the same summary. The menu and the close-early confirm are drawn over it, G-02 style. -->
+              <!-- 3 · CLOSED. Window over; results strip first, then the same summary — no table. “Xem bài làm” leads to G-11; “Mở bảng học viên” opens frame 4's panel. The reopen menu and the close-early confirm are drawn over it, G-02 style. -->
               <div class="frame frame-wide">
                 <div class="shell">
                   <nav class="shell-side">
@@ -2233,6 +2255,300 @@
                   </div>
                 </div>
               </div>
+
+              <!-- 4 · CLOSED · “Mở bảng học viên”. The strip's link opens a panel beside the page (F-11's 20rem, beside the scroll): every targeted student, grouped by what the teacher still has to do, each row leading to G-03. The page under it does not change, so the panel is a glance, not a navigation; the button at its foot is the same place as the bar's “Xem bài làm”. Drawn as a crop of frame 3 (content column only, no shell), G-02b's device. -->
+              <div class="frame" style="width: 1120px">
+                <div class="flex" style="min-height: 640px">
+                  <div class="flex-1 min-w-0">
+                    <div class="topbar">
+                      <button
+                        class="btn btn-icon btn-sm btn-ghost"
+                        aria-label="Quay lại"
+                      >
+                        <svg class="i" aria-hidden="true">
+                          <use href="#i-arrow-left" />
+                        </svg>
+                      </button>
+                      <span class="text-sm font-medium"
+                        >Unit 5 — Present perfect &amp; listening</span
+                      >
+                      <span class="badge b-secondary">Đã đóng</span>
+                      <span class="text-xs text-muted-foreground"
+                        >Đóng lúc 21:00 · Thứ hai, 31/08</span
+                      >
+                      <div class="ml-auto flex items-center gap-2">
+                        <button class="btn btn-sm btn-outline">
+                          <svg class="i" aria-hidden="true">
+                            <use href="#i-calendar-clock" />
+                          </svg>
+                          Gia hạn cho tất cả
+                          <svg class="i" aria-hidden="true">
+                            <use href="#i-chevron-down" />
+                          </svg>
+                        </button>
+                        <button class="btn btn-sm btn-primary">
+                          <svg class="i" aria-hidden="true">
+                            <use href="#i-eye" />
+                          </svg>
+                          Xem bài làm
+                        </button>
+                      </div>
+                    </div>
+                    <div class="p-6">
+                      <div class="space-y-4">
+                        <div class="card">
+                          <div class="card-body flex items-center gap-6">
+                            <div>
+                              <p class="text-xs text-muted-foreground">
+                                Đã nộp
+                              </p>
+                              <p
+                                class="text-2xl font-semibold tabular-nums mt-1"
+                              >
+                                17<span class="text-base text-muted-foreground"
+                                  >/19</span
+                                >
+                              </p>
+                              <p class="text-xs text-muted-foreground mt-1">
+                                Chưa nộp: Hoàng Tiến Dũng, Bùi Thu Trang
+                              </p>
+                            </div>
+                            <div class="sep-v"></div>
+                            <div>
+                              <p class="text-xs text-muted-foreground">
+                                Chờ chấm
+                              </p>
+                              <p
+                                class="text-2xl font-semibold tabular-nums mt-1"
+                              >
+                                4
+                              </p>
+                              <p class="text-xs text-muted-foreground mt-1">
+                                8 câu tự luận
+                              </p>
+                            </div>
+                            <div class="sep-v"></div>
+                            <div>
+                              <p class="text-xs text-muted-foreground">
+                                Cần xem lại
+                              </p>
+                              <p
+                                class="text-2xl font-semibold tabular-nums mt-1"
+                              >
+                                2
+                              </p>
+                              <p class="text-xs text-muted-foreground mt-1">
+                                Rời trang quá 2 lần
+                              </p>
+                            </div>
+                            <div class="ml-auto">
+                              <button class="btn btn-sm btn-link">
+                                Đóng bảng học viên
+                                <svg class="i" aria-hidden="true">
+                                  <use href="#i-arrow-right" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="card">
+                          <div class="card-head">
+                            <p class="card-title">Đề thi</p>
+                          </div>
+                          <div class="card-body pt-1">
+                            <div
+                              class="flex items-center gap-3 p-3 border rounded-md"
+                            >
+                              <svg
+                                class="i i-5 text-muted-foreground"
+                                aria-hidden="true"
+                              >
+                                <use href="#i-file-text" />
+                              </svg>
+                              <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium">
+                                  Unit 5 — Present perfect &amp; listening
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                  24 câu · 30 điểm · 4 câu nghe · 2 câu chấm
+                                  tay · bản v3
+                                </p>
+                              </div>
+                              <button class="btn btn-sm btn-ghost">
+                                <svg class="i" aria-hidden="true">
+                                  <use href="#i-external-link" />
+                                </svg>
+                                Xem đề
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                          … the rest of frame 3's summary, unchanged.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside class="w-80 shrink-0 border-l p-5 space-y-5">
+                    <div class="flex items-start gap-3">
+                      <div class="min-w-0 flex-1">
+                        <p class="text-base font-semibold">Bảng học viên</p>
+                        <p class="text-xs text-muted-foreground">
+                          19 học viên · 17 đã nộp
+                        </p>
+                      </div>
+                      <button
+                        class="btn btn-icon btn-sm btn-ghost"
+                        aria-label="Đóng"
+                      >
+                        <svg class="i" aria-hidden="true">
+                          <use href="#i-x" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="space-y-4">
+                      <div>
+                        <p
+                          class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1"
+                        >
+                          Chờ chấm · 4
+                        </p>
+                        <div>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">NM</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Nguyễn Đức Minh</span
+                            >
+                            <span class="text-xs num">26/30</span>
+                            <span class="badge b-outline">chờ 2</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">PH</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Phạm Gia Hân</span
+                            >
+                            <span class="text-xs num">22/30</span>
+                            <span class="badge b-outline">chờ 2</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">TL</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Trần Bảo Linh</span
+                            >
+                            <span class="text-xs num">24/30</span>
+                            <span class="badge b-outline">chờ 1</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">VK</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Vũ Minh Khoa</span
+                            >
+                            <span class="text-xs num">20/30</span>
+                            <span class="badge b-outline">chờ 2</span>
+                          </a>
+                        </div>
+                      </div>
+                      <div>
+                        <p
+                          class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1"
+                        >
+                          Cần xem lại · 2
+                        </p>
+                        <div>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">PH</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Phạm Gia Hân</span
+                            >
+                            <span class="badge b-warning num">3</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">ĐA</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Đỗ Ngọc Anh</span
+                            >
+                            <span class="badge b-warning num">4</span>
+                          </a>
+                        </div>
+                      </div>
+                      <div>
+                        <p
+                          class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1"
+                        >
+                          Chưa nộp · 2
+                        </p>
+                        <div>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">HD</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Hoàng Tiến Dũng</span
+                            >
+                            <span class="text-xs text-muted-foreground num">—</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">BT</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Bùi Thu Trang</span
+                            >
+                            <span class="text-xs text-muted-foreground num">—</span>
+                          </a>
+                        </div>
+                      </div>
+                      <div>
+                        <p
+                          class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1"
+                        >
+                          Đã chấm · 11
+                        </p>
+                        <div>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">LV</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Lê Khánh Vy</span
+                            >
+                            <span class="text-xs num">29/30</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">NA</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Ngô Hoàng An</span
+                            >
+                            <span class="text-xs num">28/30</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">TH</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Trịnh Minh Hằng</span
+                            >
+                            <span class="text-xs num">27/30</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">LB</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Lý Gia Bảo</span
+                            >
+                            <span class="text-xs num">25/30</span>
+                          </a>
+                          <a class="flex items-center gap-2 py-1.5" href="#">
+                            <span class="avatar avatar-sm">ĐA</span>
+                            <span class="text-sm font-medium truncate flex-1"
+                              >Đỗ Ngọc Anh</span
+                            >
+                            <span class="text-xs num">18/30</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                    <button class="btn btn-outline btn-block">
+                      Xem tất cả bài làm
+                      <svg class="i" aria-hidden="true">
+                        <use href="#i-arrow-right" />
+                      </svg>
+                    </button>
+                  </aside>
+                </div>
+              </div>
             </div>
           </div>
           <div class="grid grid-cols-3 gap-4 mt-4">
@@ -2256,6 +2572,432 @@
               confirm restates that in the teacher’s numbers and asks for one
               tick, so nobody refreshes the table expecting “Đang làm” to drop
               to zero.
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">G-11</span>
+            <span class="board-name">Papers · every attempt of one assignment</span>
+            <span class="board-route"
+              >/admin/assignments/:id/attempts · from G-09's “Xem bài làm”</span
+            >
+          </div>
+          <p class="board-note">
+            The page G-09's primary action lands on once the window is over.
+            G-02's table answered “who is still working?”; this one answers
+            “what did everyone hand in?”, so its columns are the paper's, not
+            the clock's: which attempt, when it was handed in, how long it
+            took, and the score with what is still unmarked beside it. One row
+            per targeted student — the latest attempt that was not voided, the
+            same choice the monitor makes — in roster order, because a results
+            list the teacher reads against a class list should not reshuffle
+            itself. The tabs are the results strip's numbers made into filters;
+            the search is the same box G-06's member list has. The row menu is
+            G-02's without “gia hạn thời gian”, which belongs to a running
+            clock.
+          </p>
+          <div class="board-scroll">
+            <div class="frame frame-wide">
+              <div class="shell">
+                  <nav class="shell-side">
+                    <p class="side-label">Giảng dạy</p>
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-layout-dashboard" />
+                      </svg>
+                      Tổng quan</span
+                    >
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-file-text" />
+                      </svg>
+                      Đề thi</span
+                    >
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-library" />
+                      </svg>
+                      Ngân hàng câu hỏi</span
+                    >
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-audio-lines" />
+                      </svg>
+                      Thư viện media</span
+                    >
+                    <p class="side-label">Lớp học</p>
+                    <span class="side-item is-active"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-clipboard-list" />
+                      </svg>
+                      Bài giao <span class="count">3</span></span
+                    >
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-square-pen" />
+                      </svg>
+                      Chờ chấm <span class="count">7</span></span
+                    >
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-users" />
+                      </svg>
+                      Học viên</span
+                    >
+                    <span class="side-item"
+                      ><svg class="i" aria-hidden="true">
+                        <use href="#i-graduation-cap" />
+                      </svg>
+                      Lớp học</span
+                    >
+                    <div class="mt-auto">
+                      <span class="side-item"
+                        ><svg class="i" aria-hidden="true">
+                          <use href="#i-settings" />
+                        </svg>
+                        Cài đặt</span
+                      >
+                    </div>
+                  </nav>
+
+                  <div class="flex-1 min-w-0">
+                    <div class="topbar">
+                      <button
+                        class="btn btn-icon btn-sm btn-ghost"
+                        aria-label="Thu gọn menu"
+                      >
+                        <svg class="i i-5" aria-hidden="true">
+                          <use href="#i-panel-left" />
+                        </svg>
+                      </button>
+                      <svg width="126" height="29" aria-hidden="true">
+                        <use href="#qz-logo-h-color" />
+                      </svg>
+                      <button
+                        class="btn btn-sm btn-outline ml-4 w-80 justify-start text-muted-foreground font-normal"
+                      >
+                        <svg class="i" aria-hidden="true">
+                          <use href="#i-search" />
+                        </svg>
+                        Tìm đề thi, học viên, câu hỏi…
+                        <span class="ml-auto flex items-center gap-0.5"
+                          ><span class="kbd">⌘</span
+                          ><span class="kbd">K</span></span
+                        >
+                      </button>
+                      <div class="ml-auto">
+                        <span class="avatar avatar-sm">TT</span>
+                      </div>
+                    </div>
+                    <div class="topbar">
+                      <button
+                        class="btn btn-icon btn-sm btn-ghost"
+                        aria-label="Về bài giao"
+                      >
+                        <svg class="i" aria-hidden="true">
+                          <use href="#i-arrow-left" />
+                        </svg>
+                      </button>
+                      <span class="text-sm font-medium"
+                        >Bài làm · Unit 5 — Present perfect &amp; listening</span
+                      >
+                      <span class="badge b-secondary">Đã đóng</span>
+                      <span class="text-xs text-muted-foreground"
+                        >17/19 đã nộp · 4 chờ chấm · 2 cần xem lại</span
+                      >
+                    </div>
+                    <div class="p-6 space-y-4">
+                      <div class="flex items-center gap-2">
+                        <div class="tabs">
+                          <button class="tab is-active">Tất cả 19</button>
+                          <button class="tab">Đã nộp 17</button>
+                          <button class="tab">Chờ chấm 4</button>
+                          <button class="tab">Cần xem lại 2</button>
+                          <button class="tab">Chưa nộp 2</button>
+                        </div>
+                        <div class="relative ml-auto w-56">
+                          <input
+                            class="input h-8 pl-8 text-xs"
+                            placeholder="Tìm học viên"
+                          />
+                          <svg
+                            class="i i-3.5 absolute text-muted-foreground"
+                            style="left: 0.625rem; top: 0.5rem"
+                            aria-hidden="true"
+                          >
+                            <use href="#i-search" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div class="card overflow-hidden">
+                        <table class="table">
+                          <thead>
+                            <tr>
+                              <th style="width: 24%">Học viên</th>
+                              <th>Trạng thái</th>
+                              <th>Lượt</th>
+                              <th>Nộp lúc</th>
+                              <th class="text-right">Thời gian làm</th>
+                              <th class="text-right">Rời trang</th>
+                              <th class="text-right">Điểm</th>
+                              <th style="width: 40px"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">BT</span>
+                                <span class="font-medium">Bùi Thu Trang</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-outline">Chưa bắt đầu</span></td>
+                            <td class="num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-muted-foreground num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">ĐA</span>
+                                <span class="font-medium">Đỗ Ngọc Anh</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-warning">Hết giờ</span></td>
+                            <td class="num">1/2</td>
+                            <td class="text-muted-foreground num">10:25 · 29/08</td>
+                            <td class="text-right num">45 phút</td>
+                            <td class="text-right num"><span class="badge b-warning num">4</span></td>
+                            <td class="text-right"><span class="num">18/30</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">HD</span>
+                                <span class="font-medium">Hoàng Tiến Dũng</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-outline">Chưa bắt đầu</span></td>
+                            <td class="num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-muted-foreground num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right num"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">LV</span>
+                                <span class="font-medium">Lê Khánh Vy</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-success">Đã chấm</span></td>
+                            <td class="num">1/2</td>
+                            <td class="text-muted-foreground num">08:40 · 29/08</td>
+                            <td class="text-right num">38 phút</td>
+                            <td class="text-right num">0</td>
+                            <td class="text-right"><span class="num font-medium">29/30</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">NM</span>
+                                <span class="font-medium">Nguyễn Đức Minh</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-secondary">Đã nộp</span></td>
+                            <td class="num">2/2</td>
+                            <td class="text-muted-foreground num">09:47 · 29/08</td>
+                            <td class="text-right num">41 phút</td>
+                            <td class="text-right num">1</td>
+                            <td class="text-right"><span class="num">26/30</span> <span class="badge b-outline">chờ chấm 2</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">PH</span>
+                                <span class="font-medium">Phạm Gia Hân</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-secondary">Đã nộp</span></td>
+                            <td class="num">1/2</td>
+                            <td class="text-muted-foreground num">10:02 · 29/08</td>
+                            <td class="text-right num">45 phút</td>
+                            <td class="text-right num"><span class="badge b-warning num">3</span></td>
+                            <td class="text-right"><span class="num">22/30</span> <span class="badge b-outline">chờ chấm 2</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">TL</span>
+                                <span class="font-medium">Trần Bảo Linh</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-secondary">Đã nộp</span></td>
+                            <td class="num">1/2</td>
+                            <td class="text-muted-foreground num">09:12 · 29/08</td>
+                            <td class="text-right num">44 phút</td>
+                            <td class="text-right num">0</td>
+                            <td class="text-right"><span class="num">24/30</span> <span class="badge b-outline">chờ chấm 1</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="avatar avatar-sm">VK</span>
+                                <span class="font-medium">Vũ Minh Khoa</span>
+                              </div>
+                            </td>
+                            <td><span class="badge b-danger">Đã huỷ</span></td>
+                            <td class="num">1/2</td>
+                            <td class="text-muted-foreground num">09:30 · 29/08</td>
+                            <td class="text-right num">12 phút</td>
+                            <td class="text-right num">0</td>
+                            <td class="text-right"><span class="text-muted-foreground">—</span></td>
+                            <td class="text-right">
+                              <button
+                                class="btn btn-icon btn-xs btn-ghost"
+                                aria-label="Thao tác"
+                              >
+                                <svg class="i i-3.5" aria-hidden="true">
+                                  <use href="#i-ellipsis" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <p class="hint">
+                        Mỗi học viên một dòng, lượt mới nhất. Lượt trước vẫn
+                        xem được từ trang bài làm.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <!-- The row menu, over the frame the way G-02 draws it. -->
+                <div class="relative">
+                  <div
+                    class="popover p-1.5"
+                    style="position: absolute; right: 1.5rem; bottom: 1rem; width: 13rem"
+                  >
+                    <div class="menu-item">
+                      <svg class="i text-muted-foreground" aria-hidden="true">
+                        <use href="#i-eye" />
+                      </svg>
+                      Xem bài làm
+                    </div>
+                    <div class="menu-item">
+                      <svg class="i text-muted-foreground" aria-hidden="true">
+                        <use href="#i-rotate-cw" />
+                      </svg>
+                      Cho làm lại
+                    </div>
+                    <hr class="sep my-1" />
+                    <div class="menu-item text-destructive">
+                      <svg class="i" aria-hidden="true">
+                        <use href="#i-ban" />
+                      </svg>
+                      Huỷ lượt làm này
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <div class="grid grid-cols-3 gap-4 mt-4">
+            <div class="callout">
+              <strong>A page, not a section.</strong> Putting the table under
+              the results strip made the closed screen the longest in the
+              admin and hid the summary the teacher came back for. A list of
+              papers is a destination with its own URL, filters and search —
+              the same reason the grading queue (G-10) is a route and not a
+              dashboard card.
+            </div>
+            <div class="callout">
+              <strong>Same rows as the monitor.</strong> This is G-02's read
+              with the clock columns dropped and “thời gian làm” added
+              (submitted − started). No new endpoint: one roster query, one
+              attempts query, exactly as §13.8 asks of the monitor.
+            </div>
+            <div class="callout">
+              <strong>What “Chưa nộp” means here.</strong> A student who never
+              started and one who timed out are different rows: the first is
+              in this tab, the second is a paper with a score and sits under
+              “Đã nộp”. Matches G-09's “Đã nộp 17/19” — timed out counts as
+              handed in.
             </div>
           </div>
         </div>

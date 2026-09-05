@@ -7,40 +7,39 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { reopenAssignment, type Assignment } from "@/features/assignments/api";
+import type { ReopenChoice } from "@/features/assignments/components/ReopenMenu";
 import { ApiError } from "@/lib/api/errors";
 import { formatMoment, fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
-import { cn } from "@/lib/utils";
 
-type Choice = "today" | "day" | "threeDays" | "pick";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * G-09's "Gia hạn cho tất cả": three quick moments or a picked one, then the
- * reason the audit row keeps. Nothing here is red -- reopening is the
- * reversible side of closing.
+ * The second step of G-09's "Gia hạn cho tất cả": the moment the menu chose
+ * (or a picker, for "Chọn thời điểm…") and the reason the audit row keeps.
+ * Nothing here is red -- reopening is the reversible side of closing.
  */
 export function ReopenDialog({
   assignment,
+  choice,
   open,
   onOpenChange,
   onDone,
 }: {
   assignment: Assignment;
+  choice: ReopenChoice;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDone: () => Promise<void> | void;
 }) {
   const { t } = useTranslation();
-  const [choice, setChoice] = useState<Choice>("day");
   const [picked, setPicked] = useState(() =>
     toDateTimeInput(new Date(Date.now() + DAY_MS)),
   );
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  // Mounted fresh on every opening, so "now" is the moment the teacher opened it.
+  // Mounted fresh on every opening, so "now" is the moment the teacher chose.
   const [now] = useState(() => Date.now());
-  const closesAt = momentFor(choice, picked, now);
-  const todayPossible = momentFor("today", picked, now) > now;
+  const closesAt = reopenMoment(choice, picked, now);
 
   const reopen = useMutation({
     mutationFn: () =>
@@ -63,17 +62,6 @@ export function ReopenDialog({
       ),
   });
 
-  const choices: { key: Choice; label: string; disabled?: boolean }[] = [
-    {
-      key: "today",
-      label: t("assignments.detail.reopenUntilToday"),
-      disabled: !todayPossible,
-    },
-    { key: "day", label: t("assignments.detail.reopenPlusDay") },
-    { key: "threeDays", label: t("assignments.detail.reopenPlusThreeDays") },
-    { key: "pick", label: t("assignments.detail.reopenPick") },
-  ];
-
   return (
     <ConfirmDialog
       open={open}
@@ -92,37 +80,19 @@ export function ReopenDialog({
       onConfirm={() => reopen.mutate()}
     >
       <div className="space-y-3">
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="radiogroup"
-          aria-label={t("assignments.detail.closes")}
-        >
-          {choices.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              role="radio"
-              aria-checked={choice === c.key}
-              disabled={c.disabled}
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-sm disabled:opacity-50",
-                choice === c.key ? "bg-foreground text-background" : "hover:bg-accent",
-              )}
-              onClick={() => setChoice(c.key)}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
         {choice === "pick" ? (
-          <Input
-            type="datetime-local"
-            aria-label={t("assignments.detail.closes")}
-            value={picked}
-            onChange={(event) => setPicked(event.target.value)}
-          />
+          <div>
+            <Label htmlFor="reopen-until">{t("assignments.detail.closes")}</Label>
+            <Input
+              id="reopen-until"
+              type="datetime-local"
+              className="mt-1.5"
+              value={picked}
+              onChange={(event) => setPicked(event.target.value)}
+            />
+          </div>
         ) : null}
-        <p className="text-muted-foreground text-xs">
+        <p className="text-sm">
           {t("assignments.detail.closesAt", {
             when: formatMoment(new Date(closesAt).toISOString()),
           })}
@@ -144,7 +114,8 @@ export function ReopenDialog({
   );
 }
 
-function momentFor(choice: Choice, picked: string, now: number): number {
+/** The instant each menu entry stands for, on the clock of the moment it was opened. */
+function reopenMoment(choice: ReopenChoice, picked: string, now: number): number {
   switch (choice) {
     case "today": {
       const at = new Date(now);

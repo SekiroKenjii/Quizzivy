@@ -908,7 +908,25 @@
       "closeNowNote": "Students mid-test still get their full {{minutes}} minutes.",
       "closeNowAck": "I understand students mid-test keep their time",
       "closeNow": "Close now",
-      "closeFailed": "Could not close the assignment."
+      "closeFailed": "Could not close the assignment.",
+      "closeTable": "Close the student table",
+      "reopenMenuHint": "The next step asks for a reason. Anyone with attempts left can go back in.",
+      "extraStudents": "+{{count}} individual students"
+    },
+    "panel": {
+      "title": "Student table",
+      "summary": "{{total}} students · {{submitted}} submitted",
+      "close": "Close the student table",
+      "pending": "{{count}} to grade",
+      "viewAll": "View all papers",
+      "groups": {
+        "pending": "Awaiting grading",
+        "flagged": "Needs review",
+        "inProgress": "In progress",
+        "notStarted": "Not submitted",
+        "done": "Graded",
+        "voided": "Voided"
+      }
     }
   },
   "students": {
@@ -1401,5 +1419,27 @@
     "notManual": "This question is graded automatically.",
     "empty": "No paper has answered this question yet.",
     "loadFailed": "Could not load the answers."
+  },
+  "papers": {
+    "title": "Papers · {{title}}",
+    "meta": "{{submitted}}/{{total}} submitted · {{pending}} awaiting grading · {{flagged}} need review",
+    "filter": "Filter papers",
+    "tabs": {
+      "all": "All",
+      "submitted": "Submitted",
+      "pending": "Awaiting grading",
+      "flagged": "Needs review",
+      "notStarted": "Not submitted"
+    },
+    "search": "Find a student",
+    "attempt": "Attempt",
+    "submittedAt": "Submitted",
+    "took": "Time taken",
+    "attemptOf": "{{no}}/{{max}}",
+    "tookMinutes": "{{count}} min",
+    "tookUnderMinute": "under a minute",
+    "emptyTab": "No papers in this view.",
+    "noMatches": "No student matches “{{query}}”.",
+    "hint": "One row per student, the latest attempt. Earlier attempts stay readable from the paper."
   }
 }

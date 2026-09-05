@@ -908,7 +908,25 @@
       "closeNowNote": "Học viên đang làm vẫn được làm hết {{minutes}} phút của mình.",
       "closeNowAck": "Tôi hiểu học viên đang làm vẫn được làm hết giờ",
       "closeNow": "Đóng ngay",
-      "closeFailed": "Không đóng được bài giao."
+      "closeFailed": "Không đóng được bài giao.",
+      "closeTable": "Đóng bảng học viên",
+      "reopenMenuHint": "Bước sau sẽ hỏi lý do. Ai còn lượt làm đều được vào lại.",
+      "extraStudents": "+{{count}} học viên lẻ"
+    },
+    "panel": {
+      "title": "Bảng học viên",
+      "summary": "{{total}} học viên · {{submitted}} đã nộp",
+      "close": "Đóng bảng học viên",
+      "pending": "chờ {{count}}",
+      "viewAll": "Xem tất cả bài làm",
+      "groups": {
+        "pending": "Chờ chấm",
+        "flagged": "Cần xem lại",
+        "inProgress": "Đang làm",
+        "notStarted": "Chưa nộp",
+        "done": "Đã chấm",
+        "voided": "Đã huỷ"
+      }
     }
   },
   "students": {
@@ -1401,5 +1419,27 @@
     "notManual": "Câu này được chấm tự động.",
     "empty": "Chưa có bài nào nộp câu này.",
     "loadFailed": "Không tải được câu trả lời."
+  },
+  "papers": {
+    "title": "Bài làm · {{title}}",
+    "meta": "{{submitted}}/{{total}} đã nộp · {{pending}} chờ chấm · {{flagged}} cần xem lại",
+    "filter": "Lọc bài làm",
+    "tabs": {
+      "all": "Tất cả",
+      "submitted": "Đã nộp",
+      "pending": "Chờ chấm",
+      "flagged": "Cần xem lại",
+      "notStarted": "Chưa nộp"
+    },
+    "search": "Tìm học viên",
+    "attempt": "Lượt",
+    "submittedAt": "Nộp lúc",
+    "took": "Thời gian làm",
+    "attemptOf": "{{no}}/{{max}}",
+    "tookMinutes": "{{count}} phút",
+    "tookUnderMinute": "dưới 1 phút",
+    "emptyTab": "Không có bài làm nào ở mục này.",
+    "noMatches": "Không có học viên nào khớp “{{query}}”.",
+    "hint": "Mỗi học viên một dòng, lượt mới nhất. Lượt trước vẫn xem được từ trang bài làm."
   }
 }

@@ -21,6 +21,7 @@ import { listQuestions } from "@/features/question-bank/api";
 import { listTests } from "@/features/tests/api";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
+import { fold } from "@/lib/fold";
 
 interface Entry {
   id: string;
@@ -261,7 +262,5 @@ export function CommandPalette({
 
 /** Accent-insensitive on the client too, so the navigation group behaves like search. */
 function matches(label: string, query: string): boolean {
-  const fold = (s: string) =>
-    s.toLocaleLowerCase("vi").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
   return fold(label).includes(fold(query));
 }

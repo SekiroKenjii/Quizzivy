@@ -18,6 +18,12 @@ import {
 } from "@/features/assignments/api";
 import { CloseEarlyDialog } from "@/features/assignments/components/CloseEarlyDialog";
 import { ReopenDialog } from "@/features/assignments/components/ReopenDialog";
+import {
+  ReopenMenu,
+  type ReopenChoice,
+} from "@/features/assignments/components/ReopenMenu";
+import { StudentPanel } from "@/features/assignments/components/StudentPanel";
+import { TargetsLine } from "@/features/assignments/components/TargetsLine";
 import { getMonitor } from "@/features/attempts/api";
 import { Monitor } from "@/features/attempts/components/Monitor";
 import { monitorKey } from "@/features/attempts/keys";
@@ -29,9 +35,11 @@ import { formatDate, formatMoment, formatTime } from "@/lib/i18n/datetime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import {
+  ArrowRight,
   CalendarClock,
   Check,
   ExternalLink,
+  Eye,
   EyeOff,
   FileText,
   GraduationCap,
@@ -39,7 +47,6 @@ import {
   Pencil,
   RefreshCw,
   Send,
-  Table2,
   X,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -52,7 +59,8 @@ export default function AssignmentDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [closing, setClosing] = useState(false);
-  const [reopening, setReopening] = useState(false);
+  const [reopening, setReopening] = useState<ReopenChoice | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
   const assignment = useQuery({
@@ -139,14 +147,17 @@ export default function AssignmentDetailPage() {
           <Actions
             status={status}
             hasTargets={hasTargets}
+            targetCount={targetCount}
             editHref={`/admin/assignments/${a.id}/edit`}
+            attemptsHref={`/admin/assignments/${a.id}/attempts`}
             publishing={publish.isPending}
+            now={now}
             onPublish={() => {
               setFailure(null);
               publish.mutate(a);
             }}
             onClose={() => setClosing(true)}
-            onReopen={() => setReopening(true)}
+            onReopen={setReopening}
             onRefresh={() => void refresh()}
           />
         }
@@ -194,13 +205,20 @@ export default function AssignmentDetailPage() {
             />
           </Note>
         )}
-        {status === "closed" && <ResultsStrip a={a} version={version} />}
-        {/* G-09: open shows the live table (G-02); closed keeps the table under the numbers. */}
-        {status === "open" && <Monitor assignment={a} live />}
         {status === "closed" && (
-          <div id="attempts">
-            <Monitor assignment={a} live={false} cards={false} />
-          </div>
+          <ResultsStrip
+            a={a}
+            version={version}
+            panelOpen={panelOpen}
+            onTogglePanel={() => setPanelOpen((open) => !open)}
+          />
+        )}
+        {/* G-09: open shows the live table (G-02); closed shows the numbers, and the papers live on G-11. */}
+        {status === "open" && (
+          <>
+            <TargetsLine assignment={a} />
+            <Monitor assignment={a} live />
+          </>
         )}
 
         {status !== "open" && (
@@ -222,13 +240,19 @@ export default function AssignmentDetailPage() {
         onOpenChange={setClosing}
         onConfirm={() => close.mutate(a)}
       />
-      {reopening && (
+      {reopening !== null && (
         <ReopenDialog
           assignment={a}
+          choice={reopening}
           open
-          onOpenChange={setReopening}
+          onOpenChange={(open) => {
+            if (!open) setReopening(null);
+          }}
           onDone={refresh}
         />
+      )}
+      {status === "closed" && panelOpen && (
+        <StudentPanel assignment={a} open onOpenChange={setPanelOpen} />
       )}
     </>
   );
@@ -275,8 +299,11 @@ function timeLeft(ms: number, t: TFunction): string {
 function Actions({
   status,
   hasTargets,
+  targetCount,
   editHref,
+  attemptsHref,
   publishing,
+  now,
   onPublish,
   onClose,
   onReopen,
@@ -284,11 +311,14 @@ function Actions({
 }: {
   status: AssignmentStatus;
   hasTargets: boolean;
+  targetCount: number;
   editHref: string;
+  attemptsHref: string;
   publishing: boolean;
+  now: Date;
   onPublish: () => void;
   onClose: () => void;
-  onReopen: () => void;
+  onReopen: (choice: ReopenChoice) => void;
   onRefresh: () => void;
 }) {
   const { t } = useTranslation();
@@ -344,18 +374,19 @@ function Actions({
         </>
       );
     case "closed":
-      // G-09: closing is reversible, and the papers are one scroll away.
+      // G-09: closing is reversible, and the papers are one click away (G-11).
       return (
         <>
-          <Button variant="outline" size="sm" onClick={onReopen}>
-            <RefreshCw aria-hidden="true" />
-            {t("assignments.detail.reopen")}
-          </Button>
+          <ReopenMenu
+            count={targetCount}
+            todayPossible={now.getHours() < 21}
+            onChoose={onReopen}
+          />
           <Button size="sm" asChild>
-            <a href="#attempts">
-              <Table2 aria-hidden="true" />
+            <Link to={attemptsHref}>
+              <Eye aria-hidden="true" />
               {t("assignments.detail.viewAttempts")}
-            </a>
+            </Link>
           </Button>
         </>
       );
@@ -374,9 +405,13 @@ function Note({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 function ResultsStrip({
   a,
   version,
+  panelOpen,
+  onTogglePanel,
 }: {
   a: Assignment;
   version: TestVersion | undefined;
+  panelOpen: boolean;
+  onTogglePanel: () => void;
 }) {
   const { t } = useTranslation();
   const submitted = a.submittedCount ?? 0;
@@ -430,8 +465,13 @@ function ResultsStrip({
               : t("assignments.detail.flaggedHintNone")
           }
         />
-        <Button variant="ghost" size="sm" className="ml-auto" asChild>
-          <a href="#attempts">{t("assignments.detail.openTable")}</a>
+        <Button variant="link" size="sm" className="ml-auto" onClick={onTogglePanel}>
+          {t(
+            panelOpen
+              ? "assignments.detail.closeTable"
+              : "assignments.detail.openTable",
+          )}
+          <ArrowRight aria-hidden="true" />
         </Button>
       </CardContent>
     </Card>
