@@ -52,7 +52,7 @@ func (s *Store) Update(ctx context.Context, in UpdateRequest) (Test, error) {
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &in.ActorID,
 		Action:      "test.updated",
-		Entity:      "test",
+		Entity:      entityTest,
 		EntityID:    &in.ID,
 		OccurredAt:  in.Now,
 		IP:          optional(in.IP),

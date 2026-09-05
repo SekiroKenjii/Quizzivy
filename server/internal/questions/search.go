@@ -51,7 +51,8 @@ func escapeLike(s string) string { return likeEscaper.Replace(s) }
 // appendFilters adds the bank's WHERE clauses onto whatever arguments the
 // caller has already bound, so a paged query and a bare count can share one
 // definition of "what is being filtered" instead of drifting apart.
-func appendFilters(in ListInput, args []any, opts filterOpts) ([]any, []string) {
+func appendFilters(in ListInput, opts filterOpts) ([]any, []string) {
+	var args []any
 	where := []string{`q.deleted_at IS NULL`}
 
 	if opts.types && len(in.Types) > 0 {
@@ -93,7 +94,7 @@ func allFilters() filterOpts {
 func (s *Store) List(ctx context.Context, in ListInput) ([]Question, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	args, where := appendFilters(in, nil, allFilters())
+	args, where := appendFilters(in, allFilters())
 	from := `
 		  FROM app.questions q
 		 WHERE ` + strings.Join(where, "\n		   AND ")

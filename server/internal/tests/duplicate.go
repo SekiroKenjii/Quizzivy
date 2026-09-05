@@ -59,7 +59,7 @@ func (s *Store) Duplicate(ctx context.Context, in DuplicateInput) (Test, error) 
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &in.ActorID,
 		Action:      "test.duplicated",
-		Entity:      "test",
+		Entity:      entityTest,
 		EntityID:    &copyID,
 		OccurredAt:  in.Now,
 		IP:          optional(in.IP),

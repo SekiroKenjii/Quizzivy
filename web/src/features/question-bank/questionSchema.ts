@@ -9,13 +9,13 @@ const audioPolicySchema = z.object({
 });
 
 const optionSchema = z.object({
-  id: z.string().uuid().nullable(),
+  id: z.uuid().nullable(),
   text: z.string().min(1, "questionEditor.errors.optionRequired"),
   isCorrect: z.boolean(),
 });
 
 const blankSchema = z.object({
-  id: z.string().uuid().nullable(),
+  id: z.uuid().nullable(),
   ordinal: z.number().int().min(1),
   acceptedAnswers: z.array(z.string().min(1)).min(1),
   caseSensitive: z.boolean(),
@@ -30,7 +30,7 @@ export const questionSchema = z.object({
     "short_answer",
   ]),
   prompt: z.string().min(1, "questionEditor.errors.promptRequired"),
-  mediaAssetId: z.string().uuid().nullable(),
+  mediaAssetId: z.uuid().nullable(),
   audio: audioPolicySchema.nullable(),
   transcript: z.string().nullable(),
   options: z.array(optionSchema),

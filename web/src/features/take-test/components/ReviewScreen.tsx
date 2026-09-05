@@ -22,11 +22,11 @@ export function ReviewScreen({
   dots,
   onBack,
   onJump,
-}: {
+}: Readonly<{
   dots: DotState[];
   onBack: () => void;
   onJump: (index: number) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const submit = useTakeTestStore((s) => s.submit);
   const submitState = useTakeTestStore((s) => s.submitState);
@@ -171,10 +171,10 @@ export function ReviewScreen({
 function Dots({
   items,
   onJump,
-}: {
+}: Readonly<{
   items: (DotState & { index: number })[];
   onJump: (index: number) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-wrap gap-1.5">

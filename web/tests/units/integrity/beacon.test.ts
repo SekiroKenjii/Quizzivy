@@ -93,7 +93,7 @@ describe("the pagehide flush", () => {
     });
 
     const body = await bodyOf(sent[0]!.body);
-    expect((body["events"] as unknown[]).length).toBe(3);
+    expect(body["events"] as unknown[]).toHaveLength(3);
   });
 
   it("empties the buffer", () => {

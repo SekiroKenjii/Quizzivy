@@ -3,6 +3,6 @@ export function fold(text: string): string {
   return text
     .toLocaleLowerCase("vi")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d");
+    .replaceAll(/[̀-ͯ]/g, "")
+    .replaceAll("đ", "d");
 }

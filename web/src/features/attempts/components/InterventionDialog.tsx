@@ -30,12 +30,12 @@ export function InterventionDialog({
   row,
   onOpenChange,
   onDone,
-}: {
+}: Readonly<{
   kind: Intervention | null;
   row: MonitorRow | null;
   onOpenChange: (open: boolean) => void;
   onDone: () => Promise<void> | void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [minutes, setMinutes] = useState(10);
   const [reason, setReason] = useState("");

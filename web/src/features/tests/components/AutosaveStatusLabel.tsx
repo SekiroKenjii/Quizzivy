@@ -12,10 +12,10 @@ import { formatTime } from "@/lib/i18n/datetime";
 export function AutosaveStatusLabel({
   status,
   onRetry,
-}: {
+}: Readonly<{
   status: AutosaveStatus;
   onRetry?: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
 
   if (status.kind === "idle") return null;

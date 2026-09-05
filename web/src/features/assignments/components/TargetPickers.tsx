@@ -19,7 +19,11 @@ const PAGE = 20;
  * single-digit classes; a development database already holds over a hundred,
  * and a picker that read them all at once was the first thing to break.
  */
-export function ClassTargetPicker({ selected, onAdd, onRemove }: PickerProps) {
+export function ClassTargetPicker({
+  selected,
+  onAdd,
+  onRemove,
+}: Readonly<PickerProps>) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const search = useDebounced(query, 250).trim();
@@ -56,7 +60,11 @@ export function ClassTargetPicker({ selected, onAdd, onRemove }: PickerProps) {
 }
 
 /** Searches the server, because the student table is the one that grows. */
-export function StudentTargetPicker({ selected, onAdd, onRemove }: PickerProps) {
+export function StudentTargetPicker({
+  selected,
+  onAdd,
+  onRemove,
+}: Readonly<PickerProps>) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const search = useDebounced(query, 250).trim();

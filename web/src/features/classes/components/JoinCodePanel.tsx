@@ -44,7 +44,7 @@ const DEFAULT_EXPIRY_DAYS = 30;
 const MAX_USES_CEILING = 1000;
 
 /** §6.4's join-code panel. */
-export function JoinCodePanel({ klass }: { klass: Class }) {
+export function JoinCodePanel({ klass }: Readonly<{ klass: Class }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
@@ -239,11 +239,7 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
           </div>
 
           <p className="text-muted-foreground text-xs leading-relaxed">
-            {expired && code
-              ? t("classDetail.expiredExplainer")
-              : exhausted && code
-                ? t("classDetail.exhaustedExplainer")
-                : t("classDetail.codeShareHint")}
+            {t(explainerKey(Boolean(code), expired, exhausted))}
           </p>
         </div>
 
@@ -301,13 +297,13 @@ function CodeOptionsFields({
   maxUsesInvalid,
   onExpiryChange,
   onMaxUsesChange,
-}: {
+}: Readonly<{
   expiresInDays: number;
   maxUses: string;
   maxUsesInvalid: boolean;
   onExpiryChange: (days: number) => void;
   onMaxUsesChange: (value: string) => void;
-}) {
+}>) {
   const { t } = useTranslation();
 
   return (
@@ -361,12 +357,12 @@ function CodeSummary({
   expired,
   exhausted,
   locale,
-}: {
+}: Readonly<{
   code: NonNullable<Class["joinCode"]>;
   expired: boolean;
   exhausted: boolean;
   locale: Locale;
-}) {
+}>) {
   const { t } = useTranslation();
 
   const days = daysUntil(code.expiresAt);
@@ -471,14 +467,14 @@ function FreshCodeDialog({
   onCopy,
   onCopyCode,
   onClose,
-}: {
+}: Readonly<{
   code: string | null;
   joinUrl: string | null;
   copied: boolean;
   onCopy: (joinUrl: string) => void;
   onCopyCode: (code: string) => void;
   onClose: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const qr = useRef<HTMLDivElement>(null);
 
@@ -546,4 +542,10 @@ function FreshCodeDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function explainerKey(hasCode: boolean, expired: boolean, exhausted: boolean): string {
+  if (hasCode && expired) return "classDetail.expiredExplainer";
+  if (hasCode && exhausted) return "classDetail.exhaustedExplainer";
+  return "classDetail.codeShareHint";
 }

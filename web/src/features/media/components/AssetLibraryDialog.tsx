@@ -28,7 +28,7 @@ export function AssetLibraryDialog({
   open,
   onOpenChange,
   onPick,
-}: AssetLibraryDialogProps) {
+}: Readonly<AssetLibraryDialogProps>) {
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,7 +49,7 @@ export function AssetLibraryDialog({
 
 // Separate so the query mounts when the dialog opens rather than on every
 // question editor render.
-function AssetList({ onPick }: { onPick: (asset: MediaAsset) => void }) {
+function AssetList({ onPick }: Readonly<{ onPick: (asset: MediaAsset) => void }>) {
   const { t } = useTranslation();
   const library = useLazyList({
     queryKey: ["admin-media", "picker"],

@@ -28,6 +28,8 @@ import { useLocale } from "@/lib/i18n/useLocale";
 import { formatTime, shortDate } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { getAttemptResult, type AttemptResult, type ResultQuestion } from "../api";
+import type { TFunction } from "i18next";
+import type { Locale } from "@/lib/i18n";
 
 type Chip = "all" | "wrong" | "pending";
 
@@ -152,12 +154,7 @@ export default function ResultPage() {
             onClick={() => setChip(value)}
           >
             {t(`result.chips.${value}`, {
-              count:
-                value === "all"
-                  ? questions.length
-                  : value === "wrong"
-                    ? wrong
-                    : pending,
+              count: { all: questions.length, wrong, pending }[value],
             })}
           </Button>
         ))}
@@ -193,7 +190,10 @@ function hasAny(questions: ResultQuestion[]): boolean {
   return questions.length > 0;
 }
 
-function ScoreTile({ data, pending }: { data: AttemptResult; pending: number }) {
+function ScoreTile({
+  data,
+  pending,
+}: Readonly<{ data: AttemptResult; pending: number }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const { attempt } = data;
@@ -262,26 +262,16 @@ function QuestionCard({
   question,
   number,
   review,
-}: {
+}: Readonly<{
   question: ResultQuestion;
   number: number;
   review: AttemptResult["review"];
-}) {
+}>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const v = verdict(question, review);
   const isAudio = question.media?.kind === "audio";
-  const earnedText =
-    v === "pending"
-      ? t("result.pointsPending", { total: question.points })
-      : v === "unknown"
-        ? null
-        : t("result.pointsOf", {
-            earned: scoreText(question.earned ?? 0, question.points, locale, t).split(
-              "/",
-            )[0],
-            total: question.points,
-          });
+  const earnedText = earnedLabel(v, question, locale, t);
   return (
     <Card>
       <CardContent className="space-y-3">
@@ -301,22 +291,11 @@ function QuestionCard({
             <span className="text-muted-foreground text-xs">{earnedText}</span>
           )}
           <span className="ml-auto">
-            {isAudio ? (
-              <Badge variant="outline">
-                <Headphones aria-hidden="true" />
-                {t("result.listening")}
-              </Badge>
-            ) : v === "correct" ? (
-              <Badge variant="success">{t("result.verdict.correct")}</Badge>
-            ) : v === "wrong" ? (
-              <Badge variant="danger">{t("result.verdict.wrong")}</Badge>
-            ) : v === "partial" ? (
-              <Badge variant="warning">{t("result.verdict.partial")}</Badge>
-            ) : v === "pending" ? (
-              <Badge variant="outline">{t("result.verdict.pending")}</Badge>
-            ) : question.graderComment != null ? (
-              <Badge variant="success">{t("result.verdict.graded")}</Badge>
-            ) : null}
+            <VerdictBadge
+              v={v}
+              isAudio={isAudio}
+              graded={question.graderComment != null}
+            />
           </span>
         </div>
 
@@ -380,10 +359,10 @@ function QuestionCard({
 function Body({
   question,
   review,
-}: {
+}: Readonly<{
   question: ResultQuestion;
   review: AttemptResult["review"];
-}) {
+}>) {
   const { t } = useTranslation();
   const given: Answer | null = question.answer;
   switch (question.type) {
@@ -477,11 +456,7 @@ function Body({
                   </span>
                   <span className="text-sm">{option.text}</span>
                   <span className="text-muted-foreground ml-auto self-center text-xs">
-                    {picked
-                      ? t("result.youChose")
-                      : right
-                        ? t("result.correctOption")
-                        : null}
+                    {optionNote(picked, right, t)}
                   </span>
                 </div>
               );
@@ -493,7 +468,10 @@ function Body({
   }
 }
 
-function ResultError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+function ResultError({
+  error,
+  onRetry,
+}: Readonly<{ error: unknown; onRetry: () => void }>) {
   const { t } = useTranslation();
   const requestId = error instanceof ApiError ? error.requestId : undefined;
   return (
@@ -573,4 +551,55 @@ function ResultSkeleton() {
       ))}
     </div>
   );
+}
+
+function earnedLabel(
+  v: Verdict,
+  question: ResultQuestion,
+  locale: Locale,
+  t: TFunction,
+): string | null {
+  if (v === "pending") return t("result.pointsPending", { total: question.points });
+  if (v === "unknown") return null;
+  return t("result.pointsOf", {
+    earned: scoreText(question.earned ?? 0, question.points, locale, t).split("/")[0],
+    total: question.points,
+  });
+}
+
+const VERDICT_BADGE: Partial<
+  Record<
+    Verdict,
+    { variant: "success" | "danger" | "warning" | "outline"; key: string }
+  >
+> = {
+  correct: { variant: "success", key: "result.verdict.correct" },
+  wrong: { variant: "danger", key: "result.verdict.wrong" },
+  partial: { variant: "warning", key: "result.verdict.partial" },
+  pending: { variant: "outline", key: "result.verdict.pending" },
+};
+
+/** S-06's verdict badge; a listening question is labelled as one instead. */
+function VerdictBadge({
+  v,
+  isAudio,
+  graded,
+}: Readonly<{ v: Verdict; isAudio: boolean; graded: boolean }>) {
+  const { t } = useTranslation();
+  if (isAudio) {
+    return (
+      <Badge variant="outline">
+        <Headphones aria-hidden="true" />
+        {t("result.listening")}
+      </Badge>
+    );
+  }
+  const known = VERDICT_BADGE[v];
+  if (known) return <Badge variant={known.variant}>{t(known.key)}</Badge>;
+  return graded ? <Badge variant="success">{t("result.verdict.graded")}</Badge> : null;
+}
+
+function optionNote(picked: boolean, right: boolean, t: TFunction): string | null {
+  if (picked) return t("result.youChose");
+  return right ? t("result.correctOption") : null;
 }

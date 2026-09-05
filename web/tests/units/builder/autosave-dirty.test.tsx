@@ -6,7 +6,9 @@ import { mergeAutosave, useAutosave } from "@/features/tests/useAutosave";
 import "@/lib/i18n";
 
 /** §8's badge answers one question: is it safe to close the tab. */
-function Harness({ onReady }: { onReady: (schedule: (v: string) => void) => void }) {
+function Harness({
+  onReady,
+}: Readonly<{ onReady: (schedule: (v: string) => void) => void }>) {
   const autosave = useAutosave<string>({ save: () => Promise.resolve() });
   useEffect(() => {
     onReady(autosave.schedule);
@@ -24,7 +26,7 @@ afterEach(() => {
 
 describe("the autosave badge during the debounce window", () => {
   it("says not saved the moment an edit is scheduled", () => {
-    let schedule: (v: string) => void = () => undefined;
+    let schedule: (v: string) => void = (_value) => undefined;
     render(<Harness onReady={(s) => (schedule = s)} />);
 
     act(() => schedule("một chữ"));
@@ -34,7 +36,7 @@ describe("the autosave badge during the debounce window", () => {
   });
 
   it("only claims saved once the request has come back", async () => {
-    let schedule: (v: string) => void = () => undefined;
+    let schedule: (v: string) => void = (_value) => undefined;
     render(<Harness onReady={(s) => (schedule = s)} />);
 
     act(() => schedule("một chữ"));
@@ -48,7 +50,7 @@ describe("the autosave badge during the debounce window", () => {
   });
 
   it("goes back to not-saved when the teacher types again", async () => {
-    let schedule: (v: string) => void = () => undefined;
+    let schedule: (v: string) => void = (_value) => undefined;
     render(<Harness onReady={(s) => (schedule = s)} />);
 
     act(() => schedule("một"));

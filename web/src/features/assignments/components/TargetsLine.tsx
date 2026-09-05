@@ -6,7 +6,7 @@ import type { Assignment } from "@/features/assignments/api";
 import { cn } from "@/lib/utils";
 
 /** G-02's line under the bar: who the work went to, with each class one click away. */
-export function TargetsLine({ assignment }: { assignment: Assignment }) {
+export function TargetsLine({ assignment }: Readonly<{ assignment: Assignment }>) {
   const { t } = useTranslation();
   const { classes, students } = assignment.targets;
   return (

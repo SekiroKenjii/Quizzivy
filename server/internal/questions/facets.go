@@ -18,7 +18,7 @@ type TypeFacets struct {
 // list: A-06 shows every type's count at once, and applying the filter would
 // zero the rows the teacher has not selected.
 func (s *Store) Facets(ctx context.Context, in ListInput) (TypeFacets, error) {
-	args, where := appendFilters(in, nil, filterOpts{tags: true})
+	args, where := appendFilters(in, filterOpts{tags: true})
 
 	sql := `SELECT q.type::text, count(*)
 		      FROM app.questions q
@@ -56,7 +56,7 @@ func (s *Store) Facets(ctx context.Context, in ListInput) (TypeFacets, error) {
 // second chip could not be selected and multi-tag filtering looked unbuilt.
 func (s *Store) Tags(ctx context.Context, in ListInput) ([]string, error) {
 	// tags: false -- picking one chip must not empty the rail.
-	args, where := appendFilters(in, nil, filterOpts{types: true})
+	args, where := appendFilters(in, filterOpts{types: true})
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT DISTINCT unnest(q.tags)
@@ -85,7 +85,7 @@ func (s *Store) Tags(ctx context.Context, in ListInput) ([]string, error) {
 // `filtered` applies EVERY dimension, unlike facets.All which skips the type
 // filter so the "Tất cả" row has something to show.
 func (s *Store) Counts(ctx context.Context, in ListInput) (total int, filtered int, err error) {
-	args, where := appendFilters(in, nil, allFilters())
+	args, where := appendFilters(in, allFilters())
 
 	if err := s.pool.QueryRow(ctx, `
 		SELECT (SELECT count(*) FROM app.questions q WHERE q.deleted_at IS NULL),

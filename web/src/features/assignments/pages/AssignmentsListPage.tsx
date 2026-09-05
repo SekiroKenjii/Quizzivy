@@ -28,7 +28,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
@@ -148,69 +148,66 @@ export default function AssignmentsListPage() {
         )}
       </div>
 
-      {assignments.isPending ? (
-        <ListSkeleton />
-      ) : assignments.isError ? (
-        <LoadError error={assignments.error} onRetry={() => void assignments.refetch()}>
-          {t("assignments.loadFailed")}
-        </LoadError>
-      ) : items.length === 0 ? (
-        <EmptyState
-          action={
-            <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
-              {t("assignments.new")}
-            </Button>
-          }
-        >
-          {classId !== undefined && tab === "all"
-            ? t("assignments.emptyForClass")
-            : tab === "all"
-              ? t("assignments.empty")
-              : t("assignments.noneWithStatus")}
-        </EmptyState>
-      ) : (
-        <>
-          <Card className="gap-0 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[34%]">{t("assignments.test")}</TableHead>
-                  <TableHead>{t("assignments.targets")}</TableHead>
-                  <TableHead>{t("assignments.window")}</TableHead>
-                  <TableHead>{t("assignments.statusColumn")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("assignments.progress")}
-                  </TableHead>
-                  <TableHead className="text-right">
-                    {t("assignments.flagged")}
-                  </TableHead>
-                  <TableHead className="w-10">
-                    <span className="sr-only">{t("common.actions")}</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((assignment) => (
-                  <Row
-                    key={assignment.id}
-                    assignment={assignment}
-                    locale={locale}
-                    now={now}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+      <QueryStates
+        query={assignments}
+        skeleton={<ListSkeleton />}
+        failed={t("assignments.loadFailed")}
+      >
+        {(data) =>
+          items.length === 0 ? (
+            <EmptyState
+              action={
+                <Button
+                  size="sm"
+                  onClick={() => void navigate("/admin/assignments/new")}
+                >
+                  {t("assignments.new")}
+                </Button>
+              }
+            >
+              {t(emptyKey(classId !== undefined, tab))}
+            </EmptyState>
+          ) : (
+            <>
+              <Card className="gap-0 overflow-hidden py-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[34%]">{t("assignments.test")}</TableHead>
+                      <TableHead>{t("assignments.targets")}</TableHead>
+                      <TableHead>{t("assignments.window")}</TableHead>
+                      <TableHead>{t("assignments.statusColumn")}</TableHead>
+                      <TableHead className="text-right">
+                        {t("assignments.progress")}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {t("assignments.flagged")}
+                      </TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("common.actions")}</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((assignment) => (
+                      <Row
+                        key={assignment.id}
+                        assignment={assignment}
+                        locale={locale}
+                        now={now}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
 
-          {assignments.data && (
-            <Pager
-              page={assignments.data.page}
-              pageSize={assignments.data.pageSize}
-              total={assignments.data.total}
-            />
-          )}
-        </>
-      )}
+              {data && (
+                <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+              )}
+            </>
+          )
+        }
+      </QueryStates>
     </div>
   );
 }
@@ -219,11 +216,11 @@ function Row({
   assignment,
   locale,
   now,
-}: {
+}: Readonly<{
   assignment: Assignment;
   locale: Locale;
   now: Date;
-}) {
+}>) {
   const { t } = useTranslation();
   const status = statusAt(assignment, now);
   const submitted = assignment.submittedCount ?? 0;
@@ -289,4 +286,9 @@ function Row({
       </TableCell>
     </TableRow>
   );
+}
+
+function emptyKey(forClass: boolean, tab: string): string {
+  if (tab !== "all") return "assignments.noneWithStatus";
+  return forClass ? "assignments.emptyForClass" : "assignments.empty";
 }

@@ -27,11 +27,11 @@ function Section({
   title,
   labelledBy,
   children,
-}: {
+}: Readonly<{
   title: string;
   labelledBy: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <Card asChild className="gap-0 py-0">
       <section aria-labelledby={labelledBy}>
@@ -217,22 +217,13 @@ export function GoogleSection() {
           >
             {t("settings.unlinkGoogle")}
           </Button>
-        ) : googleSignInAvailable() ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={google.pending}
-            onClick={() =>
+        ) : (
+          <LinkGoogleControl
+            pending={google.pending}
+            onStart={() =>
               void google.start({ mode: "link", next: window.location.pathname })
             }
-          >
-            <GoogleMark />
-            {t("settings.linkGoogle")}
-          </Button>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            {t("login.googleUnavailable")}
-          </p>
+          />
         )}
       </div>
     </Section>
@@ -257,5 +248,24 @@ export function LanguageSection() {
         </TabsList>
       </Tabs>
     </Section>
+  );
+}
+
+/** The link button, or the reason there is none: GIS is a public config value that can be absent. */
+function LinkGoogleControl({
+  pending,
+  onStart,
+}: Readonly<{ pending: boolean; onStart: () => void }>) {
+  const { t } = useTranslation();
+  if (!googleSignInAvailable()) {
+    return (
+      <p className="text-muted-foreground text-sm">{t("login.googleUnavailable")}</p>
+    );
+  }
+  return (
+    <Button variant="outline" size="sm" disabled={pending} onClick={onStart}>
+      <GoogleMark />
+      {t("settings.linkGoogle")}
+    </Button>
   );
 }

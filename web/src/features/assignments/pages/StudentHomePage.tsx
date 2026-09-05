@@ -171,7 +171,10 @@ export default function StudentHomePage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
     <section>
       <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
@@ -183,7 +186,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** The deck's due card: the one with a button, because it is the one to act on. */
-function DueCard({ card, now }: { card: StudentAssignmentCard; now: Date }) {
+function DueCard({ card, now }: Readonly<{ card: StudentAssignmentCard; now: Date }>) {
   const { t } = useTranslation();
   return (
     <Card className="border-foreground/20 gap-0 p-5 shadow-sm">
@@ -229,7 +232,7 @@ function DueCard({ card, now }: { card: StudentAssignmentCard; now: Date }) {
  * Resuming skips the intro: the rules were read when the attempt began, and
  * the only thing this student needs is the way back in.
  */
-function ResumeCard({ card }: { card: StudentAssignmentCard }) {
+function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -279,7 +282,7 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
 }
 
 /** Derived during render; the interval only asks for a repaint, as Clock does. */
-function ResumeBody({ card }: { card: StudentAssignmentCard }) {
+function ResumeBody({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   const { t } = useTranslation();
   const deadlineAt = card.liveDeadlineAt;
   const [, repaint] = useReducer((n: number) => n + 1, 0);
@@ -302,7 +305,10 @@ function ResumeBody({ card }: { card: StudentAssignmentCard }) {
 }
 
 /** A number, or "Chờ chấm", or nothing -- score is absent when the policy hides it. */
-function Outcome({ card, locale }: { card: StudentAssignmentCard; locale: Locale }) {
+function Outcome({
+  card,
+  locale,
+}: Readonly<{ card: StudentAssignmentCard; locale: Locale }>) {
   const { t } = useTranslation();
   const score = card.score;
   if (!score) return null;

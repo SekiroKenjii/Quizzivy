@@ -10,10 +10,10 @@ import { invalidateClass } from "@/features/classes/invalidate";
 export function ArchiveClassDialog({
   klass,
   onOpenChange,
-}: {
+}: Readonly<{
   klass: Class | null;
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
@@ -60,7 +60,7 @@ export function ArchiveClassDialog({
   );
 }
 
-function Line({ children }: { children: string }) {
+function Line({ children }: Readonly<{ children: string }>) {
   return (
     <li className="flex items-start gap-2">
       <Check

@@ -47,7 +47,7 @@ export function TokenField({
   onQueryChange,
   onAdd,
   onRemove,
-}: TokenFieldProps) {
+}: Readonly<TokenFieldProps>) {
   const { t } = useTranslation();
   const inputId = useId();
   const listId = useId();
@@ -82,31 +82,46 @@ export function TokenField({
 
   function move(delta: number) {
     if (available.length === 0) return;
-    const from = active === -1 ? (delta > 0 ? -1 : 0) : active;
+    let from = active;
+    if (active === -1) from = delta > 0 ? -1 : 0;
     const next = (from + delta + available.length) % available.length;
     setActiveId(available[next]!.id);
   }
 
-  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      setOpen(true);
-      if (open) move(event.key === "ArrowDown" ? 1 : -1);
-    } else if (event.key === "Home" || event.key === "End") {
-      if (!open || query !== "" || available.length === 0) return;
-      event.preventDefault();
-      setActiveId(available[event.key === "Home" ? 0 : available.length - 1]!.id);
-    } else if (event.key === "Enter") {
-      if (!open || activeOption === undefined) return;
-      event.preventDefault();
+  function jumpTo(index: number): boolean {
+    if (!open || query !== "" || available.length === 0) return false;
+    setActiveId(available[index]!.id);
+    return true;
+  }
+  function arrow(delta: 1 | -1): boolean {
+    setOpen(true);
+    if (open) move(delta);
+    return true;
+  }
+  const keyActions: Record<string, () => boolean> = {
+    ArrowDown: () => arrow(1),
+    ArrowUp: () => arrow(-1),
+    Home: () => jumpTo(0),
+    End: () => jumpTo(available.length - 1),
+    Enter: () => {
+      if (!open || activeOption === undefined) return false;
       pick(activeOption);
-    } else if (event.key === "Escape") {
-      if (!open) return;
-      event.preventDefault();
+      return true;
+    },
+    Escape: () => {
+      if (!open) return false;
       setOpen(false);
-    } else if (event.key === "Backspace" && query === "" && selected.length > 0) {
-      onRemove(selected[selected.length - 1]!.id);
-    }
+      return true;
+    },
+    Backspace: () => {
+      if (query === "" && selected.length > 0)
+        onRemove(selected[selected.length - 1]!.id);
+      return false;
+    },
+  };
+  // Each action says whether it consumed the key, which is what the input must not also see.
+  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (keyActions[event.key]?.()) event.preventDefault();
   }
 
   return (
@@ -170,21 +185,23 @@ export function TokenField({
             aria-label={label}
             className="bg-popover mt-1 max-h-56 overflow-y-auto rounded-md border p-1 shadow-md"
           >
-            {loading ? (
+            {loading && (
               <li
                 role="presentation"
                 className="text-muted-foreground px-2 py-1.5 text-sm"
               >
                 {t("common.loading")}
               </li>
-            ) : available.length === 0 ? (
+            )}
+            {!loading && available.length === 0 && (
               <li
                 role="presentation"
                 className="text-muted-foreground px-2 py-1.5 text-sm"
               >
                 {t("assignments.noCandidates")}
               </li>
-            ) : (
+            )}
+            {!loading && available.length > 0 && (
               <>
                 {available.map((option, index) => (
                   <li key={option.id} role="presentation">

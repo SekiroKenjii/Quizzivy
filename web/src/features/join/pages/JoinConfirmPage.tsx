@@ -12,6 +12,7 @@ import { normalize } from "@/features/join/code";
 import { useGoogleSignIn } from "@/features/auth/google/useGoogleSignIn";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
+import type { TFunction } from "i18next";
 
 /**
  * §6.2's confirm step, and the reason it exists: "the student sees WHICH class
@@ -37,13 +38,7 @@ export default function JoinConfirmPage() {
     retry: false,
     staleTime: 30_000,
   });
-  const error =
-    joinError ??
-    (previewError instanceof ApiError
-      ? previewError.message
-      : previewError
-        ? t("join.failed")
-        : null);
+  const error = joinError ?? previewMessage(previewError, t);
 
   async function onConfirm() {
     if (!user) {
@@ -135,4 +130,9 @@ export default function JoinConfirmPage() {
       </Button>
     </>
   );
+}
+
+function previewMessage(error: unknown, t: TFunction): string | null {
+  if (error instanceof ApiError) return error.message;
+  return error ? t("join.failed") : null;
 }

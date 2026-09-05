@@ -21,10 +21,10 @@ func TestShutdownDrainsInFlightRequests(t *testing.T) {
 	cfg := config.Config{Port: port, Env: "test"}
 
 	started := make(chan struct{})
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		close(started)
 		time.Sleep(requestDuration)
-		fmt.Fprint(w, "drained")
+		_, _ = fmt.Fprint(w, "drained")
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

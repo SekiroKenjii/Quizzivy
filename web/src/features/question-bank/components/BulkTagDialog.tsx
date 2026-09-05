@@ -31,13 +31,13 @@ export function BulkTagDialog({
   open,
   onOpenChange,
   onApplied,
-}: {
+}: Readonly<{
   questionIds: string[];
   suggestions: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApplied: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [tags, setTags] = useState<string[]>([]);

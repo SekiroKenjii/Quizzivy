@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, EyeOff, Minus, Plus } from "lucide-react";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { Markdown } from "@/components/shared/Markdown";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +24,12 @@ export function GradeByQuestion({
   testTitle,
   initialQuestionId,
   onExit,
-}: {
+}: Readonly<{
   assignmentId: string;
   testTitle: string;
   initialQuestionId: string;
   onExit: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [questionId, setQuestionId] = useState(initialQuestionId);
@@ -75,6 +75,12 @@ export function GradeByQuestion({
     const row = items[index];
     if (row) inputs.current.get(row.attemptId)?.focus();
   };
+  const saveRow =
+    (row: QuestionAnswerRow, index: number) => (points: number, andNext: boolean) =>
+      grade.mutate(
+        { row, points },
+        { onSuccess: () => (andNext ? goNext() : focusRow(index + 1)) },
+      );
   const goNext = () => {
     if (nextId === undefined) return;
     setQuestionId(nextId);
@@ -134,112 +140,113 @@ export function GradeByQuestion({
         }
       />
 
-      {answers.isPending ? (
-        <ListSkeleton rows={6} />
-      ) : answers.isError || data === undefined ? (
-        <LoadError error={answers.error} onRetry={() => void answers.refetch()}>
-          {t("byQuestion.loadFailed")}
-        </LoadError>
-      ) : data.question.type !== "short_answer" ? (
-        <EmptyState
-          action={
-            nextId === undefined ? undefined : (
-              <Button size="sm" onClick={goNext}>
-                {t("byQuestion.next")}
-              </Button>
-            )
-          }
-        >
-          {t("byQuestion.notManual")}
-        </EmptyState>
-      ) : (
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-            <p className="text-muted-foreground text-xs">
-              {t("byQuestion.meta", {
-                n: data.questionNumber,
-                type: t(`questionEditor.type.${data.question.type}`, {
-                  defaultValue: data.question.type,
-                }),
-                points: data.question.points,
-              })}
-            </p>
-            <Markdown className="text-sm">{data.question.prompt}</Markdown>
-            {data.question.sampleAnswer != null && (
-              <div className="bg-muted/30 rounded-md border p-4">
-                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                  <Eye className="size-3.5" aria-hidden="true" />
-                  {t("review.sampleAnswer")}
+      <QueryStates
+        query={answers}
+        skeleton={<ListSkeleton rows={6} />}
+        failed={t("byQuestion.loadFailed")}
+      >
+        {(data) =>
+          data.question.type !== "short_answer" ? (
+            <EmptyState
+              action={
+                nextId === undefined ? undefined : (
+                  <Button size="sm" onClick={goNext}>
+                    {t("byQuestion.next")}
+                  </Button>
+                )
+              }
+            >
+              {t("byQuestion.notManual")}
+            </EmptyState>
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-3">
+              <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+                <p className="text-muted-foreground text-xs">
+                  {t("byQuestion.meta", {
+                    n: data.questionNumber,
+                    type: t(`questionEditor.type.${data.question.type}`, {
+                      defaultValue: data.question.type,
+                    }),
+                    points: data.question.points,
+                  })}
                 </p>
-                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
-                  {data.question.sampleAnswer}
+                <Markdown className="text-sm">{data.question.prompt}</Markdown>
+                {data.question.sampleAnswer != null && (
+                  <div className="bg-muted/30 rounded-md border p-4">
+                    <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                      <Eye className="size-3.5" aria-hidden="true" />
+                      {t("review.sampleAnswer")}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
+                      {data.question.sampleAnswer}
+                    </p>
+                    {data.question.explanation != null && (
+                      <p className="text-muted-foreground mt-2 text-xs">
+                        {t("byQuestion.rubric")}: {data.question.explanation}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {t("byQuestion.namesHidden")}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="shrink-0"
+                    aria-pressed={showNames}
+                    onClick={() => setShowNames((value) => !value)}
+                  >
+                    {showNames ? (
+                      <EyeOff aria-hidden="true" />
+                    ) : (
+                      <Eye aria-hidden="true" />
+                    )}
+                    {showNames ? t("byQuestion.hideNames") : t("byQuestion.showNames")}
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {t("byQuestion.keys", { max: data.question.points })}
                 </p>
-                {data.question.explanation != null && (
-                  <p className="text-muted-foreground mt-2 text-xs">
-                    {t("byQuestion.rubric")}: {data.question.explanation}
+              </div>
+
+              <div className="space-y-3 lg:col-span-2">
+                {failure !== null && (
+                  <p role="alert" className="text-destructive text-sm">
+                    {failure}
                   </p>
                 )}
+                {items.length === 0 ? (
+                  <EmptyState>{t("byQuestion.empty")}</EmptyState>
+                ) : (
+                  items.map((row, index) => (
+                    <AnswerRow
+                      key={row.attemptId}
+                      row={row}
+                      label={
+                        revealed
+                          ? row.studentName
+                          : t("byQuestion.student", {
+                              n: String(index + 1).padStart(2, "0"),
+                            })
+                      }
+                      max={data.question.points}
+                      pending={grade.isPending}
+                      inputRef={(el) => {
+                        if (el) inputs.current.set(row.attemptId, el);
+                        else inputs.current.delete(row.attemptId);
+                      }}
+                      onSave={saveRow(row, index)}
+                      onMove={(delta) => focusRow(index + delta)}
+                    />
+                  ))
+                )}
               </div>
-            )}
-            <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-              <p className="text-muted-foreground text-xs leading-relaxed">
-                {t("byQuestion.namesHidden")}
-              </p>
-              <Button
-                variant="outline"
-                size="xs"
-                className="shrink-0"
-                aria-pressed={showNames}
-                onClick={() => setShowNames((value) => !value)}
-              >
-                {showNames ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                {showNames ? t("byQuestion.hideNames") : t("byQuestion.showNames")}
-              </Button>
             </div>
-            <p className="text-muted-foreground text-xs">
-              {t("byQuestion.keys", { max: data.question.points })}
-            </p>
-          </div>
-
-          <div className="space-y-3 lg:col-span-2">
-            {failure !== null && (
-              <p role="alert" className="text-destructive text-sm">
-                {failure}
-              </p>
-            )}
-            {items.length === 0 ? (
-              <EmptyState>{t("byQuestion.empty")}</EmptyState>
-            ) : (
-              items.map((row, index) => (
-                <AnswerRow
-                  key={row.attemptId}
-                  row={row}
-                  label={
-                    revealed
-                      ? row.studentName
-                      : t("byQuestion.student", {
-                          n: String(index + 1).padStart(2, "0"),
-                        })
-                  }
-                  max={data.question.points}
-                  pending={grade.isPending}
-                  inputRef={(el) => {
-                    if (el) inputs.current.set(row.attemptId, el);
-                    else inputs.current.delete(row.attemptId);
-                  }}
-                  onSave={(points, andNext) =>
-                    grade.mutate(
-                      { row, points },
-                      { onSuccess: () => (andNext ? goNext() : focusRow(index + 1)) },
-                    )
-                  }
-                  onMove={(delta) => focusRow(index + delta)}
-                />
-              ))
-            )}
-          </div>
-        </div>
-      )}
+          )
+        }
+      </QueryStates>
     </>
   );
 }
@@ -252,7 +259,7 @@ function AnswerRow({
   inputRef,
   onSave,
   onMove,
-}: {
+}: Readonly<{
   row: QuestionAnswerRow;
   label: string;
   max: number;
@@ -260,7 +267,7 @@ function AnswerRow({
   inputRef: (el: HTMLInputElement | null) => void;
   onSave: (points: number, andNext: boolean) => void;
   onMove: (delta: -1 | 1) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [points, setPoints] = useState(
     row.manualScore == null ? "" : String(row.manualScore),

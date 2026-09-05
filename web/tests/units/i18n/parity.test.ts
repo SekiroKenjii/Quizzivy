@@ -12,8 +12,8 @@ function keyPaths(obj: unknown, prefix = ""): string[] {
 }
 
 describe("locale parity", () => {
-  const viKeys = keyPaths(vi).sort();
-  const enKeys = keyPaths(en).sort();
+  const viKeys = keyPaths(vi).sort((a, b) => a.localeCompare(b));
+  const enKeys = keyPaths(en).sort((a, b) => a.localeCompare(b));
 
   it("has the same keys in vi and en", () => {
     expect(

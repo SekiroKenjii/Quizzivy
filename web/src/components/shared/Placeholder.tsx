@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
  * so navigation, guards and code-splitting can be exercised before the screens
  * exist. Replaced feature by feature in Phases 1–4.
  */
-export function Placeholder({ titleKey }: { titleKey: string }) {
+export function Placeholder({ titleKey }: Readonly<{ titleKey: string }>) {
   const { t } = useTranslation();
   return (
     <section className="space-y-2">

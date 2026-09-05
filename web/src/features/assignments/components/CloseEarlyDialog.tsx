@@ -14,14 +14,14 @@ export function CloseEarlyDialog({
   failed,
   onOpenChange,
   onConfirm,
-}: {
+}: Readonly<{
   assignment: Assignment;
   open: boolean;
   pending: boolean;
   failed: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [understood, setUnderstood] = useState(false);
 

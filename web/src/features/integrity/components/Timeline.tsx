@@ -42,7 +42,7 @@ export function Timeline({
   live,
   note,
   onViewPaper,
-}: {
+}: Readonly<{
   attemptId: string;
   questions: AdminQuestion[];
   /** Polls while the attempt is still in progress. */
@@ -50,7 +50,7 @@ export function Timeline({
   /** G-05's private note as last saved; the card autosaves from here. */
   note: string | null;
   onViewPaper: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<TimelineFilter>("all");
   const events = useQuery({
@@ -198,21 +198,7 @@ export function Timeline({
                           />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {ongoing ? (
-                            <span className="text-muted-foreground">
-                              {t("timeline.ongoing")}
-                            </span>
-                          ) : event.durationMs == null ? (
-                            <span className="text-muted-foreground">—</span>
-                          ) : (
-                            <span
-                              className={cn(
-                                event.kind !== "audio_play" && "font-medium",
-                              )}
-                            >
-                              {clockSpan(event.durationMs)}
-                            </span>
-                          )}
+                          <DurationCell event={event} ongoing={ongoing} />
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {event.questionId && numberOf.has(event.questionId) ? (
@@ -267,12 +253,12 @@ function EventLabel({
   playNo,
   ongoing,
   questions,
-}: {
+}: Readonly<{
   event: IntegrityEvent;
   playNo: number | null;
   ongoing: boolean;
   questions: AdminQuestion[];
-}) {
+}>) {
   const { t } = useTranslation();
   const label = t(`timeline.kind.${event.kind}`, { defaultValue: event.kind });
   if (event.kind === "audio_play" && playNo !== null) {
@@ -305,12 +291,12 @@ function Strip({
   hint = null,
   empty,
   children,
-}: {
+}: Readonly<{
   label: string;
   hint?: string | null;
   empty: boolean;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <Card>
       <CardContent>
@@ -364,4 +350,20 @@ function TimelineSkeleton() {
 /** "09:48:02", wall-clock in the app's zone. */
 function clockTime(utc: string | Date): string {
   return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm:ss");
+}
+
+/** G-05's "Kéo dài": still open, nothing to pair, or the span it lasted. */
+function DurationCell({
+  event,
+  ongoing,
+}: Readonly<{ event: IntegrityEvent; ongoing: boolean }>) {
+  const { t } = useTranslation();
+  if (ongoing)
+    return <span className="text-muted-foreground">{t("timeline.ongoing")}</span>;
+  if (event.durationMs == null) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className={cn(event.kind !== "audio_play" && "font-medium")}>
+      {clockSpan(event.durationMs)}
+    </span>
+  );
 }

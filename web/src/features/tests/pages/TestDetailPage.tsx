@@ -10,7 +10,7 @@ import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
-import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { ListSkeleton, LoadError, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -86,21 +86,21 @@ export default function TestDetailPage() {
             </p>
           </div>
 
-          {preview.isPending ? (
-            <ListSkeleton rows={4} />
-          ) : notPublished ? (
+          {notPublished && !preview.isPending ? (
             <div className="space-y-3">
               <p className="text-muted-foreground text-sm">{t("tests.notPublished")}</p>
               <Button asChild size="sm">
                 <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
               </Button>
             </div>
-          ) : preview.isError ? (
-            <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
-              {t("tests.previewFailed")}
-            </LoadError>
           ) : (
-            <StudentPreview questions={preview.data.questions} />
+            <QueryStates
+              query={preview}
+              skeleton={<ListSkeleton rows={4} />}
+              failed={t("tests.previewFailed")}
+            >
+              {(data) => <StudentPreview questions={data.questions} />}
+            </QueryStates>
           )}
         </div>
 
@@ -131,10 +131,10 @@ export default function TestDetailPage() {
 function VersionHistory({
   query,
   locale,
-}: {
+}: Readonly<{
   query: UseQueryResult<Awaited<ReturnType<typeof listVersions>>>;
   locale: Locale;
-}) {
+}>) {
   const { t } = useTranslation();
   if (query.isPending) {
     return <ListSkeleton rows={2} />;

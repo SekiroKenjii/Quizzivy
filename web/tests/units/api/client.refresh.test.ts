@@ -131,10 +131,7 @@ describe("session loss (§5.2)", () => {
   it("clears the store and reports session loss when refresh fails", async () => {
     const lost = vi.fn();
     setSessionLostHandler(lost);
-    handler = (url) =>
-      url.endsWith("/auth/refresh")
-        ? envelope("REFRESH_TOKEN_INVALID", 401)
-        : envelope("REFRESH_TOKEN_INVALID", 401);
+    handler = () => envelope("REFRESH_TOKEN_INVALID", 401);
 
     await expect(api("get", "/auth/me")).rejects.toBeInstanceOf(ApiError);
     expect(lost).toHaveBeenCalledOnce();

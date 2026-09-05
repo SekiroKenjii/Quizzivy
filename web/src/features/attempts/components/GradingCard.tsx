@@ -21,14 +21,14 @@ export function GradingCard({
   error,
   onSave,
   onSkip,
-}: {
+}: Readonly<{
   question: AdminQuestion;
   answer: ReviewAnswer | undefined;
   pending: boolean;
   error: string | null;
   onSave: (points: number, comment: string | null) => void;
   onSkip: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const max = question.points;
   const [points, setPoints] = useState<string>(

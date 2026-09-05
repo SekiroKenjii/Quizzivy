@@ -84,7 +84,7 @@ export default function TestBuilderPage() {
   return <Builder key={test.data.id} test={test.data} />;
 }
 
-function Builder({ test }: { test: Test }) {
+function Builder({ test }: Readonly<{ test: Test }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -453,7 +453,7 @@ function QuestionPane({
   contextLabel,
   settingsOpen,
   onSettingsOpenChange,
-}: {
+}: Readonly<{
   questionId: string;
   flushRef: RefObject<(() => Promise<void>) | null>;
   retryRef: RefObject<(() => void) | null>;
@@ -461,7 +461,7 @@ function QuestionPane({
   contextLabel: string | null;
   settingsOpen: boolean;
   onSettingsOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const question = useQuery({
     queryKey: ["admin-question", questionId],
@@ -506,7 +506,7 @@ function QuestionForm({
   contextLabel,
   settingsOpen,
   onSettingsOpenChange,
-}: {
+}: Readonly<{
   questionId: string;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
@@ -515,7 +515,7 @@ function QuestionForm({
   contextLabel: string | null;
   settingsOpen: boolean;
   onSettingsOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
 

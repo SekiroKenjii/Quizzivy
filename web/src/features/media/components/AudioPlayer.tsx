@@ -40,7 +40,7 @@ export function AudioPlayer({
   onPlay,
   onSeekBlocked,
   onRetry,
-}: AudioPlayerProps) {
+}: Readonly<AudioPlayerProps>) {
   const { t } = useTranslation();
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);

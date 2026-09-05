@@ -67,10 +67,10 @@ export default function QuestionEditorPage() {
 function Editor({
   question,
   onRefreshAsset,
-}: {
+}: Readonly<{
   question: AdminQuestion | null;
   onRefreshAsset: () => Promise<MediaAsset | null>;
-}) {
+}>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

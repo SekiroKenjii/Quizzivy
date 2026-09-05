@@ -14,12 +14,12 @@ export function StrikeDialog({
   state,
   strikes,
   lastAwayMs,
-}: {
+}: Readonly<{
   state: StrikeState;
   /** This sitting's count, which is what a new dialog is keyed to. */
   strikes: number;
   lastAwayMs: number | null;
-}) {
+}>) {
   const { t } = useTranslation();
   const [acknowledged, setAcknowledged] = useState(0);
 
@@ -62,16 +62,16 @@ export function StrikeDialog({
 }
 
 /** The one sentence that changes between the dialog's states. */
-function Consequence({ state }: { state: StrikeState }) {
+function Consequence({ state }: Readonly<{ state: StrikeState }>) {
   const { t } = useTranslation();
   const flag = state.consequence === "flag";
 
-  if (state.limit === null) return t("integrity.unlimited");
+  if (state.limit === null) return <>{t("integrity.unlimited")}</>;
   if (state.exceeded) {
-    return t(flag ? "integrity.exceededFlag" : "integrity.exceededWarn");
+    return <>{t(flag ? "integrity.exceededFlag" : "integrity.exceededWarn")}</>;
   }
   if (state.remaining === 0) {
-    return t(flag ? "integrity.spentFlag" : "integrity.spentWarn");
+    return <>{t(flag ? "integrity.spentFlag" : "integrity.spentWarn")}</>;
   }
   return (
     <Trans

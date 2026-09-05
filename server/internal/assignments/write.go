@@ -174,31 +174,22 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var currentVersionID string
-	var currentClosedAt, currentPublishedAt *time.Time
-	switch err := tx.QueryRow(ctx, `
-		SELECT test_version_id::text, closed_at, published_at FROM app.assignments
-		 WHERE id = $1::uuid FOR UPDATE`, req.ID).
-		Scan(&currentVersionID, &currentClosedAt, &currentPublishedAt); {
-	case err == nil:
-	case errors.Is(err, pgx.ErrNoRows):
-		return Assignment{}, ErrNotFound
-	default:
-		return Assignment{}, fmt.Errorf("assignments: load for update: %w", err)
+	current, err := lockForUpdate(ctx, tx, req.ID)
+	if err != nil {
+		return Assignment{}, err
 	}
-
 	testID, err := publishedTestFor(ctx, tx, in.TestVersionID)
 	if err != nil {
 		return Assignment{}, err
 	}
-	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, currentVersionID); err != nil {
+	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, current.versionID); err != nil {
 		return Assignment{}, err
 	}
 	if err := checkTargets(ctx, tx, in); err != nil {
 		return Assignment{}, err
 	}
 
-	next := currentClosedAt
+	next := current.closedAt
 	if in.CloseNow && next == nil {
 		next = &in.Now
 	}
@@ -222,32 +213,15 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded,
-		in.Integrity.MinAwayMs, nextPublishedAt(currentPublishedAt, in)); err != nil {
+		in.Integrity.MinAwayMs, nextPublishedAt(current.publishedAt, in)); err != nil {
 		return Assignment{}, fmt.Errorf("assignments: update: %w", err)
 	}
-
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM app.assignment_classes WHERE assignment_id = $1::uuid`, req.ID); err != nil {
-		return Assignment{}, fmt.Errorf("assignments: clear class targets: %w", err)
-	}
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM app.assignment_students WHERE assignment_id = $1::uuid`, req.ID); err != nil {
-		return Assignment{}, fmt.Errorf("assignments: clear student targets: %w", err)
-	}
-	if err := writeTargets(ctx, tx, req.ID, in); err != nil {
+	if err := replaceTargets(ctx, tx, req.ID, in); err != nil {
 		return Assignment{}, err
-	}
-
-	action := "assignment.updated"
-	switch {
-	case in.CloseNow && currentClosedAt == nil:
-		action = "assignment.closed"
-	case currentPublishedAt == nil && !in.Draft:
-		action = "assignment.published"
 	}
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
-		Action:      action,
+		Action:      updateAction(in, current),
 		Entity:      "assignment",
 		EntityID:    &req.ID,
 		OccurredAt:  in.Now,
@@ -265,6 +239,55 @@ func (s *Store) Update(ctx context.Context, req Request, in WriteInput) (Assignm
 		return Assignment{}, fmt.Errorf("assignments: commit update: %w", err)
 	}
 	return saved, nil
+}
+
+// lockedRow is what Update needs of the row it is about to overwrite.
+type lockedRow struct {
+	versionID             string
+	closedAt, publishedAt *time.Time
+}
+
+func lockForUpdate(ctx context.Context, tx pgx.Tx, id string) (lockedRow, error) {
+	var row lockedRow
+	err := tx.QueryRow(ctx, `
+		SELECT test_version_id::text, closed_at, published_at FROM app.assignments
+		 WHERE id = $1::uuid FOR UPDATE`, id).
+		Scan(&row.versionID, &row.closedAt, &row.publishedAt)
+	switch {
+	case err == nil:
+		return row, nil
+	case errors.Is(err, pgx.ErrNoRows):
+		return lockedRow{}, ErrNotFound
+	default:
+		return lockedRow{}, fmt.Errorf("assignments: load for update: %w", err)
+	}
+}
+
+// replaceTargets swaps the roster wholesale: an update replaces targets rather
+// than adding to them.
+func replaceTargets(ctx context.Context, tx pgx.Tx, id string, in WriteInput) error {
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM app.assignment_classes WHERE assignment_id = $1::uuid`, id); err != nil {
+		return fmt.Errorf("assignments: clear class targets: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM app.assignment_students WHERE assignment_id = $1::uuid`, id); err != nil {
+		return fmt.Errorf("assignments: clear student targets: %w", err)
+	}
+	return writeTargets(ctx, tx, id, in)
+}
+
+// updateAction names the audit row: closing early and first publication are
+// the two updates a teacher will be asked about later.
+func updateAction(in WriteInput, current lockedRow) string {
+	switch {
+	case in.CloseNow && current.closedAt == nil:
+		return "assignment.closed"
+	case current.publishedAt == nil && !in.Draft:
+		return "assignment.published"
+	default:
+		return "assignment.updated"
+	}
 }
 
 // nextPublishedAt keeps an already-published assignment published. Saving one

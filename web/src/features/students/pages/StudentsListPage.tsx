@@ -27,11 +27,12 @@ import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
+import type { TFunction } from "i18next";
 
 const PAGE_SIZE = 20;
 
@@ -112,43 +113,41 @@ export default function StudentsListPage() {
         </label>
       </div>
 
-      {students.isPending ? (
-        <ListSkeleton />
-      ) : students.isError ? (
-        <LoadError error={students.error} onRetry={() => void students.refetch()}>
-          {t("students.loadFailed")}
-        </LoadError>
-      ) : items.length === 0 ? (
-        <EmptyState
-          action={
-            showDisabled || search !== "" ? undefined : (
-              <Button size="sm" onClick={() => setCreating(true)}>
-                <UserPlus aria-hidden="true" />
-                {t("students.new")}
-              </Button>
-            )
-          }
-        >
-          {t(emptyMessage(showDisabled, search))}
-        </EmptyState>
-      ) : (
-        <>
-          <StudentTable
-            items={items}
-            locale={locale}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+      <QueryStates
+        query={students}
+        skeleton={<ListSkeleton />}
+        failed={t("students.loadFailed")}
+      >
+        {(data) =>
+          items.length === 0 ? (
+            <EmptyState
+              action={
+                showDisabled || search !== "" ? undefined : (
+                  <Button size="sm" onClick={() => setCreating(true)}>
+                    <UserPlus aria-hidden="true" />
+                    {t("students.new")}
+                  </Button>
+                )
+              }
+            >
+              {t(emptyMessage(showDisabled, search))}
+            </EmptyState>
+          ) : (
+            <>
+              <StudentTable
+                items={items}
+                locale={locale}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
 
-          {students.data && (
-            <Pager
-              page={students.data.page}
-              pageSize={students.data.pageSize}
-              total={students.data.total}
-            />
-          )}
-        </>
-      )}
+              {data && (
+                <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+              )}
+            </>
+          )
+        }
+      </QueryStates>
 
       {selected === null ? null : (
         <StudentDrawer
@@ -168,12 +167,12 @@ function StudentTable({
   locale,
   selectedId,
   onSelect,
-}: {
+}: Readonly<{
   items: Student[];
   locale: Locale;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <Card className="gap-0 overflow-hidden py-0">
@@ -214,12 +213,12 @@ function Row({
   locale,
   expanded,
   onToggle,
-}: {
+}: Readonly<{
   student: Student;
   locale: Locale;
   expanded: boolean;
   onToggle: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const percent = scorePercent(student.stats);
 
@@ -242,14 +241,7 @@ function Row({
         </button>
       </TableCell>
       <TableCell className="text-muted-foreground">
-        {student.classes.length === 0
-          ? "—"
-          : student.classes.length === 1
-            ? student.classes[0]!.name
-            : t("students.classesPlus", {
-                name: student.classes[0]!.name,
-                more: student.classes.length - 1,
-              })}
+        {classesText(student.classes, t)}
       </TableCell>
       <TableCell>
         <span className="flex flex-wrap gap-1">
@@ -274,12 +266,27 @@ function Row({
       <TableCell className="text-muted-foreground">
         {student.stats.activity.live ? (
           <span className="text-success-ink">{t("students.takingNow")}</span>
-        ) : student.stats.activity.lastAttemptAt ? (
-          formatRelative(student.stats.activity.lastAttemptAt, locale)
         ) : (
-          "—"
+          lastSeenText(student.stats.activity.lastAttemptAt, locale)
         )}
       </TableCell>
     </TableRow>
   );
+}
+
+function classesText(
+  classes: readonly { readonly name: string }[],
+  t: TFunction,
+): string {
+  const [first] = classes;
+  if (first === undefined) return "—";
+  if (classes.length === 1) return first.name;
+  return t("students.classesPlus", { name: first.name, more: classes.length - 1 });
+}
+
+function lastSeenText(
+  lastAttemptAt: string | null | undefined,
+  locale: Locale,
+): string {
+  return lastAttemptAt ? formatRelative(lastAttemptAt, locale) : "—";
 }

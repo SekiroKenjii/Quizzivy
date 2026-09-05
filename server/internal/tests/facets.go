@@ -23,7 +23,7 @@ type StatusFacets struct {
 // One grouped query rather than four counts: the same scan answers all of them.
 func (s *Store) Facets(ctx context.Context, in ListInput) (StatusFacets, error) {
 	args := []any{}
-	where := []string{`t.deleted_at IS NULL`}
+	where := []string{liveTests}
 	if q := strings.TrimSpace(in.Query); q != "" {
 		args = append(args, escapeLike(q))
 		where = append(where, fmt.Sprintf(titleSearch, len(args)))

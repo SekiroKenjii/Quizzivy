@@ -1,4 +1,10 @@
-import { useId, useMemo, useState, type ReactNode } from "react";
+import {
+  useId,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -45,7 +51,8 @@ import {
 import { fetchClass } from "@/features/classes/api";
 import { getTest, listVersions, type TestVersion } from "@/features/tests/api";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
-import { ApiError, fieldMessages } from "@/lib/api/errors";
+import { failureMessage, fieldMessages } from "@/lib/api/errors";
+import type { TFunction } from "i18next";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 const ATTEMPTS = [1, 2, 3];
@@ -117,80 +124,14 @@ export default function AssignmentFormPage() {
     null,
   );
 
-  const fromClassId = params.get("classId");
-  const fromClassQuery = useQuery({
-    queryKey: ["admin-class", fromClassId],
-    queryFn: ({ signal }) => fetchClass(fromClassId ?? "", signal),
-    enabled: fromClassId !== null,
-  });
-
-  const preselected = useMemo(() => {
-    const found = fromClassQuery.data;
-    return found
-      ? { id: found.id, label: found.name, hint: String(found.studentCount) }
-      : null;
-  }, [fromClassQuery.data]);
-
-  // A-03's "Giao cho lớp" arrives with the test chosen; its latest version is the pick.
-  const fromTestId = params.get("testId");
-  const fromTest = useQuery({
-    queryKey: ["admin-test", fromTestId],
-    queryFn: ({ signal }) => getTest(fromTestId ?? "", signal),
-    enabled: fromTestId !== null && !editing,
-  });
-  const fromVersions = useQuery({
-    queryKey: ["admin-test-versions", fromTestId],
-    queryFn: ({ signal }) => listVersions(fromTestId ?? "", signal),
-    enabled: fromTestId !== null && !editing,
-  });
-  const latest = fromVersions.data?.items.reduce<TestVersion | null>(
-    (best, v) => (best === null || v.version > best.version ? v : best),
-    null,
-  );
-  const [pickedFor, setPickedFor] = useState<string | null>(null);
-  if (fromTest.data && latest && pickedFor !== fromTest.data.id) {
-    setPickedFor(fromTest.data.id);
-    const picked = {
-      testId: fromTest.data.id,
-      testTitle: fromTest.data.title,
-      version: latest,
-    };
-    setDraft((current) => (current.picked === null ? { ...current, picked } : current));
-  }
-
-  const [appliedFor, setAppliedFor] = useState<string | null>(null);
-  if (preselected && appliedFor !== preselected.id) {
-    setAppliedFor(preselected.id);
-    setDraft((current) =>
-      current.classes.some((c) => c.id === preselected.id)
-        ? current
-        : { ...current, classes: [...current.classes, preselected] },
-    );
-  }
-
-  const existing = useQuery({
-    queryKey: ["admin-assignment", id],
-    queryFn: ({ signal }) => getAssignment(id ?? "", signal),
-    enabled: editing,
-  });
-  const testId = existing.data?.testId;
-  const versions = useQuery({
-    queryKey: ["admin-test-versions", testId],
-    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
-    enabled: testId !== undefined,
-  });
-  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
-  if (existing.data && versions.data && hydratedFor !== existing.data.id) {
-    setHydratedFor(existing.data.id);
-    setDraft(fromAssignment(existing.data, versions.data.items));
-  }
+  usePickFromQuery(editing ? null : params.get("testId"), setDraft);
+  useClassFromQuery(params.get("classId"), setDraft);
+  const { existing, versions, hydrated } = useExistingAssignment(id, setDraft);
   const published = existing.data?.publishedAt != null;
 
   const save = useMutation({
-    mutationFn: (asDraft: boolean) => {
-      const body = { draft: asDraft, ...toBody(draft) };
-      return editing ? updateAssignment(id, body) : createAssignment(body);
-    },
+    mutationFn: (asDraft: boolean) =>
+      saveAssignment(id, { draft: asDraft, ...toBody(draft) }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-assignment", id] });
@@ -199,10 +140,7 @@ export default function AssignmentFormPage() {
     },
     onError: (cause) =>
       setError({
-        summary:
-          cause instanceof ApiError
-            ? cause.message
-            : t(editing ? "assignments.updateFailed" : "assignments.createFailed"),
+        summary: failureMessage(cause, t(saveFailedKey(editing))),
         fields: fieldMessages(cause),
       }),
   });
@@ -211,21 +149,8 @@ export default function AssignmentFormPage() {
   const ready = draft.picked !== null && hasTargets;
   const savable = draft.picked !== null;
 
-  if (editing && hydratedFor === null) {
-    return existing.isError || versions.isError ? (
-      <LoadError
-        error={existing.error ?? versions.error}
-        onRetry={() => {
-          void existing.refetch();
-          void versions.refetch();
-        }}
-      >
-        {t("assignments.detail.loadFailed")}
-      </LoadError>
-    ) : (
-      <ListSkeleton rows={8} />
-    );
-  }
+  if (editing && !hydrated)
+    return <EditLoadState existing={existing} versions={versions} />;
 
   return (
     <>
@@ -500,9 +425,7 @@ export default function AssignmentFormPage() {
                     <SelectContent>
                       {FOCUS_LIMITS.map((count) => (
                         <SelectItem key={count} value={String(count)}>
-                          {count === 0
-                            ? t("assignments.unlimited")
-                            : t("assignments.timesAway", { count })}
+                          {focusLimitLabel(count, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -577,9 +500,7 @@ export default function AssignmentFormPage() {
               save.mutate(false);
             }}
           >
-            {save.isPending
-              ? t("common.loading")
-              : t(published ? "assignments.saveChanges" : "assignments.assign")}
+            {save.isPending ? t("common.loading") : t(submitKey(published))}
           </Button>
           {/* A draft needs only the test. */}
           {published ? null : (
@@ -658,7 +579,7 @@ function fromAssignment(a: Assignment, versions: TestVersion[]): Draft {
   };
 }
 
-function Summary({ draft }: { draft: Draft }) {
+function Summary({ draft }: Readonly<{ draft: Draft }>) {
   const { t } = useTranslation();
 
   const upperBound =
@@ -714,7 +635,7 @@ function Summary({ draft }: { draft: Draft }) {
   );
 }
 
-function Line({ label, value }: { label: string; value: string }) {
+function Line({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex justify-between gap-3">
       <dt className="text-muted-foreground">{label}</dt>
@@ -727,11 +648,11 @@ function Field({
   label,
   hint,
   children,
-}: {
+}: Readonly<{
   label: string;
   hint?: string;
   children: (id: string) => ReactNode;
-}) {
+}>) {
   const id = useId();
   return (
     <div>
@@ -748,11 +669,11 @@ function Toggle({
   label,
   checked,
   onChange,
-}: {
+}: Readonly<{
   label: string;
   checked: boolean;
   onChange: (value: boolean) => void;
-}) {
+}>) {
   return (
     <label className="flex items-center justify-between gap-3 text-sm">
       {label}
@@ -765,4 +686,123 @@ function windowDays(opensAt: string, closesAt: string): number {
   const ms =
     fromDateTimeInput(closesAt).getTime() - fromDateTimeInput(opensAt).getTime();
   return Math.max(0, Math.round(ms / 86_400_000));
+}
+
+function saveFailedKey(editing: boolean): string {
+  return editing ? "assignments.updateFailed" : "assignments.createFailed";
+}
+
+function submitKey(published: boolean): string {
+  return published ? "assignments.saveChanges" : "assignments.assign";
+}
+
+type SetDraft = Dispatch<SetStateAction<Draft>>;
+
+/** A-03's "Giao cho lớp" arrives with the test chosen; its latest version is the pick. */
+function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
+  const test = useQuery({
+    queryKey: ["admin-test", testId],
+    queryFn: ({ signal }) => getTest(testId ?? "", signal),
+    enabled: testId !== null,
+  });
+  const versions = useQuery({
+    queryKey: ["admin-test-versions", testId],
+    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
+    enabled: testId !== null,
+  });
+  const latest = latestOf(versions.data?.items ?? []);
+  const [pickedFor, setPickedFor] = useState<string | null>(null);
+  if (test.data && latest && pickedFor !== test.data.id) {
+    setPickedFor(test.data.id);
+    const picked = {
+      testId: test.data.id,
+      testTitle: test.data.title,
+      version: latest,
+    };
+    setDraft((current) => (current.picked === null ? { ...current, picked } : current));
+  }
+}
+
+function latestOf(items: readonly TestVersion[]): TestVersion | null {
+  return items.reduce<TestVersion | null>(
+    (best, v) => (best === null || v.version > best.version ? v : best),
+    null,
+  );
+}
+
+/** G-06's "Giao bài" arrives with the class chosen; it joins the targets once. */
+function useClassFromQuery(classId: string | null, setDraft: SetDraft) {
+  const klass = useQuery({
+    queryKey: ["admin-class", classId],
+    queryFn: ({ signal }) => fetchClass(classId ?? "", signal),
+    enabled: classId !== null,
+  });
+  const [appliedFor, setAppliedFor] = useState<string | null>(null);
+  const found = klass.data;
+  if (found && appliedFor !== found.id) {
+    setAppliedFor(found.id);
+    const token = { id: found.id, label: found.name, hint: String(found.studentCount) };
+    setDraft((current) =>
+      current.classes.some((c) => c.id === token.id)
+        ? current
+        : { ...current, classes: [...current.classes, token] },
+    );
+  }
+}
+
+/** Editing loads the assignment and its test's versions, then fills the draft once. */
+function useExistingAssignment(id: string | undefined, setDraft: SetDraft) {
+  const existing = useQuery({
+    queryKey: ["admin-assignment", id],
+    queryFn: ({ signal }) => getAssignment(id ?? "", signal),
+    enabled: id !== undefined,
+  });
+  const testId = existing.data?.testId;
+  const versions = useQuery({
+    queryKey: ["admin-test-versions", testId],
+    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
+    enabled: testId !== undefined,
+  });
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+  if (existing.data && versions.data && hydratedFor !== existing.data.id) {
+    setHydratedFor(existing.data.id);
+    setDraft(fromAssignment(existing.data, versions.data.items));
+  }
+  return { existing, versions, hydrated: hydratedFor !== null };
+}
+
+function saveAssignment(
+  id: string | undefined,
+  body: Parameters<typeof createAssignment>[0],
+) {
+  return id === undefined ? createAssignment(body) : updateAssignment(id, body);
+}
+
+/** Both loads must land before the form can be trusted; either failing is the whole page failing. */
+function EditLoadState({
+  existing,
+  versions,
+}: Readonly<{
+  existing: { isError: boolean; error: unknown; refetch: () => unknown };
+  versions: { isError: boolean; error: unknown; refetch: () => unknown };
+}>) {
+  const { t } = useTranslation();
+  if (!existing.isError && !versions.isError) return <ListSkeleton rows={8} />;
+  return (
+    <LoadError
+      error={existing.error ?? versions.error}
+      onRetry={() => {
+        void existing.refetch();
+        void versions.refetch();
+      }}
+    >
+      {t("assignments.detail.loadFailed")}
+    </LoadError>
+  );
+}
+
+function focusLimitLabel(count: number, t: TFunction): string {
+  return count === 0
+    ? t("assignments.unlimited")
+    : t("assignments.timesAway", { count });
 }

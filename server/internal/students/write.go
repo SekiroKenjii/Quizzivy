@@ -11,6 +11,9 @@ import (
 	"quizzivy/internal/audit"
 )
 
+// entityUser names the audit rows every write to a student account leaves.
+const entityUser = "user"
+
 // Request is the admin behind a write, for the audit row.
 type Request struct {
 	ActorID   string
@@ -82,7 +85,7 @@ func (s *Store) Create(ctx context.Context, req Request, in CreateInput) (Studen
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
 		Action:      "student.created",
-		Entity:      "user",
+		Entity:      entityUser,
 		EntityID:    &id,
 		OccurredAt:  in.Now,
 		IP:          optional(req.IP),
@@ -132,7 +135,7 @@ func (s *Store) Update(ctx context.Context, req Request, in UpdateInput) (Studen
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
 		Action:      "student.updated",
-		Entity:      "user",
+		Entity:      entityUser,
 		EntityID:    &in.ID,
 		OccurredAt:  in.Now,
 		IP:          optional(req.IP),
@@ -182,7 +185,7 @@ func (s *Store) ResetPassword(ctx context.Context, req Request, id, hash string,
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
 		Action:      "student.password_reset",
-		Entity:      "user",
+		Entity:      entityUser,
 		EntityID:    &id,
 		OccurredAt:  now,
 		IP:          optional(req.IP),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"quizzivy/internal/db"
 	"quizzivy/internal/grading"
 )
 
@@ -178,32 +179,31 @@ func gradingKey(ctx context.Context, tx pgx.Tx, versionID string) ([]grading.Que
 }
 
 func attachKeyOptions(ctx context.Context, tx pgx.Tx, versionID string, qs []grading.Question, at map[string]int) error {
-	rows, err := tx.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, tx, `
 		SELECT o.test_version_question_id, o.id, o.ordinal, o.is_correct
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
-		 WHERE s.test_version_id = $1::uuid`, versionID)
+		 WHERE s.test_version_id = $1::uuid`, []any{versionID},
+		func(rows pgx.Rows) (string, grading.Option, error) {
+			var questionID string
+			var o grading.Option
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Correct)
+			return questionID, o, err
+		})
 	if err != nil {
 		return fmt.Errorf("attempts: read key options: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var o grading.Option
-		if err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Correct); err != nil {
-			return fmt.Errorf("attempts: scan key option: %w", err)
-		}
+	for questionID, options := range byQuestion {
 		if i, ok := at[questionID]; ok {
-			qs[i].Options = append(qs[i].Options, o)
+			qs[i].Options = options
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func attachKeyBlanks(ctx context.Context, tx pgx.Tx, versionID string, qs []grading.Question, at map[string]int) error {
-	rows, err := tx.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, tx, `
 		SELECT b.test_version_question_id, b.id, b.case_sensitive,
 		       coalesce(array_agg(ba.answer) FILTER (WHERE ba.answer IS NOT NULL), '{}')
 		  FROM app.test_version_blanks b
@@ -211,23 +211,22 @@ func attachKeyBlanks(ctx context.Context, tx pgx.Tx, versionID string, qs []grad
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		  LEFT JOIN app.test_version_blank_answers ba ON ba.test_version_blank_id = b.id
 		 WHERE s.test_version_id = $1::uuid
-		 GROUP BY b.test_version_question_id, b.id, b.case_sensitive`, versionID)
+		 GROUP BY b.test_version_question_id, b.id, b.case_sensitive`, []any{versionID},
+		func(rows pgx.Rows) (string, grading.Blank, error) {
+			var questionID string
+			var b grading.Blank
+			err := rows.Scan(&questionID, &b.ID, &b.CaseSensitive, &b.Accepted)
+			return questionID, b, err
+		})
 	if err != nil {
 		return fmt.Errorf("attempts: read key blanks: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var b grading.Blank
-		if err := rows.Scan(&questionID, &b.ID, &b.CaseSensitive, &b.Accepted); err != nil {
-			return fmt.Errorf("attempts: scan key blank: %w", err)
-		}
+	for questionID, blanks := range byQuestion {
 		if i, ok := at[questionID]; ok {
-			qs[i].Blanks = append(qs[i].Blanks, b)
+			qs[i].Blanks = blanks
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func submittedAnswers(ctx context.Context, tx pgx.Tx, attemptID string) (map[string][]byte, error) {

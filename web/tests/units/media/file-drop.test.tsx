@@ -8,7 +8,7 @@ import "@/lib/i18n";
  * failure it guards against — the browser navigating to the dropped file and
  * tearing the SPA down — is a default action, not a rendered state.
  */
-function Harness({ onFiles }: { onFiles: (files: File[]) => void }) {
+function Harness({ onFiles }: Readonly<{ onFiles: (files: File[]) => void }>) {
   const dragging = useFileDrop(onFiles);
   return <p>{dragging ? "dragging" : "idle"}</p>;
 }
@@ -95,7 +95,7 @@ describe("the window file drop", () => {
     rerender(<Harness onFiles={() => undefined} />);
     rerender(<Harness onFiles={() => undefined} />);
 
-    expect(add.mock.calls.length).toBe(before);
+    expect(add.mock.calls).toHaveLength(before);
     add.mockRestore();
   });
 });

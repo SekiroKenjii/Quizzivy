@@ -5,6 +5,7 @@ import type { Answer } from "@/features/take-test/api";
 import { cn } from "@/lib/utils";
 import type { AdminQuestion, ReviewAnswer } from "../api";
 import { OPTION, optionKey } from "./answerStyles";
+import type { TFunction } from "i18next";
 
 /**
  * A question as the teacher reads it after the fact: the prompt, the
@@ -13,10 +14,10 @@ import { OPTION, optionKey } from "./answerStyles";
 export function AnswerReview({
   question,
   answer,
-}: {
+}: Readonly<{
   question: AdminQuestion;
   answer: ReviewAnswer | undefined;
-}) {
+}>) {
   const given = answer?.answer ?? null;
   return (
     <div className="space-y-4">
@@ -36,7 +37,10 @@ export function AnswerReview({
   );
 }
 
-function Body({ question, given }: { question: AdminQuestion; given: Answer | null }) {
+function Body({
+  question,
+  given,
+}: Readonly<{ question: AdminQuestion; given: Answer | null }>) {
   const { t } = useTranslation();
   switch (question.type) {
     case "short_answer":
@@ -62,13 +66,7 @@ function Body({ question, given }: { question: AdminQuestion; given: Answer | nu
             const typed = values[blank.id] ?? "";
             const hit = matches(typed, blank.acceptedAnswers, blank.caseSensitive);
             return (
-              <div
-                key={blank.id}
-                className={cn(
-                  OPTION.base,
-                  typed === "" ? "" : hit ? OPTION.correct : OPTION.wrong,
-                )}
-              >
+              <div key={blank.id} className={cn(OPTION.base, blankTone(typed, hit))}>
                 <span className={OPTION.key}>{blank.ordinal}</span>
                 <div className="min-w-0 flex-1 text-sm">
                   {typed === "" ? (
@@ -110,13 +108,7 @@ function Body({ question, given }: { question: AdminQuestion; given: Answer | nu
                 <span className={OPTION.key}>{optionKey(index)}</span>
                 <span className="text-sm">{option.text}</span>
                 <span className="text-muted-foreground ml-auto self-center text-xs">
-                  {picked && option.isCorrect
-                    ? t("review.pickedCorrect")
-                    : picked
-                      ? t("review.picked")
-                      : option.isCorrect
-                        ? t("review.correctAnswer")
-                        : null}
+                  {optionNote(picked, option.isCorrect, t)}
                 </span>
               </div>
             );
@@ -135,4 +127,14 @@ function matches(typed: string, accepted: string[], caseSensitive: boolean): boo
   };
   const given = fold(typed);
   return given !== "" && accepted.some((a) => fold(a) === given);
+}
+
+function blankTone(typed: string, hit: boolean): string {
+  if (typed === "") return "";
+  return hit ? OPTION.correct : OPTION.wrong;
+}
+
+function optionNote(picked: boolean, isCorrect: boolean, t: TFunction): string | null {
+  if (picked) return t(isCorrect ? "review.pickedCorrect" : "review.picked");
+  return isCorrect ? t("review.correctAnswer") : null;
 }

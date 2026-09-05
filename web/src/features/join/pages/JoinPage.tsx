@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
@@ -40,7 +40,7 @@ export default function JoinPage() {
     enrolMutate(normalize(codeParam));
   }, [isBootstrapping, isSignedIn, codeParam, enrolMutate]);
 
-  function onSubmit(event: FormEvent) {
+  function onSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isComplete(code)) {
       setError(t("join.errors.incomplete"));

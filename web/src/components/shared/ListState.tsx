@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/api/errors";
 
 /** F-08's three list states: skeleton rows, one sentence + one action, and the route error card. */
 
-export function ListSkeleton({ rows = 5 }: { rows?: number }) {
+export function ListSkeleton({ rows = 5 }: Readonly<{ rows?: number }>) {
   const { t } = useTranslation();
   return (
     <div
@@ -27,11 +27,11 @@ export function EmptyState({
   children,
   hint,
   action,
-}: {
+}: Readonly<{
   children: string;
   hint?: string;
   action?: ReactNode;
-}) {
+}>) {
   return (
     <div className="rounded-lg border border-dashed p-8 text-center">
       <p className="text-sm">{children}</p>
@@ -47,11 +47,11 @@ export function LoadError({
   children,
   error,
   onRetry,
-}: {
+}: Readonly<{
   children: string;
   error: unknown;
   onRetry: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const requestId = error instanceof ApiError ? error.requestId : undefined;
   return (
@@ -84,4 +84,45 @@ export function LoadError({
       </div>
     </div>
   );
+}
+
+interface QueryLike<T> {
+  readonly isPending: boolean;
+  readonly isError: boolean;
+  readonly error: unknown;
+  readonly data: T | undefined;
+  readonly refetch: () => unknown;
+}
+
+/**
+ * F-08's states ahead of the content, written once: the skeleton while the
+ * first read is out, the error card with its retry, then the content -- so no
+ * screen nests one ternary inside another to get there.
+ */
+export function QueryStates<T>({
+  query,
+  skeleton,
+  failed,
+  className,
+  children,
+}: Readonly<{
+  query: QueryLike<T>;
+  skeleton: ReactNode;
+  failed: string;
+  /** Wraps the skeleton and the error, for a card whose body carries its own padding. */
+  className?: string;
+  children: (data: T) => ReactNode;
+}>) {
+  const wrap = (node: ReactNode) =>
+    className === undefined ? node : <div className={className}>{node}</div>;
+  if (query.isPending) return wrap(skeleton);
+  if (query.isError) {
+    return wrap(
+      <LoadError error={query.error} onRetry={() => void query.refetch()}>
+        {failed}
+      </LoadError>,
+    );
+  }
+  if (query.data === undefined) return null;
+  return children(query.data);
 }

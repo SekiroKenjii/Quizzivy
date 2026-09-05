@@ -52,10 +52,10 @@ const DESTINATIONS: { key: string; to: string; Icon: typeof FileText }[] = [
 export function CommandPalette({
   open,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");

@@ -53,7 +53,7 @@ import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
 import { ApiError } from "@/lib/api/errors";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RowMenu } from "@/components/shared/RowMenu";
 import { SearchInput } from "@/components/shared/SearchInput";
@@ -233,121 +233,123 @@ export default function TestsListPage() {
         </p>
       )}
 
-      {tests.isPending ? (
-        <ListSkeleton />
-      ) : tests.isError ? (
-        <LoadError error={tests.error} onRetry={() => void tests.refetch()}>
-          {t("tests.loadFailed")}
-        </LoadError>
-      ) : items.length === 0 ? (
-        <EmptyState
-          action={
-            <Button
-              size="sm"
-              disabled={create.isPending}
-              onClick={() => create.mutate()}
+      <QueryStates
+        query={tests}
+        skeleton={<ListSkeleton />}
+        failed={t("tests.loadFailed")}
+      >
+        {(data) =>
+          items.length === 0 ? (
+            <EmptyState
+              action={
+                <Button
+                  size="sm"
+                  disabled={create.isPending}
+                  onClick={() => create.mutate()}
+                >
+                  {t("tests.new")}
+                </Button>
+              }
             >
-              {t("tests.new")}
-            </Button>
-          }
-        >
-          {tab === "all" && search.trim() === "" && tags.length === 0
-            ? t("tests.empty")
-            : t("tests.noMatches")}
-        </EmptyState>
-      ) : (
-        <>
-          <Card className="gap-0 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%]">{t("tests.title")}</TableHead>
-                  <TableHead>{t("tests.status")}</TableHead>
-                  <TableHead className="text-right">{t("tests.questions")}</TableHead>
-                  <TableHead className="text-right">{t("tests.points")}</TableHead>
-                  <TableHead>{t("tests.version")}</TableHead>
-                  <TableHead>{t("tests.updated")}</TableHead>
-                  <TableHead className="w-10">
-                    <span className="sr-only">{t("tests.actions")}</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((test) => (
-                  <TableRow key={test.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {/* A-03: a draft opens the builder, anything else the read-only detail. */}
-                        <Link
-                          to={openHref(test)}
-                          className="truncate font-medium hover:underline"
-                        >
-                          {test.title}
-                        </Link>
-                        {test.audioCount > 0 ? (
-                          <Badge
-                            variant="outline"
-                            aria-label={t("tests.audioCount", {
-                              count: test.audioCount,
-                            })}
-                          >
-                            <Headphones aria-hidden="true" width="12" height="12" />
-                            {test.audioCount}
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge kind="test" status={test.status} />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {test.questionCount}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {test.totalPoints}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">
-                      {test.currentVersion === 0
-                        ? "—"
-                        : t("tests.versionNumber", { n: test.currentVersion })}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatRelative(test.updatedAt, locale)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RowActions
-                        test={test}
-                        onEdit={() => void navigate(`/admin/tests/${test.id}/edit`)}
-                        onDuplicate={() => duplicate.mutate(test.id)}
-                        onArchive={() => setArchiving(test)}
-                        onRestore={() => restore.mutate(test)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-          <ConfirmDialog
-            open={archiving !== null}
-            onOpenChange={(open) => !open && setArchiving(null)}
-            title={t("tests.archiveConfirmTitle", { title: archiving?.title ?? "" })}
-            description={t("tests.archiveConfirmBody")}
-            confirmLabel={t("tests.archive")}
-            destructive
-            pending={archive.isPending}
-            onConfirm={() => archiving && archive.mutate(archiving)}
-          />
+              {tab === "all" && search.trim() === "" && tags.length === 0
+                ? t("tests.empty")
+                : t("tests.noMatches")}
+            </EmptyState>
+          ) : (
+            <>
+              <Card className="gap-0 overflow-hidden py-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40%]">{t("tests.title")}</TableHead>
+                      <TableHead>{t("tests.status")}</TableHead>
+                      <TableHead className="text-right">
+                        {t("tests.questions")}
+                      </TableHead>
+                      <TableHead className="text-right">{t("tests.points")}</TableHead>
+                      <TableHead>{t("tests.version")}</TableHead>
+                      <TableHead>{t("tests.updated")}</TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("tests.actions")}</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((test) => (
+                      <TableRow key={test.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {/* A-03: a draft opens the builder, anything else the read-only detail. */}
+                            <Link
+                              to={openHref(test)}
+                              className="truncate font-medium hover:underline"
+                            >
+                              {test.title}
+                            </Link>
+                            {test.audioCount > 0 ? (
+                              <Badge
+                                variant="outline"
+                                aria-label={t("tests.audioCount", {
+                                  count: test.audioCount,
+                                })}
+                              >
+                                <Headphones aria-hidden="true" width="12" height="12" />
+                                {test.audioCount}
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge kind="test" status={test.status} />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {test.questionCount}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {test.totalPoints}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground tabular-nums">
+                          {test.currentVersion === 0
+                            ? "—"
+                            : t("tests.versionNumber", { n: test.currentVersion })}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatRelative(test.updatedAt, locale)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <RowActions
+                            test={test}
+                            onEdit={() => void navigate(`/admin/tests/${test.id}/edit`)}
+                            onDuplicate={() => duplicate.mutate(test.id)}
+                            onArchive={() => setArchiving(test)}
+                            onRestore={() => restore.mutate(test)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+              <ConfirmDialog
+                open={archiving !== null}
+                onOpenChange={(open) => !open && setArchiving(null)}
+                title={t("tests.archiveConfirmTitle", {
+                  title: archiving?.title ?? "",
+                })}
+                description={t("tests.archiveConfirmBody")}
+                confirmLabel={t("tests.archive")}
+                destructive
+                pending={archive.isPending}
+                onConfirm={() => archiving && archive.mutate(archiving)}
+              />
 
-          {tests.data && (
-            <Pager
-              page={tests.data.page}
-              pageSize={tests.data.pageSize}
-              total={tests.data.total}
-            />
-          )}
-        </>
-      )}
+              {data && (
+                <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+              )}
+            </>
+          )
+        }
+      </QueryStates>
     </div>
   );
 }
@@ -358,13 +360,13 @@ function RowActions({
   onDuplicate,
   onArchive,
   onRestore,
-}: {
+}: Readonly<{
   test: Test;
   onEdit: () => void;
   onDuplicate: () => void;
   onArchive: () => void;
   onRestore: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
 
   if (test.status === "archived") {

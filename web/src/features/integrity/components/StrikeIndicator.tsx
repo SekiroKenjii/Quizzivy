@@ -6,7 +6,7 @@ import type { StrikeState } from "../strikes";
  * no colour, until the allowance is actually spent (S-05). Alarm styling here
  * would punish the student who alt-tabbed to a calculator once.
  */
-export function StrikeIndicator({ state }: { state: StrikeState }) {
+export function StrikeIndicator({ state }: Readonly<{ state: StrikeState }>) {
   const { t } = useTranslation();
   if (state.limit === null || state.remaining === null) return null;
 

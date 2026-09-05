@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"quizzivy/internal/db"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -383,57 +384,55 @@ func (s *Store) Questions(ctx context.Context, testVersionID string) ([]Question
 
 // attachOptions selects id and text. Not is_correct -- see questionsQuery.
 func (s *Store) attachOptions(ctx context.Context, versionID string, qs []Question, at map[string]int) error {
-	rows, err := s.pool.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT o.test_version_question_id, o.id, o.text
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $1::uuid
-		 ORDER BY o.ordinal`, versionID)
+		 ORDER BY o.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, Option, error) {
+			var questionID string
+			var o Option
+			err := rows.Scan(&questionID, &o.ID, &o.Text)
+			return questionID, o, err
+		})
 	if err != nil {
 		return fmt.Errorf("attempts: read options: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var o Option
-		if err := rows.Scan(&questionID, &o.ID, &o.Text); err != nil {
-			return fmt.Errorf("attempts: scan option: %w", err)
-		}
+	for questionID, options := range byQuestion {
 		if i, ok := at[questionID]; ok {
-			qs[i].Options = append(qs[i].Options, o)
+			qs[i].Options = options
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 // attachBlanks selects id and ordinal. Not case_sensitive, and never the
 // accepted answers -- see questionsQuery.
 func (s *Store) attachBlanks(ctx context.Context, versionID string, qs []Question, at map[string]int) error {
-	rows, err := s.pool.Query(ctx, `
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
 		SELECT b.test_version_question_id, b.id, b.ordinal
 		  FROM app.test_version_blanks b
 		  JOIN app.test_version_questions q ON q.id = b.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $1::uuid
-		 ORDER BY b.ordinal`, versionID)
+		 ORDER BY b.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, Blank, error) {
+			var questionID string
+			var b Blank
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal)
+			return questionID, b, err
+		})
 	if err != nil {
 		return fmt.Errorf("attempts: read blanks: %w", err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var questionID string
-		var b Blank
-		if err := rows.Scan(&questionID, &b.ID, &b.Ordinal); err != nil {
-			return fmt.Errorf("attempts: scan blank: %w", err)
-		}
+	for questionID, blanks := range byQuestion {
 		if i, ok := at[questionID]; ok {
-			qs[i].Blanks = append(qs[i].Blanks, b)
+			qs[i].Blanks = blanks
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 // Answers is the base for the resume merge: what the server already holds,

@@ -140,7 +140,7 @@ export function review(over: { essayScore?: number | null } = {}): Review {
       studentId: STUDENT_ID,
       testVersionId: "018f0000-0000-7000-8000-0000000000f1",
       attemptNo: 1,
-      status: essayScore === null ? "submitted" : "submitted",
+      status: "submitted",
       startedAt: "2026-09-04T02:10:00Z",
       deadlineAt: "2026-09-04T02:55:00Z",
       submittedAt: "2026-09-04T02:47:00Z",

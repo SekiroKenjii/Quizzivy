@@ -1,5 +1,10 @@
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import {
+  EmptyState,
+  ListSkeleton,
+  LoadError,
+  QueryStates,
+} from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RowMenu } from "@/components/shared/RowMenu";
 import { SearchInput } from "@/components/shared/SearchInput";
@@ -153,119 +158,115 @@ export default function ClassDetailPage() {
                 />
               </div>
 
-              {members.isError ? (
-                <div className="px-5 pb-5">
-                  <LoadError
-                    error={members.error}
-                    onRetry={() => void members.refetch()}
-                  >
-                    {t("classDetail.membersFailed")}
-                  </LoadError>
-                </div>
-              ) : members.isPending ? (
-                <div className="px-5 pb-5">
-                  <ListSkeleton rows={4} />
-                </div>
-              ) : items.length === 0 ? (
-                <div className="px-5 pb-5">
-                  <EmptyState
-                    action={
-                      search === "" ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAdding(true)}
-                        >
-                          <UserPlus aria-hidden="true" />
-                          {t("classDetail.addStudent")}
-                        </Button>
-                      ) : undefined
-                    }
-                  >
-                    {search === ""
-                      ? t("classDetail.noMembers")
-                      : t("classDetail.noMemberMatches", { query: search })}
-                  </EmptyState>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("classDetail.name")}</TableHead>
-                      <TableHead>{t("classDetail.joinedVia")}</TableHead>
-                      <TableHead>{t("classDetail.joinedAt")}</TableHead>
-                      <TableHead className="text-right">
-                        {t("students.submitted")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("students.average")}
-                      </TableHead>
-                      <TableHead className="w-10">
-                        <span className="sr-only">{t("classDetail.actions")}</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((m) => (
-                      <TableRow key={m.userId}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar name={m.fullName} size="sm" />
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{m.fullName}</p>
-                              <p className="text-muted-foreground truncate text-xs">
-                                {m.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {m.joinedVia === "admin" ? (
-                            <Badge>{t("classDetail.viaAdmin")}</Badge>
-                          ) : (
-                            <Badge variant="secondary">
-                              {t("classDetail.viaCode", {
-                                hint: m.joinCodeHint ?? "",
-                              })}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(m.joinedAt, locale)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {m.stats.submittedCount}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {scorePercent(m.stats) === null ? (
-                            <span className="text-muted-foreground">—</span>
-                          ) : (
-                            t("students.percent", { value: scorePercent(m.stats) })
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <RowMenu>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              disabled={remove.isPending}
-                              onSelect={() => {
-                                setRemoveError(null);
-                                setConfirmRemove({
-                                  userId: m.userId,
-                                  name: m.fullName,
-                                });
-                              }}
+              <QueryStates
+                query={members}
+                skeleton={<ListSkeleton rows={4} />}
+                failed={t("classDetail.membersFailed")}
+                className="px-5 pb-5"
+              >
+                {() =>
+                  items.length === 0 ? (
+                    <div className="px-5 pb-5">
+                      <EmptyState
+                        action={
+                          search === "" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAdding(true)}
                             >
-                              <UserMinus aria-hidden="true" />
-                              {t("classDetail.remove")}
-                            </DropdownMenuItem>
-                          </RowMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                              <UserPlus aria-hidden="true" />
+                              {t("classDetail.addStudent")}
+                            </Button>
+                          ) : undefined
+                        }
+                      >
+                        {search === ""
+                          ? t("classDetail.noMembers")
+                          : t("classDetail.noMemberMatches", { query: search })}
+                      </EmptyState>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("classDetail.name")}</TableHead>
+                          <TableHead>{t("classDetail.joinedVia")}</TableHead>
+                          <TableHead>{t("classDetail.joinedAt")}</TableHead>
+                          <TableHead className="text-right">
+                            {t("students.submitted")}
+                          </TableHead>
+                          <TableHead className="text-right">
+                            {t("students.average")}
+                          </TableHead>
+                          <TableHead className="w-10">
+                            <span className="sr-only">{t("classDetail.actions")}</span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((m) => (
+                          <TableRow key={m.userId}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Avatar name={m.fullName} size="sm" />
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{m.fullName}</p>
+                                  <p className="text-muted-foreground truncate text-xs">
+                                    {m.email}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {m.joinedVia === "admin" ? (
+                                <Badge>{t("classDetail.viaAdmin")}</Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  {t("classDetail.viaCode", {
+                                    hint: m.joinCodeHint ?? "",
+                                  })}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {formatDate(m.joinedAt, locale)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {m.stats.submittedCount}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {scorePercent(m.stats) === null ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : (
+                                t("students.percent", { value: scorePercent(m.stats) })
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <RowMenu>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={remove.isPending}
+                                  onSelect={() => {
+                                    setRemoveError(null);
+                                    setConfirmRemove({
+                                      userId: m.userId,
+                                      name: m.fullName,
+                                    });
+                                  }}
+                                >
+                                  <UserMinus aria-hidden="true" />
+                                  {t("classDetail.remove")}
+                                </DropdownMenuItem>
+                              </RowMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )
+                }
+              </QueryStates>
               {members.data && members.data.total > MEMBERS_PAGE_SIZE && (
                 <div className="px-5 pb-4">
                   <Pager

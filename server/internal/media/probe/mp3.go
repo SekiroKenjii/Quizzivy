@@ -164,9 +164,23 @@ func mp3Duration(r io.ReaderAt, size int64) (int, error) {
 			return durationMs(frames, first), nil
 		}
 	}
-	frames := 0
+	frames, overran := walkFrames(r, size, offset)
+	if overran {
+		return 0, errors.New("mp3: stream ends inside a frame; the file looks truncated")
+	}
+	if frames == 0 {
+		return 0, errors.New("mp3: no audio frames found")
+	}
+	if frames >= maxFrameScan {
+		return 0, fmt.Errorf("mp3: gave up after %d frames", maxFrameScan)
+	}
+	return durationMs(frames, first), nil
+}
+
+// walkFrames counts frame headers from offset to the end of the stream,
+// resyncing past garbage; overran reports a last frame that runs past the file.
+func walkFrames(r io.ReaderAt, size, offset int64) (frames int, overran bool) {
 	header := make([]byte, 4)
-	overran := false
 	for offset < size && frames < maxFrameScan {
 		if _, err := r.ReadAt(header, offset); err != nil {
 			break
@@ -186,18 +200,7 @@ func mp3Duration(r io.ReaderAt, size int64) (int, error) {
 			overran = true
 		}
 	}
-
-	if overran {
-		return 0, errors.New("mp3: stream ends inside a frame; the file looks truncated")
-	}
-
-	if frames == 0 {
-		return 0, errors.New("mp3: no audio frames found")
-	}
-	if frames >= maxFrameScan {
-		return 0, fmt.Errorf("mp3: gave up after %d frames", maxFrameScan)
-	}
-	return durationMs(frames, first), nil
+	return frames, overran
 }
 
 func durationMs(frames int, f frameHeader) int {

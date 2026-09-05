@@ -1,0 +1,58 @@
+# Sonar's Go rules, run locally and in CI so a finding fails `make lint`
+# before SonarLint or SonarCloud sees it. Each linter maps to the Sonar rule
+# it stands in for; anything Sonar does not check is left off on purpose.
+version: "2"
+run:
+  timeout: 8m
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - errcheck
+    - gocognit     # S3776 cognitive complexity
+    - nestif       # S134 nesting depth
+    - goconst      # S1192 duplicated string literals
+    - dupl         # S4144 duplicated blocks
+    - unparam      # S1172 unused parameters
+    - revive       # S1172 unused parameters
+    - misspell
+    - nakedret
+  settings:
+    gocognit:
+      min-complexity: 15
+    nestif:
+      min-complexity: 4
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    dupl:
+      # Sonar's S4144 flags identical bodies; dupl normalises identifiers, and
+      # at 100 tokens every pair of "one query, one scan loop" store functions
+      # reads as a copy. 150 keeps the real copies and lets those through.
+      threshold: 150
+    errcheck:
+      # The two idioms Sonar accepts: a deferred rollback and a deferred close.
+      exclude-functions:
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (io.Closer).Close
+        - (*net/http.Response).Body.Close
+        - (io.ReadCloser).Close
+    revive:
+      # Only the naming rule Sonar has (S1172); Go's initialism style is not
+      # one of them, and the API structs mirror generated field names (Id, Url).
+      rules:
+        - name: unused-parameter
+  exclusions:
+    generated: lax
+    paths:
+      - gen/
+    rules:
+      # Sonar runs only its test rules on test files (sonar.test.inclusions).
+      - path: _test\.go
+        linters: [gocognit, nestif, goconst, dupl, unparam]
+formatters:
+  enable:
+    - gofmt

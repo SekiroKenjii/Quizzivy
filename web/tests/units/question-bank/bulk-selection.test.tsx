@@ -112,7 +112,8 @@ describe("A-06's bulk selection", () => {
     await user.click(screen.getByRole("button", { name: "Gắn thẻ" }));
 
     await waitFor(() => expect(tagged).not.toBeNull());
-    expect(tagged?.questionIds.sort()).toEqual([A, B].sort());
+    const byName = (a: string, b: string) => a.localeCompare(b);
+    expect(tagged?.questionIds.sort(byName)).toEqual([A, B].sort(byName));
     expect(tagged?.tags).toEqual(["unit-6"]);
   });
 });

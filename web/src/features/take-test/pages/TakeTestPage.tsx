@@ -339,7 +339,7 @@ function chooseOption(
   return { type: "choice", optionIds: [optionId] };
 }
 
-function Notice({ children }: { children: string }) {
+function Notice({ children }: Readonly<{ children: string }>) {
   return (
     <main
       role="status"
@@ -359,11 +359,11 @@ function Header({
   index,
   total,
   onExit,
-}: {
+}: Readonly<{
   index: number;
   total: number;
   onExit: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <header className="border-b">
@@ -402,24 +402,19 @@ function SaveStrip({
   inFlight,
   lock,
   indicator,
-}: {
+}: Readonly<{
   dirty: number;
   inFlight: boolean;
   lock: string | null;
   /** S-05 puts the strike count at the strip's far end, beside the save state. */
   indicator: ReactNode;
-}) {
+}>) {
   const { t } = useTranslation();
   // The moment the SERVER confirmed, not the moment this rendered.
   const lastSavedAt = useTakeTestStore((s) => s.lastSavedAt);
 
   if (lock !== null) {
-    const message =
-      lock === "superseded"
-        ? t("takeTest.lockedSuperseded")
-        : lock === "deadline"
-          ? t("takeTest.lockedDeadline")
-          : t("takeTest.lockedClosed");
+    const message = t(lockMessageKey(lock));
     return (
       <div className="bg-warning/10 border-b px-4 py-3">
         <p className="mx-auto w-full max-w-[720px] text-xs leading-relaxed">
@@ -432,23 +427,45 @@ function SaveStrip({
   return (
     <div className="bg-muted/30 border-b px-4 py-3">
       <div className="text-muted-foreground mx-auto flex w-full max-w-[720px] items-center gap-2 text-xs">
-        {inFlight ? (
-          <>
-            <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-            {t("takeTest.saving")}
-          </>
-        ) : dirty > 0 ? (
-          t("takeTest.unsaved")
-        ) : (
-          <>
-            <Check className="size-3.5" aria-hidden="true" />
-            {lastSavedAt === null
-              ? t("takeTest.savedNothingYet")
-              : t("takeTest.saved", { time: formatTime(lastSavedAt) })}
-          </>
-        )}
+        <SaveState inFlight={inFlight} dirty={dirty} lastSavedAt={lastSavedAt} />
         {indicator !== null && <span className="ml-auto">{indicator}</span>}
       </div>
     </div>
+  );
+}
+
+function lockMessageKey(lock: string | null): string {
+  if (lock === "superseded") return "takeTest.lockedSuperseded";
+  if (lock === "deadline") return "takeTest.lockedDeadline";
+  return "takeTest.lockedClosed";
+}
+
+/** S-05's save state: in flight, unsaved edits, or the last save's time. */
+function SaveState({
+  inFlight,
+  dirty,
+  lastSavedAt,
+}: Readonly<{
+  inFlight: boolean;
+  dirty: number;
+  lastSavedAt: Parameters<typeof formatTime>[0] | null;
+}>) {
+  const { t } = useTranslation();
+  if (inFlight) {
+    return (
+      <>
+        <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+        {t("takeTest.saving")}
+      </>
+    );
+  }
+  if (dirty > 0) return <>{t("takeTest.unsaved")}</>;
+  return (
+    <>
+      <Check className="size-3.5" aria-hidden="true" />
+      {lastSavedAt === null
+        ? t("takeTest.savedNothingYet")
+        : t("takeTest.saved", { time: formatTime(lastSavedAt) })}
+    </>
   );
 }

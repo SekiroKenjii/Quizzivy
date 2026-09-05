@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, X } from "lucide-react";
-import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageAside } from "@/components/shared/PageAside";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -32,11 +32,11 @@ export function StudentPanel({
   assignment,
   open,
   onOpenChange,
-}: {
+}: Readonly<{
   assignment: Assignment;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const monitor = useQuery({
     queryKey: monitorKey(assignment.id),
@@ -63,37 +63,37 @@ export function StudentPanel({
           <X aria-hidden="true" />
         </Button>
       </div>
-      {monitor.isPending ? (
-        <ListSkeleton rows={6} />
-      ) : monitor.isError ? (
-        <LoadError error={monitor.error} onRetry={() => void monitor.refetch()}>
-          {t("monitor.loadFailed")}
-        </LoadError>
-      ) : (
-        <div className="space-y-4">
-          {ORDER.map((group) => {
-            const members = rows.filter((row) => inGroup(row, group));
-            if (members.length === 0) return null;
-            return (
-              <section key={group} aria-labelledby={`panel-${group}`}>
-                <p
-                  id={`panel-${group}`}
-                  className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase"
-                >
-                  {t(`assignments.panel.groups.${group}`)} · {members.length}
-                </p>
-                <ul>
-                  {members.map((row) => (
-                    <li key={row.studentId}>
-                      <PanelRow row={row} group={group} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-      )}
+      <QueryStates
+        query={monitor}
+        skeleton={<ListSkeleton rows={6} />}
+        failed={t("monitor.loadFailed")}
+      >
+        {() => (
+          <div className="space-y-4">
+            {ORDER.map((group) => {
+              const members = rows.filter((row) => inGroup(row, group));
+              if (members.length === 0) return null;
+              return (
+                <section key={group} aria-labelledby={`panel-${group}`}>
+                  <p
+                    id={`panel-${group}`}
+                    className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase"
+                  >
+                    {t(`assignments.panel.groups.${group}`)} · {members.length}
+                  </p>
+                  <ul>
+                    {members.map((row) => (
+                      <li key={row.studentId}>
+                        <PanelRow row={row} group={group} />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </QueryStates>
       <Button variant="outline" className="w-full" asChild>
         <Link to={`/admin/assignments/${assignment.id}/attempts`}>
           {t("assignments.panel.viewAll")}
@@ -122,31 +122,12 @@ function inGroup(row: MonitorRow, group: Group): boolean {
   }
 }
 
-function PanelRow({ row, group }: { row: MonitorRow; group: Group }) {
-  const { t } = useTranslation();
-  const locale = useLocale();
+function PanelRow({ row, group }: Readonly<{ row: MonitorRow; group: Group }>) {
   const body = (
     <>
       <Avatar name={row.fullName} size="sm" />
       <span className="flex-1 truncate text-sm font-medium">{row.fullName}</span>
-      {group === "flagged" ? (
-        <Badge variant="warning" className="tabular-nums">
-          {row.focusLossCount ?? 0}
-        </Badge>
-      ) : row.score && isHandedIn(row.state) ? (
-        <>
-          <span className="text-xs tabular-nums">
-            {scoreText(row.score.earned, row.score.total, locale, t)}
-          </span>
-          {row.score.pendingManual > 0 ? (
-            <Badge variant="outline">
-              {t("assignments.panel.pending", { count: row.score.pendingManual })}
-            </Badge>
-          ) : null}
-        </>
-      ) : (
-        <span className="text-muted-foreground text-xs">—</span>
-      )}
+      <PanelValue row={row} group={group} />
     </>
   );
   const className = "flex items-center gap-2 rounded-md py-1.5";
@@ -160,4 +141,32 @@ function PanelRow({ row, group }: { row: MonitorRow; group: Group }) {
   ) : (
     <div className={className}>{body}</div>
   );
+}
+
+/** The row's right edge: the strike count, the score with what is unmarked, or nothing yet. */
+function PanelValue({ row, group }: Readonly<{ row: MonitorRow; group: Group }>) {
+  const { t } = useTranslation();
+  const locale = useLocale();
+  if (group === "flagged") {
+    return (
+      <Badge variant="warning" className="tabular-nums">
+        {row.focusLossCount ?? 0}
+      </Badge>
+    );
+  }
+  if (row.score && isHandedIn(row.state)) {
+    return (
+      <>
+        <span className="text-xs tabular-nums">
+          {scoreText(row.score.earned, row.score.total, locale, t)}
+        </span>
+        {row.score.pendingManual > 0 ? (
+          <Badge variant="outline">
+            {t("assignments.panel.pending", { count: row.score.pendingManual })}
+          </Badge>
+        ) : null}
+      </>
+    );
+  }
+  return <span className="text-muted-foreground text-xs">—</span>;
 }

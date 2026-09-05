@@ -362,6 +362,17 @@ jobs:
         working-directory: server
         run: go tool staticcheck ./...
 
+      # server/.golangci.yml carries the Sonar-shaped rules (cognitive
+      # complexity, nesting, duplication, unused parameters) so a finding fails
+      # here, before it reaches SonarLint or SonarCloud. The web job gets the
+      # same from eslint-plugin-sonarjs inside `pnpm lint`. Same pin as the
+      # Makefile's GOLANGCI_VERSION.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+          working-directory: server
+
       - name: Check formatting
         working-directory: server
         run: |

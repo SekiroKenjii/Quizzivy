@@ -50,7 +50,7 @@ func (s *Store) List(ctx context.Context, in ListInput) ([]Test, paging.Page, er
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
 	var args []any
-	where := []string{`t.deleted_at IS NULL`}
+	where := []string{liveTests}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(`t.status = $%d::app.test_status`, len(args)))
@@ -130,7 +130,7 @@ func (s *Store) attachSections(ctx context.Context, list []Test) error {
 // ignore the status filter: picking one chip must not empty the rail.
 func (s *Store) Tags(ctx context.Context, in ListInput) ([]string, error) {
 	args := []any{}
-	where := []string{`t.deleted_at IS NULL`}
+	where := []string{liveTests}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(`t.status = $%d::app.test_status`, len(args)))

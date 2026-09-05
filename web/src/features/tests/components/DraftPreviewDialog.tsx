@@ -21,11 +21,11 @@ export function DraftPreviewDialog({
   open,
   questions,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean;
   questions: AdminQuestion[];
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

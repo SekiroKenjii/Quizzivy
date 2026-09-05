@@ -37,7 +37,7 @@ import { formatBytes } from "@/features/media/format";
 import { audioLength, shortDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { toast } from "@/components/ui/sonner";
 import { Pager } from "@/components/shared/Pager";
@@ -122,30 +122,34 @@ export default function MediaLibraryPage() {
         </p>
       ) : null}
 
-      {library.isPending ? (
-        <ListSkeleton />
-      ) : library.isError ? (
-        <LoadError error={library.error} onRetry={() => void library.refetch()}>
-          {t("media.loadFailed")}
-        </LoadError>
-      ) : assets.length === 0 ? (
-        <EmptyState>{t("media.empty")}</EmptyState>
-      ) : (
-        <div className="bg-card overflow-hidden rounded-lg border">
-          <AssetTable
-            assets={assets}
-            playing={playing}
-            onRefresh={() => void library.refetch()}
-            onBlocked={setBlocked}
-            onView={setViewing}
-            onTogglePlay={(asset) => setPlaying(playing === asset.id ? null : asset.id)}
-            onDelete={(asset) => {
-              setError(null);
-              setConfirming(asset);
-            }}
-          />
-        </div>
-      )}
+      <QueryStates
+        query={library}
+        skeleton={<ListSkeleton />}
+        failed={t("media.loadFailed")}
+      >
+        {() =>
+          assets.length === 0 ? (
+            <EmptyState>{t("media.empty")}</EmptyState>
+          ) : (
+            <div className="bg-card overflow-hidden rounded-lg border">
+              <AssetTable
+                assets={assets}
+                playing={playing}
+                onRefresh={() => void library.refetch()}
+                onBlocked={setBlocked}
+                onView={setViewing}
+                onTogglePlay={(asset) =>
+                  setPlaying(playing === asset.id ? null : asset.id)
+                }
+                onDelete={(asset) => {
+                  setError(null);
+                  setConfirming(asset);
+                }}
+              />
+            </div>
+          )
+        }
+      </QueryStates>
 
       <ConfirmDialog
         open={confirming !== null}
@@ -242,7 +246,7 @@ function AssetTable({
   onTogglePlay,
   onView,
   onRefresh,
-}: {
+}: Readonly<{
   assets: LibraryAsset[];
   playing: string | null;
   onDelete: (asset: LibraryAsset) => void;
@@ -250,7 +254,7 @@ function AssetTable({
   onTogglePlay: (asset: LibraryAsset) => void;
   onView: (asset: LibraryAsset) => void;
   onRefresh: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
 
   return (

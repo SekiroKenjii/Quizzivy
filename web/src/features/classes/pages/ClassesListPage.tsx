@@ -39,7 +39,7 @@ import {
   type ClassStatus,
 } from "@/features/classes/api";
 import { invalidateClass } from "@/features/classes/invalidate";
-import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
 import { RowMenu } from "@/components/shared/RowMenu";
@@ -147,55 +147,57 @@ export default function ClassesListPage() {
             />
           </div>
 
-          {classes.isPending ? (
-            <ListSkeleton />
-          ) : classes.isError ? (
-            <LoadError error={classes.error} onRetry={() => void classes.refetch()}>
-              {t("classes.loadFailed")}
-            </LoadError>
-          ) : items.length === 0 ? (
-            <EmptyState>{t("classes.noMatches")}</EmptyState>
-          ) : (
-            <>
-              <Card className="gap-0 overflow-hidden py-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[36%]">
-                        {t("classes.columns.class")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("classes.columns.students")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("classes.columns.openAssignments")}
-                      </TableHead>
-                      <TableHead>{t("classes.columns.join")}</TableHead>
-                      <TableHead>{t("classes.columns.created")}</TableHead>
-                      <TableHead className="w-10" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((klass) => (
-                      <Row
-                        key={klass.id}
-                        klass={klass}
-                        onArchive={() => setArchiving(klass)}
-                        onRestore={() => restore.mutate(klass.id)}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-              {classes.data && (
-                <Pager
-                  page={classes.data.page}
-                  pageSize={classes.data.pageSize}
-                  total={classes.data.total}
-                />
-              )}
-            </>
-          )}
+          <QueryStates
+            query={classes}
+            skeleton={<ListSkeleton />}
+            failed={t("classes.loadFailed")}
+          >
+            {(data) =>
+              items.length === 0 ? (
+                <EmptyState>{t("classes.noMatches")}</EmptyState>
+              ) : (
+                <>
+                  <Card className="gap-0 overflow-hidden py-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[36%]">
+                            {t("classes.columns.class")}
+                          </TableHead>
+                          <TableHead className="text-right">
+                            {t("classes.columns.students")}
+                          </TableHead>
+                          <TableHead className="text-right">
+                            {t("classes.columns.openAssignments")}
+                          </TableHead>
+                          <TableHead>{t("classes.columns.join")}</TableHead>
+                          <TableHead>{t("classes.columns.created")}</TableHead>
+                          <TableHead className="w-10" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((klass) => (
+                          <Row
+                            key={klass.id}
+                            klass={klass}
+                            onArchive={() => setArchiving(klass)}
+                            onRestore={() => restore.mutate(klass.id)}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Card>
+                  {data && (
+                    <Pager
+                      page={data.page}
+                      pageSize={data.pageSize}
+                      total={data.total}
+                    />
+                  )}
+                </>
+              )
+            }
+          </QueryStates>
         </>
       )}
 
@@ -214,11 +216,11 @@ function Row({
   klass,
   onArchive,
   onRestore,
-}: {
+}: Readonly<{
   klass: Class;
   onArchive: () => void;
   onRestore: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const archived = klass.archivedAt !== null;
   const muted = archived ? "text-muted-foreground" : undefined;
@@ -251,15 +253,8 @@ function Row({
       <TableCell>
         {archived ? (
           <span className="text-muted-foreground">—</span>
-        ) : isJoinOpen(klass) ? (
-          <span className="flex items-center gap-2">
-            <Badge variant="success">{t("classes.joinOpen")}</Badge>
-            <span className="text-muted-foreground font-mono text-xs">
-              {t("classes.codeHint", { hint: klass.joinCode?.hint })}
-            </span>
-          </span>
         ) : (
-          <Badge variant="outline">{t("classes.joinClosed")}</Badge>
+          <JoinCell klass={klass} />
         )}
       </TableCell>
       <TableCell className="text-muted-foreground tabular-nums">
@@ -304,5 +299,20 @@ function Row({
         </RowMenu>
       </TableCell>
     </TableRow>
+  );
+}
+
+/** G-08's join column: the open code's hint, or the closed badge. */
+function JoinCell({ klass }: Readonly<{ klass: Class }>) {
+  const { t } = useTranslation();
+  if (!isJoinOpen(klass))
+    return <Badge variant="outline">{t("classes.joinClosed")}</Badge>;
+  return (
+    <span className="flex items-center gap-2">
+      <Badge variant="success">{t("classes.joinOpen")}</Badge>
+      <span className="text-muted-foreground font-mono text-xs">
+        {t("classes.codeHint", { hint: klass.joinCode?.hint })}
+      </span>
+    </span>
   );
 }

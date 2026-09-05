@@ -159,6 +159,6 @@ describe("the monitor itself", () => {
       window.dispatchEvent(new Event("blur"));
       window.dispatchEvent(new Event("offline"));
     });
-    expect(pending().length).toBe(before);
+    expect(pending()).toHaveLength(before);
   });
 });
