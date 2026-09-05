@@ -18,7 +18,19 @@
     "undo": "Undo",
     "copy": "Copy",
     "copied": "Copied",
-    "requestId": "Request id"
+    "requestId": "Request id",
+    "pickDate": "Pick a date",
+    "timeOf": "{{label}} — time",
+    "calendar": {
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "nav": "Change month",
+      "today": "today",
+      "selected": "selected",
+      "hours": "Hours",
+      "minutes": "Minutes"
+    },
+    "pickTime": "Pick a time"
   },
   "error": {
     "title": "Something went wrong",

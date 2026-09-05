@@ -172,7 +172,7 @@ describe("the question editor, per question type", () => {
     );
 
     // §11.1: 2 plays, no seek, transcript after submit.
-    expect(await screen.findByLabelText("Số lần được nghe")).toHaveValue("2");
+    expect(await screen.findByLabelText("Số lần được nghe")).toHaveTextContent("2 lần");
     expect(screen.getByRole("switch", { name: "Cho tua" })).not.toBeChecked();
     expect(
       screen.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),

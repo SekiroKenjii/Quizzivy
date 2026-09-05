@@ -18,7 +18,19 @@
     "undo": "Hoàn tác",
     "copy": "Sao chép",
     "copied": "Đã sao chép",
-    "requestId": "Mã lỗi"
+    "requestId": "Mã lỗi",
+    "pickDate": "Chọn ngày",
+    "timeOf": "{{label}} — giờ",
+    "calendar": {
+      "previousMonth": "Tháng trước",
+      "nextMonth": "Tháng sau",
+      "nav": "Chuyển tháng",
+      "today": "hôm nay",
+      "selected": "đã chọn",
+      "hours": "Giờ",
+      "minutes": "Phút"
+    },
+    "pickTime": "Chọn giờ"
   },
   "error": {
     "title": "Đã xảy ra lỗi",

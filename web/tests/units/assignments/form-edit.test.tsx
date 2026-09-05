@@ -133,10 +133,13 @@ describe("editing an assignment", () => {
     expect(
       screen.getByRole("button", { name: "Bỏ IELTS Foundation" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Thời lượng làm bài")).toHaveValue("90");
+    expect(
+      screen.getByRole("combobox", { name: "Thời lượng làm bài" }),
+    ).toHaveTextContent("90 phút");
     expect(screen.queryByRole("button", { name: "Lưu nháp" })).toBeNull();
 
-    await user.selectOptions(screen.getByLabelText("Thời lượng làm bài"), "60");
+    await user.click(screen.getByRole("combobox", { name: "Thời lượng làm bài" }));
+    await user.click(await screen.findByRole("option", { name: "60 phút" }));
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
     await waitFor(() => expect(patches).toHaveLength(1));

@@ -1,5 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,25 +38,27 @@ export function AudioPolicyPanel({
             {t("questionEditor.audioMaxPlays")}
           </label>
           <Select
-            id="audio-max-plays"
-            className="w-28"
             value={policy.maxPlays === null ? "unlimited" : String(policy.maxPlays)}
-            onChange={(event) =>
+            onValueChange={(next) =>
               onPolicyChange({
                 ...policy,
-                maxPlays:
-                  event.target.value === "unlimited"
-                    ? null
-                    : Number(event.target.value),
+                maxPlays: next === "unlimited" ? null : Number(next),
               })
             }
           >
-            {PLAY_CHOICES.map((count) => (
-              <option key={count} value={count}>
-                {t("questionEditor.audioPlaysCount", { count })}
-              </option>
-            ))}
-            <option value="unlimited">{t("questionEditor.audioPlaysUnlimited")}</option>
+            <SelectTrigger id="audio-max-plays" className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PLAY_CHOICES.map((count) => (
+                <SelectItem key={count} value={String(count)}>
+                  {t("questionEditor.audioPlaysCount", { count })}
+                </SelectItem>
+              ))}
+              <SelectItem value="unlimited">
+                {t("questionEditor.audioPlaysUnlimited")}
+              </SelectItem>
+            </SelectContent>
           </Select>
         </div>
 

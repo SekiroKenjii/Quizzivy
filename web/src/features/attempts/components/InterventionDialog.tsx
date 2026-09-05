@@ -4,7 +4,13 @@ import { useMutation } from "@tanstack/react-query";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/errors";
 import { extendAttempt, resetAttempt, voidAttempt, type MonitorRow } from "../api";
@@ -83,15 +89,19 @@ export function InterventionDialog({
           <div className="space-y-1.5">
             <Label htmlFor="intervention-minutes">{t("monitor.extend.minutes")}</Label>
             <Select
-              id="intervention-minutes"
-              value={minutes}
-              onChange={(event) => setMinutes(Number(event.target.value))}
+              value={String(minutes)}
+              onValueChange={(next) => setMinutes(Number(next))}
             >
-              {EXTENSIONS.map((m) => (
-                <option key={m} value={m}>
-                  {t("assignments.minutes", { count: m })}
-                </option>
-              ))}
+              <SelectTrigger id="intervention-minutes" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXTENSIONS.map((m) => (
+                  <SelectItem key={m} value={String(m)}>
+                    {t("assignments.minutes", { count: m })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
         )}
