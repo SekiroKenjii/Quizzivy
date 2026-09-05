@@ -11,7 +11,7 @@ import type { Locale } from "@/lib/i18n";
 /** "Minh" from "Nguyễn Đức Minh": a Vietnamese given name is the last word. */
 export function givenName(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
-  return parts[parts.length - 1] ?? "";
+  return parts.at(-1) ?? "";
 }
 
 /** "Còn 3 giờ": whole units, the largest that fits, never "0 phút". */

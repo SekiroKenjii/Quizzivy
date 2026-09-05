@@ -19,7 +19,7 @@ export function TargetsLine({ assignment }: Readonly<{ assignment: Assignment }>
           className={cn(badgeVariants({ variant: "secondary" }), "hover:bg-accent")}
         >
           <GraduationCap aria-hidden="true" />
-          {t("assignments.detail.classChip", { name: c.name, count: c.studentCount })}
+          {t("assignments.detail.classChip", { name: c.name })}
         </Link>
       ))}
       {students.length > 0 ? (

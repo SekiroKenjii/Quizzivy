@@ -149,7 +149,7 @@ describe("the assignment detail", () => {
         "24 câu · 30 điểm · 4 câu nghe · 2 câu chấm tay · bản v3",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("IELTS Foundation · 18")).toBeInTheDocument();
+    expect(screen.getByText("IELTS Foundation")).toBeInTheDocument();
     expect(screen.getByText("Phạm Gia Hân")).toBeInTheDocument();
     expect(
       screen.getByText("1 học viên đã có trong lớp nên chỉ tính một lần."),
@@ -233,7 +233,7 @@ describe("the assignment detail", () => {
     renderDetail();
 
     expect(await screen.findByText("Tự cập nhật 15 giây/lần")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "IELTS Foundation · 18" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "IELTS Foundation" })).toHaveAttribute(
       "href",
       `/admin/classes/${CLASS_ID}`,
     );

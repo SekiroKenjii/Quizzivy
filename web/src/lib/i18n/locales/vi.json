@@ -889,7 +889,7 @@
       "targetCount": "{{count}} học viên",
       "classes": "Lớp",
       "students": "Học viên lẻ",
-      "classChip": "{{name}} · {{count}}",
+      "classChip": "{{name}}",
       "overlap": "{{count}} học viên đã có trong lớp nên chỉ tính một lần.",
       "noTargets": "Chưa chọn lớp hay học viên.",
       "time": "Thời gian",
