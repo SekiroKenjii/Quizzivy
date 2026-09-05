@@ -12,13 +12,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageAside } from "@/components/shared/PageAside";
+import { DateTimeField } from "@/components/shared/DateTimeField";
 import {
   TestVersionPicker,
   type PickedVersion,
@@ -320,25 +326,21 @@ export default function AssignmentFormPage() {
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <Field label={t("assignments.opensAt")}>
                 {(id) => (
-                  <Input
+                  <DateTimeField
                     id={id}
-                    type="datetime-local"
+                    label={t("assignments.opensAt")}
                     value={draft.opensAt}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, opensAt: e.target.value }))
-                    }
+                    onChange={(opensAt) => setDraft((d) => ({ ...d, opensAt }))}
                   />
                 )}
               </Field>
               <Field label={t("assignments.closesAt")}>
                 {(id) => (
-                  <Input
+                  <DateTimeField
                     id={id}
-                    type="datetime-local"
+                    label={t("assignments.closesAt")}
                     value={draft.closesAt}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, closesAt: e.target.value }))
-                    }
+                    onChange={(closesAt) => setDraft((d) => ({ ...d, closesAt }))}
                   />
                 )}
               </Field>
@@ -350,20 +352,21 @@ export default function AssignmentFormPage() {
               >
                 {(id) => (
                   <Select
-                    id={id}
-                    value={draft.durationMinutes}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        durationMinutes: Number(e.target.value),
-                      }))
+                    value={String(draft.durationMinutes)}
+                    onValueChange={(next) =>
+                      setDraft((d) => ({ ...d, durationMinutes: Number(next) }))
                     }
                   >
-                    {DURATIONS.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {t("assignments.minutes", { count: minutes })}
-                      </option>
-                    ))}
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATIONS.map((minutes) => (
+                        <SelectItem key={minutes} value={String(minutes)}>
+                          {t("assignments.minutes", { count: minutes })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 )}
               </Field>
@@ -375,20 +378,21 @@ export default function AssignmentFormPage() {
               >
                 {(id) => (
                   <Select
-                    id={id}
-                    value={draft.maxAttempts}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        maxAttempts: Number(e.target.value),
-                      }))
+                    value={String(draft.maxAttempts)}
+                    onValueChange={(next) =>
+                      setDraft((d) => ({ ...d, maxAttempts: Number(next) }))
                     }
                   >
-                    {ATTEMPTS.map((count) => (
-                      <option key={count} value={count}>
-                        {t("assignments.attemptCount", { count })}
-                      </option>
-                    ))}
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ATTEMPTS.map((count) => (
+                        <SelectItem key={count} value={String(count)}>
+                          {t("assignments.attemptCount", { count })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 )}
               </Field>
@@ -482,46 +486,55 @@ export default function AssignmentFormPage() {
               <Field label={t("assignments.maxFocusLoss")}>
                 {(id) => (
                   <Select
-                    id={id}
-                    value={draft.integrity.maxFocusLoss}
-                    onChange={(e) =>
+                    value={String(draft.integrity.maxFocusLoss)}
+                    onValueChange={(next) =>
                       setDraft((d) => ({
                         ...d,
-                        integrity: {
-                          ...d.integrity,
-                          maxFocusLoss: Number(e.target.value),
-                        },
+                        integrity: { ...d.integrity, maxFocusLoss: Number(next) },
                       }))
                     }
                   >
-                    {FOCUS_LIMITS.map((count) => (
-                      <option key={count} value={count}>
-                        {count === 0
-                          ? t("assignments.unlimited")
-                          : t("assignments.timesAway", { count })}
-                      </option>
-                    ))}
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FOCUS_LIMITS.map((count) => (
+                        <SelectItem key={count} value={String(count)}>
+                          {count === 0
+                            ? t("assignments.unlimited")
+                            : t("assignments.timesAway", { count })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 )}
               </Field>
               <Field label={t("assignments.onLimitExceeded")}>
                 {(id) => (
                   <Select
-                    id={id}
                     disabled={draft.integrity.maxFocusLoss === 0}
                     value={draft.integrity.onLimitExceeded}
-                    onChange={(e) =>
+                    onValueChange={(next) =>
                       setDraft((d) => ({
                         ...d,
                         integrity: {
                           ...d.integrity,
-                          onLimitExceeded: e.target.value as "warn" | "flag",
+                          onLimitExceeded: next as "warn" | "flag",
                         },
                       }))
                     }
                   >
-                    <option value="warn">{t("assignments.actionWarn")}</option>
-                    <option value="flag">{t("assignments.actionFlag")}</option>
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="warn">
+                        {t("assignments.actionWarn")}
+                      </SelectItem>
+                      <SelectItem value="flag">
+                        {t("assignments.actionFlag")}
+                      </SelectItem>
+                    </SelectContent>
                   </Select>
                 )}
               </Field>

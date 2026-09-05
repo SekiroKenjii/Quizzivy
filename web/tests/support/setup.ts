@@ -20,6 +20,8 @@ window.matchMedia ??= (query: string) =>
 Element.prototype.setPointerCapture ??= () => {};
 Element.prototype.releasePointerCapture ??= () => {};
 Element.prototype.hasPointerCapture ??= () => false;
+/** jsdom does no layout; Radix Select scrolls the chosen item into view when it opens. */
+Element.prototype.scrollIntoView ??= () => {};
 
 beforeAll(() => {
   server.listen({ onUnhandledRequest: "error" });

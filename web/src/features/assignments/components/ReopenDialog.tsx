@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { Input } from "@/components/ui/input";
+import { DateTimeField } from "@/components/shared/DateTimeField";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
@@ -83,12 +83,12 @@ export function ReopenDialog({
         {choice === "pick" ? (
           <div>
             <Label htmlFor="reopen-until">{t("assignments.detail.closes")}</Label>
-            <Input
+            <DateTimeField
               id="reopen-until"
-              type="datetime-local"
+              label={t("assignments.detail.closes")}
               className="mt-1.5"
               value={picked}
-              onChange={(event) => setPicked(event.target.value)}
+              onChange={setPicked}
             />
           </div>
         ) : null}

@@ -106,10 +106,8 @@ describe("choosing how long a new code lives and how far it goes", () => {
     renderPanel();
 
     await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.selectOptions(
-      await screen.findByRole("combobox", { name: "Hết hạn sau" }),
-      "90",
-    );
+    await user.click(await screen.findByRole("combobox", { name: "Hết hạn sau" }));
+    await user.click(await screen.findByRole("option", { name: "90 ngày" }));
     await user.type(
       screen.getByRole("spinbutton", { name: "Giới hạn lượt dùng" }),
       "25",
@@ -207,10 +205,8 @@ describe("the card after a code is issued", () => {
     renderFromServer();
 
     await user.click(await screen.findByRole("button", { name: "Tạo mã mới" }));
-    await user.selectOptions(
-      await screen.findByRole("combobox", { name: "Hết hạn sau" }),
-      "90",
-    );
+    await user.click(await screen.findByRole("combobox", { name: "Hết hạn sau" }));
+    await user.click(await screen.findByRole("option", { name: "90 ngày" }));
     await user.type(
       screen.getByRole("spinbutton", { name: "Giới hạn lượt dùng" }),
       "25",

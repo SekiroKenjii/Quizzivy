@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -309,15 +315,19 @@ function CodeOptionsFields({
       <div className="space-y-1.5">
         <Label htmlFor="join-code-expiry">{t("classDetail.expiryLabel")}</Label>
         <Select
-          id="join-code-expiry"
           value={String(expiresInDays)}
-          onChange={(event) => onExpiryChange(Number(event.target.value))}
+          onValueChange={(next) => onExpiryChange(Number(next))}
         >
-          {EXPIRY_CHOICES.map((days) => (
-            <option key={days} value={days}>
-              {t("classDetail.expiryDays", { days })}
-            </option>
-          ))}
+          <SelectTrigger id="join-code-expiry" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EXPIRY_CHOICES.map((days) => (
+              <SelectItem key={days} value={String(days)}>
+                {t("classDetail.expiryDays", { days })}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 
