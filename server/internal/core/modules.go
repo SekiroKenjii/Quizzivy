@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"quizzivy/internal/api"
@@ -19,8 +20,14 @@ import (
 	identityhttp "quizzivy/internal/modules/identity/http"
 	identityrepo "quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/modules/integrity"
-	"quizzivy/internal/modules/media"
-	"quizzivy/internal/modules/questions"
+	mediaapp "quizzivy/internal/modules/media/application"
+	mediadomain "quizzivy/internal/modules/media/domain"
+	mediahttp "quizzivy/internal/modules/media/http"
+	mediarepo "quizzivy/internal/modules/media/repositories"
+	questionsapp "quizzivy/internal/modules/questions/application"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
+	questionshttp "quizzivy/internal/modules/questions/http"
+	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/modules/review"
 	"quizzivy/internal/modules/tests"
 	"quizzivy/internal/modules/tests/publish"
@@ -56,7 +63,6 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 
 	deps := api.Deps{
 		DB:          pool,
-		Questions:   questions.NewService(questions.NewStore(pool.Pool)),
 		Tests:       tests.NewService(tests.NewStore(pool.Pool)),
 		Publisher:   publish.NewPublisher(pool.Pool),
 		Assignments: assignments.NewStore(pool.Pool),
@@ -71,6 +77,8 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	}
 	deps.Modules = api.Modules{
 		Dashboard: dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
+		Media:     mediahttp.NewMedia(mediaTransport(mediaService)),
+		Questions: questionshttp.NewQuestions(questionsapp.NewService(questionsrepo.NewPostgres(pool.Pool), mediaKinds{mediaService}), questionsMedia(mediaService)),
 		Identity:  identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
 		Classes:   classeshttp.NewClasses(classesapp.NewService(classesRepo, studentStats), joinService),
 	}
@@ -102,7 +110,7 @@ func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identitya
 
 // newMediaService returns nil when object storage is not configured, which is a
 // supported deployment: everything but upload still works.
-func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (*media.Service, error) {
+func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (*mediaapp.Service, error) {
 	if !cfg.MediaEnabled() {
 		logger.Info("media storage disabled (no bucket configured)")
 		return nil, nil
@@ -121,6 +129,37 @@ func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger
 	}
 	logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
 
-	return media.NewService(media.NewStore(pool.Pool), objects).
+	return mediaapp.NewService(mediarepo.NewPostgres(pool.Pool), objects).
 		WithSignedURLTTL(cfg.SignedURLTTL), nil
+}
+
+// mediaKinds lets the question bank ask the media module what an asset is.
+type mediaKinds struct{ media *mediaapp.Service }
+
+func (m mediaKinds) Kind(ctx context.Context, assetID string) (string, error) {
+	if m.media == nil {
+		return "", questionsdomain.ErrMediaNotFound
+	}
+	asset, err := m.media.Get(ctx, assetID)
+	if errors.Is(err, mediadomain.ErrNotFound) {
+		return "", questionsdomain.ErrMediaNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(asset.Kind), nil
+}
+
+func questionsMedia(svc *mediaapp.Service) questionshttp.Media {
+	if svc == nil {
+		return nil
+	}
+	return svc
+}
+
+func mediaTransport(svc *mediaapp.Service) mediahttp.Service {
+	if svc == nil {
+		return nil
+	}
+	return svc
 }

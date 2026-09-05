@@ -10,7 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"quizzivy/internal/modules/questions"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
+	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/shared/audit"
 )
 
@@ -182,7 +183,7 @@ func optional(v string) *string {
 
 // lockQuestions takes the row lock on every question an outline names, so a
 // concurrent soft delete of one of them cannot slip between the check and the
-// write (see questions.LockForDraftUse).
+// write (see questionsrepo.LockForDraftUse).
 //
 // Sorted, because two outline writes naming overlapping questions in different
 // orders would otherwise deadlock.
@@ -200,8 +201,8 @@ func lockQuestions(ctx context.Context, tx pgx.Tx, sections []SectionInput) erro
 	slices.Sort(ids)
 
 	for _, id := range ids {
-		if err := questions.LockForDraftUse(ctx, tx, id); err != nil {
-			if errors.Is(err, questions.ErrNotFound) {
+		if err := questionsrepo.LockForDraftUse(ctx, tx, id); err != nil {
+			if errors.Is(err, questionsdomain.ErrNotFound) {
 				return fmt.Errorf("%w: %s", ErrUnknownQuestion, id)
 			}
 			return err

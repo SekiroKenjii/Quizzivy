@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"quizzivy/internal/modules/questions"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/modules/tests"
 	"quizzivy/internal/modules/tests/publish"
 )
@@ -39,9 +39,9 @@ func TestPublishRejectsAChoiceQuestionWithNoCorrectOption(t *testing.T) {
 	author := makeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 
-	q := b.question(questions.Input{
-		Type: questions.SingleChoice, Prompt: "Không có đáp án đúng", Points: "1.00",
-		Options: []questions.OptionInput{{Text: "A", IsCorrect: true}, {Text: "B", IsCorrect: false}},
+	q := b.question(questionsdomain.Input{
+		Type: questionsdomain.SingleChoice, Prompt: "Không có đáp án đúng", Points: "1.00",
+		Options: []questionsdomain.OptionInput{{Text: "A", IsCorrect: true}, {Text: "B", IsCorrect: false}},
 	})
 	draft := b.draft("Đề thiếu đáp án", q)
 	if _, err := pool.Exec(context.Background(),
@@ -63,9 +63,9 @@ func TestPublishRejectsABlankWithNoAcceptedAnswer(t *testing.T) {
 	author := makeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 
-	q := b.question(questions.Input{
-		Type: questions.FillBlank, Prompt: "Điền {{1}}", Points: "1.00",
-		Blanks: []questions.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{"x"}}},
+	q := b.question(questionsdomain.Input{
+		Type: questionsdomain.FillBlank, Prompt: "Điền {{1}}", Points: "1.00",
+		Blanks: []questionsdomain.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{"x"}}},
 	})
 	draft := b.draft("Đề thiếu đáp án chỗ trống", q)
 	if _, err := pool.Exec(context.Background(),
@@ -88,9 +88,9 @@ func TestPublishRejectsPlaceholdersThatDoNotMatchTheBlanks(t *testing.T) {
 	author := makeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 
-	q := b.question(questions.Input{
-		Type: questions.FillBlank, Prompt: "Điền {{1}} và {{2}}", Points: "1.00",
-		Blanks: []questions.BlankInput{
+	q := b.question(questionsdomain.Input{
+		Type: questionsdomain.FillBlank, Prompt: "Điền {{1}} và {{2}}", Points: "1.00",
+		Blanks: []questionsdomain.BlankInput{
 			{Ordinal: 1, AcceptedAnswers: []string{"a"}},
 			{Ordinal: 2, AcceptedAnswers: []string{"b"}},
 		},
@@ -147,13 +147,13 @@ func TestPublishReportsEveryProblemAtOnce(t *testing.T) {
 	b := newBuilder(t, pool, author)
 	ctx := context.Background()
 
-	bad := b.question(questions.Input{
-		Type: questions.SingleChoice, Prompt: "Sai", Points: "1.00",
-		Options: []questions.OptionInput{{Text: "A", IsCorrect: true}, {Text: "B", IsCorrect: false}},
+	bad := b.question(questionsdomain.Input{
+		Type: questionsdomain.SingleChoice, Prompt: "Sai", Points: "1.00",
+		Options: []questionsdomain.OptionInput{{Text: "A", IsCorrect: true}, {Text: "B", IsCorrect: false}},
 	})
-	alsoBad := b.question(questions.Input{
-		Type: questions.FillBlank, Prompt: "Điền {{1}}", Points: "1.00",
-		Blanks: []questions.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{"x"}}},
+	alsoBad := b.question(questionsdomain.Input{
+		Type: questionsdomain.FillBlank, Prompt: "Điền {{1}}", Points: "1.00",
+		Blanks: []questionsdomain.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{"x"}}},
 	})
 	created, err := b.tests.Create(ctx, tests.Request{ActorID: author}, "Đề nhiều lỗi", nil)
 	if err != nil {

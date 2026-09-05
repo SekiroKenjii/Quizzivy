@@ -6,8 +6,8 @@ import (
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/assignments"
 	identityrepo "quizzivy/internal/modules/identity/repositories"
-	"quizzivy/internal/modules/media"
-	"quizzivy/internal/modules/questions"
+	mediarepo "quizzivy/internal/modules/media/repositories"
+	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/modules/tests"
 )
 
@@ -23,8 +23,8 @@ func TestEveryPageSizeMatchesItsContract(t *testing.T) {
 
 	want := map[string]int{
 		"ListTests":       tests.DefaultLimit,
-		"ListQuestions":   questions.DefaultLimit,
-		"ListMedia":       media.DefaultLimit,
+		"ListQuestions":   questionsrepo.DefaultLimit,
+		"ListMedia":       mediarepo.DefaultLimit,
 		"ListAssignments": assignments.DefaultLimit,
 		"ListStudents":    identityrepo.DefaultLimit,
 	}

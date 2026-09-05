@@ -11,8 +11,8 @@ import (
 	"quizzivy/internal/modules/assignments"
 	"quizzivy/internal/modules/attempts"
 	"quizzivy/internal/modules/integrity"
-	"quizzivy/internal/modules/media"
-	"quizzivy/internal/modules/questions"
+	mediaapp "quizzivy/internal/modules/media/application"
+	mediadomain "quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/modules/review"
 	"quizzivy/internal/modules/tests"
 	"quizzivy/internal/modules/tests/publish"
@@ -27,29 +27,15 @@ type DB interface {
 
 // MediaService is the slice of internal/media the handlers use.
 type MediaService interface {
-	Upload(ctx context.Context, in media.UploadInput) (media.Asset, error)
-	SignedURL(ctx context.Context, asset media.Asset) (string, error)
-	List(ctx context.Context, in media.ListInput) ([]media.Asset, paging.Page, error)
-	TotalBytes(ctx context.Context, kind *media.Kind) (int64, error)
-	Delete(ctx context.Context, in media.DeleteInput) error
-	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
+	Upload(ctx context.Context, in mediaapp.UploadInput) (mediadomain.Asset, error)
+	SignedURL(ctx context.Context, asset mediadomain.Asset) (string, error)
+	List(ctx context.Context, in mediadomain.ListInput) ([]mediadomain.Asset, paging.Page, error)
+	TotalBytes(ctx context.Context, kind *mediadomain.Kind) (int64, error)
+	Delete(ctx context.Context, in mediadomain.DeleteInput) error
+	MintForStudent(ctx context.Context, studentID, assetID string) (mediaapp.SignedURLResult, error)
 	// Get resolves one asset, so a question can render its attachment.
-	Get(ctx context.Context, id string) (media.Asset, error)
+	Get(ctx context.Context, id string) (mediadomain.Asset, error)
 	SignedURLTTL() time.Duration
-}
-
-// QuestionsService is the slice of internal/questions the handlers use.
-type QuestionsService interface {
-	List(ctx context.Context, in questions.ListInput) ([]questions.Question, paging.Page, error)
-	Facets(ctx context.Context, in questions.ListInput) (questions.TypeFacets, error)
-	Get(ctx context.Context, id string) (questions.Question, error)
-	Create(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
-	Update(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
-	Delete(ctx context.Context, req questions.WriteRequest) error
-	Duplicate(ctx context.Context, req questions.WriteRequest) (questions.Question, error)
-	AddTags(ctx context.Context, ids []string, tags []string) (int, error)
-	Tags(ctx context.Context, in questions.ListInput) ([]string, error)
-	Counts(ctx context.Context, in questions.ListInput) (int, int, error)
 }
 
 // TestsService is the slice of internal/tests the handlers use.

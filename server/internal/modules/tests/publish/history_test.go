@@ -5,7 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"quizzivy/internal/modules/questions"
+	questionsapp "quizzivy/internal/modules/questions/application"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
+	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/modules/tests"
 )
 
@@ -58,14 +60,14 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	author := makeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 	svc := tests.NewService(tests.NewStore(pool))
-	qsvc := questions.NewService(questions.NewStore(pool))
+	qsvc := questionsapp.NewService(questionsrepo.NewPostgres(pool), nil)
 	ctx := context.Background()
 
-	questionID := b.question(questions.Input{
-		Type:   questions.SingleChoice,
+	questionID := b.question(questionsdomain.Input{
+		Type:   questionsdomain.SingleChoice,
 		Prompt: "Bản đã phát hành",
 		Points: "2.00",
-		Options: []questions.OptionInput{
+		Options: []questionsdomain.OptionInput{
 			{Text: "đúng", IsCorrect: true},
 			{Text: "sai", IsCorrect: false},
 		},
@@ -76,15 +78,15 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	}
 
 	// The teacher rewrites the bank question after publishing.
-	if _, err := qsvc.Update(ctx, questions.WriteRequest{
+	if _, err := qsvc.Update(ctx, questionsdomain.WriteRequest{
 		ID:      questionID,
 		ActorID: author,
-		Input: questions.Input{
-			Type:   questions.SingleChoice,
+		Input: questionsdomain.Input{
+			Type:   questionsdomain.SingleChoice,
 			Prompt: "Bản nháp đã sửa",
 			Points: "9.00",
 			Tags:   []string{},
-			Options: []questions.OptionInput{
+			Options: []questionsdomain.OptionInput{
 				{Text: "khác", IsCorrect: true},
 				{Text: "nữa", IsCorrect: false},
 			},

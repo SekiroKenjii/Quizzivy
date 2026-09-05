@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"quizzivy/internal/modules/questions"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
 )
 
 // Validate runs §8's publish checks and returns every failure at once.
@@ -80,7 +80,7 @@ func validateBlanks(q Question, anchor func(Rule, string) Violation, add func(Vi
 		}
 	}
 
-	inPrompt := questions.PromptPlaceholders(q.Prompt)
+	inPrompt := questionsdomain.PromptPlaceholders(q.Prompt)
 	promptSet := make(map[int]bool, len(inPrompt))
 	for _, n := range inPrompt {
 		promptSet[n] = true

@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"quizzivy/internal/modules/questions"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
 )
 
 // audioAsset inserts a usable audio asset and returns its id.
@@ -49,10 +49,10 @@ func (b *builder) listeningQuestion(prompt, assetID string) string {
 	b.t.Helper()
 	allow := false
 	show := true
-	return b.question(questions.Input{
-		Type: questions.ShortAnswer, Prompt: prompt, Points: "1.00",
+	return b.question(questionsdomain.Input{
+		Type: questionsdomain.ShortAnswer, Prompt: prompt, Points: "1.00",
 		MediaAssetID: &assetID,
-		Audio: &questions.AudioPolicy{
+		Audio: &questionsdomain.AudioPolicy{
 			AllowSeek: allow, ShowTranscriptAfterSubmit: show,
 		},
 	})

@@ -7,6 +7,8 @@ import (
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 	identityhttp "quizzivy/internal/modules/identity/http"
+	mediahttp "quizzivy/internal/modules/media/http"
+	questionshttp "quizzivy/internal/modules/questions/http"
 )
 
 // Server implements the generated StrictServerInterface by embedding each module's handlers.
@@ -14,6 +16,8 @@ type Server struct {
 	dashboardhttp.Dashboard
 	classeshttp.Classes
 	identityhttp.Identity
+	questionshttp.Questions
+	mediahttp.Media
 	Deps Deps
 	// Logger is nil in tests; read it through logOf.
 	Logger *slog.Logger
@@ -33,7 +37,6 @@ type Deps struct {
 	Modules     Modules
 	DB          DB
 	Media       MediaService
-	Questions   QuestionsService
 	Tests       TestsService
 	Publisher   PublishService
 	Assignments AssignmentsService

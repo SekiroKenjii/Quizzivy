@@ -4,15 +4,15 @@ import (
 	"testing"
 
 	"quizzivy/internal/api"
-	"quizzivy/internal/modules/media"
+	mediaapp "quizzivy/internal/modules/media/application"
 )
 
 // TestMediaDisabledLeavesDepsMediaNil pins the nil-interface trap that the
-// guard in buildModules exists for: assigning a nil *media.Service to the
+// guard in buildModules exists for: assigning a nil *mediaapp.Service to the
 // interface field would produce a non-nil interface, and every handler's
 // `Deps.Media == nil` check would then call methods on a nil pointer.
 func TestMediaDisabledLeavesDepsMediaNil(t *testing.T) {
-	var disabled *media.Service
+	var disabled *mediaapp.Service
 
 	var deps api.Deps
 	if disabled != nil {

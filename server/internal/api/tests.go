@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	mediahttp "quizzivy/internal/modules/media/http"
 	"strconv"
 
 	"quizzivy/gen/openapi"
@@ -390,6 +391,6 @@ func (s *Server) previewAsset(ctx context.Context, assetID *string) (*openapi.Me
 	if err != nil {
 		return nil, err
 	}
-	out := toAPIMediaAsset(asset, url)
+	out := mediahttp.ToAPIMediaAsset(asset, url)
 	return &out, nil
 }

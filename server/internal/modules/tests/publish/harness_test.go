@@ -9,7 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"quizzivy/internal/modules/questions"
+	questionsapp "quizzivy/internal/modules/questions/application"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
+	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/modules/tests"
 	"quizzivy/internal/modules/tests/publish"
 )
@@ -59,23 +61,23 @@ type builder struct {
 	pool   *pgxpool.Pool
 	author string
 	tests  *tests.Service
-	qsvc   *questions.Service
+	qsvc   *questionsapp.Service
 }
 
 func newBuilder(t *testing.T, pool *pgxpool.Pool, author string) *builder {
 	return &builder{
 		t: t, pool: pool, author: author,
 		tests: tests.NewService(tests.NewStore(pool)),
-		qsvc:  questions.NewService(questions.NewStore(pool)),
+		qsvc:  questionsapp.NewService(questionsrepo.NewPostgres(pool), nil),
 	}
 }
 
-func (b *builder) question(in questions.Input) string {
+func (b *builder) question(in questionsdomain.Input) string {
 	b.t.Helper()
 	if in.Tags == nil {
 		in.Tags = []string{}
 	}
-	q, err := b.qsvc.Create(context.Background(), questions.WriteRequest{Input: in, ActorID: b.author})
+	q, err := b.qsvc.Create(context.Background(), questionsdomain.WriteRequest{Input: in, ActorID: b.author})
 	if err != nil {
 		b.t.Fatalf("question %q: %v", in.Prompt, err)
 	}
@@ -83,8 +85,8 @@ func (b *builder) question(in questions.Input) string {
 }
 
 func (b *builder) shortAnswer(prompt, points string) string {
-	return b.question(questions.Input{
-		Type: questions.ShortAnswer, Prompt: prompt, Points: points,
+	return b.question(questionsdomain.Input{
+		Type: questionsdomain.ShortAnswer, Prompt: prompt, Points: points,
 	})
 }
 

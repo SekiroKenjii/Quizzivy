@@ -9,7 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"quizzivy/internal/modules/questions"
+	questionsapp "quizzivy/internal/modules/questions/application"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
+	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/modules/tests"
 )
 
@@ -65,10 +67,10 @@ func reqFor(id, author string) tests.Request {
 // newQuestion adds a bank question the outline can reference.
 func newQuestion(t *testing.T, pool *pgxpool.Pool, author, prompt string) string {
 	t.Helper()
-	svc := questions.NewService(questions.NewStore(pool))
-	q, err := svc.Create(context.Background(), questions.WriteRequest{
-		Input: questions.Input{
-			Type: questions.ShortAnswer, Prompt: prompt, Points: "2.00", Tags: []string{},
+	svc := questionsapp.NewService(questionsrepo.NewPostgres(pool), nil)
+	q, err := svc.Create(context.Background(), questionsdomain.WriteRequest{
+		Input: questionsdomain.Input{
+			Type: questionsdomain.ShortAnswer, Prompt: prompt, Points: "2.00", Tags: []string{},
 		},
 		ActorID: author,
 	})

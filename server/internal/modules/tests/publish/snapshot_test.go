@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"quizzivy/internal/modules/questions"
+	questionsdomain "quizzivy/internal/modules/questions/domain"
 )
 
 // §7's CORE INVARIANT. If this test is ever deleted the versioning is
@@ -25,10 +25,10 @@ func TestEditingTheBankAfterPublishLeavesTheVersionUnchanged(t *testing.T) {
 	}
 
 	// Edit the bank question in every way the snapshot copies.
-	if _, err := b.qsvc.Update(ctx, questions.WriteRequest{
+	if _, err := b.qsvc.Update(ctx, questionsdomain.WriteRequest{
 		ID: q, ActorID: author,
-		Input: questions.Input{
-			Type: questions.ShortAnswer, Prompt: "ĐÃ SỬA SAU KHI XUẤT BẢN",
+		Input: questionsdomain.Input{
+			Type: questionsdomain.ShortAnswer, Prompt: "ĐÃ SỬA SAU KHI XUẤT BẢN",
 			Points: "99.00", Tags: []string{},
 		},
 	}); err != nil {
@@ -69,9 +69,9 @@ func TestTheSnapshotPreservesOptionOrdinalsAndCorrectness(t *testing.T) {
 	b := newBuilder(t, pool, author)
 	ctx := context.Background()
 
-	q := b.question(questions.Input{
-		Type: questions.SingleChoice, Prompt: "Thủ đô của Việt Nam?", Points: "2.00",
-		Options: []questions.OptionInput{
+	q := b.question(questionsdomain.Input{
+		Type: questionsdomain.SingleChoice, Prompt: "Thủ đô của Việt Nam?", Points: "2.00",
+		Options: []questionsdomain.OptionInput{
 			{Text: "Huế", IsCorrect: false},
 			{Text: "Hà Nội", IsCorrect: true},
 			{Text: "Đà Nẵng", IsCorrect: false},
@@ -136,9 +136,9 @@ func TestTheSnapshotCarriesBlanksAndAcceptedAnswers(t *testing.T) {
 	b := newBuilder(t, pool, author)
 	ctx := context.Background()
 
-	q := b.question(questions.Input{
-		Type: questions.FillBlank, Prompt: "Tôi {{1}} đi học và {{2}} về nhà", Points: "3.00",
-		Blanks: []questions.BlankInput{
+	q := b.question(questionsdomain.Input{
+		Type: questionsdomain.FillBlank, Prompt: "Tôi {{1}} đi học và {{2}} về nhà", Points: "3.00",
+		Blanks: []questionsdomain.BlankInput{
 			{Ordinal: 1, AcceptedAnswers: []string{"đi", "di"}},
 			{Ordinal: 2, AcceptedAnswers: []string{"về"}, CaseSensitive: true},
 		},
@@ -245,9 +245,9 @@ func TestAFailedPublishLeavesNoVersionRow(t *testing.T) {
 	ctx := context.Background()
 
 	// A choice question with no correct option fails validation.
-	q := b.question(questions.Input{
-		Type: questions.SingleChoice, Prompt: "Không có đáp án đúng", Points: "1.00",
-		Options: []questions.OptionInput{
+	q := b.question(questionsdomain.Input{
+		Type: questionsdomain.SingleChoice, Prompt: "Không có đáp án đúng", Points: "1.00",
+		Options: []questionsdomain.OptionInput{
 			{Text: "A", IsCorrect: true},
 			{Text: "B", IsCorrect: false},
 		},

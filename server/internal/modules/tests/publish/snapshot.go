@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"quizzivy/internal/modules/media"
+	mediarepo "quizzivy/internal/modules/media/repositories"
 )
 
 // snapshot freezes the draft into the version tables.
@@ -58,7 +58,7 @@ func lockMediaAssets(ctx context.Context, tx pgx.Tx, d Draft) error {
 	slices.Sort(ids)
 
 	for _, id := range ids {
-		if err := media.LockForVersionUse(ctx, tx, id); err != nil {
+		if err := mediarepo.LockForVersionUse(ctx, tx, id); err != nil {
 			return fmt.Errorf("publish: media asset %s: %w", id, err)
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	mediahttp "quizzivy/internal/modules/media/http"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -293,7 +294,7 @@ func (s *Server) toAPIReviewQuestion(ctx context.Context, q review.Question, pub
 		if err != nil {
 			return openapi.AdminQuestion{}, err
 		}
-		media := toAPIMediaAsset(asset, url)
+		media := mediahttp.ToAPIMediaAsset(asset, url)
 		out.Media = &media
 	}
 	return out, nil
