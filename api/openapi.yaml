@@ -2763,7 +2763,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [attempt, student, testTitle, maxAttempts, questions, answers, audioPlays, integrity]
+                required: [attempt, student, testTitle, maxAttempts, questions, answers, audioPlays, integrity, teacherNote]
                 additionalProperties: false
                 properties:
                   attempt: { $ref: '#/components/schemas/Attempt' }
@@ -2788,6 +2788,12 @@ paths:
                     additionalProperties: { type: integer }
                     description: Shown as used-vs-allowed, including over-limit. Reported, not enforced (§11.4).
                   integrity: { $ref: '#/components/schemas/IntegritySummary' }
+                  teacherNote:
+                    type: [string, 'null']
+                    description: |
+                      G-05's "Ghi chú của bạn": the teacher's private note on
+                      this attempt. Admin-only by construction — it lives on
+                      this response and nowhere under `/app/*`.
         '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/attempts/{id}/events:
@@ -2915,6 +2921,72 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`ATTEMPT_VOIDED` — already voided.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/attempts/{id}/note:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: setAttemptNote
+      tags: [admin-attempts]
+      description: |
+        G-05's "Ghi chú của bạn": a note only the teacher reads, kept on the
+        attempt so it is there next term. `null` clears it. Never surfaces on
+        any `/app/*` response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              additionalProperties: false
+              properties:
+                note: { type: [string, 'null'], maxLength: 2000 }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [note]
+                additionalProperties: false
+                properties:
+                  note: { type: [string, 'null'] }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/attempts/{id}/flag:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: flagAttempt
+      tags: [admin-attempts]
+      description: |
+        G-05's "Đánh dấu" and "Bỏ đánh dấu": marks an attempt to look at
+        again, or clears the mark, by hand. A mark, not a verdict (§10.4).
+        Audited in the same statement as the update, as `attempt.flagged` or
+        `attempt.unflagged`, with the reason when one is given.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flagged]
+              additionalProperties: false
+              properties:
+                flagged: { type: boolean }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attempt' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ATTEMPT_VOIDED` — a voided attempt is out of the queue already.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

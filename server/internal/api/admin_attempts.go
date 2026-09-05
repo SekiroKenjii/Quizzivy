@@ -184,7 +184,53 @@ func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAtt
 		Answers:     answers,
 		AudioPlays:  rv.AudioPlays,
 		Integrity:   toAPIIntegritySummary(timeline.Summary),
+		TeacherNote: rv.TeacherNote,
 	}, nil
+}
+
+// SetAttemptNote keeps G-05's private note.
+func (s *Server) SetAttemptNote(ctx context.Context, request openapi.SetAttemptNoteRequestObject) (openapi.SetAttemptNoteResponseObject, error) {
+	if s.Deps.Review == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	err := s.Deps.Review.SetNote(ctx, request.Id.String(), request.Body.Note)
+	if errors.Is(err, review.ErrNotFound) {
+		return openapi.SetAttemptNote404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			notFound(ctx, msgAttemptNotFound))}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rv, err := s.Deps.Review.Get(ctx, request.Id.String())
+	if err != nil {
+		return nil, err
+	}
+	return openapi.SetAttemptNote200JSONResponse{Note: rv.TeacherNote}, nil
+}
+
+// FlagAttempt is G-05's mark, set or cleared by hand.
+func (s *Server) FlagAttempt(ctx context.Context, request openapi.FlagAttemptRequestObject) (openapi.FlagAttemptResponseObject, error) {
+	if s.Deps.Attempts == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := attemptRequest(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	reason := ""
+	if request.Body.Reason != nil {
+		reason = *request.Body.Reason
+	}
+	flagged, err := s.Deps.Attempts.Flag(ctx, req, request.Id.String(), request.Body.Flagged, reason)
+	switch {
+	case errors.Is(err, attempts.ErrNotFound):
+		return openapi.FlagAttempt404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(notFound(ctx, msgAttemptNotFound))}, nil
+	case errors.Is(err, attempts.ErrAttemptVoided):
+		return openapi.FlagAttempt409JSONResponse(authError(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+	case err != nil:
+		return nil, err
+	}
+	return openapi.FlagAttempt200JSONResponse(toAPIAttempt(flagged)), nil
 }
 
 func (s *Server) toAPIReviewQuestion(ctx context.Context, q review.Question, rv review.Review) (openapi.AdminQuestion, error) {

@@ -128,6 +128,7 @@ type Review = {
   >;
   audioPlays: Record<string, number>;
   integrity: components["schemas"]["IntegritySummary"];
+  teacherNote: string | null;
 };
 
 export function review(over: { essayScore?: number | null } = {}): Review {
@@ -151,6 +152,7 @@ export function review(over: { essayScore?: number | null } = {}): Review {
       },
       integrity: { focusLossCount: 1, flagged: false },
     },
+    teacherNote: null,
     student: {
       id: STUDENT_ID,
       email: "minh@example.com",

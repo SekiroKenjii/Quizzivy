@@ -126,6 +126,7 @@ type AttemptsService interface {
 	Result(ctx context.Context, attemptID, studentID string) (attempts.Result, error)
 	Monitor(ctx context.Context, assignmentID string) (attempts.Monitor, error)
 	Extend(ctx context.Context, req attempts.Request, attemptID string, minutes int, reason string) (attempts.Attempt, error)
+	Flag(ctx context.Context, req attempts.Request, attemptID string, flagged bool, reason string) (attempts.Attempt, error)
 	Reset(ctx context.Context, req attempts.Request, attemptID, reason string) (attempts.Attempt, error)
 	Void(ctx context.Context, req attempts.Request, attemptID, reason string) (attempts.Attempt, error)
 }
@@ -135,6 +136,7 @@ type ReviewService interface {
 	Get(ctx context.Context, attemptID string) (review.Review, error)
 	Grade(ctx context.Context, attemptID, graderID string, items []review.Item) (attempts.Score, error)
 	Finish(ctx context.Context, attemptID string) (attempts.Attempt, error)
+	SetNote(ctx context.Context, attemptID string, note *string) error
 }
 
 // IntegrityService is the slice of internal/integrity the handlers use.

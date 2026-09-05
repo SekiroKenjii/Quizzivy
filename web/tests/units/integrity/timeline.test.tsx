@@ -91,6 +91,7 @@ function renderTimeline(
         attemptId={ATTEMPT_ID}
         questions={[]}
         live={false}
+        note={null}
         onViewPaper={() => {}}
       />
     </QueryClientProvider>,

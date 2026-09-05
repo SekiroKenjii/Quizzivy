@@ -243,7 +243,6 @@
     "codeShareHint": "Ai có mã đều vào được lớp. Tạo mã mới khi bạn nghi mã đã bị chia sẻ ra ngoài.",
     "stop": "Ngừng",
     "freshTitle": "Mã mới cho lớp này",
-    "copyCode": "Sao chép mã",
     "done": "Xong",
     "removeNamed": "Xoá {{name}} khỏi lớp",
     "noMemberMatches": "Không có học viên nào khớp với “{{query}}”.",
@@ -1187,6 +1186,12 @@
     "finish": "Hoàn tất chấm",
     "finished": "Đã hoàn tất chấm.",
     "finishFailed": "Không hoàn tất được. Vui lòng thử lại.",
+    "flagFailed": "Không đổi được đánh dấu.",
+    "unflaggedToast": "Đã bỏ đánh dấu",
+    "flaggedToast": "Đã đánh dấu để xem lại",
+    "flaggedBadge": "Đã đánh dấu",
+    "unflag": "Bỏ đánh dấu",
+    "flag": "Đánh dấu",
     "saveFailed": "Không lưu được điểm. Vui lòng thử lại.",
     "rail": "Danh sách câu",
     "questions": "Câu hỏi",
@@ -1296,7 +1301,10 @@
       "cannotSee": "Hệ thống chỉ biết tab làm bài có bị rời đi hay không. Nó không thấy điện thoại thứ hai, người ngồi cạnh, hay tài liệu in ra.",
       "duration": "Một lần rời 2 giây thường là thông báo. Một lần rời 90 giây thì đáng để hỏi. Mất mạng được ghi riêng để không bị hiểu nhầm.",
       "conversation": "Đây là thông tin để bắt đầu một cuộc trò chuyện, không phải bằng chứng để kết luận."
-    }
+    },
+    "noteTitle": "Ghi chú của bạn",
+    "noteHint": "Chỉ bạn đọc được. Không hiện cho học viên.",
+    "notePlaceholder": "đã hỏi Hân, em nói mất điện lúc 10:04"
   },
   "result": {
     "title": "Kết quả",

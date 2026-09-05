@@ -107,6 +107,47 @@ func (s *Store) void(ctx context.Context, req Request, attemptID, reason, action
 	return out.Attempt, nil
 }
 
+// Flag marks an attempt to look at again, or clears the mark, by hand (G-05).
+// It is the teacher's judgement, so it is audited like the interventions,
+// with whatever reason was given; a voided attempt is out of every queue and
+// is left alone.
+func (s *Store) Flag(ctx context.Context, req Request, attemptID string, flagged bool, reason string, now time.Time) (Attempt, error) {
+	q := `
+		WITH updated AS (
+		  UPDATE app.attempts
+		     SET flagged = $2
+		   WHERE id = $1::uuid AND status <> 'voided'
+		  RETURNING ` + attemptColumns + `, old.flagged AS prev_flagged
+		), logged AS (
+		  INSERT INTO app.audit_log
+		         (actor_user_id, action, entity, entity_id, occurred_at, ip, user_agent, diff)
+		  SELECT $3::uuid, CASE WHEN $2 THEN 'attempt.flagged' ELSE 'attempt.unflagged' END,
+		         'attempt', updated.id, $4, $5::inet, $6,
+		         jsonb_build_object(
+		           'flagged', jsonb_build_object('old', updated.prev_flagged, 'new', $2::boolean),
+		           'reason', nullif($7::text, ''))
+		    FROM updated
+		)
+		SELECT ` + attemptColumns + ` FROM updated`
+	out, err := scanAttempt(s.pool.QueryRow(ctx, q,
+		attemptID, flagged, req.ActorID, now, optionalIP(req.IP), optional(req.UserAgent), strings.TrimSpace(reason)))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Attempt{}, s.whyNotFlaggable(ctx, attemptID)
+	}
+	if err != nil {
+		return Attempt{}, fmt.Errorf("attempts: flag: %w", err)
+	}
+	return out.Attempt, nil
+}
+
+func (s *Store) whyNotFlaggable(ctx context.Context, attemptID string) error {
+	err := s.whyNotLive(ctx, attemptID)
+	if errors.Is(err, ErrAttemptClosed) {
+		return fmt.Errorf("attempts: flag: %w", errors.ErrUnsupported)
+	}
+	return err
+}
+
 // whyNotLive turns "no row updated" into the reason: missing, or in a status
 // the action does not apply to.
 func (s *Store) whyNotLive(ctx context.Context, attemptID string) error {
@@ -156,4 +197,8 @@ func (s *Service) Void(ctx context.Context, req Request, attemptID, reason strin
 
 func (s *Service) Reset(ctx context.Context, req Request, attemptID, reason string) (Attempt, error) {
 	return s.store.Reset(ctx, req, attemptID, reason, s.now())
+}
+
+func (s *Service) Flag(ctx context.Context, req Request, attemptID string, flagged bool, reason string) (Attempt, error) {
+	return s.store.Flag(ctx, req, attemptID, flagged, reason, s.now())
 }

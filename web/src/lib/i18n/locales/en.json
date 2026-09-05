@@ -188,7 +188,7 @@
     "joinCode": "Class join code",
     "downloadQr": "Download QR",
     "codeCopied": "Code copied",
-    "copyCode": "Copy code",
+    "copyCode": "Copy the code",
     "selfJoinFailed": "Could not change the join setting.",
     "selfJoinOff": "Joining by code is paused",
     "selfJoinOn": "Joining by code is open",
@@ -243,7 +243,6 @@
     "codeShareHint": "Anyone with the code can join. Create a new one if you think it has been shared outside the class.",
     "stop": "Stop",
     "freshTitle": "A new code for this class",
-    "copyCode": "Copy the code",
     "done": "Done",
     "removeNamed": "Remove {{name}} from the class",
     "noMemberMatches": "No student matches “{{query}}”.",
@@ -1187,6 +1186,12 @@
     "finish": "Finish grading",
     "finished": "Grading finished.",
     "finishFailed": "Couldn't finish. Please try again.",
+    "flagFailed": "Could not change the flag.",
+    "unflaggedToast": "Flag removed",
+    "flaggedToast": "Flagged for a second look",
+    "flaggedBadge": "Flagged",
+    "unflag": "Remove flag",
+    "flag": "Flag for review",
     "saveFailed": "Couldn't save the mark. Please try again.",
     "rail": "Question list",
     "questions": "Questions",
@@ -1296,7 +1301,10 @@
       "cannotSee": "The system only knows whether the test tab was left. It cannot see a second phone, a person next to them, or a printed sheet.",
       "duration": "A 2-second absence is usually a notification. A 90-second one is worth asking about. Connection loss is recorded separately so it isn't misread.",
       "conversation": "This is information to start a conversation, not evidence to conclude one."
-    }
+    },
+    "noteTitle": "Your note",
+    "noteHint": "Only you can read this. Never shown to the student.",
+    "notePlaceholder": "asked Hân, she said the power went out at 10:04"
   },
   "result": {
     "title": "Result",

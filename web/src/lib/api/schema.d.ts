@@ -723,6 +723,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/attempts/{id}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description G-05's "Ghi chú của bạn": a note only the teacher reads, kept on the
+         *     attempt so it is there next term. `null` clears it. Never surfaces on
+         *     any `/app/*` response.
+         */
+        patch: operations["setAttemptNote"];
+        trace?: never;
+    };
+    "/admin/attempts/{id}/flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description G-05's "Đánh dấu" and "Bỏ đánh dấu": marks an attempt to look at
+         *     again, or clears the mark, by hand. A mark, not a verdict (§10.4).
+         *     Audited in the same statement as the update, as `attempt.flagged` or
+         *     `attempt.unflagged`, with the reason when one is given.
+         */
+        post: operations["flagAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/attempts/{id}/grade": {
         parameters: {
             query?: never;
@@ -3747,6 +3794,12 @@ export interface operations {
                             [key: string]: number;
                         };
                         integrity: components["schemas"]["IntegritySummary"];
+                        /**
+                         * @description G-05's "Ghi chú của bạn": the teacher's private note on
+                         *     this attempt. Admin-only by construction — it lives on
+                         *     this response and nowhere under `/app/*`.
+                         */
+                        teacherNote: string | null;
                     };
                 };
             };
@@ -3888,6 +3941,76 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `ATTEMPT_VOIDED` — already voided. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setAttemptNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        note: string | null;
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    flagAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    flagged: boolean;
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attempt"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_VOIDED` — a voided attempt is out of the queue already. */
             409: {
                 headers: {
                     [name: string]: unknown;
