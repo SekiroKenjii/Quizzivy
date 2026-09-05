@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 
-	"quizzivy/internal/api"
 	assignmentsapp "quizzivy/internal/modules/assignments/application"
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
 	assignmentsrepo "quizzivy/internal/modules/assignments/repositories"
@@ -43,12 +42,12 @@ import (
 //
 // The auth service is returned separately because the token-pruning job needs
 // it directly, not through the interface the handlers see.
-func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (api.Deps, *identityapp.Service, error) {
+func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Deps, *identityapp.Service, error) {
 	boundPasswordHashing(cfg, logger)
 
 	tokens, err := identityapp.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
 	if err != nil {
-		return api.Deps{}, nil, err
+		return Deps{}, nil, err
 	}
 
 	authService := identityapp.NewService(identityrepo.NewUsers(pool.Pool), tokens, cfg.RefreshTokenTTL)
@@ -63,14 +62,14 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	testsRepo := testsrepo.NewPostgres(pool.Pool, questionsRepo, mediaRepo)
 	mediaService, err := newMediaService(ctx, cfg, logger, mediaRepo)
 	if err != nil {
-		return api.Deps{}, nil, err
+		return Deps{}, nil, err
 	}
 
-	deps := api.Deps{
+	deps := Deps{
 		DB:     pool,
 		Tokens: tokens,
 	}
-	deps.Modules = api.Modules{
+	deps.Modules = Modules{
 		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
 		Media:       mediahttp.NewMedia(mediaTransport(mediaService)),
 		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(pool.Pool)), attemptsapp.NewReview(attemptsrepo.NewReviews(pool.Pool)), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(pool.Pool)), attemptsMedia(mediaService), studentsService, logger),

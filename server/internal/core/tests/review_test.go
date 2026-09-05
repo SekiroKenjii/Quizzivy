@@ -1,4 +1,4 @@
-package api
+package core_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"quizzivy/internal/core"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
 	"testing"
 	"time"
@@ -60,13 +61,13 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 		ID: studentID, Email: "an@example.com", FullName: "Nguyễn Văn An",
 		HasPassword: true, CreatedAt: disabledAt, DisabledAt: &disabledAt,
 	}}
-	router, err := NewRouter(Deps{
+	router, err := core.NewRouter(core.Deps{
 		DB:      fakeDB{},
-		Modules: Modules{Attempts: attemptshttp.NewAttempts(nil, review, fakeIntegrity{}, nil, students, nil)},
+		Modules: core.Modules{Attempts: attemptshttp.NewAttempts(nil, review, fakeIntegrity{}, nil, students, nil)},
 		Tokens:  issuer,
 	}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
-		t.Fatalf("NewRouter: %v", err)
+		t.Fatalf("core.NewRouter: %v", err)
 	}
 	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
 	if err != nil {

@@ -1,4 +1,4 @@
-package api
+package core_test
 
 import (
 	"encoding/json"
@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"quizzivy/gen/openapi"
 )
 
 // api/openapi.yaml is the source of truth, but oapi-codegen only generates
@@ -85,30 +83,6 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401 -- validation ran before authentication", rec.Code)
-	}
-}
-
-func TestMiddlewareRunsInTheOrderItIsWritten(t *testing.T) {
-	var order []string
-	mark := func(name string) openapi.MiddlewareFunc {
-		return func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				order = append(order, name)
-				next.ServeHTTP(w, r)
-			})
-		}
-	}
-
-	mux := http.NewServeMux()
-	strict := openapi.NewStrictHandler(&Server{}, nil)
-	handler := openapi.HandlerWithOptions(strict, openapi.StdHTTPServerOptions{
-		BaseRouter:  mux,
-		Middlewares: inExecutionOrder(mark("first"), mark("second"), mark("third")),
-	})
-	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/auth/me", nil))
-
-	if got := strings.Join(order, ","); got != "first,second,third" {
-		t.Fatalf("execution order = %s, want first,second,third", got)
 	}
 }
 

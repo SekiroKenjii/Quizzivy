@@ -21,7 +21,7 @@ const (
 
 // serve runs the HTTP server until ctx is cancelled, then drains in flight
 // requests within shutdownTimeout.
-func serve(ctx context.Context, logger *slog.Logger, cfg config.Config, handler http.Handler) error {
+func Serve(ctx context.Context, logger *slog.Logger, cfg config.Config, handler http.Handler) error {
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           handler,

@@ -1,6 +1,7 @@
-package api
+package core_test
 
 import (
+	"quizzivy/internal/core"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestEveryPublicOperationIsRateLimited(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
 	}
-	if err := httpx.AssertPublicRoutesLimited(spec, RateLimits()); err != nil {
+	if err := httpx.AssertPublicRoutesLimited(spec, core.RateLimits()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -50,7 +51,7 @@ func TestDroppingOneRouteIsCaught(t *testing.T) {
 		t.Fatalf("GetSwagger: %v", err)
 	}
 	partial := ratelimit.NewRegistry()
-	for _, pattern := range RateLimits().Patterns() {
+	for _, pattern := range core.RateLimits().Patterns() {
 		if pattern == "POST /join/preview" {
 			continue
 		}
@@ -79,7 +80,7 @@ func TestRegistryHasNoStaleEntries(t *testing.T) {
 		}
 	}
 
-	for _, pattern := range RateLimits().Patterns() {
+	for _, pattern := range core.RateLimits().Patterns() {
 		if !known[pattern] {
 			t.Errorf("registry limits %q, which is not an operation in api/openapi.yaml", pattern)
 		}

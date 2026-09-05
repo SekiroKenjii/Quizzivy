@@ -1,4 +1,4 @@
-package api
+package core_test
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"quizzivy/internal/core"
 	"sort"
 	"strings"
 	"testing"
@@ -63,10 +64,10 @@ func TestOnlySixOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 func newAuthTestRouter(t *testing.T, issuer *identityapp.TokenIssuer) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := NewRouter(Deps{DB: fakeDB{}, Tokens: issuer}, logger,
+	h, err := core.NewRouter(core.Deps{DB: fakeDB{}, Tokens: issuer}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
-		t.Fatalf("NewRouter: %v", err)
+		t.Fatalf("core.NewRouter: %v", err)
 	}
 	return h
 }
@@ -188,9 +189,9 @@ func TestHealthzIsNotBehindAuthentication(t *testing.T) {
 
 func TestAMisconfiguredVerifierRefusesEveryoneRatherThanNobody(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router, err := NewRouter(Deps{DB: fakeDB{}}, logger, []string{"https://app.quizzivy.com"}, "")
+	router, err := core.NewRouter(core.Deps{DB: fakeDB{}}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
-		t.Fatalf("NewRouter: %v", err)
+		t.Fatalf("core.NewRouter: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)

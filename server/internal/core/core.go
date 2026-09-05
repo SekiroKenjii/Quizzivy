@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"quizzivy/internal/api"
 	identityapp "quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
@@ -47,7 +46,7 @@ type App struct {
 	logger *slog.Logger
 	pool   *db.Pool
 	auth   *identityapp.Service
-	deps   api.Deps
+	deps   Deps
 }
 
 // New opens the database and builds every module. The returned App owns the
@@ -78,12 +77,12 @@ func (a *App) Close() {
 // Serve starts the background jobs and the HTTP server, and shuts down when ctx
 // is cancelled.
 func (a *App) Serve(ctx context.Context) error {
-	handler, err := api.NewRouter(a.deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
+	handler, err := NewRouter(a.deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
 	if err != nil {
 		return err
 	}
 
 	go prunePeriodically(ctx, a.logger, a.auth)
 
-	return serve(ctx, a.logger, a.cfg, handler)
+	return Serve(ctx, a.logger, a.cfg, handler)
 }

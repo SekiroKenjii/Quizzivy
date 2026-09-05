@@ -1,4 +1,4 @@
-package api
+package core
 
 import (
 	assignmentshttp "quizzivy/internal/modules/assignments/http"

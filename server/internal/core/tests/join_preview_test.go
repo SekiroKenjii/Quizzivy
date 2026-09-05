@@ -1,4 +1,4 @@
-package api
+package core_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"quizzivy/internal/core"
 	"strings"
 	"testing"
 
@@ -42,10 +43,10 @@ func (f *fakeJoin) Preview(_ context.Context, code string) (classesdomain.Previe
 func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := NewRouter(Deps{DB: fakeDB{}, Modules: Modules{Classes: classeshttp.NewClasses(nil, fake)}, Tokens: testIssuer(t)}, logger,
+	h, err := core.NewRouter(core.Deps{DB: fakeDB{}, Modules: core.Modules{Classes: classeshttp.NewClasses(nil, fake)}, Tokens: testIssuer(t)}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
-		t.Fatalf("NewRouter: %v", err)
+		t.Fatalf("core.NewRouter: %v", err)
 	}
 	return h
 }

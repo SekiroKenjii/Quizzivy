@@ -1,9 +1,10 @@
-package api
+package core_test
 
 import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -20,7 +21,7 @@ func stubbedOperations(t *testing.T) []string {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "server.gen_stubs.go", nil, 0)
+	file, err := parser.ParseFile(fset, filepath.Join("..", "composite.go"), nil, 0)
 	if err != nil {
 		t.Fatalf("parse server.gen_stubs.go: %v", err)
 	}
@@ -36,7 +37,7 @@ func stubbedOperations(t *testing.T) []string {
 			continue
 		}
 		ident, ok := star.X.(*ast.Ident)
-		if !ok || ident.Name != "Server" {
+		if !ok || ident.Name != "core.Server" {
 			continue
 		}
 		names = append(names, fn.Name.Name)

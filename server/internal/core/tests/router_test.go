@@ -1,4 +1,4 @@
-package api
+package core_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"quizzivy/internal/core"
 	"testing"
 )
 
@@ -15,12 +16,12 @@ type fakeDB struct{ err error }
 
 func (f fakeDB) Ping(context.Context) error { return f.err }
 
-func newTestRouter(t *testing.T, database DB) http.Handler {
+func newTestRouter(t *testing.T, database core.DB) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := NewRouter(Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
+	h, err := core.NewRouter(core.Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
-		t.Fatalf("NewRouter: %v", err)
+		t.Fatalf("core.NewRouter: %v", err)
 	}
 	return h
 }

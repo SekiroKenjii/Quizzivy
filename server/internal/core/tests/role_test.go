@@ -1,4 +1,4 @@
-package api
+package core_test
 
 import (
 	"net/http"

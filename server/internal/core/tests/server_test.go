@@ -1,4 +1,4 @@
-package core
+package core_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"quizzivy/internal/core"
 	"quizzivy/internal/platform/config"
 )
 
@@ -30,7 +31,7 @@ func TestShutdownDrainsInFlightRequests(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	served := make(chan error, 1)
 	go func() {
-		served <- serve(ctx, slog.New(slog.DiscardHandler), cfg, handler)
+		served <- core.Serve(ctx, slog.New(slog.DiscardHandler), cfg, handler)
 	}()
 	waitForListener(t, port)
 
