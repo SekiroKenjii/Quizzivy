@@ -25,6 +25,24 @@ type ListInput struct {
 // OFFSET rather than keyset (O-20 overrides §13.8 here): the teacher wants
 // numbered pages, and at this library's size an upload landing mid-pagination
 // shifting a page by one row is a smaller cost than a grid that cannot jump.
+// TotalBytes sums every live asset the kind filter matches, for the library's
+// subtitle: the whole shelf, not the page on screen.
+func (s *Store) TotalBytes(ctx context.Context, kind *Kind) (int64, error) {
+	var kindArg *string
+	if kind != nil {
+		k := string(*kind)
+		kindArg = &k
+	}
+	var total int64
+	if err := s.pool.QueryRow(ctx, `
+		SELECT coalesce(sum(bytes), 0) FROM app.media_assets
+		 WHERE deleted_at IS NULL
+		   AND ($1::app.media_kind IS NULL OR kind = $1::app.media_kind)`, kindArg).Scan(&total); err != nil {
+		return 0, fmt.Errorf("media: total bytes: %w", err)
+	}
+	return total, nil
+}
+
 func (s *Store) List(ctx context.Context, in ListInput) ([]Asset, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 

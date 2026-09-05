@@ -153,6 +153,7 @@ describe("the question editor, per question type", () => {
     server.use(
       http.get("http://localhost:8080/admin/media", () =>
         contractJson("/admin/media", "get", 200, {
+          totalBytes: 2_400_000,
           page: 1,
           pageSize: 50,
           total: 0,

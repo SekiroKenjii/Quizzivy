@@ -2472,11 +2472,15 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items]
+                    required: [items, totalBytes]
                     properties:
                       items:
                         type: array
                         items: { $ref: '#/components/schemas/LibraryAsset' }
+                      totalBytes:
+                        type: integer
+                        minimum: 0
+                        description: Every live asset the filter matches, not just this page, for A-07's "18 tệp · 42 MB".
           headers:
             Cache-Control:
               description: |

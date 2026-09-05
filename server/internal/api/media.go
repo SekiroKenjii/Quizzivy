@@ -127,7 +127,12 @@ func (s *Server) ListMedia(ctx context.Context, request openapi.ListMediaRequest
 	if err != nil {
 		return nil, err
 	}
+	totalBytes, err := s.Deps.Media.TotalBytes(ctx, in.Kind)
+	if err != nil {
+		return nil, err
+	}
 	var out openapi.ListMedia200JSONResponse
+	out.Body.TotalBytes = int(totalBytes)
 	out.Headers.CacheControl = cacheControlForSignedURLList
 	out.Body.Items = make([]openapi.LibraryAsset, len(assets))
 	for i, a := range assets {

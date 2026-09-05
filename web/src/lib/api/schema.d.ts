@@ -3469,6 +3469,8 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["LibraryAsset"][];
+                        /** @description Every live asset the filter matches, not just this page, for A-07's "18 tệp · 42 MB". */
+                        totalBytes: number;
                     };
                 };
             };
