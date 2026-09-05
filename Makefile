@@ -119,7 +119,11 @@ test-api: migrate ## Go tests, including the DB-backed ones
 	# Packages run in parallel against one database. Tests that diff a global
 	# aggregate (the dashboard) do so inside a REPEATABLE READ transaction, so
 	# another package's inserts cannot move the number between two readings.
-	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./...
+	#
+	# -count=1, as CI runs it: a DB-backed test's result depends on the schema
+	# and rows behind it, which the test cache cannot see, so a cached "ok" can
+	# hide a test that would fail against the database as it is now.
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./... -count=1
 
 e2e: ## Playwright, against a real production build
 	cd web && pnpm e2e

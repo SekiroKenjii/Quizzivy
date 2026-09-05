@@ -616,9 +616,11 @@ func TestAPublishedTestMustHaveAVersion(t *testing.T) {
 	})
 }
 
-func TestAnArchivedTestMustAlsoHaveAVersion(t *testing.T) {
+// 00027: only a published test can be pointed at by an assignment, so only
+// that status needs a snapshot behind it. An abandoned draft archives as it is.
+func TestAnArchivedDraftNeedsNoVersion(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		rejectsWith(t, tx, "tests_published_has_version",
+		mustExec(t, tx,
 			`INSERT INTO app.tests (title, status, current_version, created_by)
 			 VALUES ('Đề lưu trữ', 'archived', 0, $1)`, f.adminID)
 	})
