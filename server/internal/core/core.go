@@ -1,6 +1,7 @@
 package core
 
 import (
+	"net/http"
 	"context"
 	"log/slog"
 	"os"
@@ -76,8 +77,14 @@ func (a *App) Close() {
 
 // Serve starts the background jobs and the HTTP server, and shuts down when ctx
 // is cancelled.
+// Handler is the assembled HTTP surface, for the server and for tests that
+// drive the whole application in-process.
+func (a *App) Handler() (http.Handler, error) {
+	return NewRouter(a.deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
+}
+
 func (a *App) Serve(ctx context.Context) error {
-	handler, err := NewRouter(a.deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
+	handler, err := a.Handler()
 	if err != nil {
 		return err
 	}
