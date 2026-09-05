@@ -62,7 +62,7 @@ func publishVersionUsing(ctx context.Context, pool *pgxpool.Pool, author, assetI
 func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore())
+	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	asset := upload(t, svc, uploader, "dang-dung.mp3")
@@ -99,7 +99,7 @@ func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 func TestDeletingAnUnreferencedAssetStillWorks(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore())
+	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	used := upload(t, svc, uploader, "dang-dung-2.mp3")
@@ -118,7 +118,7 @@ func TestDeletingAnUnreferencedAssetStillWorks(t *testing.T) {
 func TestUsageCountReflectsPublishedVersions(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore())
+	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	asset := upload(t, svc, uploader, "dem-luot-dung.mp3")
@@ -145,7 +145,7 @@ func TestUsageCountReflectsPublishedVersions(t *testing.T) {
 func TestLockForVersionUseSerialisesAgainstDelete(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore())
+	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	for attempt := range 8 {
@@ -174,7 +174,7 @@ func TestLockForVersionUseSerialisesAgainstDelete(t *testing.T) {
 func TestLockForVersionUseRefusesADeletedAsset(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore())
+	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	asset := upload(t, svc, uploader, "da-xoa.mp3")

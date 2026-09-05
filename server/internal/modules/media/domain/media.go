@@ -14,8 +14,10 @@ const (
 )
 
 var (
-	ErrTooLarge = errors.New("media: file is larger than the limit")
-	ErrTooLong  = errors.New("media: audio is longer than the limit")
+	ErrUnsupportedType = errors.New("media: not an audio or image file we accept")
+	ErrUnmeasurable    = errors.New("media: the audio's duration cannot be read")
+	ErrTooLarge        = errors.New("media: file is larger than the limit")
+	ErrTooLong         = errors.New("media: audio is longer than the limit")
 )
 
 type Kind string

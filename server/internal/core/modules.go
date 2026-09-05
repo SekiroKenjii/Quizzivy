@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	assignmentsapp "quizzivy/internal/modules/assignments/application"
@@ -22,11 +21,9 @@ import (
 	identityhttp "quizzivy/internal/modules/identity/http"
 	identityrepo "quizzivy/internal/modules/identity/repositories"
 	mediaapp "quizzivy/internal/modules/media/application"
-	mediadomain "quizzivy/internal/modules/media/domain"
 	mediahttp "quizzivy/internal/modules/media/http"
 	mediarepo "quizzivy/internal/modules/media/repositories"
 	questionsapp "quizzivy/internal/modules/questions/application"
-	questionsdomain "quizzivy/internal/modules/questions/domain"
 	questionshttp "quizzivy/internal/modules/questions/http"
 	questionsrepo "quizzivy/internal/modules/questions/repositories"
 	testsapp "quizzivy/internal/modules/tests/application"
@@ -98,10 +95,10 @@ func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identitya
 	}
 
 	keys := google.NewKeySet("", nil)
-	authService.SetGoogle(google.NewProvider(
+	authService.SetGoogle(googleProvider{google.NewProvider(
 		google.NewExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURIs, "", nil),
 		google.NewVerifier(cfg.GoogleClientID, keys),
-	), joinService)
+	)}, joinService)
 	logger.Info("google sign-in enabled", "redirect_uris", cfg.GoogleRedirectURIs)
 }
 
@@ -126,51 +123,6 @@ func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger
 	}
 	logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
 
-	return mediaapp.NewService(repo, objects).
+	return mediaapp.NewService(repo, objects, audioProbe{}).
 		WithSignedURLTTL(cfg.SignedURLTTL), nil
-}
-
-// mediaKinds lets the question bank ask the media module what an asset is.
-type mediaKinds struct{ media *mediaapp.Service }
-
-func (m mediaKinds) Kind(ctx context.Context, assetID string) (string, error) {
-	if m.media == nil {
-		return "", questionsdomain.ErrMediaNotFound
-	}
-	asset, err := m.media.Get(ctx, assetID)
-	if errors.Is(err, mediadomain.ErrNotFound) {
-		return "", questionsdomain.ErrMediaNotFound
-	}
-	if err != nil {
-		return "", err
-	}
-	return string(asset.Kind), nil
-}
-
-func questionsMedia(svc *mediaapp.Service) questionshttp.Media {
-	if svc == nil {
-		return nil
-	}
-	return svc
-}
-
-func mediaTransport(svc *mediaapp.Service) mediahttp.Service {
-	if svc == nil {
-		return nil
-	}
-	return svc
-}
-
-func testsMedia(svc *mediaapp.Service) testshttp.Media {
-	if svc == nil {
-		return nil
-	}
-	return svc
-}
-
-func attemptsMedia(svc *mediaapp.Service) attemptshttp.Media {
-	if svc == nil {
-		return nil
-	}
-	return svc
 }

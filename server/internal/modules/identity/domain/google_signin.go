@@ -7,9 +7,13 @@ import (
 )
 
 var (
-	ErrAccountNotProvisioned = errors.New("account not provisioned")
-	ErrGoogleUnavailable     = errors.New("google sign-in is not configured")
-	ErrSelfEnrolNotAvailable = errors.New("join-code signup is not implemented yet")
+	ErrGoogleExchangeFailed     = errors.New("google: code exchange failed")
+	ErrGoogleRedirectNotAllowed = errors.New("google: redirect uri is not allowed")
+	ErrGoogleTokenInvalid       = errors.New("google: id token is invalid")
+	ErrGoogleEmailUnverified    = errors.New("google: email is not verified")
+	ErrAccountNotProvisioned    = errors.New("account not provisioned")
+	ErrGoogleUnavailable        = errors.New("google sign-in is not configured")
+	ErrSelfEnrolNotAvailable    = errors.New("join-code signup is not implemented yet")
 )
 
 // JoinCodeRejected is a join code that did not pass. It carries the outcome so

@@ -7,14 +7,23 @@ import (
 
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/domain"
-	"quizzivy/internal/platform/google"
 )
 
-// GoogleProvider is the pair of calls §5.3 step 3 needs. An interface so the
-// resolution order can be tested without reaching Google.
+// GoogleIdentity is what Google attests about the person who signed in; the
+// subject is the stable key, the email may change.
+type GoogleIdentity struct {
+	Subject       string
+	Email         string
+	EmailVerified bool
+	Name          string
+	Picture       string
+}
+
+// GoogleProvider is the port to Google: the code exchange and the id-token
+// verification, which fail for the domain's ErrGoogle* reasons.
 type GoogleProvider interface {
 	Exchange(ctx context.Context, code, codeVerifier, redirectURI string) (string, error)
-	Verify(ctx context.Context, rawIDToken string) (google.Identity, error)
+	Verify(ctx context.Context, rawIDToken string) (GoogleIdentity, error)
 }
 
 // SelfEnroller creates an account from a join code and enrols it (§6.3).
@@ -92,24 +101,24 @@ func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (Googl
 
 // verifiedIdentity exchanges the code and applies §5.1's one rule: an
 // unverified address is refused outright.
-func (s *Service) verifiedIdentity(ctx context.Context, code, verifier, redirectURI string) (google.Identity, error) {
+func (s *Service) verifiedIdentity(ctx context.Context, code, verifier, redirectURI string) (GoogleIdentity, error) {
 	rawIDToken, err := s.google.Exchange(ctx, code, verifier, redirectURI)
 	if err != nil {
-		return google.Identity{}, err
+		return GoogleIdentity{}, err
 	}
 	identity, err := s.google.Verify(ctx, rawIDToken)
 	if err != nil {
-		return google.Identity{}, err
+		return GoogleIdentity{}, err
 	}
 	if !identity.EmailVerified {
-		return google.Identity{}, google.ErrEmailUnverified
+		return GoogleIdentity{}, domain.ErrGoogleEmailUnverified
 	}
 	return identity, nil
 }
 
 // linkAndReload attaches the identity to an existing account and reads the
 // account back with the link on it.
-func (s *Service) linkAndReload(ctx context.Context, userID string, identity google.Identity) (domain.User, error) {
+func (s *Service) linkAndReload(ctx context.Context, userID string, identity GoogleIdentity) (domain.User, error) {
 	if err := s.users.LinkIdentity(ctx, userID, "google", identity.Subject, identity.Email); err != nil {
 		return domain.User{}, err
 	}
@@ -121,7 +130,7 @@ func (s *Service) linkAndReload(ctx context.Context, userID string, identity goo
 }
 
 // enrolByCode is §6.3: a stranger with a valid code becomes a member.
-func (s *Service) enrolByCode(ctx context.Context, identity google.Identity, in GoogleSignInInput) (GoogleSignInResult, error) {
+func (s *Service) enrolByCode(ctx context.Context, identity GoogleIdentity, in GoogleSignInInput) (GoogleSignInResult, error) {
 	if s.enroller == nil {
 		return GoogleSignInResult{}, domain.ErrSelfEnrolNotAvailable
 	}

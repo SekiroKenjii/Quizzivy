@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"quizzivy/internal/modules/media/domain"
-	"quizzivy/internal/platform/probe"
 	"quizzivy/internal/shared/paging"
 	"strings"
 	"time"
@@ -22,15 +21,22 @@ type ObjectStore interface {
 	SignedURL(ctx context.Context, key string, ttl time.Duration) (string, error)
 }
 
+// AudioProbe measures an upload that is not an image: its MIME type and its
+// duration, failing with the domain's ErrUnsupportedType or ErrUnmeasurable.
+type AudioProbe interface {
+	Audio(r io.ReaderAt, size int64) (mime string, durationMs int, err error)
+}
+
 type Service struct {
 	repo   domain.Repository
 	object ObjectStore
+	probe  AudioProbe
 	now    func() time.Time
 	ttl    time.Duration
 }
 
-func NewService(repo domain.Repository, object ObjectStore) *Service {
-	return &Service{repo: repo, object: object, now: time.Now, ttl: DefaultSignedURLTTL}
+func NewService(repo domain.Repository, object ObjectStore, probe AudioProbe) *Service {
+	return &Service{repo: repo, object: object, probe: probe, now: time.Now, ttl: DefaultSignedURLTTL}
 }
 
 // WithSignedURLTTL sets the signature lifetime from configuration. A
@@ -76,9 +82,9 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (domain.Asset, err
 		return domain.Asset{}, err
 	}
 	if size == 0 {
-		return domain.Asset{}, fmt.Errorf("%w: empty file", probe.ErrUnsupportedType)
+		return domain.Asset{}, fmt.Errorf("%w: empty file", domain.ErrUnsupportedType)
 	}
-	kind, mime, durationMs, err := identify(tmp, size)
+	kind, mime, durationMs, err := s.identify(tmp, size)
 	if err != nil {
 		return domain.Asset{}, err
 	}
@@ -122,17 +128,17 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (domain.Asset, err
 }
 
 // identify sniffs the container and, for audio, probes the duration.
-func identify(r io.ReaderAt, size int64) (domain.Kind, string, *int, error) {
+func (s *Service) identify(r io.ReaderAt, size int64) (domain.Kind, string, *int, error) {
 	head := make([]byte, 16)
 	if n, err := r.ReadAt(head, 0); err != nil && n < 12 {
-		return "", "", nil, fmt.Errorf("%w: too short to identify", probe.ErrUnsupportedType)
+		return "", "", nil, fmt.Errorf("%w: too short to identify", domain.ErrUnsupportedType)
 	}
 
 	if mime := sniffImage(head); mime != "" {
 		return domain.KindImage, mime, nil, nil
 	}
 
-	mime, durationMs, err := probe.Audio(r, size)
+	mime, durationMs, err := s.probe.Audio(r, size)
 	if err != nil {
 		return "", "", nil, err
 	}

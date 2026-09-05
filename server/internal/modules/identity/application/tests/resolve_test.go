@@ -15,7 +15,6 @@ import (
 	classesapp "quizzivy/internal/modules/classes/application"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	classesrepo "quizzivy/internal/modules/classes/repositories"
-	"quizzivy/internal/platform/google"
 )
 
 // §5.3 step 4's resolution order, one test per branch. The order is the
@@ -26,7 +25,7 @@ import (
 // stubGoogle stands in for the exchange and the token verification, so these
 // tests exercise the RESOLUTION and nothing else.
 type stubGoogle struct {
-	identity  google.Identity
+	identity  application.GoogleIdentity
 	exchange  error
 	verify    error
 	exchanged bool
@@ -37,11 +36,11 @@ func (s *stubGoogle) Exchange(context.Context, string, string, string) (string, 
 	return "an.id.token", s.exchange
 }
 
-func (s *stubGoogle) Verify(context.Context, string) (google.Identity, error) {
+func (s *stubGoogle) Verify(context.Context, string) (application.GoogleIdentity, error) {
 	return s.identity, s.verify
 }
 
-func googleService(t *testing.T, pool *pgxpool.Pool, identity google.Identity) (*application.Service, *stubGoogle) {
+func googleService(t *testing.T, pool *pgxpool.Pool, identity application.GoogleIdentity) (*application.Service, *stubGoogle) {
 	t.Helper()
 	svc := newService(t, pool)
 	stub := &stubGoogle{identity: identity}
@@ -49,8 +48,8 @@ func googleService(t *testing.T, pool *pgxpool.Pool, identity google.Identity) (
 	return svc, stub
 }
 
-func verifiedIdentity(email string) google.Identity {
-	return google.Identity{
+func verifiedIdentity(email string) application.GoogleIdentity {
+	return application.GoogleIdentity{
 		Subject:       "google-sub-" + email,
 		Email:         email,
 		EmailVerified: true,
@@ -92,7 +91,7 @@ func TestBranch1MatchesOnSubjectNotEmail(t *testing.T) {
 	id, email := makeUser(t, pool, googleOnly)
 	linkGoogleSubject(t, pool, id, "the-stable-subject", email)
 
-	identity := google.Identity{
+	identity := application.GoogleIdentity{
 		Subject:       "the-stable-subject",
 		Email:         "changed-address@example.com", // no user has this
 		EmailVerified: true,
@@ -198,7 +197,7 @@ func TestAnUnverifiedEmailIsRejectedEvenWhenItMatchesAUser(t *testing.T) {
 	identity.EmailVerified = false
 	svc, _ := googleService(t, pool, identity)
 
-	if _, err := signIn(svc, ""); !errors.Is(err, google.ErrEmailUnverified) {
+	if _, err := signIn(svc, ""); !errors.Is(err, domain.ErrGoogleEmailUnverified) {
 		t.Fatalf("error = %v, want ErrEmailUnverified", err)
 	}
 
@@ -219,7 +218,7 @@ func TestAnUnverifiedEmailIsNotRescuedByAJoinCode(t *testing.T) {
 	identity.EmailVerified = false
 	svc, _ := googleService(t, pool, identity)
 
-	if _, err := signIn(svc, "ABCD2345"); !errors.Is(err, google.ErrEmailUnverified) {
+	if _, err := signIn(svc, "ABCD2345"); !errors.Is(err, domain.ErrGoogleEmailUnverified) {
 		t.Fatalf("error = %v, want ErrEmailUnverified", err)
 	}
 }
@@ -243,7 +242,7 @@ func TestAnAccountLinkedToADifferentGoogleAccountIsRefused(t *testing.T) {
 	linkGoogleSubject(t, pool, id, "the-first-google-account", email)
 
 	// Same email, different Google account.
-	identity := google.Identity{Subject: "a-second-google-account", Email: email, EmailVerified: true}
+	identity := application.GoogleIdentity{Subject: "a-second-google-account", Email: email, EmailVerified: true}
 	svc, _ := googleService(t, pool, identity)
 
 	if _, err := signIn(svc, ""); !errors.Is(err, domain.ErrIdentityAlreadyLinked) {
@@ -254,9 +253,9 @@ func TestAnAccountLinkedToADifferentGoogleAccountIsRefused(t *testing.T) {
 func TestAFailedExchangeNeverReachesTheDatabase(t *testing.T) {
 	pool := newPool(t)
 	svc, stub := googleService(t, pool, verifiedIdentity("whoever@example.com"))
-	stub.exchange = google.ErrExchangeFailed
+	stub.exchange = domain.ErrGoogleExchangeFailed
 
-	if _, err := signIn(svc, ""); !errors.Is(err, google.ErrExchangeFailed) {
+	if _, err := signIn(svc, ""); !errors.Is(err, domain.ErrGoogleExchangeFailed) {
 		t.Fatalf("error = %v, want ErrExchangeFailed", err)
 	}
 }
@@ -274,7 +273,7 @@ func TestGoogleSignInIsUnavailableWhenUnconfigured(t *testing.T) {
 // IS an enrolment -- testing it against a fake enroller would assert only that
 // the wiring compiles.
 
-func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity google.Identity) (*application.Service, *stubGoogle) {
+func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity application.GoogleIdentity) (*application.Service, *stubGoogle) {
 	t.Helper()
 	svc := newService(t, pool)
 	stub := &stubGoogle{identity: identity}

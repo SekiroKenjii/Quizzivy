@@ -11,14 +11,12 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"quizzivy/internal/platform/google"
 )
 
 // §15's two rules: a Google account belongs to one Quizzivy account, and an
 // account never ends up with no way in.
 
-func linkService(t *testing.T, pool *pgxpool.Pool, identity google.Identity) *application.Service {
+func linkService(t *testing.T, pool *pgxpool.Pool, identity application.GoogleIdentity) *application.Service {
 	t.Helper()
 	svc := newService(t, pool)
 	svc.SetGoogle(&stubGoogle{identity: identity}, nil)
@@ -100,7 +98,7 @@ func TestASecondGoogleAccountCannotBeAddedToOneUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	other := google.Identity{Subject: "a-different-google-account", Email: email, EmailVerified: true}
+	other := application.GoogleIdentity{Subject: "a-different-google-account", Email: email, EmailVerified: true}
 	if _, err := link(linkService(t, pool, other), id); !errors.Is(err, domain.ErrIdentityAlreadyLinked) {
 		t.Fatalf("error = %v, want ErrIdentityAlreadyLinked", err)
 	}
@@ -123,7 +121,7 @@ func TestAnUnverifiedAddressCannotBeLinked(t *testing.T) {
 	identity := verifiedIdentity(email)
 	identity.EmailVerified = false
 
-	if _, err := link(linkService(t, pool, identity), id); !errors.Is(err, google.ErrEmailUnverified) {
+	if _, err := link(linkService(t, pool, identity), id); !errors.Is(err, domain.ErrGoogleEmailUnverified) {
 		t.Fatalf("error = %v, want ErrEmailUnverified", err)
 	}
 

@@ -7,7 +7,6 @@ import (
 	classeshttp "quizzivy/internal/modules/classes/http"
 	"quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/modules/identity/domain"
-	"quizzivy/internal/platform/google"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 )
@@ -40,12 +39,12 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 	case err == nil:
 
 	// Nothing proved yet -- one answer for all of it.
-	case errors.Is(err, google.ErrExchangeFailed),
-		errors.Is(err, google.ErrRedirectNotAllowed),
-		errors.Is(err, google.ErrTokenInvalid):
+	case errors.Is(err, domain.ErrGoogleExchangeFailed),
+		errors.Is(err, domain.ErrGoogleRedirectNotAllowed),
+		errors.Is(err, domain.ErrGoogleTokenInvalid):
 		return openapi.GoogleAuth401JSONResponse(httpapi.Error(ctx, openapi.INVALIDCREDENTIALS,
 			"Đăng nhập bằng Google không thành công. Vui lòng thử lại.")), nil
-	case errors.Is(err, google.ErrEmailUnverified):
+	case errors.Is(err, domain.ErrGoogleEmailUnverified):
 		return openapi.GoogleAuth401JSONResponse(httpapi.Error(ctx, openapi.EMAILNOTVERIFIED,
 			"Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.")), nil
 
@@ -115,13 +114,13 @@ func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequ
 		return openapi.LinkGoogle409JSONResponse(httpapi.Error(ctx, openapi.IDENTITYALREADYLINKED,
 			"Tài khoản Google này không thể liên kết với tài khoản của bạn.")), nil
 
-	case errors.Is(err, google.ErrEmailUnverified):
+	case errors.Is(err, domain.ErrGoogleEmailUnverified):
 		return openapi.LinkGoogle401JSONResponse(httpapi.Error(ctx, openapi.EMAILNOTVERIFIED,
 			"Địa chỉ email Google của bạn chưa được xác minh. Vui lòng xác minh với Google rồi thử lại.")), nil
 
-	case errors.Is(err, google.ErrExchangeFailed),
-		errors.Is(err, google.ErrRedirectNotAllowed),
-		errors.Is(err, google.ErrTokenInvalid):
+	case errors.Is(err, domain.ErrGoogleExchangeFailed),
+		errors.Is(err, domain.ErrGoogleRedirectNotAllowed),
+		errors.Is(err, domain.ErrGoogleTokenInvalid):
 		return openapi.LinkGoogle401JSONResponse(httpapi.Error(ctx, openapi.INVALIDCREDENTIALS,
 			"Liên kết Google không thành công. Vui lòng thử lại.")), nil
 

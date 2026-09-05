@@ -10,7 +10,6 @@ import (
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
-	"quizzivy/internal/platform/probe"
 	"time"
 )
 
@@ -49,11 +48,11 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 	case errors.Is(err, domain.ErrTooLong):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLONG,
 			"Tệp âm thanh dài hơn 5 phút. Vui lòng cắt ngắn.")), nil
-	case errors.Is(err, probe.ErrUnmeasurable):
+	case errors.Is(err, domain.ErrUnmeasurable):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIAUNREADABLE,
 			"Không đọc được tệp âm thanh này. Tệp có thể bị lỗi hoặc chưa tải lên hết.")), nil
 
-	case errors.Is(err, probe.ErrUnsupportedType):
+	case errors.Is(err, domain.ErrUnsupportedType):
 		return openapi.UploadMedia415JSONResponse(httpapi.Error(ctx, openapi.MEDIATYPEUNSUPPORTED,
 			"Chỉ hỗ trợ mp3, m4a và ảnh png/jpg/webp.")), nil
 

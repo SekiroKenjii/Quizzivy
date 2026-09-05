@@ -19,8 +19,6 @@ import (
 	"quizzivy/internal/modules/media/repositories"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"quizzivy/internal/platform/probe"
 )
 
 // §11.1's rules, exercised end to end against a real database and a fake
@@ -118,7 +116,7 @@ func fixture(t *testing.T, name string) []byte {
 
 func newService(t *testing.T, pool *pgxpool.Pool, object application.ObjectStore) *application.Service {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(pool), object)
+	return application.NewService(repositories.NewPostgres(pool), object, audioProbe{})
 }
 
 func TestAValidUploadStoresTheObjectAndThenTheRow(t *testing.T) {
@@ -166,7 +164,7 @@ func TestAWavRenamedMp3IsRejectedOnItsBytes(t *testing.T) {
 		Body:       bytes.NewReader(fixture(t, "wav-renamed.mp3")),
 		UploaderID: uploader,
 	})
-	if !errors.Is(err, probe.ErrUnsupportedType) {
+	if !errors.Is(err, domain.ErrUnsupportedType) {
 		t.Fatalf("error = %v, want ErrUnsupportedType", err)
 	}
 	// Nothing was stored -- not the object, and not a row.

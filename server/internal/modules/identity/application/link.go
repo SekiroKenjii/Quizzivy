@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"quizzivy/internal/modules/identity/domain"
-	"quizzivy/internal/platform/google"
 	"quizzivy/internal/shared/audit"
 )
 
@@ -74,7 +73,7 @@ func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (domain.Us
 
 // alreadyLinked answers a second link: the same Google account is a no-op,
 // a different one is refused.
-func (s *Service) alreadyLinked(ctx context.Context, user domain.User, identity google.Identity) (domain.User, error) {
+func (s *Service) alreadyLinked(ctx context.Context, user domain.User, identity GoogleIdentity) (domain.User, error) {
 	existing, err := s.users.FindUserByProviderIdentity(ctx, "google", identity.Subject)
 	if err == nil && existing.ID == user.ID {
 		return user, nil
