@@ -3,25 +3,21 @@ package core
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"quizzivy/internal/api"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/config"
-	"quizzivy/internal/db"
+	identityapp "quizzivy/internal/modules/identity/application"
+	"quizzivy/internal/platform/config"
+	"quizzivy/internal/platform/db"
 )
 
-// dbReadyBudget is how long to wait for the database on a cold start. Fly can
-// bring the app up before Neon has finished waking.
 const dbReadyBudget = 60 * time.Second
 
 // Run is the composition root: load configuration, build every module against a
 // live database, then serve until the process is signalled.
-//
-// cmd/api owns nothing but the logger and the exit code.
 func Run(ctx context.Context, logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -46,8 +42,8 @@ type App struct {
 	cfg    config.Config
 	logger *slog.Logger
 	pool   *db.Pool
-	auth   *auth.Service
-	deps   api.Deps
+	auth   *identityapp.Service
+	deps   Deps
 }
 
 // New opens the database and builds every module. The returned App owns the
@@ -77,13 +73,19 @@ func (a *App) Close() {
 
 // Serve starts the background jobs and the HTTP server, and shuts down when ctx
 // is cancelled.
+// Handler is the assembled HTTP surface, for the server and for tests that
+// drive the whole application in-process.
+func (a *App) Handler() (http.Handler, error) {
+	return NewRouter(a.deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
+}
+
 func (a *App) Serve(ctx context.Context) error {
-	handler, err := api.NewRouter(a.deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
+	handler, err := a.Handler()
 	if err != nil {
 		return err
 	}
 
 	go prunePeriodically(ctx, a.logger, a.auth)
 
-	return serve(ctx, a.logger, a.cfg, handler)
+	return Serve(ctx, a.logger, a.cfg, handler)
 }

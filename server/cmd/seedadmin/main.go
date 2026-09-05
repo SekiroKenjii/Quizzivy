@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"quizzivy/internal/auth"
+	identitydomain "quizzivy/internal/modules/identity/domain"
 )
 
 // Excludes the characters §6.1 excludes, for the same reason: this gets read
@@ -27,7 +27,7 @@ func main() {
 		password[i] = alphabet[n.Int64()]
 	}
 
-	hash, err := auth.HashPassword(context.Background(), string(password))
+	hash, err := identitydomain.Passwords.Hash(context.Background(), string(password))
 	if err != nil {
 		panic(err)
 	}

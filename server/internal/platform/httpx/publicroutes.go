@@ -1,0 +1,54 @@
+package httpx
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"quizzivy/internal/platform/ratelimit"
+
+	"github.com/getkin/kin-openapi/openapi3"
+)
+
+// AssertPublicRoutesLimited cross-references the contract against the limiter
+// registry and reports any unauthenticated operation with no policy.
+func AssertPublicRoutesLimited(spec *openapi3.T, reg *ratelimit.Registry) error {
+	var missing []string
+
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op == nil || !isPublicOperation(op) {
+				continue
+			}
+			pattern := fmt.Sprintf("%s %s", method, path)
+			if _, ok := reg.Lookup(pattern); !ok {
+				missing = append(missing, pattern)
+			}
+		}
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+	sort.Strings(missing)
+	return fmt.Errorf(
+		"these operations are public in api/openapi.yaml but have no rate limit (§6.5, §14):\n  %s",
+		strings.Join(missing, "\n  "),
+	)
+}
+
+func isPublicOperation(op *openapi3.Operation) bool {
+	if op.Security == nil {
+		return false
+	}
+	reqs := *op.Security
+	if len(reqs) == 0 {
+		return true
+	}
+	for _, req := range reqs {
+		if len(req) == 0 {
+			return true
+		}
+	}
+	return false
+}

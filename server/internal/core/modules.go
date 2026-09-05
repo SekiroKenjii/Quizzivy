@@ -4,73 +4,83 @@ import (
 	"context"
 	"log/slog"
 
-	"quizzivy/internal/api"
-	"quizzivy/internal/assignments"
-	"quizzivy/internal/attempts"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/auth/google"
-	"quizzivy/internal/classes"
-	"quizzivy/internal/config"
-	"quizzivy/internal/dashboard"
-	"quizzivy/internal/db"
-	"quizzivy/internal/integrity"
-	"quizzivy/internal/join"
-	"quizzivy/internal/media"
-	"quizzivy/internal/questions"
-	"quizzivy/internal/review"
-	"quizzivy/internal/storage"
-	"quizzivy/internal/students"
-	"quizzivy/internal/tests"
-	"quizzivy/internal/tests/publish"
+	assignmentsapp "quizzivy/internal/modules/assignments/application"
+	assignmentshttp "quizzivy/internal/modules/assignments/http"
+	assignmentsrepo "quizzivy/internal/modules/assignments/repositories"
+	attemptsapp "quizzivy/internal/modules/attempts/application"
+	attemptshttp "quizzivy/internal/modules/attempts/http"
+	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
+	classesapp "quizzivy/internal/modules/classes/application"
+	classeshttp "quizzivy/internal/modules/classes/http"
+	classesrepo "quizzivy/internal/modules/classes/repositories"
+	dashboardapp "quizzivy/internal/modules/dashboard/application"
+	dashboardhttp "quizzivy/internal/modules/dashboard/http"
+	dashboardrepo "quizzivy/internal/modules/dashboard/repositories"
+	identityapp "quizzivy/internal/modules/identity/application"
+	identitydomain "quizzivy/internal/modules/identity/domain"
+	identityhttp "quizzivy/internal/modules/identity/http"
+	identityrepo "quizzivy/internal/modules/identity/repositories"
+	mediaapp "quizzivy/internal/modules/media/application"
+	mediahttp "quizzivy/internal/modules/media/http"
+	mediarepo "quizzivy/internal/modules/media/repositories"
+	questionsapp "quizzivy/internal/modules/questions/application"
+	questionshttp "quizzivy/internal/modules/questions/http"
+	questionsrepo "quizzivy/internal/modules/questions/repositories"
+	testsapp "quizzivy/internal/modules/tests/application"
+	testshttp "quizzivy/internal/modules/tests/http"
+	testsrepo "quizzivy/internal/modules/tests/repositories"
+	"quizzivy/internal/platform/config"
+	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/google"
+	"quizzivy/internal/platform/storage"
 )
 
 // buildModules wires every feature module into the handler's dependencies.
 //
 // The auth service is returned separately because the token-pruning job needs
 // it directly, not through the interface the handlers see.
-func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (api.Deps, *auth.Service, error) {
+func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Deps, *identityapp.Service, error) {
 	boundPasswordHashing(cfg, logger)
 
-	tokens, err := auth.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
+	tokens, err := identityapp.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
 	if err != nil {
-		return api.Deps{}, nil, err
+		return Deps{}, nil, err
 	}
 
-	authService := auth.NewService(auth.NewStore(pool.Pool), tokens, cfg.RefreshTokenTTL)
-	joinService := join.NewService(join.NewStore(pool.Pool))
+	authService := identityapp.NewService(identityrepo.NewUsers(pool.Pool), tokens, cfg.RefreshTokenTTL)
+	studentStats := attemptsrepo.NewStudentStats(pool.Pool)
+	studentsService := identityapp.NewStudents(identityrepo.NewStudents(pool.Pool), studentStats)
+	classesRepo := classesrepo.NewPostgres(pool.Pool)
+	joinService := classesapp.NewEnrolment(classesRepo)
 	attachGoogle(cfg, logger, authService, joinService)
 
-	mediaService, err := newMediaService(ctx, cfg, logger, pool)
+	mediaRepo := mediarepo.NewPostgres(pool.Pool)
+	questionsRepo := questionsrepo.NewPostgres(pool.Pool)
+	testsRepo := testsrepo.NewPostgres(pool.Pool, questionsRepo, mediaRepo)
+	mediaService, err := newMediaService(ctx, cfg, logger, mediaRepo)
 	if err != nil {
-		return api.Deps{}, nil, err
+		return Deps{}, nil, err
 	}
 
-	deps := api.Deps{
-		DB:           pool,
-		Auth:         authService,
-		Join:         joinService,
-		Classes:      classes.NewService(classes.NewStore(pool.Pool)),
-		Questions:    questions.NewService(questions.NewStore(pool.Pool)),
-		Tests:        tests.NewService(tests.NewStore(pool.Pool)),
-		Publisher:    publish.NewPublisher(pool.Pool),
-		Dashboard:    dashboard.NewStore(pool.Pool),
-		Assignments:  assignments.NewStore(pool.Pool),
-		Attempts:     attempts.NewService(attempts.NewStore(pool.Pool)),
-		Review:       review.NewStore(pool.Pool),
-		Integrity:    integrity.NewStore(pool.Pool),
-		Students:     students.NewStore(pool.Pool),
-		Tokens:       tokens,
-		RefreshTTL:   cfg.RefreshTokenTTL,
-		CookieSecure: cfg.RefreshCookieSecure,
+	deps := Deps{
+		DB:     pool,
+		Tokens: tokens,
 	}
-	if mediaService != nil {
-		deps.Media = mediaService
+	deps.Modules = Modules{
+		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
+		Media:       mediahttp.NewMedia(mediaTransport(mediaService)),
+		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(pool.Pool)), attemptsapp.NewReview(attemptsrepo.NewReviews(pool.Pool)), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(pool.Pool)), attemptsMedia(mediaService), studentsService, logger),
+		Assignments: assignmentshttp.NewAssignments(assignmentsapp.NewService(assignmentsrepo.NewPostgres(pool.Pool))),
+		Tests:       testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
+		Questions:   questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
+		Identity:    identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
+		Classes:     classeshttp.NewClasses(classesapp.NewService(classesRepo, studentStats), joinService),
 	}
 	return deps, authService, nil
 }
 
 func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
-	auth.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
+	identitydomain.Passwords.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
 	logger.Info("password hashing bounded",
 		"max_concurrent", cfg.MaxConcurrentPasswordHashes,
 		"peak_arena_mib", cfg.MaxConcurrentPasswordHashes*64)
@@ -78,23 +88,23 @@ func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
 
 // attachGoogle enables §5.3 sign-in when credentials are configured. Config has
 // already refused a half-configured set, so this is all-or-nothing.
-func attachGoogle(cfg config.Config, logger *slog.Logger, authService *auth.Service, joinService *join.Service) {
+func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identityapp.Service, joinService *classesapp.Enrolment) {
 	if !cfg.GoogleEnabled() {
 		logger.Info("google sign-in disabled (no credentials configured)")
 		return
 	}
 
 	keys := google.NewKeySet("", nil)
-	authService.SetGoogle(google.NewProvider(
+	authService.SetGoogle(googleProvider{google.NewProvider(
 		google.NewExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURIs, "", nil),
 		google.NewVerifier(cfg.GoogleClientID, keys),
-	), joinService)
+	)}, joinService)
 	logger.Info("google sign-in enabled", "redirect_uris", cfg.GoogleRedirectURIs)
 }
 
 // newMediaService returns nil when object storage is not configured, which is a
 // supported deployment: everything but upload still works.
-func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (*media.Service, error) {
+func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, repo *mediarepo.Postgres) (*mediaapp.Service, error) {
 	if !cfg.MediaEnabled() {
 		logger.Info("media storage disabled (no bucket configured)")
 		return nil, nil
@@ -113,6 +123,6 @@ func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger
 	}
 	logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
 
-	return media.NewService(media.NewStore(pool.Pool), objects).
+	return mediaapp.NewService(repo, objects, audioProbe{}).
 		WithSignedURLTTL(cfg.SignedURLTTL), nil
 }

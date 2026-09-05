@@ -1,0 +1,151 @@
+package application
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	classesdomain "quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/modules/identity/domain"
+)
+
+// GoogleIdentity is what Google attests about the person who signed in; the
+// subject is the stable key, the email may change.
+type GoogleIdentity struct {
+	Subject       string
+	Email         string
+	EmailVerified bool
+	Name          string
+	Picture       string
+}
+
+// GoogleProvider is the port to Google: the code exchange and the id-token
+// verification, which fail for the domain's ErrGoogle* reasons.
+type GoogleProvider interface {
+	Exchange(ctx context.Context, code, codeVerifier, redirectURI string) (string, error)
+	Verify(ctx context.Context, rawIDToken string) (GoogleIdentity, error)
+}
+
+// SelfEnroller creates an account from a join code and enrols it (§6.3).
+type SelfEnroller interface {
+	EnrolNewMember(ctx context.Context, m classesdomain.NewMember, rawCode string, meta classesdomain.Meta) (classesdomain.EnrolResult, error)
+}
+
+// SetGoogle wires the provider. Nil leaves Google sign-in unavailable rather
+// than half-configured.
+func (s *Service) SetGoogle(p GoogleProvider, enroller SelfEnroller) {
+	s.google = p
+	s.enroller = enroller
+}
+
+type GoogleSignInInput struct {
+	Code         string
+	CodeVerifier string
+	RedirectURI  string
+	JoinCode     string
+	UserAgent    string
+	IP           string
+}
+
+type GoogleSignInResult struct {
+	Session       Session
+	EnrolledClass *classesdomain.EnrolledClass
+}
+
+// GoogleSignIn implements §5.3 in full.
+func (s *Service) GoogleSignIn(ctx context.Context, in GoogleSignInInput) (GoogleSignInResult, error) {
+	if s.google == nil {
+		return GoogleSignInResult{}, domain.ErrGoogleUnavailable
+	}
+	identity, err := s.verifiedIdentity(ctx, in.Code, in.CodeVerifier, in.RedirectURI)
+	if err != nil {
+		return GoogleSignInResult{}, err
+	}
+
+	user, err := s.users.FindUserByProviderIdentity(ctx, "google", identity.Subject)
+	switch {
+	case err == nil:
+		return s.googleSession(ctx, user, in, nil)
+	case !errors.Is(err, domain.ErrUserNotFound):
+		return GoogleSignInResult{}, fmt.Errorf("look up google identity: %w", err)
+	}
+
+	user, err = s.users.FindUserByEmail(ctx, identity.Email)
+	switch {
+	case err == nil:
+		linked, err := s.linkAndReload(ctx, user.ID, identity)
+		if err != nil {
+			return GoogleSignInResult{}, err
+		}
+		return s.googleSession(ctx, linked, in, nil)
+	case !errors.Is(err, domain.ErrUserNotFound):
+		return GoogleSignInResult{}, fmt.Errorf("look up user by email: %w", err)
+	}
+
+	if in.JoinCode != "" {
+		return s.enrolByCode(ctx, identity, in)
+	}
+
+	return GoogleSignInResult{}, domain.ErrAccountNotProvisioned
+}
+
+func (s *Service) verifiedIdentity(ctx context.Context, code, verifier, redirectURI string) (GoogleIdentity, error) {
+	rawIDToken, err := s.google.Exchange(ctx, code, verifier, redirectURI)
+	if err != nil {
+		return GoogleIdentity{}, err
+	}
+	identity, err := s.google.Verify(ctx, rawIDToken)
+	if err != nil {
+		return GoogleIdentity{}, err
+	}
+	if !identity.EmailVerified {
+		return GoogleIdentity{}, domain.ErrGoogleEmailUnverified
+	}
+	return identity, nil
+}
+
+func (s *Service) linkAndReload(ctx context.Context, userID string, identity GoogleIdentity) (domain.User, error) {
+	if err := s.users.LinkIdentity(ctx, userID, "google", identity.Subject, identity.Email); err != nil {
+		return domain.User{}, err
+	}
+	user, err := s.users.FindUserByID(ctx, userID)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("reload linked user: %w", err)
+	}
+	return user, nil
+}
+
+func (s *Service) enrolByCode(ctx context.Context, identity GoogleIdentity, in GoogleSignInInput) (GoogleSignInResult, error) {
+	if s.enroller == nil {
+		return GoogleSignInResult{}, domain.ErrSelfEnrolNotAvailable
+	}
+	result, err := s.enroller.EnrolNewMember(ctx,
+		classesdomain.NewMember{
+			Email:          identity.Email,
+			FullName:       identity.Name,
+			Provider:       "google",
+			ProviderUserID: identity.Subject,
+		}, in.JoinCode, classesdomain.Meta{IP: in.IP, UserAgent: in.UserAgent})
+	if err != nil {
+		return GoogleSignInResult{}, err
+	}
+	if result.Outcome != classesdomain.PreviewOK {
+		return GoogleSignInResult{}, domain.JoinCodeRejected{Outcome: result.Outcome}
+	}
+	created, err := s.users.FindUserByID(ctx, result.UserID)
+	if err != nil {
+		return GoogleSignInResult{}, fmt.Errorf("load enrolled member: %w", err)
+	}
+	return s.googleSession(ctx, created, in, &result.Class)
+}
+
+func (s *Service) googleSession(ctx context.Context, user domain.User, in GoogleSignInInput, class *classesdomain.EnrolledClass) (GoogleSignInResult, error) {
+	if user.Disabled() {
+		return GoogleSignInResult{}, domain.ErrAccountDisabled
+	}
+	session, err := s.issueSession(ctx, user, in.UserAgent, in.IP)
+	if err != nil {
+		return GoogleSignInResult{}, err
+	}
+	return GoogleSignInResult{Session: session, EnrolledClass: class}, nil
+}

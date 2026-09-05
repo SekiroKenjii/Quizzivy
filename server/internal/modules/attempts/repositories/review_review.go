@@ -1,0 +1,259 @@
+package repositories
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/platform/db"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type Reviews struct {
+	pool *pgxpool.Pool
+	now  func() time.Time
+}
+
+func NewReviews(pool *pgxpool.Pool) *Reviews { return &Reviews{pool: pool, now: time.Now} }
+
+// Get reads one attempt for review, in the version's own order rather than
+// the student's shuffled one: question 23 is the essay for every paper.
+func (s *Reviews) Get(ctx context.Context, attemptID string) (domain.Review, error) {
+	var (
+		out   domain.Review
+		total *float64
+	)
+	a := &out.Attempt
+	err := s.pool.QueryRow(ctx, `
+		SELECT at.id::text, at.assignment_id::text, at.student_id::text, at.test_version_id::text,
+		       at.attempt_no, at.status, at.started_at, at.deadline_at, at.submitted_at, at.graded_at,
+		       at.focus_loss_count, at.flagged, at.score_total, at.teacher_note,
+		       asg.max_attempts, t.title, v.published_at
+		  FROM app.attempts at
+		  JOIN app.assignments asg ON asg.id = at.assignment_id
+		  JOIN app.tests t ON t.id = asg.test_id
+		  JOIN app.test_versions v ON v.id = at.test_version_id
+		 WHERE at.id = $1::uuid`, attemptID).Scan(
+		&a.ID, &a.AssignmentID, &a.StudentID, &a.TestVersionID,
+		&a.AttemptNo, &a.Status, &a.StartedAt, &a.DeadlineAt, &a.SubmittedAt, &a.GradedAt,
+		&a.FocusLossCount, &a.Flagged, &total, &out.TeacherNote,
+		&out.MaxAttempts, &out.TestTitle, &out.PublishedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Review{}, domain.ErrPaperNotFound
+	}
+	if err != nil {
+		return domain.Review{}, fmt.Errorf("review: read attempt: %w", err)
+	}
+
+	if out.Questions, err = s.questions(ctx, a.TestVersionID); err != nil {
+		return domain.Review{}, err
+	}
+	if out.Answers, err = s.answers(ctx, a.ID); err != nil {
+		return domain.Review{}, err
+	}
+	if out.AudioPlays, err = s.audioPlays(ctx, a.ID); err != nil {
+		return domain.Review{}, err
+	}
+
+	if total != nil && *total > 0 {
+		out.Score.Total = *total
+	} else {
+		for _, q := range out.Questions {
+			out.Score.Total += q.Points
+		}
+	}
+	for _, ans := range out.Answers {
+		switch {
+		case ans.ManualScore != nil:
+			out.Score.Earned += *ans.ManualScore
+		case ans.RequiresManual:
+			out.Score.PendingManual++
+		case ans.AutoScore != nil:
+			out.Score.Earned += *ans.AutoScore
+		}
+	}
+	return out, nil
+}
+
+// SetNote keeps or clears the teacher's note. Not audited: it is the
+// teacher's own memory aid, and the actions it explains are audited already.
+func (s *Reviews) SetNote(ctx context.Context, attemptID string, note *string) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE app.attempts SET teacher_note = nullif(btrim($2), '') WHERE id = $1::uuid`,
+		attemptID, note)
+	if err != nil {
+		return fmt.Errorf("review: set note: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrPaperNotFound
+	}
+	return nil
+}
+
+func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.ReviewQuestion, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT q.id::text, q.type::text, q.prompt, q.points,
+		       q.media_asset_id::text, q.media_asset_kind::text, m.mime_type, m.original_filename,
+		       m.bytes, m.duration_ms, m.created_at,
+		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
+		       q.transcript, q.explanation, q.sample_answer
+		  FROM app.test_version_questions q
+		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+		  LEFT JOIN app.media_assets m ON m.id = q.media_asset_id
+		 WHERE s.test_version_id = $1::uuid
+		 ORDER BY s.ordinal, q.ordinal`, versionID)
+	if err != nil {
+		return nil, fmt.Errorf("review: read questions: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domain.ReviewQuestion
+	at := map[string]int{}
+	for rows.Next() {
+		q, err := scanReviewQuestion(rows)
+		if err != nil {
+			return nil, err
+		}
+		at[q.ID] = len(out)
+		out = append(out, q)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("review: read questions: %w", err)
+	}
+	if err := s.attachOptions(ctx, versionID, out, at); err != nil {
+		return nil, err
+	}
+	return out, s.attachBlanks(ctx, versionID, out, at)
+}
+
+func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
+	var (
+		q                                      domain.ReviewQuestion
+		mediaID, mediaKind, mimeType, filename *string
+		mediaBytes, durationMs, maxPlays       *int
+		createdAt                              *time.Time
+		allowSeek, showTranscript              *bool
+	)
+	if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
+		&mediaID, &mediaKind, &mimeType, &filename, &mediaBytes, &durationMs, &createdAt,
+		&maxPlays, &allowSeek, &showTranscript,
+		&q.Transcript, &q.Explanation, &q.SampleAnswer); err != nil {
+		return domain.ReviewQuestion{}, fmt.Errorf("review: scan question: %w", err)
+	}
+	if mediaID != nil {
+		q.Media = &domain.Media{
+			ID: *mediaID, Kind: orZero(mediaKind), MimeType: orZero(mimeType),
+			Filename: orZero(filename), Bytes: orZero(mediaBytes), DurationMs: durationMs,
+			CreatedAt: orZero(createdAt),
+		}
+	}
+	if allowSeek != nil && showTranscript != nil {
+		q.Audio = &domain.AudioPolicy{
+			MaxPlays: maxPlays, AllowSeek: *allowSeek, ShowTranscriptAfterSubmit: *showTranscript,
+		}
+	}
+	return q, nil
+}
+
+func orZero[T any](p *T) T {
+	if p == nil {
+		var zero T
+		return zero
+	}
+	return *p
+}
+
+func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
+		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct
+		  FROM app.test_version_options o
+		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
+		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+		 WHERE s.test_version_id = $1::uuid
+		 ORDER BY o.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, domain.ReviewOption, error) {
+			var questionID string
+			var o domain.ReviewOption
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect)
+			return questionID, o, err
+		})
+	if err != nil {
+		return fmt.Errorf("review: read options: %w", err)
+	}
+	for questionID, options := range byQuestion {
+		if i, ok := at[questionID]; ok {
+			qs[i].Options = options
+		}
+	}
+	return nil
+}
+
+func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
+	byQuestion, err := db.GroupBy(ctx, s.pool, `
+		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.case_sensitive,
+		       coalesce((SELECT array_agg(ba.answer ORDER BY ba.id)
+		                   FROM app.test_version_blank_answers ba
+		                  WHERE ba.test_version_blank_id = b.id), '{}')
+		  FROM app.test_version_blanks b
+		  JOIN app.test_version_questions q ON q.id = b.test_version_question_id
+		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+		 WHERE s.test_version_id = $1::uuid
+		 ORDER BY b.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, domain.ReviewBlank, error) {
+			var questionID string
+			var b domain.ReviewBlank
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.Accepted)
+			return questionID, b, err
+		})
+	if err != nil {
+		return fmt.Errorf("review: read blanks: %w", err)
+	}
+	for questionID, blanks := range byQuestion {
+		if i, ok := at[questionID]; ok {
+			qs[i].Blanks = blanks
+		}
+	}
+	return nil
+}
+
+func (s *Reviews) answers(ctx context.Context, attemptID string) (map[string]domain.ReviewAnswer, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT question_id::text, payload, auto_score, manual_score, requires_manual, grader_comment
+		  FROM app.attempt_answers WHERE attempt_id = $1::uuid`, attemptID)
+	if err != nil {
+		return nil, fmt.Errorf("review: read answers: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]domain.ReviewAnswer{}
+	for rows.Next() {
+		var id string
+		var a domain.ReviewAnswer
+		if err := rows.Scan(&id, &a.Payload, &a.AutoScore, &a.ManualScore, &a.RequiresManual, &a.GraderComment); err != nil {
+			return nil, fmt.Errorf("review: scan answer: %w", err)
+		}
+		out[id] = a
+	}
+	return out, rows.Err()
+}
+
+func (s *Reviews) audioPlays(ctx context.Context, attemptID string) (map[string]int, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT question_id::text, plays FROM app.attempt_audio_plays WHERE attempt_id = $1::uuid`, attemptID)
+	if err != nil {
+		return nil, fmt.Errorf("review: read audio plays: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var id string
+		var plays int
+		if err := rows.Scan(&id, &plays); err != nil {
+			return nil, fmt.Errorf("review: scan audio plays: %w", err)
+		}
+		out[id] = plays
+	}
+	return out, rows.Err()
+}
