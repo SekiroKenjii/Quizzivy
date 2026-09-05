@@ -405,7 +405,6 @@
     "pause": "Pause",
     "seek": "Seek",
     "expired": "This preview link has expired. Reload to listen.",
-    "summaryPaged": "{{count}} files",
     "deleted": "File deleted"
   },
   "questionEditor": {
@@ -605,7 +604,10 @@
     "deleteBlockedBody": "It is still in a draft test. Remove it from those tests first, then delete again.",
     "deleteBlockedList": "Used in {{count}} draft test(s):",
     "deleteFailed": "Could not delete the question.",
-    "deleted": "Question deleted"
+    "deleted": "Question deleted",
+    "duplicate": "Duplicate",
+    "duplicated": "Question duplicated",
+    "duplicateFailed": "Could not duplicate the question."
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",

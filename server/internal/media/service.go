@@ -265,6 +265,10 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, paging.Page,
 	return assets, page, nil
 }
 
+func (s *Service) TotalBytes(ctx context.Context, kind *Kind) (int64, error) {
+	return s.store.TotalBytes(ctx, kind)
+}
+
 // Get resolves one live asset, so another package can render an attachment
 // without reaching into media's store.
 func (s *Service) Get(ctx context.Context, id string) (Asset, error) {

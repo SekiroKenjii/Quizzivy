@@ -19,6 +19,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/admin/media`, () =>
       contractJson("/admin/media", "get", 200, {
+        totalBytes: 2_400_000,
         items: [
           {
             id: "018f0000-0000-7000-8000-0000000000e1",
@@ -80,6 +81,7 @@ describe("deleting a file a published test uses", () => {
       await screen.findByRole("button", { name: "Xoá unit5-listening-2.mp3" }),
     );
 
+    expect(screen.getByText("1 tệp · 2.3 MB")).toBeInTheDocument();
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Không xoá được tệp này")).toBeInTheDocument();
     const link = within(dialog).getByRole("link", {

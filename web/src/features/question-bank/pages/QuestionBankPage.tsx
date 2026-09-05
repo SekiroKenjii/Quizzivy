@@ -7,7 +7,15 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ArrowUpRight, Play, Plus, Tag as TagIcon, Trash2, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Copy,
+  Play,
+  Plus,
+  Tag as TagIcon,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
@@ -26,6 +34,7 @@ import {
 import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
 import {
   deleteQuestion,
+  duplicateQuestion,
   listQuestions,
   type AdminQuestion,
   type QuestionType,
@@ -85,6 +94,16 @@ export default function QuestionBankPage() {
         setBlocked(referencingTests(cause));
       else toast(t("bank.deleteFailed"));
     },
+  });
+  // A-06a's "Nhân bản": the copy opens for editing, the way a duplicated test does.
+  const duplicate = useMutation({
+    mutationFn: (id: string) => duplicateQuestion(id),
+    onSuccess: async (copy) => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      toast(t("bank.duplicated"));
+      void navigate(`/admin/question-bank/${copy.id}`);
+    },
+    onError: () => toast(t("bank.duplicateFailed")),
   });
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
@@ -269,6 +288,7 @@ export default function QuestionBankPage() {
                         setPlaying(playing === question.id ? null : question.id)
                       }
                       onAddToTest={() => setAddingOne(question.id)}
+                      onDuplicate={() => duplicate.mutate(question.id)}
                       onDelete={() => {
                         setBlocked(null);
                         setDeleting(question);
@@ -350,6 +370,7 @@ function Row({
   selected,
   onToggleSelect,
   onAddToTest,
+  onDuplicate,
   onDelete,
 }: {
   question: AdminQuestion;
@@ -360,6 +381,7 @@ function Row({
   onTogglePlay: () => void;
   onToggleSelect: () => void;
   onAddToTest: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
@@ -389,9 +411,12 @@ function Row({
                 <Play aria-hidden="true" />
               </Button>
             ) : null}
-            <button type="button" className="truncate text-left" onClick={onOpen}>
+            <Link
+              to={`/admin/question-bank/${question.id}`}
+              className="truncate hover:underline"
+            >
               {question.prompt}
-            </button>
+            </Link>
           </div>
         </TableCell>
         <TableCell className="text-muted-foreground">
@@ -421,6 +446,10 @@ function Row({
             <DropdownMenuItem onSelect={onAddToTest}>
               <Plus className="text-muted-foreground" aria-hidden="true" />
               {t("bank.addToTest")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onDuplicate}>
+              <Copy className="text-muted-foreground" aria-hidden="true" />
+              {t("bank.duplicate")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={onDelete}>

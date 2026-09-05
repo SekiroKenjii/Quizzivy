@@ -79,7 +79,6 @@ export default function MediaLibraryPage() {
   });
 
   const assets = library.data?.items ?? [];
-  const totalBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0);
   const dragging = useFileDrop((files) => uploader.current?.dropped(files));
 
   return (
@@ -95,12 +94,10 @@ export default function MediaLibraryPage() {
         title={t("media.title")}
         subtitle={
           library.isSuccess
-            ? library.data.total === assets.length
-              ? t("media.summary", {
-                  count: library.data.total,
-                  size: formatBytes(totalBytes),
-                })
-              : t("media.summaryPaged", { count: library.data.total })
+            ? t("media.summary", {
+                count: library.data.total,
+                size: formatBytes(library.data.totalBytes),
+              })
             : "\u00a0"
         }
         actions={

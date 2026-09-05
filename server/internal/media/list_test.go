@@ -167,3 +167,27 @@ func TestAPagePastTheEndIsEmptyWithTheSameTotal(t *testing.T) {
 		t.Errorf("page past the end reports %+v, want a non-zero total and page %d at size 1", far, requested)
 	}
 }
+
+func TestTotalBytesSumsTheWholeShelfNotThePage(t *testing.T) {
+	pool := newPool(t)
+	uploader := makeUploader(t, pool)
+	svc := media.NewService(media.NewStore(pool), newFakeStore())
+	ctx := context.Background()
+
+	before, err := svc.TotalBytes(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := upload(t, svc, uploader, "shelf.mp3")
+	after, err := svc.TotalBytes(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after < before+a.Bytes {
+		t.Errorf("total moved from %d to %d after a %d-byte upload", before, after, a.Bytes)
+	}
+	audio := media.Kind("audio")
+	if byKind, err := svc.TotalBytes(ctx, &audio); err != nil || byKind < a.Bytes {
+		t.Errorf("audio total %d (%v), want at least %d", byKind, err, a.Bytes)
+	}
+}

@@ -69,6 +69,7 @@ type MediaService interface {
 	Upload(ctx context.Context, in media.UploadInput) (media.Asset, error)
 	SignedURL(ctx context.Context, asset media.Asset) (string, error)
 	List(ctx context.Context, in media.ListInput) ([]media.Asset, paging.Page, error)
+	TotalBytes(ctx context.Context, kind *media.Kind) (int64, error)
 	Delete(ctx context.Context, in media.DeleteInput) error
 	MintForStudent(ctx context.Context, studentID, assetID string) (media.SignedURLResult, error)
 	// Get resolves one asset, so a question can render its attachment.

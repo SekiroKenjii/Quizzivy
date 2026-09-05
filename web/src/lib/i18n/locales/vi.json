@@ -405,7 +405,6 @@
     "pause": "Tạm dừng",
     "seek": "Tua",
     "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe.",
-    "summaryPaged": "{{count}} tệp",
     "deleted": "Đã xoá tệp"
   },
   "questionEditor": {
@@ -605,7 +604,10 @@
     "deleteBlockedBody": "Câu hỏi đang nằm trong đề nháp. Gỡ khỏi các đề đó trước, rồi xoá lại.",
     "deleteBlockedList": "Đang dùng trong {{count}} đề nháp:",
     "deleteFailed": "Không xoá được câu hỏi.",
-    "deleted": "Đã xoá câu hỏi"
+    "deleted": "Đã xoá câu hỏi",
+    "duplicate": "Nhân bản",
+    "duplicated": "Đã nhân bản câu hỏi",
+    "duplicateFailed": "Không nhân bản được câu hỏi."
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",
