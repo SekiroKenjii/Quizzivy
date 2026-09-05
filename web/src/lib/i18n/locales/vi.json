@@ -1376,5 +1376,27 @@
       "pending": "Chờ chấm"
     },
     "open": "Chấm"
+  },
+  "byQuestion": {
+    "title": "Chấm theo câu hỏi",
+    "questionOf": "Câu {{n}} / {{count}}",
+    "graded": "Đã chấm {{done}}/{{total}}",
+    "next": "Câu tiếp theo",
+    "exit": "Chấm từng bài",
+    "meta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "rubric": "Chấm ý",
+    "namesHidden": "Tên học viên được ẩn cho tới khi bạn chấm xong câu này.",
+    "showNames": "Hiện tên",
+    "hideNames": "Ẩn tên",
+    "student": "Học viên {{n}}",
+    "attemptNo": "lượt {{n}}",
+    "blank": "Không trả lời",
+    "gradedBadge": "Đã chấm",
+    "save": "Lưu",
+    "pointsFor": "Điểm cho {{who}}",
+    "keys": "↓ học viên tiếp theo · 0 – {{max}} chấm điểm · ⌘⏎ lưu và sang câu sau",
+    "notManual": "Câu này được chấm tự động.",
+    "empty": "Chưa có bài nào nộp câu này.",
+    "loadFailed": "Không tải được câu trả lời."
   }
 }

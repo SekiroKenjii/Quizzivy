@@ -337,6 +337,22 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PublishValidationError' }
 
+    QuestionAnswerRow:
+      type: object
+      description: One paper's answer to the question G-04 is grading.
+      required: [attemptId, studentId, studentName, attemptNo, answer, manualScore, graderComment]
+      additionalProperties: false
+      properties:
+        attemptId: { $ref: '#/components/schemas/Uuid' }
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        studentName: { type: string }
+        attemptNo: { type: integer, minimum: 1 }
+        answer:
+          oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }]
+          description: Null when the student left it blank, which cannot be marked.
+        manualScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
+        graderComment: { type: [string, 'null'] }
+
     LibraryAsset:
       type: object
       description: |
@@ -2606,6 +2622,45 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`VERSION_LOCKED` — attempts exist, so the version cannot be changed.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/assignments/{id}/answers:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: listAnswersForQuestion
+      tags: [admin-attempts]
+      summary: One question across every paper
+      description: |
+        G-04's "Chấm theo câu hỏi": one manually graded question across every
+        handed-in, non-voided attempt of the assignment, so the rubric is
+        decided once instead of per student. The write stays
+        `POST /admin/attempts/{id}/grade`, one attempt per call. Rows come in
+        attempt order rather than by name, because the mode hides names until
+        the question is graded (anonymous marking).
+      parameters:
+        - { name: questionId, in: query, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [question, questionNumber, questionCount, manualQuestionIds, items]
+                additionalProperties: false
+                properties:
+                  question: { $ref: '#/components/schemas/AdminQuestion' }
+                  questionNumber: { type: integer, minimum: 1, description: 1-based position on the paper. }
+                  questionCount: { type: integer, minimum: 1 }
+                  manualQuestionIds:
+                    type: array
+                    items: { $ref: '#/components/schemas/Uuid' }
+                    description: The paper's manually graded questions in paper order, for "Câu tiếp theo".
+                  items: { type: array, items: { $ref: '#/components/schemas/QuestionAnswerRow' } }
+        '404':
+          description: The assignment, or a question that is not on its paper.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

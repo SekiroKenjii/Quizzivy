@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -149,7 +150,7 @@ func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAtt
 
 	questions := make([]openapi.AdminQuestion, len(rv.Questions))
 	for i, q := range rv.Questions {
-		converted, err := s.toAPIReviewQuestion(ctx, q, rv)
+		converted, err := s.toAPIReviewQuestion(ctx, q, rv.PublishedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -185,6 +186,56 @@ func (s *Server) GetAttemptForReview(ctx context.Context, request openapi.GetAtt
 		AudioPlays:  rv.AudioPlays,
 		Integrity:   toAPIIntegritySummary(timeline.Summary),
 		TeacherNote: rv.TeacherNote,
+	}, nil
+}
+
+// ListAnswersForQuestion is G-04's read: one question, every paper.
+func (s *Server) ListAnswersForQuestion(ctx context.Context, request openapi.ListAnswersForQuestionRequestObject) (openapi.ListAnswersForQuestionResponseObject, error) {
+	if s.Deps.Review == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	byQ, err := s.Deps.Review.AnswersForQuestion(ctx, request.Id.String(), request.Params.QuestionId.String())
+	switch {
+	case errors.Is(err, review.ErrNotFound):
+		return openapi.ListAnswersForQuestion404JSONResponse(notFound(ctx, "Không tìm thấy bài giao.")), nil
+	case errors.Is(err, review.ErrQuestionNotOnPaper):
+		return openapi.ListAnswersForQuestion404JSONResponse(notFound(ctx, "Câu hỏi này không có trong đề của bài giao.")), nil
+	case err != nil:
+		return nil, err
+	}
+	question, err := s.toAPIReviewQuestion(ctx, byQ.Question, byQ.PublishedAt)
+	if err != nil {
+		return nil, err
+	}
+	manual := make([]openapi.Uuid, len(byQ.ManualIDs))
+	for i, id := range byQ.ManualIDs {
+		manual[i] = parseUUID(id)
+	}
+	items := make([]openapi.QuestionAnswerRow, len(byQ.Items))
+	for i, it := range byQ.Items {
+		row := openapi.QuestionAnswerRow{
+			AttemptId:     parseUUID(it.AttemptID),
+			StudentId:     parseUUID(it.StudentID),
+			StudentName:   it.StudentName,
+			AttemptNo:     it.AttemptNo,
+			ManualScore:   it.ManualScore,
+			GraderComment: it.GraderComment,
+		}
+		if len(it.Payload) > 0 {
+			var decoded openapi.Answer
+			if err := json.Unmarshal(it.Payload, &decoded); err != nil {
+				return nil, fmt.Errorf("decode stored answer for %s: %w", it.AttemptID, err)
+			}
+			row.Answer = &decoded
+		}
+		items[i] = row
+	}
+	return openapi.ListAnswersForQuestion200JSONResponse{
+		Question:          question,
+		QuestionNumber:    byQ.Number,
+		QuestionCount:     byQ.Count,
+		ManualQuestionIds: manual,
+		Items:             items,
 	}, nil
 }
 
@@ -233,7 +284,7 @@ func (s *Server) FlagAttempt(ctx context.Context, request openapi.FlagAttemptReq
 	return openapi.FlagAttempt200JSONResponse(toAPIAttempt(flagged)), nil
 }
 
-func (s *Server) toAPIReviewQuestion(ctx context.Context, q review.Question, rv review.Review) (openapi.AdminQuestion, error) {
+func (s *Server) toAPIReviewQuestion(ctx context.Context, q review.Question, publishedAt time.Time) (openapi.AdminQuestion, error) {
 	out := openapi.AdminQuestion{
 		Id:           parseUUID(q.ID),
 		Type:         openapi.QuestionType(q.Type),
@@ -243,8 +294,8 @@ func (s *Server) toAPIReviewQuestion(ctx context.Context, q review.Question, rv 
 		SampleAnswer: q.SampleAnswer,
 		Transcript:   q.Transcript,
 		Tags:         []string{},
-		CreatedAt:    rv.PublishedAt,
-		UpdatedAt:    rv.PublishedAt,
+		CreatedAt:    publishedAt,
+		UpdatedAt:    publishedAt,
 	}
 	if q.Audio != nil {
 		out.Audio = &openapi.AudioPolicy{

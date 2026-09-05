@@ -530,6 +530,33 @@ export interface paths {
         patch: operations["updateAssignment"];
         trace?: never;
     };
+    "/admin/assignments/{id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One question across every paper
+         * @description G-04's "Chấm theo câu hỏi": one manually graded question across every
+         *     handed-in, non-voided attempt of the assignment, so the rubric is
+         *     decided once instead of per student. The write stays
+         *     `POST /admin/attempts/{id}/grade`, one attempt per call. Rows come in
+         *     attempt order rather than by name, because the mode hides names until
+         *     the question is graded (anonymous marking).
+         */
+        get: operations["listAnswersForQuestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/assignments/{id}/reopen": {
         parameters: {
             query?: never;
@@ -1459,6 +1486,17 @@ export interface components {
         PublishConflict: {
             error: components["schemas"]["ErrorDetail"];
             violations?: components["schemas"]["PublishValidationError"][];
+        };
+        /** @description One paper's answer to the question G-04 is grading. */
+        QuestionAnswerRow: {
+            attemptId: components["schemas"]["Uuid"];
+            studentId: components["schemas"]["Uuid"];
+            studentName: string;
+            attemptNo: number;
+            /** @description Null when the student left it blank, which cannot be marked. */
+            answer: components["schemas"]["Answer"] | null;
+            manualScore: components["schemas"]["Points"] | null;
+            graderComment: string | null;
         };
         /**
          * @description A MediaAsset as the admin library lists it, with how many published
@@ -3612,6 +3650,47 @@ export interface operations {
             404: components["responses"]["NotFound"];
             /** @description `VERSION_LOCKED` — attempts exist, so the version cannot be changed. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAnswersForQuestion: {
+        parameters: {
+            query: {
+                questionId: components["schemas"]["Uuid"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        question: components["schemas"]["AdminQuestion"];
+                        /** @description 1-based position on the paper. */
+                        questionNumber: number;
+                        questionCount: number;
+                        /** @description The paper's manually graded questions in paper order, for "Câu tiếp theo". */
+                        manualQuestionIds: components["schemas"]["Uuid"][];
+                        items: components["schemas"]["QuestionAnswerRow"][];
+                    };
+                };
+            };
+            /** @description The assignment, or a question that is not on its paper. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

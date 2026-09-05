@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
-import { Eye, Flag, FlagOff, Headphones } from "lucide-react";
+import { Eye, Flag, FlagOff, Headphones, Rows3 } from "lucide-react";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { PageAside } from "@/components/shared/PageAside";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -33,6 +33,7 @@ import {
 } from "../api";
 import { monitorKey, reviewKey } from "../keys";
 import { AnswerReview } from "../components/AnswerReview";
+import { GradeByQuestion } from "../components/GradeByQuestion";
 import { GradingCard } from "../components/GradingCard";
 import { DOT, type Verdict } from "../components/answerStyles";
 
@@ -45,6 +46,7 @@ export default function AttemptReviewPage() {
   const queryClient = useQueryClient();
   const locale = useLocale();
   const [tab, setTab] = useState<Tab>("paper");
+  const [byQuestion, setByQuestion] = useState(false);
   const [picked, setCurrent] = useState<number | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -136,6 +138,23 @@ export default function AttemptReviewPage() {
     const after = pendingIndexes.find((i) => i > current) ?? pendingIndexes[0];
     setCurrent(after ?? Math.min(current + 1, questions.length - 1));
   };
+
+  // G-04: the same route, a toggle; it starts on this paper's essay when there is one.
+  const manualIds = questions.filter((q) => q.type === "short_answer").map((q) => q.id);
+  if (byQuestion && manualIds.length > 0) {
+    const from =
+      question !== null && question.type === "short_answer"
+        ? question.id
+        : manualIds[0]!;
+    return (
+      <GradeByQuestion
+        assignmentId={attempt.assignmentId}
+        testTitle={data.testTitle}
+        initialQuestionId={from}
+        onExit={() => setByQuestion(false)}
+      />
+    );
+  }
 
   return (
     <>
@@ -253,6 +272,17 @@ export default function AttemptReviewPage() {
                 <p className="text-muted-foreground mt-2 text-xs">
                   {t("review.pendingNote", { count: pending })}
                 </p>
+              )}
+              {manualIds.length > 0 && gradable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => setByQuestion(true)}
+                >
+                  <Rows3 aria-hidden="true" />
+                  {t("byQuestion.title")}
+                </Button>
               )}
             </div>
             <Separator />

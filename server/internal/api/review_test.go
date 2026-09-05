@@ -24,6 +24,9 @@ func (f fakeReview) Grade(context.Context, string, string, []review.Item) (attem
 	return attempts.Score{}, nil
 }
 func (f fakeReview) SetNote(context.Context, string, *string) error { return nil }
+func (f fakeReview) AnswersForQuestion(context.Context, string, string) (review.ByQuestion, error) {
+	return review.ByQuestion{}, nil
+}
 func (f fakeReview) Finish(context.Context, string) (attempts.Attempt, error) {
 	return attempts.Attempt{}, nil
 }
