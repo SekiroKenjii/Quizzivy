@@ -7,11 +7,15 @@ import (
 	"quizzivy/internal/api"
 	"quizzivy/internal/modules/assignments"
 	"quizzivy/internal/modules/attempts"
+	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/modules/auth"
-	"quizzivy/internal/modules/classes"
-	"quizzivy/internal/modules/dashboard"
+	classesapp "quizzivy/internal/modules/classes/application"
+	classeshttp "quizzivy/internal/modules/classes/http"
+	classesrepo "quizzivy/internal/modules/classes/repositories"
+	dashboardapp "quizzivy/internal/modules/dashboard/application"
+	dashboardhttp "quizzivy/internal/modules/dashboard/http"
+	dashboardrepo "quizzivy/internal/modules/dashboard/repositories"
 	"quizzivy/internal/modules/integrity"
-	"quizzivy/internal/modules/join"
 	"quizzivy/internal/modules/media"
 	"quizzivy/internal/modules/questions"
 	"quizzivy/internal/modules/review"
@@ -37,7 +41,8 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	}
 
 	authService := auth.NewService(auth.NewStore(pool.Pool), tokens, cfg.RefreshTokenTTL)
-	joinService := join.NewService(join.NewStore(pool.Pool))
+	classesRepo := classesrepo.NewPostgres(pool.Pool)
+	joinService := classesapp.NewEnrolment(classesRepo)
 	attachGoogle(cfg, logger, authService, joinService)
 
 	mediaService, err := newMediaService(ctx, cfg, logger, pool)
@@ -48,12 +53,9 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	deps := api.Deps{
 		DB:           pool,
 		Auth:         authService,
-		Join:         joinService,
-		Classes:      classes.NewService(classes.NewStore(pool.Pool)),
 		Questions:    questions.NewService(questions.NewStore(pool.Pool)),
 		Tests:        tests.NewService(tests.NewStore(pool.Pool)),
 		Publisher:    publish.NewPublisher(pool.Pool),
-		Dashboard:    dashboard.NewStore(pool.Pool),
 		Assignments:  assignments.NewStore(pool.Pool),
 		Attempts:     attempts.NewService(attempts.NewStore(pool.Pool)),
 		Review:       review.NewStore(pool.Pool),
@@ -65,6 +67,10 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	}
 	if mediaService != nil {
 		deps.Media = mediaService
+	}
+	deps.Modules = api.Modules{
+		Dashboard: dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
+		Classes:   classeshttp.NewClasses(classesapp.NewService(classesRepo, attemptsrepo.NewStudentStats(pool.Pool)), joinService),
 	}
 	return deps, authService, nil
 }
@@ -78,7 +84,7 @@ func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
 
 // attachGoogle enables §5.3 sign-in when credentials are configured. Config has
 // already refused a half-configured set, so this is all-or-nothing.
-func attachGoogle(cfg config.Config, logger *slog.Logger, authService *auth.Service, joinService *join.Service) {
+func attachGoogle(cfg config.Config, logger *slog.Logger, authService *auth.Service, joinService *classesapp.Enrolment) {
 	if !cfg.GoogleEnabled() {
 		logger.Info("google sign-in disabled (no credentials configured)")
 		return

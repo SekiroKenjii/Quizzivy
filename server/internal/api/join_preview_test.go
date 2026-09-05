@@ -11,7 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"quizzivy/internal/modules/join"
+	classesdomain "quizzivy/internal/modules/classes/domain"
+	classeshttp "quizzivy/internal/modules/classes/http"
 )
 
 // POST /join/preview is unauthenticated and takes a bearer secret. Two things
@@ -21,19 +22,19 @@ import (
 const fakeClassName = "Lớp Tiếng Anh Giao Tiếp B2"
 
 type fakeJoin struct {
-	result join.PreviewResult
+	result classesdomain.PreviewResult
 	err    error
 	seen   []string
 }
 
-func (f *fakeJoin) Rotate(context.Context, join.RotateRequest) (join.Rotated, error) {
-	return join.Rotated{}, nil
+func (f *fakeJoin) Rotate(context.Context, classesdomain.RotateRequest) (classesdomain.Rotated, error) {
+	return classesdomain.Rotated{}, nil
 }
-func (f *fakeJoin) Revoke(context.Context, join.RevokeRequest) error { return nil }
-func (f *fakeJoin) EnrolExisting(context.Context, string, string, join.Meta) (join.EnrolResult, error) {
-	return join.EnrolResult{}, nil
+func (f *fakeJoin) Revoke(context.Context, classesdomain.RevokeRequest) error { return nil }
+func (f *fakeJoin) EnrolExisting(context.Context, string, string, classesdomain.Meta) (classesdomain.EnrolResult, error) {
+	return classesdomain.EnrolResult{}, nil
 }
-func (f *fakeJoin) Preview(_ context.Context, code string) (join.PreviewResult, error) {
+func (f *fakeJoin) Preview(_ context.Context, code string) (classesdomain.PreviewResult, error) {
 	f.seen = append(f.seen, code)
 	return f.result, f.err
 }
@@ -41,7 +42,7 @@ func (f *fakeJoin) Preview(_ context.Context, code string) (join.PreviewResult, 
 func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := NewRouter(Deps{DB: fakeDB{}, Join: fake, Tokens: testIssuer(t)}, logger,
+	h, err := NewRouter(Deps{DB: fakeDB{}, Modules: Modules{Classes: classeshttp.NewClasses(nil, fake)}, Tokens: testIssuer(t)}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("NewRouter: %v", err)
@@ -61,8 +62,8 @@ func previewFrom(t *testing.T, router http.Handler, ip, code string) *httptest.R
 }
 
 func TestTheSuccessBodyHasExactlyThreeKeys(t *testing.T) {
-	fake := &fakeJoin{result: join.PreviewResult{
-		Outcome:     join.PreviewOK,
+	fake := &fakeJoin{result: classesdomain.PreviewResult{
+		Outcome:     classesdomain.PreviewOK,
 		ClassID:     "01935000-0000-7000-8000-0000000000c1",
 		ClassName:   fakeClassName,
 		TeacherName: "Thuong",
@@ -94,16 +95,16 @@ func TestTheSuccessBodyHasExactlyThreeKeys(t *testing.T) {
 
 func TestTheFourRefusalsCarryFourCodesAndNoClassName(t *testing.T) {
 	for _, tc := range []struct {
-		outcome join.PreviewOutcome
+		outcome classesdomain.PreviewOutcome
 		code    string
 	}{
-		{join.PreviewInvalid, "JOIN_CODE_INVALID"},
-		{join.PreviewRevoked, "JOIN_CODE_REVOKED"},
-		{join.PreviewExpired, "JOIN_CODE_EXPIRED"},
-		{join.PreviewExhausted, "JOIN_CODE_EXHAUSTED"},
+		{classesdomain.PreviewInvalid, "JOIN_CODE_INVALID"},
+		{classesdomain.PreviewRevoked, "JOIN_CODE_REVOKED"},
+		{classesdomain.PreviewExpired, "JOIN_CODE_EXPIRED"},
+		{classesdomain.PreviewExhausted, "JOIN_CODE_EXHAUSTED"},
 	} {
 		t.Run(tc.code, func(t *testing.T) {
-			fake := &fakeJoin{result: join.PreviewResult{Outcome: tc.outcome}}
+			fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: tc.outcome}}
 			rec := previewFrom(t, joinRouter(t, fake), "203.0.113.2", "K7M3-P9QR")
 
 			if rec.Code != http.StatusNotFound {
@@ -117,10 +118,10 @@ func TestTheFourRefusalsCarryFourCodesAndNoClassName(t *testing.T) {
 }
 
 func TestNoRefusalEchoesAnythingIdentifying(t *testing.T) {
-	for _, outcome := range []join.PreviewOutcome{
-		join.PreviewInvalid, join.PreviewRevoked, join.PreviewExpired, join.PreviewExhausted,
+	for _, outcome := range []classesdomain.PreviewOutcome{
+		classesdomain.PreviewInvalid, classesdomain.PreviewRevoked, classesdomain.PreviewExpired, classesdomain.PreviewExhausted,
 	} {
-		fake := &fakeJoin{result: join.PreviewResult{
+		fake := &fakeJoin{result: classesdomain.PreviewResult{
 			Outcome:     outcome,
 			ClassID:     "01935000-0000-7000-8000-0000000000c1",
 			ClassName:   fakeClassName,
@@ -138,7 +139,7 @@ func TestNoRefusalEchoesAnythingIdentifying(t *testing.T) {
 
 func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
 	// §6.5. Without a limit, 40 bits of entropy is worth probing at scale.
-	fake := &fakeJoin{result: join.PreviewResult{Outcome: join.PreviewInvalid}}
+	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
 	router := joinRouter(t, fake)
 
 	var last *httptest.ResponseRecorder
@@ -158,7 +159,7 @@ func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
 }
 
 func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
-	fake := &fakeJoin{result: join.PreviewResult{Outcome: join.PreviewInvalid}}
+	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
 	router := joinRouter(t, fake)
 
 	var last *httptest.ResponseRecorder
@@ -171,7 +172,7 @@ func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
 }
 
 func TestRespellingACodeDoesNotBuyAFreshAllowance(t *testing.T) {
-	fake := &fakeJoin{result: join.PreviewResult{Outcome: join.PreviewInvalid}}
+	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
 	router := joinRouter(t, fake)
 
 	spellings := []string{"K7M3-P9QR", "k7m3p9qr", "K7M3P9QR", "k7m3-p9qr", " K7M3 P9QR "}

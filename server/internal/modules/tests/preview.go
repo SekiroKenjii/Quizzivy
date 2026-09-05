@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/platform/db"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ErrNotPublished is returned when a test has no version to render.

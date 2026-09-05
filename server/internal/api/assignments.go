@@ -228,12 +228,6 @@ func (s *Server) ReopenAssignment(ctx context.Context, request openapi.ReopenAss
 	return openapi.ReopenAssignment200JSONResponse(toAPIAssignment(a)), nil
 }
 
-func fieldError(ctx context.Context, field, message string) openapi.ErrorResponse {
-	resp := authError(ctx, openapi.VALIDATIONFAILED, message)
-	resp.Error.Details = &map[string]interface{}{field: message}
-	return resp
-}
-
 func assignmentRequest(ctx context.Context, id string) (assignments.Request, bool) {
 	principal, ok := httpx.PrincipalFromContext(ctx)
 	if !ok {

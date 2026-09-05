@@ -242,10 +242,3 @@ func toAPIStudentStats(in students.Stats) openapi.StudentStats {
 	}
 	return stats
 }
-
-func deref[T any](v *[]T) []T {
-	if v == nil {
-		return nil
-	}
-	return *v
-}

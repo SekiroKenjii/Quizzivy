@@ -8,7 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/modules/auth"
-	"quizzivy/internal/modules/join"
+	classesapp "quizzivy/internal/modules/classes/application"
+	classesdomain "quizzivy/internal/modules/classes/domain"
+	classesrepo "quizzivy/internal/modules/classes/repositories"
 	"quizzivy/internal/platform/google"
 )
 
@@ -272,7 +274,7 @@ func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity google
 	t.Helper()
 	svc := newService(t, pool)
 	stub := &stubGoogle{identity: identity}
-	svc.SetGoogle(stub, join.NewService(join.NewStore(pool)))
+	svc.SetGoogle(stub, classesapp.NewEnrolment(classesrepo.NewPostgres(pool)))
 	return svc, stub
 }
 
@@ -295,8 +297,8 @@ func makeClassForEnrol(t *testing.T, pool *pgxpool.Pool) (classID, teacherID str
 
 func issueJoinCode(t *testing.T, pool *pgxpool.Pool, classID, teacherID string) string {
 	t.Helper()
-	rotated, err := join.NewService(join.NewStore(pool)).Rotate(context.Background(),
-		join.RotateRequest{ClassID: classID, ActorUserID: teacherID})
+	rotated, err := classesapp.NewEnrolment(classesrepo.NewPostgres(pool)).Rotate(context.Background(),
+		classesdomain.RotateRequest{ClassID: classID, ActorUserID: teacherID})
 	if err != nil {
 		t.Fatalf("issue join code: %v", err)
 	}

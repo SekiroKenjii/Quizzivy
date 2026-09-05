@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/join"
+	"quizzivy/internal/modules/classes/domain/joincode"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/ratelimit"
 )
@@ -19,15 +19,15 @@ func RateLimits() *ratelimit.Registry {
 	const capacity = 10_000
 	const maxKeyBodyBytes = 8 * 1024
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, joincode.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, joincode.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
 		WithKey(ratelimit.JSONFieldKey("email", maxKeyBodyBytes), capacity, ratelimit.PerHour(20))
 	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
 	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, join.Normalize), capacity, ratelimit.PerHour(30))
+		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, joincode.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
 
 	reg.Add("POST /admin/students/{id}/reset-password", capacity,
@@ -56,7 +56,7 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		return nil, err
 	}
 
-	server := &Server{Deps: deps, Logger: logger}
+	server := &Server{Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())

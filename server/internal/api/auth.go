@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"quizzivy/gen/openapi"
@@ -128,21 +127,6 @@ func (s *Server) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (ope
 	}, nil
 }
 
-func authError(ctx context.Context, code openapi.ErrorCode, message string) openapi.ErrorResponse {
-	return openapi.ErrorResponse{
-		Error: struct {
-			Code      openapi.ErrorCode       `json:"code"`
-			Details   *map[string]interface{} `json:"details,omitempty"`
-			Message   string                  `json:"message"`
-			RequestId openapi.Uuid            `json:"requestId"`
-		}{
-			Code:      code,
-			Message:   message,
-			RequestId: parseUUID(httpx.RequestIDFromContext(ctx)),
-		},
-	}
-}
-
 func toAPIUser(u auth.User) openapi.User {
 	providers := make([]openapi.UserLinkedProviders, 0, len(u.LinkedProviders))
 	for _, p := range u.LinkedProviders {
@@ -158,18 +142,4 @@ func toAPIUser(u auth.User) openapi.User {
 		MustChangePassword: u.MustChangePassword,
 		CreatedAt:          u.CreatedAt,
 	}
-}
-
-func ptr[T any](v T) *T { return &v }
-
-// parseUUID converts a string id to the generated uuid type. Ids come from the
-// database and from crypto/rand, so a parse failure is a programming error
-// rather than user input; the zero value keeps the response renderable instead
-// of turning a login failure into a 500.
-func parseUUID(s string) openapi.Uuid {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return openapi.Uuid{}
-	}
-	return openapi.Uuid(id)
 }

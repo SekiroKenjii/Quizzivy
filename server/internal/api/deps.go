@@ -9,10 +9,7 @@ import (
 	"quizzivy/internal/modules/assignments"
 	"quizzivy/internal/modules/attempts"
 	"quizzivy/internal/modules/auth"
-	"quizzivy/internal/modules/classes"
-	"quizzivy/internal/modules/dashboard"
 	"quizzivy/internal/modules/integrity"
-	"quizzivy/internal/modules/join"
 	"quizzivy/internal/modules/media"
 	"quizzivy/internal/modules/questions"
 	"quizzivy/internal/modules/review"
@@ -40,28 +37,6 @@ type AuthService interface {
 	LinkGoogle(ctx context.Context, in auth.LinkGoogleInput) (auth.User, error)
 	UnlinkGoogle(ctx context.Context, userID, ip, userAgent string) error
 	NewTemporaryPassword(ctx context.Context) (password, hash string, err error)
-}
-
-// JoinService is the slice of internal/join the handlers use.
-type JoinService interface {
-	Rotate(ctx context.Context, req join.RotateRequest) (join.Rotated, error)
-	Revoke(ctx context.Context, req join.RevokeRequest) error
-	Preview(ctx context.Context, rawCode string) (join.PreviewResult, error)
-	EnrolExisting(ctx context.Context, userID, rawCode string, meta join.Meta) (join.EnrolResult, error)
-}
-
-// ClassesService is the slice of internal/classes the handlers use.
-type ClassesService interface {
-	Get(ctx context.Context, classID string) (classes.Class, error)
-	List(ctx context.Context, in classes.ListInput) ([]classes.Class, paging.Page, error)
-	ListMine(ctx context.Context, userID string) ([]classes.MyClass, error)
-	Members(ctx context.Context, classID string, in classes.MembersInput) ([]classes.Member, paging.Page, error)
-	Update(ctx context.Context, classID string, in classes.UpdateInput) (classes.Class, error)
-	Facets(ctx context.Context, query string) (classes.Facets, error)
-	Create(ctx context.Context, name string, description *string, selfJoin bool, actorID, ip, userAgent string) (classes.Class, error)
-	Archive(ctx context.Context, classID string, archived bool, actorID, ip, userAgent string) (classes.Class, error)
-	RemoveMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) error
-	AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (classes.Member, error)
 }
 
 // MediaService is the slice of internal/media the handlers use.
@@ -154,12 +129,6 @@ type StudentsService interface {
 	Create(ctx context.Context, req students.Request, in students.CreateInput) (students.Student, error)
 	Update(ctx context.Context, req students.Request, in students.UpdateInput) (students.Student, error)
 	ResetPassword(ctx context.Context, req students.Request, id, hash string, now time.Time) error
-}
-
-// DashboardService is the slice of internal/dashboard the handlers use.
-type DashboardService interface {
-	Get(ctx context.Context) (dashboard.Summary, error)
-	List(ctx context.Context, in dashboard.ListInput) ([]dashboard.Recent, paging.Page, error)
 }
 
 // PublishService is the slice of internal/tests/publish the handlers use.

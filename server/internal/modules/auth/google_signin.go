@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"quizzivy/internal/modules/join"
+	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/google"
 )
 
@@ -30,14 +30,14 @@ type GoogleProvider interface {
 // third branch genuinely is "sign-in creates an enrolment", so auth depending
 // on enrolment is the real shape rather than a convenience.
 type SelfEnroller interface {
-	EnrolNewMember(ctx context.Context, m join.NewMember, rawCode string, meta join.Meta) (join.EnrolResult, error)
+	EnrolNewMember(ctx context.Context, m classesdomain.NewMember, rawCode string, meta classesdomain.Meta) (classesdomain.EnrolResult, error)
 }
 
 // JoinCodeRejected is a join code that did not pass. It carries the outcome so
 // the HTTP layer can reuse /join/preview's exact mapping: the same four codes,
 // the same leak rules, decided in one place rather than two that drift.
 type JoinCodeRejected struct {
-	Outcome join.PreviewOutcome
+	Outcome classesdomain.PreviewOutcome
 }
 
 func (e JoinCodeRejected) Error() string {
@@ -62,7 +62,7 @@ type GoogleSignInInput struct {
 
 type GoogleSignInResult struct {
 	Session       Session
-	EnrolledClass *join.EnrolledClass
+	EnrolledClass *classesdomain.EnrolledClass
 }
 
 // GoogleSignIn implements §5.3 in full.
@@ -142,16 +142,16 @@ func (s *Service) enrolByCode(ctx context.Context, identity google.Identity, in 
 		return GoogleSignInResult{}, ErrSelfEnrolNotAvailable
 	}
 	result, err := s.enroller.EnrolNewMember(ctx,
-		join.NewMember{
+		classesdomain.NewMember{
 			Email:          identity.Email,
 			FullName:       identity.Name,
 			Provider:       "google",
 			ProviderUserID: identity.Subject,
-		}, in.JoinCode, join.Meta{IP: in.IP, UserAgent: in.UserAgent})
+		}, in.JoinCode, classesdomain.Meta{IP: in.IP, UserAgent: in.UserAgent})
 	if err != nil {
 		return GoogleSignInResult{}, err
 	}
-	if result.Outcome != join.PreviewOK {
+	if result.Outcome != classesdomain.PreviewOK {
 		return GoogleSignInResult{}, JoinCodeRejected{Outcome: result.Outcome}
 	}
 	created, err := s.store.FindUserByID(ctx, result.UserID)
@@ -161,7 +161,7 @@ func (s *Service) enrolByCode(ctx context.Context, identity google.Identity, in 
 	return s.googleSession(ctx, created, in, &result.Class)
 }
 
-func (s *Service) googleSession(ctx context.Context, user User, in GoogleSignInInput, class *join.EnrolledClass) (GoogleSignInResult, error) {
+func (s *Service) googleSession(ctx context.Context, user User, in GoogleSignInInput, class *classesdomain.EnrolledClass) (GoogleSignInResult, error) {
 	if user.Disabled() {
 		return GoogleSignInResult{}, ErrAccountDisabled
 	}

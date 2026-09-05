@@ -5,10 +5,14 @@ import (
 	"time"
 
 	"quizzivy/gen/openapi"
+	classeshttp "quizzivy/internal/modules/classes/http"
+	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 )
 
-// Server implements the generated StrictServerInterface.
+// Server implements the generated StrictServerInterface by embedding each module's handlers.
 type Server struct {
+	dashboardhttp.Dashboard
+	classeshttp.Classes
 	Deps Deps
 	// Logger is nil in tests; read it through logOf.
 	Logger *slog.Logger
@@ -25,15 +29,13 @@ func logOf(s *Server) *slog.Logger {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
+	Modules      Modules
 	DB           DB
 	Auth         AuthService
-	Join         JoinService
-	Classes      ClassesService
 	Media        MediaService
 	Questions    QuestionsService
 	Tests        TestsService
 	Publisher    PublishService
-	Dashboard    DashboardService
 	Assignments  AssignmentsService
 	Attempts     AttemptsService
 	Review       ReviewService

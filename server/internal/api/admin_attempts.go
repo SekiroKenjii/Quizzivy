@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/attempts"
-	"quizzivy/internal/modules/dashboard"
 	"quizzivy/internal/modules/integrity"
 	"quizzivy/internal/modules/review"
 	"quizzivy/internal/modules/students"
@@ -68,51 +66,6 @@ func (s *Server) GetAssignmentMonitor(ctx context.Context, request openapi.GetAs
 
 func toAPIScore(sc attempts.Score) *openapi.AttemptScore {
 	return &openapi.AttemptScore{Earned: sc.Earned, Total: sc.Total, PendingManual: sc.PendingManual}
-}
-
-// ListAttempts backs the two dashboard queues §15 has no endpoint for.
-func (s *Server) ListAttempts(ctx context.Context, request openapi.ListAttemptsRequestObject) (openapi.ListAttemptsResponseObject, error) {
-	if s.Deps.Dashboard == nil {
-		return nil, httpx.ErrNotImplemented
-	}
-	in := dashboard.ListInput{Flagged: request.Params.Flagged, PendingGrading: request.Params.PendingGrading}
-	if request.Params.Status != nil {
-		status := string(*request.Params.Status)
-		in.Status = &status
-	}
-	if request.Params.Page != nil {
-		in.Page = int(*request.Params.Page)
-	}
-	if request.Params.Limit != nil {
-		in.Limit = *request.Params.Limit
-	}
-	found, page, err := s.Deps.Dashboard.List(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	out := openapi.ListAttempts200JSONResponse{
-		Items: make([]openapi.AttemptListRow, len(found)),
-		Page:  page.Number, PageSize: page.Size, Total: page.Total,
-	}
-	for i, r := range found {
-		out.Items[i] = toAPIAttemptListRow(r)
-	}
-	return out, nil
-}
-
-func toAPIAttemptListRow(r dashboard.Recent) openapi.AttemptListRow {
-	pending := r.PendingManual
-	return openapi.AttemptListRow{
-		Id:            parseUUID(r.ID),
-		StudentId:     parseUUID(r.StudentID),
-		StudentName:   r.StudentName,
-		AssignmentId:  parseUUID(r.AssignmentID),
-		TestTitle:     r.TestTitle,
-		Status:        openapi.AttemptStatus(r.Status),
-		SubmittedAt:   r.SubmittedAt,
-		Flagged:       r.Flagged,
-		PendingManual: &pending,
-	}
 }
 
 type reviewAnswer = struct {
@@ -406,13 +359,6 @@ func attemptRequest(ctx context.Context) (attempts.Request, bool) {
 	return attempts.Request{ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}, true
 }
 
-func blankReason(ctx context.Context) openapi.ErrorResponse {
-	resp := authError(ctx, openapi.VALIDATIONFAILED, "Cần ghi lý do.")
-	details := map[string]interface{}{"reason": "Lý do không được để trống."}
-	resp.Error.Details = &details
-	return resp
-}
-
 // ExtendAttempt is the first of §8's three interventions; each takes a reason.
 func (s *Server) ExtendAttempt(ctx context.Context, request openapi.ExtendAttemptRequestObject) (openapi.ExtendAttemptResponseObject, error) {
 	if s.Deps.Attempts == nil || request.Body == nil {
@@ -578,16 +524,6 @@ func (s *Server) FinishGrading(ctx context.Context, request openapi.FinishGradin
 		return nil, err
 	}
 	return openapi.FinishGrading200JSONResponse(toAPIAttempt(graded)), nil
-}
-
-// rawUUID is parseUUID for the fields the generator typed as the runtime's
-// UUID rather than the contract's alias.
-func rawUUID(s string) openapi_types.UUID {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return openapi_types.UUID{}
-	}
-	return id
 }
 
 // toAPIUserFromStudent renders the contract's User from the admin's student

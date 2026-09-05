@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"quizzivy/internal/modules/dashboard"
+	"quizzivy/internal/modules/dashboard/domain"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 
 // ActiveWindow must stay the dashboard's window. Two meanings of "active" on
 // two screens is worse than one screen missing the number.
-const ActiveWindow = dashboard.ActiveWindow
+const ActiveWindow = domain.ActiveWindow
 
 // Membership is one class the student is in, and how they got there (D-10).
 type Membership struct {

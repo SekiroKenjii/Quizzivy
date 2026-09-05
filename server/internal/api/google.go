@@ -6,6 +6,7 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/auth"
+	classeshttp "quizzivy/internal/modules/classes/http"
 	"quizzivy/internal/platform/google"
 	"quizzivy/internal/platform/httpx"
 )
@@ -55,7 +56,7 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 		return openapi.GoogleAuth403JSONResponse(authError(ctx, openapi.ACCOUNTDISABLED,
 			"Tài khoản của bạn đã bị vô hiệu hoá. Vui lòng liên hệ giáo viên.")), nil
 	case errors.As(err, &rejected):
-		return openapi.GoogleAuth404JSONResponse(joinCodeError(ctx, rejected.Outcome)), nil
+		return openapi.GoogleAuth404JSONResponse(classeshttp.JoinCodeError(ctx, rejected.Outcome)), nil
 
 	case errors.Is(err, auth.ErrIdentityAlreadyLinked):
 		return openapi.GoogleAuth403JSONResponse(authError(ctx, openapi.IDENTITYALREADYLINKED,
@@ -76,7 +77,7 @@ func (s *Server) GoogleAuth(ctx context.Context, request openapi.GoogleAuthReque
 		result.Session.RefreshToken, s.Deps.RefreshTTL, s.Deps.CookieSecure).String())
 
 	if c := result.EnrolledClass; c != nil {
-		class := toAPIClass(*c)
+		class := classeshttp.ToAPIClass(*c)
 		response.Body.EnrolledClass = &class
 	}
 	return response, nil

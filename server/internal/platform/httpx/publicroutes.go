@@ -5,8 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"quizzivy/internal/platform/ratelimit"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // AssertPublicRoutesLimited cross-references the contract against the limiter

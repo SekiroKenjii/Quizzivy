@@ -3,11 +3,10 @@ package api
 import (
 	"context"
 	"errors"
-	"time"
-
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/assignments"
 	"quizzivy/internal/platform/httpx"
+	"time"
 )
 
 // ListMyAssignments backs §9's /app: the three sections, already sorted.
@@ -94,33 +93,6 @@ func (s *Server) GetMyAssignment(ctx context.Context, request openapi.GetMyAssig
 		out.LastAttemptId = &id
 	}
 	return openapi.GetMyAssignment200JSONResponse(out), nil
-}
-
-// ListMyClasses backs §9's /app/classes in the student's own shape (S-10).
-func (s *Server) ListMyClasses(ctx context.Context, _ openapi.ListMyClassesRequestObject) (openapi.ListMyClassesResponseObject, error) {
-	if s.Deps.Classes == nil {
-		return nil, httpx.ErrNotImplemented
-	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
-	if !ok {
-		return nil, httpx.ErrNotImplemented
-	}
-
-	found, err := s.Deps.Classes.ListMine(ctx, principal.UserID)
-	if err != nil {
-		return nil, err
-	}
-	items := make([]openapi.MyClass, 0, len(found))
-	for _, c := range found {
-		items = append(items, openapi.MyClass{
-			Id:          parseUUID(c.ID),
-			Name:        c.Name,
-			Description: c.Description,
-			TeacherName: c.TeacherName,
-			JoinedAt:    c.JoinedAt,
-		})
-	}
-	return openapi.ListMyClasses200JSONResponse{Items: items}, nil
 }
 
 func toAPIStudentCards(cards []assignments.StudentCard, now time.Time) []openapi.StudentAssignmentCard {
