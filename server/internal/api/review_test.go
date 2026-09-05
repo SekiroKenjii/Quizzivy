@@ -11,10 +11,9 @@ import (
 	"time"
 
 	"quizzivy/internal/modules/attempts"
+	identitydomain "quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/modules/integrity"
 	"quizzivy/internal/modules/review"
-	"quizzivy/internal/modules/students"
-	"quizzivy/internal/shared/paging"
 )
 
 type fakeReview struct{ rv review.Review }
@@ -31,23 +30,10 @@ func (f fakeReview) Finish(context.Context, string) (attempts.Attempt, error) {
 	return attempts.Attempt{}, nil
 }
 
-type fakeStudents struct{ student students.Student }
+type fakeStudents struct{ student identitydomain.Student }
 
-func (f fakeStudents) List(context.Context, students.ListInput) ([]students.Student, paging.Page, error) {
-	return nil, paging.Page{}, nil
-}
-func (f fakeStudents) Facets(context.Context, students.ListInput) (students.Facets, error) {
-	return students.Facets{}, nil
-}
-func (f fakeStudents) Get(context.Context, string) (students.Student, error) { return f.student, nil }
-func (f fakeStudents) Create(context.Context, students.Request, students.CreateInput) (students.Student, error) {
+func (f fakeStudents) Get(context.Context, string) (identitydomain.Student, error) {
 	return f.student, nil
-}
-func (f fakeStudents) Update(context.Context, students.Request, students.UpdateInput) (students.Student, error) {
-	return f.student, nil
-}
-func (f fakeStudents) ResetPassword(context.Context, students.Request, string, string, time.Time) error {
-	return nil
 }
 
 type fakeIntegrity struct{}
@@ -73,7 +59,7 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 			TestTitle: "Unit 5", MaxAttempts: 1,
 			Answers: map[string]review.Answer{}, AudioPlays: map[string]int{},
 		}},
-		Students: fakeStudents{student: students.Student{
+		Students: fakeStudents{student: identitydomain.Student{
 			ID: studentID, Email: "an@example.com", FullName: "Nguyễn Văn An",
 			HasPassword: true, CreatedAt: disabledAt, DisabledAt: &disabledAt,
 		}},

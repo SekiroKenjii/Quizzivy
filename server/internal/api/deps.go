@@ -3,17 +3,17 @@ package api
 import (
 	"context"
 	"errors"
+	identityapp "quizzivy/internal/modules/identity/application"
+	identitydomain "quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/shared/paging"
 	"time"
 
 	"quizzivy/internal/modules/assignments"
 	"quizzivy/internal/modules/attempts"
-	"quizzivy/internal/modules/auth"
 	"quizzivy/internal/modules/integrity"
 	"quizzivy/internal/modules/media"
 	"quizzivy/internal/modules/questions"
 	"quizzivy/internal/modules/review"
-	"quizzivy/internal/modules/students"
 	"quizzivy/internal/modules/tests"
 	"quizzivy/internal/modules/tests/publish"
 	"quizzivy/internal/platform/httpx"
@@ -23,20 +23,6 @@ import (
 // concrete pool so tests can substitute one without a live database.
 type DB interface {
 	Ping(ctx context.Context) error
-}
-
-// AuthService is the slice of internal/auth the handlers use. An interface so
-// a handler test can supply a fake without a database.
-type AuthService interface {
-	Login(ctx context.Context, in auth.LoginInput) (auth.Session, error)
-	Refresh(ctx context.Context, in auth.RefreshInput) (auth.RefreshResult, error)
-	Logout(ctx context.Context, token string) error
-	CurrentUser(ctx context.Context, userID string) (auth.User, error)
-	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
-	GoogleSignIn(ctx context.Context, in auth.GoogleSignInInput) (auth.GoogleSignInResult, error)
-	LinkGoogle(ctx context.Context, in auth.LinkGoogleInput) (auth.User, error)
-	UnlinkGoogle(ctx context.Context, userID, ip, userAgent string) error
-	NewTemporaryPassword(ctx context.Context) (password, hash string, err error)
 }
 
 // MediaService is the slice of internal/media the handlers use.
@@ -121,14 +107,9 @@ type IntegrityService interface {
 	Timeline(ctx context.Context, attemptID string) (integrity.Timeline, error)
 }
 
-// StudentsService is the slice of internal/students the handlers use.
+// StudentsService is what the attempt review still reads from identity until attempts moves.
 type StudentsService interface {
-	List(ctx context.Context, in students.ListInput) ([]students.Student, paging.Page, error)
-	Facets(ctx context.Context, in students.ListInput) (students.Facets, error)
-	Get(ctx context.Context, id string) (students.Student, error)
-	Create(ctx context.Context, req students.Request, in students.CreateInput) (students.Student, error)
-	Update(ctx context.Context, req students.Request, in students.UpdateInput) (students.Student, error)
-	ResetPassword(ctx context.Context, req students.Request, id, hash string, now time.Time) error
+	Get(ctx context.Context, id string) (identitydomain.Student, error)
 }
 
 // PublishService is the slice of internal/tests/publish the handlers use.
@@ -140,7 +121,7 @@ type PublishService interface {
 // auth middleware needs it before any handler runs, and because verification is
 // pure -- no database, no state.
 type TokenVerifier interface {
-	Verify(raw string) (*auth.Claims, error)
+	Verify(raw string) (*identityapp.Claims, error)
 }
 
 // verifyAccessToken adapts the token issuer to what the middleware wants.

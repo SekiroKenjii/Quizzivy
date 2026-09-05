@@ -8,18 +8,20 @@ import (
 	"quizzivy/internal/modules/assignments"
 	"quizzivy/internal/modules/attempts"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
-	"quizzivy/internal/modules/auth"
 	classesapp "quizzivy/internal/modules/classes/application"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	classesrepo "quizzivy/internal/modules/classes/repositories"
 	dashboardapp "quizzivy/internal/modules/dashboard/application"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 	dashboardrepo "quizzivy/internal/modules/dashboard/repositories"
+	identityapp "quizzivy/internal/modules/identity/application"
+	identitydomain "quizzivy/internal/modules/identity/domain"
+	identityhttp "quizzivy/internal/modules/identity/http"
+	identityrepo "quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/modules/integrity"
 	"quizzivy/internal/modules/media"
 	"quizzivy/internal/modules/questions"
 	"quizzivy/internal/modules/review"
-	"quizzivy/internal/modules/students"
 	"quizzivy/internal/modules/tests"
 	"quizzivy/internal/modules/tests/publish"
 	"quizzivy/internal/platform/config"
@@ -32,15 +34,17 @@ import (
 //
 // The auth service is returned separately because the token-pruning job needs
 // it directly, not through the interface the handlers see.
-func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (api.Deps, *auth.Service, error) {
+func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (api.Deps, *identityapp.Service, error) {
 	boundPasswordHashing(cfg, logger)
 
-	tokens, err := auth.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
+	tokens, err := identityapp.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
 	if err != nil {
 		return api.Deps{}, nil, err
 	}
 
-	authService := auth.NewService(auth.NewStore(pool.Pool), tokens, cfg.RefreshTokenTTL)
+	authService := identityapp.NewService(identityrepo.NewUsers(pool.Pool), tokens, cfg.RefreshTokenTTL)
+	studentStats := attemptsrepo.NewStudentStats(pool.Pool)
+	studentsService := identityapp.NewStudents(identityrepo.NewStudents(pool.Pool), studentStats)
 	classesRepo := classesrepo.NewPostgres(pool.Pool)
 	joinService := classesapp.NewEnrolment(classesRepo)
 	attachGoogle(cfg, logger, authService, joinService)
@@ -51,32 +55,30 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	}
 
 	deps := api.Deps{
-		DB:           pool,
-		Auth:         authService,
-		Questions:    questions.NewService(questions.NewStore(pool.Pool)),
-		Tests:        tests.NewService(tests.NewStore(pool.Pool)),
-		Publisher:    publish.NewPublisher(pool.Pool),
-		Assignments:  assignments.NewStore(pool.Pool),
-		Attempts:     attempts.NewService(attempts.NewStore(pool.Pool)),
-		Review:       review.NewStore(pool.Pool),
-		Integrity:    integrity.NewStore(pool.Pool),
-		Students:     students.NewStore(pool.Pool),
-		Tokens:       tokens,
-		RefreshTTL:   cfg.RefreshTokenTTL,
-		CookieSecure: cfg.RefreshCookieSecure,
+		DB:          pool,
+		Questions:   questions.NewService(questions.NewStore(pool.Pool)),
+		Tests:       tests.NewService(tests.NewStore(pool.Pool)),
+		Publisher:   publish.NewPublisher(pool.Pool),
+		Assignments: assignments.NewStore(pool.Pool),
+		Attempts:    attempts.NewService(attempts.NewStore(pool.Pool)),
+		Review:      review.NewStore(pool.Pool),
+		Integrity:   integrity.NewStore(pool.Pool),
+		Students:    studentsService,
+		Tokens:      tokens,
 	}
 	if mediaService != nil {
 		deps.Media = mediaService
 	}
 	deps.Modules = api.Modules{
 		Dashboard: dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
-		Classes:   classeshttp.NewClasses(classesapp.NewService(classesRepo, attemptsrepo.NewStudentStats(pool.Pool)), joinService),
+		Identity:  identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
+		Classes:   classeshttp.NewClasses(classesapp.NewService(classesRepo, studentStats), joinService),
 	}
 	return deps, authService, nil
 }
 
 func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
-	auth.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
+	identitydomain.SetMaxConcurrentHashes(cfg.MaxConcurrentPasswordHashes)
 	logger.Info("password hashing bounded",
 		"max_concurrent", cfg.MaxConcurrentPasswordHashes,
 		"peak_arena_mib", cfg.MaxConcurrentPasswordHashes*64)
@@ -84,7 +86,7 @@ func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
 
 // attachGoogle enables §5.3 sign-in when credentials are configured. Config has
 // already refused a half-configured set, so this is all-or-nothing.
-func attachGoogle(cfg config.Config, logger *slog.Logger, authService *auth.Service, joinService *classesapp.Enrolment) {
+func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identityapp.Service, joinService *classesapp.Enrolment) {
 	if !cfg.GoogleEnabled() {
 		logger.Info("google sign-in disabled (no credentials configured)")
 		return

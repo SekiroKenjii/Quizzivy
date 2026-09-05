@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"quizzivy/internal/modules/auth"
 )
 
 type Config struct {
@@ -33,6 +31,9 @@ type Config struct {
 	RefreshTokenTTL     time.Duration
 	RefreshCookieSecure bool
 }
+
+// defaultMaxConcurrentPasswordHashes bounds Argon2id arenas: four slots is 256 MiB at peak.
+const defaultMaxConcurrentPasswordHashes = 4
 
 // Load reads the environment and fails loudly on anything missing.
 //
@@ -105,7 +106,7 @@ func loadTokens(cfg *Config) error {
 func loadHashing(cfg *Config) error {
 	var err error
 	cfg.MaxConcurrentPasswordHashes, err = getenvInt("MAX_CONCURRENT_PASSWORD_HASHES",
-		auth.DefaultMaxConcurrentHashes)
+		defaultMaxConcurrentPasswordHashes)
 	if err != nil {
 		return err
 	}

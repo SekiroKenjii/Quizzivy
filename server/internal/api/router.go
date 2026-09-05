@@ -8,6 +8,7 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/classes/domain/joincode"
+	identityhttp "quizzivy/internal/modules/identity/http"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/ratelimit"
 )
@@ -56,7 +57,7 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		return nil, err
 	}
 
-	server := &Server{Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Deps: deps, Logger: logger}
+	server := &Server{Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
@@ -81,7 +82,7 @@ func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIP
 		Middlewares: inExecutionOrder(
 			httpx.RateLimit(limits, ratelimit.ClientIP(clientIPHeader)),
 			httpx.WithRequestMeta(ratelimit.ClientIP(clientIPHeader)),
-			WithRefreshCookie,
+			identityhttp.WithRefreshCookie,
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 			httpx.RequireRole,
 			validate,

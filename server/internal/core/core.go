@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"quizzivy/internal/api"
-	"quizzivy/internal/modules/auth"
+	identityapp "quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 )
@@ -46,7 +46,7 @@ type App struct {
 	cfg    config.Config
 	logger *slog.Logger
 	pool   *db.Pool
-	auth   *auth.Service
+	auth   *identityapp.Service
 	deps   api.Deps
 }
 

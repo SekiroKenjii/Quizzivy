@@ -11,9 +11,9 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/attempts"
+	identitydomain "quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/modules/integrity"
 	"quizzivy/internal/modules/review"
-	"quizzivy/internal/modules/students"
 	"quizzivy/internal/platform/httpx"
 )
 
@@ -528,7 +528,7 @@ func (s *Server) FinishGrading(ctx context.Context, request openapi.FinishGradin
 
 // toAPIUserFromStudent renders the contract's User from the admin's student
 // row, which carries the same facts without the session checks.
-func toAPIUserFromStudent(st students.Student) openapi.User {
+func toAPIUserFromStudent(st identitydomain.Student) openapi.User {
 	providers := make([]openapi.UserLinkedProviders, 0, len(st.LinkedProviders))
 	for _, p := range st.LinkedProviders {
 		providers = append(providers, openapi.UserLinkedProviders(p))

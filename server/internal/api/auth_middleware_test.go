@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/auth"
+	identityapp "quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/platform/httpx"
 )
 
@@ -60,7 +60,7 @@ func TestOnlySixOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 	}
 }
 
-func newAuthTestRouter(t *testing.T, issuer *auth.TokenIssuer) http.Handler {
+func newAuthTestRouter(t *testing.T, issuer *identityapp.TokenIssuer) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h, err := NewRouter(Deps{DB: fakeDB{}, Tokens: issuer}, logger,
@@ -71,9 +71,9 @@ func newAuthTestRouter(t *testing.T, issuer *auth.TokenIssuer) http.Handler {
 	return h
 }
 
-func testIssuer(t *testing.T) *auth.TokenIssuer {
+func testIssuer(t *testing.T) *identityapp.TokenIssuer {
 	t.Helper()
-	issuer, err := auth.NewTokenIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
+	issuer, err := identityapp.NewTokenIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 	issuer := testIssuer(t)
 	router := newAuthTestRouter(t, issuer)
 
-	expired, err := auth.NewTokenIssuer([]byte(strings.Repeat("k", 32)), time.Nanosecond)
+	expired, err := identityapp.NewTokenIssuer([]byte(strings.Repeat("k", 32)), time.Nanosecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	foreign, err := auth.NewTokenIssuer([]byte(strings.Repeat("x", 32)), time.Hour)
+	foreign, err := identityapp.NewTokenIssuer([]byte(strings.Repeat("x", 32)), time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

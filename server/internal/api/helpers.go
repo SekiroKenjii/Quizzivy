@@ -28,7 +28,3 @@ func parseUUID(s string) openapi.Uuid { return httpapi.ParseUUID(s) }
 func rawUUID(s string) openapi_types.UUID { return httpapi.RawUUID(s) }
 
 func ptr[T any](v T) *T { return httpapi.Ptr(v) }
-
-func deref[T any](v *[]T) []T { return httpapi.Deref(v) }
-
-func derefString(v *string) string { return httpapi.DerefString(v) }
