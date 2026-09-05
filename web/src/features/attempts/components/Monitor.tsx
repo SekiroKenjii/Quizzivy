@@ -47,12 +47,10 @@ const DAY_MS = 24 * HOUR_MS;
 export function Monitor({
   assignment,
   live,
-  cards = true,
 }: {
   assignment: Assignment;
   /** Polls and shows a countdown while true; a closed assignment reads once. */
   live: boolean;
-  cards?: boolean;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -106,14 +104,12 @@ export function Monitor({
 
   return (
     <div className="space-y-4">
-      {cards && (
-        <Cards
-          data={data}
-          assignment={assignment}
-          receivedAt={monitor.dataUpdatedAt}
-          live={live}
-        />
-      )}
+      <Cards
+        data={data}
+        assignment={assignment}
+        receivedAt={monitor.dataUpdatedAt}
+        live={live}
+      />
       <Card className="gap-0 overflow-hidden py-0">
         <Table>
           <TableHeader>

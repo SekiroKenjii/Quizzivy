@@ -105,6 +105,10 @@ const adminTree: RouteObject = {
           lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
         },
         {
+          path: "assignments/:id/attempts",
+          lazy: page(() => import("@/features/attempts/pages/AssignmentAttemptsPage")),
+        },
+        {
           path: "attempts/:id",
           lazy: page(() => import("@/features/attempts/pages/AttemptReviewPage")),
         },
