@@ -876,6 +876,134 @@
             </div>
           </div>
         </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-14</span>
+            <span class="board-name">Icon sizes — one scale, chosen by where the icon sits</span>
+            <span class="board-route">§12 · every screen</span>
+          </div>
+          <p class="board-note">
+            §12 says “16px dense / 20px nav” and left the rest to taste, and taste
+            drifted: the running app was measured on 2026-09-05 and an icon inside
+            a badge rendered at 24px (lucide's default, because nothing sized it),
+            the 24px button carried a 12px icon where this deck draws a 28px button
+            with a 14px one, and a table cell held 14, 16 and 24 depending on the
+            screen. The scale below is what the deck already drew most often in each
+            place — 57 of 59 table buttons at 14, 39 of 43 badge icons at 12, 88 of
+            89 small buttons at 16 — written down so the next screen does not have
+            to count. One rule of thumb generates it: an icon is about half the
+            height of the control it sits in, and never taller than the line of
+            text beside it.
+          </p>
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5 space-y-3 col-span-2">
+              <p class="card-title">The scale</p>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 14%">Size</th>
+                    <th>Where it sits</th>
+                    <th>Kit</th>
+                    <th>App</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="num">12px</td>
+                    <td>Inside a badge, a token chip or a <code class="font-mono">kbd</code> hint — the one place an icon sits inside another small control</td>
+                    <td><code class="font-mono">.badge .i</code></td>
+                    <td><code class="font-mono">Badge</code> sizes it; <code class="font-mono">size-3</code> in a chip's ×</td>
+                  </tr>
+                  <tr>
+                    <td class="num">14px</td>
+                    <td>Anything in a table cell; the 28px button (<code class="font-mono">xs</code>, the row kebab); tabs; the leading icon of a 32px field; inline in a <code class="font-mono">text-xs</code> line (S-03's card meta, G-03's outline)</td>
+                    <td><code class="font-mono">.table td .i</code>, <code class="font-mono">.btn-xs .i</code>, <code class="font-mono">.tab .i</code>, <code class="font-mono">.i-3.5</code></td>
+                    <td><code class="font-mono">TableCell</code>, <code class="font-mono">Button size=xs|icon-xs</code>; <code class="font-mono">size-3.5</code> elsewhere</td>
+                  </tr>
+                  <tr>
+                    <td class="num">16px</td>
+                    <td><strong>Default.</strong> The 32px and 36px buttons, menu items, sidebar items, notes and alerts, form rows, the 36px field's leading icon, inline in <code class="font-mono">text-sm</code></td>
+                    <td><code class="font-mono">.i</code></td>
+                    <td>no class — every primitive falls here</td>
+                  </tr>
+                  <tr>
+                    <td class="num">18px</td>
+                    <td>The leading icon of a student-facing alert or dialog, where the text is <code class="font-mono">text-base</code> and the targets are 44px (S-04, S-05)</td>
+                    <td><code class="font-mono">.i-4.5</code></td>
+                    <td><code class="font-mono">size-4.5</code></td>
+                  </tr>
+                  <tr>
+                    <td class="num">20px</td>
+                    <td>The top bar's menu toggle; the leading icon of a card list item (the test card on G-09, an asset row); a stat's glyph</td>
+                    <td><code class="font-mono">.i-5</code></td>
+                    <td><code class="font-mono">size-5</code></td>
+                  </tr>
+                  <tr>
+                    <td class="num">24–32px</td>
+                    <td>Illustrative only: an upload dropzone, a result page's headline glyph. Never in chrome (§12)</td>
+                    <td><code class="font-mono">.i-6</code>, <code class="font-mono">.i-8</code></td>
+                    <td><code class="font-mono">size-6</code>, <code class="font-mono">size-8</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card p-5 space-y-4">
+              <p class="card-title">Side by side</p>
+              <div class="space-y-3">
+                <div class="flex items-center gap-2">
+                  <span class="badge b-secondary"><svg class="i" aria-hidden="true"><use href="#i-graduation-cap" /></svg> IELTS Foundation · 18</span>
+                  <span class="text-xs text-muted-foreground">badge · 12</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="btn btn-icon btn-xs btn-ghost" aria-label="Thao tác"><svg class="i" aria-hidden="true"><use href="#i-ellipsis" /></svg></button>
+                  <button class="btn btn-xs btn-outline"><svg class="i" aria-hidden="true"><use href="#i-copy" /></svg> Sao chép</button>
+                  <span class="text-xs text-muted-foreground">28px button · 14</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="btn btn-sm btn-outline"><svg class="i" aria-hidden="true"><use href="#i-refresh-cw" /></svg> Làm mới</button>
+                  <button class="btn btn-sm btn-primary"><svg class="i" aria-hidden="true"><use href="#i-eye" /></svg> Xem bài làm</button>
+                  <span class="text-xs text-muted-foreground">32px button · 16</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 border rounded-md">
+                  <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-file-text" /></svg>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium">Unit 5 — Present perfect</p>
+                    <p class="text-xs text-muted-foreground">card list item · 20</p>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                Every icon is <code class="font-mono">aria-hidden</code> unless it is the only content of
+                its control, in which case the control carries the <code class="font-mono">aria-label</code>
+                (§12). The size never carries meaning; the position does.
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-5 mt-4">
+            <div class="callout">
+              <strong>Measured, then written.</strong> The scale is not a preference: each row
+              is the size the deck already used in that position in the great majority of
+              cases, checked against the running app with
+              <code class="font-mono">getBoundingClientRect</code>. Where the app disagreed
+              (badges at 24, the row kebab's button at 24px tall), the app was wrong.
+            </div>
+            <div class="callout">
+              <strong>The primitive sizes it, not the call site.</strong> A badge, a cell and
+              an <code class="font-mono">xs</code> button set their icon size themselves, so a
+              screen writes <code class="font-mono">&lt;Flag /&gt;</code> and gets the right
+              size for where it is. A <code class="font-mono">size-*</code> class on the icon
+              still wins, for the rare deliberate exception.
+            </div>
+            <div class="callout">
+              <strong>One button height per name.</strong> The kit's
+              <code class="font-mono">btn-xs</code> is 28px; the app's
+              <code class="font-mono">xs</code> was 24. They now agree, which is what lets the
+              row kebab be the plain <code class="font-mono">icon-xs</code> button with no
+              overrides.
+            </div>
+          </div>
+        </div>
       </section>
     </div>
 
