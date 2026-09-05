@@ -8,16 +8,24 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/audit"
 )
 
 var ErrNotFound = errors.New("media: asset not found")
 
-type Store struct{ pool *pgxpool.Pool }
+// DB is what the store queries through: the pool in production, and a
+// transaction in a test that needs one consistent snapshot of a table every
+// package on the shared database inserts into.
+type DB interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
 
-func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+type Store struct{ pool DB }
+
+func NewStore(db DB) *Store { return &Store{pool: db} }
 
 // newAssetID mints the id up front, because the storage key contains it -- the
 // object has to be written before the row exists, so the row cannot supply it.

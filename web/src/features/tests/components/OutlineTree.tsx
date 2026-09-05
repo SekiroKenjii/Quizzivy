@@ -94,6 +94,17 @@ export function OutlineTree({
 }: OutlineTreeProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  // A section without a server id yet is keyed by a client key that travels
+  // with it, so collapsing it and then moving it keeps the state on the section.
+  const [clientKeys, setClientKeys] = useState<string[]>([]);
+  if (clientKeys.length < sections.length) {
+    setClientKeys([
+      ...clientKeys,
+      ...Array.from({ length: sections.length - clientKeys.length }, clientKey),
+    ]);
+  }
+  const keyFor = (section: OutlineSection, index: number): string =>
+    section.id ?? clientKeys[index] ?? `new-${index}`;
   const [renaming, setRenaming] = useState<number | null>(null);
   const [instructing, setInstructing] = useState<number | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
@@ -144,7 +155,13 @@ export function OutlineTree({
 
   function remove(index: number) {
     setRemoving(null);
+    setClientKeys(clientKeys.filter((_, i) => i !== index));
     onChange(sections.filter((_, i) => i !== index));
+  }
+
+  function move(index: number, direction: -1 | 1) {
+    setClientKeys(moveSection(clientKeys, index, index + direction));
+    onChange(moveSection(sections, index, index + direction));
   }
 
   const numbering = numberQuestions(sections);
@@ -177,7 +194,7 @@ export function OutlineTree({
       >
         <div className="flex-1 space-y-3 overflow-y-auto p-2">
           {sections.map((section, sectionIndex) => {
-            const key = section.id ?? `new-${sectionIndex}`;
+            const key = keyFor(section, sectionIndex);
             const open = !collapsed.has(key);
             return (
               <div key={key}>
@@ -199,11 +216,7 @@ export function OutlineTree({
                   onStartRename={() => setRenaming(sectionIndex)}
                   onRenamed={(next) => rename(sectionIndex, next)}
                   onInstructions={() => setInstructing(sectionIndex)}
-                  onMove={(direction) =>
-                    onChange(
-                      moveSection(sections, sectionIndex, sectionIndex + direction),
-                    )
-                  }
+                  onMove={(direction) => move(sectionIndex, direction)}
                   onRemove={() =>
                     section.questionIds.length === 0
                       ? remove(sectionIndex)
@@ -635,6 +648,10 @@ function totalPoints(
   questions: Map<string, OutlineQuestion>,
 ): number {
   return sections.reduce((sum, section) => sum + sectionPoints(section, questions), 0);
+}
+
+function clientKey(): string {
+  return `new-${Math.random().toString(36).slice(2)}`;
 }
 
 function toggle(set: ReadonlySet<string>, key: string): ReadonlySet<string> {

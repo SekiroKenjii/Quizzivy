@@ -7,15 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  ArrowUpRight,
-  Headphones,
-  Play,
-  Plus,
-  Tag as TagIcon,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ArrowUpRight, Play, Plus, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
@@ -252,9 +244,6 @@ export default function QuestionBankPage() {
                     <TableHead>{t("bank.tags")}</TableHead>
                     <TableHead className="text-right">{t("bank.points")}</TableHead>
                     <TableHead>{t("bank.usedIn")}</TableHead>
-                    <TableHead className="w-9">
-                      <span className="sr-only">{t("bank.preview")}</span>
-                    </TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
@@ -371,10 +360,16 @@ function Row({
         <TableCell>
           <div className="flex items-center gap-2">
             {audio ? (
-              <Headphones
-                className="text-muted-foreground size-3.5 shrink-0"
-                aria-hidden="true"
-              />
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground shrink-0"
+                aria-label={t("bank.previewOf", { prompt: question.prompt })}
+                aria-pressed={playing}
+                onClick={onTogglePlay}
+              >
+                <Play aria-hidden="true" />
+              </Button>
             ) : null}
             <button type="button" className="truncate text-left" onClick={onOpen}>
               {question.prompt}
@@ -400,19 +395,6 @@ function Row({
               : t("bank.usedInCount", { count: question.usedInTests })}
         </TableCell>
         <TableCell className="text-right">
-          {audio ? (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={t("bank.previewOf", { prompt: question.prompt })}
-              aria-pressed={playing}
-              onClick={onTogglePlay}
-            >
-              <Play aria-hidden="true" />
-            </Button>
-          ) : null}
-        </TableCell>
-        <TableCell className="text-right">
           <RowMenu>
             <DropdownMenuItem onSelect={onOpen}>
               <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
@@ -433,7 +415,7 @@ function Row({
 
       {audio && playing ? (
         <TableRow>
-          <TableCell colSpan={8} className="p-0">
+          <TableCell colSpan={7} className="p-0">
             <AudioPreviewRow
               key={audio.url}
               asset={audio}

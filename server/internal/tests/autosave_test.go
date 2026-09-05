@@ -149,3 +149,40 @@ func TestARejectedOutlineLeavesThePreviousOneIntact(t *testing.T) {
 		t.Error("the refused save advanced updated_at, so the client's version is now wrong")
 	}
 }
+
+func TestANeverPublishedDraftCanBeArchived(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	created, err := svc.Create(ctx, req(author), "Nháp bỏ dở", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.CurrentVersion != 0 {
+		t.Fatalf("a fresh test has version %d, want 0", created.CurrentVersion)
+	}
+
+	archived := tests.Archived
+	saved, err := svc.Update(ctx, reqFor(created.ID, author), tests.UpdateInput{
+		ExpectedUpdatedAt: created.UpdatedAt, Status: &archived,
+	})
+	if err != nil {
+		t.Fatalf("archiving a never-published draft: %v", err)
+	}
+	if saved.Status != tests.Archived {
+		t.Errorf("status is %q, want archived", saved.Status)
+	}
+
+	draft := tests.Draft
+	restored, err := svc.Update(ctx, reqFor(created.ID, author), tests.UpdateInput{
+		ExpectedUpdatedAt: saved.UpdatedAt, Status: &draft,
+	})
+	if err != nil {
+		t.Fatalf("restoring it: %v", err)
+	}
+	if restored.Status != tests.Draft {
+		t.Errorf("status is %q after restore, want draft", restored.Status)
+	}
+}
