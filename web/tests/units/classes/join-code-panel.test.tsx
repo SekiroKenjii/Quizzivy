@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
+import { Toaster } from "@/components/ui/sonner";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import type { components } from "@/lib/api/schema";
@@ -51,6 +52,7 @@ function renderPanel(value = klass) {
   render(
     <QueryClientProvider client={client}>
       <JoinCodePanel klass={value} />
+      <Toaster />
     </QueryClientProvider>,
   );
 }
@@ -160,6 +162,77 @@ describe("rotating", () => {
     await waitFor(async () => {
       expect(await navigator.clipboard.readText()).toMatch(/\/join\/K7M3P9QR$/);
     });
+  });
+});
+
+describe("G-06's controls around the code", () => {
+  it("pauses and resumes joining from the switch without touching the code", async () => {
+    let sent: unknown = null;
+    server.use(
+      http.patch(`${BASE}/admin/classes/:id`, async ({ request }) => {
+        sent = await request.json();
+        return contractJson("/admin/classes/{id}", "patch", 200, {
+          ...klass,
+          selfJoinEnabled: false,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("switch", { name: "Cho tham gia" }));
+
+    await waitFor(() => expect(sent).toEqual({ selfJoinEnabled: false }));
+    expect(
+      await screen.findByText("Đã tạm ngừng tham gia bằng mã"),
+    ).toBeInTheDocument();
+  });
+
+  it("says why joining is off, while the code stays listed", () => {
+    renderPanel({ ...klass, selfJoinEnabled: false });
+
+    expect(screen.getByText(/Đang tạm ngừng/)).toBeInTheDocument();
+    expect(screen.getByText("••••-P9QR")).toBeInTheDocument();
+  });
+
+  it("offers the bare code and the QR to save beside the link", async () => {
+    server.use(
+      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
+        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+          code: FULL_CODE,
+          expiresAt: "2026-09-27T00:00:00Z",
+          maxUses: 40,
+        }),
+      ),
+    );
+    const saved: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      saved.push(this.download);
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    Object.assign(URL, {
+      createObjectURL: () => "blob:qr",
+      revokeObjectURL: () => undefined,
+    });
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Tạo mã mới",
+      }),
+    );
+    await screen.findByText(FULL_CODE);
+
+    await user.click(screen.getByRole("button", { name: "Sao chép mã" }));
+    await waitFor(async () => {
+      expect(await navigator.clipboard.readText()).toBe(FULL_CODE);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Tải QR" }));
+    expect(saved).toEqual([`quizzivy-${FULL_CODE}.svg`]);
   });
 });
 

@@ -96,8 +96,7 @@ func (s *Server) GetMyAssignment(ctx context.Context, request openapi.GetMyAssig
 	return openapi.GetMyAssignment200JSONResponse(out), nil
 }
 
-// ListMyClasses backs §9's /app/classes. Never a join code: the response type
-// is shared with the admin list, and the store blanks it before it gets here.
+// ListMyClasses backs §9's /app/classes in the student's own shape (S-10).
 func (s *Server) ListMyClasses(ctx context.Context, _ openapi.ListMyClassesRequestObject) (openapi.ListMyClassesResponseObject, error) {
 	if s.Deps.Classes == nil {
 		return nil, httpx.ErrNotImplemented
@@ -111,15 +110,14 @@ func (s *Server) ListMyClasses(ctx context.Context, _ openapi.ListMyClassesReque
 	if err != nil {
 		return nil, err
 	}
-	items := make([]openapi.Class, 0, len(found))
+	items := make([]openapi.MyClass, 0, len(found))
 	for _, c := range found {
-		items = append(items, openapi.Class{
-			Id:              parseUUID(c.ID),
-			Name:            c.Name,
-			Description:     c.Description,
-			StudentCount:    c.StudentCount,
-			SelfJoinEnabled: c.SelfJoinEnabled,
-			CreatedAt:       c.CreatedAt,
+		items = append(items, openapi.MyClass{
+			Id:          parseUUID(c.ID),
+			Name:        c.Name,
+			Description: c.Description,
+			TeacherName: c.TeacherName,
+			JoinedAt:    c.JoinedAt,
 		})
 	}
 	return openapi.ListMyClasses200JSONResponse{Items: items}, nil

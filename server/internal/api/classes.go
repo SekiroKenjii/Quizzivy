@@ -154,15 +154,7 @@ func (s *Server) ListClassMembers(ctx context.Context, request openapi.ListClass
 	}
 	items := make([]openapi.ClassMember, 0, len(found))
 	for _, m := range found {
-		items = append(items, openapi.ClassMember{
-			UserId:   parseUUID(m.UserID),
-			FullName: m.FullName,
-			Email:    openapi_types.Email(m.Email),
-			// The teacher's own signal for an unexpected enrolment (§6.4).
-			JoinedVia:    openapi.ClassMemberJoinedVia(m.JoinedVia),
-			JoinedAt:     m.JoinedAt,
-			JoinCodeHint: m.JoinCodeHint,
-		})
+		items = append(items, toAPIMember(m))
 	}
 	return openapi.ListClassMembers200JSONResponse{
 		Items: items, Page: page.Number, PageSize: page.Size, Total: page.Total,
@@ -193,14 +185,20 @@ func (s *Server) AddClassMember(ctx context.Context, request openapi.AddClassMem
 		return nil, err
 	}
 
-	return openapi.AddClassMember201JSONResponse{
-		UserId:       parseUUID(m.UserID),
-		FullName:     m.FullName,
-		Email:        openapi_types.Email(m.Email),
+	return openapi.AddClassMember201JSONResponse(toAPIMember(m)), nil
+}
+
+func toAPIMember(m classes.Member) openapi.ClassMember {
+	return openapi.ClassMember{
+		UserId:   parseUUID(m.UserID),
+		FullName: m.FullName,
+		Email:    openapi_types.Email(m.Email),
+		// The teacher's own signal for an unexpected enrolment (§6.4).
 		JoinedVia:    openapi.ClassMemberJoinedVia(m.JoinedVia),
 		JoinedAt:     m.JoinedAt,
 		JoinCodeHint: m.JoinCodeHint,
-	}, nil
+		Stats:        toAPIStudentStats(m.Stats),
+	}
 }
 
 // RemoveClassMember implements DELETE /admin/classes/{id}/members/{userId}.

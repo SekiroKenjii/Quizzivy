@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   keepPreviousData,
   useMutation,
@@ -11,9 +11,12 @@ import {
   Archive,
   RotateCw,
   Copy,
+  Eye,
   Filter,
   Headphones,
+  History,
   Plus,
+  Send,
   SquarePen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -178,7 +181,7 @@ export default function TestsListPage() {
           <TabsList aria-label={t("tests.statusFilter")}>
             {TABS.map((value) => (
               <TabsTrigger key={value} value={value}>
-                {value === "all" ? t("tests.all") : t(`builder.${value}`)}
+                {value === "all" ? t("tests.all") : t(`status.test.${value}`)}
                 {facets ? (
                   <span className="text-muted-foreground ml-1 tabular-nums">
                     {facets[value]}
@@ -274,13 +277,13 @@ export default function TestsListPage() {
                   <TableRow key={test.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="truncate text-left font-medium"
-                          onClick={() => void navigate(`/admin/tests/${test.id}`)}
+                        {/* A-03: a draft opens the builder, anything else the read-only detail. */}
+                        <Link
+                          to={openHref(test)}
+                          className="truncate font-medium hover:underline"
                         >
                           {test.title}
-                        </button>
+                        </Link>
                         {test.audioCount > 0 ? (
                           <Badge
                             variant="outline"
@@ -382,22 +385,63 @@ function RowActions({
       </RowMenu>
     );
   }
+  if (test.status === "draft") {
+    return (
+      <RowMenu>
+        <DropdownMenuItem onSelect={onEdit}>
+          <SquarePen aria-hidden="true" />
+          {t("tests.edit")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onDuplicate}>
+          <Copy aria-hidden="true" />
+          {t("tests.duplicate")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={onArchive}>
+          <Archive aria-hidden="true" />
+          {t("tests.archive")}
+        </DropdownMenuItem>
+      </RowMenu>
+    );
+  }
+  // A-03's menu for a published row, in the deck's order.
   return (
-    <RowMenu>
-      <DropdownMenuItem onSelect={onEdit}>
-        <SquarePen aria-hidden="true" />
-        {t("tests.edit")}
+    <RowMenu className="w-60">
+      <DropdownMenuItem asChild>
+        <Link to={`/admin/tests/${test.id}`}>
+          <Eye className="text-muted-foreground" aria-hidden="true" />
+          {t("tests.preview")}
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem asChild>
+        <Link to={`/admin/assignments/new?testId=${test.id}`}>
+          <Send className="text-muted-foreground" aria-hidden="true" />
+          {t("tests.assignToClass")}
+        </Link>
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={onDuplicate}>
-        <Copy aria-hidden="true" />
+        <Copy className="text-muted-foreground" aria-hidden="true" />
         {t("tests.duplicate")}
       </DropdownMenuItem>
+      <DropdownMenuItem asChild>
+        <Link to={`/admin/tests/${test.id}#versions`}>
+          <History className="text-muted-foreground" aria-hidden="true" />
+          {t("tests.versionHistory")}
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuItem variant="destructive" onSelect={onArchive}>
         <Archive aria-hidden="true" />
         {t("tests.archive")}
       </DropdownMenuItem>
     </RowMenu>
   );
+}
+
+function openHref(test: Test): string {
+  return test.status === "draft"
+    ? `/admin/tests/${test.id}/edit`
+    : `/admin/tests/${test.id}`;
 }
 
 function message(cause: unknown, fallback: string): string {

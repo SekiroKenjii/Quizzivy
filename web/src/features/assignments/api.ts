@@ -40,6 +40,16 @@ export function updateAssignment(id: string, body: AssignmentInput) {
   return api("patch", "/admin/assignments/{id}", { path: { id }, body });
 }
 
+export type AssignmentFacets = components["schemas"]["AssignmentStatusFacets"];
+
+/** G-09's "Gia hạn cho tất cả": a later close, and the early close lifted. */
+export function reopenAssignment(
+  id: string,
+  body: { closesAt: string; reason: string },
+) {
+  return api("post", "/admin/assignments/{id}/reopen", { path: { id }, body });
+}
+
 export type StudentAssignmentCard = components["schemas"]["StudentAssignmentCard"];
 export type StudentAssignmentDetail = components["schemas"]["StudentAssignmentDetail"];
 

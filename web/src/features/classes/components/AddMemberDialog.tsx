@@ -26,12 +26,10 @@ import { ApiError } from "@/lib/api/errors";
  */
 export function AddMemberDialog({
   classId,
-  memberIds,
   open,
   onOpenChange,
 }: {
   classId: string;
-  memberIds: ReadonlySet<string>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -115,7 +113,8 @@ export function AddMemberDialog({
             </li>
           ) : (
             items.map((student) => {
-              const already = memberIds.has(student.id);
+              // The row carries every membership, so this cannot depend on which roster page is loaded.
+              const already = student.classes.some((c) => c.id === classId);
               return (
                 <li
                   key={student.id}

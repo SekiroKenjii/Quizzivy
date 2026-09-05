@@ -13,11 +13,8 @@ const SAMPLE_CLASS = {
   id: "018f0000-0000-7000-8000-0000000000c1",
   name: "IELTS Foundation",
   description: null,
-  studentCount: 12,
-  openAssignmentCount: 0,
-  archivedAt: null,
-  selfJoinEnabled: true,
-  createdAt: "2026-06-01T00:00:00Z",
+  teacherName: "Cô Thương",
+  joinedAt: "2026-06-01T00:00:00Z",
 };
 
 function home(

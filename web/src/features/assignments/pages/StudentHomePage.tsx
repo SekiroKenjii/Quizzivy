@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Clock, History, List, Repeat, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { fetchMyClasses } from "@/features/classes/api";
@@ -46,22 +47,14 @@ export default function StudentHomePage() {
           {t("student.greetingPlain", { name })}
         </h1>
         {assignments.isPending ? (
-          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-            {t("common.loading")}
-          </p>
+          <ListSkeleton rows={3} />
         ) : (
-          <div className="space-y-3">
-            <p role="alert" className="text-sm">
-              {t("student.loadFailed")}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void assignments.refetch()}
-            >
-              {t("common.retry")}
-            </Button>
-          </div>
+          <LoadError
+            error={assignments.error}
+            onRetry={() => void assignments.refetch()}
+          >
+            {t("student.loadFailed")}
+          </LoadError>
         )}
       </div>
     );
@@ -80,18 +73,22 @@ export default function StudentHomePage() {
         <h1 className="text-lg font-semibold tracking-tight">
           {t("student.greetingPlain", { name })}
         </h1>
-        <div className="mt-6 rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm">{t("student.noAssignments")}</p>
-          <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
-            {t("student.noAssignmentsHint")}
-          </p>
+        <div className="mt-6">
+          <EmptyState hint={t("student.noAssignmentsHint")}>
+            {t("student.noAssignments")}
+          </EmptyState>
         </div>
         {classes.data !== undefined && classes.data.items.length === 0 && (
-          <div className="mt-3 rounded-lg border border-dashed p-8 text-center">
-            <p className="text-sm">{t("student.noClasses")}</p>
-            <Button asChild size="sm" className="mt-3">
-              <Link to="/join">{t("student.joinClass")}</Link>
-            </Button>
+          <div className="mt-3">
+            <EmptyState
+              action={
+                <Button asChild size="sm">
+                  <Link to="/join">{t("student.joinClass")}</Link>
+                </Button>
+              }
+            >
+              {t("student.noClasses")}
+            </EmptyState>
           </div>
         )}
       </div>

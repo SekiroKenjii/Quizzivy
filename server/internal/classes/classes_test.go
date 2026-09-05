@@ -351,6 +351,30 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 
 // §9's /app/classes: what a student belongs to, and never the code's hint --
 // four characters of it are four more than a student should have.
+func TestMembersCarryTheSameFiguresAsTheStudentsTable(t *testing.T) {
+	pool := newPool(t)
+	store := classes.NewStore(pool)
+	ctx := context.Background()
+	classID, teacherID, studentID := makeClass(t, pool)
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+		 VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, classID, studentID, teacherID); err != nil {
+		t.Fatal(err)
+	}
+
+	members, _, err := store.Members(ctx, classID, classes.MembersInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(members) != 1 {
+		t.Fatalf("got %d members, want 1", len(members))
+	}
+	stats := members[0].Stats
+	if stats.SubmittedCount != 0 || stats.ScoreEarned != nil || stats.ScoreTotal != nil || stats.LiveAttempt {
+		t.Errorf("a student with no attempts reports %+v", stats)
+	}
+}
+
 func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
 	pool := newPool(t)
 	store := classes.NewStore(pool)
@@ -378,8 +402,11 @@ func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
 	if len(mine) != 1 || mine[0].ID != classID {
 		t.Fatalf("classes %+v, want exactly the one joined", mine)
 	}
-	if mine[0].JoinCode != nil {
-		t.Errorf("a student's class carries a join code hint: %+v", *mine[0].JoinCode)
+	if mine[0].JoinedAt.IsZero() {
+		t.Error("the card has no joined date to print")
+	}
+	if mine[0].TeacherName == nil || *mine[0].TeacherName == "" {
+		t.Error("the card has no teacher to name")
 	}
 
 	theirs, err := store.ListMine(ctx, outsider)

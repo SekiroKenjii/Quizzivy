@@ -25,6 +25,14 @@ export const adminUser: components["schemas"]["User"] = {
   role: "admin",
 };
 
+export const myClass: components["schemas"]["MyClass"] = {
+  id: "019535da-0000-7000-8000-000000000001",
+  name: "Tiếng Anh giao tiếp - Lớp A",
+  description: null,
+  teacherName: "Cô Thương",
+  joinedAt: "2026-06-12T01:00:00Z",
+};
+
 export const sampleClass: components["schemas"]["Class"] = {
   id: "019535da-0000-7000-8000-000000000001",
   name: "Tiếng Anh giao tiếp - Lớp A",

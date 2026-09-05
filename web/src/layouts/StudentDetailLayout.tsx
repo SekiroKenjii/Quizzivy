@@ -27,7 +27,7 @@ export default function StudentDetailLayout() {
           variant="ghost"
           size="icon-sm"
           aria-label={t("common.back")}
-          onClick={() => void navigate(-1)}
+          onClick={() => void (cameFromInside() ? navigate(-1) : navigate("/app"))}
         >
           <ArrowLeft aria-hidden="true" />
         </Button>
@@ -44,6 +44,12 @@ export default function StudentDetailLayout() {
       </main>
     </div>
   );
+}
+
+// A deep link has no in-app history to go back to, so the arrow goes home.
+function cameFromInside(): boolean {
+  const state = window.history.state as { idx?: number } | null;
+  return typeof state?.idx === "number" && state.idx > 0;
 }
 
 function hasTitle(handle: unknown): handle is TitleHandle {

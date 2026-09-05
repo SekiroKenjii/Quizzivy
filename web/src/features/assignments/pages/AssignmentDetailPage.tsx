@@ -1,3 +1,4 @@
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,8 @@ import {
   type AssignmentStatus,
 } from "@/features/assignments/api";
 import { CloseEarlyDialog } from "@/features/assignments/components/CloseEarlyDialog";
+import { ReopenDialog } from "@/features/assignments/components/ReopenDialog";
+import { getMonitor } from "@/features/attempts/api";
 import { Monitor } from "@/features/attempts/components/Monitor";
 import { monitorKey } from "@/features/attempts/keys";
 import { toInput } from "@/features/assignments/input";
@@ -36,6 +39,7 @@ import {
   Pencil,
   RefreshCw,
   Send,
+  Table2,
   X,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -48,6 +52,7 @@ export default function AssignmentDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [closing, setClosing] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
   const assignment = useQuery({
@@ -88,26 +93,25 @@ export default function AssignmentDetailPage() {
   });
 
   if (assignment.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={8} />;
   }
   if (assignment.isError) {
     const missing =
       assignment.error instanceof ApiError && assignment.error.status === 404;
-    return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t(missing ? "assignments.detail.notFound" : "assignments.detail.loadFailed")}
-        </p>
-        {missing ? null : (
-          <Button variant="outline" size="sm" onClick={() => void assignment.refetch()}>
-            {t("common.retry")}
+    return missing ? (
+      <EmptyState
+        action={
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/assignments">{t("assignments.detail.backToList")}</Link>
           </Button>
-        )}
-      </div>
+        }
+      >
+        {t("assignments.detail.notFound")}
+      </EmptyState>
+    ) : (
+      <LoadError error={assignment.error} onRetry={() => void assignment.refetch()}>
+        {t("assignments.detail.loadFailed")}
+      </LoadError>
     );
   }
 
@@ -142,6 +146,7 @@ export default function AssignmentDetailPage() {
               publish.mutate(a);
             }}
             onClose={() => setClosing(true)}
+            onReopen={() => setReopening(true)}
             onRefresh={() => void refresh()}
           />
         }
@@ -192,10 +197,14 @@ export default function AssignmentDetailPage() {
         {status === "closed" && <ResultsStrip a={a} version={version} />}
         {/* G-09: open shows the live table (G-02); closed keeps the table under the numbers. */}
         {status === "open" && <Monitor assignment={a} live />}
-        {status === "closed" && <Monitor assignment={a} live={false} cards={false} />}
+        {status === "closed" && (
+          <div id="attempts">
+            <Monitor assignment={a} live={false} cards={false} />
+          </div>
+        )}
 
         {status !== "open" && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <TestCard a={a} version={version} closed={status === "closed"} />
             <TargetsCard a={a} />
             <TimeCard a={a} />
@@ -213,6 +222,14 @@ export default function AssignmentDetailPage() {
         onOpenChange={setClosing}
         onConfirm={() => close.mutate(a)}
       />
+      {reopening && (
+        <ReopenDialog
+          assignment={a}
+          open
+          onOpenChange={setReopening}
+          onDone={refresh}
+        />
+      )}
     </>
   );
 }
@@ -262,6 +279,7 @@ function Actions({
   publishing,
   onPublish,
   onClose,
+  onReopen,
   onRefresh,
 }: {
   status: AssignmentStatus;
@@ -270,6 +288,7 @@ function Actions({
   publishing: boolean;
   onPublish: () => void;
   onClose: () => void;
+  onReopen: () => void;
   onRefresh: () => void;
 }) {
   const { t } = useTranslation();
@@ -325,7 +344,21 @@ function Actions({
         </>
       );
     case "closed":
-      return null;
+      // G-09: closing is reversible, and the papers are one scroll away.
+      return (
+        <>
+          <Button variant="outline" size="sm" onClick={onReopen}>
+            <RefreshCw aria-hidden="true" />
+            {t("assignments.detail.reopen")}
+          </Button>
+          <Button size="sm" asChild>
+            <a href="#attempts">
+              <Table2 aria-hidden="true" />
+              {t("assignments.detail.viewAttempts")}
+            </a>
+          </Button>
+        </>
+      );
   }
 }
 
@@ -348,6 +381,14 @@ function ResultsStrip({
   const { t } = useTranslation();
   const submitted = a.submittedCount ?? 0;
   const total = a.targetCount ?? 0;
+  // The same read the table below makes, so the names cost nothing extra.
+  const monitor = useQuery({
+    queryKey: monitorKey(a.id),
+    queryFn: ({ signal }) => getMonitor(a.id, signal),
+  });
+  const missing = (monitor.data?.rows ?? [])
+    .filter((row) => row.state === "not_started")
+    .map((row) => row.fullName);
   return (
     <Card>
       <CardContent className="flex items-center gap-6">
@@ -359,9 +400,15 @@ function ResultsStrip({
               <span className="text-muted-foreground text-base">/{total}</span>
             </>
           }
-          hint={t("assignments.detail.notSubmitted", {
-            count: Math.max(0, total - submitted),
-          })}
+          hint={
+            missing.length > 0
+              ? t("assignments.detail.notSubmittedNames", {
+                  names: someNames(missing, t),
+                })
+              : t("assignments.detail.notSubmitted", {
+                  count: Math.max(0, total - submitted),
+                })
+          }
         />
         <div className="bg-border h-10 w-px" />
         <Stat
@@ -383,9 +430,20 @@ function ResultsStrip({
               : t("assignments.detail.flaggedHintNone")
           }
         />
+        <Button variant="ghost" size="sm" className="ml-auto" asChild>
+          <a href="#attempts">{t("assignments.detail.openTable")}</a>
+        </Button>
       </CardContent>
     </Card>
   );
+}
+
+/** Three names in full; past that, the count, so the strip stays one line. */
+function someNames(names: string[], t: TFunction): string {
+  if (names.length <= 3) return names.join(", ");
+  return `${names.slice(0, 3).join(", ")} ${t("assignments.detail.andMore", {
+    count: names.length - 3,
+  })}`;
 }
 
 function Stat({
@@ -419,7 +477,7 @@ function TestCard({
 }) {
   const { t } = useTranslation();
   return (
-    <Card className="col-span-2">
+    <Card className="md:col-span-2">
       <CardHeader>
         <CardTitle>{t("assignments.detail.test")}</CardTitle>
       </CardHeader>

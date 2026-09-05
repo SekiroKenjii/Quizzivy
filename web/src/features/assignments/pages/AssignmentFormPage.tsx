@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Info, SquarePen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import {
   Card,
   CardContent,
@@ -36,7 +37,7 @@ import {
   type AssignmentInput,
 } from "@/features/assignments/api";
 import { fetchClass } from "@/features/classes/api";
-import { listVersions, type TestVersion } from "@/features/tests/api";
+import { getTest, listVersions, type TestVersion } from "@/features/tests/api";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 import { ApiError, fieldMessages } from "@/lib/api/errors";
 
@@ -124,6 +125,33 @@ export default function AssignmentFormPage() {
       : null;
   }, [fromClassQuery.data]);
 
+  // A-03's "Giao cho lớp" arrives with the test chosen; its latest version is the pick.
+  const fromTestId = params.get("testId");
+  const fromTest = useQuery({
+    queryKey: ["admin-test", fromTestId],
+    queryFn: ({ signal }) => getTest(fromTestId ?? "", signal),
+    enabled: fromTestId !== null && !editing,
+  });
+  const fromVersions = useQuery({
+    queryKey: ["admin-test-versions", fromTestId],
+    queryFn: ({ signal }) => listVersions(fromTestId ?? "", signal),
+    enabled: fromTestId !== null && !editing,
+  });
+  const latest = fromVersions.data?.items.reduce<TestVersion | null>(
+    (best, v) => (best === null || v.version > best.version ? v : best),
+    null,
+  );
+  const [pickedFor, setPickedFor] = useState<string | null>(null);
+  if (fromTest.data && latest && pickedFor !== fromTest.data.id) {
+    setPickedFor(fromTest.data.id);
+    const picked = {
+      testId: fromTest.data.id,
+      testTitle: fromTest.data.title,
+      version: latest,
+    };
+    setDraft((current) => (current.picked === null ? { ...current, picked } : current));
+  }
+
   const [appliedFor, setAppliedFor] = useState<string | null>(null);
   if (preselected && appliedFor !== preselected.id) {
     setAppliedFor(preselected.id);
@@ -179,13 +207,17 @@ export default function AssignmentFormPage() {
 
   if (editing && hydratedFor === null) {
     return existing.isError || versions.isError ? (
-      <p role="alert" className="text-sm">
+      <LoadError
+        error={existing.error ?? versions.error}
+        onRetry={() => {
+          void existing.refetch();
+          void versions.refetch();
+        }}
+      >
         {t("assignments.detail.loadFailed")}
-      </p>
+      </LoadError>
     ) : (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
+      <ListSkeleton rows={8} />
     );
   }
 

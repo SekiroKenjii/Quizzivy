@@ -27,18 +27,17 @@ describe("/app/classes", () => {
       {
         id: "018f0000-0000-7000-8000-0000000000c1",
         name: "IELTS Foundation — Lớp tối T3/T5",
-        description: "Cô Thương",
-        studentCount: 12,
-        openAssignmentCount: 0,
-        archivedAt: null,
-        selfJoinEnabled: true,
-        createdAt: "2026-06-01T00:00:00Z",
+        description: "Thứ 3 và thứ 5, 19:30–21:00.",
+        teacherName: "Cô Thương",
+        joinedAt: "2026-07-12T01:00:00Z",
       },
     ]);
     expect(
       await screen.findByText("IELTS Foundation — Lớp tối T3/T5"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Cô Thương")).toBeInTheDocument();
+    // S-10's second line: who teaches it, and since when.
+    expect(screen.getByText("Cô Thương · tham gia 12/07")).toBeInTheDocument();
+    expect(screen.getByText("Thứ 3 và thứ 5, 19:30–21:00.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
       "href",
       "/join",

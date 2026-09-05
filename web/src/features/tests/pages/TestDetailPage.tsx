@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -35,23 +37,23 @@ export default function TestDetailPage() {
     retry: false,
   });
 
+  // The builder's "Phiên bản" lands on the history card, not the top of the page.
+  const { hash } = useLocation();
+  const ready = test.isSuccess;
+  useEffect(() => {
+    if (ready && hash === "#versions") {
+      document.getElementById("versions")?.scrollIntoView?.({ block: "start" });
+    }
+  }, [ready, hash]);
+
   if (test.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={6} />;
   }
   if (test.isError) {
     return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t("tests.detailFailed")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void test.refetch()}>
-          {t("common.retry")}
-        </Button>
-      </div>
+      <LoadError error={test.error} onRetry={() => void test.refetch()}>
+        {t("tests.detailFailed")}
+      </LoadError>
     );
   }
 
@@ -85,13 +87,7 @@ export default function TestDetailPage() {
           </div>
 
           {preview.isPending ? (
-            <p
-              role="status"
-              aria-live="polite"
-              className="text-muted-foreground text-sm"
-            >
-              {t("common.loading")}
-            </p>
+            <ListSkeleton rows={4} />
           ) : notPublished ? (
             <div className="space-y-3">
               <p className="text-muted-foreground text-sm">{t("tests.notPublished")}</p>
@@ -100,16 +96,20 @@ export default function TestDetailPage() {
               </Button>
             </div>
           ) : preview.isError ? (
-            <p role="alert" className="text-destructive text-sm">
+            <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
               {t("tests.previewFailed")}
-            </p>
+            </LoadError>
           ) : (
             <StudentPreview questions={preview.data.questions} />
           )}
         </div>
 
         <Card asChild className="gap-0 py-0">
-          <section aria-labelledby="versions-heading" className="self-start">
+          <section
+            id="versions"
+            aria-labelledby="versions-heading"
+            className="self-start"
+          >
             <div className="px-5 pt-4 pb-3">
               <h2
                 id="versions-heading"
@@ -137,17 +137,13 @@ function VersionHistory({
 }) {
   const { t } = useTranslation();
   if (query.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={2} />;
   }
   if (query.isError) {
     return (
-      <p role="alert" className="text-destructive text-sm">
+      <LoadError error={query.error} onRetry={() => void query.refetch()}>
         {t("tests.loadFailed")}
-      </p>
+      </LoadError>
     );
   }
   if (query.data.items.length === 0) {

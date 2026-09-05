@@ -209,22 +209,6 @@ func toAPIStudent(student students.Student) openapi.StudentRow {
 		}
 	}
 
-	stats := openapi.StudentStats{
-		SubmittedCount: student.Stats.SubmittedCount,
-		FlaggedCount:   student.Stats.FlaggedCount,
-		Activity: openapi.StudentActivity{
-			Live:          student.Stats.LiveAttempt,
-			LastAttemptAt: student.Stats.LastAttemptAt,
-		},
-	}
-	if student.Stats.ScoreEarned != nil && student.Stats.ScoreTotal != nil {
-		stats.Score = &openapi.AttemptScore{
-			Earned:        *student.Stats.ScoreEarned,
-			Total:         *student.Stats.ScoreTotal,
-			PendingManual: student.Stats.PendingManual,
-		}
-	}
-
 	return openapi.StudentRow{
 		Id:                 parseUUID(student.ID),
 		Email:              openapi_types.Email(student.Email),
@@ -235,8 +219,28 @@ func toAPIStudent(student students.Student) openapi.StudentRow {
 		CreatedAt:          student.CreatedAt,
 		DisabledAt:         student.DisabledAt,
 		Classes:            classes,
-		Stats:              stats,
+		Stats:              toAPIStudentStats(student.Stats),
 	}
+}
+
+// toAPIStudentStats is the one mapping for G-07's figures, wherever a roster shows them.
+func toAPIStudentStats(in students.Stats) openapi.StudentStats {
+	stats := openapi.StudentStats{
+		SubmittedCount: in.SubmittedCount,
+		FlaggedCount:   in.FlaggedCount,
+		Activity: openapi.StudentActivity{
+			Live:          in.LiveAttempt,
+			LastAttemptAt: in.LastAttemptAt,
+		},
+	}
+	if in.ScoreEarned != nil && in.ScoreTotal != nil {
+		stats.Score = &openapi.AttemptScore{
+			Earned:        *in.ScoreEarned,
+			Total:         *in.ScoreTotal,
+			PendingManual: in.PendingManual,
+		}
+	}
+	return stats
 }
 
 func deref[T any](v *[]T) []T {

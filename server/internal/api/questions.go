@@ -130,6 +130,36 @@ func (s *Server) CreateQuestion(ctx context.Context, request openapi.CreateQuest
 	return openapi.CreateQuestion201JSONResponse(out), nil
 }
 
+func (s *Server) DuplicateQuestion(ctx context.Context, request openapi.DuplicateQuestionRequestObject) (openapi.DuplicateQuestionResponseObject, error) {
+	if s.Deps.Questions == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+
+	meta := httpx.RequestMetaFromContext(ctx)
+	q, err := s.Deps.Questions.Duplicate(ctx, questions.WriteRequest{
+		ID:        request.Id.String(),
+		ActorID:   principal.UserID,
+		IP:        meta.IP,
+		UserAgent: meta.UserAgent,
+	})
+	if errors.Is(err, questions.ErrNotFound) {
+		return openapi.DuplicateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			notFound(ctx, "Không tìm thấy câu hỏi."))}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.toAPIQuestion(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	return openapi.DuplicateQuestion201JSONResponse(out), nil
+}
+
 func (s *Server) UpdateQuestion(ctx context.Context, request openapi.UpdateQuestionRequestObject) (openapi.UpdateQuestionResponseObject, error) {
 	if s.Deps.Questions == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented

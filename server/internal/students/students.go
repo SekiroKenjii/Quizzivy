@@ -115,29 +115,13 @@ func statusCondition(status Status) string {
 	}
 }
 
-// selectStudents is one statement for a whole page: the aggregates are lateral
-// subqueries over the page's rows, never a query per student. N+1 on a list
-// screen is §13.8's named default failure mode.
-const selectStudents = `
-		SELECT u.id::text, u.email, u.full_name,
-		       u.password_hash IS NOT NULL,
-		       coalesce((SELECT array_agg(i.provider::text)
-		                   FROM app.user_identities i WHERE i.user_id = u.id), '{}'),
-		       u.must_change_password, u.created_at, u.disabled_at,
+// StatsColumns and StatsJoins are the aggregates behind Stats, keyed on a users
+// row aliased `u`, so another roster (G-06's class members) can carry the same
+// figures without re-deriving them; StatsScanner reads the columns back.
+const StatsColumns = `best.submitted_count, best.earned, best.total, best.pending_manual,
+		       act.flagged_count, act.live, act.last_attempt_at`
 
-		       coalesce((SELECT jsonb_agg(jsonb_build_object(
-		                          'id', c.id, 'name', c.name,
-		                          'joinedVia', m.joined_via, 'joinedAt', m.joined_at)
-		                        ORDER BY m.joined_at DESC)
-		                   FROM app.class_members m
-		                   JOIN app.classes c ON c.id = m.class_id
-		                  WHERE m.user_id = u.id), '[]'::jsonb),
-
-		       best.submitted_count, best.earned, best.total, best.pending_manual,
-		       act.flagged_count, act.live, act.last_attempt_at
-
-		  FROM app.users u
-
+const StatsJoins = `
 		  LEFT JOIN LATERAL (
 		    SELECT (SELECT count(DISTINCT a.assignment_id)
 	              FROM app.attempts a
@@ -189,38 +173,78 @@ const selectStudents = `
 		  ) act ON TRUE
 `
 
+// selectStudents is one statement for a whole page: the aggregates are lateral
+// subqueries over the page's rows, never a query per student. N+1 on a list
+// screen is §13.8's named default failure mode.
+const selectStudents = `
+		SELECT u.id::text, u.email, u.full_name,
+		       u.password_hash IS NOT NULL,
+		       coalesce((SELECT array_agg(i.provider::text)
+		                   FROM app.user_identities i WHERE i.user_id = u.id), '{}'),
+		       u.must_change_password, u.created_at, u.disabled_at,
+
+		       coalesce((SELECT jsonb_agg(jsonb_build_object(
+		                          'id', c.id, 'name', c.name,
+		                          'joinedVia', m.joined_via, 'joinedAt', m.joined_at)
+		                        ORDER BY m.joined_at DESC)
+		                   FROM app.class_members m
+		                   JOIN app.classes c ON c.id = m.class_id
+		                  WHERE m.user_id = u.id), '[]'::jsonb),
+
+		       		       ` + StatsColumns + `
+		  FROM app.users u
+		  ` + StatsJoins
+
 type rowScanner interface{ Scan(dest ...any) error }
 
 func scanStudent(row rowScanner) (Student, error) {
 	var student Student
 	var classes []byte
-	var submitted *int
-	var pending *int
-	var flagged *int
-	var live *bool
+	var stats StatsScanner
 
-	if err := row.Scan(&student.ID, &student.Email, &student.FullName,
+	targets := append([]any{&student.ID, &student.Email, &student.FullName,
 		&student.HasPassword, &student.LinkedProviders,
 		&student.MustChangePassword, &student.CreatedAt, &student.DisabledAt,
-		&classes,
-		&submitted, &student.Stats.ScoreEarned, &student.Stats.ScoreTotal, &pending,
-		&flagged, &live, &student.Stats.LastAttemptAt); err != nil {
+		&classes}, stats.Targets()...)
+	if err := row.Scan(targets...); err != nil {
 		return Student{}, fmt.Errorf("students: scan: %w", err)
 	}
 
 	if err := json.Unmarshal(classes, &student.Classes); err != nil {
 		return Student{}, fmt.Errorf("students: decode classes: %w", err)
 	}
-	student.Stats.SubmittedCount = deref(submitted)
-	student.Stats.PendingManual = deref(pending)
-	student.Stats.FlaggedCount = deref(flagged)
-	student.Stats.LiveAttempt = live != nil && *live
-
-	// A total of zero would make the client divide by it.
-	if student.Stats.ScoreTotal != nil && *student.Stats.ScoreTotal <= 0 {
-		student.Stats.ScoreEarned, student.Stats.ScoreTotal = nil, nil
-	}
+	student.Stats = stats.Stats()
 	return student, nil
+}
+
+// StatsScanner receives StatsColumns for one student. Every aggregate is
+// nullable on the way back -- a student with no attempts has no rows to sum.
+type StatsScanner struct {
+	submitted, pending, flagged *int
+	earned, total               *float64
+	live                        *bool
+	last                        *time.Time
+}
+
+func (sc *StatsScanner) Targets() []any {
+	return []any{&sc.submitted, &sc.earned, &sc.total, &sc.pending, &sc.flagged, &sc.live, &sc.last}
+}
+
+func (sc *StatsScanner) Stats() Stats {
+	out := Stats{
+		SubmittedCount: deref(sc.submitted),
+		ScoreEarned:    sc.earned,
+		ScoreTotal:     sc.total,
+		PendingManual:  deref(sc.pending),
+		FlaggedCount:   deref(sc.flagged),
+		LiveAttempt:    sc.live != nil && *sc.live,
+		LastAttemptAt:  sc.last,
+	}
+	// A total of zero would make the client divide by it.
+	if out.ScoreTotal != nil && *out.ScoreTotal <= 0 {
+		out.ScoreEarned, out.ScoreTotal = nil, nil
+	}
+	return out
 }
 
 func deref(v *int) int {

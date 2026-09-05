@@ -370,3 +370,45 @@ func addToSection(t *testing.T, pool *pgxpool.Pool, sectionID, questionID string
 		t.Fatal(err)
 	}
 }
+
+func TestDuplicateIsANewRowWithTheSameContent(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	source, err := svc.Create(ctx, questions.WriteRequest{
+		Input: questions.Input{
+			Type: questions.SingleChoice, Prompt: "Câu gốc để nhân bản", Points: "2.00",
+			Tags: []string{"unit-5"},
+			Options: []questions.OptionInput{
+				{Text: "A", IsCorrect: true}, {Text: "B", IsCorrect: false},
+			},
+		},
+		ActorID: author,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copied, err := svc.Duplicate(ctx, questions.WriteRequest{ID: source.ID, ActorID: author})
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+	if copied.ID == source.ID {
+		t.Fatal("the copy is the same row")
+	}
+	if copied.Prompt != source.Prompt || copied.Points != source.Points || copied.Type != source.Type {
+		t.Errorf("copy %+v differs from source %+v", copied, source)
+	}
+	if len(copied.Tags) != 1 || copied.Tags[0] != "unit-5" {
+		t.Errorf("tags %v, want [unit-5]", copied.Tags)
+	}
+	assertOptionOrder(t, copied, []string{"A", "B"}, []bool{true, false})
+	if copied.Options[0].ID == source.Options[0].ID {
+		t.Error("the copy shares an option row with the source")
+	}
+	if copied.UsedInTests != 0 {
+		t.Errorf("a fresh copy is used in %d tests", copied.UsedInTests)
+	}
+}

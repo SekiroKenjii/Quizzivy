@@ -25,14 +25,19 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
 
 export function EmptyState({
   children,
+  hint,
   action,
 }: {
   children: string;
+  hint?: string;
   action?: ReactNode;
 }) {
   return (
     <div className="rounded-lg border border-dashed p-8 text-center">
       <p className="text-sm">{children}</p>
+      {hint === undefined ? null : (
+        <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">{hint}</p>
+      )}
       {action === undefined ? null : <div className="mt-3">{action}</div>}
     </div>
   );

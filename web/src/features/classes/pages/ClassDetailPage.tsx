@@ -1,11 +1,14 @@
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RowMenu } from "@/components/shared/RowMenu";
+import { SearchInput } from "@/components/shared/SearchInput";
 import { toast } from "@/components/ui/sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -19,6 +22,7 @@ import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
+import { scorePercent } from "@/features/students/api";
 import { ApiError } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDate } from "@/lib/i18n/datetime";
@@ -28,7 +32,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ClipboardList, Search, UserPlus } from "lucide-react";
+import { ClipboardList, UserMinus, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
@@ -88,23 +92,17 @@ export default function ClassDetailPage() {
   });
 
   if (klass.isPending) {
-    return (
-      <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={6} />;
   }
-  if (klass.isError || !klass.data) {
+  if (klass.isError) {
     return (
-      <p role="alert" className="text-destructive text-sm">
+      <LoadError error={klass.error} onRetry={() => void klass.refetch()}>
         {t("classDetail.loadFailed")}
-      </p>
+      </LoadError>
     );
   }
 
   const items = members.data?.items ?? [];
-
-  const memberIds = new Set(items.map((m) => m.userId));
 
   return (
     <>
@@ -146,40 +144,48 @@ export default function ClassDetailPage() {
                 >
                   {t("classDetail.members", { count: klass.data.studentCount })}
                 </h2>
-                <div className="relative w-56">
-                  <Search
-                    className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-3.5"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    className="h-8 pl-8 text-xs"
-                    placeholder={t("classDetail.searchMembers")}
-                    aria-label={t("classDetail.searchMembers")}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
+                <SearchInput
+                  className="w-56"
+                  value={query}
+                  onChange={setQuery}
+                  placeholder={t("classDetail.searchMembers")}
+                />
               </div>
 
               {members.isError ? (
-                <p role="alert" className="text-destructive px-5 pb-8 text-sm">
-                  {t("classDetail.membersFailed")}
-                </p>
+                <div className="px-5 pb-5">
+                  <LoadError
+                    error={members.error}
+                    onRetry={() => void members.refetch()}
+                  >
+                    {t("classDetail.membersFailed")}
+                  </LoadError>
+                </div>
               ) : members.isPending ? (
-                <p
-                  className="text-muted-foreground px-5 pb-8 text-sm"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {t("common.loading")}
-                </p>
+                <div className="px-5 pb-5">
+                  <ListSkeleton rows={4} />
+                </div>
               ) : items.length === 0 ? (
-                // §12: one short sentence, no illustration.
-                <p className="text-muted-foreground px-5 pb-8 text-sm">
-                  {search === ""
-                    ? t("classDetail.noMembers")
-                    : t("classDetail.noMemberMatches", { query: search })}
-                </p>
+                <div className="px-5 pb-5">
+                  <EmptyState
+                    action={
+                      search === "" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAdding(true)}
+                        >
+                          <UserPlus aria-hidden="true" />
+                          {t("classDetail.addStudent")}
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    {search === ""
+                      ? t("classDetail.noMembers")
+                      : t("classDetail.noMemberMatches", { query: search })}
+                  </EmptyState>
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -187,8 +193,14 @@ export default function ClassDetailPage() {
                       <TableHead>{t("classDetail.name")}</TableHead>
                       <TableHead>{t("classDetail.joinedVia")}</TableHead>
                       <TableHead>{t("classDetail.joinedAt")}</TableHead>
-                      <TableHead className="sr-only">
-                        {t("classDetail.actions")}
+                      <TableHead className="text-right">
+                        {t("students.submitted")}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {t("students.average")}
+                      </TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("classDetail.actions")}</span>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -220,24 +232,33 @@ export default function ClassDetailPage() {
                         <TableCell className="text-muted-foreground">
                           {formatDate(m.joinedAt, locale)}
                         </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {m.stats.submittedCount}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {scorePercent(m.stats) === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            t("students.percent", { value: scorePercent(m.stats) })
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={remove.isPending}
-                            onClick={() => {
-                              setRemoveError(null);
-                              setConfirmRemove({
-                                userId: m.userId,
-                                name: m.fullName,
-                              });
-                            }}
-                          >
-                            <span aria-hidden="true">{t("classDetail.remove")}</span>
-                            <span className="sr-only">
-                              {t("classDetail.removeNamed", { name: m.fullName })}
-                            </span>
-                          </Button>
+                          <RowMenu>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={remove.isPending}
+                              onSelect={() => {
+                                setRemoveError(null);
+                                setConfirmRemove({
+                                  userId: m.userId,
+                                  name: m.fullName,
+                                });
+                              }}
+                            >
+                              <UserMinus aria-hidden="true" />
+                              {t("classDetail.remove")}
+                            </DropdownMenuItem>
+                          </RowMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -282,12 +303,7 @@ export default function ClassDetailPage() {
         onConfirm={() => confirmRemove && remove.mutate(confirmRemove.userId)}
       />
 
-      <AddMemberDialog
-        classId={id}
-        memberIds={memberIds}
-        open={adding}
-        onOpenChange={setAdding}
-      />
+      <AddMemberDialog classId={id} open={adding} onOpenChange={setAdding} />
     </>
   );
 }

@@ -90,6 +90,43 @@ func (s *Service) Get(ctx context.Context, id string) (Question, error) {
 	return s.store.Get(ctx, id)
 }
 
+// Duplicate is A-06a's "Nhân bản": the same question again as a new bank row
+// -- options, blanks, media and tags copied, ids fresh -- that no test holds
+// yet. It goes through the same write as a create, so it is validated and
+// audited like one.
+func (s *Service) Duplicate(ctx context.Context, req WriteRequest) (Question, error) {
+	source, err := s.store.Get(ctx, req.ID)
+	if err != nil {
+		return Question{}, err
+	}
+	req.ID = ""
+	req.Input = inputOf(source)
+	return s.write(ctx, req, false)
+}
+
+func inputOf(q Question) Input {
+	in := Input{
+		Type:         q.Type,
+		Prompt:       q.Prompt,
+		MediaAssetID: q.MediaAssetID,
+		Audio:        q.Audio,
+		Transcript:   q.Transcript,
+		Points:       q.Points,
+		Explanation:  q.Explanation,
+		SampleAnswer: q.SampleAnswer,
+		Tags:         append([]string{}, q.Tags...),
+	}
+	for _, o := range q.Options {
+		in.Options = append(in.Options, OptionInput{Text: o.Text, IsCorrect: o.IsCorrect})
+	}
+	for _, b := range q.Blanks {
+		in.Blanks = append(in.Blanks, BlankInput{
+			Ordinal: b.Ordinal, AcceptedAnswers: append([]string{}, b.AcceptedAnswers...), CaseSensitive: b.CaseSensitive,
+		})
+	}
+	return in
+}
+
 // GetIncludingDeleted resolves a question whether or not it is deleted, for the
 // version snapshot path.
 func (s *Service) GetIncludingDeleted(ctx context.Context, id string) (Question, error) {
