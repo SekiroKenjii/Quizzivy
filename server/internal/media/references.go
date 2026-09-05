@@ -10,23 +10,56 @@ import (
 
 // Querier is the subset of pgx satisfied by both a pool and a transaction.
 type Querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-// CountReferences reports how many published version questions use the asset.
-// A non-zero count blocks deletion with a 409.
+// TestRef names one published version that uses an asset.
+type TestRef struct {
+	ID      string
+	Title   string
+	Version int
+}
+
+// References lists the published versions whose questions use the asset, by
+// title then version. Any at all blocks deletion with a 409 (§8).
 //
 // Runs on the caller's querier so it can share the transaction that locked the
 // asset, and is served by tvq_media_idx.
-func CountReferences(ctx context.Context, q Querier, assetID string) (int, error) {
-	var n int
-	err := q.QueryRow(ctx,
-		`SELECT count(*) FROM app.test_version_questions WHERE media_asset_id = $1`,
-		assetID).Scan(&n)
+func References(ctx context.Context, q Querier, assetID string) ([]TestRef, error) {
+	byAsset, err := ReferencesFor(ctx, q, []string{assetID})
 	if err != nil {
-		return 0, fmt.Errorf("media: count references: %w", err)
+		return nil, err
 	}
-	return n, nil
+	return byAsset[assetID], nil
+}
+
+// ReferencesFor is References for a whole page of assets in one query, which
+// is what the library list needs: a count and a name per row, without a round
+// trip per row.
+func ReferencesFor(ctx context.Context, q Querier, assetIDs []string) (map[string][]TestRef, error) {
+	rows, err := q.Query(ctx, `
+		SELECT DISTINCT tvq.media_asset_id::text, t.id::text, t.title, tv.version
+		  FROM app.test_version_questions tvq
+		  JOIN app.test_version_sections tvs ON tvs.id = tvq.test_version_section_id
+		  JOIN app.test_versions tv ON tv.id = tvs.test_version_id
+		  JOIN app.tests t ON t.id = tv.test_id
+		 WHERE tvq.media_asset_id = ANY($1::uuid[])
+		 ORDER BY tvq.media_asset_id::text, t.title, tv.version, t.id`, assetIDs)
+	if err != nil {
+		return nil, fmt.Errorf("media: references: %w", err)
+	}
+	defer rows.Close()
+	out := map[string][]TestRef{}
+	for rows.Next() {
+		var asset string
+		var ref TestRef
+		if err := rows.Scan(&asset, &ref.ID, &ref.Title, &ref.Version); err != nil {
+			return nil, fmt.Errorf("media: references: %w", err)
+		}
+		out[asset] = append(out[asset], ref)
+	}
+	return out, rows.Err()
 }
 
 // LockForVersionUse takes the row lock that makes the delete check meaningful,

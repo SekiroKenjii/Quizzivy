@@ -245,17 +245,22 @@ func (s *Service) List(ctx context.Context, in ListInput) ([]Asset, paging.Page,
 	if err != nil {
 		return nil, paging.Page{}, err
 	}
+	ids := make([]string, len(assets))
+	for i := range assets {
+		ids[i] = assets[i].ID
+	}
+	refs, err := ReferencesFor(ctx, s.store.pool, ids)
+	if err != nil {
+		return nil, paging.Page{}, err
+	}
 	for i := range assets {
 		url, err := s.object.SignedURL(ctx, assets[i].StorageKey, s.ttl)
 		if err != nil {
 			return nil, paging.Page{}, err
 		}
 		assets[i].URL = url
-		refs, err := CountReferences(ctx, s.store.pool, assets[i].ID)
-		if err != nil {
-			return nil, paging.Page{}, err
-		}
-		assets[i].UsageCount = refs
+		assets[i].UsedIn = refs[assets[i].ID]
+		assets[i].UsageCount = len(assets[i].UsedIn)
 	}
 	return assets, page, nil
 }

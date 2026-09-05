@@ -70,6 +70,21 @@ func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 	if !errors.Is(err, media.ErrReferenced) {
 		t.Fatalf("delete returned %v, want ErrReferenced", err)
 	}
+	var blocked *media.ReferencedError
+	if !errors.As(err, &blocked) || len(blocked.Tests) != 1 ||
+		blocked.Tests[0].Title != "Đề đã xuất bản" || blocked.Tests[0].Version != 1 {
+		t.Errorf("the refusal names %+v, want \"Đề đã xuất bản\" v1", blocked)
+	}
+
+	listed, _, err := svc.List(ctx, media.ListInput{Limit: media.MaxLimit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range listed {
+		if a.ID == asset.ID && (a.UsageCount != 1 || len(a.UsedIn) != 1 || a.UsedIn[0].Version != 1) {
+			t.Errorf("the listing carries usage %d and %+v, want 1 and the version", a.UsageCount, a.UsedIn)
+		}
+	}
 
 	// Refused, not half-done.
 	if _, err := svc.Get(ctx, asset.ID); err != nil {

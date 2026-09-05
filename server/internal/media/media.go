@@ -39,7 +39,9 @@ type Asset struct {
 	ChecksumSHA256   []byte
 	CreatedAt        time.Time
 	UsageCount       int
-	URL              string
+	// The versions behind UsageCount, so a blocked delete can name them.
+	UsedIn []TestRef
+	URL    string
 }
 
 // imageTypes is §11.1's image allowlist, matched on magic bytes.

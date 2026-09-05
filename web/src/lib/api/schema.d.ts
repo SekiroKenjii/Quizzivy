@@ -1368,6 +1368,20 @@ export interface components {
             violations?: components["schemas"]["PublishValidationError"][];
         };
         /**
+         * @description A test that holds a reference the caller asked to remove, named so a
+         *     blocked delete can say where to look instead of only that it is
+         *     blocked (A-06a, A-07).
+         */
+        ReferencingTest: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /**
+             * @description The published version holding the reference. Absent when the
+             *     reference is a draft outline, which has no version yet.
+             */
+            version?: number;
+        };
+        /**
          * @description A MediaAsset as the admin library lists it, with how many published
          *     versions reference it. Flat for the same reason (issue #41) -- this is
          *     the site that was actually shipping a body its own contract rejected.
@@ -1387,6 +1401,11 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
             /** @description Published-version references. Non-zero blocks delete (§8). */
             usageCount?: number;
+            /**
+             * @description The published tests behind `usageCount`, one entry per version,
+             *     so the blocked-delete dialog can name them (A-07).
+             */
+            usedIn?: components["schemas"]["ReferencingTest"][];
         };
         /**
          * @description The intro screen's card: everything StudentAssignmentCard carries plus
@@ -3185,7 +3204,11 @@ export interface operations {
         responses: {
             204: components["responses"]["NoContent"];
             404: components["responses"]["NotFound"];
-            /** @description `QUESTION_REFERENCED` — still referenced by a draft test outline. */
+            /**
+             * @description `QUESTION_REFERENCED` — still referenced by a draft test outline.
+             *     `details.tests` names those drafts as `ReferencingTest[]`, sorted
+             *     by title, so the dialog can link to them (A-06a).
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3335,7 +3358,11 @@ export interface operations {
         responses: {
             204: components["responses"]["NoContent"];
             404: components["responses"]["NotFound"];
-            /** @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15). */
+            /**
+             * @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15).
+             *     `details.tests` names those versions as `ReferencingTest[]`,
+             *     sorted by title then version (A-07).
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

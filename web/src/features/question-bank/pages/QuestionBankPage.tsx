@@ -37,7 +37,7 @@ import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListSta
 import { RowMenu } from "@/components/shared/RowMenu";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/sonner";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, referencingTests, type ReferencingTest } from "@/lib/api/errors";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { Pager } from "@/components/shared/Pager";
@@ -71,7 +71,7 @@ export default function QuestionBankPage() {
   const [tagging, setTagging] = useState(false);
   const [addingOne, setAddingOne] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
-  const [blocked, setBlocked] = useState(false);
+  const [blocked, setBlocked] = useState<ReferencingTest[] | null>(null);
   const queryClient = useQueryClient();
   const remove = useMutation({
     mutationFn: (id: string) => deleteQuestion(id),
@@ -82,7 +82,7 @@ export default function QuestionBankPage() {
     },
     onError: (cause) => {
       if (cause instanceof ApiError && cause.code === "QUESTION_REFERENCED")
-        setBlocked(true);
+        setBlocked(referencingTests(cause));
       else toast(t("bank.deleteFailed"));
     },
   });
@@ -270,7 +270,7 @@ export default function QuestionBankPage() {
                       }
                       onAddToTest={() => setAddingOne(question.id)}
                       onDelete={() => {
-                        setBlocked(false);
+                        setBlocked(null);
                         setDeleting(question);
                       }}
                     />
@@ -309,15 +309,33 @@ export default function QuestionBankPage() {
         onOpenChange={(open) => !open && setDeleting(null)}
         title={t(blocked ? "bank.deleteBlockedTitle" : "bank.deleteConfirmTitle")}
         description={t(blocked ? "bank.deleteBlockedBody" : "bank.deleteConfirmBody")}
-        confirmLabel={t("bank.delete")}
-        destructive
-        disabled={blocked}
+        confirmLabel={t(blocked ? "common.close" : "bank.delete")}
+        destructive={blocked === null}
         pending={remove.isPending}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
+        {...(blocked === null
+          ? { onConfirm: () => deleting && remove.mutate(deleting.id) }
+          : {})}
       >
         <p className="bg-muted truncate rounded-md px-3 py-2 text-sm">
           {deleting?.prompt}
         </p>
+        {/* A-06a: the drafts that block it, as links, instead of a button that cannot fire. */}
+        {blocked === null || blocked.length === 0 ? null : (
+          <p className="text-sm">
+            {t("bank.deleteBlockedList", { count: blocked.length })}{" "}
+            {blocked.map((test, index) => (
+              <span key={test.id}>
+                {index === 0 ? null : ", "}
+                <Link
+                  to={`/admin/tests/${test.id}/edit`}
+                  className="font-medium underline underline-offset-4"
+                >
+                  {test.title}
+                </Link>
+              </span>
+            ))}
+          </p>
+        )}
       </ConfirmDialog>
     </>
   );

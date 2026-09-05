@@ -588,6 +588,7 @@
     "deleteConfirmBody": "Câu hỏi sẽ bị xoá khỏi ngân hàng. Các đề đã phát hành vẫn giữ bản sao đã đóng băng.",
     "deleteBlockedTitle": "Chưa xoá được câu hỏi này",
     "deleteBlockedBody": "Câu hỏi đang nằm trong đề nháp. Gỡ khỏi các đề đó trước, rồi xoá lại.",
+    "deleteBlockedList": "Đang dùng trong {{count}} đề nháp:",
     "deleteFailed": "Không xoá được câu hỏi.",
     "deleted": "Đã xoá câu hỏi"
   },

@@ -588,6 +588,7 @@
     "deleteConfirmBody": "The question leaves the bank. Published tests keep their frozen copy.",
     "deleteBlockedTitle": "This question cannot be deleted yet",
     "deleteBlockedBody": "It is still in a draft test. Remove it from those tests first, then delete again.",
+    "deleteBlockedList": "Used in {{count}} draft test(s):",
     "deleteFailed": "Could not delete the question.",
     "deleted": "Question deleted"
   },
