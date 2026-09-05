@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+
 	"quizzivy/internal/media"
 )
 
@@ -27,7 +29,15 @@ func upload(t *testing.T, svc *media.Service, uploader, name string) media.Asset
 func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := media.NewService(media.NewStore(pool), newFakeStore())
+	// Other packages insert into app.media_assets while this walks it, and an
+	// OFFSET walk over a moving table repeats or skips a row. REPEATABLE READ
+	// pins one snapshot for every page; rolling back is also the cleanup.
+	tx, err := pool.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	svc := media.NewService(media.NewStore(tx), newFakeStore())
 
 	const total = 5
 	want := make([]string, 0, total)
@@ -41,7 +51,7 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 	}
 
 	var live int
-	if err := pool.QueryRow(context.Background(),
+	if err := tx.QueryRow(context.Background(),
 		`SELECT count(*) FROM app.media_assets WHERE deleted_at IS NULL`).Scan(&live); err != nil {
 		t.Fatal(err)
 	}
@@ -134,6 +144,8 @@ func TestListFiltersByKindAndSignsEveryItem(t *testing.T) {
 func TestAPagePastTheEndIsEmptyWithTheSameTotal(t *testing.T) {
 	pool := newPool(t)
 	svc := media.NewService(media.NewStore(pool), newFakeStore())
+	// One asset of its own, so the total it reasons about is never zero.
+	upload(t, svc, makeUploader(t, pool), "beyond.mp3")
 
 	_, page, err := svc.List(context.Background(), media.ListInput{Limit: 1})
 	if err != nil {

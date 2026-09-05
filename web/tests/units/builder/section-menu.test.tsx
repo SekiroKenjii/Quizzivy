@@ -263,4 +263,42 @@ describe("the section menu", () => {
     expect(screen.getByText("Nghe")).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("keeps a collapsed unsaved section collapsed when it moves", async () => {
+    function Harness() {
+      const [value, setValue] = useState<OutlineSection[]>([
+        { id: null, title: "Mới một", instructions: null, questionIds: ["q1"] },
+        { id: null, title: "Mới hai", instructions: null, questionIds: ["q3"] },
+      ]);
+      return (
+        <OutlineTree
+          sections={value}
+          questions={questions}
+          selectedId="q1"
+          creating={false}
+          onCreateQuestion={vi.fn()}
+          onPickFromBank={vi.fn()}
+          onAddSection={vi.fn()}
+          onSelect={vi.fn()}
+          onChange={setValue}
+        />
+      );
+    }
+    render(<Harness />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getAllByRole("button", { expanded: true })[1]!);
+    expect(screen.queryByText("Câu ba")).toBeNull();
+
+    await openMenu(user, 1);
+    await user.click(await screen.findByRole("menuitem", { name: "Di chuyển lên" }));
+
+    const headers = screen.getAllByRole("button", { name: /^Mới/ });
+    expect(headers.map((h) => h.textContent?.startsWith("Mới hai"))).toEqual([
+      true,
+      false,
+    ]);
+    expect(screen.queryByText("Câu ba")).toBeNull();
+    expect(screen.getByText("Câu một")).toBeInTheDocument();
+  });
 });

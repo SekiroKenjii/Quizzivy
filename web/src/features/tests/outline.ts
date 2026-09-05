@@ -76,11 +76,7 @@ export function stepQuestion(
 }
 
 /** A whole section among its siblings, the questions it holds travelling with it. */
-export function moveSection(
-  sections: OutlineSection[],
-  from: number,
-  to: number,
-): OutlineSection[] {
+export function moveSection<T>(sections: T[], from: number, to: number): T[] {
   const section = sections[from];
   if (!section || from === to || to < 0 || to > sections.length - 1) return sections;
   const next = sections.filter((_, i) => i !== from);
