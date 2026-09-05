@@ -11,12 +11,12 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/attempts"
-	"quizzivy/internal/dashboard"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/integrity"
-	"quizzivy/internal/review"
-	"quizzivy/internal/students"
+	"quizzivy/internal/modules/attempts"
+	"quizzivy/internal/modules/dashboard"
+	"quizzivy/internal/modules/integrity"
+	"quizzivy/internal/modules/review"
+	"quizzivy/internal/modules/students"
+	"quizzivy/internal/platform/httpx"
 )
 
 const msgAttemptNotFound = "Không tìm thấy lượt làm."

@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/attempts"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/attempts"
+	"quizzivy/internal/platform/httpx"
 )
 
 // StartOrResumeAttempt backs §9's "Bắt đầu": one call whether the student is

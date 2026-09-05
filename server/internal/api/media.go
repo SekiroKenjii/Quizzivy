@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/media"
-	"quizzivy/internal/media/probe"
+	"quizzivy/internal/modules/media"
+	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/platform/probe"
 )
 
 // UploadMedia implements POST /admin/media (§11.1).

@@ -8,8 +8,8 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/auth"
+	"quizzivy/internal/platform/httpx"
 )
 
 // Login implements POST /auth/login (§5.1).

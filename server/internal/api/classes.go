@@ -7,8 +7,8 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/classes"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/classes"
+	"quizzivy/internal/platform/httpx"
 )
 
 const msgClassNotFound = "Không tìm thấy lớp học."

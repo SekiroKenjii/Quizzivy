@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"quizzivy/internal/config"
+	"quizzivy/internal/platform/config"
 )
 
 const (

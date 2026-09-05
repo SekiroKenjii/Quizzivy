@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/tests/publish"
+	"quizzivy/internal/modules/tests/publish"
+	"quizzivy/internal/platform/httpx"
 )
 
 // PublishTest validates the draft and freezes it as a new version.

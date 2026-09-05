@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/media"
+	"quizzivy/internal/modules/media"
 )
 
 // §11.2 pairs the cache directive with the signature lifetime. A cache entry

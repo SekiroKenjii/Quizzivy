@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/assignments"
-	"quizzivy/internal/media"
-	"quizzivy/internal/questions"
-	"quizzivy/internal/students"
-	"quizzivy/internal/tests"
+	"quizzivy/internal/modules/assignments"
+	"quizzivy/internal/modules/media"
+	"quizzivy/internal/modules/questions"
+	"quizzivy/internal/modules/students"
+	"quizzivy/internal/modules/tests"
 )
 
 // The contract used to declare one shared `limit` default of 25 that no server

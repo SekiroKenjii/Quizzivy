@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/attempts"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/attempts"
+	"quizzivy/internal/platform/httpx"
 )
 
 // GetAttemptResult is §9's result page. What the policy withheld never left

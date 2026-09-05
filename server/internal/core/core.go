@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"quizzivy/internal/api"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/config"
-	"quizzivy/internal/db"
+	"quizzivy/internal/modules/auth"
+	"quizzivy/internal/platform/config"
+	"quizzivy/internal/platform/db"
 )
 
 // dbReadyBudget is how long to wait for the database on a cold start. Fly can

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"quizzivy/internal/join"
+	"quizzivy/internal/modules/join"
 )
 
 // POST /join/preview is unauthenticated and takes a bearer secret. Two things

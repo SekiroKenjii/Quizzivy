@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/questions"
+	"quizzivy/internal/modules/questions"
+	"quizzivy/internal/platform/httpx"
 )
 
 // ListQuestions implements GET /admin/questions -- the §8 bank, with type and

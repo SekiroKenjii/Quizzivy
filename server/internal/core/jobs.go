@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"quizzivy/internal/auth"
+	"quizzivy/internal/modules/auth"
 )
 
 const (

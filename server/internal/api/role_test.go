@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/platform/httpx"
 )
 
 // Authentication says who you are; this says whether the /admin tree is yours.

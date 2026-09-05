@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/auth/google"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/auth"
+	"quizzivy/internal/platform/google"
+	"quizzivy/internal/platform/httpx"
 )
 
 // GoogleAuth completes the §5.3 sign-in: verify the ID token, then resolve the

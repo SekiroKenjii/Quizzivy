@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/join"
+	"quizzivy/internal/modules/join"
+	"quizzivy/internal/platform/httpx"
 )
 
 // RotateJoinCode implements POST /admin/classes/{id}/join-code (§6.1).

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/assignments"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/assignments"
+	"quizzivy/internal/platform/httpx"
 )
 
 // ListAssignments backs §8's assignments list and A-01's "Bài đang mở".

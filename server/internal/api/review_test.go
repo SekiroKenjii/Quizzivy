@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"quizzivy/internal/attempts"
-	"quizzivy/internal/integrity"
-	"quizzivy/internal/paging"
-	"quizzivy/internal/review"
-	"quizzivy/internal/students"
+	"quizzivy/internal/modules/attempts"
+	"quizzivy/internal/modules/integrity"
+	"quizzivy/internal/modules/review"
+	"quizzivy/internal/modules/students"
+	"quizzivy/internal/shared/paging"
 )
 
 type fakeReview struct{ rv review.Review }

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/ratelimit"
+	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/platform/ratelimit"
 )
 
 // §14 requires every public endpoint to be rate-limited, and §6.5 explains why:

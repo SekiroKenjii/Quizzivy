@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"quizzivy/internal/api"
-	"quizzivy/internal/media"
+	"quizzivy/internal/modules/media"
 )
 
 // TestMediaDisabledLeavesDepsMediaNil pins the nil-interface trap that the

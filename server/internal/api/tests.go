@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/tests"
+	"quizzivy/internal/modules/tests"
+	"quizzivy/internal/platform/httpx"
 )
 
 const msgTestNotFound = "Không tìm thấy đề."

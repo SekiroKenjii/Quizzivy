@@ -8,8 +8,8 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/students"
+	"quizzivy/internal/modules/students"
+	"quizzivy/internal/platform/httpx"
 )
 
 const msgStudentNotFound = "Không tìm thấy học viên."

@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/auth"
+	"quizzivy/internal/platform/httpx"
 )
 
 // GetCurrentUser implements GET /auth/me (§5.4).

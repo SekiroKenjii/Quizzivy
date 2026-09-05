@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/assignments"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/assignments"
+	"quizzivy/internal/platform/httpx"
 )
 
 // ListMyAssignments backs §9's /app: the three sections, already sorted.

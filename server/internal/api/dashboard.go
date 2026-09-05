@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/platform/httpx"
 )
 
 // GetDashboard answers §8's /admin: five figures and the last ten attempts, in

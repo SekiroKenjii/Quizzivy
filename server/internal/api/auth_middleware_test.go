@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/auth"
-	"quizzivy/internal/httpx"
+	"quizzivy/internal/modules/auth"
+	"quizzivy/internal/platform/httpx"
 )
 
 // Authentication is driven by api/openapi.yaml, not by a list in Go: an

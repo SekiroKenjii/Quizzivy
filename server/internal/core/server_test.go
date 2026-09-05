@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"quizzivy/internal/config"
+	"quizzivy/internal/platform/config"
 )
 
 // TestShutdownDrainsInFlightRequests pins the shutdown context.

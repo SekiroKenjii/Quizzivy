@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/httpx"
-	"quizzivy/internal/join"
-	"quizzivy/internal/ratelimit"
+	"quizzivy/internal/modules/join"
+	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/platform/ratelimit"
 )
 
 // RateLimits declares the policy for every public operation, plus the one

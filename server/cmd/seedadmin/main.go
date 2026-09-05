@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"quizzivy/internal/auth"
+	"quizzivy/internal/modules/auth"
 )
 
 // Excludes the characters §6.1 excludes, for the same reason: this gets read
