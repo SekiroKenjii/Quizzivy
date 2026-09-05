@@ -104,7 +104,7 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.getByText("0:00 / 0:10")).toBeVisible();
 
   // §11.1's defaults arrive with the asset, visibly.
-  await expect(page.getByLabel("Số lần được nghe")).toHaveValue("2");
+  await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
   await expect(page.getByRole("switch", { name: "Cho tua" })).not.toBeChecked();
   await expect(
     page.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),
