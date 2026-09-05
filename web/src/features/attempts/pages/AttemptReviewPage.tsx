@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
-import { Eye, Headphones } from "lucide-react";
+import { Eye, Flag, FlagOff, Headphones } from "lucide-react";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { PageAside } from "@/components/shared/PageAside";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -24,6 +24,7 @@ import { formatTime } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import {
   finishGrading,
+  flagAttempt,
   getAttemptForReview,
   gradeAttempt,
   type AdminQuestion,
@@ -77,6 +78,16 @@ export default function AttemptReviewPage() {
     },
     onError: (cause) =>
       setFailure(cause instanceof ApiError ? cause.message : t("review.saveFailed")),
+  });
+  const flag = useMutation({
+    mutationFn: (flagged: boolean) => flagAttempt(id, { flagged }),
+    onSuccess: async (_, flagged) => {
+      toast(t(flagged ? "review.flaggedToast" : "review.unflaggedToast"));
+      await invalidate();
+      await queryClient.invalidateQueries({ queryKey: ["admin-attempts"] });
+    },
+    onError: (cause) =>
+      setFailure(cause instanceof ApiError ? cause.message : t("review.flagFailed")),
   });
   const finish = useMutation({
     mutationFn: () => finishGrading(id),
@@ -167,6 +178,31 @@ export default function AttemptReviewPage() {
             {attempt.status === "graded" && (
               <Badge variant="success">{t("status.attempt.graded")}</Badge>
             )}
+            {/* G-05: a mark to look again, set or cleared by hand; never a verdict. */}
+            {attempt.integrity?.flagged ? (
+              <>
+                <Badge variant="warning">{t("review.flaggedBadge")}</Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={attempt.status === "voided" || flag.isPending}
+                  onClick={() => flag.mutate(false)}
+                >
+                  <FlagOff aria-hidden="true" />
+                  {t("review.unflag")}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={attempt.status === "voided" || flag.isPending}
+                onClick={() => flag.mutate(true)}
+              >
+                <Flag aria-hidden="true" />
+                {t("review.flag")}
+              </Button>
+            )}
             <Button
               size="sm"
               disabled={!gradable || pending > 0 || finish.isPending}
@@ -183,6 +219,7 @@ export default function AttemptReviewPage() {
           attemptId={attempt.id}
           questions={questions}
           live={live}
+          note={data.teacherNote}
           onViewPaper={() => setTab("paper")}
         />
       ) : (

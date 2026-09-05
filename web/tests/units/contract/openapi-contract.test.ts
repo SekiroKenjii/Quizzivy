@@ -26,6 +26,7 @@ const FORBIDDEN = [
   "sampleAnswer",
   "acceptedAnswers",
   "transcript",
+  "teacherNote",
 ] as const;
 const TRANSCRIPT_ALLOWED_AT = new Set(["/app/attempts/{id}/result"]);
 

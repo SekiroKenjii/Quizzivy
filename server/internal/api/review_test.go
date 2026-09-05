@@ -23,6 +23,7 @@ func (f fakeReview) Get(context.Context, string) (review.Review, error) { return
 func (f fakeReview) Grade(context.Context, string, string, []review.Item) (attempts.Score, error) {
 	return attempts.Score{}, nil
 }
+func (f fakeReview) SetNote(context.Context, string, *string) error { return nil }
 func (f fakeReview) Finish(context.Context, string) (attempts.Attempt, error) {
 	return attempts.Attempt{}, nil
 }

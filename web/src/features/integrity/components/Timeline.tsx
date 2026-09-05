@@ -19,6 +19,7 @@ import {
   type IntegrityEvent,
 } from "@/features/attempts/api";
 import { POLL_MS, eventsKey } from "@/features/attempts/keys";
+import { TeacherNoteCard } from "@/features/attempts/components/TeacherNoteCard";
 import { formatInTimeZone } from "date-fns-tz";
 import { APP_TIME_ZONE } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -39,12 +40,15 @@ export function Timeline({
   attemptId,
   questions,
   live,
+  note,
   onViewPaper,
 }: {
   attemptId: string;
   questions: AdminQuestion[];
   /** Polls while the attempt is still in progress. */
   live: boolean;
+  /** G-05's private note as last saved; the card autosaves from here. */
+  note: string | null;
   onViewPaper: () => void;
 }) {
   const { t } = useTranslation();
@@ -234,22 +238,25 @@ export function Timeline({
           </CardContent>
         </Card>
 
-        <Card className="gap-0 self-start">
-          <CardHeader>
-            <CardTitle>{t("timeline.help.title")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2.5 pt-3">
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              {t("timeline.help.cannotSee")}
-            </p>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              {t("timeline.help.duration")}
-            </p>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              {t("timeline.help.conversation")}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-5 self-start">
+          <Card className="gap-0">
+            <CardHeader>
+              <CardTitle>{t("timeline.help.title")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2.5 pt-3">
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {t("timeline.help.cannotSee")}
+              </p>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {t("timeline.help.duration")}
+              </p>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {t("timeline.help.conversation")}
+              </p>
+            </CardContent>
+          </Card>
+          <TeacherNoteCard attemptId={attemptId} note={note} />
+        </div>
       </div>
     </div>
   );

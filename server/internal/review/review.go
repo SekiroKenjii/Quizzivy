@@ -77,6 +77,8 @@ type Review struct {
 	MaxAttempts int
 	// PublishedAt is when the version froze; the questions carry no clock of their own.
 	PublishedAt time.Time
+	// TeacherNote is G-05's private note: the teacher's, never the student's.
+	TeacherNote *string
 	Questions   []Question
 	Answers     map[string]Answer
 	AudioPlays  map[string]int
@@ -93,7 +95,7 @@ func (s *Store) Get(ctx context.Context, attemptID string) (Review, error) {
 	err := s.pool.QueryRow(ctx, `
 		SELECT at.id::text, at.assignment_id::text, at.student_id::text, at.test_version_id::text,
 		       at.attempt_no, at.status, at.started_at, at.deadline_at, at.submitted_at, at.graded_at,
-		       at.focus_loss_count, at.flagged, at.score_total,
+		       at.focus_loss_count, at.flagged, at.score_total, at.teacher_note,
 		       asg.max_attempts, t.title, v.published_at
 		  FROM app.attempts at
 		  JOIN app.assignments asg ON asg.id = at.assignment_id
@@ -102,7 +104,7 @@ func (s *Store) Get(ctx context.Context, attemptID string) (Review, error) {
 		 WHERE at.id = $1::uuid`, attemptID).Scan(
 		&a.ID, &a.AssignmentID, &a.StudentID, &a.TestVersionID,
 		&a.AttemptNo, &a.Status, &a.StartedAt, &a.DeadlineAt, &a.SubmittedAt, &a.GradedAt,
-		&a.FocusLossCount, &a.Flagged, &total,
+		&a.FocusLossCount, &a.Flagged, &total, &out.TeacherNote,
 		&out.MaxAttempts, &out.TestTitle, &out.PublishedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Review{}, ErrNotFound
@@ -139,6 +141,21 @@ func (s *Store) Get(ctx context.Context, attemptID string) (Review, error) {
 		}
 	}
 	return out, nil
+}
+
+// SetNote keeps or clears the teacher's note. Not audited: it is the
+// teacher's own memory aid, and the actions it explains are audited already.
+func (s *Store) SetNote(ctx context.Context, attemptID string, note *string) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE app.attempts SET teacher_note = nullif(btrim($2), '') WHERE id = $1::uuid`,
+		attemptID, note)
+	if err != nil {
+		return fmt.Errorf("review: set note: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *Store) questions(ctx context.Context, versionID string) ([]Question, error) {

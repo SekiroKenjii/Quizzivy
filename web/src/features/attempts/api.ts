@@ -62,6 +62,16 @@ export function extendAttempt(id: string, body: { minutes: number; reason: strin
   return api("post", "/admin/attempts/{id}/extend", { path: { id }, body });
 }
 
+/** G-05's mark, set or cleared by hand. */
+export function flagAttempt(id: string, body: { flagged: boolean; reason?: string }) {
+  return api("post", "/admin/attempts/{id}/flag", { path: { id }, body });
+}
+
+/** G-05's private note; null clears it. */
+export function setAttemptNote(id: string, note: string | null) {
+  return api("patch", "/admin/attempts/{id}/note", { path: { id }, body: { note } });
+}
+
 export function resetAttempt(id: string, body: { reason: string }) {
   return api("post", "/admin/attempts/{id}/reset", { path: { id }, body });
 }

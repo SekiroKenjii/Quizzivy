@@ -190,3 +190,53 @@ func TestOnlyALiveAttemptCanBeExtended(t *testing.T) {
 		t.Errorf("extend unknown: %v, want ErrNotFound", err)
 	}
 }
+
+func TestFlaggingByHandIsAuditedInBothDirections(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	flagged, err := svc.Flag(ctx, teacher(w), session.Attempt.ID, true, "  hỏi lại em về lúc 10:04  ")
+	if err != nil {
+		t.Fatalf("flag: %v", err)
+	}
+	if !flagged.Flagged {
+		t.Error("the attempt is not flagged after flagging it")
+	}
+	audits := auditRows(t, pool, session.Attempt.ID, "attempt.flagged")
+	if len(audits) != 1 {
+		t.Fatalf("%d attempt.flagged audit rows, want 1", len(audits))
+	}
+	before, after := oldNew(t, audits[0].diff, "flagged")
+	if before != false || after != true {
+		t.Errorf("diff.flagged = %v -> %v", before, after)
+	}
+	if audits[0].diff["reason"] != "hỏi lại em về lúc 10:04" {
+		t.Errorf("reason = %v, want the trimmed one", audits[0].diff["reason"])
+	}
+
+	cleared, err := svc.Flag(ctx, teacher(w), session.Attempt.ID, false, "")
+	if err != nil {
+		t.Fatalf("unflag: %v", err)
+	}
+	if cleared.Flagged {
+		t.Error("the attempt is still flagged after clearing")
+	}
+	unflagged := auditRows(t, pool, session.Attempt.ID, "attempt.unflagged")
+	if len(unflagged) != 1 {
+		t.Fatalf("%d attempt.unflagged audit rows, want 1", len(unflagged))
+	}
+	if unflagged[0].diff["reason"] != nil {
+		t.Errorf("an empty reason was audited as %v, want null", unflagged[0].diff["reason"])
+	}
+
+	if _, err := svc.Void(ctx, teacher(w), session.Attempt.ID, "huỷ"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Flag(ctx, teacher(w), session.Attempt.ID, true, ""); !errors.Is(err, attempts.ErrAttemptVoided) {
+		t.Errorf("flagging a voided attempt: %v, want ErrAttemptVoided", err)
+	}
+	if _, err := svc.Flag(ctx, teacher(w), "00000000-0000-7000-8000-000000000000", true, ""); !errors.Is(err, attempts.ErrNotFound) {
+		t.Errorf("flagging an unknown attempt: %v, want ErrNotFound", err)
+	}
+}

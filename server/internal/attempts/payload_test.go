@@ -57,7 +57,7 @@ func TestNoAnswerBearingFieldAppearsAtAnyDepth(t *testing.T) {
 
 	banned := map[string]bool{
 		"iscorrect": true, "sampleanswer": true, "acceptedanswers": true,
-		"transcript": true, "explanation": true, "casesensitive": true,
+		"transcript": true, "explanation": true, "casesensitive": true, "teachernote": true,
 		"shuffleseed": true, "seed": true, "beacontokenhash": true,
 	}
 	var walk func(node any, path string)
