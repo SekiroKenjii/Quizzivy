@@ -3,11 +3,11 @@ package http
 import (
 	"context"
 	"log/slog"
+	mediamodel "quizzivy/internal/modules/media/application/model"
 	"time"
 
 	"quizzivy/internal/modules/attempts/domain"
 	identitydomain "quizzivy/internal/modules/identity/domain"
-	mediaapp "quizzivy/internal/modules/media/application"
 	mediadomain "quizzivy/internal/modules/media/domain"
 )
 
@@ -44,7 +44,7 @@ type Integrity interface {
 type Media interface {
 	Get(ctx context.Context, id string) (mediadomain.Asset, error)
 	SignedURL(ctx context.Context, asset mediadomain.Asset) (string, error)
-	MintForStudent(ctx context.Context, studentID, assetID string) (mediaapp.SignedURLResult, error)
+	MintForStudent(ctx context.Context, studentID, assetID string) (mediamodel.SignedURLResult, error)
 	SignedURLTTL() time.Duration
 }
 

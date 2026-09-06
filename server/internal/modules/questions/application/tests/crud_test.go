@@ -5,6 +5,8 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/questions/application/command"
+	"quizzivy/internal/modules/questions/application/query"
 	"testing"
 
 	"quizzivy/internal/modules/questions/domain"
@@ -27,12 +29,13 @@ func TestSoftDeleteLeavesTheQuestionResolvableByID(t *testing.T) {
 
 	q := write(t, svc, author, "Câu hỏi sắp bị xoá")
 
-	if err := svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}}); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
 	// Absent from the bank.
-	listed, _, err := svc.List(ctx, domain.ListInput{Limit: repositories.MaxLimit})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: repositories.MaxLimit}})
+	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,10 +46,10 @@ func TestSoftDeleteLeavesTheQuestionResolvableByID(t *testing.T) {
 	}
 
 	// And not resolvable by the normal path either.
-	if _, err := svc.Get(ctx, q.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{ID: q.ID}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("Get on a deleted question returned %v, want ErrNotFound", err)
 	}
-	revived, err := svc.GetIncludingDeleted(ctx, q.ID)
+	revived, err := svc.Queries.GetIncludingDeleted.Handle(ctx, query.GetIncludingDeleted{ID: q.ID})
 	if err != nil {
 		t.Fatalf("a deleted question must stay resolvable for version snapshots: %v", err)
 	}
@@ -82,10 +85,10 @@ func TestDeletingTwiceIsNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	q := write(t, svc, author, "Xoá hai lần")
-	if err := svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("second delete returned %v, want ErrNotFound", err)
 	}
 }
@@ -114,10 +117,10 @@ func TestReorderingOptionsRoundTrips(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, domain.WriteRequest{
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
 		Input:   choiceInput("Thủ đô của Việt Nam là gì?", "Hà Nội", "Huế", "Đà Nẵng"),
 		ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -130,14 +133,14 @@ func TestReorderingOptionsRoundTrips(t *testing.T) {
 		{Text: "Đà Nẵng", IsCorrect: false},
 		{Text: "Hà Nội", IsCorrect: true},
 	}
-	updated, err := svc.Update(ctx, domain.WriteRequest{
+	updated, err := svc.Commands.Update.Handle(ctx, command.Update{Request: domain.WriteRequest{
 		ID: created.ID, Input: reordered, ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
 	assertOptionOrder(t, updated, []string{"Huế", "Đà Nẵng", "Hà Nội"}, []bool{false, false, true})
-	reread, err := svc.Get(ctx, created.ID)
+	reread, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +192,7 @@ func TestBlanksAndAnswersRoundTrip(t *testing.T) {
 			{Ordinal: 2, AcceptedAnswers: []string{"về"}, CaseSensitive: true},
 		},
 	}
-	q, err := svc.Create(ctx, domain.WriteRequest{Input: in, ActorID: author})
+	q, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{Input: in, ActorID: author}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -228,7 +231,7 @@ func TestTwoCompositionsOfOneAnswerAreStoredOnce(t *testing.T) {
 		Points: "3.00", Tags: []string{},
 		Blanks: []domain.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{composed, decomposed}}},
 	}
-	q, err := svc.Create(ctx, domain.WriteRequest{Input: in, ActorID: author})
+	q, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{Input: in, ActorID: author}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -243,22 +246,22 @@ func TestUpdateRejectedByTheDatabaseLeavesTheOldVersion(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, domain.WriteRequest{
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
 		Input:   choiceInput("Câu gốc", "A", "B"),
 		ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	bad := choiceInput("Câu đã sửa", "C", "D")
 	bad.Points = "99999999.00"
-	if _, err := svc.Update(ctx, domain.WriteRequest{
+	if _, err := svc.Commands.Update.Handle(ctx, command.Update{Request: domain.WriteRequest{
 		ID: created.ID, Input: bad, ActorID: author,
-	}); err == nil {
+	}}); err == nil {
 		t.Fatal("an out-of-range points value was accepted")
 	}
 
-	after, err := svc.Get(ctx, created.ID)
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
 	if err != nil {
 		t.Fatalf("the question vanished after a failed update: %v", err)
 	}
@@ -280,7 +283,7 @@ func TestDeletingAQuestionADraftUsesIsRefused(t *testing.T) {
 	sectionID := newDraftSection(t, pool, author)
 	addToSection(t, pool, sectionID, q.ID)
 
-	err := svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author})
+	_, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}})
 	if !errors.Is(err, domain.ErrReferenced) {
 		t.Fatalf("delete returned %v, want ErrReferenced", err)
 	}
@@ -290,7 +293,7 @@ func TestDeletingAQuestionADraftUsesIsRefused(t *testing.T) {
 	}
 
 	// Refused, not half-done: the question is still live and still listed.
-	if _, err := svc.Get(ctx, q.ID); err != nil {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{ID: q.ID}); err != nil {
 		t.Errorf("the question was deleted anyway: %v", err)
 	}
 	var audited int
@@ -317,7 +320,7 @@ func TestDeletingAnUnusedQuestionStillWorks(t *testing.T) {
 	sectionID := newDraftSection(t, pool, author)
 	addToSection(t, pool, sectionID, used.ID)
 
-	if err := svc.Delete(ctx, domain.WriteRequest{ID: unused.ID, ActorID: author}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: unused.ID, ActorID: author}}); err != nil {
 		t.Errorf("an unreferenced question was refused: %v", err)
 	}
 }
@@ -333,14 +336,14 @@ func TestAQuestionBecomesDeletableOnceTheDraftDropsIt(t *testing.T) {
 	sectionID := newDraftSection(t, pool, author)
 	addToSection(t, pool, sectionID, q.ID)
 
-	if err := svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author}); !errors.Is(err, domain.ErrReferenced) {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}}); !errors.Is(err, domain.ErrReferenced) {
 		t.Fatalf("expected the delete to be refused first, got %v", err)
 	}
 	if _, err := pool.Exec(ctx,
 		`DELETE FROM app.test_section_questions WHERE question_id = $1`, q.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}}); err != nil {
 		t.Errorf("still refused after the draft dropped it: %v", err)
 	}
 }
@@ -384,7 +387,7 @@ func TestDuplicateIsANewRowWithTheSameContent(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	source, err := svc.Create(ctx, domain.WriteRequest{
+	source, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
 		Input: domain.Input{
 			Type: domain.SingleChoice, Prompt: "Câu gốc để nhân bản", Points: "2.00",
 			Tags: []string{"unit-5"},
@@ -393,12 +396,12 @@ func TestDuplicateIsANewRowWithTheSameContent(t *testing.T) {
 			},
 		},
 		ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	copied, err := svc.Duplicate(ctx, domain.WriteRequest{ID: source.ID, ActorID: author})
+	copied, err := svc.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: domain.WriteRequest{ID: source.ID, ActorID: author}})
 	if err != nil {
 		t.Fatalf("duplicate: %v", err)
 	}

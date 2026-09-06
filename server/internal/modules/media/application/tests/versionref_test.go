@@ -5,6 +5,8 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/media/application/command"
+	"quizzivy/internal/modules/media/application/query"
 	"quizzivy/internal/platform/db"
 	"sync"
 	"testing"
@@ -63,7 +65,7 @@ func publishVersionUsing(ctx context.Context, pool *pgxpool.Pool, author, assetI
 func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	asset := upload(t, svc, uploader, "dang-dung.mp3")
@@ -71,7 +73,7 @@ func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 		t.Fatalf("publish: %v", err)
 	}
 
-	err := svc.Delete(ctx, domain.DeleteInput{ID: asset.ID, ActorID: uploader})
+	_, err := svc.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{ID: asset.ID, ActorID: uploader}})
 	if !errors.Is(err, domain.ErrReferenced) {
 		t.Fatalf("delete returned %v, want ErrReferenced", err)
 	}
@@ -81,7 +83,8 @@ func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 		t.Errorf("the refusal names %+v, want \"Đề đã xuất bản\" v1", blocked)
 	}
 
-	listed, _, err := svc.List(ctx, domain.ListInput{Limit: repositories.MaxLimit})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: repositories.MaxLimit}})
+	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +95,7 @@ func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 	}
 
 	// Refused, not half-done.
-	if _, err := svc.Get(ctx, asset.ID); err != nil {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{ID: asset.ID}); err != nil {
 		t.Errorf("the asset was deleted anyway: %v", err)
 	}
 }
@@ -100,7 +103,7 @@ func TestDeletingAnAssetAPublishedVersionUsesIsRefused(t *testing.T) {
 func TestDeletingAnUnreferencedAssetStillWorks(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	used := upload(t, svc, uploader, "dang-dung-2.mp3")
@@ -109,7 +112,7 @@ func TestDeletingAnUnreferencedAssetStillWorks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := svc.Delete(ctx, domain.DeleteInput{ID: unused.ID, ActorID: uploader}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{ID: unused.ID, ActorID: uploader}}); err != nil {
 		t.Errorf("an unreferenced asset was refused: %v", err)
 	}
 }
@@ -119,7 +122,7 @@ func TestDeletingAnUnreferencedAssetStillWorks(t *testing.T) {
 func TestUsageCountReflectsPublishedVersions(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	asset := upload(t, svc, uploader, "dem-luot-dung.mp3")
@@ -127,7 +130,8 @@ func TestUsageCountReflectsPublishedVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	listed, _, err := svc.List(ctx, domain.ListInput{Limit: repositories.MaxLimit})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: repositories.MaxLimit}})
+	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +150,7 @@ func TestUsageCountReflectsPublishedVersions(t *testing.T) {
 func TestLockForVersionUseSerialisesAgainstDelete(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	for attempt := range 8 {
@@ -157,7 +161,7 @@ func TestLockForVersionUseSerialisesAgainstDelete(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			deleteErr = svc.Delete(ctx, domain.DeleteInput{ID: asset.ID, ActorID: uploader})
+			_, deleteErr = svc.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{ID: asset.ID, ActorID: uploader}})
 		}()
 		go func() {
 			defer wg.Done()
@@ -175,11 +179,11 @@ func TestLockForVersionUseSerialisesAgainstDelete(t *testing.T) {
 func TestLockForVersionUseRefusesADeletedAsset(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	ctx := context.Background()
 
 	asset := upload(t, svc, uploader, "da-xoa.mp3")
-	if err := svc.Delete(ctx, domain.DeleteInput{ID: asset.ID, ActorID: uploader}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{ID: asset.ID, ActorID: uploader}}); err != nil {
 		t.Fatal(err)
 	}
 

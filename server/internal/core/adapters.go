@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	mediaquery "quizzivy/internal/modules/media/application/query"
 
 	attemptshttp "quizzivy/internal/modules/attempts/http"
 	classesapp "quizzivy/internal/modules/classes/application"
@@ -12,13 +13,14 @@ import (
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitydomain "quizzivy/internal/modules/identity/domain"
 	mediaapp "quizzivy/internal/modules/media/application"
+	mediamodel "quizzivy/internal/modules/media/application/model"
 	mediadomain "quizzivy/internal/modules/media/domain"
-	mediahttp "quizzivy/internal/modules/media/http"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
 	questionshttp "quizzivy/internal/modules/questions/http"
 	testshttp "quizzivy/internal/modules/tests/http"
 	"quizzivy/internal/platform/google"
 	"quizzivy/internal/platform/probe"
+	"time"
 )
 
 type googleProvider struct{ provider *google.Provider }
@@ -73,13 +75,13 @@ func (audioProbe) Audio(r io.ReaderAt, size int64) (string, int, error) {
 	return mime, durationMs, err
 }
 
-type mediaKinds struct{ media *mediaapp.Service }
+type mediaKinds struct{ media *mediaapp.Application }
 
 func (m mediaKinds) Kind(ctx context.Context, assetID string) (string, error) {
 	if m.media == nil {
 		return "", questionsdomain.ErrMediaNotFound
 	}
-	asset, err := m.media.Get(ctx, assetID)
+	asset, err := m.media.Queries.Get.Handle(ctx, mediaquery.Get{ID: assetID})
 	if errors.Is(err, mediadomain.ErrNotFound) {
 		return "", questionsdomain.ErrMediaNotFound
 	}
@@ -89,30 +91,41 @@ func (m mediaKinds) Kind(ctx context.Context, assetID string) (string, error) {
 	return string(asset.Kind), nil
 }
 
-func mediaTransport(svc *mediaapp.Service) mediahttp.Service {
-	if svc == nil {
-		return nil
-	}
-	return svc
+type mediaPort struct{ app *mediaapp.Application }
+
+func (p mediaPort) Get(ctx context.Context, id string) (mediadomain.Asset, error) {
+	return p.app.Queries.Get.Handle(ctx, mediaquery.Get{ID: id})
 }
 
-func questionsMedia(svc *mediaapp.Service) questionshttp.Media {
-	if svc == nil {
-		return nil
-	}
-	return svc
+func (p mediaPort) SignedURL(ctx context.Context, asset mediadomain.Asset) (string, error) {
+	return p.app.Queries.SignedURL.Handle(ctx, mediaquery.SignedURL{Asset: asset})
 }
 
-func testsMedia(svc *mediaapp.Service) testshttp.Media {
-	if svc == nil {
-		return nil
-	}
-	return svc
+func (p mediaPort) MintForStudent(ctx context.Context, studentID, assetID string) (mediamodel.SignedURLResult, error) {
+	return p.app.Queries.MintForStudent.Handle(ctx, mediaquery.MintForStudent{StudentID: studentID, AssetID: assetID})
 }
 
-func attemptsMedia(svc *mediaapp.Service) attemptshttp.Media {
-	if svc == nil {
+func (p mediaPort) SignedURLTTL() time.Duration {
+	return p.app.SignedURLTTL()
+}
+
+func questionsMedia(app *mediaapp.Application) questionshttp.Media {
+	if app == nil {
 		return nil
 	}
-	return svc
+	return mediaPort{app}
+}
+
+func testsMedia(app *mediaapp.Application) testshttp.Media {
+	if app == nil {
+		return nil
+	}
+	return mediaPort{app}
+}
+
+func attemptsMedia(app *mediaapp.Application) attemptshttp.Media {
+	if app == nil {
+		return nil
+	}
+	return mediaPort{app}
 }

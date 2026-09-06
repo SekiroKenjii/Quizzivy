@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	questionscommand "quizzivy/internal/modules/questions/application/command"
 	"quizzivy/internal/platform/db"
 	"testing"
 
@@ -52,14 +53,14 @@ type builder struct {
 	pool   *pgxpool.Pool
 	author string
 	tests  *application.Service
-	qsvc   *questionsapp.Service
+	qsvc   *questionsapp.Application
 }
 
 func newBuilder(t *testing.T, pool *pgxpool.Pool, author string) *builder {
 	return &builder{
 		t: t, pool: pool, author: author,
 		tests: application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool)))),
-		qsvc:  questionsapp.NewService(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool}),
+		qsvc:  questionsapp.New(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool}),
 	}
 }
 
@@ -68,7 +69,7 @@ func (b *builder) question(in questionsdomain.Input) string {
 	if in.Tags == nil {
 		in.Tags = []string{}
 	}
-	q, err := b.qsvc.Create(context.Background(), questionsdomain.WriteRequest{Input: in, ActorID: b.author})
+	q, err := b.qsvc.Commands.Create.Handle(context.Background(), questionscommand.Create{Request: questionsdomain.WriteRequest{Input: in, ActorID: b.author}})
 	if err != nil {
 		b.t.Fatalf("question %q: %v", in.Prompt, err)
 	}

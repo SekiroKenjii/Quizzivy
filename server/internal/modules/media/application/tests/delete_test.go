@@ -5,6 +5,8 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/media/application/command"
+	"quizzivy/internal/modules/media/application/query"
 	"quizzivy/internal/platform/db"
 	"testing"
 
@@ -19,11 +21,11 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
 	objects := newFakeStore()
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), objects, audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), objects, audioProbe{})
 	asset := upload(t, svc, uploader, "xoa.mp3")
 	ctx := context.Background()
 
-	if err := svc.Delete(ctx, domain.DeleteInput{ID: asset.ID, ActorID: uploader}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{ID: asset.ID, ActorID: uploader}}); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
@@ -51,7 +53,8 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 	}
 
 	// Gone from the library.
-	assets, _, err := svc.List(ctx, domain.ListInput{Limit: 100})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: 100}})
+	assets := listResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,14 +70,14 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 func TestDeleteTwiceIsNotFound(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	asset := upload(t, svc, uploader, "hai-lan.mp3")
 	ctx := context.Background()
 
-	if err := svc.Delete(ctx, domain.DeleteInput{ID: asset.ID, ActorID: uploader}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{ID: asset.ID, ActorID: uploader}}); err != nil {
 		t.Fatalf("first delete: %v", err)
 	}
-	err := svc.Delete(ctx, domain.DeleteInput{ID: asset.ID, ActorID: uploader})
+	_, err := svc.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{ID: asset.ID, ActorID: uploader}})
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("second delete: %v, want ErrNotFound", err)
 	}
@@ -100,11 +103,11 @@ func TestDeleteTwiceIsNotFound(t *testing.T) {
 func TestMintForStudentDeniesByDefault(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	asset := upload(t, svc, uploader, "cua-nguoi-khac.mp3")
 
 	student := makeStudent(t, pool)
-	_, err := svc.MintForStudent(context.Background(), student, asset.ID)
+	_, err := svc.Queries.MintForStudent.Handle(context.Background(), query.MintForStudent{StudentID: student, AssetID: asset.ID})
 	if !errors.Is(err, domain.ErrForbidden) {
 		t.Errorf("a student minted a URL for an asset they cannot reach: %v", err)
 	}
@@ -114,11 +117,10 @@ func TestMintForStudentDeniesByDefault(t *testing.T) {
 // asset and a made-up id, so the endpoint is not an oracle for valid ids.
 func TestMintForStudentHidesWhetherTheAssetExists(t *testing.T) {
 	pool := newPool(t)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	student := makeStudent(t, pool)
 
-	_, err := svc.MintForStudent(context.Background(), student,
-		"00000000-0000-7000-8000-000000000000")
+	_, err := svc.Queries.MintForStudent.Handle(context.Background(), query.MintForStudent{StudentID: student, AssetID: "00000000-0000-7000-8000-000000000000"})
 	if !errors.Is(err, domain.ErrForbidden) {
 		t.Errorf("a nonexistent asset answered %v, want the same ErrForbidden a real one gets", err)
 	}

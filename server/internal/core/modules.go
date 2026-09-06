@@ -68,11 +68,11 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	}
 	deps.Modules = Modules{
 		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(db.NewContext(pool.Pool)))),
-		Media:       mediahttp.NewMedia(mediaTransport(mediaService)),
+		Media:       mediahttp.NewMedia(mediaService),
 		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(db.NewContext(pool.Pool))), attemptsapp.NewReview(attemptsrepo.NewReviews(db.NewContext(pool.Pool))), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(db.NewContext(pool.Pool))), attemptsMedia(mediaService), studentsService, logger),
 		Assignments: assignmentshttp.NewAssignments(assignmentsapp.New(assignmentsrepo.NewPostgres(db.NewContext(pool.Pool)))),
 		Tests:       testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
-		Questions:   questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
+		Questions:   questionshttp.NewQuestions(questionsapp.New(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
 		Identity:    identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
 		Classes:     classeshttp.NewClasses(classesApp),
 	}
@@ -104,7 +104,7 @@ func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identitya
 
 // newMediaService returns nil when object storage is not configured, which is a
 // supported deployment: everything but upload still works.
-func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, repo *mediarepo.Postgres) (*mediaapp.Service, error) {
+func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger, repo *mediarepo.Postgres) (*mediaapp.Application, error) {
 	if !cfg.MediaEnabled() {
 		logger.Info("media storage disabled (no bucket configured)")
 		return nil, nil
@@ -123,6 +123,6 @@ func newMediaService(ctx context.Context, cfg config.Config, logger *slog.Logger
 	}
 	logger.Info("media storage enabled", "bucket", cfg.S3Bucket, "endpoint", cfg.S3Endpoint)
 
-	return mediaapp.NewService(repo, objects, audioProbe{}).
+	return mediaapp.New(repo, objects, audioProbe{}).
 		WithSignedURLTTL(cfg.SignedURLTTL), nil
 }

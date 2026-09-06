@@ -4,6 +4,8 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/modules/questions/application/command"
+	"quizzivy/internal/modules/questions/application/query"
 	"testing"
 
 	"quizzivy/internal/modules/questions/domain"
@@ -15,34 +17,35 @@ func TestListedPageCarriesEachQuestionsOwnChildren(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	choice, err := svc.Create(ctx, domain.WriteRequest{
+	choice, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
 		Input: domain.Input{
 			Type: domain.SingleChoice, Prompt: "Trộn con — chọn", Points: "1.00", Tags: []string{},
 			Options: []domain.OptionInput{{Text: "Đúng", IsCorrect: true}, {Text: "Sai", IsCorrect: false}},
 		}, ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	blank, err := svc.Create(ctx, domain.WriteRequest{
+	blank, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
 		Input: domain.Input{
 			Type: domain.FillBlank, Prompt: "Trộn con — điền {{1}}", Points: "1.00", Tags: []string{},
 			Blanks: []domain.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{"a", "b"}}},
 		}, ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain, err := svc.Create(ctx, domain.WriteRequest{
+	plain, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
 		Input: domain.Input{
 			Type: domain.ShortAnswer, Prompt: "Trộn con — viết", Points: "1.00", Tags: []string{},
 		}, ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	listed, _, err := svc.List(ctx, domain.ListInput{Query: "Tron con", Limit: 50})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Query: "Tron con", Limit: 50}})
+	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}

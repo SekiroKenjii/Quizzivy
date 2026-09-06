@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"mime/multipart"
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/media/application"
+	"quizzivy/internal/modules/media/application/command"
+	"quizzivy/internal/modules/media/application/query"
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -15,7 +16,7 @@ import (
 
 // UploadMedia implements POST /admin/media (§11.1).
 func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaRequestObject) (openapi.UploadMediaResponseObject, error) {
-	if h.media == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -31,8 +32,7 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 	defer func() { _ = part.Close() }()
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	asset, err := h.media.Upload(ctx, application.UploadInput{
-		Filename:   part.FileName(),
+	asset, err := h.app.Commands.Upload.Handle(ctx, command.Upload{Filename: part.FileName(),
 		Body:       part,
 		UploaderID: principal.UserID,
 		IP:         meta.IP,
@@ -60,7 +60,7 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 		return nil, err
 	}
 
-	url, err := h.media.SignedURL(ctx, asset)
+	url, err := h.app.Queries.SignedURL.Handle(ctx, query.SignedURL{Asset: asset})
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func ToAPIMediaAsset(a domain.Asset, url string) openapi.MediaAsset {
 
 // ListMedia implements GET /admin/media -- the §8 media library.
 func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestObject) (openapi.ListMediaResponseObject, error) {
-	if h.media == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -114,11 +114,12 @@ func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestOb
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	assets, page, err := h.media.List(ctx, in)
+	listResult, err := h.app.Queries.List.Handle(ctx, query.List{Input: in})
+	assets, page := listResult.Items, listResult.Page
 	if err != nil {
 		return nil, err
 	}
-	totalBytes, err := h.media.TotalBytes(ctx, in.Kind)
+	totalBytes, err := h.app.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: in.Kind})
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +158,7 @@ func ToAPIReferencingTests(refs []domain.TestRef) []openapi.ReferencingTest {
 
 // DeleteMedia implements DELETE /admin/media/{id}.
 func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaRequestObject) (openapi.DeleteMediaResponseObject, error) {
-	if h.media == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -166,12 +167,12 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	err := h.media.Delete(ctx, domain.DeleteInput{
+	_, err := h.app.Commands.Delete.Handle(ctx, command.Delete{Input: domain.DeleteInput{
 		ID:        request.Id.String(),
 		ActorID:   principal.UserID,
 		IP:        meta.IP,
 		UserAgent: meta.UserAgent,
-	})
+	}})
 	switch {
 	case err == nil:
 		return openapi.DeleteMedia204Response{}, nil
@@ -198,7 +199,7 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 // GetMediaUrl implements GET /app/media/{assetId}/url -- a student minting a
 // signed URL for a listening file (§11.2).
 func (h Media) GetMediaUrl(ctx context.Context, request openapi.GetMediaUrlRequestObject) (openapi.GetMediaUrlResponseObject, error) {
-	if h.media == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -206,7 +207,7 @@ func (h Media) GetMediaUrl(ctx context.Context, request openapi.GetMediaUrlReque
 		return nil, httpx.ErrNotImplemented
 	}
 
-	result, err := h.media.MintForStudent(ctx, principal.UserID, request.AssetId.String())
+	result, err := h.app.Queries.MintForStudent.Handle(ctx, query.MintForStudent{StudentID: principal.UserID, AssetID: request.AssetId.String()})
 	if errors.Is(err, domain.ErrForbidden) {
 		return openapi.GetMediaUrl403JSONResponse{ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
 			httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền truy cập tệp này."))}, nil
@@ -224,7 +225,7 @@ func (h Media) GetMediaUrl(ctx context.Context, request openapi.GetMediaUrlReque
 			Url:       result.URL,
 		},
 		Headers: openapi.GetMediaUrl200ResponseHeaders{
-			CacheControl: cacheControlForSignedURL(h.media.SignedURLTTL()),
+			CacheControl: cacheControlForSignedURL(h.app.SignedURLTTL()),
 		},
 	}, nil
 }

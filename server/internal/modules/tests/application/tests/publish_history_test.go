@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	questionscommand "quizzivy/internal/modules/questions/application/command"
 	"quizzivy/internal/platform/db"
 	"testing"
 
@@ -67,7 +68,7 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
-	qsvc := questionsapp.NewService(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
+	qsvc := questionsapp.New(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
 	ctx := context.Background()
 
 	questionID := b.question(questionsdomain.Input{
@@ -85,7 +86,7 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	}
 
 	// The teacher rewrites the bank question after publishing.
-	if _, err := qsvc.Update(ctx, questionsdomain.WriteRequest{
+	if _, err := qsvc.Commands.Update.Handle(ctx, questionscommand.Update{Request: questionsdomain.WriteRequest{
 		ID:      questionID,
 		ActorID: author,
 		Input: questionsdomain.Input{
@@ -98,7 +99,7 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 				{Text: "nữa", IsCorrect: false},
 			},
 		},
-	}); err != nil {
+	}}); err != nil {
 		t.Fatalf("edit the bank question: %v", err)
 	}
 

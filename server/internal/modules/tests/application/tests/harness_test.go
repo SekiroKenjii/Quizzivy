@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	questionscommand "quizzivy/internal/modules/questions/application/command"
 	"quizzivy/internal/platform/db"
 	"testing"
 
@@ -74,13 +75,13 @@ func reqFor(id, author string) domain.Request {
 // newQuestion adds a bank question the outline can reference.
 func newQuestion(t *testing.T, pool *pgxpool.Pool, author, prompt string) string {
 	t.Helper()
-	svc := questionsapp.NewService(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
-	q, err := svc.Create(context.Background(), questionsdomain.WriteRequest{
+	svc := questionsapp.New(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
+	q, err := svc.Commands.Create.Handle(context.Background(), questionscommand.Create{Request: questionsdomain.WriteRequest{
 		Input: questionsdomain.Input{
 			Type: questionsdomain.ShortAnswer, Prompt: prompt, Points: "2.00", Tags: []string{},
 		},
 		ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("question %q: %v", prompt, err)
 	}
