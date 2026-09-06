@@ -54,6 +54,14 @@ engine, then the shell and the four pages, then release.
   title) becomes a mode of `StudentLayout` selected by a route handle,
   because S-13/S-14 keep the nav bar on detail pages from 1024 and only the
   phone wants the arrow. The take-test route keeps `FocusLayout`.
+- **The student's right column is F-11's panel, through `PageAside`.** Not a
+  grid column: the same `SideColumn` the admin screens use, full height beside
+  the scrolling middle, with F-13's handle and the remembered panel width.
+  `StudentLayout` therefore exposes the same `PageAsideSlot` the admin layout
+  does, and each page renders its panel content into it from 1024; below that
+  the same content returns to the flow where S-03/S-10 draw it (Thuong,
+  2026-09-07: "nhớ áp dụng quy ước aside", and the narrow-column classes and
+  settings pages "bị bóp lại … khá đơn điệu").
 - **#94 ("Hồ sơ" card) is not decided here.** S-17 draws the card as S-10
   does; whichever way #94 goes applies to both widths.
 
@@ -134,8 +142,10 @@ engine, then the shell and the four pages, then release.
 - [ ] Top bar: logo, "Bài của tôi", "Lớp", and from `lg` a user menu (avatar
       initial + given name + chevron → Cài đặt, Đăng xuất); below `lg` the
       S-03 bar with its icon button, unchanged
-- [ ] Page column `max-w-5xl` with `px-6 py-8` from `lg`; below `lg` the
-      phone padding and a 40rem cap
+- [ ] From `lg` the content area is the admin's two columns: a scrolling
+      middle with `p-8` and the `PageAsideSlot`, so a page's `PageAside`
+      lands beside the scroll at F-11's width with F-13's handle; below `lg`
+      the phone padding and a 40rem cap
 - [ ] Detail routes (`assignments/:id`, `attempts/:id/result`, `settings`)
       declare `handle.detail`; below `lg` the layout shows the back arrow +
       title, from `lg` the nav bar with the page drawing its own "← Bài của
@@ -151,11 +161,12 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/assignments/pages/StudentHomePage.tsx`
 **Size:** M
 **Done when:**
-- [ ] From `lg`: `minmax(0,1fr) 20rem` grid with a 2rem gap; due and resume
-      cards lay out sideways with the button at its own width on the right;
-      completed rows add the class name before "Nộp dd/mm"
-- [ ] Right column: "Sắp tới · n" then "Lớp của tôi" (names, teacher, "Tham
-      gia lớp"); absent when both are empty; empty states stay in the left column
+- [ ] From `lg`: the middle fills its column; due and resume cards lay out
+      sideways with the button at its own width on the right; completed rows
+      add the class name before "Nộp dd/mm"
+- [ ] Panel (`PageAside`): "Sắp tới · n" then "Lớp của tôi" (names, teacher,
+      "Tham gia lớp") under F-11's uppercase labels; not rendered when both
+      are empty; empty states stay in the middle
 - [ ] Below `lg`: S-03 exactly as today
 
 ---
@@ -166,8 +177,9 @@ engine, then the shell and the four pages, then release.
 **Size:** S
 **Done when:**
 - [ ] From `lg`: back link, provenance and title over "Khi làm bài" and "Sau
-      khi nộp" on the left; facts + start button + note in one card on the
-      right; blocked states and resume take the button's place
+      khi nộp" side by side (3fr / 2fr); the panel holds "Tóm tắt" as
+      label/value rows, the start button and its note; blocked states and
+      resume take the button's place
 - [ ] Below `lg`: S-04 exactly as today
 
 ---
@@ -177,9 +189,10 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/results/pages/ResultPage.tsx`
 **Size:** M
 **Done when:**
-- [ ] From `lg`: back link, title, and the "Nộp lúc … · Lượt n/m" line on the
-      left with the filters and the paper at 720px; the score tile on the
-      right with "x đúng · y sai · z chờ chấm" under the bar
+- [ ] From `lg`: back link, title, and the "Nộp lúc … · Lượt n/m" line over
+      the filters and the paper at 720px in the middle; the panel holds "Kết
+      quả": the tile, then Đúng / Sai / Chờ chấm / Nộp lúc / Lượt as
+      label/value rows, then the withheld-block sentence
 - [ ] The S-09b subtractions hold in both columns; a withheld score leaves
       the right column empty except the one muted sentence
 - [ ] Below `lg`: S-09 exactly as today
@@ -191,8 +204,14 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/classes/pages/StudentClassesPage.tsx`, `web/src/features/auth/pages/StudentSettingsPage.tsx`, `web/src/features/auth/pages/LoginPage.tsx`, `web/src/layouts/PublicLayout.tsx`
 **Size:** S
 **Done when:**
-- [ ] Classes: 42rem column, title row, "Lớp" lit; settings: 36rem column,
-      "Cài đặt" title, sign-out at its own width, nothing lit
+- [ ] Classes: a two-column grid of class cards (name, teacher · joined,
+      description, open / submitted counts derived from the home's lists)
+      with "Lớp" lit, and the panel holding S-01's join-code field that goes
+      to `/join/:code/confirm`; below `lg` the "Tham gia lớp" button as S-10
+- [ ] Settings: a two-column grid of Hồ sơ / Mật khẩu / Tài khoản Google /
+      Ngôn ngữ, nothing lit, and the panel holding the account (avatar, name,
+      email, role, sign-in methods, since, classes) with "Đăng xuất"; below
+      `lg` S-10's list with sign-out at the bottom
 - [ ] Login shows S-02's brand panel from `lg`; join is S-01's single card at
       every width — both measured in the browser, fixed if off
 
