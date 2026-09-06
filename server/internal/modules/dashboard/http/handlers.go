@@ -4,31 +4,26 @@ import (
 	"context"
 
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/dashboard/application"
+	"quizzivy/internal/modules/dashboard/application/query"
 	"quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
-	"quizzivy/internal/shared/paging"
 )
 
-// Service is the slice of the application this transport needs.
-type Service interface {
-	Summary(ctx context.Context) (domain.Summary, error)
-	List(ctx context.Context, q domain.ListQuery) ([]domain.Recent, paging.Page, error)
-}
-
 type Dashboard struct {
-	svc Service
+	app *application.Application
 }
 
-func NewDashboard(svc Service) Dashboard {
-	return Dashboard{svc: svc}
+func NewDashboard(app *application.Application) Dashboard {
+	return Dashboard{app: app}
 }
 
 func (h Dashboard) GetDashboard(ctx context.Context, _ openapi.GetDashboardRequestObject) (openapi.GetDashboardResponseObject, error) {
-	if h.svc == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	summary, err := h.svc.Summary(ctx)
+	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{})
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +41,7 @@ func (h Dashboard) GetDashboard(ctx context.Context, _ openapi.GetDashboardReque
 }
 
 func (h Dashboard) ListAttempts(ctx context.Context, request openapi.ListAttemptsRequestObject) (openapi.ListAttemptsResponseObject, error) {
-	if h.svc == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	q := domain.ListQuery{Flagged: request.Params.Flagged, PendingGrading: request.Params.PendingGrading}
@@ -60,7 +55,8 @@ func (h Dashboard) ListAttempts(ctx context.Context, request openapi.ListAttempt
 	if request.Params.Limit != nil {
 		q.Limit = *request.Params.Limit
 	}
-	found, page, err := h.svc.List(ctx, q)
+	listResult, err := h.app.Queries.List.Handle(ctx, query.List{Query: q})
+	found, page := listResult.Items, listResult.Page
 	if err != nil {
 		return nil, err
 	}

@@ -1,19 +1,26 @@
-package application
+package query
 
 import (
 	"context"
+	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
 )
 
-// Preview backs the /join/:code/confirm step (§6.2), which exists so a student
-// sees WHICH class they are joining before authenticating.
-func (s *Enrolment) Preview(ctx context.Context, rawCode string) (domain.PreviewResult, error) {
-	normalized := domain.JoinCodes.Normalize(rawCode)
+type Preview struct {
+	Code string
+}
+
+type PreviewHandler struct {
+	*support.Enrolment
+}
+
+func (s PreviewHandler) Handle(ctx context.Context, q Preview) (domain.PreviewResult, error) {
+	normalized := domain.JoinCodes.Normalize(q.Code)
 	if normalized == "" {
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
 	}
 
-	row, err := s.repo.LookupByCodeHash(ctx, domain.JoinCodes.Hash(normalized))
+	row, err := s.Repo.LookupByCodeHash(ctx, domain.JoinCodes.Hash(normalized))
 	if err != nil {
 		return domain.PreviewResult{}, err
 	}
@@ -24,7 +31,7 @@ func (s *Enrolment) Preview(ctx context.Context, rawCode string) (domain.Preview
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
 	}
 
-	if outcome := row.Usable(s.now()); outcome != domain.PreviewOK {
+	if outcome := row.Usable(s.Now()); outcome != domain.PreviewOK {
 		return domain.PreviewResult{Outcome: outcome}, nil
 	}
 

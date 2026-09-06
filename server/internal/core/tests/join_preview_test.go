@@ -12,8 +12,11 @@ import (
 	"strings"
 	"testing"
 
+	classesapp "quizzivy/internal/modules/classes/application"
+	classesquery "quizzivy/internal/modules/classes/application/query"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	classeshttp "quizzivy/internal/modules/classes/http"
+	"quizzivy/internal/shared/cqrs"
 )
 
 // POST /join/preview is unauthenticated and takes a bearer secret. Two things
@@ -28,22 +31,20 @@ type fakeJoin struct {
 	seen   []string
 }
 
-func (f *fakeJoin) Rotate(context.Context, classesdomain.RotateRequest) (classesdomain.Rotated, error) {
-	return classesdomain.Rotated{}, nil
-}
-func (f *fakeJoin) Revoke(context.Context, classesdomain.RevokeRequest) error { return nil }
-func (f *fakeJoin) EnrolExisting(context.Context, string, string, classesdomain.Meta) (classesdomain.EnrolResult, error) {
-	return classesdomain.EnrolResult{}, nil
-}
-func (f *fakeJoin) Preview(_ context.Context, code string) (classesdomain.PreviewResult, error) {
-	f.seen = append(f.seen, code)
-	return f.result, f.err
+func (f *fakeJoin) app() *classesapp.Application {
+	preview := func(_ context.Context, q classesquery.Preview) (classesdomain.PreviewResult, error) {
+		f.seen = append(f.seen, q.Code)
+		return f.result, f.err
+	}
+	return &classesapp.Application{Queries: classesapp.Queries{
+		Preview: cqrs.HandlerFunc[classesquery.Preview, classesdomain.PreviewResult](preview),
+	}}
 }
 
 func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := core.NewRouter(core.Deps{DB: fakeDB{}, Modules: core.Modules{Classes: classeshttp.NewClasses(nil, fake)}, Tokens: testIssuer(t)}, logger,
+	h, err := core.NewRouter(core.Deps{DB: fakeDB{}, Modules: core.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)

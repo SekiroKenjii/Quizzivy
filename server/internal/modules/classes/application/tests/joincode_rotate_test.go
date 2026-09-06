@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"quizzivy/internal/modules/classes/application"
+	"quizzivy/internal/modules/classes/application/command"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/classes/repositories"
 
@@ -59,9 +60,9 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 	return classID, teacherID, studentID
 }
 
-func newSvc(t *testing.T, pool *pgxpool.Pool) *application.Enrolment {
+func newSvc(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.NewEnrolment(repositories.NewPostgres(db.NewContext(pool)))
+	return application.New(repositories.NewPostgres(db.NewContext(pool)), nil)
 }
 
 func activeCodeCount(t *testing.T, pool *pgxpool.Pool, classID string) int {
@@ -91,11 +92,11 @@ func TestRotationRetiresTheOldCodeAndLeavesMembersAlone(t *testing.T) {
 	classID, teacherID, studentID := makeClassRow(t, pool)
 	ctx := context.Background()
 
-	first, err := svc.Rotate(ctx, domain.RotateRequest{ClassID: classID, ActorUserID: teacherID})
+	first, err := svc.Commands.Rotate.Handle(ctx, command.Rotate{Request: domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}})
 	if err != nil {
 		t.Fatalf("first rotate: %v", err)
 	}
-	second, err := svc.Rotate(ctx, domain.RotateRequest{ClassID: classID, ActorUserID: teacherID})
+	second, err := svc.Commands.Rotate.Handle(ctx, command.Rotate{Request: domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}})
 	if err != nil {
 		t.Fatalf("second rotate: %v", err)
 	}
@@ -133,9 +134,9 @@ func TestOnlyTheHashAndAHintAreStored(t *testing.T) {
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClassRow(t, pool)
 
-	rotated, err := svc.Rotate(context.Background(), domain.RotateRequest{
+	rotated, err := svc.Commands.Rotate.Handle(context.Background(), command.Rotate{Request: domain.RotateRequest{
 		ClassID: classID, ActorUserID: teacherID,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,9 +174,9 @@ func TestTheDefaultsAreThirtyDaysAndFortyUses(t *testing.T) {
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClassRow(t, pool)
 
-	rotated, err := svc.Rotate(context.Background(), domain.RotateRequest{
+	rotated, err := svc.Commands.Rotate.Handle(context.Background(), command.Rotate{Request: domain.RotateRequest{
 		ClassID: classID, ActorUserID: teacherID,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,14 +195,14 @@ func TestRevokingClosesTheClassCompletely(t *testing.T) {
 	classID, teacherID, _ := makeClassRow(t, pool)
 	ctx := context.Background()
 
-	if _, err := svc.Rotate(ctx, domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Rotate.Handle(ctx, command.Rotate{Request: domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
 	if !selfJoinEnabled(t, pool, classID) {
 		t.Fatal("issuing a code did not enable self-join")
 	}
 
-	if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatalf("revoke: %v", err)
 	}
 	if n := activeCodeCount(t, pool, classID); n != 0 {
@@ -218,10 +219,10 @@ func TestRotatingAfterARevokeReopensTheClass(t *testing.T) {
 	classID, teacherID, _ := makeClassRow(t, pool)
 	ctx := context.Background()
 
-	if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Rotate(ctx, domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Rotate.Handle(ctx, command.Rotate{Request: domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
 	if !selfJoinEnabled(t, pool, classID) {
@@ -236,7 +237,7 @@ func TestRevokingIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 
 	for i := range 3 {
-		if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+		if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 			t.Fatalf("revoke %d: %v", i+1, err)
 		}
 	}
@@ -248,14 +249,14 @@ func TestAMissingClassIsReportedRatherThanCreatingAnOrphanCode(t *testing.T) {
 	_, teacherID, _ := makeClassRow(t, pool)
 	const ghost = "01935000-0000-7000-8000-00000000ffff"
 
-	if _, err := svc.Rotate(context.Background(), domain.RotateRequest{
+	if _, err := svc.Commands.Rotate.Handle(context.Background(), command.Rotate{Request: domain.RotateRequest{
 		ClassID: ghost, ActorUserID: teacherID,
-	}); !errors.Is(err, domain.ErrClassNotFound) {
+	}}); !errors.Is(err, domain.ErrClassNotFound) {
 		t.Errorf("rotate: error = %v, want ErrClassNotFound", err)
 	}
-	if err := svc.Revoke(context.Background(), domain.RevokeRequest{
+	if _, err := svc.Commands.Revoke.Handle(context.Background(), command.Revoke{Request: domain.RevokeRequest{
 		ClassID: ghost, ActorUserID: teacherID,
-	}); !errors.Is(err, domain.ErrClassNotFound) {
+	}}); !errors.Is(err, domain.ErrClassNotFound) {
 		t.Errorf("revoke: error = %v, want ErrClassNotFound", err)
 	}
 }
@@ -274,9 +275,9 @@ func TestConcurrentRotationsNeverLeaveTwoActiveCodes(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-release
-			_, errs[i] = svc.Rotate(context.Background(), domain.RotateRequest{
+			_, errs[i] = svc.Commands.Rotate.Handle(context.Background(), command.Rotate{Request: domain.RotateRequest{
 				ClassID: classID, ActorUserID: teacherID,
-			})
+			}})
 		}()
 	}
 	close(release)
@@ -298,15 +299,15 @@ func TestIssuingRotatingAndRevokingAreAudited(t *testing.T) {
 	classID, teacherID, _ := makeClassRow(t, pool)
 	ctx := context.Background()
 
-	if _, err := svc.Rotate(ctx, domain.RotateRequest{
+	if _, err := svc.Commands.Rotate.Handle(ctx, command.Rotate{Request: domain.RotateRequest{
 		ClassID: classID, ActorUserID: teacherID, IP: "203.0.113.9", UserAgent: "go-test",
-	}); err != nil {
+	}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Rotate(ctx, domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Rotate.Handle(ctx, command.Rotate{Request: domain.RotateRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
 

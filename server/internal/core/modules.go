@@ -51,8 +51,8 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	studentStats := attemptsrepo.NewStudentStats(db.NewContext(pool.Pool))
 	studentsService := identityapp.NewStudents(identityrepo.NewStudents(db.NewContext(pool.Pool)), studentStats)
 	classesRepo := classesrepo.NewPostgres(db.NewContext(pool.Pool))
-	joinService := classesapp.NewEnrolment(classesRepo)
-	attachGoogle(cfg, logger, authService, joinService)
+	classesApp := classesapp.New(classesRepo, studentStats)
+	attachGoogle(cfg, logger, authService, selfEnroller{classesApp})
 
 	mediaRepo := mediarepo.NewPostgres(db.NewContext(pool.Pool))
 	questionsRepo := questionsrepo.NewPostgres(db.NewContext(pool.Pool))
@@ -70,11 +70,11 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(db.NewContext(pool.Pool)))),
 		Media:       mediahttp.NewMedia(mediaTransport(mediaService)),
 		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(db.NewContext(pool.Pool))), attemptsapp.NewReview(attemptsrepo.NewReviews(db.NewContext(pool.Pool))), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(db.NewContext(pool.Pool))), attemptsMedia(mediaService), studentsService, logger),
-		Assignments: assignmentshttp.NewAssignments(assignmentsapp.NewService(assignmentsrepo.NewPostgres(db.NewContext(pool.Pool)))),
+		Assignments: assignmentshttp.NewAssignments(assignmentsapp.New(assignmentsrepo.NewPostgres(db.NewContext(pool.Pool)))),
 		Tests:       testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
 		Questions:   questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
 		Identity:    identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
-		Classes:     classeshttp.NewClasses(classesapp.NewService(classesRepo, studentStats), joinService),
+		Classes:     classeshttp.NewClasses(classesApp),
 	}
 	return deps, authService, nil
 }
@@ -88,7 +88,7 @@ func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
 
 // attachGoogle enables §5.3 sign-in when credentials are configured. Config has
 // already refused a half-configured set, so this is all-or-nothing.
-func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identityapp.Service, joinService *classesapp.Enrolment) {
+func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identityapp.Service, enroller identityapp.SelfEnroller) {
 	if !cfg.GoogleEnabled() {
 		logger.Info("google sign-in disabled (no credentials configured)")
 		return
@@ -98,7 +98,7 @@ func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identitya
 	authService.SetGoogle(googleProvider{google.NewProvider(
 		google.NewExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURIs, "", nil),
 		google.NewVerifier(cfg.GoogleClientID, keys),
-	)}, joinService)
+	)}, enroller)
 	logger.Info("google sign-in enabled", "redirect_uris", cfg.GoogleRedirectURIs)
 }
 

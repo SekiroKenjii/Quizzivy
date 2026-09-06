@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/assignments/application/command"
+	"quizzivy/internal/modules/assignments/application/query"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -12,7 +14,7 @@ import (
 
 // ListAssignments backs §8's assignments list and A-01's "Bài đang mở".
 func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
-	if h.assignments == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -32,11 +34,12 @@ func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAs
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, page, err := h.assignments.List(ctx, in)
+	listResult, err := h.app.Queries.List.Handle(ctx, query.List{Input: in})
+	found, page := listResult.Items, listResult.Page
 	if err != nil {
 		return nil, err
 	}
-	facets, err := h.assignments.Facets(ctx, in)
+	facets, err := h.app.Queries.Facets.Handle(ctx, query.Facets{Input: in})
 	if err != nil {
 		return nil, err
 	}
@@ -127,10 +130,10 @@ func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 }
 
 func (h Assignments) GetAssignment(ctx context.Context, request openapi.GetAssignmentRequestObject) (openapi.GetAssignmentResponseObject, error) {
-	if h.assignments == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	a, err := h.assignments.Get(ctx, request.Id.String())
+	a, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String()})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignment404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
@@ -142,7 +145,7 @@ func (h Assignments) GetAssignment(ctx context.Context, request openapi.GetAssig
 }
 
 func (h Assignments) CreateAssignment(ctx context.Context, request openapi.CreateAssignmentRequestObject) (openapi.CreateAssignmentResponseObject, error) {
-	if h.assignments == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := assignmentRequest(ctx, "")
@@ -150,7 +153,7 @@ func (h Assignments) CreateAssignment(ctx context.Context, request openapi.Creat
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := h.assignments.Create(ctx, req, toWriteInput(*request.Body))
+	a, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: req, Input: toWriteInput(*request.Body)})
 	var invalid *domain.ValidationError
 	switch {
 	case err == nil:
@@ -167,7 +170,7 @@ func (h Assignments) CreateAssignment(ctx context.Context, request openapi.Creat
 }
 
 func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.UpdateAssignmentRequestObject) (openapi.UpdateAssignmentResponseObject, error) {
-	if h.assignments == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := assignmentRequest(ctx, request.Id.String())
@@ -175,7 +178,7 @@ func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.Updat
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := h.assignments.Update(ctx, req, toWriteInput(*request.Body))
+	a, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req, Input: toWriteInput(*request.Body)})
 	var invalid *domain.ValidationError
 	switch {
 	case err == nil:
@@ -199,7 +202,7 @@ func (h Assignments) UpdateAssignment(ctx context.Context, request openapi.Updat
 
 // ReopenAssignment is G-09's "Gia hạn cho tất cả".
 func (h Assignments) ReopenAssignment(ctx context.Context, request openapi.ReopenAssignmentRequestObject) (openapi.ReopenAssignmentResponseObject, error) {
-	if h.assignments == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := assignmentRequest(ctx, request.Id.String())
@@ -207,7 +210,7 @@ func (h Assignments) ReopenAssignment(ctx context.Context, request openapi.Reope
 		return nil, httpx.ErrNotImplemented
 	}
 
-	a, err := h.assignments.Reopen(ctx, req, request.Body.ClosesAt, request.Body.Reason, time.Now())
+	a, err := h.app.Commands.Reopen.Handle(ctx, command.Reopen{Request: req, ClosesAt: request.Body.ClosesAt, Reason: request.Body.Reason, Now: time.Now()})
 	switch {
 	case err == nil:
 	case errors.Is(err, domain.ErrBlankReason):

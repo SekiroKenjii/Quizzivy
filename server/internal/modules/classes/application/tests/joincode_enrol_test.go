@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"quizzivy/internal/modules/classes/application/command"
 	"quizzivy/internal/modules/classes/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -65,7 +66,7 @@ func TestSelfJoinCreatesTheAccountAndEnrolsIt(t *testing.T) {
 	dropUser(t, pool, m.Email)
 
 	before := memberCount(t, pool, classID)
-	result, err := svc.EnrolNewMember(context.Background(), m, code, domain.Meta{IP: "203.0.113.44", UserAgent: "go-test"})
+	result, err := svc.Commands.EnrolNewMember.Handle(context.Background(), command.EnrolNewMember{Member: m, Code: code, Meta: domain.Meta{IP: "203.0.113.44", UserAgent: "go-test"}})
 	if err != nil {
 		t.Fatalf("EnrolNewMember: %v", err)
 	}
@@ -108,9 +109,9 @@ func TestConcurrentEnrolmentsAgainstALastSeatProduceExactlyOneMember(t *testing.
 	classID, teacherID, _ := makeClassRow(t, pool)
 
 	one := 1
-	rotated, err := svc.Rotate(context.Background(), domain.RotateRequest{
+	rotated, err := svc.Commands.Rotate.Handle(context.Background(), command.Rotate{Request: domain.RotateRequest{
 		ClassID: classID, ActorUserID: teacherID, MaxUses: &one,
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +137,7 @@ func TestConcurrentEnrolmentsAgainstALastSeatProduceExactlyOneMember(t *testing.
 		go func() {
 			defer wg.Done()
 			<-release
-			res, err := svc.EnrolNewMember(context.Background(), members[i], rotated.Code, domain.Meta{})
+			res, err := svc.Commands.EnrolNewMember.Handle(context.Background(), command.EnrolNewMember{Member: members[i], Code: rotated.Code, Meta: domain.Meta{}})
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
@@ -187,7 +188,7 @@ func TestAnExpiredCodeCreatesNoUser(t *testing.T) {
 
 	m := newMember(t)
 	dropUser(t, pool, m.Email)
-	result, err := svc.EnrolNewMember(ctx, m, code, domain.Meta{})
+	result, err := svc.Commands.EnrolNewMember.Handle(ctx, command.EnrolNewMember{Member: m, Code: code, Meta: domain.Meta{}})
 	if err != nil {
 		t.Fatalf("EnrolNewMember: %v", err)
 	}
@@ -218,13 +219,13 @@ func TestEnrollingTwiceIsIdempotentAndDoesNotBurnAUse(t *testing.T) {
 	// The fixture's student joined via 'admin'; enrol a fresh one by code.
 	m := newMember(t)
 	dropUser(t, pool, m.Email)
-	first, err := svc.EnrolNewMember(ctx, m, code, domain.Meta{})
+	first, err := svc.Commands.EnrolNewMember.Handle(ctx, command.EnrolNewMember{Member: m, Code: code, Meta: domain.Meta{}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i := range 3 {
-		again, err := svc.EnrolExisting(ctx, first.UserID, code, domain.Meta{})
+		again, err := svc.Commands.EnrolExisting.Handle(ctx, command.EnrolExisting{UserID: first.UserID, Code: code, Meta: domain.Meta{}})
 		if err != nil {
 			t.Fatalf("repeat %d: %v", i+1, err)
 		}
@@ -253,7 +254,7 @@ func TestAnAlreadySignedInStudentCanEnrol(t *testing.T) {
 	other, _, otherStudent := makeClassRow(t, pool)
 	_ = other
 
-	result, err := svc.EnrolExisting(ctx, otherStudent, code, domain.Meta{IP: "203.0.113.77"})
+	result, err := svc.Commands.EnrolExisting.Handle(ctx, command.EnrolExisting{UserID: otherStudent, Code: code, Meta: domain.Meta{IP: "203.0.113.77"}})
 	if err != nil {
 		t.Fatalf("EnrolExisting: %v", err)
 	}
@@ -275,17 +276,17 @@ func TestABadCodeRefusesEveryEnrolmentPathAlike(t *testing.T) {
 	code := issueCode(t, svc, classID, teacherID)
 	ctx := context.Background()
 
-	if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
 
 	m := newMember(t)
 	dropUser(t, pool, m.Email)
-	signup, err := svc.EnrolNewMember(ctx, m, code, domain.Meta{})
+	signup, err := svc.Commands.EnrolNewMember.Handle(ctx, command.EnrolNewMember{Member: m, Code: code, Meta: domain.Meta{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	existing, err := svc.EnrolExisting(ctx, teacherID, code, domain.Meta{})
+	existing, err := svc.Commands.EnrolExisting.Handle(ctx, command.EnrolExisting{UserID: teacherID, Code: code, Meta: domain.Meta{}})
 	if err != nil {
 		t.Fatal(err)
 	}
