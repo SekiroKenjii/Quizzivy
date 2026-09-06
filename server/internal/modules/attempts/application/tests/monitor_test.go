@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"os"
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
@@ -190,6 +191,9 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if _, err := svc.Commands.ExpireDue.Handle(context.Background(), command.ExpireDue{AssignmentID: w.assignment}); err != nil {
+		t.Fatal(err)
+	}
 	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)

@@ -26,6 +26,9 @@ func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetA
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
+	if _, err := h.app.Commands.ExpireDue.Handle(ctx, command.ExpireDue{AssignmentID: request.Id.String()}); err != nil {
+		return nil, err
+	}
 	monitor, err := h.app.Queries.Monitor.Handle(ctx, query.Monitor{AssignmentID: request.Id.String()})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignmentMonitor404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(

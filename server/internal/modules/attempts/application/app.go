@@ -18,6 +18,7 @@ type Application struct {
 }
 
 type Commands struct {
+	ExpireDue     cqrs.CommandHandler[command.ExpireDue, cqrs.Nothing]
 	Extend        cqrs.CommandHandler[command.Extend, domain.Attempt]
 	Finish        cqrs.CommandHandler[command.Finish, domain.Attempt]
 	Flag          cqrs.CommandHandler[command.Flag, domain.Attempt]
@@ -47,6 +48,7 @@ func New(repo domain.TimelineRepository, reviewRepo domain.ReviewRepository, sto
 	service := support.NewService(store)
 	return &Application{
 		Commands: Commands{
+			ExpireDue:     command.ExpireDueHandler{Service: service},
 			Extend:        command.ExtendHandler{Service: service},
 			Finish:        command.FinishHandler{Review: review},
 			Flag:          command.FlagHandler{Service: service},

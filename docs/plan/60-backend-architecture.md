@@ -30,8 +30,8 @@ the "one package per feature" layout AGENTS.md described until then.
   is what the module needs from outside, `model/` the results other modules
   read, `internal/support/` the ports, clock and helpers the handlers share.
   A command that acts for a signed-in user carries `shared/actor.Actor`.
-  Known deviation: attempts' `Monitor` query settles overdue attempts before
-  it reports; splitting that into a scheduled command is open.
+  A query never writes: the attempts monitor screen runs the `ExpireDue`
+  command and then the `Monitor` query.
 - **Ports at the application boundary.** identity declares `GoogleProvider`;
   media declares `AudioProbe` and `ObjectStore`; questions declares
   `MediaKinds`; classes and identity read student figures through
