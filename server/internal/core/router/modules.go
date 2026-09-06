@@ -1,4 +1,4 @@
-package core
+package router
 
 import (
 	assignmentshttp "quizzivy/internal/modules/assignments/http"

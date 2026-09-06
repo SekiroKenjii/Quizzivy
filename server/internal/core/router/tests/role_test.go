@@ -1,4 +1,4 @@
-package core_test
+package router_test
 
 import (
 	"net/http"
@@ -15,7 +15,7 @@ import (
 // stub and the distinction cost nothing. It costs a great deal now: the first
 // one hands out join codes.
 
-func requestAs(t *testing.T, router http.Handler, issuer interface {
+func requestAs(t *testing.T, handler http.Handler, issuer interface {
 	Issue(userID, role string) (string, error)
 }, method, path, role string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -28,15 +28,15 @@ func requestAs(t *testing.T, router http.Handler, issuer interface {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 	return rec
 }
 
 func TestAStudentCannotReachTheAdminTree(t *testing.T) {
 	issuer := testIssuer(t)
-	router := newAuthTestRouter(t, issuer)
+	handler := newAuthTestRouter(t, issuer)
 
-	rec := requestAs(t, router, issuer, http.MethodGet, "/admin/dashboard", "student")
+	rec := requestAs(t, handler, issuer, http.MethodGet, "/admin/dashboard", "student")
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
 	}
@@ -47,9 +47,9 @@ func TestAStudentCannotReachTheAdminTree(t *testing.T) {
 
 func TestATeacherReachesTheAdminTree(t *testing.T) {
 	issuer := testIssuer(t)
-	router := newAuthTestRouter(t, issuer)
+	handler := newAuthTestRouter(t, issuer)
 
-	rec := requestAs(t, router, issuer, http.MethodGet, "/admin/dashboard", "admin")
+	rec := requestAs(t, handler, issuer, http.MethodGet, "/admin/dashboard", "admin")
 	if rec.Code == http.StatusForbidden {
 		t.Fatal("an admin token was refused the admin tree")
 	}
@@ -85,10 +85,10 @@ func TestEveryAdminOperationIsGated(t *testing.T) {
 
 func TestTheStudentTreeIsNotGatedByRole(t *testing.T) {
 	issuer := testIssuer(t)
-	router := newAuthTestRouter(t, issuer)
+	handler := newAuthTestRouter(t, issuer)
 
 	for _, role := range []string{"student", "admin"} {
-		rec := requestAs(t, router, issuer, http.MethodGet, "/app/assignments", role)
+		rec := requestAs(t, handler, issuer, http.MethodGet, "/app/assignments", role)
 		if rec.Code == http.StatusForbidden {
 			t.Errorf("role %q was refused the student tree", role)
 		}
@@ -97,9 +97,9 @@ func TestTheStudentTreeIsNotGatedByRole(t *testing.T) {
 
 func TestAnAnonymousCallerToTheAdminTreeGetsAuthenticationNotAuthorization(t *testing.T) {
 	issuer := testIssuer(t)
-	router := newAuthTestRouter(t, issuer)
+	handler := newAuthTestRouter(t, issuer)
 
-	rec := requestAs(t, router, issuer, http.MethodGet, "/admin/dashboard", "")
+	rec := requestAs(t, handler, issuer, http.MethodGet, "/admin/dashboard", "")
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}

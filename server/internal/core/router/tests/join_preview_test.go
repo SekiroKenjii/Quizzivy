@@ -1,4 +1,4 @@
-package core_test
+package router_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"quizzivy/internal/core"
+	"quizzivy/internal/core/router"
 	"strings"
 	"testing"
 
@@ -44,7 +44,7 @@ func (f *fakeJoin) app() *classesapp.Application {
 func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := core.NewRouter(core.Deps{DB: fakeDB{}, Modules: core.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
+	h, err := router.New(router.Deps{DB: fakeDB{}, Modules: router.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
@@ -52,14 +52,14 @@ func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
 	return h
 }
 
-func previewFrom(t *testing.T, router http.Handler, ip, code string) *httptest.ResponseRecorder {
+func previewFrom(t *testing.T, handler http.Handler, ip, code string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/join/preview",
 		strings.NewReader(fmt.Sprintf(`{"joinCode":%q}`, code)))
 	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = ip + ":54321"
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 	return rec
 }
 
@@ -142,12 +142,12 @@ func TestNoRefusalEchoesAnythingIdentifying(t *testing.T) {
 func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
 	// §6.5. Without a limit, 40 bits of entropy is worth probing at scale.
 	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
-	router := joinRouter(t, fake)
+	handler := joinRouter(t, fake)
 
 	var last *httptest.ResponseRecorder
 	for i := range 11 {
 		// A different code each time, so only the per-IP bucket can fire.
-		last = previewFrom(t, router, "198.51.100.7", fmt.Sprintf("AAAA-BB%02d", i))
+		last = previewFrom(t, handler, "198.51.100.7", fmt.Sprintf("AAAA-BB%02d", i))
 	}
 	if last.Code != http.StatusTooManyRequests {
 		t.Fatalf("11th request status = %d, want 429", last.Code)
@@ -162,11 +162,11 @@ func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
 
 func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
 	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
-	router := joinRouter(t, fake)
+	handler := joinRouter(t, fake)
 
 	var last *httptest.ResponseRecorder
 	for i := range 31 {
-		last = previewFrom(t, router, fmt.Sprintf("198.51.100.%d", i+50), "K7M3-P9QR")
+		last = previewFrom(t, handler, fmt.Sprintf("198.51.100.%d", i+50), "K7M3-P9QR")
 	}
 	if last.Code != http.StatusTooManyRequests {
 		t.Fatalf("31st request status = %d, want 429", last.Code)
@@ -175,13 +175,13 @@ func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
 
 func TestRespellingACodeDoesNotBuyAFreshAllowance(t *testing.T) {
 	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
-	router := joinRouter(t, fake)
+	handler := joinRouter(t, fake)
 
 	spellings := []string{"K7M3-P9QR", "k7m3p9qr", "K7M3P9QR", "k7m3-p9qr", " K7M3 P9QR "}
 	var last *httptest.ResponseRecorder
 	for i := range 31 {
 		// Every request from a different address, cycling through spellings.
-		last = previewFrom(t, router, fmt.Sprintf("192.0.2.%d", i+1), spellings[i%len(spellings)])
+		last = previewFrom(t, handler, fmt.Sprintf("192.0.2.%d", i+1), spellings[i%len(spellings)])
 	}
 	if last.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d after 31 attempts across five spellings, want 429 -- "+

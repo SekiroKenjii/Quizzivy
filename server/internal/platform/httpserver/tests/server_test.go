@@ -1,4 +1,4 @@
-package core_test
+package httpserver_test
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"quizzivy/internal/core"
 	"quizzivy/internal/platform/config"
+	"quizzivy/internal/platform/httpserver"
 )
 
 // TestShutdownDrainsInFlightRequests pins the shutdown context.
@@ -31,7 +31,7 @@ func TestShutdownDrainsInFlightRequests(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	served := make(chan error, 1)
 	go func() {
-		served <- core.Serve(ctx, slog.New(slog.DiscardHandler), cfg, handler)
+		served <- httpserver.Serve(ctx, slog.New(slog.DiscardHandler), cfg, handler)
 	}()
 	waitForListener(t, port)
 

@@ -1,4 +1,5 @@
-package core
+// Package httpserver runs the HTTP listener with the timeouts and the graceful shutdown the deployment relies on.
+package httpserver
 
 import (
 	"context"
@@ -19,7 +20,7 @@ const (
 	shutdownTimeout = 15 * time.Second
 )
 
-// serve runs the HTTP server until ctx is cancelled, then drains in flight
+// Serve runs the HTTP server until ctx is cancelled, then drains in flight
 // requests within shutdownTimeout.
 func Serve(ctx context.Context, logger *slog.Logger, cfg config.Config, handler http.Handler) error {
 	srv := &http.Server{

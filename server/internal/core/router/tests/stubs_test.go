@@ -1,4 +1,4 @@
-package core_test
+package router_test
 
 import (
 	"go/ast"
@@ -14,16 +14,15 @@ import (
 // unimplemented is every operation that still returns 501, listed on purpose.
 var unimplemented = []string{}
 
-// stubbedOperations reads the names off server.gen_stubs.go, which is the file
-// that by convention holds nothing but stubs: implementing an operation moves
-// its method out of this file.
+// stubbedOperations reads the names off router/server.go, which by convention
+// holds nothing but stubs: implementing an operation moves its method out.
 func stubbedOperations(t *testing.T) []string {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, filepath.Join("..", "composite.go"), nil, 0)
+	file, err := parser.ParseFile(fset, filepath.Join("..", "server.go"), nil, 0)
 	if err != nil {
-		t.Fatalf("parse server.gen_stubs.go: %v", err)
+		t.Fatalf("parse server.go: %v", err)
 	}
 
 	var names []string
@@ -37,7 +36,7 @@ func stubbedOperations(t *testing.T) []string {
 			continue
 		}
 		ident, ok := star.X.(*ast.Ident)
-		if !ok || ident.Name != "core.Server" {
+		if !ok || ident.Name != "Server" {
 			continue
 		}
 		names = append(names, fn.Name.Name)

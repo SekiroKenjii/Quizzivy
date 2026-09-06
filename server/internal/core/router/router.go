@@ -1,4 +1,5 @@
-package core
+// Package router assembles the HTTP surface: the generated strict handler over every module transport, the middleware in execution order, the health and docs endpoints, and the rate-limit policy.
+package router
 
 import (
 	"encoding/json"
@@ -7,39 +8,14 @@ import (
 	"net/http"
 
 	"quizzivy/gen/openapi"
-	classesdomain "quizzivy/internal/modules/classes/domain"
 	identityhttp "quizzivy/internal/modules/identity/http"
 	"quizzivy/internal/platform/apidocs"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/ratelimit"
 )
 
-// RateLimits declares the policy for every public operation, plus the one
-// authenticated operation that mints a credential.
-func RateLimits() *ratelimit.Registry {
-	reg := ratelimit.NewRegistry()
-	const capacity = 10_000
-	const maxKeyBodyBytes = 8 * 1024
-	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
-	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
-	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKey("email", maxKeyBodyBytes), capacity, ratelimit.PerHour(20))
-	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
-	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
-	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
-	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
-
-	reg.Add("POST /admin/students/{id}/reset-password", capacity,
-		ratelimit.PerMinute(5), ratelimit.PerHour(30))
-
-	return reg
-}
-
-// NewRouter builds the HTTP handler.
-func NewRouter(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader string) (http.Handler, error) {
+// New builds the HTTP handler.
+func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader string) (http.Handler, error) {
 	spec, err := openapi.GetSpec()
 	if err != nil {
 		return nil, err

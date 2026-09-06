@@ -112,22 +112,23 @@ and the plan needs revisiting.
 `internal/core` is the composition root and the only package that knows every
 module:
 
-| file | holds |
+| package | holds |
 |---|---|
-| `core.go` | `App`: config, signals, lifecycle, `Handler()` |
-| `modules.go` | building every module's repository, service and transport |
-| `adapters.go` | the adapters between the ports modules declare and what provides them |
-| `composite.go` | `Server`, the generated strict interface satisfied by embedding each module's `http` type; `Deps` |
-| `router.go` | middleware order, rate limits, `/healthz`, `/docs` |
-| `server.go` | the HTTP server and graceful shutdown |
-| `jobs.go` | background jobs |
+| `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
+| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order; returns the `Assembly` (transports, token issuer, identity application) |
+| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`) and one module's handlers behind another's port (`Media`, `MediaKinds`) |
+| `core/router` | `Deps`, `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/healthz`, `/docs`), `RateLimits` |
+| `core/jobs` | background commands (`PruneRefreshTokens`) |
+| `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
-A new module is wired in `modules.go`. An optional dependency stays a nil
-interface (see `adapters.go`) so its operations answer 501, never a
-nil-pointer 500. The dependency rules between `domain`, `application`,
-`repositories`, `http`, `platform`, `shared` and `core` are in
-`docs/plan/60-backend-architecture.md` and enforced by
-`core/tests/architecture_test.go`.
+A new module is wired in `wiring/<module>.go`. An optional dependency stays a
+nil interface (see `adapters/media.go`) so its operations answer 501, never a
+nil-pointer 500. A cross-module need is a port typed as the other module's
+handler (`cqrs.CommandHandler[…]`/`cqrs.QueryHandler[…]`) where one operation
+is enough, and an adapter in `core/adapters` where several are. The dependency
+rules between `domain`, `application`, `repositories`, `http`, `platform`,
+`shared` and `core` are in `docs/plan/60-backend-architecture.md` and enforced
+by `core/tests/architecture_test.go`.
 
 ## Repository map
 
@@ -137,11 +138,11 @@ web/               quizzivy-web
   src/             spec §3 layout, unchanged -- source only, no tests
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
-  internal/core/     composition root
-  internal/platform/ technical adapters (db, storage, google, probe, httpx, apidocs, ...)
-  internal/shared/   kernel: paging, audit, stats
+  internal/core/     composition root: wiring/ router/ adapters/ jobs/
+  internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, ...)
+  internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation
   internal/modules/  one directory per bounded context, four layers each:
-                     domain/ application/ repositories/ http/, tests in <layer>/tests/
+                     domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/
   tests/             end-to-end tests (build tag e2e)
   gen/openapi/       generated, committed, never hand-edited
 migrations/        goose, forward-only, 00001…

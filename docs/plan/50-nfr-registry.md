@@ -26,7 +26,7 @@ at the end says how much is covered and what the next round is.
 
 | ID | Requirement | Source | Status | Evidence / gap |
 |---|---|---|---|---|
-| NFR-S01 | Passwords are hashed with Argon2id; hashing concurrency is bounded so a login burst cannot exhaust the 512 MB machine | §5.1, R-13 | ✅ | `server/internal/auth`, `core/modules.go` `boundPasswordHashing`, `fly.toml` note |
+| NFR-S01 | Passwords are hashed with Argon2id; hashing concurrency is bounded so a login burst cannot exhaust the 512 MB machine | §5.1, R-13 | ✅ | `server/internal/modules/identity/domain`, `core/wiring/identity.go` `boundPasswordHashing`, `fly.toml` note |
 | NFR-S02 | Access token lives in memory only (~15 min); refresh token is an `httpOnly; Secure; SameSite=Lax; Path=/auth` cookie, stored hashed, rotated on use, with reuse detection revoking the family | §5.2, R-06 | ✅ | `server/internal/auth`, `web/src/stores/auth.ts`, single-flight refresh in `lib/api/client.ts` |
 | NFR-S03 | Google sign-in verifies the ID token (`iss`, `aud`, `exp`, JWKS) and rejects unverified emails; PKCE on the authorization request | §5.1, §5.3, O-13 | ✅ | `server/internal/auth/google*`, `web/src/features/auth` |
 | NFR-S04 | A student on `/admin/*` gets a 403 page, never a redirect; `mustChangePassword` fences every route | §5.4 | ✅ | `web/src/app/guards` |
@@ -39,7 +39,7 @@ at the end says how much is covered and what the next round is.
 | NFR-S11 | Every teacher intervention that changes a student's record (extend, reset, void, reopen, flag, note, close early) is audited with actor, reason and the previous value, in the same statement | §8, D-04 | ✅ | `OLD`/`NEW` in `RETURNING` inside data-modifying CTEs; `app.audit_log`; `classes.Update` is the one write still unaudited (decision pending) |
 | NFR-S12 | The database roles are split: `quizzivy_migrate` owns, `quizzivy_app` has DML only; the audit log is append-only for the app role | §13.5, #11 | ✅ | `migrations/00001`, `internal/db` grant tests |
 | NFR-S13 | Browser hardening headers on both hosts: HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `frame-ancestors 'none'`, and a CSP on the SPA that admits only the Google script and the API origin | good practice; not in spec | ❌ | The API sets none (`grep -r Strict-Transport server/` is empty); Cloudflare Pages has no `_headers` file. Tracked as an issue |
-| NFR-S14 | Request bodies are size-limited and the server has read/header/idle timeouts | good practice | 🟡 | `core/server.go` sets `ReadHeaderTimeout`, `ReadTimeout`, `IdleTimeout`; upload limits per §11.1 (#33); a generic JSON body cap (`http.MaxBytesHandler`) is not set — folded into the headers issue |
+| NFR-S14 | Request bodies are size-limited and the server has read/header/idle timeouts | good practice | 🟡 | `platform/httpserver/server.go` sets `ReadHeaderTimeout`, `ReadTimeout`, `IdleTimeout`; upload limits per §11.1 (#33); a generic JSON body cap (`http.MaxBytesHandler`) is not set — folded into the headers issue |
 | NFR-S15 | Dependencies: none added without a stated reason; Sonar runs on every push | §14 DoD, §18 | ✅ | CI `Sonar` job; PR template |
 
 ## B. Privacy and data honesty
@@ -156,6 +156,7 @@ at the end says how much is covered and what the next round is.
 | NFR-M09 | The backend is a modular monolith: one bounded context per module, four layers each, dependency direction enforced by a test, domain rules in managers, cross-module needs through ports | `docs/plan/60-backend-architecture.md` | ✅ | `server/internal/core/tests/architecture_test.go` |
 | NFR-M10 | Go tests come in three tiers (unit, integration, end-to-end), every file in a `<layer>/tests/` external package using only the public surface | `server/README.md` | ✅ | `make test-api`, CI Server job steps |
 | NFR-M11 | The API serves its own reference (Scalar) from the contract it was built from | IT review 2026-09-06 | ✅ | `GET /docs`, `server/internal/platform/apidocs` |
+| NFR-M12 | Every module's application layer is CQRS: one command or query type per use case with one handler behind `Application{Commands, Queries}`; the handler contracts, the database context and the repository base are defined once (`shared/cqrs`, `platform/db`) and reused | `docs/plan/60-backend-architecture.md` | ✅ | `server/internal/modules/*/application/{command,query}`, `server/internal/shared/cqrs`, `server/internal/platform/db/context.go` |
 
 ## K. Observability
 

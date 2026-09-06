@@ -1,4 +1,4 @@
-package core_test
+package router_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"quizzivy/internal/core"
+	"quizzivy/internal/core/router"
 	"testing"
 )
 
@@ -16,10 +16,10 @@ type fakeDB struct{ err error }
 
 func (f fakeDB) Ping(context.Context) error { return f.err }
 
-func newTestRouter(t *testing.T, database core.DB) http.Handler {
+func newTestRouter(t *testing.T, database router.DB) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := core.NewRouter(core.Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
+	h, err := router.New(router.Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
 	}
@@ -80,13 +80,13 @@ func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 }
 
 func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
-	router := newTestRouter(t, fakeDB{})
+	handler := newTestRouter(t, fakeDB{})
 
 	send := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/join/preview", nil)
 		req.RemoteAddr = "203.0.113.7:5555"
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
+		handler.ServeHTTP(rec, req)
 		return rec
 	}
 
@@ -106,12 +106,12 @@ func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
 }
 
 func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
-	router := newTestRouter(t, fakeDB{})
+	handler := newTestRouter(t, fakeDB{})
 	for i := 0; i < 30; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/admin/tests", nil)
 		req.RemoteAddr = "203.0.113.9:5555"
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
+		handler.ServeHTTP(rec, req)
 		if rec.Code == http.StatusTooManyRequests {
 			t.Fatalf("authenticated route limited after %d requests; no policy is registered for it", i)
 		}
@@ -119,12 +119,12 @@ func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
 }
 
 func TestSeparateClientsGetSeparateBudgets(t *testing.T) {
-	router := newTestRouter(t, fakeDB{})
+	handler := newTestRouter(t, fakeDB{})
 	exhaust := func(ip string) {
 		for i := 0; i < 11; i++ {
 			req := httptest.NewRequest(http.MethodPost, "/join/preview", nil)
 			req.RemoteAddr = ip + ":1111"
-			router.ServeHTTP(httptest.NewRecorder(), req)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
 		}
 	}
 	exhaust("198.51.100.1")
@@ -132,7 +132,7 @@ func TestSeparateClientsGetSeparateBudgets(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/join/preview", nil)
 	req.RemoteAddr = "198.51.100.2:2222"
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 	if rec.Code == http.StatusTooManyRequests {
 		t.Error("one client's exhaustion must not block another")
 	}

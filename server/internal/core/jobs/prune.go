@@ -1,4 +1,5 @@
-package core
+// Package jobs schedules the background commands the process runs on its own clock.
+package jobs
 
 import (
 	"context"
@@ -14,13 +15,13 @@ const (
 	pruneTimeout = time.Minute
 )
 
-// prunePeriodically deletes refresh-token families whose every token has
+// PruneRefreshTokens deletes refresh-token families whose every token has
 // expired.
 //
 // One machine runs this, so there is nothing to coordinate; a second would
 // simply remove nothing, since the DELETE is idempotent. It runs once at
 // startup so a long-lived deployment is not the only thing that ever prunes.
-func prunePeriodically(ctx context.Context, logger *slog.Logger, svc *identityapp.Application) {
+func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identityapp.Application) {
 	prune := func() {
 		runCtx, cancel := context.WithTimeout(ctx, pruneTimeout)
 		defer cancel()

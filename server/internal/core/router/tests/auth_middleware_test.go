@@ -1,4 +1,4 @@
-package core_test
+package router_test
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"quizzivy/internal/core"
+	"quizzivy/internal/core/router"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	"sort"
 	"strings"
@@ -64,7 +64,7 @@ func TestOnlySixOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 func newAuthTestRouter(t *testing.T, issuer *identitytoken.Issuer) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := core.NewRouter(core.Deps{DB: fakeDB{}, Tokens: issuer}, logger,
+	h, err := router.New(router.Deps{DB: fakeDB{}, Tokens: issuer}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
@@ -82,9 +82,9 @@ func testIssuer(t *testing.T) *identitytoken.Issuer {
 }
 
 func TestAProtectedRouteRefusesAnAnonymousCaller(t *testing.T) {
-	router := newAuthTestRouter(t, testIssuer(t))
+	handler := newAuthTestRouter(t, testIssuer(t))
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/auth/me", nil))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/auth/me", nil))
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
@@ -105,7 +105,7 @@ func TestAProtectedRouteRefusesAnAnonymousCaller(t *testing.T) {
 
 func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 	issuer := testIssuer(t)
-	router := newAuthTestRouter(t, issuer)
+	handler := newAuthTestRouter(t, issuer)
 
 	expired, err := identitytoken.NewIssuer([]byte(strings.Repeat("k", 32)), time.Nanosecond)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 				req.Header.Set("Authorization", header)
 			}
 			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, req)
+			handler.ServeHTTP(rec, req)
 			if rec.Code != http.StatusUnauthorized {
 				t.Errorf("status = %d, want 401", rec.Code)
 			}
@@ -150,7 +150,7 @@ func TestRejectedCredentialsAllLookTheSame(t *testing.T) {
 
 func TestALowercaseBearerSchemeIsAccepted(t *testing.T) {
 	issuer := testIssuer(t)
-	router := newAuthTestRouter(t, issuer)
+	handler := newAuthTestRouter(t, issuer)
 	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
 	if err != nil {
 		t.Fatal(err)
@@ -159,19 +159,19 @@ func TestALowercaseBearerSchemeIsAccepted(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
 	req.Header.Set("Authorization", "bearer "+token)
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 	if rec.Code == http.StatusUnauthorized {
 		t.Fatal("a lowercase `bearer` scheme was rejected")
 	}
 }
 
 func TestAnOpenRouteIsReachableWithoutTheHeader(t *testing.T) {
-	router := newAuthTestRouter(t, testIssuer(t))
+	handler := newAuthTestRouter(t, testIssuer(t))
 	req := httptest.NewRequest(http.MethodPost, "/auth/login",
 		strings.NewReader(`{"email":"a@b.com","password":"whatever1"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 
 	if rec.Code == http.StatusUnauthorized {
 		t.Fatal("/auth/login demanded an access token; sign-in is now impossible")
@@ -179,9 +179,9 @@ func TestAnOpenRouteIsReachableWithoutTheHeader(t *testing.T) {
 }
 
 func TestHealthzIsNotBehindAuthentication(t *testing.T) {
-	router := newAuthTestRouter(t, testIssuer(t))
+	handler := newAuthTestRouter(t, testIssuer(t))
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
@@ -189,7 +189,7 @@ func TestHealthzIsNotBehindAuthentication(t *testing.T) {
 
 func TestAMisconfiguredVerifierRefusesEveryoneRatherThanNobody(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router, err := core.NewRouter(core.Deps{DB: fakeDB{}}, logger, []string{"https://app.quizzivy.com"}, "")
+	handler, err := router.New(router.Deps{DB: fakeDB{}}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestAMisconfiguredVerifierRefusesEveryoneRatherThanNobody(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
 	req.Header.Set("Authorization", "Bearer anything-at-all")
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)

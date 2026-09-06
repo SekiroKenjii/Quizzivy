@@ -1,4 +1,4 @@
-package core_test
+package router_test
 
 import (
 	"encoding/json"
@@ -14,12 +14,12 @@ import (
 // `format: email` accepted anything, so every handler had to restate its own
 // rules in Go or silently have none.
 
-func postJSON(t *testing.T, router http.Handler, path, body string) *httptest.ResponseRecorder {
+func postJSON(t *testing.T, handler http.Handler, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 	return rec
 }
 
@@ -34,7 +34,7 @@ func errorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 }
 
 func TestTheContractsConstraintsAreEnforced(t *testing.T) {
-	router := newAuthTestRouter(t, testIssuer(t))
+	handler := newAuthTestRouter(t, testIssuer(t))
 
 	for name, body := range map[string]string{
 		"password below minLength": `{"email":"a@b.com","password":"short"}`,
@@ -46,7 +46,7 @@ func TestTheContractsConstraintsAreEnforced(t *testing.T) {
 		"not json at all":          `pretzel`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			rec := postJSON(t, router, "/auth/login", body)
+			rec := postJSON(t, handler, "/auth/login", body)
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400", rec.Code)
 			}
@@ -58,16 +58,16 @@ func TestTheContractsConstraintsAreEnforced(t *testing.T) {
 }
 
 func TestAWellFormedRequestReachesTheHandler(t *testing.T) {
-	router := newAuthTestRouter(t, testIssuer(t))
-	rec := postJSON(t, router, "/auth/login", `{"email":"a@b.com","password":"long-enough"}`)
+	handler := newAuthTestRouter(t, testIssuer(t))
+	rec := postJSON(t, handler, "/auth/login", `{"email":"a@b.com","password":"long-enough"}`)
 	if rec.Code == http.StatusBadRequest {
 		t.Fatalf("a valid body was rejected: %s", rec.Body.String())
 	}
 }
 
 func TestValidationMessagesDoNotEchoTheSchema(t *testing.T) {
-	router := newAuthTestRouter(t, testIssuer(t))
-	rec := postJSON(t, router, "/auth/login", `{"email":"a@b.com","password":"short"}`)
+	handler := newAuthTestRouter(t, testIssuer(t))
+	rec := postJSON(t, handler, "/auth/login", `{"email":"a@b.com","password":"short"}`)
 
 	body := rec.Body.String()
 	for _, leak := range []string{"minLength", "properties", "schema", "openapi"} {
@@ -78,8 +78,8 @@ func TestValidationMessagesDoNotEchoTheSchema(t *testing.T) {
 }
 
 func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
-	router := newAuthTestRouter(t, testIssuer(t))
-	rec := postJSON(t, router, "/auth/change-password", `{"nonsense":true}`)
+	handler := newAuthTestRouter(t, testIssuer(t))
+	rec := postJSON(t, handler, "/auth/change-password", `{"nonsense":true}`)
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401 -- validation ran before authentication", rec.Code)

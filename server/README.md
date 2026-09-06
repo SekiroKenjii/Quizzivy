@@ -9,10 +9,13 @@ map.
 server/
   cmd/            api (the server), migrate, seedadmin — entry points only
   internal/
-    core/         the composition root: config → modules → router → server; adapters between ports
-    platform/     technical adapters: config, db (pgx), storage (S3), google (OIDC),
-                  probe (audio), httpx (middleware), ratelimit, httpapi (transport helpers), apidocs (Scalar)
-    shared/       the kernel every layer may use: paging, audit, stats
+    core/         the composition root: wiring/ builds each module, router/ fronts them,
+                  adapters/ bridge ports, jobs/ run background commands
+    platform/     technical adapters: config, db (pgx; the Context and Repository every module embeds),
+                  storage (S3), google (OIDC), probe (audio), httpx (middleware), httpserver,
+                  ratelimit, httpapi (transport helpers), apidocs (Scalar)
+    shared/       the kernel every layer may use: cqrs (handler contracts), actor, paging, audit,
+                  stats, opt, validation
     modules/      the bounded contexts
       identity/    User aggregate, sessions, the teacher's roster of students, PasswordManager
       classes/     Class aggregate, members, join codes (JoinCodeManager, CodeState)
@@ -31,14 +34,19 @@ server/
 | layer | holds | may import |
 |---|---|---|
 | `domain/` | aggregate root, entities, value objects, commands, errors, the repository interface, and the **managers** — the domain's rules that belong to no single entity | `shared`, other modules' `domain` |
-| `application/` | the use cases (**services**): orchestration over the repository and the ports it declares for anything outside the module | own `domain`, other modules' `domain` and `application`, `shared` |
+| `application/` | the use cases as **commands and queries**: `command/` and `query/` hold one struct and one handler per use case, `ports/` what the module needs from outside, `model/` the results other modules read, `internal/support/` what the handlers share; `app.go` builds `Application{Commands, Queries}` | own `domain`, other modules' `domain` and `application`, `shared` |
 | `repositories/` | Postgres, implementing the domain interface; SQL lives here and nowhere else | own `domain`, `platform`, `shared` |
 | `http/` | the operations this module serves, embedded into core's composite strict server; presenters other transports reuse | own `domain`/`application`, `platform/httpx`, `platform/httpapi`, `gen/openapi`, other modules' `domain`, `application` and `http` |
 
 `core/tests/architecture_test.go` fails the build on any import in the wrong
 direction. Managers are reached as package values (`domain.Grading.Grade`,
-`domain.JoinCodes.Normalize`); services are constructed by core with their
-repository and ports.
+`domain.JoinCodes.Normalize`); applications are constructed by `core/wiring`
+with their repository and ports, and a transport reaches a use case as
+`h.app.Commands.Create.Handle(ctx, command.Create{…})` or
+`h.app.Queries.Get.Handle(ctx, query.Get{…})`. A port another module fills with
+one operation is typed as that module's handler (identity's `SelfEnroller` is
+the classes `EnrolNewMember` command; the attempts transport's `Students` is the
+identity `GetStudent` query).
 
 ## Tests
 

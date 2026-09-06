@@ -1,4 +1,4 @@
-package core_test
+package router_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"quizzivy/internal/core"
+	"quizzivy/internal/core/router"
 	attemptsapp "quizzivy/internal/modules/attempts/application"
 	attemptsquery "quizzivy/internal/modules/attempts/application/query"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
@@ -59,9 +59,9 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 		ID: studentID, Email: "an@example.com", FullName: "Nguyễn Văn An",
 		HasPassword: true, CreatedAt: disabledAt, DisabledAt: &disabledAt,
 	}}
-	router, err := core.NewRouter(core.Deps{
+	handler, err := router.New(router.Deps{
 		DB:      fakeDB{},
-		Modules: core.Modules{Attempts: attemptshttp.NewAttempts(review.app(), nil, students.handler(), nil)},
+		Modules: router.Modules{Attempts: attemptshttp.NewAttempts(review.app(), nil, students.handler(), nil)},
 		Tokens:  issuer,
 	}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
@@ -75,7 +75,7 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/admin/attempts/01935000-0000-7000-8000-00000000dd07", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
