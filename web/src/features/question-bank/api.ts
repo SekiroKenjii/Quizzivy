@@ -76,3 +76,11 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
 export function tagQuestions(questionIds: string[], tags: string[]) {
   return api("post", "/admin/questions/tags", { body: { questionIds, tags } });
 }
+
+export function duplicateQuestion(id: string) {
+  return api("post", "/admin/questions/{id}/duplicate", { path: { id } });
+}
+
+export function deleteQuestion(id: string) {
+  return api("delete", "/admin/questions/{id}", { path: { id } });
+}

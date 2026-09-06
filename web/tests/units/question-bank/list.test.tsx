@@ -105,7 +105,7 @@ describe("the question bank list", () => {
     expect(requests).toHaveLength(before);
 
     await vi.advanceTimersByTimeAsync(300);
-    await waitFor(() => expect(requests.length).toBe(before + 1));
+    await waitFor(() => expect(requests).toHaveLength(before + 1));
   });
 
   // O-20: numbered pages.

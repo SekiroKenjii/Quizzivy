@@ -174,6 +174,13 @@ describe("the test detail preview", () => {
     expect(screen.queryByText(/đáp án đúng/i)).toBeNull();
   });
 
+  it("anchors the history card so the builder's Phiên bản can land on it", async () => {
+    renderDetail();
+    await screen.findByText(publishedPrompt);
+
+    expect(document.getElementById("versions")).toHaveTextContent("Lịch sử phiên bản");
+  });
+
   it("lists the version history newest first, with who published it", async () => {
     renderDetail();
 

@@ -9,11 +9,11 @@ import type { StudentQuestion } from "../api";
 export function QuestionAudio({
   question,
   onExpired,
-}: {
+}: Readonly<{
   question: StudentQuestion;
   /** Refetches the attempt, minting a fresh signed URL (§11.2). */
   onExpired: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const played = useTakeTestStore((s) => s.audioPlays[question.id] ?? 0);
   const notePlay = useTakeTestStore((s) => s.notePlay);

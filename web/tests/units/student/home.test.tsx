@@ -13,9 +13,8 @@ const SAMPLE_CLASS = {
   id: "018f0000-0000-7000-8000-0000000000c1",
   name: "IELTS Foundation",
   description: null,
-  studentCount: 12,
-  selfJoinEnabled: true,
-  createdAt: "2026-06-01T00:00:00Z",
+  teacherName: "Cô Thương",
+  joinedAt: "2026-06-01T00:00:00Z",
 };
 
 function home(
@@ -267,5 +266,38 @@ describe("the resume card's clock", () => {
   it("says only that the clock is running when no deadline came with it", async () => {
     home({ dueNow: [card({ hasLiveAttempt: true, liveDeadlineAt: null })] });
     expect(await screen.findByText(/Đồng hồ vẫn đang chạy\.$/)).toBeInTheDocument();
+  });
+});
+
+describe("the completed card", () => {
+  it("links its title to the result when there is a paper to show", async () => {
+    home({
+      completed: [
+        card({
+          id: "018f0000-0000-7000-8000-0000000000d3",
+          testTitle: "Unit 4 — Passive voice",
+          status: "closed",
+          attemptsUsed: 1,
+          lastAttemptId: "018f0000-0000-7000-8000-0000000000a7",
+          score: { earned: 27, total: 30, pendingManual: 0 },
+        }),
+        card({
+          id: "018f0000-0000-7000-8000-0000000000d5",
+          testTitle: "Never started",
+          status: "closed",
+          attemptsUsed: 0,
+          lastAttemptId: null,
+        }),
+      ],
+    });
+    expect(
+      await screen.findByRole("link", { name: "Unit 4 — Passive voice" }),
+    ).toHaveAttribute(
+      "href",
+      "/app/attempts/018f0000-0000-7000-8000-0000000000a7/result",
+    );
+    expect(
+      screen.queryByRole("link", { name: "Never started" }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -22,7 +22,11 @@ interface PublishDialogProps {
  * once, and a toast cannot express five failures with locations -- so every
  * blocking issue is a line with a jump link.
  */
-export function PublishDialog({ violations, onClose, onGoTo }: PublishDialogProps) {
+export function PublishDialog({
+  violations,
+  onClose,
+  onGoTo,
+}: Readonly<PublishDialogProps>) {
   const { t } = useTranslation();
 
   return (

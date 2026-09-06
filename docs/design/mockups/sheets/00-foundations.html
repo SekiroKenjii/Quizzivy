@@ -317,6 +317,18 @@
             <span class="board-id">F-06</span>
             <span class="board-name">Form controls &amp; their states</span>
           </div>
+          <p class="board-note">
+            Two of these are never the platform's control. The select is
+            shadcn's (Radix) Select: the trigger looks like the field below, the
+            list is ours. The date is shadcn's Date Picker — a button that opens
+            a calendar — with a time field beside it. The reason is the two
+            bugs reported on 2026-09-05: the browser's own
+            <code class="font-mono">&lt;select&gt;</code> painted the chosen row
+            in its own theme (“45 phút” dark on dark), and the browser's
+            <code class="font-mono">datetime-local</code> popup spoke the
+            browser's language with an AM/PM clock and a “Clear” button the
+            product never wrote. Both are drawn open below.
+          </p>
           <div class="card p-5 grid grid-cols-4 gap-6">
             <div>
               <label class="label" for="f-a">Tiêu đề đề thi</label>
@@ -330,9 +342,7 @@
             </div>
             <div>
               <label class="label" for="f-c">Thời lượng</label>
-              <select class="select" id="f-c">
-                <option>45 phút</option>
-              </select>
+              <button class="select text-left" id="f-c" type="button">45 phút</button>
               <p class="hint">Máy chủ tính giờ, không phải trình duyệt.</p>
             </div>
             <div>
@@ -343,6 +353,20 @@
             <div class="col-span-2">
               <label class="label" for="f-e">Lời dẫn</label>
               <textarea class="textarea" id="f-e">Nghe đoạn hội thoại và chọn đáp án đúng.</textarea>
+            </div>
+            <div class="col-span-2">
+              <label class="label" for="f-g">Đóng lúc</label>
+              <div class="flex">
+                <button class="btn btn-outline flex-1 justify-between font-normal" id="f-g" type="button" style="border-top-right-radius: 0; border-bottom-right-radius: 0">
+                  31/08/2026
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-calendar" /></svg>
+                </button>
+                <button class="btn btn-outline w-28 justify-between font-normal num" type="button" aria-label="Đóng lúc — giờ" style="margin-left: -1px; border-top-left-radius: 0; border-bottom-left-radius: 0">
+                  21:00
+                  <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-clock" /></svg>
+                </button>
+              </div>
+              <p class="hint">Một cặp nút ghép: ngày mở lịch, giờ mở hai cột giờ · phút. Mỗi màn chọn hiện ngày, giờ, hay cả hai.</p>
             </div>
             <div class="col-span-2 space-y-3">
               <label class="flex items-center gap-2.5 text-sm">
@@ -358,6 +382,105 @@
                 <span>Chặn sao chép / dán</span>
                 <input type="checkbox" class="switch" checked />
               </label>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-5 mt-4">
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Select · open</p>
+              <div style="width: 14rem">
+                <button class="select text-left" type="button">45 phút</button>
+                <div class="popover p-1 mt-1">
+                  <div class="menu-item">15 phút</div>
+                  <div class="menu-item">30 phút</div>
+                  <div class="menu-item" style="background: var(--accent)">
+                    45 phút
+                    <svg class="i i-3.5 ml-auto" aria-hidden="true"><use href="#i-check" /></svg>
+                  </div>
+                  <div class="menu-item">60 phút</div>
+                  <div class="menu-item">90 phút</div>
+                </div>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                The list is a popover under the trigger, as wide as it, every row in the
+                product's colours; the chosen row carries a check and the accent, never a
+                filled dark bar. Keyboard: type-ahead, arrows, Enter, Escape.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3 col-span-2">
+              <p class="card-title">Date &amp; time · calendar open · clock open</p>
+              <div class="flex gap-5 items-start">
+                <div style="width: 20rem">
+                  <div class="flex">
+                    <button class="btn btn-outline flex-1 justify-between font-normal" type="button" style="border-top-right-radius: 0; border-bottom-right-radius: 0">
+                      31/08/2026
+                      <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-calendar" /></svg>
+                    </button>
+                    <button class="btn btn-outline w-28 justify-between font-normal num" type="button" aria-label="giờ" style="margin-left: -1px; border-top-left-radius: 0; border-bottom-left-radius: 0">
+                      21:00
+                      <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-clock" /></svg>
+                    </button>
+                  </div>
+                  <div class="popover p-3 mt-1" style="width: 17rem">
+                    <div class="flex items-center justify-between mb-2">
+                      <button class="btn btn-icon btn-sm btn-ghost" aria-label="Tháng trước"><svg class="i" aria-hidden="true"><use href="#i-chevron-left" /></svg></button>
+                      <span class="text-sm font-medium">tháng 8 2026</span>
+                      <button class="btn btn-icon btn-sm btn-ghost" aria-label="Tháng sau"><svg class="i" aria-hidden="true"><use href="#i-chevron-right" /></svg></button>
+                    </div>
+                    <div class="grid grid-cols-7 text-center text-xs text-muted-foreground mb-1">
+                      <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
+                    </div>
+                    <div class="grid grid-cols-7 text-center text-sm num">
+                      <span class="text-muted-foreground py-1.5">27</span><span class="text-muted-foreground py-1.5">28</span><span class="text-muted-foreground py-1.5">29</span><span class="text-muted-foreground py-1.5">30</span><span class="text-muted-foreground py-1.5">31</span><span class="py-1.5">1</span><span class="py-1.5">2</span>
+                      <span class="py-1.5">3</span><span class="py-1.5">4</span><span class="py-1.5">5</span><span class="py-1.5">6</span><span class="py-1.5">7</span><span class="py-1.5">8</span><span class="py-1.5">9</span>
+                      <span class="py-1.5">10</span><span class="py-1.5">11</span><span class="py-1.5">12</span><span class="py-1.5">13</span><span class="py-1.5">14</span><span class="py-1.5">15</span><span class="py-1.5">16</span>
+                      <span class="py-1.5">17</span><span class="py-1.5">18</span><span class="py-1.5">19</span><span class="py-1.5">20</span><span class="py-1.5">21</span><span class="py-1.5">22</span><span class="py-1.5">23</span>
+                      <span class="py-1.5">24</span><span class="py-1.5">25</span><span class="py-1.5">26</span><span class="py-1.5">27</span><span class="py-1.5">28</span><span class="py-1.5 rounded-md" style="background: var(--accent)">29</span><span class="py-1.5">30</span>
+                      <span class="py-1.5 rounded-md" style="background: var(--primary); color: var(--primary-foreground)">31</span><span class="text-muted-foreground py-1.5">1</span><span class="text-muted-foreground py-1.5">2</span><span class="text-muted-foreground py-1.5">3</span><span class="text-muted-foreground py-1.5">4</span><span class="text-muted-foreground py-1.5">5</span><span class="text-muted-foreground py-1.5">6</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="width: 9rem">
+                  <div class="popover p-2">
+                    <div class="flex gap-2">
+                      <div>
+                        <p class="text-xs text-muted-foreground text-center pb-1">Giờ</p>
+                        <div class="flex flex-col gap-0.5 num text-sm text-center">
+                          <span class="py-1.5 w-12">19</span>
+                          <span class="py-1.5 w-12">20</span>
+                          <span class="py-1.5 w-12 rounded-md" style="background: var(--primary); color: var(--primary-foreground)">21</span>
+                          <span class="py-1.5 w-12">22</span>
+                          <span class="py-1.5 w-12">23</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="text-xs text-muted-foreground text-center pb-1">Phút</p>
+                        <div class="flex flex-col gap-0.5 num text-sm text-center">
+                          <span class="py-1.5 w-12 rounded-md" style="background: var(--primary); color: var(--primary-foreground)">00</span>
+                          <span class="py-1.5 w-12">05</span>
+                          <span class="py-1.5 w-12">10</span>
+                          <span class="py-1.5 w-12">15</span>
+                          <span class="py-1.5 w-12">20</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-xs text-muted-foreground space-y-2" style="max-width: 18rem">
+                  <p>
+                    Two outline buttons joined at the seam, one field to the eye. The day
+                    shows <code class="font-mono">dd/MM/yyyy</code> and opens the calendar in
+                    Vietnamese: week starts Monday, today carries the accent, the chosen day
+                    the primary fill. Picking a day closes it; the time stays.
+                  </p>
+                  <p>
+                    The clock opens two scrolling columns, 24 hours and five-minute steps
+                    (a value off the step is kept and listed). Picking a minute closes it. No
+                    AM/PM, no “Clear”, no second language — every instant is
+                    Asia/Ho_Chi_Minh (§13.2) whatever the device says. A screen may show the
+                    day alone, the clock alone, or both.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -442,6 +565,62 @@
               </div>
             </div>
             <div class="space-y-5">
+              <!-- Two cards at the top of F-08's right column (the only structurally clean
+                   anchor in this board). If the column balance bothers you, both cards can move
+                   as-is into a second grid-cols-2 row after the existing grid. -->
+              <!-- Route-level fetch failure. Drawn inline, at list width, where the rows would
+                   have been. Replaces the bare alert paragraph the app renders today when a list
+                   or detail query fails. -->
+              <div class="card p-5">
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Route error — “Không tải được”</p>
+                <div class="border rounded-lg p-5">
+                  <p class="text-sm font-medium">Không tải được danh sách đề thi.</p>
+                  <div class="flex items-center justify-between gap-3 mt-4">
+                    <button class="btn btn-sm btn-outline">
+                      <svg class="i" aria-hidden="true"><use href="#i-refresh-cw" /></svg> Thử lại
+                    </button>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-muted-foreground">Mã lỗi</span>
+                      <code class="font-mono text-xs border rounded-sm px-1.5 py-0.5">req_7f3a9d41</code>
+                      <button class="btn btn-xs btn-ghost">
+                        <svg class="i i-3.5" aria-hidden="true"><use href="#i-copy" /></svg> Sao chép
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground mt-3">
+                  Replaces the bare <code class="font-mono">&lt;p&gt;</code> the app shows when a list
+                  or detail query fails. One sentence naming what did not load, one retry, and the
+                  full request id — never truncated, a shortened id cannot be searched. The page
+                  chrome stays. No red and no icon: a failed fetch is not the user’s fault.
+                </p>
+              </div>
+              <!-- Toasts (sonner). Two confirmations drawn stacked, newest at the bottom, as the
+                   library renders them. -->
+              <div class="card p-5">
+                <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Toast — “Đã lưu” · “Đã xoá”</p>
+                <div class="relative bg-muted/30 rounded-lg overflow-hidden" style="height: 140px">
+                  <div class="absolute w-80" style="right: 1rem; bottom: 1rem">
+                    <div class="popover px-4 py-3 flex items-center gap-3 text-sm">
+                      <svg class="i text-muted-foreground shrink-0" aria-hidden="true"><use href="#i-check" /></svg>
+                      <span class="flex-1 min-w-0">Đã lưu</span>
+                    </div>
+                    <div class="popover px-4 py-3 flex items-center gap-3 text-sm mt-2">
+                      <span class="flex-1 min-w-0">Đã xoá đề thi</span>
+                      <button class="btn btn-link text-sm shrink-0">Hoàn tác</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground mt-3">
+                  F-10 assumes sonner; this is it. Bottom-right, one line, four seconds, no colour,
+                  no title. It names the object, not its title — titles are long and a toast does
+                  not wrap. Only to confirm an action the user just took: never an error that needs
+                  a decision, never inside the engine (S-05 keeps save state in its own strip).
+                  A delete toast carries Hoàn tác for its whole life; the delete commits when the
+                  toast leaves.
+                </p>
+              </div>
+
               <div class="card p-5">
                 <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Empty state</p>
                 <div class="border border-dashed rounded-lg p-8 text-center">
@@ -660,6 +839,293 @@
             them. Neither is sticky; sticky is what you reach for when the column is in the
             wrong place.
           </p>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-12</span>
+            <span class="board-name">Admin at 768 — what the side columns do</span>
+            <span class="board-route">§8 · minimum supported width</span>
+          </div>
+          <p class="board-note">
+            §8 sets 768px as the admin minimum and the sidebar already collapses at 1280, so a
+            screen has the full 768 to spend. Measured at that width, every list, both detail
+            screens and the assignment form are fine: their tables scroll inside their own card
+            and nothing is clipped or unreachable. One screen is not. The builder puts an outline
+            (18rem), an editor and a settings panel (20rem) side by side, which leaves the editor
+            <strong>145px</strong> — a prompt field four words wide. This board is the rule that
+            fixes it, and it is deliberately narrow in scope: nothing else needed changing.
+          </p>
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Rail · stays</p>
+              <p class="text-sm text-muted-foreground">
+                14rem out of 768 leaves 544 for the middle, which the question bank's table uses
+                without complaint. A filter rail that disappears takes the results' meaning with
+                it, so it stays drawn at every supported width.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Panel · becomes a sheet</p>
+              <p class="text-sm text-muted-foreground">
+                Below 1024px the panel leaves the layout and its content opens from a button in
+                the screen's own bar, unchanged. This is S-08's move — the take-test navigator is
+                a rail from lg up and a sheet below it — applied to the other column role.
+                Nothing is hidden: the same fields, one tap away.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Bar · labels drop to icons</p>
+              <p class="text-sm text-muted-foreground">
+                A bar carrying a title field, a status, a save state and four buttons cannot hold
+                them all at 768. The secondary actions keep their icon and lose their label below
+                lg, exactly as S-05's flag button already does, so the primary action and the
+                title stay legible.
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-5 mt-4">
+            <div class="callout">
+              <strong>Measured, not assumed.</strong> The rule above comes from walking every
+              admin route at 768 and asking one question per element: does anything sit past the
+              viewport with no scrollable ancestor? On the lists the answer was no — the tables
+              were already scrolling inside their cards, so the earlier report of a clipped table
+              was wrong. Only the builder failed, and only once a question was selected.
+            </div>
+            <div class="callout">
+              <strong>What this is not.</strong> Not a phone layout. §1.1 keeps the admin side
+              desktop-and-tablet, and 768 is the floor, not a target to design toward. The panel
+              still belongs beside the content wherever it fits; the sheet is what happens when
+              the room runs out.
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-13</span>
+            <span class="board-name">Side columns resize — one handle, one remembered width per role</span>
+            <span class="board-route">every screen with a rail, a panel, the shell's sidebar, the builder's outline</span>
+          </div>
+          <p class="board-note">
+            F-11 gave each role one width so the next screen had an answer to
+            “how wide is this?”. The answer is still one width per role — the
+            teacher now picks it. Every side column carries a handle on its
+            inner edge: a 6px hit area over the border, a col-resize cursor,
+            and a 2px line that only shows on hover or while dragging, so at
+            rest the column looks exactly as F-11 drew it. Drag it, or focus it
+            and use the arrow keys (16px a step, Home and End for the limits);
+            double-click puts the deck's width back. The width is remembered in
+            the browser <em>per role</em>, not per screen: a panel dragged
+            wider on G-07 is the same width on A-04, because it is the same
+            component.
+          </p>
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5 space-y-3 col-span-2">
+              <p class="card-title">At rest, and with the panel's handle under the pointer</p>
+              <div class="border rounded-md overflow-hidden" style="height: 220px">
+                <div class="flex h-full">
+                  <div class="col-handle-host border-r shrink-0 p-3" style="width: 9rem">
+                    <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Rail · 14rem</p>
+                    <div class="skeleton h-3 w-24 mb-2"></div>
+                    <div class="skeleton h-3 w-16 mb-2"></div>
+                    <div class="skeleton h-3 w-20"></div>
+                    <span class="col-handle col-handle-right"></span>
+                  </div>
+                  <div class="flex-1 min-w-0 p-3">
+                    <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Middle · never under 24rem</p>
+                    <div class="skeleton h-3 w-48 mb-2"></div>
+                    <div class="skeleton h-3 w-56 mb-2"></div>
+                    <div class="skeleton h-3 w-40"></div>
+                  </div>
+                  <div class="col-handle-host border-l shrink-0 p-3" style="width: 12rem">
+                    <span class="col-handle col-handle-left is-hover"></span>
+                    <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Panel · 20rem</p>
+                    <div class="skeleton h-3 w-28 mb-2"></div>
+                    <div class="skeleton h-3 w-20 mb-2"></div>
+                    <div class="skeleton h-3 w-24"></div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                The handle straddles the border (3px either side) so the 1px line is never the
+                target. The visible line is <code class="font-mono">foreground</code> at 30% on
+                hover, 40% while dragging — the same ink the focus ring uses, never the accent.
+              </p>
+            </div>
+            <div class="card p-5 space-y-3">
+              <p class="card-title">Limits, in rem</p>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Role</th>
+                    <th class="text-right">Min</th>
+                    <th class="text-right">Default</th>
+                    <th class="text-right">Max</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Sidebar (shell)</td><td class="text-right num">12</td><td class="text-right num">15</td><td class="text-right num">20</td></tr>
+                  <tr><td>Rail (F-11)</td><td class="text-right num">12</td><td class="text-right num">14</td><td class="text-right num">20</td></tr>
+                  <tr><td>Panel (F-11)</td><td class="text-right num">16</td><td class="text-right num">20</td><td class="text-right num">32</td></tr>
+                  <tr><td>Outline (A-04)</td><td class="text-right num">14</td><td class="text-right num">18</td><td class="text-right num">24</td></tr>
+                </tbody>
+              </table>
+              <p class="text-xs text-muted-foreground">
+                The max is also bounded live: a side may not grow past the point where the
+                middle column would fall under 24rem, which keeps F-12's builder rule true at
+                every width the teacher can reach.
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-5 mt-4">
+            <div class="callout">
+              <strong>Why per role and not per screen.</strong> A width remembered per screen
+              would give the teacher twelve widths to keep in their head and the deck twelve
+              answers again — the drift F-11 removed. One width per role means the panel is
+              the panel everywhere, only now at the width this teacher reads best at.
+            </div>
+            <div class="callout">
+              <strong>Keyboard is not an afterthought.</strong> The handle is a
+              <code class="font-mono">separator</code> with a value, so it is reachable by Tab,
+              announces its width, and moves by arrow key. A resize that only exists for a
+              mouse would fail §12's accessibility bar on the one control that changes the
+              whole layout.
+            </div>
+            <div class="callout">
+              <strong>The sheet is untouched.</strong> Below 1024px the panel is a sheet
+              (F-12) and has no handle: a sheet is as wide as the viewport lets it be. The
+              remembered width waits for the next wide screen.
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">F-14</span>
+            <span class="board-name">Icon sizes — one scale, chosen by where the icon sits</span>
+            <span class="board-route">§12 · every screen</span>
+          </div>
+          <p class="board-note">
+            §12 says “16px dense / 20px nav” and left the rest to taste, and taste
+            drifted: the running app was measured on 2026-09-05 and an icon inside
+            a badge rendered at 24px (lucide's default, because nothing sized it),
+            the 24px button carried a 12px icon where this deck draws a 28px button
+            with a 14px one, and a table cell held 14, 16 and 24 depending on the
+            screen. The scale below is what the deck already drew most often in each
+            place — 57 of 59 table buttons at 14, 39 of 43 badge icons at 12, 88 of
+            89 small buttons at 16 — written down so the next screen does not have
+            to count. One rule of thumb generates it: an icon is about half the
+            height of the control it sits in, and never taller than the line of
+            text beside it.
+          </p>
+          <div class="grid grid-cols-3 gap-5">
+            <div class="card p-5 space-y-3 col-span-2">
+              <p class="card-title">The scale</p>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 14%">Size</th>
+                    <th>Where it sits</th>
+                    <th>Kit</th>
+                    <th>App</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="num">12px</td>
+                    <td>Inside a badge, a token chip or a <code class="font-mono">kbd</code> hint — the one place an icon sits inside another small control</td>
+                    <td><code class="font-mono">.badge .i</code></td>
+                    <td><code class="font-mono">Badge</code> sizes it; <code class="font-mono">size-3</code> in a chip's ×</td>
+                  </tr>
+                  <tr>
+                    <td class="num">14px</td>
+                    <td>Anything in a table cell; the 28px button (<code class="font-mono">xs</code>, the row kebab); tabs; the leading icon of a 32px field; inline in a <code class="font-mono">text-xs</code> line (S-03's card meta, G-03's outline)</td>
+                    <td><code class="font-mono">.table td .i</code>, <code class="font-mono">.btn-xs .i</code>, <code class="font-mono">.tab .i</code>, <code class="font-mono">.i-3.5</code></td>
+                    <td><code class="font-mono">TableCell</code>, <code class="font-mono">Button size=xs|icon-xs</code>; <code class="font-mono">size-3.5</code> elsewhere</td>
+                  </tr>
+                  <tr>
+                    <td class="num">16px</td>
+                    <td><strong>Default.</strong> The 32px and 36px buttons, menu items, sidebar items, notes and alerts, form rows, the 36px field's leading icon, inline in <code class="font-mono">text-sm</code></td>
+                    <td><code class="font-mono">.i</code></td>
+                    <td>no class — every primitive falls here</td>
+                  </tr>
+                  <tr>
+                    <td class="num">18px</td>
+                    <td>The leading icon of a student-facing alert or dialog, where the text is <code class="font-mono">text-base</code> and the targets are 44px (S-04, S-05)</td>
+                    <td><code class="font-mono">.i-4.5</code></td>
+                    <td><code class="font-mono">size-4.5</code></td>
+                  </tr>
+                  <tr>
+                    <td class="num">20px</td>
+                    <td>The top bar's menu toggle; the leading icon of a card list item (the test card on G-09, an asset row); a stat's glyph</td>
+                    <td><code class="font-mono">.i-5</code></td>
+                    <td><code class="font-mono">size-5</code></td>
+                  </tr>
+                  <tr>
+                    <td class="num">24–32px</td>
+                    <td>Illustrative only: an upload dropzone, a result page's headline glyph. Never in chrome (§12)</td>
+                    <td><code class="font-mono">.i-6</code>, <code class="font-mono">.i-8</code></td>
+                    <td><code class="font-mono">size-6</code>, <code class="font-mono">size-8</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card p-5 space-y-4">
+              <p class="card-title">Side by side</p>
+              <div class="space-y-3">
+                <div class="flex items-center gap-2">
+                  <span class="badge b-secondary"><svg class="i" aria-hidden="true"><use href="#i-graduation-cap" /></svg> IELTS Foundation</span>
+                  <span class="text-xs text-muted-foreground">badge · 12</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="btn btn-icon btn-xs btn-ghost" aria-label="Thao tác"><svg class="i" aria-hidden="true"><use href="#i-ellipsis" /></svg></button>
+                  <button class="btn btn-xs btn-outline"><svg class="i" aria-hidden="true"><use href="#i-copy" /></svg> Sao chép</button>
+                  <span class="text-xs text-muted-foreground">28px button · 14</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="btn btn-sm btn-outline"><svg class="i" aria-hidden="true"><use href="#i-refresh-cw" /></svg> Làm mới</button>
+                  <button class="btn btn-sm btn-primary"><svg class="i" aria-hidden="true"><use href="#i-eye" /></svg> Xem bài làm</button>
+                  <span class="text-xs text-muted-foreground">32px button · 16</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 border rounded-md">
+                  <svg class="i i-5 text-muted-foreground" aria-hidden="true"><use href="#i-file-text" /></svg>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium">Unit 5 — Present perfect</p>
+                    <p class="text-xs text-muted-foreground">card list item · 20</p>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                Every icon is <code class="font-mono">aria-hidden</code> unless it is the only content of
+                its control, in which case the control carries the <code class="font-mono">aria-label</code>
+                (§12). The size never carries meaning; the position does.
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-5 mt-4">
+            <div class="callout">
+              <strong>Measured, then written.</strong> The scale is not a preference: each row
+              is the size the deck already used in that position in the great majority of
+              cases, checked against the running app with
+              <code class="font-mono">getBoundingClientRect</code>. Where the app disagreed
+              (badges at 24, the row kebab's button at 24px tall), the app was wrong.
+            </div>
+            <div class="callout">
+              <strong>The primitive sizes it, not the call site.</strong> A badge, a cell and
+              an <code class="font-mono">xs</code> button set their icon size themselves, so a
+              screen writes <code class="font-mono">&lt;Flag /&gt;</code> and gets the right
+              size for where it is. A <code class="font-mono">size-*</code> class on the icon
+              still wins, for the rare deliberate exception.
+            </div>
+            <div class="callout">
+              <strong>One button height per name.</strong> The kit's
+              <code class="font-mono">btn-xs</code> is 28px; the app's
+              <code class="font-mono">xs</code> was 24. They now agree, which is what lets the
+              row kebab be the plain <code class="font-mono">icon-xs</code> button with no
+              overrides.
+            </div>
+          </div>
         </div>
       </section>
     </div>

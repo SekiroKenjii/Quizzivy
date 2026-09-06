@@ -8,7 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { listMedia, type MediaAsset } from "@/features/media/api";
-import { formatBytes, formatDuration } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength } from "@/lib/i18n/datetime";
 
 interface AssetLibraryDialogProps {
   open: boolean;
@@ -27,7 +28,7 @@ export function AssetLibraryDialog({
   open,
   onOpenChange,
   onPick,
-}: AssetLibraryDialogProps) {
+}: Readonly<AssetLibraryDialogProps>) {
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -48,7 +49,7 @@ export function AssetLibraryDialog({
 
 // Separate so the query mounts when the dialog opens rather than on every
 // question editor render.
-function AssetList({ onPick }: { onPick: (asset: MediaAsset) => void }) {
+function AssetList({ onPick }: Readonly<{ onPick: (asset: MediaAsset) => void }>) {
   const { t } = useTranslation();
   const library = useLazyList({
     queryKey: ["admin-media", "picker"],
@@ -84,7 +85,7 @@ function AssetList({ onPick }: { onPick: (asset: MediaAsset) => void }) {
           >
             <span className="truncate">{asset.originalFilename}</span>
             <span className="text-muted-foreground shrink-0 tabular-nums">
-              {formatDuration(asset.durationMs)} · {formatBytes(asset.bytes)}
+              {audioLength(asset.durationMs)} · {formatBytes(asset.bytes)}
             </span>
           </button>
         </li>

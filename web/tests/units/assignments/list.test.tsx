@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
@@ -20,11 +21,16 @@ function assignment(over: Record<string, unknown> = {}) {
     testTitle: "Unit 5",
     targets: {
       classes: [
-        { id: "018f0000-0000-7000-8000-0000000000c1", name: "IELTS Foundation" },
+        {
+          id: "018f0000-0000-7000-8000-0000000000c1",
+          name: "IELTS Foundation",
+          studentCount: 18,
+        },
       ],
-      studentIds: [],
+      students: [],
     },
     publishedAt: "2026-08-27T00:00:00Z",
+    updatedAt: "2026-08-27T00:00:00Z",
     window: {
       opensAt: "2026-08-28T00:00:00Z",
       closesAt: "2026-08-31T14:00:00Z",
@@ -56,9 +62,15 @@ function serve(items: ReturnType<typeof assignment>[]) {
       contractJson("/admin/assignments", "get", 200, {
         page: 1,
         pageSize: 50,
-        total: 0,
+        total: items.length,
         items,
-        nextCursor: null,
+        facets: {
+          all: items.length,
+          draft: 1,
+          scheduled: 0,
+          open: items.length,
+          closed: 2,
+        },
       }),
     ),
   );
@@ -78,14 +90,14 @@ async function rows() {
   return within(await screen.findByRole("table"));
 }
 
-function renderList() {
+function renderList(initial = "/admin/assignments") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
       { path: "/admin/assignments", element: <AssignmentsListPage /> },
       { path: "/admin/assignments/new", element: <p>form</p> },
     ],
-    { initialEntries: ["/admin/assignments"] },
+    { initialEntries: [initial] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -104,6 +116,40 @@ describe("the assignments list", () => {
     expect(table.getByText("v3")).toBeInTheDocument();
     expect(table.getByText("12/19")).toBeInTheDocument();
     expect(table.getByText("Đang mở")).toBeInTheDocument();
+  });
+
+  it("counts the whole list in the subtitle and on every tab, as A-03 does", async () => {
+    serve([assignment()]);
+    renderList();
+    await rows();
+
+    expect(screen.getByText("1 bài giao · 1 đang mở")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Tất cả/ })).toHaveTextContent(/1$/);
+    expect(screen.getByRole("tab", { name: /^Bản nháp/ })).toHaveTextContent(/1$/);
+    expect(screen.getByRole("tab", { name: /^Đã đóng/ })).toHaveTextContent(/2$/);
+  });
+
+  it("opens from the title as a link, and edits from the row menu while editable", async () => {
+    serve([assignment({ publishedAt: null, status: "draft" })]);
+    renderList();
+
+    const table = await rows();
+    expect(table.getByRole("link", { name: "Unit 5" })).toHaveAttribute(
+      "href",
+      "/admin/assignments/018f0000-0000-7000-8000-0000000000d1",
+    );
+    const user = userEvent.setup();
+    await user.click(table.getByRole("button", { name: "Thao tác" }));
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent?.trim()),
+    ).toEqual(["Mở", "Chỉnh sửa"]);
+    expect(within(menu).getByRole("menuitem", { name: "Chỉnh sửa" })).toHaveAttribute(
+      "href",
+      "/admin/assignments/018f0000-0000-7000-8000-0000000000d1/edit",
+    );
   });
 
   // The server sent status "open"; the window says it closed 14 hours ago.
@@ -181,7 +227,53 @@ describe("a draft assignment", () => {
     renderList();
 
     const table = await rows();
-    expect(table.getByText("Nháp")).toBeInTheDocument();
+    expect(table.getByText("Bản nháp")).toBeInTheDocument();
     expect(table.queryByText("Đang mở")).toBeNull();
+  });
+});
+
+describe("the list narrowed to one class (G-12)", () => {
+  const CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
+
+  it("arrives filtered from G-06, says which class, and the chip drops it", async () => {
+    const classIds: (string | null)[] = [];
+    server.use(
+      http.get(`${BASE}/admin/classes/${CLASS_ID}`, () =>
+        contractJson("/admin/classes/{id}", "get", 200, {
+          id: CLASS_ID,
+          name: "IELTS Foundation — Lớp tối T3/T5",
+          description: null,
+          studentCount: 18,
+          openAssignmentCount: 1,
+          archivedAt: null,
+          selfJoinEnabled: true,
+          joinCode: null,
+          createdAt: "2026-06-01T00:00:00Z",
+        }),
+      ),
+      http.get(`${BASE}/admin/assignments`, ({ request }) => {
+        classIds.push(new URL(request.url).searchParams.get("classId"));
+        return contractJson("/admin/assignments", "get", 200, {
+          page: 1,
+          pageSize: 20,
+          total: 1,
+          items: [assignment()],
+          facets: { all: 1, draft: 0, scheduled: 0, open: 1, closed: 0 },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderList(`/admin/assignments?classId=${CLASS_ID}`);
+
+    await rows();
+    expect(classIds).toEqual([CLASS_ID]);
+    expect(
+      await screen.findByText("IELTS Foundation — Lớp tối T3/T5"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 bài giao · 1 đang mở")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Bỏ lọc theo lớp" }));
+    await waitFor(() => expect(classIds).toEqual([CLASS_ID, null]));
+    expect(screen.queryByText("IELTS Foundation — Lớp tối T3/T5")).toBeNull();
   });
 });

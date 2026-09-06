@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
 import {
   createQuestion,
@@ -22,6 +23,7 @@ import {
 } from "@/features/question-bank/placeholders";
 import type { MediaAsset } from "@/features/media/api";
 import { ApiError } from "@/lib/api/errors";
+import { toast } from "@/components/ui/sonner";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 export default function QuestionEditorPage() {
@@ -35,23 +37,14 @@ export default function QuestionEditorPage() {
   });
 
   if (id !== undefined && existing.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={8} />;
   }
 
   if (existing.isError) {
     return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t("questionEditor.loadFailed")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void existing.refetch()}>
-          {t("common.retry")}
-        </Button>
-      </div>
+      <LoadError error={existing.error} onRetry={() => void existing.refetch()}>
+        {t("questionEditor.loadFailed")}
+      </LoadError>
     );
   }
 
@@ -74,10 +67,10 @@ export default function QuestionEditorPage() {
 function Editor({
   question,
   onRefreshAsset,
-}: {
+}: Readonly<{
   question: AdminQuestion | null;
   onRefreshAsset: () => Promise<MediaAsset | null>;
-}) {
+}>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -93,6 +86,7 @@ function Editor({
       question === null ? createQuestion(body) : updateQuestion(question.id, body),
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      toast(t("questionEditor.saved"));
       void navigate(`/admin/question-bank/${saved.id}`, { replace: true });
     },
     onError: (cause) => {

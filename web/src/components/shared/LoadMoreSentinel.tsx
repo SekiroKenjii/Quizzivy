@@ -12,13 +12,13 @@ export function LoadMoreSentinel({
   active,
   loading,
   onVisible,
-}: {
+}: Readonly<{
   as?: "div" | "li";
   /** False once there is nothing more to load; the row then renders nothing. */
   active: boolean;
   loading: boolean;
   onVisible: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const ref = useRef<HTMLElement | null>(null);
   const latest = useRef(onVisible);

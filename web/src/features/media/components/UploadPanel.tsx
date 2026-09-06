@@ -9,7 +9,8 @@ import {
   MAX_DURATION_MS,
   type Rejection,
 } from "@/features/media/limits";
-import { formatBytes, formatDuration } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength } from "@/lib/i18n/datetime";
 import { precheck } from "@/features/media/probe";
 import { ApiError } from "@/lib/api/errors";
 
@@ -32,7 +33,7 @@ type State =
   | { status: "error"; message: string };
 
 /** The drop target for §11.1's audio uploads, and the progress it reports. */
-export function UploadPanel({ ref, onUploaded }: UploadPanelProps) {
+export function UploadPanel({ ref, onUploaded }: Readonly<UploadPanelProps>) {
   const { t, i18n } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -178,7 +179,7 @@ function rejectionMessage(t: TFunction, rejection: Rejection): string {
     case "duration":
       return t("media.rejectDuration", {
         name: rejection.name,
-        duration: formatDuration(rejection.durationMs ?? MAX_DURATION_MS),
+        duration: audioLength(rejection.durationMs ?? MAX_DURATION_MS),
       });
     default:
       return t("media.uploadFailed");

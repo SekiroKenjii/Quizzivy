@@ -3,9 +3,9 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-// Matches the design deck's `.badge` (docs/design/mockups/assets/kit.css).
+// Matches the design deck's `.badge` (docs/design/mockups/assets/kit.css); an icon inside is 12px (F-14).
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-sm border border-transparent px-2 py-px text-xs leading-[1.35] font-medium whitespace-nowrap",
+  "inline-flex items-center gap-1 rounded-sm border border-transparent px-2 py-px text-xs leading-[1.35] font-medium whitespace-nowrap [&>svg]:shrink-0 [&>svg:not([class*='size-'])]:size-3",
   {
     variants: {
       variant: {

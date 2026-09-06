@@ -84,7 +84,8 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "h-10 px-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        // F-14: a bare icon in a cell is 14px; buttons and badges size their own.
+        "h-10 px-3 align-middle whitespace-nowrap [&_svg:not([class*='size-']):not([data-slot=badge]_svg):not(button_svg):not(a_svg)]:size-3.5 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}

@@ -12,10 +12,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { LoadError } from "@/components/shared/ListState";
 import { Clock } from "../components/Clock";
 import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviewScreen } from "../components/ReviewScreen";
+import { SubmittedScreen } from "../components/SubmittedScreen";
 import { clearSession } from "@/features/integrity/buffer";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
@@ -25,6 +27,7 @@ import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { answered } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
 import { useTakeTestStore } from "../store";
+import { formatTime } from "@/lib/i18n/datetime";
 
 /**
  * S-05's engine, one question at a time -- and S-06's two other views of the
@@ -37,6 +40,7 @@ export default function TakeTestPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [index, setIndex] = useState(0);
   const [view, setView] = useState<"question" | "review">("question");
   const [navOpen, setNavOpen] = useState(false);
@@ -50,6 +54,8 @@ export default function TakeTestPage() {
   const focusLossCount = useTakeTestStore((s) => s.focusLossCount);
   const lock = useTakeTestStore((s) => s.lock);
   const submitState = useTakeTestStore((s) => s.submitState);
+  const submitReason = useTakeTestStore((s) => s.submitReason);
+  const submittedAt = useTakeTestStore((s) => s.submittedAt);
   const dirty = useTakeTestStore((s) => s.dirty.size);
   const inFlight = useTakeTestStore((s) => s.flushInFlight);
   const hydrate = useTakeTestStore((s) => s.hydrate);
@@ -75,8 +81,10 @@ export default function TakeTestPage() {
         hydrate(session);
         setStatus("ready");
       })
-      .catch(() => {
-        if (!abort.signal.aborted) setStatus("failed");
+      .catch((cause: unknown) => {
+        if (abort.signal.aborted) return;
+        setLoadError(cause);
+        setStatus("failed");
       });
     return () => {
       abort.abort();
@@ -84,10 +92,6 @@ export default function TakeTestPage() {
       reset();
     };
   }, [attemptId, reloads, hydrate, reset]);
-
-  useEffect(() => {
-    if (submitState === "done") void navigate("/app", { replace: true });
-  }, [submitState, navigate]);
 
   // S-08's shortcuts.
   const question = questions[Math.min(index, questions.length - 1)];
@@ -123,7 +127,16 @@ export default function TakeTestPage() {
     return <Notice>{t("takeTest.loading")}</Notice>;
   }
   if (status === "failed") {
-    return <Notice>{t("takeTest.loadFailed")}</Notice>;
+    return (
+      <main className="mx-auto w-full max-w-[720px] space-y-3 px-4 py-16">
+        <LoadError error={loadError} onRetry={reload}>
+          {t("takeTest.loadFailed")}
+        </LoadError>
+        <Button variant="ghost" size="sm" onClick={() => void navigate("/app")}>
+          {t("takeTest.backHome")}
+        </Button>
+      </main>
+    );
   }
   if (question === undefined) {
     return <Notice>{t("takeTest.empty")}</Notice>;
@@ -140,6 +153,18 @@ export default function TakeTestPage() {
     setNavOpen(false);
     setView("question");
   };
+
+  if (submitState === "done" && submittedAt !== null) {
+    return (
+      <SubmittedScreen
+        reason={submitReason ?? "manual"}
+        submittedAt={submittedAt}
+        answered={dots.filter((d) => d.answered).length}
+        total={dots.length}
+        onHome={() => void navigate("/app", { replace: true })}
+      />
+    );
+  }
 
   // The server's count from before this sitting plus what this tab has seen since.
   const watching = integrity !== null && lock === null;
@@ -181,8 +206,8 @@ export default function TakeTestPage() {
       {watching && integrity.requireFullscreen && !fullscreen && <FullscreenBar />}
       {strikeDialog}
 
-      <div className="flex min-h-0 flex-1">
-        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5">
+      <div data-columns className="flex min-h-0 flex-1">
+        <main data-resize-middle className="min-w-0 flex-1 overflow-y-auto px-4 py-5">
           <div className="mx-auto w-full max-w-[720px]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-muted-foreground text-xs">
@@ -314,9 +339,13 @@ function chooseOption(
   return { type: "choice", optionIds: [optionId] };
 }
 
-function Notice({ children }: { children: string }) {
+function Notice({ children }: Readonly<{ children: string }>) {
   return (
-    <main className="mx-auto w-full max-w-[720px] px-4 py-16 text-center">
+    <main
+      role="status"
+      aria-live="polite"
+      className="mx-auto w-full max-w-[720px] px-4 py-16 text-center"
+    >
       <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
     </main>
   );
@@ -330,11 +359,11 @@ function Header({
   index,
   total,
   onExit,
-}: {
+}: Readonly<{
   index: number;
   total: number;
   onExit: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <header className="border-b">
@@ -373,24 +402,19 @@ function SaveStrip({
   inFlight,
   lock,
   indicator,
-}: {
+}: Readonly<{
   dirty: number;
   inFlight: boolean;
   lock: string | null;
   /** S-05 puts the strike count at the strip's far end, beside the save state. */
   indicator: ReactNode;
-}) {
+}>) {
   const { t } = useTranslation();
   // The moment the SERVER confirmed, not the moment this rendered.
   const lastSavedAt = useTakeTestStore((s) => s.lastSavedAt);
 
   if (lock !== null) {
-    const message =
-      lock === "superseded"
-        ? t("takeTest.lockedSuperseded")
-        : lock === "deadline"
-          ? t("takeTest.lockedDeadline")
-          : t("takeTest.lockedClosed");
+    const message = t(lockMessageKey(lock));
     return (
       <div className="bg-warning/10 border-b px-4 py-3">
         <p className="mx-auto w-full max-w-[720px] text-xs leading-relaxed">
@@ -403,32 +427,45 @@ function SaveStrip({
   return (
     <div className="bg-muted/30 border-b px-4 py-3">
       <div className="text-muted-foreground mx-auto flex w-full max-w-[720px] items-center gap-2 text-xs">
-        {inFlight ? (
-          <>
-            <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-            {t("takeTest.saving")}
-          </>
-        ) : dirty > 0 ? (
-          t("takeTest.unsaved")
-        ) : (
-          <>
-            <Check className="size-3.5" aria-hidden="true" />
-            {lastSavedAt === null
-              ? t("takeTest.savedNothingYet")
-              : t("takeTest.saved", { time: hhmm(lastSavedAt) })}
-          </>
-        )}
+        <SaveState inFlight={inFlight} dirty={dirty} lastSavedAt={lastSavedAt} />
         {indicator !== null && <span className="ml-auto">{indicator}</span>}
       </div>
     </div>
   );
 }
 
-function hhmm(iso: string): string {
-  // 24-hour, as the deck writes it ("Đã lưu 09:41").
-  return new Date(iso).toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+function lockMessageKey(lock: string | null): string {
+  if (lock === "superseded") return "takeTest.lockedSuperseded";
+  if (lock === "deadline") return "takeTest.lockedDeadline";
+  return "takeTest.lockedClosed";
+}
+
+/** S-05's save state: in flight, unsaved edits, or the last save's time. */
+function SaveState({
+  inFlight,
+  dirty,
+  lastSavedAt,
+}: Readonly<{
+  inFlight: boolean;
+  dirty: number;
+  lastSavedAt: Parameters<typeof formatTime>[0] | null;
+}>) {
+  const { t } = useTranslation();
+  if (inFlight) {
+    return (
+      <>
+        <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+        {t("takeTest.saving")}
+      </>
+    );
+  }
+  if (dirty > 0) return <>{t("takeTest.unsaved")}</>;
+  return (
+    <>
+      <Check className="size-3.5" aria-hidden="true" />
+      {lastSavedAt === null
+        ? t("takeTest.savedNothingYet")
+        : t("takeTest.saved", { time: formatTime(lastSavedAt) })}
+    </>
+  );
 }

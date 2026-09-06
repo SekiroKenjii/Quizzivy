@@ -4,17 +4,18 @@ import {
   chooseOption,
   freshAttempt,
   signInAsStudent,
+  submitAttempt,
 } from "./support/live";
 
 /**
- * E2E 2's middle (T-3.16): answers survive a reload mid-test.
+ * E2E 2 (§14): password login, start, answer, reload mid-test, the answer is
+ * still there, submit, see the result.
  *
  * §1.2's first goal is a student completing a test "without losing work on
- * refresh, tab close, or brief network loss", so this is the phase's headline
- * promise. T-3.16 asked for a manual pass because the full E2E 2 needs Phase
- * 4's result page; the half that does not need it is worth automating.
+ * refresh, tab close, or brief network loss", so the reload in the middle is
+ * the headline promise; Phase 3 ran that half, Phase 4 adds the result page.
  */
-test("E2E 2 (middle): an answer given before a reload is still there after it", async ({
+test("E2E 2: an answer survives a reload, and the result shows what was earned", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -36,4 +37,17 @@ test("E2E 2 (middle): an answer given before a reload is still there after it", 
   // than a finished paper.
   await page.getByRole("button", { name: "Câu sau" }).click();
   await expect(page.getByRole("textbox", { name: "Bài làm của bạn" })).toHaveValue("");
+
+  // ---------------------------------------------------------------- submit
+  await submitAttempt(page);
+
+  // ---------------------------------------------------------------- result
+  // By URL: the fixture allows fifty attempts, so after one the home still
+  // offers the assignment as due rather than filing it under completed.
+  await page.goto(`/app/attempts/${attemptId}/result`);
+  await expect(page.getByText("Điểm của bạn")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Lượt \d+\/50/)).toBeVisible();
+  // The choice given before the reload is marked as the student's own.
+  await expect(page.getByText("bạn chọn").first()).toBeVisible();
+  await expect(page.getByText("went")).toBeVisible();
 });

@@ -425,4 +425,9 @@ phase that carries the most.
       since the half that needs Phase 4's result page is the only half that
       cannot be. The full E2E 2 still lands in Phase 4
 - [x] Phase 1 and 2 E2Es still pass
-- [ ] `release/phase-3` merges to `main` and back to `develop`; deployable (§16)
+- [x] `release/phase-3` merges to `main` and back to `develop`; deployable (§16)
+      — released as `v0.2.0-phase-3` (main 0e8f2a0). The Fly release command
+      ran the migrations against production before the new API took traffic;
+      the Pages publish failed once with Cloudflare's "Unknown internal error"
+      and succeeded on a re-run, which is the hiccup deploy.yml is written to
+      tolerate.

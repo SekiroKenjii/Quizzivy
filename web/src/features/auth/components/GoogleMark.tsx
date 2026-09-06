@@ -1,5 +1,5 @@
 /** Google's four-colour "G". */
-export function GoogleMark({ className }: { className?: string }) {
+export function GoogleMark({ className }: Readonly<{ className?: string }>) {
   return (
     <svg viewBox="0 0 48 48" className={className} aria-hidden="true" focusable="false">
       <path

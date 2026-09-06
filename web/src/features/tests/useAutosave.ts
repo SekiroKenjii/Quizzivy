@@ -47,6 +47,7 @@ export function useAutosave<T>({
   const [status, setStatus] = useState<AutosaveStatus>({ kind: "idle" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<T | null>(null);
+  const lastValue = useRef<T | null>(null);
   const inFlight = useRef<Promise<void> | null>(null);
   const latestSave = useRef(save);
   const stale = useRef(false);
@@ -89,6 +90,7 @@ export function useAutosave<T>({
   const schedule = useCallback(
     (value: T) => {
       if (stale.current) return;
+      lastValue.current = value;
       pending.current = value;
       setStatus({ kind: "dirty" });
       if (timer.current) clearTimeout(timer.current);
@@ -117,5 +119,11 @@ export function useAutosave<T>({
     };
   }, []);
 
-  return { status, schedule, flush };
+  const retry = useCallback(() => {
+    if (lastValue.current === null || stale.current) return;
+    pending.current = lastValue.current;
+    void run();
+  }, [run]);
+
+  return { status, schedule, flush, retry };
 }

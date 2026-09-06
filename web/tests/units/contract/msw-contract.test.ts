@@ -16,7 +16,9 @@ describe("MSW fixtures are validated against api/openapi.yaml", () => {
   });
 
   it("rejects a missing required field", () => {
-    const { email: _dropped, ...withoutEmail } = studentUser;
+    const withoutEmail = Object.fromEntries(
+      Object.entries(studentUser).filter(([key]) => key !== "email"),
+    );
     expect(() => contractJson("/auth/me", "get", 200, withoutEmail)).toThrow(/email/);
   });
 

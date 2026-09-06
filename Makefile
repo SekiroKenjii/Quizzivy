@@ -13,12 +13,15 @@ export
 # contract. oapi-codegen is pinned by the `tool` directive in server/go.mod.
 SPECTRAL_VERSION ?= 6.16.3
 OPENAPI_TS_VERSION ?= 7.13.0
+# Same pin as .github/workflows/ci.yml's golangci-lint step.
+GOLANGCI_VERSION ?= v2.13.2
 
 MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),migrate)@localhost:5432/quizzivy?sslmode=disable
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
-        seed gen contract verify-google verify-r2 dev dev-web dev-api test test-web test-api e2e lint
+        seed gen contract verify-google verify-r2 dev dev-web dev-api test test-web test-api \
+        test-api-unit test-api-integration test-api-e2e test-api-all e2e lint
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -105,7 +108,18 @@ test: contract test-api test-web ## Run all tests
 test-web:
 	cd web && pnpm test
 
-test-api: migrate ## Go tests, including the DB-backed ones
+test-api-unit: ## Go unit tests: domain rules, transports with fakes, platform helpers -- no database
+	cd server && go test ./...
+
+test-api-integration: migrate ## Go integration tests: repositories and use cases against Postgres
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test -tags integration ./internal/... -count=1
+
+test-api-e2e: migrate ## Go end-to-end tests: the whole application in-process, over HTTP, against Postgres
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test -tags e2e ./tests/... -count=1
+
+test-api: test-api-unit test-api-integration test-api-e2e ## Every Go test, in the order the taxonomy names them
+
+test-api-all: migrate ## The old single run, kept for the habit
 	# The DB tests skip themselves when TEST_DATABASE_URL is unset, so a bare
 	# `go test ./...` passes without ever touching Postgres. The Makefile knows
 	# the DSN, so wire it up -- a green run here means the DB tests really ran.
@@ -119,7 +133,11 @@ test-api: migrate ## Go tests, including the DB-backed ones
 	# Packages run in parallel against one database. Tests that diff a global
 	# aggregate (the dashboard) do so inside a REPEATABLE READ transaction, so
 	# another package's inserts cannot move the number between two readings.
-	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./...
+	#
+	# -count=1, as CI runs it: a DB-backed test's result depends on the schema
+	# and rows behind it, which the test cache cannot see, so a cached "ok" can
+	# hide a test that would fail against the database as it is now.
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test ./... -count=1
 
 e2e: ## Playwright, against a real production build
 	cd web && pnpm e2e
@@ -129,3 +147,7 @@ lint: ## Lint both sides
 	cd server && go vet ./...
 	# staticcheck's SA1019 is what enforces "never use a deprecated identifier".
 	cd server && go tool staticcheck ./...
+	# server/.golangci.yml carries the Sonar-shaped rules (cognitive complexity,
+	# nesting, duplication, unused parameters), so a finding fails here before
+	# it reaches SonarLint or SonarCloud. Web gets the same from eslint-plugin-sonarjs.
+	cd server && go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION) run --build-tags integration,e2e

@@ -362,6 +362,18 @@ jobs:
         working-directory: server
         run: go tool staticcheck ./...
 
+      # server/.golangci.yml carries the Sonar-shaped rules (cognitive
+      # complexity, nesting, duplication, unused parameters) so a finding fails
+      # here, before it reaches SonarLint or SonarCloud. The web job gets the
+      # same from eslint-plugin-sonarjs inside `pnpm lint`. Same pin as the
+      # Makefile's GOLANGCI_VERSION.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+          working-directory: server
+          args: --build-tags integration,e2e
+
       - name: Check formatting
         working-directory: server
         run: |
@@ -370,15 +382,22 @@ jobs:
             echo "gofmt would change these files:"; echo "$unformatted"; exit 1
           fi
 
-      # Covers the PG18 construct assertions and the migration up/down/up
-      # reversibility check, both of which need TEST_DATABASE_URL.
-      - name: Test
+      # The three tiers the test taxonomy names, each its own step so a failure
+      # says which tier fell: unit (no database), integration (repositories
+      # and use cases against Postgres), end-to-end (the whole application
+      # in-process over HTTP). Each writes its own coverage profile; Sonar
+      # reads all three.
+      - name: Unit tests
         working-directory: server
-        # -coverprofile feeds the sonar job. atomic rather than set because
-        # some of these tests run in parallel, and set mode miscounts there.
-        # Packages run in parallel against one database; the dashboard's
-        # aggregate tests isolate themselves in a REPEATABLE READ transaction.
-        run: go test ./... -count=1 -covermode=atomic -coverprofile=coverage.out
+        run: go test ./... -covermode=atomic -coverprofile=coverage-unit.out
+
+      - name: Integration tests
+        working-directory: server
+        run: go test -tags integration ./internal/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-integration.out
+
+      - name: End-to-end tests
+        working-directory: server
+        run: go test -tags e2e ./tests/... -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile=coverage-e2e.out
 
       # Explicitly re-run the round trip against a database that has never seen
       # these migrations, which is the state that matters for a first deploy.
@@ -398,7 +417,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: go-coverage
-          path: server/coverage.out
+          path: server/coverage-*.out
           retention-days: 1
 
   # --------------------------------------------------------------------- sonar

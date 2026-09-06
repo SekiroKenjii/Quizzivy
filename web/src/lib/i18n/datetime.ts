@@ -23,6 +23,41 @@ export function formatDate(utc: string | Date, locale: AppLocale = "vi") {
   });
 }
 
+/** G-09's moment: "08:00 · Thứ hai, 07/09", weekday capitalised as the deck writes it. */
+export function formatMoment(utc: string | Date, locale: AppLocale = "vi") {
+  const text = formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm · EEEE, dd/MM", {
+    locale: dateFnsLocale[locale],
+  });
+  return text.replace(/· (\p{L})/u, (_, first: string) => `· ${first.toUpperCase()}`);
+}
+
+/** "26/08" */
+export function shortDate(utc: string | Date) {
+  return formatInTimeZone(utc, APP_TIME_ZONE, "dd/MM");
+}
+
+export function sameAppDay(a: string | Date, b: string | Date): boolean {
+  return (
+    formatInTimeZone(a, APP_TIME_ZONE, "yyyy-MM-dd") ===
+    formatInTimeZone(b, APP_TIME_ZONE, "yyyy-MM-dd")
+  );
+}
+
+/** "Thứ hai, 01/09" -- the weekday the deck writes on upcoming rows. */
+export function weekdayDate(utc: string | Date, locale: AppLocale = "vi") {
+  const text = formatInTimeZone(utc, APP_TIME_ZONE, "EEEE, dd/MM", {
+    locale: dateFnsLocale[locale],
+  });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** An audio length as m:ss ("1:50"), the shape read off a player; "—" when unknown. */
+export function audioLength(ms: number | null | undefined): string {
+  if (ms == null || ms <= 0) return "—";
+  const total = Math.round(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export function formatTime(utc: string | Date, locale: AppLocale = "vi") {
   return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm", {
     locale: dateFnsLocale[locale],
@@ -72,7 +107,7 @@ export function inAppZone(utc: string | Date) {
  * Takes a millisecond count rather than two dates, because the take-test store
  * computes remaining from the server clock offset, never from Date.now() alone.
  */
-export function formatDuration(ms: number): string {
+export function countdown(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);

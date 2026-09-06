@@ -1,0 +1,149 @@
+package repositories
+
+import (
+	"context"
+	"fmt"
+	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
+	"time"
+)
+
+const entityUser = "user"
+
+// Create adds a student who signs in with a temporary password (§6.3: only
+// Google self-signup exists, so an admin-created account has to carry one).
+func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domain.NewStudent) (domain.Student, error) {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return domain.Student{}, fmt.Errorf("students: begin create: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var id string
+	err = tx.QueryRow(ctx, `
+		INSERT INTO app.users (email, full_name, role, password_hash, must_change_password)
+		VALUES ($1, $2, 'student', $3, true)
+		RETURNING id::text`, in.Email, in.FullName, in.Hash).Scan(&id)
+	if db.IsUniqueViolation(err, "") {
+		return domain.Student{}, domain.ErrEmailTaken
+	}
+	if err != nil {
+		return domain.Student{}, fmt.Errorf("students: insert: %w", err)
+	}
+
+	for _, classID := range in.ClassIDs {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
+			VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)
+			ON CONFLICT (class_id, user_id) DO NOTHING`,
+			classID, id, req.ActorID); err != nil {
+			return domain.Student{}, fmt.Errorf("students: enrol: %w", err)
+		}
+	}
+
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &req.ActorID,
+		Action:      "student.created",
+		Entity:      entityUser,
+		EntityID:    &id,
+		OccurredAt:  in.Now,
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
+	}); err != nil {
+		return domain.Student{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Student{}, fmt.Errorf("students: commit create: %w", err)
+	}
+	return s.Get(ctx, id)
+}
+
+// Update edits profile fields, or disables the account.
+func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domain.StudentPatch) (domain.Student, error) {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return domain.Student{}, fmt.Errorf("students: begin update: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE app.users
+		   SET full_name   = coalesce($2, full_name),
+		       email       = coalesce($3, email),
+		       disabled_at = CASE
+		                       WHEN $4::boolean IS NULL THEN disabled_at
+		                       WHEN $4 THEN coalesce(disabled_at, $5)
+		                       ELSE NULL
+		                     END
+		 WHERE id = $1::uuid AND role = 'student'`,
+		in.ID, in.FullName, in.Email, in.Disabled, in.Now)
+	if db.IsUniqueViolation(err, "") {
+		return domain.Student{}, domain.ErrEmailTaken
+	}
+	if err != nil {
+		return domain.Student{}, fmt.Errorf("students: update: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.Student{}, domain.ErrStudentNotFound
+	}
+
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &req.ActorID,
+		Action:      "student.updated",
+		Entity:      entityUser,
+		EntityID:    &in.ID,
+		OccurredAt:  in.Now,
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
+	}); err != nil {
+		return domain.Student{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Student{}, fmt.Errorf("students: commit update: %w", err)
+	}
+
+	return s.get(ctx, in.ID, true)
+}
+
+// ResetPassword sets a temporary password and revokes every session the student
+// has.
+func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("students: begin reset: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE app.users
+		   SET password_hash = $2, must_change_password = true
+		 WHERE id = $1::uuid AND role = 'student' AND disabled_at IS NULL`, id, hash)
+	if err != nil {
+		return fmt.Errorf("students: reset password: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrStudentNotFound
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE app.refresh_tokens
+		   SET revoked_at = $2
+		 WHERE user_id = $1::uuid AND revoked_at IS NULL`, id, now); err != nil {
+		return fmt.Errorf("students: revoke sessions: %w", err)
+	}
+
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &req.ActorID,
+		Action:      "student.password_reset",
+		Entity:      entityUser,
+		EntityID:    &id,
+		OccurredAt:  now,
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}

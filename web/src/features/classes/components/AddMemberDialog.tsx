@@ -18,6 +18,8 @@ import { useDebounced } from "@/lib/useDebounced";
 import { useLazyList } from "@/hooks/useLazyList";
 import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import { ApiError } from "@/lib/api/errors";
+import type { TFunction } from "i18next";
+import type { ReactNode } from "react";
 
 /**
  * G-06's "Thêm học viên": enrols someone who already has an account, which is
@@ -26,15 +28,13 @@ import { ApiError } from "@/lib/api/errors";
  */
 export function AddMemberDialog({
   classId,
-  memberIds,
   open,
   onOpenChange,
-}: {
+}: Readonly<{
   classId: string;
-  memberIds: ReadonlySet<string>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -103,19 +103,10 @@ export function AddMemberDialog({
         )}
 
         <ul className="max-h-72 space-y-1 overflow-y-auto">
-          {students.isPending ? (
-            <li className="text-muted-foreground p-2 text-sm">{t("common.loading")}</li>
-          ) : students.isError ? (
-            <li role="alert" className="text-destructive p-2 text-sm">
-              {t("classDetail.studentsFailed")}
-            </li>
-          ) : items.length === 0 ? (
-            <li className="text-muted-foreground p-2 text-sm">
-              {t("classDetail.noStudentMatches")}
-            </li>
-          ) : (
+          {memberNote(students, items.length, t) ??
             items.map((student) => {
-              const already = memberIds.has(student.id);
+              // The row carries every membership, so this cannot depend on which roster page is loaded.
+              const already = student.classes.some((c) => c.id === classId);
               return (
                 <li
                   key={student.id}
@@ -144,8 +135,7 @@ export function AddMemberDialog({
                   )}
                 </li>
               );
-            })
-          )}
+            })}
           <LoadMoreSentinel
             as="li"
             active={students.hasMore}
@@ -156,4 +146,29 @@ export function AddMemberDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function memberNote(
+  students: { readonly isPending: boolean; readonly isError: boolean },
+  shown: number,
+  t: TFunction,
+): ReactNode | null {
+  if (students.isPending) {
+    return <li className="text-muted-foreground p-2 text-sm">{t("common.loading")}</li>;
+  }
+  if (students.isError) {
+    return (
+      <li role="alert" className="text-destructive p-2 text-sm">
+        {t("classDetail.studentsFailed")}
+      </li>
+    );
+  }
+  if (shown === 0) {
+    return (
+      <li className="text-muted-foreground p-2 text-sm">
+        {t("classDetail.noStudentMatches")}
+      </li>
+    );
+  }
+  return null;
 }

@@ -61,22 +61,14 @@ afterEach(() => {
  * buzzed and reward nobody.
  */
 describe("away episodes", () => {
-  it("does not count a two-second blur", () => {
+  it.each([
+    ["does not count a two-second blur", 2000, 0],
+    ["counts a ninety-second blur", 90_000, 1],
+    ["counts one exactly at the threshold", 3000, 1],
+  ])("%s", (_name, ms, strikes) => {
     const { result } = monitor();
-    awayFor(2000);
-    expect(result.current.strikes).toBe(0);
-  });
-
-  it("counts a ninety-second blur", () => {
-    const { result } = monitor();
-    awayFor(90_000);
-    expect(result.current.strikes).toBe(1);
-  });
-
-  it("counts one exactly at the threshold", () => {
-    const { result } = monitor();
-    awayFor(3000);
-    expect(result.current.strikes).toBe(1);
+    awayFor(ms);
+    expect(result.current.strikes).toBe(strikes);
   });
 
   it("honours a policy that sets its own threshold", () => {

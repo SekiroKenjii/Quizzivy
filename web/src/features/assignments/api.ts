@@ -9,6 +9,8 @@ export type IntegrityPolicy = components["schemas"]["IntegrityPolicy"];
 
 export interface ListAssignmentsParams {
   status?: AssignmentStatus;
+  /** Only assignments that target this class; the facets follow it (G-12). */
+  classId?: string;
   page?: number;
   limit?: number;
 }
@@ -19,6 +21,7 @@ export function listAssignments(
 ) {
   const query: Record<string, unknown> = {};
   if (params.status) query["status"] = params.status;
+  if (params.classId) query["classId"] = params.classId;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/assignments", signal ? { query, signal } : { query });
@@ -38,6 +41,16 @@ export function createAssignment(body: AssignmentInput) {
 
 export function updateAssignment(id: string, body: AssignmentInput) {
   return api("patch", "/admin/assignments/{id}", { path: { id }, body });
+}
+
+export type AssignmentFacets = components["schemas"]["AssignmentStatusFacets"];
+
+/** G-09's "Gia hạn cho tất cả": a later close, and the early close lifted. */
+export function reopenAssignment(
+  id: string,
+  body: { closesAt: string; reason: string },
+) {
+  return api("post", "/admin/assignments/{id}/reopen", { path: { id }, body });
 }
 
 export type StudentAssignmentCard = components["schemas"]["StudentAssignmentCard"];

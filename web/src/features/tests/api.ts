@@ -66,6 +66,14 @@ export function archiveTest(test: Test) {
   });
 }
 
+/** A-03a: back as a draft. Publishing again is the publish endpoint's job, not this one's. */
+export function restoreTest(test: Test) {
+  return api("patch", "/admin/tests/{id}", {
+    path: { id: test.id },
+    body: { expectedUpdatedAt: test.updatedAt, status: "draft" },
+  });
+}
+
 export function listVersions(id: string, signal?: AbortSignal) {
   return api(
     "get",

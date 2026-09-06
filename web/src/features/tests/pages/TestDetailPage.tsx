@@ -1,24 +1,27 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StudentPreview } from "@/features/tests/components/StudentPreview";
 import { getTest, listVersions, previewTest } from "@/features/tests/api";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
+import { ListSkeleton, LoadError, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 /**
  * §8's test detail: what a student would receive, and the history of what they
  * have received before.
  */
 export default function TestDetailPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { id = "" } = useParams();
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   const test = useQuery({
     queryKey: ["admin-test", id],
@@ -34,23 +37,23 @@ export default function TestDetailPage() {
     retry: false,
   });
 
+  // The builder's "Phiên bản" lands on the history card, not the top of the page.
+  const { hash } = useLocation();
+  const ready = test.isSuccess;
+  useEffect(() => {
+    if (ready && hash === "#versions") {
+      document.getElementById("versions")?.scrollIntoView?.({ block: "start" });
+    }
+  }, [ready, hash]);
+
   if (test.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={6} />;
   }
   if (test.isError) {
     return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t("tests.detailFailed")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void test.refetch()}>
-          {t("common.retry")}
-        </Button>
-      </div>
+      <LoadError error={test.error} onRetry={() => void test.refetch()}>
+        {t("tests.detailFailed")}
+      </LoadError>
     );
   }
 
@@ -62,11 +65,7 @@ export default function TestDetailPage() {
       <PageHeader
         title={test.data.title}
         backTo="/admin/tests"
-        meta={
-          <Badge variant={test.data.status === "published" ? "success" : "secondary"}>
-            {t(`builder.${test.data.status}`)}
-          </Badge>
-        }
+        meta={<StatusBadge kind="test" status={test.data.status} />}
         actions={
           <Button asChild size="sm" variant="outline">
             <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
@@ -87,32 +86,30 @@ export default function TestDetailPage() {
             </p>
           </div>
 
-          {preview.isPending ? (
-            <p
-              role="status"
-              aria-live="polite"
-              className="text-muted-foreground text-sm"
-            >
-              {t("common.loading")}
-            </p>
-          ) : notPublished ? (
+          {notPublished && !preview.isPending ? (
             <div className="space-y-3">
               <p className="text-muted-foreground text-sm">{t("tests.notPublished")}</p>
               <Button asChild size="sm">
                 <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
               </Button>
             </div>
-          ) : preview.isError ? (
-            <p role="alert" className="text-destructive text-sm">
-              {t("tests.previewFailed")}
-            </p>
           ) : (
-            <StudentPreview questions={preview.data.questions} />
+            <QueryStates
+              query={preview}
+              skeleton={<ListSkeleton rows={4} />}
+              failed={t("tests.previewFailed")}
+            >
+              {(data) => <StudentPreview questions={data.questions} />}
+            </QueryStates>
           )}
         </div>
 
         <Card asChild className="gap-0 py-0">
-          <section aria-labelledby="versions-heading" className="self-start">
+          <section
+            id="versions"
+            aria-labelledby="versions-heading"
+            className="self-start"
+          >
             <div className="px-5 pt-4 pb-3">
               <h2
                 id="versions-heading"
@@ -134,23 +131,19 @@ export default function TestDetailPage() {
 function VersionHistory({
   query,
   locale,
-}: {
+}: Readonly<{
   query: UseQueryResult<Awaited<ReturnType<typeof listVersions>>>;
   locale: Locale;
-}) {
+}>) {
   const { t } = useTranslation();
   if (query.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={2} />;
   }
   if (query.isError) {
     return (
-      <p role="alert" className="text-destructive text-sm">
+      <LoadError error={query.error} onRetry={() => void query.refetch()}>
         {t("tests.loadFailed")}
-      </p>
+      </LoadError>
     );
   }
   if (query.data.items.length === 0) {
@@ -175,10 +168,4 @@ function VersionHistory({
       ))}
     </ol>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

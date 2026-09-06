@@ -1,0 +1,50 @@
+// Package jobs schedules the background commands the process runs on its own clock.
+package jobs
+
+import (
+	"context"
+	"log/slog"
+	identitycommand "quizzivy/internal/modules/identity/application/command"
+	"time"
+
+	identityapp "quizzivy/internal/modules/identity/application"
+)
+
+const (
+	pruneEvery   = 24 * time.Hour
+	pruneTimeout = time.Minute
+)
+
+// PruneRefreshTokens deletes refresh-token families whose every token has
+// expired.
+//
+// One machine runs this, so there is nothing to coordinate; a second would
+// simply remove nothing, since the DELETE is idempotent. It runs once at
+// startup so a long-lived deployment is not the only thing that ever prunes.
+func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identityapp.Application) {
+	prune := func() {
+		runCtx, cancel := context.WithTimeout(ctx, pruneTimeout)
+		defer cancel()
+
+		n, err := svc.Commands.PruneExpiredTokens.Handle(runCtx, identitycommand.PruneExpiredTokens{})
+		if err != nil {
+			logger.Warn("refresh token prune failed", "err", err)
+			return
+		}
+		if n > 0 {
+			logger.Info("pruned expired refresh tokens", "rows", n)
+		}
+	}
+
+	prune()
+	ticker := time.NewTicker(pruneEvery)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			prune()
+		}
+	}
+}

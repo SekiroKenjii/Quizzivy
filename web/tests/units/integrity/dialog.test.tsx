@@ -23,12 +23,12 @@ function Harness({
   baseline = 0,
   over = {},
   onSubmit = () => {},
-}: {
+}: Readonly<{
   strikes: number;
   baseline?: number;
   over?: Partial<IntegrityPolicy>;
   onSubmit?: () => void;
-}) {
+}>) {
   const state = strikeState({ ...policy, ...over }, baseline + strikes);
   return (
     <>

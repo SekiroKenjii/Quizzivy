@@ -22,11 +22,11 @@ export function QuestionDots({
   dots,
   current,
   onJump,
-}: {
+}: Readonly<{
   dots: DotState[];
   current: number | null;
   onJump: (index: number) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1.5">
@@ -93,14 +93,14 @@ export function NavigatorSheet({
   current,
   onJump,
   onReview,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dots: DotState[];
   current: number;
   onJump: (index: number) => void;
   onReview: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,12 +142,12 @@ export function NavigatorRail({
   current,
   onJump,
   onReview,
-}: {
+}: Readonly<{
   dots: DotState[];
   current: number;
   onJump: (index: number) => void;
   onReview: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const answered = dots.filter((d) => d.answered).length;
   const flagged = dots.filter((d) => d.flagged).length;

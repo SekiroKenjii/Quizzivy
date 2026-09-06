@@ -6,7 +6,7 @@ import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 import "@/lib/i18n";
 
-function Screen({ filter }: { filter: string }) {
+function Screen({ filter }: Readonly<{ filter: string }>) {
   const [page] = usePage(filter);
   return (
     <>

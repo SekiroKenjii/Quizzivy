@@ -413,6 +413,28 @@ export interface paths {
         patch: operations["updateQuestion"];
         trace?: never;
     };
+    "/admin/questions/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A-06a's "Nhân bản": copies the question, its options, blanks and
+         *     tags into a new bank row that no test references yet.
+         */
+        post: operations["duplicateQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/media": {
         parameters: {
             query?: never;
@@ -472,7 +494,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Backs the §8 assignments list. `status` is derived per assignment, not stored (D-18). */
+        /**
+         * @description Backs the §8 assignments list. `status` is derived per assignment, not
+         *     stored (D-18). `classId` narrows the list to assignments that target
+         *     that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
+         *     tab counts are the class's and never disagree with the rows.
+         */
         get: operations["listAssignments"];
         put?: never;
         /** @description Only a **published** version may be assigned (§8). */
@@ -506,6 +533,57 @@ export interface paths {
          *     Existing attempts always carry their own version regardless (§7).
          */
         patch: operations["updateAssignment"];
+        trace?: never;
+    };
+    "/admin/assignments/{id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One question across every paper
+         * @description G-04's "Chấm theo câu hỏi": one manually graded question across every
+         *     handed-in, non-voided attempt of the assignment, so the rubric is
+         *     decided once instead of per student. The write stays
+         *     `POST /admin/attempts/{id}/grade`, one attempt per call. Rows come in
+         *     attempt order rather than by name, because the mode hides names until
+         *     the question is graded (anonymous marking).
+         */
+        get: operations["listAnswersForQuestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assignments/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description G-09's "Gia hạn cho tất cả": a closed assignment gets a later
+         *     `closesAt` and its early close, if any, is lifted, so every student
+         *     with attempts left can go back in. Only a closed assignment can be
+         *     reopened, and only to a moment still ahead. Audited with the reason.
+         */
+        post: operations["reopenAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/assignments/{id}/attempts": {
@@ -677,6 +755,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/attempts/{id}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description G-05's "Ghi chú của bạn": a note only the teacher reads, kept on the
+         *     attempt so it is there next term. `null` clears it. Never surfaces on
+         *     any `/app/*` response.
+         */
+        patch: operations["setAttemptNote"];
+        trace?: never;
+    };
+    "/admin/attempts/{id}/flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description G-05's "Đánh dấu" and "Bỏ đánh dấu": marks an attempt to look at
+         *     again, or clears the mark, by hand. A mark, not a verdict (§10.4).
+         *     Audited in the same statement as the update, as `attempt.flagged` or
+         *     `attempt.unflagged`, with the reason when one is given.
+         */
+        post: operations["flagAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/attempts/{id}/grade": {
         parameters: {
             query?: never;
@@ -842,7 +967,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Edits name and description, or toggles self-join. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
+        /** @description Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
         patch: operations["updateClass"];
         trace?: never;
     };
@@ -1287,7 +1412,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -1367,6 +1492,31 @@ export interface components {
             error: components["schemas"]["ErrorDetail"];
             violations?: components["schemas"]["PublishValidationError"][];
         };
+        /** @description One paper's answer to the question G-04 is grading. */
+        QuestionAnswerRow: {
+            attemptId: components["schemas"]["Uuid"];
+            studentId: components["schemas"]["Uuid"];
+            studentName: string;
+            attemptNo: number;
+            /** @description Null when the student left it blank, which cannot be marked. */
+            answer: components["schemas"]["Answer"] | null;
+            manualScore: components["schemas"]["Points"] | null;
+            graderComment: string | null;
+        };
+        /**
+         * @description A test that holds a reference the caller asked to remove, named so a
+         *     blocked delete can say where to look instead of only that it is
+         *     blocked (A-06a, A-07).
+         */
+        ReferencingTest: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /**
+             * @description The published version holding the reference. Absent when the
+             *     reference is a draft outline, which has no version yet.
+             */
+            version?: number;
+        };
         /**
          * @description A MediaAsset as the admin library lists it, with how many published
          *     versions reference it. Flat for the same reason (issue #41) -- this is
@@ -1387,6 +1537,11 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
             /** @description Published-version references. Non-zero blocks delete (§8). */
             usageCount?: number;
+            /**
+             * @description The published tests behind `usageCount`, one entry per version,
+             *     so the blocked-delete dialog can name them (A-07).
+             */
+            usedIn?: components["schemas"]["ReferencingTest"][];
         };
         /**
          * @description The intro screen's card: everything StudentAssignmentCard carries plus
@@ -1530,7 +1685,11 @@ export interface components {
             name: string;
             description?: string | null;
             studentCount: number;
+            /** @description Assignments whose derived status is `open` and that target this class (G-08). */
+            openAssignmentCount: number;
             selfJoinEnabled: boolean;
+            /** @description Set once archived. An archived class leaves every picker and keeps its record (G-08). */
+            archivedAt: components["schemas"]["Timestamp"] | null;
             /** @description Admin responses only. Never present on a `/app/*` response. */
             joinCode?: components["schemas"]["JoinCodeInfo"] | null;
             createdAt: components["schemas"]["Timestamp"];
@@ -1548,8 +1707,17 @@ export interface components {
             maxUses: number | null;
             usesCount: number;
         };
+        /** @description G-08's tab counts for the current search, ignoring the status filter; `students` are distinct live members. */
+        ClassFacets: {
+            all: number;
+            joinable: number;
+            archived: number;
+            students: number;
+        };
         ClassMember: {
             userId: components["schemas"]["Uuid"];
+            /** @description The same figures G-07 shows, so G-06's roster carries "Bài đã nộp" and "Điểm TB". */
+            stats: components["schemas"]["StudentStats"];
             fullName: string;
             /** Format: email */
             email: string;
@@ -1565,6 +1733,18 @@ export interface components {
              *     current one" (D-10).
              */
             joinCodeHint?: string | null;
+        };
+        /**
+         * @description A class as its student sees it (S-10): the name, who teaches it and
+         *     when they joined. Never the join code or the roster.
+         */
+        MyClass: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            description: string | null;
+            /** @description The teacher's display name, null only while no admin account exists. */
+            teacherName: string | null;
+            joinedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
         MediaKind: "image" | "audio";
@@ -1623,6 +1803,18 @@ export interface components {
             draft: number;
             published: number;
             archived: number;
+        };
+        /**
+         * @description How many assignments each derived status holds right now, ignoring
+         *     the status filter itself, so the list's tabs carry counts the way
+         *     A-03's do.
+         */
+        AssignmentStatusFacets: {
+            all: number;
+            draft: number;
+            scheduled: number;
+            open: number;
+            closed: number;
         };
         /**
          * @description How many questions each type holds for the CURRENT tag and search,
@@ -1856,18 +2048,24 @@ export interface components {
             testVersion: number;
             testTitle: string;
             targets: {
-                /** @description The classes this assignment targets, with their names. */
+                /** @description The classes this assignment targets, with their names and live member counts. */
                 classes: {
                     id: components["schemas"]["Uuid"];
                     name: string;
+                    studentCount: number;
                 }[];
-                studentIds: components["schemas"]["Uuid"][];
+                /** @description The students targeted by name, with their names (G-09's chips). */
+                students: {
+                    id: components["schemas"]["Uuid"];
+                    name: string;
+                }[];
             };
             /**
              * Format: date-time
              * @description Null while the assignment is a draft.
              */
             publishedAt: string | null;
+            updatedAt: components["schemas"]["Timestamp"];
             window: {
                 opensAt: components["schemas"]["Timestamp"];
                 closesAt: components["schemas"]["Timestamp"];
@@ -1892,6 +2090,8 @@ export interface components {
             submittedCount?: number;
             targetCount?: number;
             flaggedCount?: number;
+            /** @description Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm"). */
+            pendingGradingCount?: number;
         };
         /** @enum {string} */
         AttemptStatus: "in_progress" | "submitted" | "timed_out" | "graded" | "voided";
@@ -2062,9 +2262,13 @@ export interface components {
             attemptId?: string | null;
             attemptNo?: number | null;
             /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
             deadlineAt?: string | null;
             /** Format: date-time */
             submittedAt?: string | null;
+            /** @description Questions with a saved answer, against the response's `questionCount` (G-02's progress column). */
+            answeredCount?: number | null;
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;
             flagged?: boolean;
@@ -3162,7 +3366,11 @@ export interface operations {
         responses: {
             204: components["responses"]["NoContent"];
             404: components["responses"]["NotFound"];
-            /** @description `QUESTION_REFERENCED` — still referenced by a draft test outline. */
+            /**
+             * @description `QUESTION_REFERENCED` — still referenced by a draft test outline.
+             *     `details.tests` names those drafts as `ReferencingTest[]`, sorted
+             *     by title, so the dialog can link to them (A-06a).
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3198,6 +3406,29 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    duplicateQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuestion"];
+                };
+            };
             404: components["responses"]["NotFound"];
         };
     };
@@ -3243,6 +3474,8 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["LibraryAsset"][];
+                        /** @description Every live asset the filter matches, not just this page, for A-07's "18 tệp · 42 MB". */
+                        totalBytes: number;
                     };
                 };
             };
@@ -3312,7 +3545,11 @@ export interface operations {
         responses: {
             204: components["responses"]["NoContent"];
             404: components["responses"]["NotFound"];
-            /** @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15). */
+            /**
+             * @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15).
+             *     `details.tests` names those versions as `ReferencingTest[]`,
+             *     sorted by title then version (A-07).
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3327,6 +3564,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["AssignmentStatus"];
+                classId?: components["schemas"]["Uuid"];
                 /**
                  * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
                  *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
@@ -3356,6 +3594,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["Assignment"][];
+                        facets: components["schemas"]["AssignmentStatusFacets"];
                     };
                 };
             };
@@ -3455,6 +3694,87 @@ export interface operations {
             };
         };
     };
+    listAnswersForQuestion: {
+        parameters: {
+            query: {
+                questionId: components["schemas"]["Uuid"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        question: components["schemas"]["AdminQuestion"];
+                        /** @description 1-based position on the paper. */
+                        questionNumber: number;
+                        questionCount: number;
+                        /** @description The paper's manually graded questions in paper order, for "Câu tiếp theo". */
+                        manualQuestionIds: components["schemas"]["Uuid"][];
+                        items: components["schemas"]["QuestionAnswerRow"][];
+                    };
+                };
+            };
+            /** @description The assignment, or a question that is not on its paper. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reopenAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    closesAt: components["schemas"]["Timestamp"];
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Reopened. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ASSIGNMENT_NOT_CLOSED` — only a closed assignment has anything to reopen. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getAssignmentMonitor: {
         parameters: {
             query?: never;
@@ -3474,10 +3794,13 @@ export interface operations {
                 content: {
                     "application/json": {
                         serverTime: components["schemas"]["Timestamp"];
+                        /** @description Questions on the pinned version, the denominator of every row's progress. */
+                        questionCount: number;
                         rows: components["schemas"]["MonitorRow"][];
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listAttempts: {
@@ -3540,6 +3863,9 @@ export interface operations {
                     "application/json": {
                         attempt: components["schemas"]["Attempt"];
                         student: components["schemas"]["User"];
+                        testTitle: string;
+                        /** @description For "lượt 1/2" in the header (G-03). */
+                        maxAttempts: number;
                         questions: components["schemas"]["AdminQuestion"][];
                         answers: {
                             [key: string]: {
@@ -3555,6 +3881,12 @@ export interface operations {
                             [key: string]: number;
                         };
                         integrity: components["schemas"]["IntegritySummary"];
+                        /**
+                         * @description G-05's "Ghi chú của bạn": the teacher's private note on
+                         *     this attempt. Admin-only by construction — it lives on
+                         *     this response and nowhere under `/app/*`.
+                         */
+                        teacherNote: string | null;
                     };
                 };
             };
@@ -3585,6 +3917,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     extendAttempt: {
@@ -3615,6 +3948,16 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_CLOSED` — only an attempt still in progress has a deadline to move. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     resetAttempt: {
@@ -3643,6 +3986,17 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_VOIDED` — already voided; nothing to reset. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     voidAttempt: {
@@ -3669,6 +4023,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Attempt"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_VOIDED` — already voided. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setAttemptNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        note: string | null;
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    flagAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    flagged: boolean;
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attempt"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_VOIDED` — a voided attempt is out of the queue already. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3704,6 +4139,16 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or nothing that counts. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     finishGrading: {
@@ -3726,7 +4171,8 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
-            /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded. */
+            404: components["responses"]["NotFound"];
+            /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3954,6 +4400,8 @@ export interface operations {
                  */
                 page?: components["parameters"]["Page"];
                 limit?: number;
+                /** @description Defaults to `active`, so every picker drops archived classes without asking (G-08). */
+                status?: "active" | "joinable" | "archived" | "all";
             };
             header?: never;
             path?: never;
@@ -3969,6 +4417,7 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PageInfo"] & {
                         items: components["schemas"]["Class"][];
+                        facets: components["schemas"]["ClassFacets"];
                     };
                 };
             };
@@ -3986,6 +4435,8 @@ export interface operations {
                 "application/json": {
                     name: string;
                     description?: string | null;
+                    /** @default true */
+                    selfJoinEnabled?: boolean;
                 };
             };
         };
@@ -4039,6 +4490,8 @@ export interface operations {
                     name?: string;
                     description?: string | null;
                     selfJoinEnabled?: boolean;
+                    /** @description true archives, false restores; either is idempotent. */
+                    archived?: boolean;
                 };
             };
         };
@@ -4052,6 +4505,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     listClassMembers: {
@@ -4222,14 +4676,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description `joinCode` is never populated on this response — it is admin-only. */
+            /** @description The student's own view of each class; never a join code. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        items: components["schemas"]["Class"][];
+                        items: components["schemas"]["MyClass"][];
                     };
                 };
             };
@@ -4550,12 +5004,15 @@ export interface operations {
                     "application/json": {
                         attempt: components["schemas"]["Attempt"];
                         review: components["schemas"]["ReviewPolicy"];
+                        testTitle: string;
+                        /** @description For "Lượt 1/2" under the score (S-09). */
+                        maxAttempts: number;
                         questions: components["schemas"]["ResultQuestion"][];
                     };
                 };
             };
             403: components["responses"]["Forbidden"];
-            /** @description Not yet submitted. */
+            /** @description `ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show. */
             409: {
                 headers: {
                     [name: string]: unknown;

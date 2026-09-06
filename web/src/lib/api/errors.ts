@@ -41,10 +41,31 @@ export class ApiError extends Error {
  * The per-field reasons behind a validation failure, if the response carried
  * any.
  */
+/** What to show for a failed call: the server's own message, else the caller's fallback. */
+export function failureMessage(cause: unknown, fallback: string): string {
+  return cause instanceof ApiError ? cause.message : fallback;
+}
+
 export function fieldMessages(cause: unknown): string[] {
   if (!(cause instanceof ApiError) || !cause.details) return [];
   return Object.values(cause.details).filter(
     (value): value is string => typeof value === "string",
+  );
+}
+
+export type ReferencingTest = components["schemas"]["ReferencingTest"];
+
+/** The tests a QUESTION_REFERENCED or MEDIA_REFERENCED refusal names, if any. */
+export function referencingTests(cause: unknown): ReferencingTest[] {
+  if (!(cause instanceof ApiError)) return [];
+  const tests = cause.details?.["tests"];
+  if (!Array.isArray(tests)) return [];
+  return tests.filter(
+    (value): value is ReferencingTest =>
+      typeof value === "object" &&
+      value !== null &&
+      typeof (value as ReferencingTest).id === "string" &&
+      typeof (value as ReferencingTest).title === "string",
   );
 }
 

@@ -13,7 +13,24 @@
     "comingSoon": "Phần này sẽ được xây dựng ở giai đoạn sau.",
     "save": "Lưu",
     "saving": "Đang lưu…",
-    "loadingMore": "Đang tải thêm…"
+    "loadingMore": "Đang tải thêm…",
+    "actions": "Thao tác",
+    "undo": "Hoàn tác",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "requestId": "Mã lỗi",
+    "pickDate": "Chọn ngày",
+    "timeOf": "{{label}} — giờ",
+    "calendar": {
+      "previousMonth": "Tháng trước",
+      "nextMonth": "Tháng sau",
+      "nav": "Chuyển tháng",
+      "today": "hôm nay",
+      "selected": "đã chọn",
+      "hours": "Giờ",
+      "minutes": "Phút"
+    },
+    "pickTime": "Chọn giờ"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -54,7 +71,8 @@
     "mainNavigation": "Điều hướng chính",
     "sectionTeaching": "Giảng dạy",
     "sectionClasses": "Lớp học",
-    "account": "Tài khoản của {{name}}"
+    "account": "Tài khoản của {{name}}",
+    "grading": "Chờ chấm"
   },
   "student": {
     "myAssignments": "Bài của tôi",
@@ -91,6 +109,8 @@
     "noAssignmentsHint": "Khi giáo viên giao bài, bài sẽ hiện ở đây.",
     "noClasses": "Bạn chưa tham gia lớp nào.",
     "joinClass": "Tham gia lớp",
+    "taughtBySince": "{{teacher}} · tham gia {{date}}",
+    "joinedOn": "Tham gia {{date}}",
     "loadFailed": "Không tải được. Hãy thử lại.",
     "intro": {
       "duration": "Thời lượng",
@@ -128,7 +148,10 @@
     "new": "Mật khẩu mới",
     "hint": "Ít nhất 8 ký tự.",
     "submit": "Đổi mật khẩu",
-    "currentHint": "Bỏ trống nếu bạn đăng nhập bằng Google hoặc không nhớ mật khẩu tạm."
+    "currentHint": "Bỏ trống nếu bạn đăng nhập bằng Google hoặc không nhớ mật khẩu tạm.",
+    "errors": {
+      "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự."
+    }
   },
   "login": {
     "title": "Đăng nhập",
@@ -175,6 +198,14 @@
   },
   "classDetail": {
     "joinCode": "Mã tham gia lớp",
+    "downloadQr": "Tải QR",
+    "codeCopied": "Đã sao chép mã",
+    "copyCode": "Sao chép mã",
+    "selfJoinFailed": "Không đổi được cài đặt tham gia.",
+    "selfJoinOff": "Đã tạm ngừng tham gia bằng mã",
+    "selfJoinOn": "Đã mở tham gia bằng mã",
+    "selfJoinOffHint": "Đang tạm ngừng: mã hiện có vẫn giữ nguyên, bật lại là dùng được.",
+    "selfJoinSwitch": "Cho tham gia",
     "codeHint": "Mã hiện tại",
     "expiresAt": "Hết hạn",
     "uses": "Đã dùng",
@@ -224,7 +255,6 @@
     "codeShareHint": "Ai có mã đều vào được lớp. Tạo mã mới khi bạn nghi mã đã bị chia sẻ ra ngoài.",
     "stop": "Ngừng",
     "freshTitle": "Mã mới cho lớp này",
-    "copyCode": "Sao chép mã",
     "done": "Xong",
     "removeNamed": "Xoá {{name}} khỏi lớp",
     "noMemberMatches": "Không có học viên nào khớp với “{{query}}”.",
@@ -241,12 +271,83 @@
     "alreadyMember": "đã trong lớp",
     "add": "Thêm",
     "addFailed": "Không thêm được học viên. Vui lòng thử lại.",
-    "assignToClass": "Giao bài cho lớp"
+    "assignToClass": "Giao bài cho lớp",
+    "removed": "Đã xoá khỏi lớp",
+    "expiryLabel": "Hết hạn sau",
+    "expiryDays": "{{days}} ngày",
+    "maxUsesLabel": "Giới hạn lượt dùng",
+    "maxUsesPlaceholder": "Mặc định 40",
+    "maxUsesHint": "Để trống thì hệ thống dùng giới hạn mặc định là 40 lượt.",
+    "maxUsesRange": "Giới hạn lượt dùng phải là số nguyên từ 1 đến 1000.",
+    "exhaustedBadge": "đã dùng hết",
+    "exhaustedExplainer": "Mã này đã hết lượt dùng nên học viên không dùng được nữa. Hãy tạo mã mới.",
+    "issueConfirmTitle": "Mở tham gia bằng mã?",
+    "issueConfirmBody": "Ai có mã đều vào được lớp. Bạn ngừng nhận mã bất cứ lúc nào.",
+    "assignments": "Bài giao cho lớp",
+    "assignmentsSummary": "{{count}} bài · {{open}} đang mở",
+    "assignmentsEmpty": "Chưa giao bài nào cho lớp này.",
+    "assignmentsFailed": "Không tải được bài giao của lớp.",
+    "viewAllAssignments": "Xem tất cả"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
     "empty": "Chưa có lớp học nào.",
-    "studentCount": "{{count}} học viên"
+    "studentCount": "{{count}} học viên",
+    "summary": "{{count}} lớp · {{students}} học viên",
+    "new": "Lớp mới",
+    "newHint": "Thêm học viên và giao bài ngay sau khi tạo.",
+    "name": "Tên lớp",
+    "namePlaceholder": "Ví dụ: IELTS Foundation — Lớp tối T3/T5",
+    "nameHint": "Học viên thấy tên này khi vào lớp.",
+    "description": "Mô tả",
+    "optional": "không bắt buộc",
+    "descriptionPlaceholder": "Lịch học, mục tiêu, ghi chú cho riêng bạn.",
+    "selfJoin": "Cho phép tham gia bằng mã",
+    "selfJoinHint": "Bạn có thể tạo mã sau.",
+    "create": "Tạo lớp",
+    "createFirst": "Tạo lớp đầu tiên",
+    "createFailed": "Không tạo được lớp.",
+    "errors": {
+      "nameRequired": "Hãy đặt tên cho lớp.",
+      "nameTooLong": "Tên lớp tối đa 120 ký tự."
+    },
+    "statusFilter": "Lọc theo trạng thái",
+    "tabs": {
+      "all": "Tất cả",
+      "joinable": "Đang mở tham gia",
+      "archived": "Đã lưu trữ"
+    },
+    "searchPlaceholder": "Tìm lớp",
+    "noMatches": "Không có lớp nào khớp.",
+    "columns": {
+      "class": "Lớp",
+      "students": "Học viên",
+      "openAssignments": "Bài đang mở",
+      "join": "Tham gia bằng mã",
+      "created": "Tạo"
+    },
+    "joinOpen": "Đang mở",
+    "joinClosed": "Đóng",
+    "archivedBadge": "Đã lưu trữ",
+    "open": "Mở lớp",
+    "assign": "Giao bài",
+    "addStudents": "Thêm học viên",
+    "archive": "Lưu trữ",
+    "restore": "Khôi phục",
+    "archiveTitle": "Lưu trữ lớp {{name}}?",
+    "archiveBody": "Lớp sẽ không còn xuất hiện khi bạn chọn lớp để giao bài hay thêm học viên. Không có gì bị xoá.",
+    "archiveStudents_one": "{{count}} học viên vẫn giữ nguyên bài làm và điểm.",
+    "archiveStudents_other": "{{count}} học viên vẫn giữ nguyên bài làm và điểm.",
+    "archiveOpen_one": "{{count}} bài đang mở vẫn hiện với học viên cho đến khi đóng.",
+    "archiveOpen_other": "{{count}} bài đang mở vẫn hiện với học viên cho đến khi đóng.",
+    "archiveNoneOpen": "Không có bài nào đang mở.",
+    "archiveRestoreNote": "Bạn khôi phục được bất cứ lúc nào từ mục Đã lưu trữ.",
+    "archiveFailed": "Không lưu trữ được lớp.",
+    "codeHint": "••••{{hint}}",
+    "created": "Đã tạo lớp",
+    "archived": "Đã lưu trữ lớp",
+    "restored": "Đã khôi phục lớp",
+    "restoreFailed": "Không khôi phục được lớp."
   },
   "settings": {
     "profile": "Hồ sơ",
@@ -321,7 +422,7 @@
     "pause": "Tạm dừng",
     "seek": "Tua",
     "expired": "Đường dẫn nghe thử đã hết hạn. Tải lại để nghe.",
-    "summaryPaged": "{{count}} tệp"
+    "deleted": "Đã xoá tệp"
   },
   "questionEditor": {
     "acceptedAnswers": "Đáp án được chấp nhận",
@@ -396,7 +497,8 @@
     "removeOptionN": "Xoá lựa chọn {{n}}",
     "removeBlankN": "Xoá chỗ trống {{n}}",
     "acceptedAnswersFor": "Đáp án được chấp nhận cho chỗ trống {{n}}",
-    "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}"
+    "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}",
+    "saved": "Đã lưu câu hỏi"
   },
   "builder": {
     "outline": "Cấu trúc",
@@ -421,6 +523,12 @@
     "publishing": "Đang phát hành…",
     "versions": "Phiên bản",
     "previewAsStudent": "Xem như học viên",
+    "stay": "Ở lại",
+    "leave": "Rời đi",
+    "leaveBody": "Thay đổi vừa gõ chưa được lưu. Ở lại vài giây để lưu xong, hoặc rời đi và mất phần chưa lưu.",
+    "leaveTitle": "Rời trang khi chưa lưu xong?",
+    "previewEmpty": "Đề chưa có câu hỏi nào để xem.",
+    "previewHint": "Bản nháp hiện tại, theo thứ tự trong cấu trúc. Học viên chỉ thấy bản đã phát hành.",
     "publishBlockedTitle": "Chưa phát hành được",
     "publishBlockedBody": "Còn {{count}} việc cần sửa. Bấm vào từng dòng để tới đúng câu.",
     "goToQuestion": "Đi tới",
@@ -444,7 +552,23 @@
     "bankNoMatches": "Không có câu hỏi nào khớp.",
     "bankAllAdded": "Mọi câu hỏi tìm được đều đã có trong đề này.",
     "outlineQuestionsOnly": "{{questions}} câu",
-    "position": "Câu {{number}} · {{section}}"
+    "position": "Câu {{number}} · {{section}}",
+    "sectionActions": "Thao tác với phần",
+    "renameSection": "Đổi tên",
+    "sectionInstructions": "Hướng dẫn phần",
+    "moveSectionUp": "Di chuyển lên",
+    "moveSectionDown": "Di chuyển xuống",
+    "removeSection": "Xoá phần",
+    "sectionNameLabel": "Tên phần",
+    "renameCommit": "lưu",
+    "renameDiscard": "huỷ",
+    "removeSectionTitle": "Xoá phần “{{title}}”?",
+    "removeSectionBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
+    "removeSectionBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
+    "sectionInstructionsTitle": "Hướng dẫn cho {{title}}",
+    "sectionInstructionsHint": "Học viên đọc hướng dẫn này trước các câu trong phần.",
+    "sectionInstructionsPlaceholder": "Ví dụ: Nghe hai lần rồi chọn đáp án đúng.",
+    "dropFromTest": "Gỡ câu {{number}} khỏi đề"
   },
   "bank": {
     "filters": "Bộ lọc",
@@ -486,7 +610,21 @@
     "noTestsToAddTo": "Chưa có đề nào để thêm vào.",
     "noSections": "Đề này chưa có phần nào.",
     "addHere": "đang có {{count}} câu",
-    "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}"
+    "summaryFiltered": "{{count}} câu · đang lọc {{filtered}}",
+    "tagged": "Đã gắn thẻ",
+    "addedToTest": "Đã thêm vào đề",
+    "open": "Mở",
+    "delete": "Xoá",
+    "deleteConfirmTitle": "Xoá câu hỏi",
+    "deleteConfirmBody": "Câu hỏi sẽ bị xoá khỏi ngân hàng. Các đề đã phát hành vẫn giữ bản sao đã đóng băng.",
+    "deleteBlockedTitle": "Chưa xoá được câu hỏi này",
+    "deleteBlockedBody": "Câu hỏi đang nằm trong đề nháp. Gỡ khỏi các đề đó trước, rồi xoá lại.",
+    "deleteBlockedList": "Đang dùng trong {{count}} đề nháp:",
+    "deleteFailed": "Không xoá được câu hỏi.",
+    "deleted": "Đã xoá câu hỏi",
+    "duplicate": "Nhân bản",
+    "duplicated": "Đã nhân bản câu hỏi",
+    "duplicateFailed": "Không nhân bản được câu hỏi."
   },
   "tests": {
     "summary": "{{count}} đề · {{drafts}} bản nháp",
@@ -506,6 +644,7 @@
     "actionsFor": "Thao tác với {{title}}",
     "edit": "Sửa",
     "duplicate": "Nhân bản",
+    "assignToClass": "Giao cho lớp",
     "archive": "Lưu trữ",
     "empty": "Chưa có đề thi nào.",
     "noMatches": "Không có đề thi nào khớp.",
@@ -526,7 +665,14 @@
     "summarySoFar": "{{count}} đề đã tải",
     "audioCount": "{{count}} câu nghe",
     "tagFilter": "Thẻ",
-    "tagFilterCount": "Thẻ · {{count}}"
+    "tagFilterCount": "Thẻ · {{count}}",
+    "archiveConfirmTitle": "Lưu trữ đề {{title}}?",
+    "archiveConfirmBody": "Đề rời khỏi danh sách và không giao được nữa. Bài giao đã có và bài làm của học viên vẫn giữ nguyên.",
+    "archived": "Đã lưu trữ đề",
+    "restore": "Khôi phục",
+    "restoreHint": "Khôi phục đưa đề về trạng thái nháp.",
+    "restored": "Đã khôi phục đề",
+    "restoreFailed": "Không khôi phục được đề."
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
@@ -573,14 +719,9 @@
     "status": {
       "in_progress": "đang làm",
       "submitted": "nộp",
+      "timed_out": "hết giờ",
       "graded": "đã được chấm",
-      "voided": "bị huỷ",
-      "expired": "hết giờ"
-    },
-    "assignmentStatus": {
-      "scheduled": "Đã lên lịch",
-      "open": "Đang mở",
-      "closed": "Đã đóng"
+      "voided": "bị huỷ"
     },
     "notifications": "Thông báo",
     "notificationsWith": "Thông báo, {{count}} việc cần xử lý",
@@ -588,16 +729,11 @@
     "state": "Trạng thái"
   },
   "assignments": {
-    "summary": "{{count}} bài giao",
+    "summary": "{{count}} bài giao · {{open}} đang mở",
+    "rowOpen": "Mở",
     "new": "Giao bài mới",
     "all": "Tất cả",
     "statusFilter": "Lọc theo trạng thái",
-    "status": {
-      "draft": "Nháp",
-      "open": "Đang mở",
-      "scheduled": "Sắp mở",
-      "closed": "Đã đóng"
-    },
     "test": "Đề thi",
     "targets": "Giao cho",
     "window": "Cửa sổ",
@@ -695,7 +831,123 @@
     "windowValue": "{{opens}} → {{closes}}",
     "latestVersion": "mới nhất: bản v{{version}}",
     "saveDraft": "Lưu nháp",
-    "needTargets": "Chọn lớp hoặc học viên trước khi giao."
+    "needTargets": "Chọn lớp hoặc học viên trước khi giao.",
+    "edit": "Chỉnh sửa bài giao",
+    "saveChanges": "Lưu thay đổi",
+    "updateFailed": "Không lưu được thay đổi. Vui lòng thử lại.",
+    "detail": {
+      "loadFailed": "Không tải được bài giao.",
+      "notFound": "Không tìm thấy bài giao.",
+      "savedToday": "Lưu lúc {{time}} hôm nay",
+      "savedOn": "Lưu lúc {{time}} · {{date}}",
+      "opensAt": "Mở lúc {{when}}",
+      "closesAt": "Đóng lúc {{when}}",
+      "closedAt": "Đóng lúc {{when}}",
+      "edit": "Chỉnh sửa",
+      "publish": "Giao bài",
+      "closeEarly": "Đóng sớm",
+      "backToList": "Về danh sách bài giao",
+      "andMore": "và {{count}} nữa",
+      "notSubmittedNames": "Chưa nộp: {{names}}",
+      "openTable": "Mở bảng học viên",
+      "viewAttempts": "Xem bài làm",
+      "reopened": "Đã mở lại bài giao",
+      "reopenFailed": "Không mở lại được bài giao.",
+      "reopenConfirm": "Mở lại",
+      "reopenNote": "Ai còn lượt làm đều được vào lại.",
+      "reopenReasonHint": "Lý do được ghi lại kèm tên bạn.",
+      "reopenReason": "Lý do",
+      "reopenPick": "Chọn thời điểm…",
+      "reopenPlusThreeDays": "Thêm 3 ngày",
+      "reopenPlusDay": "Thêm 1 ngày",
+      "reopenUntilToday": "Đến 21:00 hôm nay",
+      "reopenTitle": "Mở lại cho cả {{count}} học viên",
+      "reopen": "Gia hạn cho tất cả",
+      "closeEarlyWhenOpen": "Đóng sớm bật khi bài đã mở",
+      "publishFailed": "Không giao được bài.",
+      "draftNote": "Học viên chưa thấy bài này. Bấm <strong>Giao bài</strong> để bài xuất hiện trong mục Sắp tới của {{count}} học viên và mở đúng lịch bên dưới.",
+      "scheduledNote": "Mở lúc <strong>{{when}}</strong> — còn {{left}}. {{count}} học viên đã thấy bài trong mục Sắp tới, chưa vào làm được. Sửa gì trước lúc đó đều được.",
+      "left": {
+        "daysHours": "{{days}} ngày {{hours}} giờ",
+        "hours": "{{hours}} giờ",
+        "minutes": "{{minutes}} phút"
+      },
+      "submitted": "Đã nộp",
+      "notSubmitted": "Chưa nộp: {{count}}",
+      "pending": "Chờ chấm",
+      "pendingHint": "{{count}} câu chấm tay mỗi bài",
+      "flagged": "Cần xem lại",
+      "flaggedHint": "Rời trang quá {{count}} lần",
+      "flaggedHintNone": "Không giới hạn rời trang",
+      "test": "Đề thi",
+      "versionMeta": "{{questions}} câu · {{points}} điểm · {{audio}} câu nghe · {{manual}} câu chấm tay · bản v{{version}}",
+      "versionOnly": "bản v{{version}}",
+      "viewTest": "Xem đề",
+      "pinned": "Bài giao gắn với bản v{{version}}. Đề có sửa sau này, học viên vẫn làm đúng bản này.",
+      "pinnedClosed": "Học viên đã làm trên bản v{{version}}, kể cả khi đề hiện có bản mới hơn.",
+      "targets": "Giao cho",
+      "targetCount": "{{count}} học viên",
+      "classes": "Lớp",
+      "students": "Học viên lẻ",
+      "classChip": "{{name}}",
+      "overlap": "{{count}} học viên đã có trong lớp nên chỉ tính một lần.",
+      "noTargets": "Chưa chọn lớp hay học viên.",
+      "time": "Thời gian",
+      "opens": "Mở lúc",
+      "closes": "Đóng lúc",
+      "duration": "Thời lượng làm bài",
+      "attempts": "Số lượt làm",
+      "attemptsOne": "1 lượt",
+      "attemptsMany": "{{count}} lượt · lấy điểm cao nhất",
+      "rules": "Quy định khi làm bài",
+      "fullscreen": "Toàn màn hình",
+      "required": "Bắt buộc",
+      "notRequired": "Không bắt buộc",
+      "copyPaste": "Sao chép / dán",
+      "blocked": "Chặn",
+      "allowed": "Cho phép",
+      "focusLoss": "Rời trang",
+      "focusUnlimited": "Không giới hạn",
+      "focusLimit": {
+        "warn": "Cho phép {{count}} lần, quá thì nhắc học viên",
+        "flag": "Cho phép {{count}} lần, quá thì đánh dấu để xem lại",
+        "auto_submit": "Cho phép {{count}} lần, quá thì nộp tự động"
+      },
+      "shuffleQuestions": "Trộn câu hỏi",
+      "shuffleOptions": "Trộn lựa chọn",
+      "yesWithinSections": "Có, trong từng phần",
+      "yes": "Có",
+      "no": "Không",
+      "review": "Học viên xem gì sau khi nộp",
+      "reuseHint": "Đã tắt xem đáp án đúng, nên đề này dùng lại được cho lớp khác.",
+      "closeNowTitle": "Đóng bài giao ngay?",
+      "closeNowBody": "Đóng lúc {{now}} hôm nay thay vì {{planned}}. Học viên chưa bắt đầu sẽ không vào được nữa.",
+      "closeNowNote": "Học viên đang làm vẫn được làm hết {{minutes}} phút của mình.",
+      "closeNowAck": "Tôi hiểu học viên đang làm vẫn được làm hết giờ",
+      "closeNow": "Đóng ngay",
+      "closeFailed": "Không đóng được bài giao.",
+      "closeTable": "Đóng bảng học viên",
+      "reopenMenuHint": "Bước sau sẽ hỏi lý do. Ai còn lượt làm đều được vào lại.",
+      "extraStudents": "+{{count}} học viên lẻ"
+    },
+    "panel": {
+      "title": "Bảng học viên",
+      "summary": "{{total}} học viên · {{submitted}} đã nộp",
+      "close": "Đóng bảng học viên",
+      "pending": "chờ {{count}}",
+      "viewAll": "Xem tất cả bài làm",
+      "groups": {
+        "pending": "Chờ chấm",
+        "flagged": "Cần xem lại",
+        "inProgress": "Đang làm",
+        "notStarted": "Chưa nộp",
+        "done": "Đã chấm",
+        "voided": "Đã huỷ"
+      }
+    },
+    "classFilterLoading": "Lớp…",
+    "clearClassFilter": "Bỏ lọc theo lớp",
+    "emptyForClass": "Chưa giao bài nào cho lớp này."
   },
   "students": {
     "summary": "{{count}} học viên · {{active}} hoạt động 7 ngày qua",
@@ -755,7 +1007,23 @@
     "searchClasses": "Tìm lớp",
     "selectedClasses_one": "Đã chọn {{count}} lớp",
     "selectedClasses_other": "Đã chọn {{count}} lớp",
-    "noClassMatches": "Không có lớp nào khớp."
+    "noClassMatches": "Không có lớp nào khớp.",
+    "disableConfirmTitle": "Khoá tài khoản {{name}}?",
+    "disableConfirmBody": "Học viên không đăng nhập được nữa. Bài làm và điểm vẫn giữ nguyên; bạn mở khoá lại được bất cứ lúc nào.",
+    "disabled": "Đã khoá tài khoản",
+    "enabled": "Đã mở khoá tài khoản",
+    "removeConfirmTitle": "Xoá {{name}} khỏi lớp {{klass}}?",
+    "removeConfirmBody": "Học viên không còn thấy bài của lớp này. Bài đã làm vẫn giữ nguyên.",
+    "removed": "Đã xoá khỏi lớp",
+    "editInfo": "Sửa thông tin",
+    "emailHint": "Email cũng là tên đăng nhập — học viên sẽ dùng email mới từ lần đăng nhập sau. Nếu vào bằng Google, tài khoản Google phải trùng email này.",
+    "saved": "Đã lưu thông tin",
+    "saveFailed": "Không lưu được thông tin.",
+    "errors": {
+      "nameRequired": "Hãy nhập họ và tên.",
+      "nameTooLong": "Họ và tên tối đa 200 ký tự.",
+      "emailInvalid": "Email chưa đúng định dạng."
+    }
   },
   "takeTest": {
     "answerOptions": "Các phương án",
@@ -821,7 +1089,15 @@
     "shortcuts": "Phím tắt",
     "shortcutPick": "chọn đáp án",
     "shortcutMove": "chuyển câu",
-    "shortcutFlag": "đánh dấu"
+    "shortcutFlag": "đánh dấu",
+    "submittedTitle_manual": "Bài đã được nộp.",
+    "submittedTitle_timer_expired": "Bài đã hết giờ và được nộp tự động.",
+    "submittedTitle_auto_submit": "Bài đã được nộp vì rời trang lần nữa.",
+    "submittedBody_manual": "Bài làm của bạn đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
+    "submittedBody_timer_expired": "Hết thời gian làm bài, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
+    "submittedBody_auto_submit": "Bài làm ghi nhận bạn rời khỏi trang sau lần cuối được cho phép, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
+    "submittedMeta": "Nộp lúc {{time}} · {{date}} · {{answered}}/{{total}} câu đã trả lời",
+    "backHome": "Về trang chủ"
   },
   "integrity": {
     "leftTitle": "Bạn vừa rời khỏi trang làm bài",
@@ -853,5 +1129,345 @@
     "nextShort": "Sau",
     "more": "Các trang khác",
     "page": "Trang {{n}}"
+  },
+  "status": {
+    "test": {
+      "draft": "Bản nháp",
+      "published": "Đã phát hành",
+      "archived": "Đã lưu trữ"
+    },
+    "assignment": {
+      "draft": "Bản nháp",
+      "scheduled": "Đã lên lịch",
+      "open": "Đang mở",
+      "closed": "Đã đóng"
+    },
+    "attempt": {
+      "not_started": "Chưa bắt đầu",
+      "in_progress": "Đang làm",
+      "submitted": "Đã nộp",
+      "timed_out": "Hết giờ",
+      "graded": "Đã chấm",
+      "voided": "Đã huỷ"
+    },
+    "attention": {
+      "flagged": "Cần xem lại",
+      "pendingManual": "Chờ chấm tay",
+      "audio": "Có audio"
+    }
+  },
+  "monitor": {
+    "loadFailed": "Không tải được danh sách học viên.",
+    "loadFailedHint": "Bài làm của học viên không bị ảnh hưởng; chỉ bảng này chưa hiện.",
+    "empty": "Chưa có học viên nào được giao bài này.",
+    "addStudents": "Thêm học viên vào lớp",
+    "student": "Học viên",
+    "state": "Trạng thái",
+    "startedAt": "Bắt đầu",
+    "remaining": "Còn lại",
+    "progress": "Tiến độ",
+    "focusLoss": "Rời trang",
+    "score": "Điểm",
+    "cards": {
+      "submitted": "Đã nộp",
+      "inProgress": "Đang làm",
+      "notStarted": "Chưa bắt đầu",
+      "flagged": "Cần xem lại",
+      "closesIn": "Đóng sau"
+    },
+    "answeredOf": "{{answered}} trên {{total}} câu đã trả lời",
+    "pendingBadge_one": "chờ chấm {{count}}",
+    "pendingBadge_other": "chờ chấm {{count}}",
+    "menu": {
+      "view": "Xem bài làm",
+      "extend": "Gia hạn thời gian",
+      "reset": "Cho làm lại",
+      "void": "Huỷ lượt làm này"
+    },
+    "actionFailed": "Không thực hiện được. Vui lòng thử lại.",
+    "reason": "Lý do",
+    "reasonHint": "Bắt buộc. Lý do được ghi lại kèm tên bạn.",
+    "polling": "Tự cập nhật 15 giây/lần",
+    "refresh": "Làm mới",
+    "extend": {
+      "title": "Gia hạn cho {{name}}",
+      "body": "Học viên sẽ thấy đồng hồ cộng thêm ngay lập tức.",
+      "confirm": "Gia hạn",
+      "minutes": "Cộng thêm",
+      "placeholder": "Ví dụ: Mất mạng 8 phút, đã xác nhận"
+    },
+    "reset": {
+      "title": "Cho {{name}} làm lại",
+      "body": "Lượt {{no}} sẽ được đánh dấu đã huỷ và không tính điểm. {{name}} nhận lượt {{next}} ngay, với thời gian làm bài như ban đầu. Bài làm của lượt {{no}} vẫn xem được.",
+      "confirm": "Cho làm lại",
+      "placeholder": "Ví dụ: Mất điện giữa giờ, cả lớp xác nhận"
+    },
+    "void": {
+      "title": "Huỷ lượt {{no}} của {{name}}",
+      "body": "Lượt này sẽ không tính điểm và học viên không tự nhận lượt mới. Bài làm không bị xoá — bạn vẫn xem được trong hồ sơ lượt làm. Nếu muốn cấp lượt mới, dùng Cho làm lại.",
+      "confirm": "Huỷ lượt làm",
+      "placeholder": "Ví dụ: Làm nhầm đề của lớp khác, đã trao đổi với em"
+    },
+    "closesInDays_one": "{{count}} ngày",
+    "closesInDays_other": "{{count}} ngày",
+    "closesInHours_one": "{{count}} giờ",
+    "closesInHours_other": "{{count}} giờ"
+  },
+  "review": {
+    "title": "Bài làm",
+    "loadFailed": "Không tải được bài làm này.",
+    "loadFailedHint": "Điểm và nhận xét đã lưu vẫn còn nguyên.",
+    "tabs": {
+      "paper": "Bài làm",
+      "integrity": "Tính toàn vẹn"
+    },
+    "pendingBadge_one": "còn {{count}} câu chờ chấm",
+    "pendingBadge_other": "còn {{count}} câu chờ chấm",
+    "finish": "Hoàn tất chấm",
+    "finished": "Đã hoàn tất chấm.",
+    "finishFailed": "Không hoàn tất được. Vui lòng thử lại.",
+    "flagFailed": "Không đổi được đánh dấu.",
+    "unflaggedToast": "Đã bỏ đánh dấu",
+    "flaggedToast": "Đã đánh dấu để xem lại",
+    "flaggedBadge": "Đã đánh dấu",
+    "unflag": "Bỏ đánh dấu",
+    "flag": "Đánh dấu",
+    "saveFailed": "Không lưu được điểm. Vui lòng thử lại.",
+    "rail": "Danh sách câu",
+    "questions": "Câu hỏi",
+    "pendingNote_one": "{{count}} câu cần bạn chấm.",
+    "pendingNote_other": "{{count}} câu cần bạn chấm.",
+    "noQuestions": "Đề này không có câu hỏi nào.",
+    "questionMeta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "sampleAnswer": "Đáp án mẫu — chỉ bạn nhìn thấy",
+    "attemptOf": "lượt {{n}}/{{total}}",
+    "submittedAt": "nộp {{time}}",
+    "stats": {
+      "auto": "Tự động",
+      "manual": "Chấm tay",
+      "duration": "Thời gian làm",
+      "focusLoss": "Rời trang"
+    },
+    "playsUnlimited": "nghe {{plays}} lần",
+    "playsOf": "nghe {{plays}}/{{max}} lần",
+    "overLimitNote": "Học viên nghe nhiều hơn số lần cho phép — hệ thống không chặn giữa chừng (§11.4), chỉ ghi lại để bạn biết.",
+    "verdict": {
+      "correct": "Đúng",
+      "wrong": "Sai",
+      "partial": "Đúng một phần",
+      "pending": "Chờ chấm",
+      "unanswered": "Chưa trả lời"
+    },
+    "studentAnswer": "Bài làm của học viên",
+    "unanswered": "Học viên không trả lời câu này.",
+    "accepted": "Đáp án được chấp nhận: {{answers}}",
+    "pickedCorrect": "học viên chọn · đúng",
+    "picked": "học viên chọn",
+    "correctAnswer": "đáp án đúng",
+    "points": "Điểm",
+    "decrease": "Giảm",
+    "increase": "Tăng",
+    "keyPoints": "nhập điểm",
+    "keyNext": "câu tiếp theo",
+    "comment": "Nhận xét",
+    "commentHint": "— học viên đọc được",
+    "saveNext": "Lưu & câu tiếp theo",
+    "skip": "Bỏ qua",
+    "notYetSubmitted": "Học viên đang làm bài. Chấm được sau khi nộp.",
+    "voided": "Lượt làm này đã bị huỷ nên không chấm.",
+    "keyTo": "–",
+    "keySep": "·",
+    "keyEnter": "Enter"
+  },
+  "timeline": {
+    "loadFailed": "Không tải được diễn biến của lượt làm này.",
+    "loadFailedHint": "Bài làm và điểm vẫn xem được ở thẻ Bài làm.",
+    "strip": {
+      "totalAway": "Tổng thời gian rời trang",
+      "openNotSummed": "chưa tính lần đang mở",
+      "episodes": "Số lần rời ≥3 giây",
+      "oneOpen": "1 đang mở",
+      "pastes": "Lần dán",
+      "resumes": "Vào lại bài",
+      "replays": "Nghe lại quá số lần",
+      "offline": "Mất mạng"
+    },
+    "title": "Diễn biến",
+    "filter": "Lọc sự kiện",
+    "filters": {
+      "all": "Tất cả",
+      "away": "Rời trang",
+      "audio": "Âm thanh",
+      "network": "Mạng"
+    },
+    "viewPaper": "Xem bài làm",
+    "empty": "Không ghi nhận sự kiện nào trong lượt làm này.",
+    "columns": {
+      "at": "Lúc",
+      "offset": "Từ đầu",
+      "event": "Sự kiện",
+      "duration": "Kéo dài",
+      "question": "Đang ở câu"
+    },
+    "kind": {
+      "started": "Bắt đầu làm bài",
+      "tab_hidden": "Chuyển sang tab khác",
+      "window_blur": "Chuyển sang cửa sổ khác",
+      "fullscreen_exit": "Thoát toàn màn hình",
+      "fullscreen_enter": "Vào lại toàn màn hình",
+      "network_offline": "Mất kết nối",
+      "network_online": "Có mạng trở lại",
+      "audio_play": "Phát âm thanh",
+      "audio_ended": "Nghe xong",
+      "audio_blocked": "Trình duyệt chặn phát âm thanh",
+      "paste": "Dán nội dung",
+      "copy": "Sao chép nội dung",
+      "cut": "Cắt nội dung",
+      "context_menu": "Mở menu chuột phải",
+      "resume": "Vào lại bài",
+      "session_takeover": "Vào lại bài từ thiết bị khác",
+      "page_hide": "Đóng trang",
+      "tab_visible": "Quay lại tab",
+      "window_focus": "Quay lại cửa sổ"
+    },
+    "ongoing": "— đang tiếp diễn",
+    "stillOpen": "· đang mở",
+    "playNo": "{{label}} · lần {{n}}",
+    "overLimit": "— vượt giới hạn {{max}} lần",
+    "updatedAt": "Cập nhật lúc {{time}}.",
+    "openResolves": "Thời lượng của lần đang mở sẽ được ghi khi học viên quay lại tab làm bài.",
+    "help": {
+      "title": "Đọc bảng này thế nào",
+      "cannotSee": "Hệ thống chỉ biết tab làm bài có bị rời đi hay không. Nó không thấy điện thoại thứ hai, người ngồi cạnh, hay tài liệu in ra.",
+      "duration": "Một lần rời 2 giây thường là thông báo. Một lần rời 90 giây thì đáng để hỏi. Mất mạng được ghi riêng để không bị hiểu nhầm.",
+      "conversation": "Đây là thông tin để bắt đầu một cuộc trò chuyện, không phải bằng chứng để kết luận."
+    },
+    "noteTitle": "Ghi chú của bạn",
+    "noteHint": "Chỉ bạn đọc được. Không hiện cho học viên.",
+    "notePlaceholder": "đã hỏi Hân, em nói mất điện lúc 10:04"
+  },
+  "result": {
+    "title": "Kết quả",
+    "notReady": "Kết quả chưa sẵn sàng.",
+    "pendingTitle_one": "Còn {{count}} câu giáo viên đang chấm",
+    "pendingTitle_other": "Còn {{count}} câu giáo viên đang chấm",
+    "pendingBody": "Điểm cuối cùng sẽ hiện khi chấm xong.",
+    "hiddenTitle": "Giáo viên chưa công bố điểm",
+    "hiddenBody": "Bài của bạn đã được nộp lúc {{time}} · {{date}}. Khi giáo viên mở phần xem lại, bạn sẽ thấy điểm ở đây.",
+    "yourPaper": "Bài làm của bạn",
+    "answeredWithKey": "Bạn đã trả lời {{answered}}/{{total}} câu. Bạn có thể xem lại câu hỏi, câu trả lời của mình và đáp án đúng bên dưới.",
+    "answeredNoKey": "Bạn đã trả lời {{answered}}/{{total}} câu. Bạn có thể xem lại câu hỏi và câu trả lời của mình, nhưng chưa xem được đáp án đúng.",
+    "filter": "Lọc câu hỏi",
+    "chips": {
+      "all": "Tất cả {{count}}",
+      "wrong": "Sai {{count}}",
+      "pending": "Chờ chấm {{count}}"
+    },
+    "noKey": "Giáo viên không hiển thị đáp án đúng cho bài này.",
+    "noExplanations": "Giáo viên không hiển thị giải thích cho bài này.",
+    "provisional": "Điểm tạm tính",
+    "yourScore": "Điểm của bạn",
+    "excludesPending": "chưa gồm {{points}} điểm đang chấm tay",
+    "percent": "Đạt {{percent}}%",
+    "submittedMeta": "Nộp lúc {{time}} · {{date}} · Lượt {{n}}/{{total}}",
+    "pointsPending": "— / {{total}} điểm",
+    "pointsOf": "{{earned}}/{{total}} điểm",
+    "listening": "Nghe",
+    "verdict": {
+      "correct": "Đúng",
+      "wrong": "Sai",
+      "partial": "Đúng một phần",
+      "pending": "Chờ chấm",
+      "graded": "Đã chấm"
+    },
+    "replayFreely": "Nghe lại thoải mái sau khi nộp",
+    "showTranscript": "Xem lời thoại",
+    "noTranscript": "Lời thoại không được hiển thị.",
+    "teacherComment": "Nhận xét của giáo viên",
+    "unanswered": "Bạn chưa trả lời câu này.",
+    "correctAnswerIs": "Đáp án đúng: {{answers}}",
+    "youChose": "bạn chọn",
+    "correctOption": "đáp án đúng",
+    "loadFailed": "Không tải được kết quả",
+    "loadFailedBody": "Bài làm của bạn đã nộp và vẫn được lưu. Kiểm tra kết nối rồi thử lại."
+  },
+  "queue": {
+    "summary": {
+      "pending_one": "{{count}} bài chờ chấm",
+      "pending_other": "{{count}} bài chờ chấm",
+      "flagged_one": "{{count}} bài cần xem lại",
+      "flagged_other": "{{count}} bài cần xem lại"
+    },
+    "filter": "Lọc hàng đợi",
+    "tabs": {
+      "pending": "Chờ chấm",
+      "flagged": "Cần xem lại"
+    },
+    "loadFailed": "Không tải được hàng đợi.",
+    "empty": {
+      "pending": "Không còn bài nào chờ chấm.",
+      "flagged": "Không có bài nào cần xem lại."
+    },
+    "toAssignments": "Xem bài giao",
+    "columns": {
+      "student": "Học viên",
+      "test": "Đề thi",
+      "state": "Trạng thái",
+      "submittedAt": "Nộp lúc",
+      "pending": "Chờ chấm"
+    },
+    "open": "Chấm"
+  },
+  "byQuestion": {
+    "title": "Chấm theo câu hỏi",
+    "questionOf": "Câu {{n}} / {{count}}",
+    "graded": "Đã chấm {{done}}/{{total}}",
+    "next": "Câu tiếp theo",
+    "exit": "Chấm từng bài",
+    "meta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "rubric": "Chấm ý",
+    "namesHidden": "Tên học viên được ẩn cho tới khi bạn chấm xong câu này.",
+    "showNames": "Hiện tên",
+    "hideNames": "Ẩn tên",
+    "student": "Học viên {{n}}",
+    "attemptNo": "lượt {{n}}",
+    "blank": "Không trả lời",
+    "gradedBadge": "Đã chấm",
+    "save": "Lưu",
+    "pointsFor": "Điểm cho {{who}}",
+    "keys": "↓ học viên tiếp theo · 0 – {{max}} chấm điểm · ⌘⏎ lưu và sang câu sau",
+    "notManual": "Câu này được chấm tự động.",
+    "empty": "Chưa có bài nào nộp câu này.",
+    "loadFailed": "Không tải được câu trả lời."
+  },
+  "papers": {
+    "title": "Bài làm · {{title}}",
+    "meta": "{{submitted}}/{{total}} đã nộp · {{pending}} chờ chấm · {{flagged}} cần xem lại",
+    "filter": "Lọc bài làm",
+    "tabs": {
+      "all": "Tất cả",
+      "submitted": "Đã nộp",
+      "pending": "Chờ chấm",
+      "flagged": "Cần xem lại",
+      "notStarted": "Chưa nộp"
+    },
+    "search": "Tìm học viên",
+    "attempt": "Lượt",
+    "submittedAt": "Nộp lúc",
+    "took": "Thời gian làm",
+    "attemptOf": "{{no}}/{{max}}",
+    "tookMinutes": "{{count}} phút",
+    "tookUnderMinute": "dưới 1 phút",
+    "emptyTab": "Không có bài làm nào ở mục này.",
+    "noMatches": "Không có học viên nào khớp “{{query}}”.",
+    "hint": "Mỗi học viên một dòng, lượt mới nhất. Lượt trước vẫn xem được từ trang bài làm."
+  },
+  "layout": {
+    "resize": {
+      "sidebar": "Độ rộng menu",
+      "rail": "Độ rộng cột lọc",
+      "panel": "Độ rộng bảng bên",
+      "outline": "Độ rộng dàn ý"
+    }
   }
 }

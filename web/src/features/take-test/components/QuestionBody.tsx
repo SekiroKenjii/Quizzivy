@@ -11,13 +11,13 @@ export function QuestionBody({
   answer,
   onAnswer,
   disabled = false,
-}: {
+}: Readonly<{
   question: StudentQuestion;
   answer: Answer | undefined;
   onAnswer: (answer: Answer) => void;
   /** Read-only once the paper is locked; the answers stay legible. */
   disabled?: boolean;
-}) {
+}>) {
   switch (question.type) {
     case "fill_blank":
       return (
@@ -61,7 +61,7 @@ function optionKey(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
-function Prompt({ children }: { children: string }) {
+function Prompt({ children }: Readonly<{ children: string }>) {
   return <Markdown className="text-base">{children}</Markdown>;
 }
 
@@ -69,7 +69,7 @@ function Prompt({ children }: { children: string }) {
  * single_choice, multiple_choice and true_false, which differ only in how many
  * may be chosen.
  */
-function Choice({ question, answer, onAnswer, disabled }: Props) {
+function Choice({ question, answer, onAnswer, disabled }: Readonly<Props>) {
   const { t } = useTranslation();
   const options = question.options ?? [];
   const multiple = question.type === "multiple_choice";
@@ -144,7 +144,7 @@ function Choice({ question, answer, onAnswer, disabled }: Props) {
  * the sentence reads as a sentence rather than as a prompt followed by a list
  * of boxes.
  */
-function FillBlank({ question, answer, onAnswer, disabled }: Props) {
+function FillBlank({ question, answer, onAnswer, disabled }: Readonly<Props>) {
   const { t } = useTranslation();
   const values = answer !== undefined && "values" in answer ? answer.values : {};
   const blanks = question.blanks ?? [];
@@ -185,7 +185,7 @@ function FillBlank({ question, answer, onAnswer, disabled }: Props) {
   );
 }
 
-function ShortAnswer({ question, answer, onAnswer, disabled }: Props) {
+function ShortAnswer({ question, answer, onAnswer, disabled }: Readonly<Props>) {
   const { t } = useTranslation();
   const value = answer !== undefined && "value" in answer ? String(answer.value) : "";
   // Whitespace-separated, which is what "18 từ" means to a student writing English.

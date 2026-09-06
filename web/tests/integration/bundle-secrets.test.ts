@@ -63,11 +63,7 @@ beforeAll(async () => {
   })) as unknown as BuildOutput | BuildOutput[];
   const first = Array.isArray(result) ? result[0]! : result;
 
-  bundle = first.output
-    .map((o) =>
-      o.type === "chunk" ? o.code : typeof o.source === "string" ? o.source : "",
-    )
-    .join("\n");
+  bundle = first.output.map(textOf).join("\n");
 }, 120_000);
 
 describe("the built bundle", () => {
@@ -98,3 +94,8 @@ describe("the built bundle", () => {
     expect(bundle).toContain("VITE_API_BASE_URL");
   });
 });
+
+function textOf(output: { type: string; code?: string; source?: unknown }): string {
+  if (output.type === "chunk") return output.code ?? "";
+  return typeof output.source === "string" ? output.source : "";
+}

@@ -10,10 +10,12 @@ import {
 import { useTranslation } from "react-i18next";
 import type { RefObject } from "react";
 import type { TFunction } from "i18next";
-import { useNavigate, useParams } from "react-router";
+import { useBlocker, useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, History } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Eye, History, SlidersHorizontal } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
@@ -34,6 +36,7 @@ import {
   type PublishViolation,
   type Test,
 } from "@/features/tests/api";
+import { DraftPreviewDialog } from "@/features/tests/components/DraftPreviewDialog";
 import { PublishDialog } from "@/features/tests/components/PublishDialog";
 import { AutosaveStatusLabel } from "@/features/tests/components/AutosaveStatusLabel";
 import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
@@ -67,30 +70,21 @@ export default function TestBuilderPage() {
   });
 
   if (test.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={8} />;
   }
 
   if (test.isError) {
     return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t("builder.loadFailed")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void test.refetch()}>
-          {t("common.retry")}
-        </Button>
-      </div>
+      <LoadError error={test.error} onRetry={() => void test.refetch()}>
+        {t("builder.loadFailed")}
+      </LoadError>
     );
   }
 
   return <Builder key={test.data.id} test={test.data} />;
 }
 
-function Builder({ test }: { test: Test }) {
+function Builder({ test }: Readonly<{ test: Test }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -105,9 +99,13 @@ function Builder({ test }: { test: Test }) {
   );
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   const flushQuestion = useRef<(() => Promise<void>) | null>(null);
+  const retryQuestion = useRef<(() => void) | null>(null);
+  const latestOutline = useRef<OutlineSection[]>(sections);
   const [questionStatus, setQuestionStatus] = useState<AutosaveStatus>({
     kind: "idle",
   });
@@ -159,9 +157,20 @@ function Builder({ test }: { test: Test }) {
     return map;
   }, [loaded, questionIds, violations]);
 
+  useEffect(() => {
+    latestOutline.current = sections;
+  }, [sections]);
+
   const updateOutline = useCallback(
     (next: OutlineSection[]) => {
       setSections(next);
+      setSelectedId((current) => {
+        if (current === null || next.some((s) => s.questionIds.includes(current))) {
+          return current;
+        }
+        setQuestionStatus({ kind: "idle" });
+        return null;
+      });
       outline.schedule({ title, sections: next });
     },
     [outline, title],
@@ -169,13 +178,14 @@ function Builder({ test }: { test: Test }) {
 
   function updateTitle(next: string) {
     setTitle(next);
-    outline.schedule({ title: next, sections });
+    outline.schedule({ title: next, sections: latestOutline.current });
   }
 
   function appendQuestion(questionId: string) {
-    const last = sections.length - 1;
+    const current = latestOutline.current;
+    const last = current.length - 1;
     updateOutline(
-      sections.map((section, i) =>
+      current.map((section, i) =>
         i === last
           ? { ...section, questionIds: [...section.questionIds, questionId] }
           : section,
@@ -240,6 +250,26 @@ function Builder({ test }: { test: Test }) {
 
   const saveStatus = mergeAutosave([outline.status, questionStatus]);
   const stale = saveStatus.kind === "stale";
+  // Typed but not yet on the server: leaving now would lose it (F-14).
+  const unsaved =
+    saveStatus.kind === "dirty" ||
+    saveStatus.kind === "saving" ||
+    saveStatus.kind === "failed";
+  const leaving = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      unsaved && currentLocation.pathname !== nextLocation.pathname,
+  );
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsaved]);
+
+  const draftQuestions = questionIds.flatMap((questionId) => {
+    const found = loaded[questionIds.indexOf(questionId)]?.data;
+    return found ? [found] : [];
+  });
 
   return (
     <div className="-m-6 flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden">
@@ -255,29 +285,48 @@ function Builder({ test }: { test: Test }) {
         <Input
           value={title}
           aria-label={t("builder.titleLabel")}
-          className="h-8 w-96 border-transparent font-medium shadow-none"
+          className="h-8 w-96 min-w-32 border-transparent font-medium shadow-none"
           onChange={(event) => updateTitle(event.target.value)}
         />
-        <Badge variant="secondary">{t(`builder.${test.status}`)}</Badge>
-        <AutosaveStatusLabel status={saveStatus} />
+        <StatusBadge kind="test" status={test.status} />
+        <AutosaveStatusLabel
+          status={saveStatus}
+          onRetry={() => {
+            outline.retry();
+            retryQuestion.current?.();
+          }}
+        />
+        {selectedId === null ? null : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            <span className="hidden sm:inline">{t("questionEditor.settings")}</span>
+          </Button>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
             className="text-muted-foreground"
-            onClick={() => void navigate(`/admin/tests/${test.id}`)}
+            aria-label={t("builder.versions")}
+            onClick={() => void navigate(`/admin/tests/${test.id}#versions`)}
           >
             <History aria-hidden="true" />
-            {t("builder.versions")}
+            <span className="hidden lg:inline">{t("builder.versions")}</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => void navigate(`/admin/tests/${test.id}`)}
+            aria-label={t("builder.previewAsStudent")}
+            onClick={() => setPreviewing(true)}
           >
             <Eye aria-hidden="true" />
-            {t("builder.previewAsStudent")}
+            <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
           </Button>
           <Button
             size="sm"
@@ -312,7 +361,7 @@ function Builder({ test }: { test: Test }) {
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div data-columns className="flex min-h-0 flex-1 overflow-hidden">
         <Suspense
           fallback={<div className="w-72 shrink-0 border-r" aria-hidden="true" />}
         >
@@ -329,7 +378,7 @@ function Builder({ test }: { test: Test }) {
           />
         </Suspense>
 
-        <div className="min-w-0 flex-1 overflow-y-auto p-6">
+        <div data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-6">
           <PageAsideSlot.Provider value={asideSlot}>
             {selectedId === null ? (
               <p className="text-muted-foreground text-sm">
@@ -339,9 +388,12 @@ function Builder({ test }: { test: Test }) {
               </p>
             ) : (
               <QuestionPane
+                settingsOpen={settingsOpen}
+                onSettingsOpenChange={setSettingsOpen}
                 key={selectedId}
                 questionId={selectedId}
                 flushRef={flushQuestion}
+                retryRef={retryQuestion}
                 onStatus={setQuestionStatus}
                 contextLabel={contextLabel}
               />
@@ -367,6 +419,23 @@ function Builder({ test }: { test: Test }) {
           setViolations(null);
         }}
       />
+
+      <DraftPreviewDialog
+        open={previewing}
+        questions={draftQuestions}
+        onOpenChange={setPreviewing}
+      />
+
+      <ConfirmDialog
+        open={leaving.state === "blocked"}
+        onOpenChange={(open) => !open && leaving.reset?.()}
+        title={t("builder.leaveTitle")}
+        description={t("builder.leaveBody")}
+        confirmLabel={t("builder.leave")}
+        cancelLabel={t("builder.stay")}
+        destructive
+        onConfirm={() => leaving.proceed?.()}
+      />
     </div>
   );
 }
@@ -379,14 +448,20 @@ function Builder({ test }: { test: Test }) {
 function QuestionPane({
   questionId,
   flushRef,
+  retryRef,
   onStatus,
   contextLabel,
-}: {
+  settingsOpen,
+  onSettingsOpenChange,
+}: Readonly<{
   questionId: string;
   flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
-}) {
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
+}>) {
   const { t } = useTranslation();
   const question = useQuery({
     queryKey: ["admin-question", questionId],
@@ -413,8 +488,11 @@ function QuestionPane({
       questionId={questionId}
       initial={question.data}
       flushRef={flushRef}
+      retryRef={retryRef}
       onStatus={onStatus}
       contextLabel={contextLabel}
+      settingsOpen={settingsOpen}
+      onSettingsOpenChange={onSettingsOpenChange}
     />
   );
 }
@@ -423,15 +501,21 @@ function QuestionForm({
   questionId,
   initial,
   flushRef,
+  retryRef,
   onStatus,
   contextLabel,
-}: {
+  settingsOpen,
+  onSettingsOpenChange,
+}: Readonly<{
   questionId: string;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
+  retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
   contextLabel: string | null;
-}) {
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
+}>) {
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
 
@@ -441,13 +525,15 @@ function QuestionForm({
     },
   });
 
-  const { flush, status } = autosave;
+  const { flush, retry, status } = autosave;
   useEffect(() => {
     flushRef.current = flush;
+    retryRef.current = retry;
     return () => {
       flushRef.current = null;
+      retryRef.current = null;
     };
-  }, [flush, flushRef]);
+  }, [flush, retry, flushRef, retryRef]);
 
   useEffect(() => {
     onStatus(status);
@@ -459,6 +545,11 @@ function QuestionForm({
         value={values}
         asset={asset}
         contextLabel={contextLabel}
+        settings={{
+          hideBelow: "lg",
+          open: settingsOpen,
+          onOpenChange: onSettingsOpenChange,
+        }}
         onChange={(next) => {
           setValues(next);
           autosave.schedule(next);

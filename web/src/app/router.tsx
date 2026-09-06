@@ -97,6 +97,26 @@ const adminTree: RouteObject = {
           lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
         },
         {
+          path: "assignments/:id",
+          lazy: page(() => import("@/features/assignments/pages/AssignmentDetailPage")),
+        },
+        {
+          path: "assignments/:id/edit",
+          lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
+        },
+        {
+          path: "assignments/:id/attempts",
+          lazy: page(() => import("@/features/attempts/pages/AssignmentAttemptsPage")),
+        },
+        {
+          path: "attempts/:id",
+          lazy: page(() => import("@/features/attempts/pages/AttemptReviewPage")),
+        },
+        {
+          path: "grading",
+          lazy: page(() => import("@/features/attempts/pages/GradingQueuePage")),
+        },
+        {
           path: "students",
           lazy: page(() => import("@/features/students/pages/StudentsListPage")),
         },
@@ -146,6 +166,11 @@ const studentTree: RouteObject = {
           path: "settings",
           handle: { titleKey: "nav.settings" },
           lazy: page(() => import("@/features/auth/pages/StudentSettingsPage")),
+        },
+        {
+          path: "attempts/:attemptId/result",
+          handle: { titleKey: "result.title" },
+          lazy: page(() => import("@/features/results/pages/ResultPage")),
         },
       ],
     },

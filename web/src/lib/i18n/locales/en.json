@@ -13,7 +13,24 @@
     "comingSoon": "This section is built in a later phase.",
     "save": "Save",
     "saving": "Saving…",
-    "loadingMore": "Loading more…"
+    "loadingMore": "Loading more…",
+    "actions": "Actions",
+    "undo": "Undo",
+    "copy": "Copy",
+    "copied": "Copied",
+    "requestId": "Request id",
+    "pickDate": "Pick a date",
+    "timeOf": "{{label}} — time",
+    "calendar": {
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "nav": "Change month",
+      "today": "today",
+      "selected": "selected",
+      "hours": "Hours",
+      "minutes": "Minutes"
+    },
+    "pickTime": "Pick a time"
   },
   "error": {
     "title": "Something went wrong",
@@ -54,7 +71,8 @@
     "mainNavigation": "Main navigation",
     "sectionTeaching": "Teaching",
     "sectionClasses": "Classes",
-    "account": "{{name}}'s account"
+    "account": "{{name}}'s account",
+    "grading": "To grade"
   },
   "student": {
     "myAssignments": "My assignments",
@@ -91,6 +109,8 @@
     "noAssignmentsHint": "When your teacher assigns a test, it will appear here.",
     "noClasses": "You have not joined a class yet.",
     "joinClass": "Join a class",
+    "taughtBySince": "{{teacher}} · joined {{date}}",
+    "joinedOn": "Joined {{date}}",
     "loadFailed": "Could not load. Please try again.",
     "intro": {
       "duration": "Duration",
@@ -128,7 +148,10 @@
     "new": "New password",
     "hint": "At least 8 characters.",
     "submit": "Change password",
-    "currentHint": "Leave blank if you signed in with Google, or do not have the temporary password."
+    "currentHint": "Leave blank if you signed in with Google, or do not have the temporary password.",
+    "errors": {
+      "tooShort": "The new password needs at least 8 characters."
+    }
   },
   "login": {
     "title": "Sign in",
@@ -175,6 +198,14 @@
   },
   "classDetail": {
     "joinCode": "Class join code",
+    "downloadQr": "Download QR",
+    "codeCopied": "Code copied",
+    "copyCode": "Copy the code",
+    "selfJoinFailed": "Could not change the join setting.",
+    "selfJoinOff": "Joining by code is paused",
+    "selfJoinOn": "Joining by code is open",
+    "selfJoinOffHint": "Paused: the current code stays as it is and works again once this is on.",
+    "selfJoinSwitch": "Open to join",
     "codeHint": "Current code",
     "expiresAt": "Expires",
     "uses": "Used",
@@ -224,7 +255,6 @@
     "codeShareHint": "Anyone with the code can join. Create a new one if you think it has been shared outside the class.",
     "stop": "Stop",
     "freshTitle": "A new code for this class",
-    "copyCode": "Copy the code",
     "done": "Done",
     "removeNamed": "Remove {{name}} from the class",
     "noMemberMatches": "No student matches “{{query}}”.",
@@ -241,12 +271,83 @@
     "alreadyMember": "already a member",
     "add": "Add",
     "addFailed": "Could not add the student. Please try again.",
-    "assignToClass": "Assign to class"
+    "assignToClass": "Assign to class",
+    "removed": "Removed from the class",
+    "expiryLabel": "Expires after",
+    "expiryDays": "{{days}} days",
+    "maxUsesLabel": "Use limit",
+    "maxUsesPlaceholder": "Default 40",
+    "maxUsesHint": "Left empty, the server applies its default limit of 40 uses.",
+    "maxUsesRange": "The use limit must be a whole number from 1 to 1000.",
+    "exhaustedBadge": "limit reached",
+    "exhaustedExplainer": "This code has reached its use limit, so students can no longer join with it. Issue a new one.",
+    "issueConfirmTitle": "Open joining by code?",
+    "issueConfirmBody": "Anyone holding the code can join the class. You can stop accepting it at any time.",
+    "assignments": "Assignments for this class",
+    "assignmentsSummary": "{{count}} assignments · {{open}} open",
+    "assignmentsEmpty": "Nothing has been assigned to this class yet.",
+    "assignmentsFailed": "Could not load the class's assignments.",
+    "viewAllAssignments": "View all"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
     "empty": "No classes yet.",
-    "studentCount": "{{count}} students"
+    "studentCount": "{{count}} students",
+    "summary": "{{count}} classes · {{students}} students",
+    "new": "New class",
+    "newHint": "Add students and assign work right after creating it.",
+    "name": "Class name",
+    "namePlaceholder": "For example: IELTS Foundation — Tue/Thu evenings",
+    "nameHint": "Students see this name when they join.",
+    "description": "Description",
+    "optional": "optional",
+    "descriptionPlaceholder": "Schedule, goals, notes for yourself.",
+    "selfJoin": "Allow joining with a code",
+    "selfJoinHint": "You can issue a code later.",
+    "create": "Create class",
+    "createFirst": "Create the first class",
+    "createFailed": "Could not create the class.",
+    "errors": {
+      "nameRequired": "Give the class a name.",
+      "nameTooLong": "A class name has at most 120 characters."
+    },
+    "statusFilter": "Filter by status",
+    "tabs": {
+      "all": "All",
+      "joinable": "Open to join",
+      "archived": "Archived"
+    },
+    "searchPlaceholder": "Find a class",
+    "noMatches": "No class matches.",
+    "columns": {
+      "class": "Class",
+      "students": "Students",
+      "openAssignments": "Open assignments",
+      "join": "Join by code",
+      "created": "Created"
+    },
+    "joinOpen": "Open",
+    "joinClosed": "Closed",
+    "archivedBadge": "Archived",
+    "open": "Open class",
+    "assign": "Assign work",
+    "addStudents": "Add students",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archiveTitle": "Archive {{name}}?",
+    "archiveBody": "The class will no longer appear when you pick a class to assign work or add students. Nothing is deleted.",
+    "archiveStudents_one": "{{count}} student keeps their attempts and grades.",
+    "archiveStudents_other": "{{count}} students keep their attempts and grades.",
+    "archiveOpen_one": "{{count}} open assignment stays visible to students until it closes.",
+    "archiveOpen_other": "{{count}} open assignments stay visible to students until they close.",
+    "archiveNoneOpen": "No assignment is open.",
+    "archiveRestoreNote": "You can restore it any time from Archived.",
+    "archiveFailed": "Could not archive the class.",
+    "codeHint": "••••{{hint}}",
+    "created": "Class created",
+    "archived": "Class archived",
+    "restored": "Class restored",
+    "restoreFailed": "Could not restore the class."
   },
   "settings": {
     "profile": "Profile",
@@ -321,7 +422,7 @@
     "pause": "Pause",
     "seek": "Seek",
     "expired": "This preview link has expired. Reload to listen.",
-    "summaryPaged": "{{count}} files"
+    "deleted": "File deleted"
   },
   "questionEditor": {
     "acceptedAnswers": "Accepted answers",
@@ -396,7 +497,8 @@
     "removeOptionN": "Remove option {{n}}",
     "removeBlankN": "Remove blank {{n}}",
     "acceptedAnswersFor": "Accepted answers for blank {{n}}",
-    "caseSensitiveFor": "Case sensitivity for blank {{n}}"
+    "caseSensitiveFor": "Case sensitivity for blank {{n}}",
+    "saved": "Question saved"
   },
   "builder": {
     "outline": "Structure",
@@ -421,6 +523,12 @@
     "publishing": "Publishing…",
     "versions": "Versions",
     "previewAsStudent": "View as a student",
+    "stay": "Stay",
+    "leave": "Leave",
+    "leaveBody": "What you just typed has not been saved. Stay a few seconds for it to land, or leave and lose it.",
+    "leaveTitle": "Leave before the save finishes?",
+    "previewEmpty": "There are no questions to preview yet.",
+    "previewHint": "The current draft, in outline order. Students only ever see a published version.",
     "publishBlockedTitle": "Cannot publish yet",
     "publishBlockedBody": "{{count}} things still need fixing. Select a line to jump to the question.",
     "goToQuestion": "Go to",
@@ -444,7 +552,23 @@
     "bankNoMatches": "No question matches.",
     "bankAllAdded": "Every question found is already in this test.",
     "outlineQuestionsOnly": "{{questions}} questions",
-    "position": "Question {{number}} · {{section}}"
+    "position": "Question {{number}} · {{section}}",
+    "sectionActions": "Section actions",
+    "renameSection": "Rename",
+    "sectionInstructions": "Section instructions",
+    "moveSectionUp": "Move up",
+    "moveSectionDown": "Move down",
+    "removeSection": "Delete section",
+    "sectionNameLabel": "Section name",
+    "renameCommit": "save",
+    "renameDiscard": "cancel",
+    "removeSectionTitle": "Delete the section “{{title}}”?",
+    "removeSectionBody_one": "The question in this section leaves this test. A question that came from the bank stays in the bank.",
+    "removeSectionBody_other": "The {{count}} questions in this section leave this test. A question that came from the bank stays in the bank.",
+    "sectionInstructionsTitle": "Instructions for {{title}}",
+    "sectionInstructionsHint": "Students read this before the questions in this section.",
+    "sectionInstructionsPlaceholder": "For example: listen twice, then choose the right answer.",
+    "dropFromTest": "Remove question {{number}} from the test"
   },
   "bank": {
     "filters": "Filters",
@@ -486,7 +610,21 @@
     "noTestsToAddTo": "No tests to add to yet.",
     "noSections": "This test has no sections yet.",
     "addHere": "{{count}} here now",
-    "summaryFiltered": "{{count}} questions · {{filtered}} shown"
+    "summaryFiltered": "{{count}} questions · {{filtered}} shown",
+    "tagged": "Tags applied",
+    "addedToTest": "Added to the test",
+    "open": "Open",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete question",
+    "deleteConfirmBody": "The question leaves the bank. Published tests keep their frozen copy.",
+    "deleteBlockedTitle": "This question cannot be deleted yet",
+    "deleteBlockedBody": "It is still in a draft test. Remove it from those tests first, then delete again.",
+    "deleteBlockedList": "Used in {{count}} draft test(s):",
+    "deleteFailed": "Could not delete the question.",
+    "deleted": "Question deleted",
+    "duplicate": "Duplicate",
+    "duplicated": "Question duplicated",
+    "duplicateFailed": "Could not duplicate the question."
   },
   "tests": {
     "summary": "{{count}} tests · {{drafts}} drafts",
@@ -506,6 +644,7 @@
     "actionsFor": "Actions for {{title}}",
     "edit": "Edit",
     "duplicate": "Duplicate",
+    "assignToClass": "Assign to a class",
     "archive": "Archive",
     "empty": "No tests yet.",
     "noMatches": "No test matches.",
@@ -526,7 +665,14 @@
     "summarySoFar": "{{count}} tests loaded",
     "audioCount": "{{count}} listening questions",
     "tagFilter": "Tags",
-    "tagFilterCount": "Tags · {{count}}"
+    "tagFilterCount": "Tags · {{count}}",
+    "archiveConfirmTitle": "Archive {{title}}?",
+    "archiveConfirmBody": "The test leaves the list and can no longer be assigned. Existing assignments and students' work stay as they are.",
+    "archived": "Test archived",
+    "restore": "Restore",
+    "restoreHint": "Restoring returns the test as a draft.",
+    "restored": "Test restored",
+    "restoreFailed": "Could not restore the test."
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -573,14 +719,9 @@
     "status": {
       "in_progress": "started",
       "submitted": "submitted",
+      "timed_out": "ran out of time on",
       "graded": "was graded on",
-      "voided": "had voided",
-      "expired": "ran out of time on"
-    },
-    "assignmentStatus": {
-      "scheduled": "Scheduled",
-      "open": "Open",
-      "closed": "Closed"
+      "voided": "had voided"
     },
     "notifications": "Notifications",
     "notificationsWith": "Notifications, {{count}} outstanding",
@@ -588,16 +729,11 @@
     "state": "State"
   },
   "assignments": {
-    "summary": "{{count}} assignments",
+    "summary": "{{count}} assignments · {{open}} open",
+    "rowOpen": "Open",
     "new": "New assignment",
     "all": "All",
     "statusFilter": "Filter by status",
-    "status": {
-      "draft": "Draft",
-      "open": "Open",
-      "scheduled": "Scheduled",
-      "closed": "Closed"
-    },
     "test": "Test",
     "targets": "Assigned to",
     "window": "Window",
@@ -695,7 +831,123 @@
     "windowValue": "{{opens}} → {{closes}}",
     "latestVersion": "latest: v{{version}}",
     "saveDraft": "Save draft",
-    "needTargets": "Choose a class or student before assigning."
+    "needTargets": "Choose a class or student before assigning.",
+    "edit": "Edit assignment",
+    "saveChanges": "Save changes",
+    "updateFailed": "Could not save the changes. Please try again.",
+    "detail": {
+      "loadFailed": "Could not load the assignment.",
+      "notFound": "Assignment not found.",
+      "savedToday": "Saved at {{time}} today",
+      "savedOn": "Saved at {{time}} · {{date}}",
+      "opensAt": "Opens {{when}}",
+      "closesAt": "Closes {{when}}",
+      "closedAt": "Closed {{when}}",
+      "edit": "Edit",
+      "publish": "Assign",
+      "closeEarly": "Close early",
+      "backToList": "Back to assignments",
+      "andMore": "and {{count}} more",
+      "notSubmittedNames": "Not submitted: {{names}}",
+      "openTable": "Open the student table",
+      "viewAttempts": "View attempts",
+      "reopened": "Assignment reopened",
+      "reopenFailed": "Could not reopen the assignment.",
+      "reopenConfirm": "Reopen",
+      "reopenNote": "Anyone with attempts left can go back in.",
+      "reopenReasonHint": "The reason is recorded with your name.",
+      "reopenReason": "Reason",
+      "reopenPick": "Pick a time…",
+      "reopenPlusThreeDays": "Add 3 days",
+      "reopenPlusDay": "Add 1 day",
+      "reopenUntilToday": "Until 21:00 today",
+      "reopenTitle": "Reopen for all {{count}} students",
+      "reopen": "Extend for everyone",
+      "closeEarlyWhenOpen": "Close early is available once it opens",
+      "publishFailed": "Could not assign it.",
+      "draftNote": "Students cannot see this yet. Press <strong>Assign</strong> to show it under Upcoming for {{count}} students and open it on the schedule below.",
+      "scheduledNote": "Opens <strong>{{when}}</strong> — {{left}} from now. {{count}} students already see it under Upcoming and cannot start yet. Anything can still be changed before then.",
+      "left": {
+        "daysHours": "{{days}} days {{hours}} hours",
+        "hours": "{{hours}} hours",
+        "minutes": "{{minutes}} minutes"
+      },
+      "submitted": "Submitted",
+      "notSubmitted": "Not submitted: {{count}}",
+      "pending": "To grade",
+      "pendingHint": "{{count}} manually graded questions per attempt",
+      "flagged": "To review",
+      "flaggedHint": "Left the page more than {{count}} times",
+      "flaggedHintNone": "No limit on leaving the page",
+      "test": "Test",
+      "versionMeta": "{{questions}} questions · {{points}} points · {{audio}} listening · {{manual}} graded by hand · v{{version}}",
+      "versionOnly": "v{{version}}",
+      "viewTest": "View test",
+      "pinned": "Pinned to v{{version}}. Later edits to the test do not reach students on this assignment.",
+      "pinnedClosed": "Students took v{{version}}, even if the test now has a newer version.",
+      "targets": "Assigned to",
+      "targetCount": "{{count}} students",
+      "classes": "Classes",
+      "students": "Individual students",
+      "classChip": "{{name}}",
+      "overlap": "{{count}} of them are already in a class and count once.",
+      "noTargets": "No class or student chosen yet.",
+      "time": "Time",
+      "opens": "Opens",
+      "closes": "Closes",
+      "duration": "Time allowed",
+      "attempts": "Attempts",
+      "attemptsOne": "1 attempt",
+      "attemptsMany": "{{count}} attempts · best score counts",
+      "rules": "Rules during the test",
+      "fullscreen": "Fullscreen",
+      "required": "Required",
+      "notRequired": "Not required",
+      "copyPaste": "Copy / paste",
+      "blocked": "Blocked",
+      "allowed": "Allowed",
+      "focusLoss": "Leaving the page",
+      "focusUnlimited": "No limit",
+      "focusLimit": {
+        "warn": "{{count}} times allowed, then a reminder",
+        "flag": "{{count}} times allowed, then flagged for review",
+        "auto_submit": "{{count}} times allowed, then auto-submitted"
+      },
+      "shuffleQuestions": "Shuffle questions",
+      "shuffleOptions": "Shuffle options",
+      "yesWithinSections": "Yes, within each section",
+      "yes": "Yes",
+      "no": "No",
+      "review": "What students see after submitting",
+      "reuseHint": "Correct answers are hidden, so this test can be reused for another class.",
+      "closeNowTitle": "Close the assignment now?",
+      "closeNowBody": "Closes at {{now}} today instead of {{planned}}. Students who have not started can no longer get in.",
+      "closeNowNote": "Students mid-test still get their full {{minutes}} minutes.",
+      "closeNowAck": "I understand students mid-test keep their time",
+      "closeNow": "Close now",
+      "closeFailed": "Could not close the assignment.",
+      "closeTable": "Close the student table",
+      "reopenMenuHint": "The next step asks for a reason. Anyone with attempts left can go back in.",
+      "extraStudents": "+{{count}} individual students"
+    },
+    "panel": {
+      "title": "Student table",
+      "summary": "{{total}} students · {{submitted}} submitted",
+      "close": "Close the student table",
+      "pending": "{{count}} to grade",
+      "viewAll": "View all papers",
+      "groups": {
+        "pending": "Awaiting grading",
+        "flagged": "Needs review",
+        "inProgress": "In progress",
+        "notStarted": "Not submitted",
+        "done": "Graded",
+        "voided": "Voided"
+      }
+    },
+    "classFilterLoading": "Class…",
+    "clearClassFilter": "Clear the class filter",
+    "emptyForClass": "Nothing has been assigned to this class yet."
   },
   "students": {
     "summary": "{{count}} students · {{active}} active in the last 7 days",
@@ -755,7 +1007,23 @@
     "searchClasses": "Find a class",
     "selectedClasses_one": "{{count}} class selected",
     "selectedClasses_other": "{{count}} classes selected",
-    "noClassMatches": "No class matches."
+    "noClassMatches": "No class matches.",
+    "disableConfirmTitle": "Suspend {{name}}'s account?",
+    "disableConfirmBody": "The student can no longer sign in. Attempts and grades stay; you can restore access at any time.",
+    "disabled": "Account suspended",
+    "enabled": "Access restored",
+    "removeConfirmTitle": "Remove {{name}} from {{klass}}?",
+    "removeConfirmBody": "The student no longer sees this class's assignments. Existing work stays.",
+    "removed": "Removed from the class",
+    "editInfo": "Edit details",
+    "emailHint": "The email is also the sign-in name — the student uses the new one from their next sign-in. With Google sign-in, the Google account must match this email.",
+    "saved": "Details saved",
+    "saveFailed": "Could not save the details.",
+    "errors": {
+      "nameRequired": "Enter the full name.",
+      "nameTooLong": "A name has at most 200 characters.",
+      "emailInvalid": "That email does not look right."
+    }
   },
   "takeTest": {
     "answerOptions": "Answer options",
@@ -821,7 +1089,15 @@
     "shortcuts": "Shortcuts",
     "shortcutPick": "pick an answer",
     "shortcutMove": "move",
-    "shortcutFlag": "flag"
+    "shortcutFlag": "flag",
+    "submittedTitle_manual": "Your test has been submitted.",
+    "submittedTitle_timer_expired": "Time ran out and the test was submitted automatically.",
+    "submittedTitle_auto_submit": "The test was submitted because you left the page again.",
+    "submittedBody_manual": "Your test went in with the questions you answered. Everything saved stays as it was.",
+    "submittedBody_timer_expired": "The time for this test ended, so it went in with the questions you answered. Everything saved stays as it was.",
+    "submittedBody_auto_submit": "You left the page after the last allowed time, so the test went in with the questions you answered. Everything saved stays as it was.",
+    "submittedMeta": "Submitted at {{time}} · {{date}} · {{answered}}/{{total}} questions answered",
+    "backHome": "Back to home"
   },
   "integrity": {
     "leftTitle": "You left the test page",
@@ -853,5 +1129,345 @@
     "nextShort": "Next",
     "more": "More pages",
     "page": "Page {{n}}"
+  },
+  "status": {
+    "test": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "assignment": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "attempt": {
+      "not_started": "Not started",
+      "in_progress": "In progress",
+      "submitted": "Submitted",
+      "timed_out": "Timed out",
+      "graded": "Graded",
+      "voided": "Voided"
+    },
+    "attention": {
+      "flagged": "Needs review",
+      "pendingManual": "Awaiting grading",
+      "audio": "Has audio"
+    }
+  },
+  "monitor": {
+    "loadFailed": "Couldn't load the student list.",
+    "loadFailedHint": "Students' work is unaffected; only this table failed to load.",
+    "empty": "No students have been given this assignment yet.",
+    "addStudents": "Add students to the class",
+    "student": "Student",
+    "state": "Status",
+    "startedAt": "Started",
+    "remaining": "Remaining",
+    "progress": "Progress",
+    "focusLoss": "Left page",
+    "score": "Score",
+    "cards": {
+      "submitted": "Submitted",
+      "inProgress": "In progress",
+      "notStarted": "Not started",
+      "flagged": "Needs review",
+      "closesIn": "Closes in"
+    },
+    "answeredOf": "{{answered}} of {{total}} questions answered",
+    "pendingBadge_one": "{{count}} to grade",
+    "pendingBadge_other": "{{count}} to grade",
+    "menu": {
+      "view": "View paper",
+      "extend": "Extend time",
+      "reset": "Allow a retake",
+      "void": "Void this attempt"
+    },
+    "actionFailed": "That didn't go through. Please try again.",
+    "reason": "Reason",
+    "reasonHint": "Required. The reason is recorded with your name.",
+    "polling": "Refreshes every 15 seconds",
+    "refresh": "Refresh",
+    "extend": {
+      "title": "Extend time for {{name}}",
+      "body": "The student sees the extra time on their clock immediately.",
+      "confirm": "Extend",
+      "minutes": "Add",
+      "placeholder": "e.g. Lost connection for 8 minutes, confirmed"
+    },
+    "reset": {
+      "title": "Let {{name}} retake",
+      "body": "Attempt {{no}} will be marked void and won't count. {{name}} gets attempt {{next}} right away, with the original time limit. Attempt {{no}}'s paper stays readable.",
+      "confirm": "Allow retake",
+      "placeholder": "e.g. Power cut mid-test, confirmed by the whole class"
+    },
+    "void": {
+      "title": "Void attempt {{no}} of {{name}}",
+      "body": "This attempt won't count and the student doesn't get a new one by itself. Nothing is deleted — you can still read it in the attempt record. To grant a new attempt, use Allow a retake.",
+      "confirm": "Void attempt",
+      "placeholder": "e.g. Took another class's paper by mistake, discussed with the student"
+    },
+    "closesInDays_one": "{{count}} day",
+    "closesInDays_other": "{{count}} days",
+    "closesInHours_one": "{{count}} hour",
+    "closesInHours_other": "{{count}} hours"
+  },
+  "review": {
+    "title": "Paper",
+    "loadFailed": "Couldn't load this paper.",
+    "loadFailedHint": "Marks and comments already saved are intact.",
+    "tabs": {
+      "paper": "Paper",
+      "integrity": "Integrity"
+    },
+    "pendingBadge_one": "{{count}} question to grade",
+    "pendingBadge_other": "{{count}} questions to grade",
+    "finish": "Finish grading",
+    "finished": "Grading finished.",
+    "finishFailed": "Couldn't finish. Please try again.",
+    "flagFailed": "Could not change the flag.",
+    "unflaggedToast": "Flag removed",
+    "flaggedToast": "Flagged for a second look",
+    "flaggedBadge": "Flagged",
+    "unflag": "Remove flag",
+    "flag": "Flag for review",
+    "saveFailed": "Couldn't save the mark. Please try again.",
+    "rail": "Question list",
+    "questions": "Questions",
+    "pendingNote_one": "{{count}} question needs your mark.",
+    "pendingNote_other": "{{count}} questions need your mark.",
+    "noQuestions": "This paper has no questions.",
+    "questionMeta": "Question {{n}} · {{type}} · {{points}} pts",
+    "sampleAnswer": "Sample answer — only you can see this",
+    "attemptOf": "attempt {{n}}/{{total}}",
+    "submittedAt": "submitted {{time}}",
+    "stats": {
+      "auto": "Auto-graded",
+      "manual": "By hand",
+      "duration": "Time taken",
+      "focusLoss": "Left page"
+    },
+    "playsUnlimited": "played {{plays}} times",
+    "playsOf": "played {{plays}}/{{max}} times",
+    "overLimitNote": "The student listened more times than allowed — the system doesn't interrupt playback (§11.4), it only records it for you.",
+    "verdict": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "partial": "Partly correct",
+      "pending": "To grade",
+      "unanswered": "Unanswered"
+    },
+    "studentAnswer": "Student's answer",
+    "unanswered": "The student didn't answer this question.",
+    "accepted": "Accepted answers: {{answers}}",
+    "pickedCorrect": "student's choice · correct",
+    "picked": "student's choice",
+    "correctAnswer": "correct answer",
+    "points": "Points",
+    "decrease": "Decrease",
+    "increase": "Increase",
+    "keyPoints": "enter points",
+    "keyNext": "next question",
+    "comment": "Comment",
+    "commentHint": "— the student can read this",
+    "saveNext": "Save & next",
+    "skip": "Skip",
+    "notYetSubmitted": "The student is still working. Grade after they submit.",
+    "voided": "This attempt was voided, so it isn't graded.",
+    "keyTo": "–",
+    "keySep": "·",
+    "keyEnter": "Enter"
+  },
+  "timeline": {
+    "loadFailed": "Couldn't load this attempt's timeline.",
+    "loadFailedHint": "The paper and marks are still available on the Paper tab.",
+    "strip": {
+      "totalAway": "Total time away",
+      "openNotSummed": "excluding the open one",
+      "episodes": "Times away ≥3s",
+      "oneOpen": "1 open",
+      "pastes": "Pastes",
+      "resumes": "Resumes",
+      "replays": "Replays over limit",
+      "offline": "Offline"
+    },
+    "title": "Timeline",
+    "filter": "Filter events",
+    "filters": {
+      "all": "All",
+      "away": "Left page",
+      "audio": "Audio",
+      "network": "Network"
+    },
+    "viewPaper": "View paper",
+    "empty": "No events were recorded for this attempt.",
+    "columns": {
+      "at": "At",
+      "offset": "From start",
+      "event": "Event",
+      "duration": "Duration",
+      "question": "On question"
+    },
+    "kind": {
+      "started": "Started the test",
+      "tab_hidden": "Switched to another tab",
+      "window_blur": "Switched to another window",
+      "fullscreen_exit": "Left fullscreen",
+      "fullscreen_enter": "Returned to fullscreen",
+      "network_offline": "Lost connection",
+      "network_online": "Back online",
+      "audio_play": "Played audio",
+      "audio_ended": "Audio ended",
+      "audio_blocked": "Browser blocked audio",
+      "paste": "Pasted content",
+      "copy": "Copied content",
+      "cut": "Cut content",
+      "context_menu": "Opened the context menu",
+      "resume": "Resumed the test",
+      "session_takeover": "Resumed from another device",
+      "page_hide": "Closed the page",
+      "tab_visible": "Returned to the tab",
+      "window_focus": "Returned to the window"
+    },
+    "ongoing": "— ongoing",
+    "stillOpen": "· still open",
+    "playNo": "{{label}} · play {{n}}",
+    "overLimit": "— over the limit of {{max}}",
+    "updatedAt": "Updated at {{time}}.",
+    "openResolves": "The open episode's duration is recorded when the student returns to the test tab.",
+    "help": {
+      "title": "How to read this table",
+      "cannotSee": "The system only knows whether the test tab was left. It cannot see a second phone, a person next to them, or a printed sheet.",
+      "duration": "A 2-second absence is usually a notification. A 90-second one is worth asking about. Connection loss is recorded separately so it isn't misread.",
+      "conversation": "This is information to start a conversation, not evidence to conclude one."
+    },
+    "noteTitle": "Your note",
+    "noteHint": "Only you can read this. Never shown to the student.",
+    "notePlaceholder": "asked Hân, she said the power went out at 10:04"
+  },
+  "result": {
+    "title": "Result",
+    "notReady": "The result isn't ready yet.",
+    "pendingTitle_one": "{{count}} question is still being graded",
+    "pendingTitle_other": "{{count}} questions are still being graded",
+    "pendingBody": "The final score appears once grading is done.",
+    "hiddenTitle": "Your teacher hasn't released scores",
+    "hiddenBody": "Your paper was submitted at {{time}} · {{date}}. When your teacher opens the review, your score appears here.",
+    "yourPaper": "Your paper",
+    "answeredWithKey": "You answered {{answered}}/{{total}} questions. You can review the questions, your answers and the correct answers below.",
+    "answeredNoKey": "You answered {{answered}}/{{total}} questions. You can review the questions and your answers, but not the correct answers yet.",
+    "filter": "Filter questions",
+    "chips": {
+      "all": "All {{count}}",
+      "wrong": "Wrong {{count}}",
+      "pending": "To grade {{count}}"
+    },
+    "noKey": "Your teacher isn't showing correct answers for this test.",
+    "noExplanations": "Your teacher isn't showing explanations for this test.",
+    "provisional": "Provisional score",
+    "yourScore": "Your score",
+    "excludesPending": "excluding {{points}} points still being graded",
+    "percent": "{{percent}}% achieved",
+    "submittedMeta": "Submitted {{time}} · {{date}} · Attempt {{n}}/{{total}}",
+    "pointsPending": "— / {{total}} pts",
+    "pointsOf": "{{earned}}/{{total}} pts",
+    "listening": "Listening",
+    "verdict": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "partial": "Partly correct",
+      "pending": "To grade",
+      "graded": "Graded"
+    },
+    "replayFreely": "Replay freely after submitting",
+    "showTranscript": "Show transcript",
+    "noTranscript": "The transcript isn't shown.",
+    "teacherComment": "Teacher's comment",
+    "unanswered": "You didn't answer this question.",
+    "correctAnswerIs": "Correct answer: {{answers}}",
+    "youChose": "your choice",
+    "correctOption": "correct answer",
+    "loadFailed": "Couldn't load the result",
+    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again."
+  },
+  "queue": {
+    "summary": {
+      "pending_one": "{{count}} paper to grade",
+      "pending_other": "{{count}} papers to grade",
+      "flagged_one": "{{count}} paper to review",
+      "flagged_other": "{{count}} papers to review"
+    },
+    "filter": "Filter the queue",
+    "tabs": {
+      "pending": "To grade",
+      "flagged": "Needs review"
+    },
+    "loadFailed": "Couldn't load the queue.",
+    "empty": {
+      "pending": "Nothing left to grade.",
+      "flagged": "Nothing needs review."
+    },
+    "toAssignments": "See assignments",
+    "columns": {
+      "student": "Student",
+      "test": "Test",
+      "state": "Status",
+      "submittedAt": "Submitted",
+      "pending": "To grade"
+    },
+    "open": "Grade"
+  },
+  "byQuestion": {
+    "title": "Grade by question",
+    "questionOf": "Question {{n}} / {{count}}",
+    "graded": "Graded {{done}}/{{total}}",
+    "next": "Next question",
+    "exit": "Grade per paper",
+    "meta": "Question {{n}} · {{type}} · {{points}} points",
+    "rubric": "Rubric",
+    "namesHidden": "Names stay hidden until this question is graded.",
+    "showNames": "Show names",
+    "hideNames": "Hide names",
+    "student": "Student {{n}}",
+    "attemptNo": "attempt {{n}}",
+    "blank": "No answer",
+    "gradedBadge": "Graded",
+    "save": "Save",
+    "pointsFor": "Points for {{who}}",
+    "keys": "↓ next student · 0 – {{max}} to score · ⌘⏎ save and go to the next question",
+    "notManual": "This question is graded automatically.",
+    "empty": "No paper has answered this question yet.",
+    "loadFailed": "Could not load the answers."
+  },
+  "papers": {
+    "title": "Papers · {{title}}",
+    "meta": "{{submitted}}/{{total}} submitted · {{pending}} awaiting grading · {{flagged}} need review",
+    "filter": "Filter papers",
+    "tabs": {
+      "all": "All",
+      "submitted": "Submitted",
+      "pending": "Awaiting grading",
+      "flagged": "Needs review",
+      "notStarted": "Not submitted"
+    },
+    "search": "Find a student",
+    "attempt": "Attempt",
+    "submittedAt": "Submitted",
+    "took": "Time taken",
+    "attemptOf": "{{no}}/{{max}}",
+    "tookMinutes": "{{count}} min",
+    "tookUnderMinute": "under a minute",
+    "emptyTab": "No papers in this view.",
+    "noMatches": "No student matches “{{query}}”.",
+    "hint": "One row per student, the latest attempt. Earlier attempts stay readable from the paper."
+  },
+  "layout": {
+    "resize": {
+      "sidebar": "Menu width",
+      "rail": "Filter column width",
+      "panel": "Side panel width",
+      "outline": "Outline width"
+    }
   }
 }

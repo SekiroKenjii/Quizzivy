@@ -30,15 +30,19 @@ import { ApiError, fieldMessages } from "@/lib/api/errors";
 export function NewStudentDialog({
   open,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [classIds, setClassIds] = useState<string[]>([]);
+  const toggleClass = (id: string, checked: boolean) =>
+    setClassIds((current) =>
+      checked ? [...current, id] : current.filter((existing) => existing !== id),
+    );
   const [temporary, setTemporary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,7 +105,12 @@ export function NewStudentDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent>
+      <DialogContent
+        showCloseButton={temporary === null}
+        onEscapeKeyDown={(event) => temporary !== null && event.preventDefault()}
+        onPointerDownOutside={(event) => temporary !== null && event.preventDefault()}
+        onInteractOutside={(event) => temporary !== null && event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t("students.new")}</DialogTitle>
           <DialogDescription>{t("students.newHint")}</DialogDescription>
@@ -153,11 +162,7 @@ export function NewStudentDialog({
                             type="checkbox"
                             checked={classIds.includes(klass.id)}
                             onChange={(event) =>
-                              setClassIds((current) =>
-                                event.target.checked
-                                  ? [...current, klass.id]
-                                  : current.filter((id) => id !== klass.id),
-                              )
+                              toggleClass(klass.id, event.target.checked)
                             }
                           />
                           {klass.name}

@@ -20,7 +20,10 @@ test("E2E 5: the timer runs out and the attempt submits without the student", as
 
   // Nothing is clicked from here on. The engine arms one timeout from the
   // server's clock, and the only thing that ends the attempt is that timeout.
-  await expect(page).toHaveURL(/\/app$/, { timeout: 120_000 });
+  await expect(
+    page.getByRole("heading", { name: "Bài đã hết giờ và được nộp tự động." }),
+  ).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole("button", { name: "Thoát" })).toBeHidden();
 
   // Reopening it proves the server took the submission rather than the client
   // merely navigating away.

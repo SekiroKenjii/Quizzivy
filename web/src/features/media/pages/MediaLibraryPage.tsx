@@ -1,5 +1,6 @@
 import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import {
   keepPreviousData,
   useMutation,
@@ -32,9 +33,13 @@ import {
 import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
 import { useFileDrop } from "@/features/media/useFileDrop";
 import { deleteMedia, listMedia, type LibraryAsset } from "@/features/media/api";
-import { formatBytes, formatDuration, formatUploadedAt } from "@/features/media/format";
+import { formatBytes } from "@/features/media/format";
+import { audioLength, shortDate } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { toast } from "@/components/ui/sonner";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 
@@ -65,6 +70,7 @@ export default function MediaLibraryPage() {
       setConfirming(null);
       setError(null);
       await invalidate();
+      toast(t("media.deleted"));
     },
     onError: (cause) => {
       setConfirming(null);
@@ -73,7 +79,6 @@ export default function MediaLibraryPage() {
   });
 
   const assets = library.data?.items ?? [];
-  const totalBytes = assets.reduce((sum, asset) => sum + asset.bytes, 0);
   const dragging = useFileDrop((files) => uploader.current?.dropped(files));
 
   return (
@@ -89,12 +94,10 @@ export default function MediaLibraryPage() {
         title={t("media.title")}
         subtitle={
           library.isSuccess
-            ? library.data.total === assets.length
-              ? t("media.summary", {
-                  count: library.data.total,
-                  size: formatBytes(totalBytes),
-                })
-              : t("media.summaryPaged", { count: library.data.total })
+            ? t("media.summary", {
+                count: library.data.total,
+                size: formatBytes(library.data.totalBytes),
+              })
             : "\u00a0"
         }
         actions={
@@ -119,62 +122,45 @@ export default function MediaLibraryPage() {
         </p>
       ) : null}
 
-      <div className="bg-card overflow-hidden rounded-lg border">
-        {library.isPending ? (
-          <p
-            className="text-muted-foreground p-6 text-sm"
-            role="status"
-            aria-live="polite"
-          >
-            {t("media.loading")}
-          </p>
-        ) : library.isError ? (
-          <p role="alert" className="text-destructive p-6 text-sm">
-            {t("media.loadFailed")}
-          </p>
-        ) : assets.length === 0 ? (
-          <p className="text-muted-foreground p-6 text-sm">{t("media.empty")}</p>
-        ) : (
-          <AssetTable
-            assets={assets}
-            playing={playing}
-            onRefresh={() => void library.refetch()}
-            onBlocked={setBlocked}
-            onView={setViewing}
-            onTogglePlay={(asset) => setPlaying(playing === asset.id ? null : asset.id)}
-            onDelete={(asset) => {
-              setError(null);
-              setConfirming(asset);
-            }}
-          />
-        )}
-      </div>
+      <QueryStates
+        query={library}
+        skeleton={<ListSkeleton />}
+        failed={t("media.loadFailed")}
+      >
+        {() =>
+          assets.length === 0 ? (
+            <EmptyState>{t("media.empty")}</EmptyState>
+          ) : (
+            <div className="bg-card overflow-hidden rounded-lg border">
+              <AssetTable
+                assets={assets}
+                playing={playing}
+                onRefresh={() => void library.refetch()}
+                onBlocked={setBlocked}
+                onView={setViewing}
+                onTogglePlay={(asset) =>
+                  setPlaying(playing === asset.id ? null : asset.id)
+                }
+                onDelete={(asset) => {
+                  setError(null);
+                  setConfirming(asset);
+                }}
+              />
+            </div>
+          )
+        }
+      </QueryStates>
 
-      <Dialog
+      <ConfirmDialog
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("media.deleteConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {confirming ? `${confirming.originalFilename} — ` : ""}
-              {t("media.deleteConfirmBody")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirming(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              disabled={remove.isPending}
-              onClick={() => confirming && remove.mutate(confirming.id)}
-            >
-              {remove.isPending ? t("common.loading") : t("media.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("media.deleteConfirmTitle")}
+        description={`${confirming?.originalFilename ?? ""} — ${t("media.deleteConfirmBody")}`}
+        confirmLabel={t("media.delete")}
+        destructive
+        pending={remove.isPending}
+        onConfirm={() => confirming && remove.mutate(confirming.id)}
+      />
 
       {library.data && (
         <Pager
@@ -201,6 +187,25 @@ export default function MediaLibraryPage() {
                 : ""}
             </DialogDescription>
           </DialogHeader>
+          {blocked === null || (blocked.usedIn ?? []).length === 0 ? null : (
+            <ul className="space-y-1 text-sm">
+              {(blocked.usedIn ?? []).map((test) => (
+                <li key={`${test.id}-${test.version ?? 0}`}>
+                  <Link
+                    to={`/admin/tests/${test.id}`}
+                    className="font-medium underline underline-offset-4"
+                  >
+                    {test.title}
+                  </Link>
+                  {test.version === undefined ? null : (
+                    <span className="text-muted-foreground ml-1.5 tabular-nums">
+                      {t("tests.versionNumber", { n: test.version })}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="text-muted-foreground text-sm leading-relaxed">
             {t("media.blockedNote")}
           </p>
@@ -241,7 +246,7 @@ function AssetTable({
   onTogglePlay,
   onView,
   onRefresh,
-}: {
+}: Readonly<{
   assets: LibraryAsset[];
   playing: string | null;
   onDelete: (asset: LibraryAsset) => void;
@@ -249,7 +254,7 @@ function AssetTable({
   onTogglePlay: (asset: LibraryAsset) => void;
   onView: (asset: LibraryAsset) => void;
   onRefresh: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
 
   return (
@@ -287,7 +292,7 @@ function AssetTable({
                   {asset.mimeType}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatDuration(asset.durationMs)}
+                  {audioLength(asset.durationMs)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatBytes(asset.bytes)}
@@ -300,7 +305,7 @@ function AssetTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatUploadedAt(asset.createdAt)}
+                  {shortDate(asset.createdAt)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-0.5">

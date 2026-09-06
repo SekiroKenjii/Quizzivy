@@ -20,6 +20,8 @@ function klass(n: number) {
     name: `Lớp ${n}`,
     description: null,
     studentCount: n,
+    openAssignmentCount: 0,
+    archivedAt: null,
     selfJoinEnabled: false,
     createdAt: "2026-01-01T00:00:00Z",
   };
@@ -41,6 +43,7 @@ beforeEach(() => {
         c.name.includes(q),
       );
       return contractJson("/admin/classes", "get", 200, {
+        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
         items: all.slice((page - 1) * 20, page * 20),
         page,
         pageSize: 20,
@@ -65,7 +68,7 @@ describe("the class picker", () => {
   it("pages as the list is scrolled, and searches on the server", async () => {
     const user = renderPicker();
     await user.click(screen.getByRole("combobox"));
-    const list = await screen.findByRole("list");
+    const list = await screen.findByRole("listbox");
     expect(await within(list).findByText("Lớp 20")).toBeInTheDocument();
     expect(within(list).queryByText("Lớp 21")).toBeNull();
 

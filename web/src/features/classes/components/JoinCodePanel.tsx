@@ -1,10 +1,21 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, RotateCw } from "lucide-react";
+import { Copy, Download, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/sonner";
 import {
   Dialog,
   DialogContent,
@@ -13,44 +24,61 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { revokeJoinCode, rotateJoinCode, type Class } from "@/features/classes/api";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import {
+  revokeJoinCode,
+  rotateJoinCode,
+  updateClass,
+  type Class,
+  type JoinCodeOptions,
+} from "@/features/classes/api";
+import { invalidateClass } from "@/features/classes/invalidate";
 import { formatDateTime } from "@/lib/i18n/datetime";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { ApiError } from "@/lib/api/errors";
 
-/** §6.4's join-code panel. */
-/** i18next hands back a plain string; the formatter wants one of ours. */
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
-}
+// 30 days is preselected because it is the contract's own default; 1000 is its ceiling.
+const EXPIRY_CHOICES = [7, 30, 90] as const;
+const DEFAULT_EXPIRY_DAYS = 30;
+const MAX_USES_CEILING = 1000;
 
-export function JoinCodePanel({ klass }: { klass: Class }) {
-  const { t, i18n } = useTranslation();
+/** §6.4's join-code panel. */
+export function JoinCodePanel({ klass }: Readonly<{ klass: Class }>) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  // Deliberately component state, not the query cache.
   const [freshCode, setFreshCode] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<"rotate" | "revoke" | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expiresInDays, setExpiresInDays] = useState(DEFAULT_EXPIRY_DAYS);
+  const [maxUses, setMaxUses] = useState("");
 
   const [openedAt] = useState(() => Date.now());
-  const expired = klass.joinCode
-    ? new Date(klass.joinCode.expiresAt).getTime() <= openedAt
+  const code = klass.joinCode;
+  const expired = code ? Date.parse(code.expiresAt) <= openedAt : false;
+  const exhausted = code
+    ? code.maxUses !== null && code.usesCount >= code.maxUses
     : false;
+  const spent = expired || exhausted;
+
+  const wantedMaxUses = maxUses.trim() === "" ? null : Number(maxUses.trim());
+  const maxUsesInvalid =
+    wantedMaxUses !== null &&
+    (!Number.isInteger(wantedMaxUses) ||
+      wantedMaxUses < 1 ||
+      wantedMaxUses > MAX_USES_CEILING);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-class", klass.id] });
 
   const rotate = useMutation({
-    mutationFn: () => rotateJoinCode(klass.id),
+    mutationFn: (options: JoinCodeOptions) => rotateJoinCode(klass.id, options),
     onSuccess: async (result) => {
       setFreshCode(result.code);
       setConfirming(null);
       setError(null);
-      // The previous link is no longer what the button would copy.
       setCopied(false);
       await invalidate();
     },
@@ -60,6 +88,17 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
         cause instanceof ApiError ? cause.message : t("classDetail.rotateFailed"),
       );
     },
+  });
+
+  // G-06's "Cho tham gia": pausing enrolment without reissuing the code (§6.4).
+  const selfJoin = useMutation({
+    mutationFn: (enabled: boolean) =>
+      updateClass(klass.id, { selfJoinEnabled: enabled }),
+    onSuccess: async (_, enabled) => {
+      await invalidateClass(queryClient, klass.id);
+      toast(t(enabled ? "classDetail.selfJoinOn" : "classDetail.selfJoinOff"));
+    },
+    onError: () => toast(t("classDetail.selfJoinFailed")),
   });
 
   const revoke = useMutation({
@@ -82,7 +121,32 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   const joinUrl = freshCode
     ? `${window.location.origin}/join/${freshCode.replace("-", "")}`
     : null;
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
+
+  function openRotate() {
+    setExpiresInDays(DEFAULT_EXPIRY_DAYS);
+    setMaxUses("");
+    setConfirming("rotate");
+  }
+
+  function submitRotate() {
+    if (maxUsesInvalid) return;
+    const options: JoinCodeOptions = { expiresInDays };
+    if (wantedMaxUses !== null) options.maxUses = wantedMaxUses;
+    rotate.mutate(options);
+  }
+
+  function copyCode(value: string) {
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (!clipboard) {
+      setError(t("classDetail.copyFailed"));
+      return;
+    }
+    void clipboard.writeText(value).then(
+      () => toast(t("classDetail.codeCopied")),
+      () => setError(t("classDetail.copyFailed")),
+    );
+  }
 
   function copyJoinUrl(url: string) {
     const clipboard = navigator.clipboard as Clipboard | undefined;
@@ -106,18 +170,37 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   return (
     <Card asChild className="gap-0 py-0">
       <section aria-labelledby="join-code-heading">
-        <div className="px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
           <h2
             id="join-code-heading"
             className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
           >
             {t("classDetail.joinCode")}
           </h2>
+          <label className="flex items-center gap-2 text-xs">
+            {t("classDetail.selfJoinSwitch")}
+            <Switch
+              checked={klass.selfJoinEnabled}
+              disabled={selfJoin.isPending}
+              aria-label={t("classDetail.selfJoinSwitch")}
+              onCheckedChange={(next) => selfJoin.mutate(next)}
+            />
+          </label>
         </div>
 
         <div className="space-y-3 px-5 pb-4">
-          {klass.joinCode ? (
-            <CodeSummary code={klass.joinCode} expired={expired} locale={locale} />
+          {klass.selfJoinEnabled ? null : (
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {t("classDetail.selfJoinOffHint")}
+            </p>
+          )}
+          {code ? (
+            <CodeSummary
+              code={code}
+              expired={expired}
+              exhausted={exhausted}
+              locale={locale}
+            />
           ) : (
             <p className="text-muted-foreground text-sm">
               {t("classDetail.noActiveCode")}
@@ -135,15 +218,13 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
               variant="outline"
               size="sm"
               className="flex-1"
-              onClick={() => setConfirming("rotate")}
+              onClick={openRotate}
               disabled={rotate.isPending}
             >
               <RotateCw aria-hidden="true" />
-              {klass.joinCode && !expired
-                ? t("classDetail.rotate")
-                : t("classDetail.issue")}
+              {code && !spent ? t("classDetail.rotate") : t("classDetail.issue")}
             </Button>
-            {klass.joinCode ? (
+            {code ? (
               <Button
                 variant="ghost"
                 size="sm"
@@ -158,19 +239,43 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
           </div>
 
           <p className="text-muted-foreground text-xs leading-relaxed">
-            {expired && klass.joinCode
-              ? t("classDetail.expiredExplainer")
-              : t("classDetail.codeShareHint")}
+            {t(explainerKey(Boolean(code), expired, exhausted))}
           </p>
         </div>
 
         <ConfirmDialog
-          action={confirming}
-          pending={confirming === "revoke" ? revoke.isPending : rotate.isPending}
-          onCancel={() => setConfirming(null)}
-          onConfirm={() =>
-            confirming === "revoke" ? revoke.mutate() : rotate.mutate()
-          }
+          open={confirming === "rotate"}
+          onOpenChange={(open) => !open && setConfirming(null)}
+          title={t(
+            code ? "classDetail.rotateConfirmTitle" : "classDetail.issueConfirmTitle",
+          )}
+          description={t(
+            code ? "classDetail.rotateConfirmBody" : "classDetail.issueConfirmBody",
+          )}
+          confirmLabel={t("classDetail.rotateConfirm")}
+          disabled={maxUsesInvalid}
+          pending={rotate.isPending}
+          error={maxUsesInvalid ? t("classDetail.maxUsesRange") : null}
+          onConfirm={submitRotate}
+        >
+          <CodeOptionsFields
+            expiresInDays={expiresInDays}
+            maxUses={maxUses}
+            maxUsesInvalid={maxUsesInvalid}
+            onExpiryChange={setExpiresInDays}
+            onMaxUsesChange={setMaxUses}
+          />
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={confirming === "revoke"}
+          onOpenChange={(open) => !open && setConfirming(null)}
+          title={t("classDetail.revokeConfirmTitle")}
+          description={t("classDetail.revokeConfirmBody")}
+          confirmLabel={t("classDetail.revokeConfirm")}
+          destructive
+          pending={revoke.isPending}
+          onConfirm={() => revoke.mutate()}
         />
 
         <FreshCodeDialog
@@ -178,6 +283,7 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
           joinUrl={joinUrl}
           copied={copied}
           onCopy={copyJoinUrl}
+          onCopyCode={copyCode}
           onClose={() => setFreshCode(null)}
         />
       </section>
@@ -185,15 +291,78 @@ export function JoinCodePanel({ klass }: { klass: Class }) {
   );
 }
 
+function CodeOptionsFields({
+  expiresInDays,
+  maxUses,
+  maxUsesInvalid,
+  onExpiryChange,
+  onMaxUsesChange,
+}: Readonly<{
+  expiresInDays: number;
+  maxUses: string;
+  maxUsesInvalid: boolean;
+  onExpiryChange: (days: number) => void;
+  onMaxUsesChange: (value: string) => void;
+}>) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="join-code-expiry">{t("classDetail.expiryLabel")}</Label>
+        <Select
+          value={String(expiresInDays)}
+          onValueChange={(next) => onExpiryChange(Number(next))}
+        >
+          <SelectTrigger id="join-code-expiry" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EXPIRY_CHOICES.map((days) => (
+              <SelectItem key={days} value={String(days)}>
+                {t("classDetail.expiryDays", { days })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="join-code-max-uses">{t("classDetail.maxUsesLabel")}</Label>
+        <Input
+          id="join-code-max-uses"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={MAX_USES_CEILING}
+          value={maxUses}
+          aria-invalid={maxUsesInvalid}
+          aria-describedby="join-code-max-uses-hint"
+          placeholder={t("classDetail.maxUsesPlaceholder")}
+          onChange={(event) => onMaxUsesChange(event.target.value)}
+        />
+        <p
+          id="join-code-max-uses-hint"
+          className="text-muted-foreground text-xs leading-relaxed"
+        >
+          {t("classDetail.maxUsesHint")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function CodeSummary({
   code,
   expired,
+  exhausted,
   locale,
-}: {
+}: Readonly<{
   code: NonNullable<Class["joinCode"]>;
   expired: boolean;
+  exhausted: boolean;
   locale: Locale;
-}) {
+}>) {
   const { t } = useTranslation();
 
   const days = daysUntil(code.expiresAt);
@@ -229,10 +398,17 @@ function CodeSummary({
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">{t("classDetail.uses")}</dt>
-          <dd className="tabular-nums">
-            {code.usesCount}
-            {" / "}
-            {code.maxUses === null ? t("classDetail.unlimited") : code.maxUses}
+          <dd className="flex items-center gap-2">
+            <span className="tabular-nums">
+              {code.usesCount}
+              {" / "}
+              {code.maxUses === null ? t("classDetail.unlimited") : code.maxUses}
+            </span>
+            {exhausted ? (
+              <span className="text-destructive text-xs font-medium">
+                {t("classDetail.exhaustedBadge")}
+              </span>
+            ) : null}
           </dd>
         </div>
       </dl>
@@ -240,36 +416,76 @@ function CodeSummary({
   );
 }
 
-// The deck's "còn 13 ngày": §6.5's 30-day default reads as a safety feature
-// only when the teacher can see how much of it is left.
+/**
+ * G-06's "Tải QR": the projector and the Zalo group want an image, so the
+ * on-screen SVG is rasterised through a canvas; where there is no canvas the
+ * SVG itself is what gets saved.
+ */
+function downloadQr(host: HTMLDivElement | null, filename: string) {
+  const svg = host?.querySelector("svg");
+  if (!svg) return;
+  const markup = new XMLSerializer().serializeToString(svg);
+  const svgBlob = new Blob([markup], { type: "image/svg+xml" });
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    save(svgBlob, filename.replace(/\.png$/, ".svg"));
+    return;
+  }
+  const image = new Image();
+  const url = URL.createObjectURL(svgBlob);
+  image.onload = () => {
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 32, 32, 448, 448);
+    URL.revokeObjectURL(url);
+    canvas.toBlob((png) => png && save(png, filename), "image/png");
+  };
+  image.src = url;
+}
+
+function save(blob: Blob, filename: string) {
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(anchor.href);
+}
+
+// The deck's "còn 13 ngày": what makes §6.5's 30-day default read as safety, not friction.
 function daysUntil(expiresAt: string): number {
   const ms = new Date(expiresAt).getTime() - Date.now();
   return Math.max(0, Math.ceil(ms / 86_400_000));
 }
 
-/**
- * The one moment the plaintext code exists. The deck gives it a dialog rather
- * than a corner of the panel, because there is no second chance to read it --
- * dismissing this is the last time anyone sees the code.
- */
+/** The one moment the plaintext code exists (§13.3): dismissing this is the last look. */
 function FreshCodeDialog({
   code,
   joinUrl,
   copied,
   onCopy,
+  onCopyCode,
   onClose,
-}: {
+}: Readonly<{
   code: string | null;
   joinUrl: string | null;
   copied: boolean;
   onCopy: (joinUrl: string) => void;
+  onCopyCode: (code: string) => void;
   onClose: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
+  const qr = useRef<HTMLDivElement>(null);
 
   return (
     <Dialog open={code !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent
+        showCloseButton={false}
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t("classDetail.freshTitle")}</DialogTitle>
           <DialogDescription>{t("classDetail.rotateConfirmBody")}</DialogDescription>
@@ -282,22 +498,38 @@ function FreshCodeDialog({
           </p>
         </div>
 
-        {joinUrl ? (
+        {joinUrl && code ? (
           <div className="flex items-center gap-3">
-            <QRCodeSVG
-              value={joinUrl}
-              size={80}
-              level="M"
-              aria-label={t("classDetail.qrAlt")}
-            />
+            <div ref={qr}>
+              <QRCodeSVG
+                value={joinUrl}
+                size={80}
+                level="M"
+                aria-label={t("classDetail.qrAlt")}
+              />
+            </div>
             <div className="min-w-0 space-y-1.5">
               <p className="text-muted-foreground font-mono text-xs break-words">
                 {joinUrl}
               </p>
-              <Button variant="outline" size="xs" onClick={() => onCopy(joinUrl)}>
-                <Copy aria-hidden="true" />
-                {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
-              </Button>
+              <div className="flex flex-wrap gap-1.5">
+                <Button variant="outline" size="xs" onClick={() => onCopy(joinUrl)}>
+                  <Copy aria-hidden="true" />
+                  {copied ? t("classDetail.copied") : t("classDetail.copyLink")}
+                </Button>
+                <Button variant="outline" size="xs" onClick={() => onCopyCode(code)}>
+                  <Copy aria-hidden="true" />
+                  {t("classDetail.copyCode")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => downloadQr(qr.current, `quizzivy-${code}.png`)}
+                >
+                  <Download aria-hidden="true" />
+                  {t("classDetail.downloadQr")}
+                </Button>
+              </div>
             </div>
           </div>
         ) : null}
@@ -312,48 +544,8 @@ function FreshCodeDialog({
   );
 }
 
-function ConfirmDialog({
-  action,
-  pending,
-  onCancel,
-  onConfirm,
-}: {
-  action: "rotate" | "revoke" | null;
-  pending: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const { t } = useTranslation();
-  const revoking = action === "revoke";
-
-  return (
-    <Dialog open={action !== null} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {revoking
-              ? t("classDetail.revokeConfirmTitle")
-              : t("classDetail.rotateConfirmTitle")}
-          </DialogTitle>
-          <DialogDescription>
-            {revoking
-              ? t("classDetail.revokeConfirmBody")
-              : t("classDetail.rotateConfirmBody")}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            {t("common.cancel")}
-          </Button>
-          <Button onClick={onConfirm} disabled={pending}>
-            {pending
-              ? t("common.loading")
-              : revoking
-                ? t("classDetail.revokeConfirm")
-                : t("classDetail.rotateConfirm")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+function explainerKey(hasCode: boolean, expired: boolean, exhausted: boolean): string {
+  if (hasCode && expired) return "classDetail.expiredExplainer";
+  if (hasCode && exhausted) return "classDetail.exhaustedExplainer";
+  return "classDetail.codeShareHint";
 }

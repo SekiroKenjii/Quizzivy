@@ -98,7 +98,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO app.attempts
   (id, assignment_id, test_version_id, student_id, attempt_no, status,
    session_id, shuffle_seed, beacon_token_hash, started_at, deadline_at,
-   submitted_at, flagged, focus_loss_count)
+   submitted_at, flagged, focus_loss_count, score_earned, score_total)
 VALUES (
   '01935000-0000-7000-8000-00000000dd07'::uuid,
   '01935000-0000-7000-8000-00000000dd06'::uuid,
@@ -111,7 +111,9 @@ VALUES (
   now() - interval '90 minutes',
   now() + interval '30 minutes',
   now() - interval '20 minutes',
-  true, 4
+  true, 4,
+  -- What submit would have written: the auto score so far, out of the version.
+  '2.00', (SELECT total_points FROM app.test_versions WHERE id = '01935000-0000-7000-8000-00000000dd02'::uuid)
 )
 ON CONFLICT (id) DO NOTHING;
 
@@ -119,8 +121,8 @@ INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manu
 VALUES
   ('01935000-0000-7000-8000-00000000dd07'::uuid,
    '01935000-0000-7000-8000-00000000dd04'::uuid,
-   '{"optionIds":["01935000-0000-7000-8000-00000000dd09"]}'::jsonb, false, '2.00'),
+   '{"type":"choice","optionIds":["01935000-0000-7000-8000-00000000dd09"]}'::jsonb, false, '2.00'),
   ('01935000-0000-7000-8000-00000000dd07'::uuid,
    '01935000-0000-7000-8000-00000000dd05'::uuid,
-   '{"text":"I usually wake up at six."}'::jsonb, true, NULL)
+   '{"type":"text","value":"I usually wake up at six."}'::jsonb, true, NULL)
 ON CONFLICT DO NOTHING;

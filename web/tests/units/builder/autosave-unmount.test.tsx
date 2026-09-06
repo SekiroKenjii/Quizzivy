@@ -35,7 +35,7 @@ function save(value: string) {
 }
 
 function mount() {
-  let schedule: (value: string) => void = () => {
+  let schedule: (value: string) => void = (_value) => {
     throw new Error("schedule was never handed over");
   };
   const view = render(<Harness save={save} onReady={(s) => (schedule = s)} />);

@@ -9,14 +9,14 @@ export function Markdown({
   className,
   plugins = [],
   components,
-}: {
+}: Readonly<{
   children: string;
   className?: string;
   /** Run after sanitising, so a plugin adds only markup this app authored. */
   plugins?: Options["rehypePlugins"];
   // Element overrides, for the markup a plugin above introduced.
   components?: Options["components"];
-}) {
+}>) {
   return (
     <div className={cn("space-y-2 leading-relaxed", className)}>
       <ReactMarkdown

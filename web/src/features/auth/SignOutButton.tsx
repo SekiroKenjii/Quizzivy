@@ -13,10 +13,10 @@ import { useLogout } from "./useSession";
 export function SignOutButton({
   variant = "ghost",
   className,
-}: {
+}: Readonly<{
   variant?: "ghost" | "outline";
   className?: string;
-}) {
+}>) {
   const { t } = useTranslation();
   const logout = useLogout();
   const [pending, setPending] = useState(false);

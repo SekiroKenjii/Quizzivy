@@ -53,7 +53,11 @@ describe("moving a question in the outline", () => {
           { sectionIndex: 0, index: 1 },
           { sectionIndex: s, index: i },
         );
-        expect(ids(after).flat().sort()).toEqual(["a", "b", "c", "d", "e"]);
+        expect(
+          ids(after)
+            .flat()
+            .sort((a, b) => a.localeCompare(b)),
+        ).toEqual(["a", "b", "c", "d", "e"]);
       }
     }
   });

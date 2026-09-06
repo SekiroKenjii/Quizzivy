@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
-import { useQueries } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router";
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Plus, Send } from "lucide-react";
+import { ListSkeleton, QueryStates } from "@/components/shared/ListState";
+import { Skeleton } from "@/components/ui/skeleton";
+import { createTest } from "@/features/tests/api";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,9 +22,11 @@ import {
   listAssignments,
   type Assignment,
 } from "@/features/dashboard/api";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime, formatRelative } from "@/lib/i18n/datetime";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 /**
  * §8's /admin, as A-01: a work queue rather than a wall of statistics.
@@ -32,8 +36,18 @@ import { PageHeader } from "@/components/shared/PageHeader";
  * it is, and the one action that clears it.
  */
 export default function AdminDashboardPage() {
-  const { t, i18n } = useTranslation();
-  const locale = currentLocale(i18n.language);
+  const { t } = useTranslation();
+  const locale = useLocale();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  // A-01's "Đề thi mới" does what the tests list's does: a draft, then the builder.
+  const create = useMutation({
+    mutationFn: () => createTest(t("tests.untitled")),
+    onSuccess: async (test) => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-tests"] });
+      void navigate(`/admin/tests/${test.id}/edit`);
+    },
+  });
 
   const [summary, open] = useQueries({
     queries: [
@@ -56,14 +70,17 @@ export default function AdminDashboardPage() {
         subtitle={formatDateTime(new Date(), locale)}
         actions={
           <>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/admin/tests">
-                <Plus aria-hidden="true" />
-                {t("tests.new")}
-              </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={create.isPending}
+              onClick={() => create.mutate()}
+            >
+              <Plus aria-hidden="true" />
+              {t("tests.new")}
             </Button>
             <Button asChild size="sm">
-              <Link to="/admin/assignments">
+              <Link to="/admin/assignments/new">
                 <Send aria-hidden="true" />
                 {t("dashboard.assign")}
               </Link>
@@ -80,39 +97,48 @@ export default function AdminDashboardPage() {
           {t("dashboard.needsYou")}
         </h2>
 
-        {summary.isPending ? (
-          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-            {t("common.loading")}
-          </p>
-        ) : summary.isError ? (
-          <p role="alert" className="text-destructive text-sm">
-            {t("dashboard.loadFailed")}
-          </p>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-3">
-            <QueueCard
-              count={summary.data.awaitingGrading}
-              label={t("dashboard.awaitingGrading")}
-              hint={t("dashboard.awaitingGradingHint")}
-              action={t("dashboard.grade")}
-              to="/admin/assignments"
-            />
-            <QueueCard
-              count={summary.data.flaggedAttempts}
-              label={t("dashboard.flagged")}
-              hint={t("dashboard.flaggedHint")}
-              action={t("dashboard.review")}
-              to="/admin/assignments"
-            />
-            <QueueCard
-              count={summary.data.openAssignments}
-              label={t("dashboard.openAssignments")}
-              hint={t("dashboard.openAssignmentsHint")}
-              action={t("dashboard.monitor")}
-              to="/admin/assignments"
-            />
-          </div>
-        )}
+        <QueryStates
+          query={summary}
+          skeleton={
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label={t("common.loading")}
+              className="grid gap-4 lg:grid-cols-3"
+            >
+              <Skeleton className="h-[4.5rem]" />
+              <Skeleton className="h-[4.5rem]" />
+              <Skeleton className="h-[4.5rem]" />
+            </div>
+          }
+          failed={t("dashboard.loadFailed")}
+        >
+          {(data) => (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <QueueCard
+                count={data.awaitingGrading}
+                label={t("dashboard.awaitingGrading")}
+                hint={t("dashboard.awaitingGradingHint")}
+                action={t("dashboard.grade")}
+                to="/admin/grading"
+              />
+              <QueueCard
+                count={data.flaggedAttempts}
+                label={t("dashboard.flagged")}
+                hint={t("dashboard.flaggedHint")}
+                action={t("dashboard.review")}
+                to="/admin/grading?tab=flagged"
+              />
+              <QueueCard
+                count={data.openAssignments}
+                label={t("dashboard.openAssignments")}
+                hint={t("dashboard.openAssignmentsHint")}
+                action={t("dashboard.monitor")}
+                to="/admin/assignments"
+              />
+            </div>
+          )}
+        </QueryStates>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -133,48 +159,45 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
 
-            {open.isPending ? (
-              <p
-                role="status"
-                aria-live="polite"
-                className="text-muted-foreground px-5 pb-6 text-sm"
-              >
-                {t("common.loading")}
-              </p>
-            ) : open.isError ? (
-              <p role="alert" className="text-destructive px-5 pb-6 text-sm">
-                {t("dashboard.loadFailed")}
-              </p>
-            ) : open.data.items.length === 0 ? (
-              <p className="text-muted-foreground px-5 pb-6 text-sm">
-                {t("dashboard.noAssignments")}
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("dashboard.assignment")}</TableHead>
-                    <TableHead>{t("assignments.classes")}</TableHead>
-                    <TableHead>{t("dashboard.closesAt")}</TableHead>
-                    <TableHead className="w-[180px]">
-                      {t("dashboard.progress")}
-                    </TableHead>
-                    <TableHead className="w-24">
-                      <span className="sr-only">{t("dashboard.state")}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {open.data.items.map((assignment) => (
-                    <AssignmentRow
-                      key={assignment.id}
-                      assignment={assignment}
-                      locale={locale}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <QueryStates
+              query={open}
+              skeleton={<ListSkeleton rows={3} />}
+              failed={t("dashboard.loadFailed")}
+              className="px-5 pb-5"
+            >
+              {(data) =>
+                data.items.length === 0 ? (
+                  <p className="text-muted-foreground px-5 pb-6 text-sm">
+                    {t("dashboard.noAssignments")}
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("dashboard.assignment")}</TableHead>
+                        <TableHead>{t("assignments.classes")}</TableHead>
+                        <TableHead>{t("dashboard.closesAt")}</TableHead>
+                        <TableHead className="w-[180px]">
+                          {t("dashboard.progress")}
+                        </TableHead>
+                        <TableHead className="w-24">
+                          <span className="sr-only">{t("dashboard.state")}</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.items.map((assignment) => (
+                        <AssignmentRow
+                          key={assignment.id}
+                          assignment={assignment}
+                          locale={locale}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                )
+              }
+            </QueryStates>
           </section>
         </Card>
 
@@ -239,13 +262,13 @@ function QueueCard({
   hint,
   action,
   to,
-}: {
+}: Readonly<{
   count: number;
   label: string;
   hint: string;
   action: string;
   to: string;
-}) {
+}>) {
   return (
     <Card className="flex-row items-center gap-4 p-4">
       <span className="text-2xl font-semibold tabular-nums">{count}</span>
@@ -253,9 +276,16 @@ function QueueCard({
         <p className="text-sm font-medium">{label}</p>
         <p className="text-muted-foreground text-xs leading-relaxed">{hint}</p>
       </div>
-      <Button asChild variant="outline" size="sm" disabled={count === 0}>
-        <Link to={to}>{action}</Link>
-      </Button>
+      {/* A link cannot be disabled, so an empty queue gets a button that is. */}
+      {count === 0 ? (
+        <Button variant="outline" size="sm" disabled>
+          {action}
+        </Button>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <Link to={to}>{action}</Link>
+        </Button>
+      )}
     </Card>
   );
 }
@@ -263,10 +293,10 @@ function QueueCard({
 function AssignmentRow({
   assignment,
   locale,
-}: {
+}: Readonly<{
   assignment: Assignment;
   locale: Locale;
-}) {
+}>) {
   const { t } = useTranslation();
   const status = statusAt(assignment, new Date());
   const submitted = assignment.submittedCount ?? 0;
@@ -302,16 +332,8 @@ function AssignmentRow({
       </TableCell>
       {/* Its own right-aligned column, as A-01 draws it. */}
       <TableCell className="text-right">
-        <Badge variant={status === "open" ? "warning" : "outline"}>
-          {t(`dashboard.assignmentStatus.${status}`)}
-        </Badge>
+        <StatusBadge kind="assignment" status={status} />
       </TableCell>
     </TableRow>
   );
-}
-
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
 }

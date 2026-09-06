@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { listTests, listVersions, type TestVersion } from "@/features/tests/api";
+import type { TFunction } from "i18next";
+import type { ReactNode } from "react";
 
 export interface PickedVersion {
   testId: string;
@@ -28,11 +30,11 @@ export function TestVersionPicker({
   open,
   onOpenChange,
   onPick,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPick: (picked: PickedVersion) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -52,17 +54,7 @@ export function TestVersionPicker({
         </DialogHeader>
 
         <div className="max-h-96 space-y-1 overflow-y-auto">
-          {tests.isPending ? (
-            <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
-          ) : tests.isError ? (
-            <p role="alert" className="text-destructive text-sm">
-              {t("tests.loadFailed")}
-            </p>
-          ) : tests.items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              {t("assignments.noPublishedTests")}
-            </p>
-          ) : (
+          {pickerNote(tests, t) ??
             tests.items.map((test) => (
               <div key={test.id} className="rounded-md border">
                 <button
@@ -96,8 +88,7 @@ export function TestVersionPicker({
                   />
                 ) : null}
               </div>
-            ))
-          )}
+            ))}
           <LoadMoreSentinel
             active={tests.hasMore}
             loading={tests.loadingMore}
@@ -112,10 +103,10 @@ export function TestVersionPicker({
 function VersionList({
   testId,
   onPick,
-}: {
+}: Readonly<{
   testId: string;
   onPick: (version: TestVersion) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const versions = useQuery({
     queryKey: ["admin-test-versions", testId],
@@ -162,4 +153,32 @@ function VersionList({
       ))}
     </ul>
   );
+}
+
+/** What stands in for the list while there is nothing to pick from. */
+function pickerNote(
+  tests: {
+    readonly isPending: boolean;
+    readonly isError: boolean;
+    readonly items: readonly unknown[];
+  },
+  t: TFunction,
+): ReactNode | null {
+  if (tests.isPending)
+    return <p className="text-muted-foreground text-sm">{t("common.loading")}</p>;
+  if (tests.isError) {
+    return (
+      <p role="alert" className="text-destructive text-sm">
+        {t("tests.loadFailed")}
+      </p>
+    );
+  }
+  if (tests.items.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t("assignments.noPublishedTests")}
+      </p>
+    );
+  }
+  return null;
 }

@@ -52,11 +52,11 @@ export function BrandLockup({
   height,
   onDark = false,
   className,
-}: {
+}: Readonly<{
   height: number;
   onDark?: boolean;
   className?: string;
-}) {
+}>) {
   const { t } = useTranslation();
   const art = onDark ? "lockupOnDark" : "lockup";
   return (
@@ -75,11 +75,11 @@ export function BrandMark({
   height = 22,
   className,
   label = true,
-}: {
+}: Readonly<{
   height?: number;
   className?: string;
   label?: boolean;
-}) {
+}>) {
   const { t } = useTranslation();
   const mark = (
     <img

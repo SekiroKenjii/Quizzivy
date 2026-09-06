@@ -1,0 +1,148 @@
+package repositories
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/opt"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// Extend moves a live attempt's deadline and records why, in one statement.
+func (s *Postgres) Extend(ctx context.Context, req domain.Request, attemptID string, minutes int, reason string, now time.Time) (domain.Attempt, error) {
+	reason, err := domain.Interventions.CleanReason(reason)
+	if err != nil {
+		return domain.Attempt{}, err
+	}
+	q := `
+		WITH updated AS (
+		  UPDATE app.attempts
+		     SET deadline_at = deadline_at + make_interval(mins => $2)
+		   WHERE id = $1::uuid AND status = 'in_progress'
+		  RETURNING ` + attemptColumns + `, old.deadline_at AS prev_deadline
+		), logged AS (
+		  INSERT INTO app.audit_log
+		         (actor_user_id, action, entity, entity_id, occurred_at, ip, user_agent, diff)
+		  SELECT $3::uuid, 'attempt.extended', 'attempt', updated.id, $4, $5::inet, $6,
+		         jsonb_build_object(
+		           'deadline_at', jsonb_build_object('old', updated.prev_deadline, 'new', updated.deadline_at),
+		           'minutes', $2, 'reason', $7::text)
+		    FROM updated
+		)
+		SELECT ` + attemptColumns + ` FROM updated`
+	out, err := scanAttempt(s.QueryRow(ctx, q,
+		attemptID, minutes, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), reason))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Attempt{}, s.whyNotLive(ctx, attemptID)
+	}
+	if err != nil {
+		return domain.Attempt{}, fmt.Errorf("attempts: extend: %w", err)
+	}
+	return out.Attempt, nil
+}
+
+// Void marks an attempt void with its reason. Nothing is deleted: the answers
+// and the timeline stay readable to the teacher (§6.4), and the AttemptRecord keeps its
+// place in the attempt numbering.
+func (s *Postgres) Void(ctx context.Context, req domain.Request, attemptID, reason string, now time.Time) (domain.Attempt, error) {
+	return s.void(ctx, req, attemptID, reason, "attempt.voided", now)
+}
+
+// Reset is Void under another name: the voided attempt no longer counts
+// against `max_attempts`, so the student may start `attempt_no + 1` (O-08).
+func (s *Postgres) Reset(ctx context.Context, req domain.Request, attemptID, reason string, now time.Time) (domain.Attempt, error) {
+	return s.void(ctx, req, attemptID, reason, "attempt.reset", now)
+}
+
+func (s *Postgres) void(ctx context.Context, req domain.Request, attemptID, reason, action string, now time.Time) (domain.Attempt, error) {
+	reason, err := domain.Interventions.CleanReason(reason)
+	if err != nil {
+		return domain.Attempt{}, err
+	}
+	q := `
+		WITH updated AS (
+		  UPDATE app.attempts
+		     SET status = 'voided', void_reason = $2
+		   WHERE id = $1::uuid AND status <> 'voided'
+		  RETURNING ` + attemptColumns + `, old.status AS prev_status
+		), logged AS (
+		  INSERT INTO app.audit_log
+		         (actor_user_id, action, entity, entity_id, occurred_at, ip, user_agent, diff)
+		  SELECT $3::uuid, $7::text, 'attempt', updated.id, $4, $5::inet, $6,
+		         jsonb_build_object(
+		           'status', jsonb_build_object('old', updated.prev_status::text, 'new', 'voided'),
+		           'void_reason', jsonb_build_object('old', NULL, 'new', $2::text))
+		    FROM updated
+		)
+		SELECT ` + attemptColumns + ` FROM updated`
+	out, err := scanAttempt(s.QueryRow(ctx, q,
+		attemptID, reason, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), action))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Attempt{}, s.whyNotLive(ctx, attemptID)
+	}
+	if err != nil {
+		return domain.Attempt{}, fmt.Errorf("attempts: %s: %w", action, err)
+	}
+	return out.Attempt, nil
+}
+
+// Flag marks an attempt to look at again, or clears the mark, by hand (G-05).
+// It is the teacher's judgement, so it is audited like the interventions,
+// with whatever reason was given; a voided attempt is out of every queue and
+// is left alone.
+func (s *Postgres) Flag(ctx context.Context, req domain.Request, attemptID string, flagged bool, reason string, now time.Time) (domain.Attempt, error) {
+	q := `
+		WITH updated AS (
+		  UPDATE app.attempts
+		     SET flagged = $2
+		   WHERE id = $1::uuid AND status <> 'voided'
+		  RETURNING ` + attemptColumns + `, old.flagged AS prev_flagged
+		), logged AS (
+		  INSERT INTO app.audit_log
+		         (actor_user_id, action, entity, entity_id, occurred_at, ip, user_agent, diff)
+		  SELECT $3::uuid, CASE WHEN $2 THEN 'attempt.flagged' ELSE 'attempt.unflagged' END,
+		         'attempt', updated.id, $4, $5::inet, $6,
+		         jsonb_build_object(
+		           'flagged', jsonb_build_object('old', updated.prev_flagged, 'new', $2::boolean),
+		           'reason', nullif($7::text, ''))
+		    FROM updated
+		)
+		SELECT ` + attemptColumns + ` FROM updated`
+	out, err := scanAttempt(s.QueryRow(ctx, q,
+		attemptID, flagged, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), strings.TrimSpace(reason)))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Attempt{}, s.whyNotFlaggable(ctx, attemptID)
+	}
+	if err != nil {
+		return domain.Attempt{}, fmt.Errorf("attempts: flag: %w", err)
+	}
+	return out.Attempt, nil
+}
+
+func (s *Postgres) whyNotFlaggable(ctx context.Context, attemptID string) error {
+	err := s.whyNotLive(ctx, attemptID)
+	if errors.Is(err, domain.ErrAttemptClosed) {
+		return fmt.Errorf("attempts: flag: %w", errors.ErrUnsupported)
+	}
+	return err
+}
+
+func (s *Postgres) whyNotLive(ctx context.Context, attemptID string) error {
+	var status domain.Status
+	err := s.QueryRow(ctx,
+		`SELECT status FROM app.attempts WHERE id = $1::uuid`, attemptID).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("attempts: read status: %w", err)
+	}
+	if status == domain.Voided {
+		return domain.ErrAttemptVoided
+	}
+	return domain.ErrAttemptClosed
+}

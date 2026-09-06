@@ -9,7 +9,7 @@ interface TagsFieldProps {
 }
 
 /** The deck's A-04 tag field: chips in a bordered box with an inline input. */
-export function TagsField({ tags, onChange }: TagsFieldProps) {
+export function TagsField({ tags, onChange }: Readonly<TagsFieldProps>) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
 

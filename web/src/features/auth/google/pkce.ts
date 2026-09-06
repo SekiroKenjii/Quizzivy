@@ -60,7 +60,10 @@ function isAbsentOrString(value: unknown): boolean {
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/={1,2}$/, "");
 }
 
 function randomUrlSafe(bytes: number): string {

@@ -8,7 +8,9 @@ import type { components } from "@/lib/api/schema";
 type StudentQuestion = components["schemas"]["StudentQuestion"];
 
 /** A read-only rendering of what a student receives. */
-export function StudentPreview({ questions }: { questions: StudentQuestion[] }) {
+export function StudentPreview({
+  questions,
+}: Readonly<{ questions: StudentQuestion[] }>) {
   const { t } = useTranslation();
 
   return (

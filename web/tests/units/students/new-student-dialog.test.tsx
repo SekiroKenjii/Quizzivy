@@ -32,6 +32,7 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/admin/classes`, () =>
       contractJson("/admin/classes", "get", 200, {
+        facets: { all: 0, joinable: 0, archived: 0, students: 0 },
         page: 1,
         pageSize: 50,
         total: 0,
@@ -96,5 +97,25 @@ describe("adding a student", () => {
 
     await user.click(screen.getByRole("button", { name: "mở" }));
     expect(await screen.findByLabelText("Họ và tên")).toHaveValue("");
+  });
+});
+
+/** The password is returned once; a stray Esc must not be the way it is lost. */
+describe("while the temporary password is shown", () => {
+  it("ignores Escape and closes only through Xong", async () => {
+    const user = renderHarness();
+
+    await user.click(screen.getByRole("button", { name: "mở" }));
+    await user.type(screen.getByLabelText("Họ và tên"), "Lê Thu Trang");
+    await user.type(screen.getByLabelText("Email"), "trang@example.com");
+    await user.click(screen.getByRole("button", { name: "Tạo tài khoản" }));
+    expect(await screen.findByText("tho-vang-42")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByText("tho-vang-42")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Đóng" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Xong" }));
+    expect(screen.queryByText("tho-vang-42")).toBeNull();
   });
 });

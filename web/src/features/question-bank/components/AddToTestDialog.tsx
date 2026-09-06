@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { getTest, listTests, saveOutline } from "@/features/tests/api";
 import { ApiError } from "@/lib/api/errors";
+import { toast } from "@/components/ui/sonner";
+import type { TFunction } from "i18next";
+import type { ReactNode } from "react";
 
 /** A-06's "Thêm vào đề thi" for a selection. */
 export function AddToTestDialog({
@@ -20,12 +23,12 @@ export function AddToTestDialog({
   open,
   onOpenChange,
   onAdded,
-}: {
+}: Readonly<{
   questionIds: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAdded: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function AddToTestDialog({
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
       onAdded();
       onOpenChange(false);
+      toast(t("bank.addedToTest"));
     },
     onError: (cause) =>
       setError(cause instanceof ApiError ? cause.message : t("bank.addToTestFailed")),
@@ -93,11 +97,7 @@ export function AddToTestDialog({
         )}
 
         <div className="max-h-96 space-y-1 overflow-y-auto">
-          {tests.isPending ? (
-            <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
-          ) : candidates.length === 0 ? (
-            <p className="text-muted-foreground text-sm">{t("bank.noTestsToAddTo")}</p>
-          ) : (
+          {addNote(tests.isPending, candidates.length, t) ??
             candidates.map((test) => (
               <div key={test.id} className="rounded-md border">
                 <button
@@ -126,8 +126,7 @@ export function AddToTestDialog({
                   />
                 ) : null}
               </div>
-            ))
-          )}
+            ))}
           <LoadMoreSentinel
             active={tests.hasMore}
             loading={tests.loadingMore}
@@ -143,11 +142,11 @@ function SectionList({
   testId,
   pending,
   onPick,
-}: {
+}: Readonly<{
   testId: string;
   pending: boolean;
   onPick: (sectionId: string) => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const test = useQuery({
     queryKey: ["admin-test", testId],
@@ -191,4 +190,13 @@ function SectionList({
       ))}
     </ul>
   );
+}
+
+function addNote(pending: boolean, shown: number, t: TFunction): ReactNode | null {
+  if (pending)
+    return <p className="text-muted-foreground text-sm">{t("common.loading")}</p>;
+  if (shown === 0) {
+    return <p className="text-muted-foreground text-sm">{t("bank.noTestsToAddTo")}</p>;
+  }
+  return null;
 }

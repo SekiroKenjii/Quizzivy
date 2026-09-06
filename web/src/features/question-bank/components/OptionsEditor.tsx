@@ -25,7 +25,7 @@ export function OptionsEditor({
   multiple,
   fixed,
   onChange,
-}: OptionsEditorProps) {
+}: Readonly<OptionsEditorProps>) {
   const { t } = useTranslation();
 
   function setCorrect(index: number, correct: boolean) {
@@ -33,7 +33,7 @@ export function OptionsEditor({
       options.map((option, i) => ({
         ...option,
         // Single choice is exclusive, so marking one unmarks the rest.
-        isCorrect: multiple ? (i === index ? correct : option.isCorrect) : i === index,
+        isCorrect: nextCorrect(multiple, i === index, correct, option.isCorrect),
       })),
     );
   }
@@ -104,4 +104,15 @@ export function OptionsEditor({
       )}
     </div>
   );
+}
+
+/** Single choice is exclusive, so marking one unmarks the rest. */
+function nextCorrect(
+  multiple: boolean,
+  isTarget: boolean,
+  correct: boolean,
+  current: boolean,
+): boolean {
+  if (!multiple) return isTarget;
+  return isTarget ? correct : current;
 }

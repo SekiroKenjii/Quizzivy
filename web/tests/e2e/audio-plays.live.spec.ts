@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { signInAsAdmin, signInAsStudent } from "./support/live";
+import { assignToClass, signInAsAdmin, signInAsStudent } from "./support/live";
 
 /**
  * E2E 8 (§16, phase-3 exit criterion): the listening allowance is the server's
@@ -41,12 +41,12 @@ async function publishListeningTest(page: Page, title: string) {
     if (await rejected.isVisible()) {
       throw new Error(`upload rejected: ${await rejected.innerText()}`);
     }
-    await expect(page.getByRole("button", { name: "Gỡ" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "Gỡ", exact: true })).toBeVisible({
       timeout: 1_000,
     });
   }).toPass({ timeout: 60_000 });
   // §11.1's default, and exactly the allowance this test needs.
-  await expect(page.getByLabel("Số lần được nghe")).toHaveValue("2");
+  await expect(page.getByLabel("Số lần được nghe")).toHaveText("2 lần");
 
   for (const [index, text] of ["Gọi lại sau", "Đổi lịch hẹn"].entries()) {
     await page.getByPlaceholder(`Lựa chọn ${index + 1}`).fill(text);
@@ -56,32 +56,6 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(page.getByText(/Đã lưu \d\d:\d\d/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Phát hành" }).click();
   await expect(page).toHaveURL(/\/admin\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
-}
-
-async function assignTo(page: Page, title: string) {
-  await page.goto("/admin/assignments/new");
-  await page.getByRole("button", { name: "Chọn đề thi" }).click();
-  const picker = page.getByRole("dialog");
-  // Two steps: the test expands, then a version is picked, because an
-  // assignment pins a version rather than a test.
-  await picker.getByText(title).click();
-  await picker
-    .getByRole("button", { name: /Dùng bản này/ })
-    .first()
-    .click();
-  await expect(page.getByRole("button", { name: "Đổi đề" })).toBeVisible();
-
-  await page.getByPlaceholder("thêm lớp").fill("Tiếng Anh");
-  // The suggestions are buttons in a list, not <option>s; getByRole("option")
-  // matches the duration <select> further down the form instead.
-  await page
-    .getByRole("listitem")
-    .getByRole("button", { name: /Tiếng Anh giao tiếp/ })
-    .first()
-    .click();
-
-  await page.getByRole("button", { name: "Giao bài", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/assignments$/, { timeout: 30_000 });
 }
 
 test("E2E 8: the listening count is the server's and survives a reload", async ({
@@ -96,7 +70,7 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     const admin = await teacher.newPage();
     await signInAsAdmin(admin);
     await publishListeningTest(admin, title);
-    await assignTo(admin, title);
+    await assignToClass(admin, title);
 
     const page = await student.newPage();
     await signInAsStudent(page);

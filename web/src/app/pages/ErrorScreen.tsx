@@ -11,7 +11,7 @@ export function ErrorScreen({
   body,
   footer,
   children,
-}: {
+}: Readonly<{
   /** The panel drawing from `errorArt`. */
   art: ReactNode;
   title: string;
@@ -20,7 +20,7 @@ export function ErrorScreen({
   footer?: ReactNode;
   /** Evidence and actions: what this particular failure can offer. */
   children?: ReactNode;
-}) {
+}>) {
   return (
     <AuthLayout art={art} footer={footer}>
       <h1 className="text-lg font-semibold tracking-tight lg:text-xl">{title}</h1>
@@ -35,6 +35,6 @@ export function ErrorScreen({
  * on a phone two half-width buttons are two small targets and the ranking stops
  * being visible.
  */
-export function ErrorActions({ children }: { children: ReactNode }) {
+export function ErrorActions({ children }: Readonly<{ children: ReactNode }>) {
   return <div className="mt-5 space-y-2 *:h-11 *:w-full lg:*:h-9">{children}</div>;
 }

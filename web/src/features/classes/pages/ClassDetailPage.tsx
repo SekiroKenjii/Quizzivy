@@ -1,17 +1,19 @@
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import {
+  EmptyState,
+  ListSkeleton,
+  LoadError,
+  QueryStates,
+} from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RowMenu } from "@/components/shared/RowMenu";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { toast } from "@/components/ui/sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -22,11 +24,13 @@ import {
 } from "@/components/ui/table";
 import { fetchClass, fetchMembers, removeMember } from "@/features/classes/api";
 import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
+import { ClassAssignmentsCard } from "@/features/classes/components/ClassAssignmentsCard";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
+import { scorePercent } from "@/features/students/api";
 import { ApiError } from "@/lib/api/errors";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDate } from "@/lib/i18n/datetime";
 import {
   keepPreviousData,
@@ -34,7 +38,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ClipboardList, Search, UserPlus } from "lucide-react";
+import { ClipboardList, UserMinus, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
@@ -42,21 +46,15 @@ import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 import { useDebounced } from "@/lib/useDebounced";
 
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
-}
-
 /** §6.4's class screen: the join code, and who is in the class. */
 const MEMBERS_PAGE_SIZE = 20;
 
 export default function ClassDetailPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
 
   const klass = useQuery({
     queryKey: ["admin-class", id],
@@ -89,6 +87,7 @@ export default function ClassDetailPage() {
       setRemoveError(null);
       setConfirmRemove(null);
       await invalidateClassMembership(queryClient, id);
+      toast(t("classDetail.removed"));
     },
     onError: (cause) => {
       setConfirmRemove(null);
@@ -99,23 +98,17 @@ export default function ClassDetailPage() {
   });
 
   if (klass.isPending) {
-    return (
-      <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={6} />;
   }
-  if (klass.isError || !klass.data) {
+  if (klass.isError) {
     return (
-      <p role="alert" className="text-destructive text-sm">
+      <LoadError error={klass.error} onRetry={() => void klass.refetch()}>
         {t("classDetail.loadFailed")}
-      </p>
+      </LoadError>
     );
   }
 
   const items = members.data?.items ?? [];
-
-  const memberIds = new Set(items.map((m) => m.userId));
 
   return (
     <>
@@ -157,104 +150,123 @@ export default function ClassDetailPage() {
                 >
                   {t("classDetail.members", { count: klass.data.studentCount })}
                 </h2>
-                <div className="relative w-56">
-                  <Search
-                    className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-3.5"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    className="h-8 pl-8 text-xs"
-                    placeholder={t("classDetail.searchMembers")}
-                    aria-label={t("classDetail.searchMembers")}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
+                <SearchInput
+                  className="w-56"
+                  value={query}
+                  onChange={setQuery}
+                  placeholder={t("classDetail.searchMembers")}
+                />
               </div>
 
-              {members.isError ? (
-                <p role="alert" className="text-destructive px-5 pb-8 text-sm">
-                  {t("classDetail.membersFailed")}
-                </p>
-              ) : members.isPending ? (
-                <p
-                  className="text-muted-foreground px-5 pb-8 text-sm"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {t("common.loading")}
-                </p>
-              ) : items.length === 0 ? (
-                // §12: one short sentence, no illustration.
-                <p className="text-muted-foreground px-5 pb-8 text-sm">
-                  {search === ""
-                    ? t("classDetail.noMembers")
-                    : t("classDetail.noMemberMatches", { query: search })}
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("classDetail.name")}</TableHead>
-                      <TableHead>{t("classDetail.joinedVia")}</TableHead>
-                      <TableHead>{t("classDetail.joinedAt")}</TableHead>
-                      <TableHead className="sr-only">
-                        {t("classDetail.actions")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((m) => (
-                      <TableRow key={m.userId}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar name={m.fullName} size="sm" />
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{m.fullName}</p>
-                              <p className="text-muted-foreground truncate text-xs">
-                                {m.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {m.joinedVia === "admin" ? (
-                            <Badge>{t("classDetail.viaAdmin")}</Badge>
-                          ) : (
-                            <Badge variant="secondary">
-                              {t("classDetail.viaCode", {
-                                hint: m.joinCodeHint ?? "",
-                              })}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(m.joinedAt, locale)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={remove.isPending}
-                            onClick={() => {
-                              setRemoveError(null);
-                              setConfirmRemove({
-                                userId: m.userId,
-                                name: m.fullName,
-                              });
-                            }}
-                          >
-                            <span aria-hidden="true">{t("classDetail.remove")}</span>
-                            <span className="sr-only">
-                              {t("classDetail.removeNamed", { name: m.fullName })}
-                            </span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              <QueryStates
+                query={members}
+                skeleton={<ListSkeleton rows={4} />}
+                failed={t("classDetail.membersFailed")}
+                className="px-5 pb-5"
+              >
+                {() =>
+                  items.length === 0 ? (
+                    <div className="px-5 pb-5">
+                      <EmptyState
+                        action={
+                          search === "" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAdding(true)}
+                            >
+                              <UserPlus aria-hidden="true" />
+                              {t("classDetail.addStudent")}
+                            </Button>
+                          ) : undefined
+                        }
+                      >
+                        {search === ""
+                          ? t("classDetail.noMembers")
+                          : t("classDetail.noMemberMatches", { query: search })}
+                      </EmptyState>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("classDetail.name")}</TableHead>
+                          <TableHead>{t("classDetail.joinedVia")}</TableHead>
+                          <TableHead>{t("classDetail.joinedAt")}</TableHead>
+                          <TableHead className="text-right">
+                            {t("students.submitted")}
+                          </TableHead>
+                          <TableHead className="text-right">
+                            {t("students.average")}
+                          </TableHead>
+                          <TableHead className="w-10">
+                            <span className="sr-only">{t("classDetail.actions")}</span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((m) => (
+                          <TableRow key={m.userId}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Avatar name={m.fullName} size="sm" />
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{m.fullName}</p>
+                                  <p className="text-muted-foreground truncate text-xs">
+                                    {m.email}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {m.joinedVia === "admin" ? (
+                                <Badge>{t("classDetail.viaAdmin")}</Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  {t("classDetail.viaCode", {
+                                    hint: m.joinCodeHint ?? "",
+                                  })}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {formatDate(m.joinedAt, locale)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {m.stats.submittedCount}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {scorePercent(m.stats) === null ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : (
+                                t("students.percent", { value: scorePercent(m.stats) })
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <RowMenu>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={remove.isPending}
+                                  onSelect={() => {
+                                    setRemoveError(null);
+                                    setConfirmRemove({
+                                      userId: m.userId,
+                                      name: m.fullName,
+                                    });
+                                  }}
+                                >
+                                  <UserMinus aria-hidden="true" />
+                                  {t("classDetail.remove")}
+                                </DropdownMenuItem>
+                              </RowMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )
+                }
+              </QueryStates>
               {members.data && members.data.total > MEMBERS_PAGE_SIZE && (
                 <div className="px-5 pb-4">
                   <Pager
@@ -274,6 +286,7 @@ export default function ClassDetailPage() {
               </p>
             </section>
           </Card>
+          <ClassAssignmentsCard classId={id} />
         </div>
 
         <div className="space-y-5">
@@ -282,38 +295,18 @@ export default function ClassDetailPage() {
         </div>
       </div>
 
-      <Dialog
+      <ConfirmDialog
         open={confirmRemove !== null}
         onOpenChange={(open) => !open && setConfirmRemove(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("classDetail.removeConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {confirmRemove ? `${confirmRemove.name} — ` : ""}
-              {t("classDetail.removeConfirmBody")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmRemove(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              disabled={remove.isPending}
-              onClick={() => confirmRemove && remove.mutate(confirmRemove.userId)}
-            >
-              {remove.isPending ? t("common.loading") : t("classDetail.removeConfirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AddMemberDialog
-        classId={id}
-        memberIds={memberIds}
-        open={adding}
-        onOpenChange={setAdding}
+        title={t("classDetail.removeConfirmTitle")}
+        description={`${confirmRemove?.name ?? ""} — ${t("classDetail.removeConfirmBody")}`}
+        confirmLabel={t("classDetail.removeConfirm")}
+        destructive
+        pending={remove.isPending}
+        onConfirm={() => confirmRemove && remove.mutate(confirmRemove.userId)}
       />
+
+      <AddMemberDialog classId={id} open={adding} onOpenChange={setAdding} />
     </>
   );
 }

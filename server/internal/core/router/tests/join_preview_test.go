@@ -1,0 +1,190 @@
+package router_test
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"quizzivy/internal/core/router"
+	"strings"
+	"testing"
+
+	classesapp "quizzivy/internal/modules/classes/application"
+	classesquery "quizzivy/internal/modules/classes/application/query"
+	classesdomain "quizzivy/internal/modules/classes/domain"
+	classeshttp "quizzivy/internal/modules/classes/http"
+	"quizzivy/internal/shared/cqrs"
+)
+
+// POST /join/preview is unauthenticated and takes a bearer secret. Two things
+// are asserted on the WIRE rather than on the Go struct: what a success body
+// contains, and what four different refusals give away.
+
+const fakeClassName = "Lớp Tiếng Anh Giao Tiếp B2"
+
+type fakeJoin struct {
+	result classesdomain.PreviewResult
+	err    error
+	seen   []string
+}
+
+func (f *fakeJoin) app() *classesapp.Application {
+	preview := func(_ context.Context, q classesquery.Preview) (classesdomain.PreviewResult, error) {
+		f.seen = append(f.seen, q.Code)
+		return f.result, f.err
+	}
+	return &classesapp.Application{Queries: classesapp.Queries{
+		Preview: cqrs.HandlerFunc[classesquery.Preview, classesdomain.PreviewResult](preview),
+	}}
+}
+
+func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
+	t.Helper()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h, err := router.New(router.Deps{DB: fakeDB{}, Modules: router.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
+		[]string{"https://app.quizzivy.com"}, "")
+	if err != nil {
+		t.Fatalf("core.NewRouter: %v", err)
+	}
+	return h
+}
+
+func previewFrom(t *testing.T, handler http.Handler, ip, code string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/join/preview",
+		strings.NewReader(fmt.Sprintf(`{"joinCode":%q}`, code)))
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = ip + ":54321"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestTheSuccessBodyHasExactlyThreeKeys(t *testing.T) {
+	fake := &fakeJoin{result: classesdomain.PreviewResult{
+		Outcome:     classesdomain.PreviewOK,
+		ClassID:     "01935000-0000-7000-8000-0000000000c1",
+		ClassName:   fakeClassName,
+		TeacherName: "Thuong",
+	}}
+	rec := previewFrom(t, joinRouter(t, fake), "203.0.113.1", "K7M3-P9QR")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	want := map[string]bool{"classId": true, "className": true, "teacherName": true}
+	for key := range body {
+		if !want[key] {
+			t.Errorf("response carries %q, which §6.5 does not permit", key)
+		}
+	}
+	for key := range want {
+		if _, ok := body[key]; !ok {
+			t.Errorf("response is missing %q", key)
+		}
+	}
+	if len(body) != 3 {
+		t.Errorf("response has %d keys, want exactly 3: %s", len(body), rec.Body.String())
+	}
+}
+
+func TestTheFourRefusalsCarryFourCodesAndNoClassName(t *testing.T) {
+	for _, tc := range []struct {
+		outcome classesdomain.PreviewOutcome
+		code    string
+	}{
+		{classesdomain.PreviewInvalid, "JOIN_CODE_INVALID"},
+		{classesdomain.PreviewRevoked, "JOIN_CODE_REVOKED"},
+		{classesdomain.PreviewExpired, "JOIN_CODE_EXPIRED"},
+		{classesdomain.PreviewExhausted, "JOIN_CODE_EXHAUSTED"},
+	} {
+		t.Run(tc.code, func(t *testing.T) {
+			fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: tc.outcome}}
+			rec := previewFrom(t, joinRouter(t, fake), "203.0.113.2", "K7M3-P9QR")
+
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want 404", rec.Code)
+			}
+			if got := errorCode(t, rec); got != tc.code {
+				t.Errorf("error code = %q, want %q", got, tc.code)
+			}
+		})
+	}
+}
+
+func TestNoRefusalEchoesAnythingIdentifying(t *testing.T) {
+	for _, outcome := range []classesdomain.PreviewOutcome{
+		classesdomain.PreviewInvalid, classesdomain.PreviewRevoked, classesdomain.PreviewExpired, classesdomain.PreviewExhausted,
+	} {
+		fake := &fakeJoin{result: classesdomain.PreviewResult{
+			Outcome:     outcome,
+			ClassID:     "01935000-0000-7000-8000-0000000000c1",
+			ClassName:   fakeClassName,
+			TeacherName: "Thuong",
+		}}
+		rec := previewFrom(t, joinRouter(t, fake), "203.0.113.3", "K7M3-P9QR")
+		body := rec.Body.String()
+		for _, leak := range []string{fakeClassName, "Thuong", "01935000"} {
+			if strings.Contains(body, leak) {
+				t.Errorf("outcome %v leaked %q: %s", outcome, leak, body)
+			}
+		}
+	}
+}
+
+func TestTheEleventhPreviewInAMinuteFromOneAddressIs429(t *testing.T) {
+	// §6.5. Without a limit, 40 bits of entropy is worth probing at scale.
+	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
+	handler := joinRouter(t, fake)
+
+	var last *httptest.ResponseRecorder
+	for i := range 11 {
+		// A different code each time, so only the per-IP bucket can fire.
+		last = previewFrom(t, handler, "198.51.100.7", fmt.Sprintf("AAAA-BB%02d", i))
+	}
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("11th request status = %d, want 429", last.Code)
+	}
+	if last.Header().Get("Retry-After") == "" {
+		t.Error("429 without Retry-After: the client either gives up or retries immediately")
+	}
+	if got := errorCode(t, last); got != "RATE_LIMITED" {
+		t.Errorf("error code = %q, want RATE_LIMITED", got)
+	}
+}
+
+func TestTheThirtyFirstAttemptOnOneCodeIs429EvenAcrossAddresses(t *testing.T) {
+	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
+	handler := joinRouter(t, fake)
+
+	var last *httptest.ResponseRecorder
+	for i := range 31 {
+		last = previewFrom(t, handler, fmt.Sprintf("198.51.100.%d", i+50), "K7M3-P9QR")
+	}
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("31st request status = %d, want 429", last.Code)
+	}
+}
+
+func TestRespellingACodeDoesNotBuyAFreshAllowance(t *testing.T) {
+	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
+	handler := joinRouter(t, fake)
+
+	spellings := []string{"K7M3-P9QR", "k7m3p9qr", "K7M3P9QR", "k7m3-p9qr", " K7M3 P9QR "}
+	var last *httptest.ResponseRecorder
+	for i := range 31 {
+		// Every request from a different address, cycling through spellings.
+		last = previewFrom(t, handler, fmt.Sprintf("192.0.2.%d", i+1), spellings[i%len(spellings)])
+	}
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d after 31 attempts across five spellings, want 429 -- "+
+			"respelling the code is buying a fresh bucket", last.Code)
+	}
+}

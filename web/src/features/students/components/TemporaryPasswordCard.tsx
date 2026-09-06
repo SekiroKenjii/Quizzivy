@@ -4,7 +4,7 @@ import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** The one-time password, shown inline where the copy happens. */
-export function TemporaryPasswordCard({ password }: { password: string }) {
+export function TemporaryPasswordCard({ password }: Readonly<{ password: string }>) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);

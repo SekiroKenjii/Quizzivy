@@ -8,7 +8,7 @@ import { PageBarSlot } from "@/layouts/slots";
 import "@/lib/i18n";
 
 /** A shell the way AdminLayout builds one: a slot above the scrolling main. */
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children }: Readonly<{ children: React.ReactNode }>) {
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   return (
     <>

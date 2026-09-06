@@ -4,25 +4,24 @@ import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, History, List, Repeat, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { fetchMyClasses } from "@/features/classes/api";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
-import { formatTime } from "@/lib/i18n/datetime";
+import {
+  countdown,
+  formatTime,
+  sameAppDay,
+  shortDate,
+  weekdayDate,
+} from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { listMyAssignments, type StudentAssignmentCard } from "../api";
-import {
-  closesLine,
-  countdown,
-  givenName,
-  sameAppDay,
-  scoreText,
-  shortDate,
-  timeLeft,
-  weekdayDate,
-} from "../studentTime";
+import { closesLine, givenName, scoreText, timeLeft } from "../studentTime";
 
 /** S-03: what to do next, in the order it matters. */
 export default function StudentHomePage() {
@@ -48,22 +47,14 @@ export default function StudentHomePage() {
           {t("student.greetingPlain", { name })}
         </h1>
         {assignments.isPending ? (
-          <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-            {t("common.loading")}
-          </p>
+          <ListSkeleton rows={3} />
         ) : (
-          <div className="space-y-3">
-            <p role="alert" className="text-sm">
-              {t("student.loadFailed")}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void assignments.refetch()}
-            >
-              {t("common.retry")}
-            </Button>
-          </div>
+          <LoadError
+            error={assignments.error}
+            onRetry={() => void assignments.refetch()}
+          >
+            {t("student.loadFailed")}
+          </LoadError>
         )}
       </div>
     );
@@ -82,18 +73,22 @@ export default function StudentHomePage() {
         <h1 className="text-lg font-semibold tracking-tight">
           {t("student.greetingPlain", { name })}
         </h1>
-        <div className="mt-6 rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm">{t("student.noAssignments")}</p>
-          <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
-            {t("student.noAssignmentsHint")}
-          </p>
+        <div className="mt-6">
+          <EmptyState hint={t("student.noAssignmentsHint")}>
+            {t("student.noAssignments")}
+          </EmptyState>
         </div>
         {classes.data !== undefined && classes.data.items.length === 0 && (
-          <div className="mt-3 rounded-lg border border-dashed p-8 text-center">
-            <p className="text-sm">{t("student.noClasses")}</p>
-            <Button asChild size="sm" className="mt-3">
-              <Link to="/join">{t("student.joinClass")}</Link>
-            </Button>
+          <div className="mt-3">
+            <EmptyState
+              action={
+                <Button asChild size="sm">
+                  <Link to="/join">{t("student.joinClass")}</Link>
+                </Button>
+              }
+            >
+              {t("student.noClasses")}
+            </EmptyState>
           </div>
         )}
       </div>
@@ -134,7 +129,7 @@ export default function StudentHomePage() {
                   })}
                 </p>
               </div>
-              <Badge variant="outline">{t("student.scheduled")}</Badge>
+              <StatusBadge kind="assignment" status="scheduled" />
             </Card>
           ))}
         </Section>
@@ -145,7 +140,17 @@ export default function StudentHomePage() {
           {completed.map((card) => (
             <Card key={card.id} className="flex-row items-center gap-3 p-3.5">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{card.testTitle}</p>
+                {/* To S-09, when there is a paper to show. */}
+                {card.lastAttemptId ? (
+                  <Link
+                    to={`/app/attempts/${card.lastAttemptId}/result`}
+                    className="block truncate text-sm font-medium hover:underline"
+                  >
+                    {card.testTitle}
+                  </Link>
+                ) : (
+                  <p className="truncate text-sm font-medium">{card.testTitle}</p>
+                )}
                 <p className="text-muted-foreground text-xs">
                   {card.lastSubmittedAt == null
                     ? t("student.attempt", {
@@ -166,7 +171,10 @@ export default function StudentHomePage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
     <section>
       <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
@@ -178,7 +186,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** The deck's due card: the one with a button, because it is the one to act on. */
-function DueCard({ card, now }: { card: StudentAssignmentCard; now: Date }) {
+function DueCard({ card, now }: Readonly<{ card: StudentAssignmentCard; now: Date }>) {
   const { t } = useTranslation();
   return (
     <Card className="border-foreground/20 gap-0 p-5 shadow-sm">
@@ -224,7 +232,7 @@ function DueCard({ card, now }: { card: StudentAssignmentCard; now: Date }) {
  * Resuming skips the intro: the rules were read when the attempt began, and
  * the only thing this student needs is the way back in.
  */
-function ResumeCard({ card }: { card: StudentAssignmentCard }) {
+function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -274,7 +282,7 @@ function ResumeCard({ card }: { card: StudentAssignmentCard }) {
 }
 
 /** Derived during render; the interval only asks for a repaint, as Clock does. */
-function ResumeBody({ card }: { card: StudentAssignmentCard }) {
+function ResumeBody({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   const { t } = useTranslation();
   const deadlineAt = card.liveDeadlineAt;
   const [, repaint] = useReducer((n: number) => n + 1, 0);
@@ -290,14 +298,17 @@ function ResumeBody({ card }: { card: StudentAssignmentCard }) {
         ? t("student.resumeBody", { title: card.testTitle })
         : t("student.resumeBodyLeft", {
             title: card.testTitle,
-            left: countdown(deadlineAt, new Date()),
+            left: countdown(new Date(deadlineAt).getTime() - new Date().getTime()),
           })}
     </p>
   );
 }
 
 /** A number, or "Chờ chấm", or nothing -- score is absent when the policy hides it. */
-function Outcome({ card, locale }: { card: StudentAssignmentCard; locale: Locale }) {
+function Outcome({
+  card,
+  locale,
+}: Readonly<{ card: StudentAssignmentCard; locale: Locale }>) {
   const { t } = useTranslation();
   const score = card.score;
   if (!score) return null;

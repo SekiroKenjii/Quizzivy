@@ -1,9 +1,16 @@
-import { useId, useMemo, useState, type ReactNode } from "react";
+import {
+  useId,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Info, SquarePen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import {
   Card,
   CardContent,
@@ -11,13 +18,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageAside } from "@/components/shared/PageAside";
+import { DateTimeField } from "@/components/shared/DateTimeField";
 import {
   TestVersionPicker,
   type PickedVersion,
@@ -28,10 +41,18 @@ import {
 } from "@/features/assignments/components/TargetPickers";
 import type { Token } from "@/features/assignments/components/TokenField";
 import { StudentRulesPreview } from "@/features/assignments/components/StudentRulesPreview";
-import { createAssignment } from "@/features/assignments/api";
+import {
+  createAssignment,
+  getAssignment,
+  updateAssignment,
+  type Assignment,
+  type AssignmentInput,
+} from "@/features/assignments/api";
 import { fetchClass } from "@/features/classes/api";
+import { getTest, listVersions, type TestVersion } from "@/features/tests/api";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
-import { ApiError, fieldMessages } from "@/lib/api/errors";
+import { failureMessage, fieldMessages } from "@/lib/api/errors";
+import type { TFunction } from "i18next";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 const ATTEMPTS = [1, 2, 3];
@@ -95,68 +116,31 @@ export default function AssignmentFormPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
+  const { id } = useParams<{ id: string }>();
+  const editing = id !== undefined;
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<{ summary: string; fields: string[] } | null>(
     null,
   );
 
-  const fromClassId = params.get("classId");
-  const fromClassQuery = useQuery({
-    queryKey: ["admin-class", fromClassId],
-    queryFn: ({ signal }) => fetchClass(fromClassId ?? "", signal),
-    enabled: fromClassId !== null,
-  });
+  usePickFromQuery(editing ? null : params.get("testId"), setDraft);
+  useClassFromQuery(params.get("classId"), setDraft);
+  const { existing, versions, hydrated } = useExistingAssignment(id, setDraft);
+  const published = existing.data?.publishedAt != null;
 
-  const preselected = useMemo(() => {
-    const found = fromClassQuery.data;
-    return found
-      ? { id: found.id, label: found.name, hint: String(found.studentCount) }
-      : null;
-  }, [fromClassQuery.data]);
-
-  const [appliedFor, setAppliedFor] = useState<string | null>(null);
-  if (preselected && appliedFor !== preselected.id) {
-    setAppliedFor(preselected.id);
-    setDraft((current) =>
-      current.classes.some((c) => c.id === preselected.id)
-        ? current
-        : { ...current, classes: [...current.classes, preselected] },
-    );
-  }
-
-  const create = useMutation({
-    mutationFn: (asDraft: boolean) => {
-      const picked = draft.picked;
-      if (!picked) throw new Error("no version picked");
-      return createAssignment({
-        draft: asDraft,
-        testVersionId: picked.version.id,
-        targets: {
-          classIds: draft.classes.map((c) => c.id),
-          studentIds: draft.students.map((s) => s.id),
-        },
-        window: {
-          opensAt: fromDateTimeInput(draft.opensAt).toISOString(),
-          closesAt: fromDateTimeInput(draft.closesAt).toISOString(),
-        },
-        durationMinutes: draft.durationMinutes,
-        maxAttempts: draft.maxAttempts,
-        shuffleQuestions: draft.shuffleQuestions,
-        shuffleOptions: draft.shuffleOptions,
-        review: draft.review,
-        integrity: draft.integrity,
-      });
-    },
+  const save = useMutation({
+    mutationFn: (asDraft: boolean) =>
+      saveAssignment(id, { draft: asDraft, ...toBody(draft) }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-assignment", id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      void navigate("/admin/assignments");
+      void navigate(editing ? `/admin/assignments/${id}` : "/admin/assignments");
     },
     onError: (cause) =>
       setError({
-        summary:
-          cause instanceof ApiError ? cause.message : t("assignments.createFailed"),
+        summary: failureMessage(cause, t(saveFailedKey(editing))),
         fields: fieldMessages(cause),
       }),
   });
@@ -165,9 +149,15 @@ export default function AssignmentFormPage() {
   const ready = draft.picked !== null && hasTargets;
   const savable = draft.picked !== null;
 
+  if (editing && !hydrated)
+    return <EditLoadState existing={existing} versions={versions} />;
+
   return (
     <>
-      <PageHeader title={t("assignments.new")} backTo="/admin/assignments" />
+      <PageHeader
+        title={t(editing ? "assignments.edit" : "assignments.new")}
+        backTo={editing ? `/admin/assignments/${id}` : "/admin/assignments"}
+      />
 
       <div className="space-y-6">
         <Card>
@@ -258,53 +248,50 @@ export default function AssignmentFormPage() {
             <CardTitle>{t("assignments.step3")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <Field label={t("assignments.opensAt")}>
                 {(id) => (
-                  <Input
+                  <DateTimeField
                     id={id}
-                    type="datetime-local"
+                    label={t("assignments.opensAt")}
                     value={draft.opensAt}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, opensAt: e.target.value }))
-                    }
+                    onChange={(opensAt) => setDraft((d) => ({ ...d, opensAt }))}
                   />
                 )}
               </Field>
               <Field label={t("assignments.closesAt")}>
                 {(id) => (
-                  <Input
+                  <DateTimeField
                     id={id}
-                    type="datetime-local"
+                    label={t("assignments.closesAt")}
                     value={draft.closesAt}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, closesAt: e.target.value }))
-                    }
+                    onChange={(closesAt) => setDraft((d) => ({ ...d, closesAt }))}
                   />
                 )}
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <Field
                 label={t("assignments.duration")}
                 hint={t("assignments.durationHint")}
               >
                 {(id) => (
                   <Select
-                    id={id}
-                    value={draft.durationMinutes}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        durationMinutes: Number(e.target.value),
-                      }))
+                    value={String(draft.durationMinutes)}
+                    onValueChange={(next) =>
+                      setDraft((d) => ({ ...d, durationMinutes: Number(next) }))
                     }
                   >
-                    {DURATIONS.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {t("assignments.minutes", { count: minutes })}
-                      </option>
-                    ))}
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATIONS.map((minutes) => (
+                        <SelectItem key={minutes} value={String(minutes)}>
+                          {t("assignments.minutes", { count: minutes })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 )}
               </Field>
@@ -316,20 +303,21 @@ export default function AssignmentFormPage() {
               >
                 {(id) => (
                   <Select
-                    id={id}
-                    value={draft.maxAttempts}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        maxAttempts: Number(e.target.value),
-                      }))
+                    value={String(draft.maxAttempts)}
+                    onValueChange={(next) =>
+                      setDraft((d) => ({ ...d, maxAttempts: Number(next) }))
                     }
                   >
-                    {ATTEMPTS.map((count) => (
-                      <option key={count} value={count}>
-                        {t("assignments.attemptCount", { count })}
-                      </option>
-                    ))}
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ATTEMPTS.map((count) => (
+                        <SelectItem key={count} value={String(count)}>
+                          {t("assignments.attemptCount", { count })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 )}
               </Field>
@@ -419,50 +407,57 @@ export default function AssignmentFormPage() {
                 }))
               }
             />
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 gap-3 pt-1 lg:grid-cols-2">
               <Field label={t("assignments.maxFocusLoss")}>
                 {(id) => (
                   <Select
-                    id={id}
-                    value={draft.integrity.maxFocusLoss}
-                    onChange={(e) =>
+                    value={String(draft.integrity.maxFocusLoss)}
+                    onValueChange={(next) =>
                       setDraft((d) => ({
                         ...d,
-                        integrity: {
-                          ...d.integrity,
-                          maxFocusLoss: Number(e.target.value),
-                        },
+                        integrity: { ...d.integrity, maxFocusLoss: Number(next) },
                       }))
                     }
                   >
-                    {FOCUS_LIMITS.map((count) => (
-                      <option key={count} value={count}>
-                        {count === 0
-                          ? t("assignments.unlimited")
-                          : t("assignments.timesAway", { count })}
-                      </option>
-                    ))}
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FOCUS_LIMITS.map((count) => (
+                        <SelectItem key={count} value={String(count)}>
+                          {focusLimitLabel(count, t)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 )}
               </Field>
               <Field label={t("assignments.onLimitExceeded")}>
                 {(id) => (
                   <Select
-                    id={id}
                     disabled={draft.integrity.maxFocusLoss === 0}
                     value={draft.integrity.onLimitExceeded}
-                    onChange={(e) =>
+                    onValueChange={(next) =>
                       setDraft((d) => ({
                         ...d,
                         integrity: {
                           ...d.integrity,
-                          onLimitExceeded: e.target.value as "warn" | "flag",
+                          onLimitExceeded: next as "warn" | "flag",
                         },
                       }))
                     }
                   >
-                    <option value="warn">{t("assignments.actionWarn")}</option>
-                    <option value="flag">{t("assignments.actionFlag")}</option>
+                    <SelectTrigger id={id} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="warn">
+                        {t("assignments.actionWarn")}
+                      </SelectItem>
+                      <SelectItem value="flag">
+                        {t("assignments.actionFlag")}
+                      </SelectItem>
+                    </SelectContent>
                   </Select>
                 )}
               </Field>
@@ -499,26 +494,28 @@ export default function AssignmentFormPage() {
         <div className="space-y-2">
           <Button
             className="w-full"
-            disabled={!ready || create.isPending}
+            disabled={!ready || save.isPending}
             onClick={() => {
               setError(null);
-              create.mutate(false);
+              save.mutate(false);
             }}
           >
-            {create.isPending ? t("common.loading") : t("assignments.assign")}
+            {save.isPending ? t("common.loading") : t(submitKey(published))}
           </Button>
           {/* A draft needs only the test. */}
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={!savable || create.isPending}
-            onClick={() => {
-              setError(null);
-              create.mutate(true);
-            }}
-          >
-            {t("assignments.saveDraft")}
-          </Button>
+          {published ? null : (
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!savable || save.isPending}
+              onClick={() => {
+                setError(null);
+                save.mutate(true);
+              }}
+            >
+              {t("assignments.saveDraft")}
+            </Button>
+          )}
         </div>
         {ready ? null : (
           <p className="text-muted-foreground text-xs">
@@ -536,7 +533,53 @@ export default function AssignmentFormPage() {
   );
 }
 
-function Summary({ draft }: { draft: Draft }) {
+function toBody(draft: Draft): Omit<AssignmentInput, "draft"> {
+  const picked = draft.picked;
+  if (!picked) throw new Error("no version picked");
+  return {
+    testVersionId: picked.version.id,
+    targets: {
+      classIds: draft.classes.map((c) => c.id),
+      studentIds: draft.students.map((s) => s.id),
+    },
+    window: {
+      opensAt: fromDateTimeInput(draft.opensAt).toISOString(),
+      closesAt: fromDateTimeInput(draft.closesAt).toISOString(),
+    },
+    durationMinutes: draft.durationMinutes,
+    maxAttempts: draft.maxAttempts,
+    shuffleQuestions: draft.shuffleQuestions,
+    shuffleOptions: draft.shuffleOptions,
+    review: draft.review,
+    integrity: draft.integrity,
+  };
+}
+
+function fromAssignment(a: Assignment, versions: TestVersion[]): Draft {
+  const version = versions.find((v) => v.id === a.testVersionId);
+  return {
+    picked: version ? { testId: a.testId, testTitle: a.testTitle, version } : null,
+    classes: a.targets.classes.map((c) => ({
+      id: c.id,
+      label: c.name,
+      hint: String(c.studentCount),
+    })),
+    students: a.targets.students.map((s) => ({ id: s.id, label: s.name })),
+    opensAt: toDateTimeInput(a.window.opensAt),
+    closesAt: toDateTimeInput(a.window.closesAt),
+    durationMinutes: a.durationMinutes,
+    maxAttempts: a.maxAttempts,
+    shuffleQuestions: a.shuffleQuestions,
+    shuffleOptions: a.shuffleOptions,
+    review: a.review,
+    integrity: {
+      ...a.integrity,
+      onLimitExceeded: a.integrity.onLimitExceeded === "warn" ? "warn" : "flag",
+    },
+  };
+}
+
+function Summary({ draft }: Readonly<{ draft: Draft }>) {
   const { t } = useTranslation();
 
   const upperBound =
@@ -592,7 +635,7 @@ function Summary({ draft }: { draft: Draft }) {
   );
 }
 
-function Line({ label, value }: { label: string; value: string }) {
+function Line({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex justify-between gap-3">
       <dt className="text-muted-foreground">{label}</dt>
@@ -605,11 +648,11 @@ function Field({
   label,
   hint,
   children,
-}: {
+}: Readonly<{
   label: string;
   hint?: string;
   children: (id: string) => ReactNode;
-}) {
+}>) {
   const id = useId();
   return (
     <div>
@@ -626,11 +669,11 @@ function Toggle({
   label,
   checked,
   onChange,
-}: {
+}: Readonly<{
   label: string;
   checked: boolean;
   onChange: (value: boolean) => void;
-}) {
+}>) {
   return (
     <label className="flex items-center justify-between gap-3 text-sm">
       {label}
@@ -643,4 +686,123 @@ function windowDays(opensAt: string, closesAt: string): number {
   const ms =
     fromDateTimeInput(closesAt).getTime() - fromDateTimeInput(opensAt).getTime();
   return Math.max(0, Math.round(ms / 86_400_000));
+}
+
+function saveFailedKey(editing: boolean): string {
+  return editing ? "assignments.updateFailed" : "assignments.createFailed";
+}
+
+function submitKey(published: boolean): string {
+  return published ? "assignments.saveChanges" : "assignments.assign";
+}
+
+type SetDraft = Dispatch<SetStateAction<Draft>>;
+
+/** A-03's "Giao cho lớp" arrives with the test chosen; its latest version is the pick. */
+function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
+  const test = useQuery({
+    queryKey: ["admin-test", testId],
+    queryFn: ({ signal }) => getTest(testId ?? "", signal),
+    enabled: testId !== null,
+  });
+  const versions = useQuery({
+    queryKey: ["admin-test-versions", testId],
+    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
+    enabled: testId !== null,
+  });
+  const latest = latestOf(versions.data?.items ?? []);
+  const [pickedFor, setPickedFor] = useState<string | null>(null);
+  if (test.data && latest && pickedFor !== test.data.id) {
+    setPickedFor(test.data.id);
+    const picked = {
+      testId: test.data.id,
+      testTitle: test.data.title,
+      version: latest,
+    };
+    setDraft((current) => (current.picked === null ? { ...current, picked } : current));
+  }
+}
+
+function latestOf(items: readonly TestVersion[]): TestVersion | null {
+  return items.reduce<TestVersion | null>(
+    (best, v) => (best === null || v.version > best.version ? v : best),
+    null,
+  );
+}
+
+/** G-06's "Giao bài" arrives with the class chosen; it joins the targets once. */
+function useClassFromQuery(classId: string | null, setDraft: SetDraft) {
+  const klass = useQuery({
+    queryKey: ["admin-class", classId],
+    queryFn: ({ signal }) => fetchClass(classId ?? "", signal),
+    enabled: classId !== null,
+  });
+  const [appliedFor, setAppliedFor] = useState<string | null>(null);
+  const found = klass.data;
+  if (found && appliedFor !== found.id) {
+    setAppliedFor(found.id);
+    const token = { id: found.id, label: found.name, hint: String(found.studentCount) };
+    setDraft((current) =>
+      current.classes.some((c) => c.id === token.id)
+        ? current
+        : { ...current, classes: [...current.classes, token] },
+    );
+  }
+}
+
+/** Editing loads the assignment and its test's versions, then fills the draft once. */
+function useExistingAssignment(id: string | undefined, setDraft: SetDraft) {
+  const existing = useQuery({
+    queryKey: ["admin-assignment", id],
+    queryFn: ({ signal }) => getAssignment(id ?? "", signal),
+    enabled: id !== undefined,
+  });
+  const testId = existing.data?.testId;
+  const versions = useQuery({
+    queryKey: ["admin-test-versions", testId],
+    queryFn: ({ signal }) => listVersions(testId ?? "", signal),
+    enabled: testId !== undefined,
+  });
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+  if (existing.data && versions.data && hydratedFor !== existing.data.id) {
+    setHydratedFor(existing.data.id);
+    setDraft(fromAssignment(existing.data, versions.data.items));
+  }
+  return { existing, versions, hydrated: hydratedFor !== null };
+}
+
+function saveAssignment(
+  id: string | undefined,
+  body: Parameters<typeof createAssignment>[0],
+) {
+  return id === undefined ? createAssignment(body) : updateAssignment(id, body);
+}
+
+/** Both loads must land before the form can be trusted; either failing is the whole page failing. */
+function EditLoadState({
+  existing,
+  versions,
+}: Readonly<{
+  existing: { isError: boolean; error: unknown; refetch: () => unknown };
+  versions: { isError: boolean; error: unknown; refetch: () => unknown };
+}>) {
+  const { t } = useTranslation();
+  if (!existing.isError && !versions.isError) return <ListSkeleton rows={8} />;
+  return (
+    <LoadError
+      error={existing.error ?? versions.error}
+      onRetry={() => {
+        void existing.refetch();
+        void versions.refetch();
+      }}
+    >
+      {t("assignments.detail.loadFailed")}
+    </LoadError>
+  );
+}
+
+function focusLimitLabel(count: number, t: TFunction): string {
+  return count === 0
+    ? t("assignments.unlimited")
+    : t("assignments.timesAway", { count });
 }

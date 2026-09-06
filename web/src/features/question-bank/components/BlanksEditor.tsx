@@ -20,7 +20,11 @@ interface BlanksEditorProps {
 }
 
 /** fill_blank's answer editor, with the placeholder agreement checked live. */
-export function BlanksEditor({ prompt, blanks, onChange }: BlanksEditorProps) {
+export function BlanksEditor({
+  prompt,
+  blanks,
+  onChange,
+}: Readonly<BlanksEditorProps>) {
   const { t } = useTranslation();
   const mismatch = comparePlaceholders(
     prompt,

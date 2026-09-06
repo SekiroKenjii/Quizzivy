@@ -16,14 +16,14 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { Card } from "@/components/ui/card";
 import { enterFullscreen } from "@/features/integrity/fullscreen";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { ApiError } from "@/lib/api/errors";
-import { formatTime } from "@/lib/i18n/datetime";
+import { formatTime, shortDate } from "@/lib/i18n/datetime";
 import { getMyAssignment, type StudentAssignmentDetail } from "../api";
 import { duringRules, type Rule } from "../studentRules";
-import { shortDate } from "../studentTime";
 
 /** S-04: the contract before the clock starts. */
 export default function AssignmentIntroPage() {
@@ -37,22 +37,13 @@ export default function AssignmentIntroPage() {
   });
 
   if (detail.isPending) {
-    return (
-      <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-        {t("common.loading")}
-      </p>
-    );
+    return <ListSkeleton rows={6} />;
   }
   if (detail.isError) {
     return (
-      <div className="space-y-3">
-        <p role="alert" className="text-sm">
-          {t("student.loadFailed")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => void detail.refetch()}>
-          {t("common.retry")}
-        </Button>
-      </div>
+      <LoadError error={detail.error} onRetry={() => void detail.refetch()}>
+        {t("student.loadFailed")}
+      </LoadError>
     );
   }
 
@@ -157,7 +148,7 @@ function decimal(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
 }
 
-function Fact({ label, children }: { label: string; children: string }) {
+function Fact({ label, children }: Readonly<{ label: string; children: string }>) {
   return (
     <div>
       <p className="text-muted-foreground text-xs">{label}</p>
@@ -166,7 +157,7 @@ function Fact({ label, children }: { label: string; children: string }) {
   );
 }
 
-function RuleIcon({ kind }: { kind: Rule["kind"] }) {
+function RuleIcon({ kind }: Readonly<{ kind: Rule["kind"] }>) {
   const Icon = {
     clock: Timer,
     attempts: Repeat,
@@ -182,7 +173,11 @@ function RuleIcon({ kind }: { kind: Rule["kind"] }) {
   );
 }
 
-function Permission({ on, yes, no }: { on: boolean; yes: string; no: string }) {
+function Permission({
+  on,
+  yes,
+  no,
+}: Readonly<{ on: boolean; yes: string; no: string }>) {
   const { t } = useTranslation();
   return (
     <li
@@ -206,10 +201,10 @@ function Permission({ on, yes, no }: { on: boolean; yes: string; no: string }) {
 function StartControl({
   assignment: a,
   live,
-}: {
+}: Readonly<{
   assignment: StudentAssignmentDetail;
   live: boolean;
-}) {
+}>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -236,14 +231,7 @@ function StartControl({
   if (!canStart) {
     return (
       <p className="text-muted-foreground text-center text-sm leading-relaxed">
-        {exhausted
-          ? t("student.intro.exhausted")
-          : a.status === "scheduled"
-            ? t("student.intro.opensLater", {
-                time: formatTime(a.opensAt),
-                date: shortDate(a.opensAt),
-              })
-            : t("student.intro.closed")}
+        {blockedText(exhausted, a, t)}
       </p>
     );
   }
@@ -265,4 +253,19 @@ function StartControl({
       )}
     </div>
   );
+}
+
+function blockedText(
+  exhausted: boolean,
+  a: { readonly status: string; readonly opensAt: string },
+  t: TFunction,
+): string {
+  if (exhausted) return t("student.intro.exhausted");
+  if (a.status === "scheduled") {
+    return t("student.intro.opensLater", {
+      time: formatTime(a.opensAt),
+      date: shortDate(a.opensAt),
+    });
+  }
+  return t("student.intro.closed");
 }

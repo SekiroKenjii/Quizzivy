@@ -1,6 +1,6 @@
 import { http } from "msw";
 import { contractJson } from "./contractResponse";
-import { adminUser, sampleClass, studentUser } from "./fixtures";
+import { adminUser, myClass, sampleClass, studentUser } from "./fixtures";
 
 const BASE = "http://localhost:8080";
 
@@ -35,7 +35,7 @@ export const handlers = [
   ),
 
   http.get(`${BASE}/app/classes`, () =>
-    contractJson("/app/classes", "get", 200, { items: [sampleClass] }),
+    contractJson("/app/classes", "get", 200, { items: [myClass] }),
   ),
 
   http.get(`${BASE}/app/assignments`, () =>

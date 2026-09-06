@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Flag, Plus } from "lucide-react";
+import { ArrowUpRight, Flag, GraduationCap, Pencil, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { RowMenu } from "@/components/shared/RowMenu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -21,8 +23,12 @@ import {
   type AssignmentStatus,
 } from "@/features/assignments/api";
 import { statusAt } from "@/features/assignments/status";
-import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
+import { fetchClass } from "@/features/classes/api";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import type { Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { formatDateTime } from "@/lib/i18n/datetime";
+import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
@@ -35,13 +41,6 @@ const TABS: (AssignmentStatus | "all")[] = [
   "closed",
 ];
 
-const STATUS_VARIANT: Record<AssignmentStatus, "success" | "secondary" | "outline"> = {
-  draft: "secondary",
-  open: "success",
-  scheduled: "secondary",
-  closed: "outline",
-};
-
 /**
  * §8's assignments list.
  *
@@ -52,24 +51,38 @@ const STATUS_VARIANT: Record<AssignmentStatus, "success" | "secondary" | "outlin
 const PAGE_SIZE = 20;
 
 export default function AssignmentsListPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<AssignmentStatus | "all">("all");
-  const locale = currentLocale(i18n.language);
+  const locale = useLocale();
   const now = new Date();
+  // G-12: arriving from a class narrows the list, and the chip is the way out.
+  const [params, setParams] = useSearchParams();
+  const classId = params.get("classId") ?? undefined;
+  const klass = useQuery({
+    queryKey: ["admin-class", classId],
+    queryFn: ({ signal }) => fetchClass(classId ?? "", signal),
+    enabled: classId !== undefined,
+  });
 
-  const [page] = usePage(tab);
+  const [page] = usePage(`${tab}:${classId ?? ""}`);
   const assignments = useQuery({
-    queryKey: ["admin-assignments", { tab, page }],
+    queryKey: ["admin-assignments", { tab, page, classId }],
     queryFn: ({ signal }) =>
       listAssignments(
-        { limit: PAGE_SIZE, page, ...(tab === "all" ? {} : { status: tab }) },
+        {
+          limit: PAGE_SIZE,
+          page,
+          ...(tab === "all" ? {} : { status: tab }),
+          ...(classId === undefined ? {} : { classId }),
+        },
         signal,
       ),
     placeholderData: keepPreviousData,
   });
 
   const items = assignments.data?.items ?? [];
+  const facets = assignments.data?.facets;
 
   return (
     <div className="space-y-4">
@@ -77,8 +90,8 @@ export default function AssignmentsListPage() {
         variant="title"
         title={t("nav.assignments")}
         subtitle={
-          assignments.isSuccess
-            ? t("assignments.summary", { count: items.length })
+          facets
+            ? t("assignments.summary", { count: facets.all, open: facets.open })
             : " "
         }
         actions={
@@ -89,88 +102,112 @@ export default function AssignmentsListPage() {
         }
       />
 
-      <Tabs
-        value={tab}
-        onValueChange={(next) => setTab(next as AssignmentStatus | "all")}
+      <div className="flex items-center gap-2">
+        <Tabs
+          value={tab}
+          onValueChange={(next) => setTab(next as AssignmentStatus | "all")}
+        >
+          <TabsList aria-label={t("assignments.statusFilter")}>
+            {TABS.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {value === "all"
+                  ? t("assignments.all")
+                  : t(`status.assignment.${value}`)}
+                {facets ? (
+                  <span className="text-muted-foreground ml-1 tabular-nums">
+                    {facets[value]}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {classId === undefined ? null : (
+          <Badge variant="secondary" className="gap-1.5 py-0.5">
+            <GraduationCap aria-hidden="true" />
+            {klass.data?.name ?? t("assignments.classFilterLoading")}
+            <button
+              type="button"
+              aria-label={t("assignments.clearClassFilter")}
+              className="hover:bg-accent -mr-1 rounded-sm p-0.5"
+              onClick={() =>
+                setParams(
+                  (current) => {
+                    const out = new URLSearchParams(current);
+                    out.delete("classId");
+                    out.delete("page");
+                    return out;
+                  },
+                  { replace: true },
+                )
+              }
+            >
+              <X className="size-3" aria-hidden="true" />
+            </button>
+          </Badge>
+        )}
+      </div>
+
+      <QueryStates
+        query={assignments}
+        skeleton={<ListSkeleton />}
+        failed={t("assignments.loadFailed")}
       >
-        <TabsList aria-label={t("assignments.statusFilter")}>
-          {TABS.map((value) => (
-            <TabsTrigger key={value} value={value}>
-              {value === "all"
-                ? t("assignments.all")
-                : t(`assignments.status.${value}`)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+        {(data) =>
+          items.length === 0 ? (
+            <EmptyState
+              action={
+                <Button
+                  size="sm"
+                  onClick={() => void navigate("/admin/assignments/new")}
+                >
+                  {t("assignments.new")}
+                </Button>
+              }
+            >
+              {t(emptyKey(classId !== undefined, tab))}
+            </EmptyState>
+          ) : (
+            <>
+              <Card className="gap-0 overflow-hidden py-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[34%]">{t("assignments.test")}</TableHead>
+                      <TableHead>{t("assignments.targets")}</TableHead>
+                      <TableHead>{t("assignments.window")}</TableHead>
+                      <TableHead>{t("assignments.statusColumn")}</TableHead>
+                      <TableHead className="text-right">
+                        {t("assignments.progress")}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {t("assignments.flagged")}
+                      </TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">{t("common.actions")}</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((assignment) => (
+                      <Row
+                        key={assignment.id}
+                        assignment={assignment}
+                        locale={locale}
+                        now={now}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
 
-      {assignments.isPending ? (
-        <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
-          {t("common.loading")}
-        </p>
-      ) : assignments.isError ? (
-        <div className="space-y-3">
-          <p role="alert" className="text-sm">
-            {t("assignments.loadFailed")}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void assignments.refetch()}
-          >
-            {t("common.retry")}
-          </Button>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="space-y-3">
-          <p className="text-muted-foreground text-sm">
-            {tab === "all" ? t("assignments.empty") : t("assignments.noneWithStatus")}
-          </p>
-          <Button size="sm" onClick={() => void navigate("/admin/assignments/new")}>
-            {t("assignments.new")}
-          </Button>
-        </div>
-      ) : (
-        <>
-          <Card className="gap-0 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[34%]">{t("assignments.test")}</TableHead>
-                  <TableHead>{t("assignments.targets")}</TableHead>
-                  <TableHead>{t("assignments.window")}</TableHead>
-                  <TableHead>{t("assignments.statusColumn")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("assignments.progress")}
-                  </TableHead>
-                  <TableHead className="text-right">
-                    {t("assignments.flagged")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((assignment) => (
-                  <Row
-                    key={assignment.id}
-                    assignment={assignment}
-                    locale={locale}
-                    now={now}
-                    onOpen={() => void navigate(`/admin/assignments/${assignment.id}`)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-
-          {assignments.data && (
-            <Pager
-              page={assignments.data.page}
-              pageSize={assignments.data.pageSize}
-              total={assignments.data.total}
-            />
-          )}
-        </>
-      )}
+              {data && (
+                <Pager page={data.page} pageSize={data.pageSize} total={data.total} />
+              )}
+            </>
+          )
+        }
+      </QueryStates>
     </div>
   );
 }
@@ -179,29 +216,24 @@ function Row({
   assignment,
   locale,
   now,
-  onOpen,
-}: {
+}: Readonly<{
   assignment: Assignment;
   locale: Locale;
   now: Date;
-  onOpen: () => void;
-}) {
+}>) {
   const { t } = useTranslation();
   const status = statusAt(assignment, now);
   const submitted = assignment.submittedCount ?? 0;
   const total = assignment.targetCount ?? 0;
   const flagged = assignment.flaggedCount ?? 0;
+  const href = `/admin/assignments/${assignment.id}`;
 
   return (
     <TableRow>
       <TableCell>
-        <button
-          type="button"
-          className="truncate text-left font-medium"
-          onClick={onOpen}
-        >
+        <Link to={href} className="truncate font-medium hover:underline">
           {assignment.testTitle}
-        </button>
+        </Link>
         <span className="text-muted-foreground ml-2 text-xs tabular-nums">
           {t("tests.versionNumber", { n: assignment.testVersion })}
         </span>
@@ -209,7 +241,7 @@ function Row({
       <TableCell className="text-muted-foreground">
         {t("assignments.targetSummary", {
           classes: assignment.targets.classes.length,
-          students: assignment.targets.studentIds.length,
+          students: assignment.targets.students.length,
         })}
       </TableCell>
       <TableCell className="text-muted-foreground text-xs">
@@ -219,9 +251,7 @@ function Row({
         })}
       </TableCell>
       <TableCell>
-        <Badge variant={STATUS_VARIANT[status]}>
-          {t(`assignments.status.${status}`)}
-        </Badge>
+        <StatusBadge kind="assignment" status={status} />
       </TableCell>
       <TableCell className="text-right tabular-nums">
         {t("assignments.progressValue", { submitted, total })}
@@ -236,12 +266,29 @@ function Row({
           </span>
         )}
       </TableCell>
+      <TableCell className="text-right">
+        <RowMenu>
+          <DropdownMenuItem asChild>
+            <Link to={href}>
+              <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
+              {t("assignments.rowOpen")}
+            </Link>
+          </DropdownMenuItem>
+          {status === "draft" || status === "scheduled" ? (
+            <DropdownMenuItem asChild>
+              <Link to={`${href}/edit`}>
+                <Pencil className="text-muted-foreground" aria-hidden="true" />
+                {t("assignments.detail.edit")}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+        </RowMenu>
+      </TableCell>
     </TableRow>
   );
 }
 
-function currentLocale(language: string): Locale {
-  return (SUPPORTED_LOCALES as readonly string[]).includes(language)
-    ? (language as Locale)
-    : "vi";
+function emptyKey(forClass: boolean, tab: string): string {
+  if (tab !== "all") return "assignments.noneWithStatus";
+  return forClass ? "assignments.emptyForClass" : "assignments.empty";
 }
