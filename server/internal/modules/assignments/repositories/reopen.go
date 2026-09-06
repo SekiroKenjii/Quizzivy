@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/platform/db"
 	"strings"
 	"time"
 
@@ -25,7 +26,7 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 		return domain.Assignment{}, domain.ErrClosesInPast
 	}
 
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: begin reopen: %w", err)
 	}
@@ -67,7 +68,7 @@ func (s *Postgres) Reopen(ctx context.Context, req domain.Request, closesAt time
 	return saved, nil
 }
 
-func (s *Postgres) whyNotReopened(ctx context.Context, q querier, id string) error {
+func (s *Postgres) whyNotReopened(ctx context.Context, q db.Querier, id string) error {
 	var exists bool
 	if err := q.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM app.assignments WHERE id = $1::uuid)`, id).Scan(&exists); err != nil {

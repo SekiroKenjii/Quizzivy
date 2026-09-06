@@ -15,7 +15,7 @@ import (
 func (s *Reviews) AnswersForQuestion(ctx context.Context, assignmentID, questionID string) (domain.ByQuestion, error) {
 	var out domain.ByQuestion
 	var versionID string
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT a.test_version_id::text, v.published_at
 		  FROM app.assignments a
 		  JOIN app.test_versions v ON v.id = a.test_version_id
@@ -45,7 +45,7 @@ func (s *Reviews) AnswersForQuestion(ctx context.Context, assignmentID, question
 		return domain.ByQuestion{}, domain.ErrQuestionNotOnPaper
 	}
 
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT at.id::text, at.student_id::text, u.full_name, at.attempt_no,
 		       ans.payload, ans.manual_score, ans.grader_comment
 		  FROM app.attempts at

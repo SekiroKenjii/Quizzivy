@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
 
 // SoftDelete marks an unreferenced asset deleted and audits it.
 func (s *Postgres) SoftDelete(ctx context.Context, in domain.DeleteInput) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("media: begin delete: %w", err)
 	}
@@ -50,8 +51,8 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.DeleteInput) error 
 		Entity:      "media_asset",
 		EntityID:    &in.ID,
 		OccurredAt:  in.Now,
-		IP:          optional(in.IP),
-		UserAgent:   optional(in.UserAgent),
+		IP:          opt.String(in.IP),
+		UserAgent:   opt.String(in.UserAgent),
 	}); err != nil {
 		return err
 	}

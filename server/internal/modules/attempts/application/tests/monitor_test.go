@@ -7,6 +7,7 @@ import (
 	"os"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
+	"quizzivy/internal/platform/db"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -110,7 +111,7 @@ func TestTheMonitorIsTwoQueriesForFiftyStudentsAndThirtyAttempts(t *testing.T) {
 		handIn(t, pool, w, id, 1, status)
 	}
 
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	counter.n.Store(0)
 	monitor, err := store.Monitor(context.Background(), w.assignment, time.Now())
 	if err != nil {
@@ -201,7 +202,7 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 
 func TestAnUnknownAssignmentIsNotAnEmptyMonitor(t *testing.T) {
 	pool := newPool(t)
-	_, err := repositories.NewPostgres(pool).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
+	_, err := repositories.NewPostgres(db.NewContext(pool)).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
 	if err != domain.ErrNotFound {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}

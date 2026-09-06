@@ -5,19 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/platform/db"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Querier is the subset of pgx satisfied by both a pool and a transaction.
-type Querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
-
 // DraftReferences lists the draft tests whose outline uses the question, by
 // title. Any at all blocks deletion with a 409.
-func DraftReferences(ctx context.Context, q Querier, questionID string) ([]domain.TestRef, error) {
+func DraftReferences(ctx context.Context, q db.Querier, questionID string) ([]domain.TestRef, error) {
 	rows, err := q.Query(ctx, `
 		SELECT DISTINCT t.id::text, t.title
 		  FROM app.test_section_questions tsq
@@ -42,7 +37,7 @@ func DraftReferences(ctx context.Context, q Querier, questionID string) ([]domai
 
 // LockForDraftUse takes the row lock that makes the delete check meaningful,
 // and must be called before inserting into app.test_section_questions.
-func LockForDraftUse(ctx context.Context, q Querier, questionID string) error {
+func LockForDraftUse(ctx context.Context, q db.Querier, questionID string) error {
 	var deleted bool
 	err := q.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,

@@ -8,6 +8,7 @@ import (
 
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 )
 
 type LinkGoogleInput struct {
@@ -58,8 +59,8 @@ func (s *Service) LinkGoogle(ctx context.Context, in LinkGoogleInput) (domain.Us
 		Entity:      "user_identity",
 		EntityID:    &user.ID,
 		OccurredAt:  s.now(),
-		IP:          optional(in.IP),
-		UserAgent:   optional(in.UserAgent),
+		IP:          opt.String(in.IP),
+		UserAgent:   opt.String(in.UserAgent),
 	}); err != nil {
 		return domain.User{}, err
 	}
@@ -101,7 +102,7 @@ func (s *Service) UnlinkGoogle(ctx context.Context, userID, ip, userAgent string
 		Entity:      "user_identity",
 		EntityID:    &userID,
 		OccurredAt:  s.now(),
-		IP:          optional(ip),
-		UserAgent:   optional(userAgent),
+		IP:          opt.String(ip),
+		UserAgent:   opt.String(userAgent),
 	})
 }

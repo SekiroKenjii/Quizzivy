@@ -9,6 +9,7 @@ import (
 	"os"
 	"quizzivy/internal/modules/attempts/application"
 	"quizzivy/internal/modules/attempts/repositories"
+	"quizzivy/internal/platform/db"
 	"testing"
 	"time"
 
@@ -251,5 +252,5 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 
 func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(pool))
+	return application.NewService(repositories.NewPostgres(db.NewContext(pool)))
 }

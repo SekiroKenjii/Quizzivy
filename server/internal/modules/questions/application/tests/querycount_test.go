@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"os"
+	"quizzivy/internal/platform/db"
 	"sync"
 	"testing"
 
@@ -69,7 +70,7 @@ func tracedPool(t *testing.T) (*pgxpool.Pool, *countingTracer) {
 func TestListCostsAFixedNumberOfQueries(t *testing.T) {
 	pool, tracer := tracedPool(t)
 	author := makeAuthor(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), mediaKinds{pool})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
 	ctx := context.Background()
 
 	const rows = 12

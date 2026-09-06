@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"quizzivy/internal/platform/db"
 	"testing"
 	"time"
 
@@ -76,8 +77,8 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 func TestAClassCarriesItsCodesMetadataAndNeverTheCode(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, _ := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
-	joins := application.NewEnrolment(repositories.NewPostgres(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	joins := application.NewEnrolment(repositories.NewPostgres(db.NewContext(pool)))
 
 	rotated, err := joins.Rotate(context.Background(), domain.RotateRequest{
 		ClassID: classID, ActorUserID: teacherID,
@@ -112,7 +113,7 @@ func TestAClassWithNoActiveCodeReportsNone(t *testing.T) {
 	// A closed class is a normal state, not a missing row.
 	pool := newPool(t)
 	classID, _, _ := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 
 	got, err := svc.Get(context.Background(), classID)
 	if err != nil {
@@ -126,8 +127,8 @@ func TestAClassWithNoActiveCodeReportsNone(t *testing.T) {
 func TestMembersShowHowEachOneGotIn(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
-	joins := application.NewEnrolment(repositories.NewPostgres(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	joins := application.NewEnrolment(repositories.NewPostgres(db.NewContext(pool)))
 	ctx := context.Background()
 
 	if _, err := pool.Exec(ctx,
@@ -173,7 +174,7 @@ func TestMembersShowHowEachOneGotIn(t *testing.T) {
 func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	if _, err := pool.Exec(ctx,
@@ -213,7 +214,7 @@ func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	// Idempotent: the class ends up in the requested state either way.
@@ -229,7 +230,7 @@ func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testin
 func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	m, err := svc.AddMember(ctx, classID, studentID, teacherID, "203.0.113.9", "go-test")
@@ -260,7 +261,7 @@ func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
@@ -292,7 +293,7 @@ func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 func TestOnlyAStudentCanBeEnrolled(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, _ := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 
 	_, err := svc.AddMember(context.Background(), classID, teacherID, teacherID, "", "")
 	if !errors.Is(err, domain.ErrNotAStudent) {
@@ -303,7 +304,7 @@ func TestOnlyAStudentCanBeEnrolled(t *testing.T) {
 func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
 	pool := newPool(t)
 	_, teacherID, studentID := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 
 	_, err := svc.AddMember(context.Background(),
 		"00000000-0000-7000-8000-0000000000cc", studentID, teacherID, "", "")
@@ -318,7 +319,7 @@ func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
 func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, studentID := makeClass(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), attemptsrepo.NewStudentStats(pool))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	if _, err := svc.AddMember(ctx, classID, studentID, teacherID, "", ""); err != nil {
@@ -358,7 +359,7 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 // four characters of it are four more than a student should have.
 func TestMembersCarryTheSameFiguresAsTheStudentsTable(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	classID, teacherID, studentID := makeClass(t, pool)
 	if _, err := pool.Exec(ctx,
@@ -382,7 +383,7 @@ func TestMembersCarryTheSameFiguresAsTheStudentsTable(t *testing.T) {
 
 func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	classID, teacherID, studentID := makeClass(t, pool)
 	otherClass, _, outsider := makeClass(t, pool)
@@ -427,7 +428,7 @@ func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
 // classes; the picker that read this whole was the first thing to break.
 func TestClassesPageAndSearchByName(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	tag := nonce(t)
 
@@ -473,7 +474,7 @@ func TestClassesPageAndSearchByName(t *testing.T) {
 
 func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	classID, teacherID, studentID := makeClass(t, pool)
 	tag := nonce(t)
@@ -526,7 +527,7 @@ func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
 // Same window as the assignments reads: the token outlives the account.
 func TestADisabledStudentListsNoClasses(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	classID, teacherID, studentID := makeClass(t, pool)
 
@@ -560,7 +561,7 @@ func TestADisabledStudentListsNoClasses(t *testing.T) {
 // ten is enough for Postgres to order the ties differently per page.
 func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	classID, teacherID, _ := makeClass(t, pool)
 	tag := nonce(t)
@@ -636,7 +637,7 @@ func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
 
 func TestCreatingAClassReturnsItAndAuditsIt(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	_, teacherID, _ := makeClass(t, pool)
 	desc := "Lịch tối thứ 3 và thứ 5."
@@ -669,7 +670,7 @@ func TestCreatingAClassReturnsItAndAuditsIt(t *testing.T) {
 
 func TestArchivingHidesAClassFromPickersAndKeepsEverything(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	classID, teacherID, studentID := makeClass(t, pool)
 	if _, err := store.AddMember(ctx, domain.AddMemberInput{

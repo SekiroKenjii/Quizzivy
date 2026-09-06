@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"quizzivy/internal/shared/validation"
 	"strconv"
 	"strings"
 	"time"
@@ -72,24 +73,8 @@ type Request struct {
 	UserAgent string
 }
 
-// FieldError names the field a rule failed on.
-type FieldError struct {
-	Field   string
-	Message string
-}
-
-type ValidationError struct{ Fields []FieldError }
-
 func sectionField(i int, field string) string {
 	return "sections[" + strconv.Itoa(i) + "]." + field
-}
-
-func (e *ValidationError) Error() string {
-	parts := make([]string, len(e.Fields))
-	for i, f := range e.Fields {
-		parts[i] = f.Field + ": " + f.Message
-	}
-	return "tests: " + strings.Join(parts, "; ")
 }
 
 // Validate checks the parts of an outline write a schema cannot express.
@@ -126,3 +111,8 @@ func (in UpdateInput) Validate() error {
 	}
 	return nil
 }
+
+type (
+	FieldError      = validation.Field
+	ValidationError = validation.Error
+)

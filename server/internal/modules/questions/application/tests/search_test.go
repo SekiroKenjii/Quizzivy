@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"quizzivy/internal/platform/db"
 	"slices"
 	"strings"
 	"testing"
@@ -60,7 +61,7 @@ func makeAuthor(t *testing.T, pool *pgxpool.Pool) string {
 
 func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(pool), mediaKinds{pool})
+	return application.NewService(repositories.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
 }
 
 // write creates a short_answer question with the given prompt and tags.
@@ -277,7 +278,7 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	tag := "grp-" + strings.ReplaceAll(author, "-", "")[:12]
 
@@ -339,7 +340,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	tag := "bulk-" + strings.ReplaceAll(author, "-", "")[:10]
 
@@ -389,7 +390,7 @@ func TestBulkTaggingSkipsDeletedQuestions(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	q := write(t, svc, author, "Sắp bị xoá")

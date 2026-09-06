@@ -7,12 +7,13 @@ import (
 	"errors"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
+	"quizzivy/internal/platform/db"
 	"testing"
 )
 
 func TestTheTeachersNoteIsKeptTrimmedAndCleared(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewReviews(pool)
+	store := repositories.NewReviews(db.NewContext(pool))
 	p := seedPaper(t, pool, "submitted")
 	ctx := context.Background()
 

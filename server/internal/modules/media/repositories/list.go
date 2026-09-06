@@ -22,7 +22,7 @@ func (s *Postgres) TotalBytes(ctx context.Context, kind *domain.Kind) (int64, er
 		kindArg = &k
 	}
 	var total int64
-	if err := s.pool.QueryRow(ctx, `
+	if err := s.QueryRow(ctx, `
 		SELECT coalesce(sum(bytes), 0) FROM app.media_assets
 		 WHERE deleted_at IS NULL
 		   AND ($1::app.media_kind IS NULL OR kind = $1::app.media_kind)`, kindArg).Scan(&total); err != nil {
@@ -45,11 +45,11 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Asse
 		   AND ($1::app.media_kind IS NULL OR kind = $1::app.media_kind)`
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*)`+from, kindArg).Scan(&page.Total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT count(*)`+from, kindArg).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("media: count assets: %w", err)
 	}
 
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT id::text, kind::text, storage_key, mime_type, bytes, duration_ms,
 		       original_filename, checksum_sha256, created_at`+from+`
 		 ORDER BY created_at DESC, id DESC

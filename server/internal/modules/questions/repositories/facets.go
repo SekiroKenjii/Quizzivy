@@ -16,7 +16,7 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Type
 		     WHERE ` + strings.Join(where, " AND ") + `
 		     GROUP BY q.type`
 
-	rows, err := s.pool.Query(ctx, sql, args...)
+	rows, err := s.Query(ctx, sql, args...)
 	if err != nil {
 		return domain.TypeFacets{}, fmt.Errorf("questions: facets: %w", err)
 	}
@@ -44,7 +44,7 @@ func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, err
 
 	args, where := appendFilters(in, filterOpts{types: true})
 
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT DISTINCT unnest(q.tags)
 		  FROM app.questions q
 		 WHERE `+strings.Join(where, " AND ")+`
@@ -70,7 +70,7 @@ func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, err
 func (s *Postgres) Counts(ctx context.Context, in domain.ListInput) (total int, filtered int, err error) {
 	args, where := appendFilters(in, allFilters())
 
-	if err := s.pool.QueryRow(ctx, `
+	if err := s.QueryRow(ctx, `
 		SELECT (SELECT count(*) FROM app.questions q WHERE q.deleted_at IS NULL),
 		       (SELECT count(*) FROM app.questions q WHERE `+strings.Join(where, " AND ")+`)`,
 		args...).Scan(&total, &filtered); err != nil {

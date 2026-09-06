@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -16,7 +17,7 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 		return domain.Assignment{}, err
 	}
 
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: begin create: %w", err)
 	}
@@ -60,8 +61,8 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 		Entity:      "assignment",
 		EntityID:    &id,
 		OccurredAt:  in.Now,
-		IP:          optional(req.IP),
-		UserAgent:   optional(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
 		return domain.Assignment{}, err
 	}
@@ -98,7 +99,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		return domain.Assignment{}, err
 	}
 
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: begin update: %w", err)
 	}
@@ -155,8 +156,8 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		Entity:      "assignment",
 		EntityID:    &req.ID,
 		OccurredAt:  in.Now,
-		IP:          optional(req.IP),
-		UserAgent:   optional(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
 		return domain.Assignment{}, err
 	}
@@ -324,11 +325,4 @@ func writeTargets(ctx context.Context, tx pgx.Tx, assignmentID string, in domain
 		}
 	}
 	return nil
-}
-
-func optional(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }

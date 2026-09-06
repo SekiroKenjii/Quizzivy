@@ -5,6 +5,7 @@ package repositories_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"testing"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 
 func TestReopeningLiftsAnEarlyCloseAndRecordsWhy(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -60,7 +61,7 @@ func TestReopeningLiftsAnEarlyCloseAndRecordsWhy(t *testing.T) {
 
 func TestReopeningRefusesWhatHasNothingToReopen(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -99,7 +100,7 @@ func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	store := repositories.NewPostgres(tx)
+	store := repositories.NewPostgres(db.NewContext(tx))
 
 	before, err := store.Facets(ctx, domain.ListInput{})
 	if err != nil {

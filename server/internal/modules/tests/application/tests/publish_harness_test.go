@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -57,8 +58,8 @@ type builder struct {
 func newBuilder(t *testing.T, pool *pgxpool.Pool, author string) *builder {
 	return &builder{
 		t: t, pool: pool, author: author,
-		tests: application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool))),
-		qsvc:  questionsapp.NewService(questionsrepo.NewPostgres(pool), mediaKinds{pool}),
+		tests: application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool)))),
+		qsvc:  questionsapp.NewService(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool}),
 	}
 }
 
@@ -101,6 +102,6 @@ func (b *builder) draft(title string, questionIDs ...string) domain.Test {
 }
 
 func (b *builder) publish(testID string) (domain.PublishedVersion, error) {
-	return application.NewPublisher(repositories.NewPostgres(b.pool, questionsrepo.NewPostgres(b.pool), mediarepo.NewPostgres(b.pool))).Publish(context.Background(),
+	return application.NewPublisher(repositories.NewPostgres(db.NewContext(b.pool), questionsrepo.NewPostgres(db.NewContext(b.pool)), mediarepo.NewPostgres(db.NewContext(b.pool)))).Publish(context.Background(),
 		domain.PublishRequest{TestID: testID, ActorID: b.author})
 }

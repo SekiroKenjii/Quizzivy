@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"quizzivy/internal/modules/dashboard/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/paging"
 )
 
@@ -16,16 +17,9 @@ const (
 	maxLimit     = 100
 )
 
-// DB is a pool in production and a REPEATABLE READ transaction in tests, whose
-// two readings of a global aggregate must see the same world.
-type DB interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
+type Postgres struct{ db.Repository }
 
-type Postgres struct{ db DB }
-
-func NewPostgres(db DB) *Postgres { return &Postgres{db: db} }
+func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
 var _ domain.Repository = (*Postgres)(nil)
 
@@ -43,7 +37,7 @@ const recentColumns = `
 
 func (p *Postgres) Summary(ctx context.Context) (domain.Summary, error) {
 	var out domain.Summary
-	err := p.db.QueryRow(ctx, `
+	err := p.QueryRow(ctx, `
 		SELECT
 		  (SELECT count(*) FROM app.assignments a
 		    WHERE a.published_at IS NOT NULL
@@ -63,7 +57,7 @@ func (p *Postgres) Summary(ctx context.Context) (domain.Summary, error) {
 		return domain.Summary{}, fmt.Errorf("dashboard: counts: %w", err)
 	}
 
-	rows, err := p.db.Query(ctx, recentColumns+`
+	rows, err := p.Query(ctx, recentColumns+`
 		 ORDER BY at.started_at DESC
 		 LIMIT 10`)
 	if err != nil {
@@ -98,13 +92,13 @@ func (p *Postgres) List(ctx context.Context, q domain.ListQuery) ([]domain.Recen
 	filter := strings.Join(where, "\n		   AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := p.db.QueryRow(ctx, `SELECT count(*) FROM app.attempts at WHERE `+filter, args...).
+	if err := p.QueryRow(ctx, `SELECT count(*) FROM app.attempts at WHERE `+filter, args...).
 		Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("dashboard: count attempts: %w", err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := p.db.Query(ctx, recentColumns+`
+	rows, err := p.Query(ctx, recentColumns+`
 		 WHERE `+filter+fmt.Sprintf(`
 		 ORDER BY at.submitted_at DESC NULLS LAST, at.started_at DESC, at.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)

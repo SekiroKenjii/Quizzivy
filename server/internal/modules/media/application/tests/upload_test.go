@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"quizzivy/internal/platform/db"
 	"sync"
 	"testing"
 	"time"
@@ -113,7 +114,7 @@ func fixture(t *testing.T, name string) []byte {
 
 func newService(t *testing.T, pool *pgxpool.Pool, object application.ObjectStore) *application.Service {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(pool), object, audioProbe{})
+	return application.NewService(repositories.NewPostgres(db.NewContext(pool)), object, audioProbe{})
 }
 
 func TestAValidUploadStoresTheObjectAndThenTheRow(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"quizzivy/internal/platform/db"
 	"strings"
 	"testing"
 	"time"
@@ -147,7 +148,7 @@ func fieldsOf(t *testing.T, err error) map[string]string {
 
 func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -204,7 +205,7 @@ func TestACreatedAssignmentCarriesItsTargetsAndRoster(t *testing.T) {
 
 func TestOnlyAPublishedVersionCanBeAssigned(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	for _, status := range []string{"draft", "archived"} {
@@ -230,7 +231,7 @@ func TestOnlyAPublishedVersionCanBeAssigned(t *testing.T) {
 
 func TestAnAssignmentNobodyCanTakeIsRejected(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -244,7 +245,7 @@ func TestAnAssignmentNobodyCanTakeIsRejected(t *testing.T) {
 
 func TestTheWindowMustBeAWindow(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -260,7 +261,7 @@ func TestTheWindowMustBeAWindow(t *testing.T) {
 // form carrying forty of them.
 func TestAnUnknownTargetIsNamed(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	const ghost = "00000000-0000-7000-8000-0000000000aa"
 
@@ -280,7 +281,7 @@ func TestAnUnknownTargetIsNamed(t *testing.T) {
 // An admin is a real user, so only the role check keeps them out of a roster.
 func TestOnlyAStudentCanBeTargetedIndividually(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -294,7 +295,7 @@ func TestOnlyAStudentCanBeTargetedIndividually(t *testing.T) {
 
 func TestUpdateReplacesTargetsRatherThanAddingToThem(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -325,7 +326,7 @@ func TestUpdateReplacesTargetsRatherThanAddingToThem(t *testing.T) {
 
 func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -382,7 +383,7 @@ func TestTheVersionIsLockedOnceAnybodyHasStarted(t *testing.T) {
 
 func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -422,7 +423,7 @@ func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 
 func TestAutoSubmitIsRefusedUntilItExists(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 
 	in := legalInput(w)
@@ -436,7 +437,7 @@ func TestAutoSubmitIsRefusedUntilItExists(t *testing.T) {
 
 func TestUpdatingSomethingThatIsNotThereIsNotFound(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 
 	req := request(w)
@@ -453,7 +454,7 @@ func TestUpdatingSomethingThatIsNotThereIsNotFound(t *testing.T) {
 // nothing can ever close.
 func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -505,7 +506,7 @@ func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 // G-01's "Lưu nháp": saved, targeted or not, given to nobody.
 func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -555,7 +556,7 @@ func TestADraftIsSavedWithoutBeingGivenOut(t *testing.T) {
 // back out is closing it.
 func TestAPublishedAssignmentCannotBecomeADraftAgain(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -582,7 +583,7 @@ func TestAPublishedAssignmentCannotBecomeADraftAgain(t *testing.T) {
 // whatever its window happens to say.
 func TestTheListFiltersDraftsSeparately(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
 	ctx := context.Background()
 
@@ -622,7 +623,7 @@ func TestTheListFiltersDraftsSeparately(t *testing.T) {
 
 func TestTheListCanBeNarrowedToOneClass(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	mine := seedWorld(t, pool, "published")
 	other := seedWorld(t, pool, "published")

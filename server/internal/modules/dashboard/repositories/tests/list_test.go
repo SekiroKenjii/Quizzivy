@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	"quizzivy/internal/platform/db"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 func TestTheAttemptListFiltersTheGradingQueueAndTheFlaggedOnes(t *testing.T) {
 	pool := newPool(t)
 	tx := isolated(t, pool)
-	store := repositories.NewPostgres(tx)
+	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
 	pending := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)

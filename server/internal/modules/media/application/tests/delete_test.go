@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	"quizzivy/internal/modules/media/application"
@@ -18,7 +19,7 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
 	objects := newFakeStore()
-	svc := application.NewService(repositories.NewPostgres(pool), objects, audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), objects, audioProbe{})
 	asset := upload(t, svc, uploader, "xoa.mp3")
 	ctx := context.Background()
 
@@ -66,7 +67,7 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 func TestDeleteTwiceIsNotFound(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	asset := upload(t, svc, uploader, "hai-lan.mp3")
 	ctx := context.Background()
 
@@ -99,7 +100,7 @@ func TestDeleteTwiceIsNotFound(t *testing.T) {
 func TestMintForStudentDeniesByDefault(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	asset := upload(t, svc, uploader, "cua-nguoi-khac.mp3")
 
 	student := makeStudent(t, pool)
@@ -113,7 +114,7 @@ func TestMintForStudentDeniesByDefault(t *testing.T) {
 // asset and a made-up id, so the endpoint is not an oracle for valid ids.
 func TestMintForStudentHidesWhetherTheAssetExists(t *testing.T) {
 	pool := newPool(t)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	student := makeStudent(t, pool)
 
 	_, err := svc.MintForStudent(context.Background(), student,

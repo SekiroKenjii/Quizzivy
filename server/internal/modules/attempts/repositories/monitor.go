@@ -17,7 +17,7 @@ import (
 func (s *Postgres) Monitor(ctx context.Context, assignmentID string, now time.Time) (domain.Monitor, error) {
 	out := domain.Monitor{ServerTime: now}
 
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		WITH a AS (
 		  SELECT id, test_version_id FROM app.assignments WHERE id = $1::uuid
 		), n AS (
@@ -78,7 +78,7 @@ func (s *Postgres) Monitor(ctx context.Context, assignmentID string, now time.Ti
 }
 
 func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows []domain.MonitorRow, at map[string]int) error {
-	found, err := s.pool.Query(ctx, `
+	found, err := s.Query(ctx, `
 		SELECT DISTINCT ON (at.student_id)
 		       at.student_id::text, at.id::text, at.attempt_no, at.status::text,
 		       at.started_at, at.deadline_at, at.submitted_at,
@@ -168,7 +168,7 @@ func stateRank(state string) int {
 }
 
 func (s *Postgres) DueAttempts(ctx context.Context, assignmentID string, now time.Time) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT id::text FROM app.attempts
 		 WHERE assignment_id = $1::uuid AND status = 'in_progress' AND deadline_at < $2`,
 		assignmentID, now)

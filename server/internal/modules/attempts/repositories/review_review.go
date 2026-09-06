@@ -9,15 +9,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Reviews struct {
-	pool *pgxpool.Pool
-	now  func() time.Time
+	db.Repository
+	now func() time.Time
 }
 
-func NewReviews(pool *pgxpool.Pool) *Reviews { return &Reviews{pool: pool, now: time.Now} }
+func NewReviews(dbx db.Context) *Reviews {
+	return &Reviews{Repository: db.NewRepository(dbx), now: time.Now}
+}
 
 // Get reads one attempt for review, in the version's own order rather than
 // the student's shuffled one: question 23 is the essay for every paper.
@@ -27,7 +28,7 @@ func (s *Reviews) Get(ctx context.Context, attemptID string) (domain.Review, err
 		total *float64
 	)
 	a := &out.Attempt
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT at.id::text, at.assignment_id::text, at.student_id::text, at.test_version_id::text,
 		       at.attempt_no, at.status, at.started_at, at.deadline_at, at.submitted_at, at.graded_at,
 		       at.focus_loss_count, at.flagged, at.score_total, at.teacher_note,
@@ -81,7 +82,7 @@ func (s *Reviews) Get(ctx context.Context, attemptID string) (domain.Review, err
 // SetNote keeps or clears the teacher's note. Not audited: it is the
 // teacher's own memory aid, and the actions it explains are audited already.
 func (s *Reviews) SetNote(ctx context.Context, attemptID string, note *string) error {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.Exec(ctx,
 		`UPDATE app.attempts SET teacher_note = nullif(btrim($2), '') WHERE id = $1::uuid`,
 		attemptID, note)
 	if err != nil {
@@ -94,7 +95,7 @@ func (s *Reviews) SetNote(ctx context.Context, attemptID string, note *string) e
 }
 
 func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.ReviewQuestion, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT q.id::text, q.type::text, q.prompt, q.points,
 		       q.media_asset_id::text, q.media_asset_kind::text, m.mime_type, m.original_filename,
 		       m.bytes, m.duration_ms, m.created_at,
@@ -167,7 +168,7 @@ func orZero[T any](p *T) T {
 }
 
 func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
-	byQuestion, err := db.GroupBy(ctx, s.pool, `
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
 		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
@@ -192,7 +193,7 @@ func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []doma
 }
 
 func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
-	byQuestion, err := db.GroupBy(ctx, s.pool, `
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
 		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.case_sensitive,
 		       coalesce((SELECT array_agg(ba.answer ORDER BY ba.id)
 		                   FROM app.test_version_blank_answers ba
@@ -220,7 +221,7 @@ func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domai
 }
 
 func (s *Reviews) answers(ctx context.Context, attemptID string) (map[string]domain.ReviewAnswer, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT question_id::text, payload, auto_score, manual_score, requires_manual, grader_comment
 		  FROM app.attempt_answers WHERE attempt_id = $1::uuid`, attemptID)
 	if err != nil {
@@ -240,7 +241,7 @@ func (s *Reviews) answers(ctx context.Context, attemptID string) (map[string]dom
 }
 
 func (s *Reviews) audioPlays(ctx context.Context, attemptID string) (map[string]int, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT question_id::text, plays FROM app.attempt_audio_plays WHERE attempt_id = $1::uuid`, attemptID)
 	if err != nil {
 		return nil, fmt.Errorf("review: read audio plays: %w", err)

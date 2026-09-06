@@ -110,7 +110,7 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 
 // ForStudent returns the home screen's three sections.
 func (s *Postgres) ForStudent(ctx context.Context, studentID string, now time.Time) (domain.StudentSections, error) {
-	rows, err := s.pool.Query(ctx, studentCardColumns+studentCardFrom+`
+	rows, err := s.Query(ctx, studentCardColumns+studentCardFrom+`
 	 WHERE a.published_at IS NOT NULL AND `+targeted+`
 	 ORDER BY a.closes_at ASC, a.id DESC`, studentID)
 	if err != nil {
@@ -151,7 +151,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		maxPlays  *int
 	)
 
-	err := s.pool.QueryRow(ctx, studentCardColumns+`,
+	err := s.QueryRow(ctx, studentCardColumns+`,
 	       (SELECT au.full_name FROM app.users au WHERE au.id = a.created_by),
 	       a.review_show_correct_answers, a.review_show_explanations,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,

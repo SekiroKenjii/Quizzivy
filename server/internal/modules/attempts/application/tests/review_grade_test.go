@@ -7,6 +7,7 @@ import (
 	"errors"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
+	"quizzivy/internal/platform/db"
 	"testing"
 )
 
@@ -17,7 +18,7 @@ func comment(s string) *string { return &s }
 func TestTheScoreUsesTheManualMarkWherePresentAndTheAutoScoreOtherwise(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
-	store := repositories.NewReviews(pool)
+	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
 	score, err := store.Grade(ctx, p.attempt, p.admin, []domain.GradeItem{
@@ -64,7 +65,7 @@ func TestTheScoreUsesTheManualMarkWherePresentAndTheAutoScoreOtherwise(t *testin
 func TestPointsAboveTheQuestionsCeilingAreRefused(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
-	store := repositories.NewReviews(pool)
+	store := repositories.NewReviews(db.NewContext(pool))
 
 	_, err := store.Grade(context.Background(), p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 5.5}})
 	var invalid *domain.GradeValidationError
@@ -84,7 +85,7 @@ func TestPointsAboveTheQuestionsCeilingAreRefused(t *testing.T) {
 func TestAQuestionOffThePaperOrNeverAnsweredCannotBeMarked(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
-	store := repositories.NewReviews(pool)
+	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 	if _, err := pool.Exec(ctx, `DELETE FROM app.attempt_answers WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
 		p.attempt, p.essay); err != nil {
@@ -110,7 +111,7 @@ func TestAQuestionOffThePaperOrNeverAnsweredCannotBeMarked(t *testing.T) {
 
 func TestGradingWaitsForTheStudentAndSkipsAVoidedAttempt(t *testing.T) {
 	pool := newPool(t)
-	store := repositories.NewReviews(pool)
+	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
 	live := seedPaper(t, pool, "in_progress")
@@ -130,7 +131,7 @@ func TestTheReviewCarriesTheKeyThePaperAndTheAnswers(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
 
-	rv, err := repositories.NewReviews(pool).Get(context.Background(), p.attempt)
+	rv, err := repositories.NewReviews(db.NewContext(pool)).Get(context.Background(), p.attempt)
 	if err != nil {
 		t.Fatal(err)
 	}

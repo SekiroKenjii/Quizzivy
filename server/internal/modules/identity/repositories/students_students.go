@@ -7,11 +7,11 @@ import (
 	"fmt"
 	dashboarddomain "quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/paging"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -19,11 +19,9 @@ const (
 	MaxLimit     = 100
 )
 
-type Students struct{ pool *pgxpool.Pool }
+type Students struct{ db.Repository }
 
-func NewStudents(pool *pgxpool.Pool) *Students { return &Students{pool: pool} }
-
-var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+func NewStudents(dbx db.Context) *Students { return &Students{Repository: db.NewRepository(dbx)} }
 
 const searchCondition = `(
 		app.immutable_unaccent(lower(u.full_name))
@@ -61,9 +59,7 @@ const selectStudents = `
 		                  WHERE m.user_id = u.id), '[]'::jsonb)
 		  FROM app.users u`
 
-type rowScanner interface{ Scan(dest ...any) error }
-
-func scanStudent(row rowScanner) (domain.Student, error) {
+func scanStudent(row pgx.Row) (domain.Student, error) {
 	var student domain.Student
 	var classes []byte
 	if err := row.Scan(&student.ID, &student.Email, &student.FullName,
@@ -86,7 +82,7 @@ func (s *Students) List(ctx context.Context, in domain.StudentQuery) ([]domain.S
 	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
 
 	if in.Query != "" {
-		args = append(args, likeEscaper.Replace(in.Query))
+		args = append(args, db.EscapeLike(in.Query))
 		where = append(where, fmt.Sprintf(searchCondition, len(args)))
 	}
 	if in.ClassID != "" {
@@ -97,12 +93,12 @@ func (s *Students) List(ctx context.Context, in domain.StudentQuery) ([]domain.S
 		 WHERE ` + strings.Join(where, "\n		   AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u`+from, args...).Scan(&page.Total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT count(*) FROM app.users u`+from, args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("students: count: %w", err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.pool.Query(ctx, selectStudents+from+fmt.Sprintf(`
+	rows, err := s.Query(ctx, selectStudents+from+fmt.Sprintf(`
 		 ORDER BY u.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
@@ -135,7 +131,7 @@ func (s *Students) get(ctx context.Context, id string, includeDisabled bool) (do
 		where += ` AND u.disabled_at IS NULL`
 	}
 
-	student, err := scanStudent(s.pool.QueryRow(ctx, selectStudents+where, id))
+	student, err := scanStudent(s.QueryRow(ctx, selectStudents+where, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Student{}, domain.ErrStudentNotFound
 	}
@@ -152,7 +148,7 @@ func (s *Students) Facets(ctx context.Context, in domain.StudentQuery) (domain.S
 	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
 
 	if in.Query != "" {
-		args = append(args, likeEscaper.Replace(in.Query))
+		args = append(args, db.EscapeLike(in.Query))
 		where = append(where, fmt.Sprintf(searchCondition, len(args)))
 	}
 	if in.ClassID != "" {
@@ -161,7 +157,7 @@ func (s *Students) Facets(ctx context.Context, in domain.StudentQuery) (domain.S
 	}
 
 	var f domain.StudentFacets
-	if err := s.pool.QueryRow(ctx, `
+	if err := s.QueryRow(ctx, `
 		SELECT count(*),
 		       count(*) FILTER (WHERE EXISTS (
 		         SELECT 1 FROM app.attempts a

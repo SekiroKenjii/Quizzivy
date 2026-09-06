@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/opt"
 	"time"
 )
 
@@ -44,8 +45,8 @@ func (s *Enrolment) Rotate(ctx context.Context, req domain.RotateRequest) (domai
 		ExpiresAt:   now.AddDate(0, 0, days),
 		MaxUses:     &maxUses,
 		Now:         now,
-		IP:          optional(req.IP),
-		UserAgent:   optional(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	})
 	if err != nil {
 		return domain.Rotated{}, err
@@ -65,8 +66,8 @@ func (s *Enrolment) Revoke(ctx context.Context, req domain.RevokeRequest) error 
 		ClassID:     req.ClassID,
 		ActorUserID: req.ActorUserID,
 		Now:         s.now(),
-		IP:          optional(req.IP),
-		UserAgent:   optional(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	})
 }
 
@@ -85,8 +86,8 @@ func (s *Enrolment) EnrolNewMember(ctx context.Context, m domain.NewMember, rawC
 		RawCode:   rawCode,
 		NewMember: &m,
 		Now:       s.now(),
-		IP:        optional(meta.IP),
-		UserAgent: optional(meta.UserAgent),
+		IP:        opt.String(meta.IP),
+		UserAgent: opt.String(meta.UserAgent),
 	})
 }
 
@@ -96,7 +97,7 @@ func (s *Enrolment) EnrolExisting(ctx context.Context, userID, rawCode string, m
 		RawCode:        rawCode,
 		ExistingUserID: userID,
 		Now:            s.now(),
-		IP:             optional(meta.IP),
-		UserAgent:      optional(meta.UserAgent),
+		IP:             opt.String(meta.IP),
+		UserAgent:      opt.String(meta.UserAgent),
 	})
 }

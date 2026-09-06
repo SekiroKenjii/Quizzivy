@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"quizzivy/internal/platform/db"
 	"strings"
 	"testing"
 	"time"
@@ -50,7 +51,7 @@ func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return application.NewService(repositories.NewUsers(pool), issuer, 30*24*time.Hour)
+	return application.NewService(repositories.NewUsers(db.NewContext(pool)), issuer, 30*24*time.Hour)
 }
 
 // makeUser inserts a user with a generated email so tests never collide with

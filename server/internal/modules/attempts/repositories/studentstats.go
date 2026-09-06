@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-
+	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/stats"
 )
 
-type Querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-}
-
 // StudentStats derives each student's figures from their attempts: the best
 // graded attempt per assignment, what is still unmarked, flags, and when they last worked.
-type StudentStats struct{ db Querier }
+type StudentStats struct{ db.Repository }
 
-func NewStudentStats(db Querier) *StudentStats { return &StudentStats{db: db} }
+func NewStudentStats(dbx db.Context) *StudentStats {
+	return &StudentStats{Repository: db.NewRepository(dbx)}
+}
 
 var _ stats.Source = (*StudentStats)(nil)
 
@@ -27,7 +25,7 @@ func (s *StudentStats) StudentStats(ctx context.Context, ids []string) (map[stri
 	if len(ids) == 0 {
 		return out, nil
 	}
-	rows, err := s.db.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT u.id::text,
 		       best.submitted_count, best.earned, best.total, best.pending_manual,
 		       act.flagged_count, act.live, act.last_attempt_at
@@ -80,11 +78,11 @@ func (s *StudentStats) StudentStats(ctx context.Context, ids []string) (map[stri
 			return nil, fmt.Errorf("student stats: scan: %w", err)
 		}
 		st := stats.Student{
-			SubmittedCount: intOf(submitted),
+			SubmittedCount: opt.Int(submitted),
 			ScoreEarned:    earned,
 			ScoreTotal:     total,
-			PendingManual:  intOf(pending),
-			FlaggedCount:   intOf(flagged),
+			PendingManual:  opt.Int(pending),
+			FlaggedCount:   opt.Int(flagged),
 			LiveAttempt:    live != nil && *live,
 			LastAttemptAt:  last,
 		}
@@ -94,11 +92,4 @@ func (s *StudentStats) StudentStats(ctx context.Context, ids []string) (map[stri
 		out[id] = st
 	}
 	return out, rows.Err()
-}
-
-func intOf(v *int) int {
-	if v == nil {
-		return 0
-	}
-	return *v
 }

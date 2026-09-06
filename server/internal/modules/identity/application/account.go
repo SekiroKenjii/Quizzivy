@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/opt"
 )
 
 // CurrentUser backs GET /auth/me (§7).
@@ -77,14 +78,7 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 		NewHash:       newHash,
 		KeepTokenHash: keepHash,
 		Now:           s.now(),
-		IP:            optional(in.IP),
-		UserAgent:     optional(in.UserAgent),
+		IP:            opt.String(in.IP),
+		UserAgent:     opt.String(in.UserAgent),
 	})
-}
-
-func optional(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }

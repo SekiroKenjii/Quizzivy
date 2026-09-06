@@ -24,7 +24,7 @@ func (s *Postgres) LookupByCodeHash(ctx context.Context, hash []byte) (*domain.C
 		 WHERE jc.code_hash = $1`
 
 	var r domain.CodeRow
-	err := s.pool.QueryRow(ctx, q, hash).Scan(
+	err := s.QueryRow(ctx, q, hash).Scan(
 		&r.ClassID, &r.ClassName, &r.SelfJoinEnabled,
 		&r.CodeHash, &r.RevokedAt, &r.ExpiresAt, &r.MaxUses, &r.UsesCount,
 		&r.TeacherName)

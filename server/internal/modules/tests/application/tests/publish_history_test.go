@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -25,7 +26,7 @@ func TestListVersionsIsNewestFirstAndCountsFrozenRows(t *testing.T) {
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool)))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 	ctx := context.Background()
 
 	first := b.shortAnswer("Câu một", "2.00")
@@ -65,8 +66,8 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool)))
-	qsvc := questionsapp.NewService(questionsrepo.NewPostgres(pool), mediaKinds{pool})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
+	qsvc := questionsapp.NewService(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
 	ctx := context.Background()
 
 	questionID := b.question(questionsdomain.Input{
@@ -129,7 +130,7 @@ func TestPreviewOfAnUnpublishedTestSaysSoRatherThanReturningNothing(t *testing.T
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool)))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 
 	draft := b.draft("Chưa phát hành", b.shortAnswer("Câu một", "1.00"))
 
@@ -143,7 +144,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool)))
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 	ctx := context.Background()
 
 	one := b.shortAnswer("Chỉ ở v1", "1.00")

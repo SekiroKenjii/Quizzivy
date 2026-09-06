@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
 	"quizzivy/internal/shared/stats"
 	"time"
@@ -62,14 +63,14 @@ func (s *Service) RemoveMember(ctx context.Context, classID, userID, actorID, ip
 	}
 	return s.repo.RemoveMember(ctx, domain.RemoveMemberInput{
 		ClassID: classID, UserID: userID, ActorUserID: actorID,
-		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+		Now: s.now(), IP: opt.String(ip), UserAgent: opt.String(userAgent),
 	})
 }
 
 func (s *Service) AddMember(ctx context.Context, classID, userID, actorID, ip, userAgent string) (domain.Member, error) {
 	member, err := s.repo.AddMember(ctx, domain.AddMemberInput{
 		ClassID: classID, UserID: userID, ActorUserID: actorID,
-		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+		Now: s.now(), IP: opt.String(ip), UserAgent: opt.String(userAgent),
 	})
 	if err != nil {
 		return domain.Member{}, err
@@ -79,13 +80,6 @@ func (s *Service) AddMember(ctx context.Context, classID, userID, actorID, ip, u
 		return domain.Member{}, err
 	}
 	return members[0], nil
-}
-
-func optional(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }
 
 // Update edits a class's own fields.
@@ -100,13 +94,13 @@ func (s *Service) Facets(ctx context.Context, query string) (domain.Facets, erro
 func (s *Service) Create(ctx context.Context, name string, description *string, selfJoin bool, actorID, ip, userAgent string) (domain.Class, error) {
 	return s.repo.Create(ctx, domain.CreateInput{
 		Name: name, Description: description, SelfJoinEnabled: selfJoin, ActorUserID: actorID,
-		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+		Now: s.now(), IP: opt.String(ip), UserAgent: opt.String(userAgent),
 	})
 }
 
 func (s *Service) Archive(ctx context.Context, classID string, archived bool, actorID, ip, userAgent string) (domain.Class, error) {
 	return s.repo.Archive(ctx, domain.ArchiveInput{
 		ClassID: classID, Archived: archived, ActorUserID: actorID,
-		Now: s.now(), IP: optional(ip), UserAgent: optional(userAgent),
+		Now: s.now(), IP: opt.String(ip), UserAgent: opt.String(userAgent),
 	})
 }

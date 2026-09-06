@@ -47,16 +47,16 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		return Deps{}, nil, err
 	}
 
-	authService := identityapp.NewService(identityrepo.NewUsers(pool.Pool), tokens, cfg.RefreshTokenTTL)
-	studentStats := attemptsrepo.NewStudentStats(pool.Pool)
-	studentsService := identityapp.NewStudents(identityrepo.NewStudents(pool.Pool), studentStats)
-	classesRepo := classesrepo.NewPostgres(pool.Pool)
+	authService := identityapp.NewService(identityrepo.NewUsers(db.NewContext(pool.Pool)), tokens, cfg.RefreshTokenTTL)
+	studentStats := attemptsrepo.NewStudentStats(db.NewContext(pool.Pool))
+	studentsService := identityapp.NewStudents(identityrepo.NewStudents(db.NewContext(pool.Pool)), studentStats)
+	classesRepo := classesrepo.NewPostgres(db.NewContext(pool.Pool))
 	joinService := classesapp.NewEnrolment(classesRepo)
 	attachGoogle(cfg, logger, authService, joinService)
 
-	mediaRepo := mediarepo.NewPostgres(pool.Pool)
-	questionsRepo := questionsrepo.NewPostgres(pool.Pool)
-	testsRepo := testsrepo.NewPostgres(pool.Pool, questionsRepo, mediaRepo)
+	mediaRepo := mediarepo.NewPostgres(db.NewContext(pool.Pool))
+	questionsRepo := questionsrepo.NewPostgres(db.NewContext(pool.Pool))
+	testsRepo := testsrepo.NewPostgres(db.NewContext(pool.Pool), questionsRepo, mediaRepo)
 	mediaService, err := newMediaService(ctx, cfg, logger, mediaRepo)
 	if err != nil {
 		return Deps{}, nil, err
@@ -67,10 +67,10 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		Tokens: tokens,
 	}
 	deps.Modules = Modules{
-		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(pool.Pool))),
+		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(db.NewContext(pool.Pool)))),
 		Media:       mediahttp.NewMedia(mediaTransport(mediaService)),
-		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(pool.Pool)), attemptsapp.NewReview(attemptsrepo.NewReviews(pool.Pool)), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(pool.Pool)), attemptsMedia(mediaService), studentsService, logger),
-		Assignments: assignmentshttp.NewAssignments(assignmentsapp.NewService(assignmentsrepo.NewPostgres(pool.Pool))),
+		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(db.NewContext(pool.Pool))), attemptsapp.NewReview(attemptsrepo.NewReviews(db.NewContext(pool.Pool))), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(db.NewContext(pool.Pool))), attemptsMedia(mediaService), studentsService, logger),
+		Assignments: assignmentshttp.NewAssignments(assignmentsapp.NewService(assignmentsrepo.NewPostgres(db.NewContext(pool.Pool)))),
 		Tests:       testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
 		Questions:   questionshttp.NewQuestions(questionsapp.NewService(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
 		Identity:    identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),

@@ -5,6 +5,7 @@ package repositories_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"testing"
 	"time"
 
@@ -97,7 +98,7 @@ func only(t *testing.T, cards []domain.StudentCard, want string) domain.StudentC
 func TestAStudentsHomeSortsByWhatTheyCanDoNext(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	now := time.Now()
 
 	open := createFor(t, store, w, legalInput(w))
@@ -136,7 +137,7 @@ func TestAStudentsHomeSortsByWhatTheyCanDoNext(t *testing.T) {
 func TestAStudentOutsideTheTargetsSeesNothing(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	a := createFor(t, store, w, legalInput(w))
 
@@ -164,7 +165,7 @@ func TestAStudentOutsideTheTargetsSeesNothing(t *testing.T) {
 func TestATargetOnBothListsIsOneCard(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	in := legalInput(w)
 	in.StudentIDs = []string{w.student}
 	a := createFor(t, store, w, in)
@@ -181,7 +182,7 @@ func TestATargetOnBothListsIsOneCard(t *testing.T) {
 func TestALiveAttemptIsDueEvenAfterTheWindowClosed(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	a := createFor(t, store, w, legalInput(w))
 	live := sitAttempt(t, pool, w, a.ID, "in_progress", "0.00", false)
 
@@ -201,7 +202,7 @@ func TestALiveAttemptIsDueEvenAfterTheWindowClosed(t *testing.T) {
 func TestAFinishedAttemptMovesItToCompletedWithAScoreOnlyWhenShown(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	shown := createFor(t, store, w, legalInput(w))
@@ -241,7 +242,7 @@ func TestAFinishedAttemptMovesItToCompletedWithAScoreOnlyWhenShown(t *testing.T)
 func TestAVoidedAttemptIsNotUsed(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	a := createFor(t, store, w, legalInput(w))
 	sitAttempt(t, pool, w, a.ID, "voided", "0.00", false)
 
@@ -258,7 +259,7 @@ func TestAVoidedAttemptIsNotUsed(t *testing.T) {
 func TestTheIntroStatesThePaperItIsFor(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	in := legalInput(w)
@@ -290,7 +291,7 @@ func TestTheIntroStatesThePaperItIsFor(t *testing.T) {
 func TestTheIntroReportsTheStrictestAudioCap(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	a := createFor(t, store, w, legalInput(w))
 
@@ -350,7 +351,7 @@ func TestTheIntroReportsTheStrictestAudioCap(t *testing.T) {
 func TestAnAttemptLeftOpenPastItsDeadlineIsSpentNotLive(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	a := createFor(t, store, w, legalInput(w))
 	stale := sitAttempt(t, pool, w, a.ID, "in_progress", "0.00", false)
@@ -385,7 +386,7 @@ func TestAnAttemptLeftOpenPastItsDeadlineIsSpentNotLive(t *testing.T) {
 func TestADisabledStudentReadsNothingWhileTheirTokenLasts(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	a := createFor(t, store, w, legalInput(w))
 
@@ -418,7 +419,7 @@ func TestADisabledStudentReadsNothingWhileTheirTokenLasts(t *testing.T) {
 func TestTheCardCarriesWhatTheStudentsScreensDraw(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	var section string
@@ -473,7 +474,7 @@ func TestTheCardCarriesWhatTheStudentsScreensDraw(t *testing.T) {
 func TestTheClassNameIsOmittedUnlessThereIsExactlyOne(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	var second string
@@ -513,7 +514,7 @@ func TestTheClassNameIsOmittedUnlessThereIsExactlyOne(t *testing.T) {
 func TestAStudentReachedByNameGetsNoClassName(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 
 	in := legalInput(w)
 	in.ClassIDs = nil
@@ -536,7 +537,7 @@ func TestAStudentReachedByNameGetsNoClassName(t *testing.T) {
 func TestTheCardCarriesTheLiveDeadlineAndTheSubmissionTime(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	finished := createFor(t, store, w, legalInput(w)) // maxAttempts 1

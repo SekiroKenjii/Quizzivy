@@ -7,11 +7,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	"quizzivy/internal/platform/db"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/modules/dashboard/domain"
@@ -49,11 +49,6 @@ func isolated(t *testing.T, pool *pgxpool.Pool) pgx.Tx {
 	return tx
 }
 
-type querier interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
-
 func nonce(t *testing.T) string {
 	t.Helper()
 	b := make([]byte, 8)
@@ -71,7 +66,7 @@ type fixture struct {
 	student    string
 }
 
-func seed(t *testing.T, db querier, opensAt, closesAt time.Time, flagged bool) fixture {
+func seed(t *testing.T, db db.Querier, opensAt, closesAt time.Time, flagged bool) fixture {
 	t.Helper()
 	ctx := context.Background()
 	id := nonce(t)
@@ -137,7 +132,7 @@ func seed(t *testing.T, db querier, opensAt, closesAt time.Time, flagged bool) f
 func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 	pool := newPool(t)
 	tx := isolated(t, pool)
-	store := repositories.NewPostgres(tx)
+	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
 	before, err := store.Summary(ctx)
@@ -162,7 +157,7 @@ func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 	pool := newPool(t)
 	tx := isolated(t, pool)
-	store := repositories.NewPostgres(tx)
+	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
 	before, err := store.Summary(ctx)
@@ -197,7 +192,7 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 	pool := newPool(t)
 	tx := isolated(t, pool)
-	store := repositories.NewPostgres(tx)
+	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
 	before, err := store.Summary(ctx)
@@ -234,7 +229,7 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 	pool := newPool(t)
 	tx := isolated(t, pool)
-	store := repositories.NewPostgres(tx)
+	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
 	before, err := store.Summary(ctx)

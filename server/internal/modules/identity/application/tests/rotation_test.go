@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"strings"
 	"sync"
 	"testing"
@@ -446,7 +447,7 @@ func TestPruningNeverBreaksARotationChainItLeavesBehind(t *testing.T) {
 	long := newService(t, pool) // 30-day tokens
 	first := login(t, long, email)
 	family := loadToken(t, pool, first).familyID
-	short := application.NewService(repositories.NewUsers(pool), mustIssuer(t), time.Hour)
+	short := application.NewService(repositories.NewUsers(db.NewContext(pool)), mustIssuer(t), time.Hour)
 	if _, err := short.Refresh(ctx, application.RefreshInput{Token: first}); err != nil {
 		t.Fatal(err)
 	}

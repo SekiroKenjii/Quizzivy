@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ import (
 
 func TestCreatingAStudentEnrolsThemAndForcesAChange(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 	email := "new-" + nonce(t) + "@example.com"
@@ -59,7 +60,7 @@ func TestCreatingAStudentEnrolsThemAndForcesAChange(t *testing.T) {
 // ON CONFLICT.
 func TestEmailUniquenessIgnoresCase(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 	email := "Mixed-" + nonce(t) + "@Example.com"
@@ -90,7 +91,7 @@ func TestEmailUniquenessIgnoresCase(t *testing.T) {
 
 func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 
@@ -167,7 +168,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 
 func TestResettingAPasswordRevokesEverySession(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 
@@ -210,7 +211,7 @@ func TestResettingAPasswordRevokesEverySession(t *testing.T) {
 // it as activity -- so the row must not read as "never started anything".
 func TestAnAbandonedAttemptStillCountsAsActivity(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	a := w.assignment(t, pool)
 

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"quizzivy/internal/shared/validation"
 	"strings"
 	"time"
 )
@@ -62,17 +63,6 @@ type ListInput struct {
 	Page     int
 	Limit    int
 }
-
-// FieldError names the field a rule failed on, so the client can render the
-// message beside its input.
-type FieldError struct {
-	Field   string
-	Message string
-}
-
-// ValidationError carries every failure at once, so fixing a form is not a
-// series of round trips.
-type ValidationError struct{ Fields []FieldError }
 
 // Validate enforces the cross-field rules a schema cannot express. The request
 // validator has already checked types, lengths and enums. Publish re-runs these
@@ -216,10 +206,7 @@ func validateMedia(in Input, assetKind *string, add func(string, string)) {
 	}
 }
 
-func (e *ValidationError) Error() string {
-	parts := make([]string, len(e.Fields))
-	for i, f := range e.Fields {
-		parts[i] = f.Field + ": " + f.Message
-	}
-	return "questions: " + strings.Join(parts, "; ")
-}
+type (
+	FieldError      = validation.Field
+	ValidationError = validation.Error
+)

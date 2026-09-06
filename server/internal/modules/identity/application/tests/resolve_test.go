@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	"quizzivy/internal/modules/identity/application"
@@ -277,7 +278,7 @@ func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity applic
 	t.Helper()
 	svc := newService(t, pool)
 	stub := &stubGoogle{identity: identity}
-	svc.SetGoogle(stub, classesapp.NewEnrolment(classesrepo.NewPostgres(pool)))
+	svc.SetGoogle(stub, classesapp.NewEnrolment(classesrepo.NewPostgres(db.NewContext(pool))))
 	return svc, stub
 }
 
@@ -300,7 +301,7 @@ func makeClassForEnrol(t *testing.T, pool *pgxpool.Pool) (classID, teacherID str
 
 func issueJoinCode(t *testing.T, pool *pgxpool.Pool, classID, teacherID string) string {
 	t.Helper()
-	rotated, err := classesapp.NewEnrolment(classesrepo.NewPostgres(pool)).Rotate(context.Background(),
+	rotated, err := classesapp.NewEnrolment(classesrepo.NewPostgres(db.NewContext(pool))).Rotate(context.Background(),
 		classesdomain.RotateRequest{ClassID: classID, ActorUserID: teacherID})
 	if err != nil {
 		t.Fatalf("issue join code: %v", err)

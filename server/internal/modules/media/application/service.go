@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
 	"strings"
 	"time"
@@ -116,8 +117,8 @@ func (s *Service) Upload(ctx context.Context, in UploadInput) (domain.Asset, err
 		ChecksumSHA256:   checksum,
 		UploaderID:       in.UploaderID,
 		Now:              s.now(),
-		IP:               optional(in.IP),
-		UserAgent:        optional(in.UserAgent),
+		IP:               opt.String(in.IP),
+		UserAgent:        opt.String(in.UserAgent),
 	})
 	if err != nil {
 		_ = s.object.Delete(ctx, key)
@@ -169,13 +170,6 @@ func sanitiseFilename(name string) string {
 		name = string(r[:200])
 	}
 	return name
-}
-
-func optional(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }
 
 // DefaultSignedURLTTL is §11.2's ten minutes. Short because the URL IS the

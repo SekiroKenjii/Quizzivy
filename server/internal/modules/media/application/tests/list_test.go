@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	"quizzivy/internal/modules/media/application"
@@ -41,7 +42,7 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	svc := application.NewService(repositories.NewPostgres(tx), newFakeStore(), audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(tx)), newFakeStore(), audioProbe{})
 
 	const total = 5
 	want := make([]string, 0, total)
@@ -107,7 +108,7 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 func TestListFiltersByKindAndSignsEveryItem(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	mine := upload(t, svc, uploader, "nghe.mp3").ID
 
 	image := domain.KindImage
@@ -147,7 +148,7 @@ func TestListFiltersByKindAndSignsEveryItem(t *testing.T) {
 // from `total`, so the number must not vanish on the page nothing is on.
 func TestAPagePastTheEndIsEmptyWithTheSameTotal(t *testing.T) {
 	pool := newPool(t)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	// One asset of its own, so the total it reasons about is never zero.
 	upload(t, svc, makeUploader(t, pool), "beyond.mp3")
 
@@ -183,7 +184,7 @@ func TestTotalBytesSumsTheWholeShelfNotThePage(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	svc := application.NewService(repositories.NewPostgres(tx), newFakeStore(), audioProbe{})
+	svc := application.NewService(repositories.NewPostgres(db.NewContext(tx)), newFakeStore(), audioProbe{})
 
 	before, err := svc.TotalBytes(ctx, nil)
 	if err != nil {

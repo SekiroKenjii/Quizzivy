@@ -2,27 +2,20 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const entityUser = "user"
 
-func isUniqueViolation(err error) bool {
-	var pg *pgconn.PgError
-	return errors.As(err, &pg) && pg.Code == "23505" &&
-		pg.ConstraintName == "users_email_lower_key"
-}
-
 // Create adds a student who signs in with a temporary password (§6.3: only
 // Google self-signup exists, so an admin-created account has to carry one).
 func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domain.NewStudent) (domain.Student, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Student{}, fmt.Errorf("students: begin create: %w", err)
 	}
@@ -33,7 +26,7 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 		INSERT INTO app.users (email, full_name, role, password_hash, must_change_password)
 		VALUES ($1, $2, 'student', $3, true)
 		RETURNING id::text`, in.Email, in.FullName, in.Hash).Scan(&id)
-	if isUniqueViolation(err) {
+	if db.IsUniqueViolation(err, "") {
 		return domain.Student{}, domain.ErrEmailTaken
 	}
 	if err != nil {
@@ -56,8 +49,8 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 		Entity:      entityUser,
 		EntityID:    &id,
 		OccurredAt:  in.Now,
-		IP:          optionalString(req.IP),
-		UserAgent:   optionalString(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
 		return domain.Student{}, err
 	}
@@ -69,7 +62,7 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 
 // Update edits profile fields, or disables the account.
 func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domain.StudentPatch) (domain.Student, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Student{}, fmt.Errorf("students: begin update: %w", err)
 	}
@@ -86,7 +79,7 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		                     END
 		 WHERE id = $1::uuid AND role = 'student'`,
 		in.ID, in.FullName, in.Email, in.Disabled, in.Now)
-	if isUniqueViolation(err) {
+	if db.IsUniqueViolation(err, "") {
 		return domain.Student{}, domain.ErrEmailTaken
 	}
 	if err != nil {
@@ -102,8 +95,8 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		Entity:      entityUser,
 		EntityID:    &in.ID,
 		OccurredAt:  in.Now,
-		IP:          optionalString(req.IP),
-		UserAgent:   optionalString(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
 		return domain.Student{}, err
 	}
@@ -117,7 +110,7 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 // ResetPassword sets a temporary password and revokes every session the student
 // has.
 func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("students: begin reset: %w", err)
 	}
@@ -147,17 +140,10 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 		Entity:      entityUser,
 		EntityID:    &id,
 		OccurredAt:  now,
-		IP:          optionalString(req.IP),
-		UserAgent:   optionalString(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
-}
-
-func optionalString(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }

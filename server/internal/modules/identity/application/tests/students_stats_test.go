@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/platform/db"
 	"strconv"
 	"testing"
 
@@ -165,7 +166,7 @@ func show(v *float64) string {
 // The rule §7's maxAttempts implies: "lấy điểm lượt cao nhất".
 func TestTheAverageTakesTheBestAttemptPerAssignment(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	a := w.assignment(t, pool)
 
@@ -190,7 +191,7 @@ func TestTheAverageTakesTheBestAttemptPerAssignment(t *testing.T) {
 // scores and one "chưa nộp" averages over three, not four.
 func TestAnUnsubmittedAssignmentIsAbsentRatherThanZero(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 
 	done := w.assignment(t, pool)
@@ -209,7 +210,7 @@ func TestAnUnsubmittedAssignmentIsAbsentRatherThanZero(t *testing.T) {
 // essay as nought.
 func TestASubmittedButUngradedAttemptDoesNotEnterTheAverage(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 
 	graded := w.assignment(t, pool)
@@ -229,7 +230,7 @@ func TestASubmittedButUngradedAttemptDoesNotEnterTheAverage(t *testing.T) {
 
 func TestNothingGradedReadsAsNoScoreRatherThanZero(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	a := w.assignment(t, pool)
 	w.attempt(t, pool, attempt{assignment: a, no: 1, status: "submitted"})
@@ -245,7 +246,7 @@ func TestNothingGradedReadsAsNoScoreRatherThanZero(t *testing.T) {
 // change.
 func TestAVoidedAttemptIsExcludedEverywhere(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	a := w.assignment(t, pool)
 	w.attempt(t, pool, attempt{assignment: a, no: 1, status: "voided", earned: p("2.00"), total: p("10.00"), flagged: true})
@@ -266,7 +267,7 @@ func TestAVoidedAttemptIsExcludedEverywhere(t *testing.T) {
 // is derived precisely so there is no scheduler (D-18).
 func TestAnExpiredInProgressAttemptIsNotStillTakingIt(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 
 	past := w.assignment(t, pool)
@@ -284,7 +285,7 @@ func TestAnExpiredInProgressAttemptIsNotStillTakingIt(t *testing.T) {
 
 func TestTheRosterAndFlagsComeBackWithTheRow(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	a := w.assignment(t, pool)
 	w.attempt(t, pool, attempt{assignment: a, no: 1, status: "graded", earned: p("5.00"), total: p("10.00"), flagged: true})
@@ -308,7 +309,7 @@ func TestTheRosterAndFlagsComeBackWithTheRow(t *testing.T) {
 // reach these paths at all.
 func TestAnAdminIsNotAStudent(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 
 	if _, err := store.Get(context.Background(), w.admin); err == nil {
@@ -323,7 +324,7 @@ func TestAnAdminIsNotAStudent(t *testing.T) {
 // while the rows are filtered puts "31 học viên" above a single match.
 func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 

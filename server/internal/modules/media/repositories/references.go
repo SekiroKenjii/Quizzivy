@@ -5,19 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/platform/db"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Querier is the subset of pgx satisfied by both a pool and a transaction.
-type Querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
-
 // References lists the published versions whose questions use the asset, by
 // title then version. Any at all blocks deletion with a 409 (§8).
-func References(ctx context.Context, q Querier, assetID string) ([]domain.TestRef, error) {
+func References(ctx context.Context, q db.Querier, assetID string) ([]domain.TestRef, error) {
 	byAsset, err := ReferencesFor(ctx, q, []string{assetID})
 	if err != nil {
 		return nil, err
@@ -28,7 +23,7 @@ func References(ctx context.Context, q Querier, assetID string) ([]domain.TestRe
 // ReferencesFor is References for a whole page of assets in one query, which
 // is what the library list needs: a count and a name per row, without a round
 // trip per row.
-func ReferencesFor(ctx context.Context, q Querier, assetIDs []string) (map[string][]domain.TestRef, error) {
+func ReferencesFor(ctx context.Context, q db.Querier, assetIDs []string) (map[string][]domain.TestRef, error) {
 	rows, err := q.Query(ctx, `
 		SELECT DISTINCT tvq.media_asset_id::text, t.id::text, t.title, tv.version
 		  FROM app.test_version_questions tvq
@@ -56,7 +51,7 @@ func ReferencesFor(ctx context.Context, q Querier, assetIDs []string) (map[strin
 // LockForVersionUse takes the row lock that makes the delete check meaningful,
 // and must be called by the publish routine before inserting a version question
 // that names the asset.
-func LockForVersionUse(ctx context.Context, q Querier, assetID string) error {
+func LockForVersionUse(ctx context.Context, q db.Querier, assetID string) error {
 	var deleted bool
 	err := q.QueryRow(ctx,
 		`SELECT deleted_at IS NOT NULL FROM app.media_assets WHERE id = $1 FOR UPDATE`,
@@ -76,7 +71,7 @@ func LockForVersionUse(ctx context.Context, q Querier, assetID string) error {
 // ReachableByStudent reports whether a student may mint a signed URL for an
 // asset, true only when it is used by a question in a version they have an
 // attempt on.
-func ReachableByStudent(ctx context.Context, q Querier, studentID, assetID string) (bool, error) {
+func ReachableByStudent(ctx context.Context, q db.Querier, studentID, assetID string) (bool, error) {
 	var reachable bool
 	err := q.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -93,11 +88,11 @@ func ReachableByStudent(ctx context.Context, q Querier, studentID, assetID strin
 }
 
 func (s *Postgres) ReferencesFor(ctx context.Context, assetIDs []string) (map[string][]domain.TestRef, error) {
-	return ReferencesFor(ctx, s.pool, assetIDs)
+	return ReferencesFor(ctx, s.Conn(), assetIDs)
 }
 
 func (s *Postgres) ReachableByStudent(ctx context.Context, studentID, assetID string) (bool, error) {
-	return ReachableByStudent(ctx, s.pool, studentID, assetID)
+	return ReachableByStudent(ctx, s.Conn(), studentID, assetID)
 }
 
 func (s *Postgres) LockForVersionUse(ctx context.Context, tx pgx.Tx, assetID string) error {

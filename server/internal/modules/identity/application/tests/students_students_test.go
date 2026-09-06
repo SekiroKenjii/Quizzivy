@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
@@ -51,7 +52,7 @@ func ids(found []domain.Student) map[string]bool {
 // keyboard must still find Hân.
 func TestSearchIgnoresAccentsAndCase(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	han := makeStudent(t, pool, "Phạm Gia Hân")
 	makeStudent(t, pool, "Trần Bảo Long")
 
@@ -70,7 +71,7 @@ func TestSearchIgnoresAccentsAndCase(t *testing.T) {
 
 func TestSearchDoesNotMatchEverybody(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	makeStudent(t, pool, "Phạm Gia Hân")
 	long := makeStudent(t, pool, "Trần Bảo Long")
 
@@ -86,7 +87,7 @@ func TestSearchDoesNotMatchEverybody(t *testing.T) {
 // A '%' typed into the box is a character, not a wildcard.
 func TestWildcardsInTheQueryAreLiteral(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	makeStudent(t, pool, "Phạm Gia Hân")
 
 	found, _, err := store.List(context.Background(), domain.StudentQuery{Query: "%"})
@@ -100,7 +101,7 @@ func TestWildcardsInTheQueryAreLiteral(t *testing.T) {
 
 func TestAnAdminIsNeverAStudent(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	var admin string
@@ -124,7 +125,7 @@ func TestAnAdminIsNeverAStudent(t *testing.T) {
 
 func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	inside := makeStudent(t, pool, "Trong Lớp")
@@ -168,7 +169,7 @@ func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 
 func TestThePageStopsAtTheLimitAndTheNextPageFollowsWithoutOverlap(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(pool), attemptsrepo.NewStudentStats(pool))
+	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	tag := nonce(t)

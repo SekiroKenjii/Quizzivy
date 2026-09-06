@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/platform/db"
 	"slices"
 	"strings"
 	"testing"
@@ -23,7 +24,7 @@ func TestTestsAreFilteredByTheirQuestionsTags(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
-	store := repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool))
+	store := repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool)))
 	ctx := context.Background()
 	tag := "a03-" + strings.ReplaceAll(author, "-", "")[:10]
 

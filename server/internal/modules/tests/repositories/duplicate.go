@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 )
 
 // Duplicate copies the draft outline and nothing else.
 func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (domain.Test, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Test{}, fmt.Errorf("tests: begin duplicate: %w", err)
 	}
@@ -47,8 +48,8 @@ func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (dom
 		Entity:      entityTest,
 		EntityID:    &copyID,
 		OccurredAt:  in.Now,
-		IP:          optional(in.IP),
-		UserAgent:   optional(in.UserAgent),
+		IP:          opt.String(in.IP),
+		UserAgent:   opt.String(in.UserAgent),
 	}); err != nil {
 		return domain.Test{}, err
 	}

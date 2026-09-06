@@ -7,13 +7,14 @@ import (
 	"errors"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
+	"quizzivy/internal/platform/db"
 	"testing"
 )
 
 func TestFinishingWithAnUngradedShortAnswerIsRefused(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
-	store := repositories.NewReviews(pool)
+	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
 	if _, err := store.Finish(ctx, p.attempt); !errors.Is(err, domain.ErrGradingIncomplete) {
@@ -31,7 +32,7 @@ func TestFinishingWithAnUngradedShortAnswerIsRefused(t *testing.T) {
 func TestFinishingRecomputesTheScoreAndIsReEnterable(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
-	store := repositories.NewReviews(pool)
+	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
 	if _, err := store.Grade(ctx, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 2.5}}); err != nil {

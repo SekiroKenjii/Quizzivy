@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/platform/db"
 	"sync"
 	"testing"
 	"time"
@@ -60,7 +61,7 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 
 func newSvc(t *testing.T, pool *pgxpool.Pool) *application.Enrolment {
 	t.Helper()
-	return application.NewEnrolment(repositories.NewPostgres(pool))
+	return application.NewEnrolment(repositories.NewPostgres(db.NewContext(pool)))
 }
 
 func activeCodeCount(t *testing.T, pool *pgxpool.Pool, classID string) int {
