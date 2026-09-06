@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { http } from "msw";
 import StudentClassesPage from "@/features/classes/pages/StudentClassesPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
+import { viewport } from "@tests/support/viewport";
 import { BASE, renderAt } from "./support";
 import "@/lib/i18n";
 
@@ -19,7 +20,11 @@ function classes(items: unknown[]) {
   ]);
 }
 
-afterEach(() => useAuthStore.getState().clearSession());
+beforeEach(() => viewport("phone"));
+afterEach(() => {
+  vi.unstubAllGlobals();
+  useAuthStore.getState().clearSession();
+});
 
 describe("/app/classes", () => {
   it("lists the classes joined, with the way into another", async () => {

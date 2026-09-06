@@ -134,12 +134,22 @@
       "questions": "Questions",
       "questionsValue": "{{questions}} · {{points}} points",
       "seeTranscript": "See the listening transcript",
-      "classAndTeacher": "{{className}} · {{teacher}}"
+      "classAndTeacher": "{{className}} · {{teacher}}",
+      "summary": "Summary"
     },
     "questions_one": "{{count}} question",
     "questions_other": "{{count}} questions",
     "submittedOn": "Submitted {{date}}",
-    "resumeBodyLeft": "{{title}}. The clock is still running, {{left}} left."
+    "resumeBodyLeft": "{{title}}. The clock is still running, {{left}} left.",
+    "homePanel": "Upcoming and my classes",
+    "inClasses_one": "You are in {{count}} class.",
+    "inClasses_other": "You are in {{count}} classes.",
+    "classOpen_one": "{{count}} open paper",
+    "classOpen_other": "{{count}} open papers",
+    "classOpenNone": "No open papers",
+    "classSubmitted_one": "{{count}} paper submitted",
+    "classSubmitted_other": "{{count}} papers submitted",
+    "classesNav": "Classes"
   },
   "changePassword": {
     "title": "Change your password",
@@ -194,7 +204,8 @@
     },
     "haveAccount": "Already have an account?",
     "signIn": "Sign in",
-    "anotherCode": "Enter a different code"
+    "anotherCode": "Enter a different code",
+    "panelNote": "You will see the class and its teacher before you confirm."
   },
   "classDetail": {
     "joinCode": "Class join code",
@@ -365,7 +376,15 @@
     "locale": {
       "vi": "Tiếng Việt",
       "en": "English"
-    }
+    },
+    "account": "Account",
+    "role": "Role",
+    "roleStudent": "Student",
+    "signInWith": "Sign in",
+    "signInPassword": "Password",
+    "signInGoogle": "Google",
+    "since": "Account since",
+    "classCount": "Classes"
   },
   "media": {
     "cancel": "Cancel",
@@ -1394,7 +1413,17 @@
     "youChose": "your choice",
     "correctOption": "correct answer",
     "loadFailed": "Couldn't load the result",
-    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again."
+    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again.",
+    "panel": "Result",
+    "rows": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "pending": "Awaiting grading",
+      "submittedAt": "Submitted",
+      "moment": "{{time}} · {{date}}",
+      "attempt": "Attempt",
+      "attemptOf": "{{n}} / {{total}}"
+    }
   },
   "queue": {
     "summary": {

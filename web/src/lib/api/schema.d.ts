@@ -2330,6 +2330,11 @@ export interface components {
             testTitle: string;
             /** @description The class this assignment reached the student through. Null unless exactly one targeted class contains them. */
             className?: string | null;
+            /**
+             * Format: uuid
+             * @description The id behind `className`, so S-17 can count a class's papers. Null when `className` is.
+             */
+            classId?: string | null;
             status: components["schemas"]["AssignmentStatus"];
             opensAt: components["schemas"]["Timestamp"];
             closesAt: components["schemas"]["Timestamp"];

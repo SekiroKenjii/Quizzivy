@@ -13,6 +13,7 @@ type StudentCard struct {
 	TestTitle string
 	// ClassName is set only when exactly one targeted class contains them.
 	ClassName     *string
+	ClassID       *string
 	OpensAt       time.Time
 	ClosesAt      time.Time
 	ClosedAt      *time.Time

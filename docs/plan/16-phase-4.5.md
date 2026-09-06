@@ -78,7 +78,8 @@ engine, then the shell and the four pages, then release.
 - [x] Every rule is derived from an existing board (F-04 densities, F-11
       panel width, S-08's 720px column) — no new tokens, no new components
 - [x] `node docs/design/mockups/check.mjs` clean; index counts updated
-- [ ] Thuong has looked at the five boards in the deck and said go
+- [x] Thuong has looked at the five boards in the deck and said go
+      (2026-09-07, after the redraw to F-11/F-13 and the full-width S-17)
 
 ---
 
@@ -87,19 +88,19 @@ engine, then the shell and the four pages, then release.
 **Touches:** `api/openapi.yaml`, `server/gen/openapi/`, `server/internal/modules/attempts/{domain,repositories,http}/`, `web/src/lib/api/schema.d.ts`, `web/src/features/take-test/`
 **Size:** M
 **Done when:**
-- [ ] `AttemptSession.sections: StudentSection[]` (`id`, `title`,
+- [x] `AttemptSession.sections: StudentSection[]` (`id`, `title`,
       `instructions: string | null`, in test order) and
       `StudentQuestion.sectionId`; `StudentBlank.caseSensitive`
-- [ ] The session query projects `test_version_sections` (already joined
+- [x] The session query projects `test_version_sections` (already joined
       for ordering) into the payload; the domain `Question` carries
       `SectionID`, the paper carries `Sections`
-- [ ] `DealManager.Present` shuffles within a section (salt = section id)
+- [x] `DealManager.Present` shuffles within a section (salt = section id)
       and keeps section order; `deal_test` pins that a two-section version
       never interleaves
-- [ ] The contract test over `openapi.yaml` and E2E 9 still assert none of
+- [x] The contract test over `openapi.yaml` and E2E 9 still assert none of
       `isCorrect`, `sampleAnswer`, `acceptedAnswers`, `transcript` under
       `/app/*`; `make gen-check` and `pnpm gen:check` clean
-- [ ] `make test-api` green (needs Docker)
+- [x] `make test-api` green (needs Docker)
 
 ---
 
@@ -108,27 +109,27 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/take-test/`, `web/src/lib/i18n/locales/{vi,en}.json`
 **Size:** L
 **Done when:**
-- [ ] From `lg`: one header row — Thoát · test title · save badge ("Đã lưu
+- [x] From `lg`: one header row — Thoát · test title · save badge ("Đã lưu
       09:41" / "Đang lưu…" / unsaved) · "Còn n lần rời trang" · timer — over
       the 4px progress bar; the save strip and the sticky footer render only
       below `lg`
-- [ ] From `lg`: "Câu trước" (outline) and "Câu sau" (primary) inline under
+- [x] From `lg`: "Câu trước" (outline) and "Câu sau" (primary) inline under
       the answer at their own width, the last question's "Xem lại & nộp" in
       the same slot, and the S-08 shortcut hint to their right
-- [ ] From `lg`: the meta line above the stem reads "Phần 1 · Ngữ pháp — Câu
+- [x] From `lg`: the meta line above the stem reads "Phần 1 · Ngữ pháp — Câu
       3 / 24 · 1 điểm"; below `lg` the header keeps "Câu 3/24" and the points
       stay under the answer (S-05)
-- [ ] Section instructions render above the body of the section's first
+- [x] Section instructions render above the body of the section's first
       question: an `alert-muted` with a headphones icon when the question has
       audio, otherwise the muted line S-05 draws on the fill-blank frame
-- [ ] Navigator rail and sheet group the dots under "Phần n · Title" (S-06,
+- [x] Navigator rail and sheet group the dots under "Phần n · Title" (S-06,
       S-08); the review screen at `lg` is S-15 — header row unchanged, first
       control "Quay lại bài", rail without its button, the two actions inline
-- [ ] Fill-blank closes with the matching rule (case-sensitive or not) and
+- [x] Fill-blank closes with the matching rule (case-sensitive or not) and
       short-answer's meta is one `justify-between` row (#91)
-- [ ] Unit tests: section grouping, first-of-section detection, the `lg`
+- [x] Unit tests: section grouping, first-of-section detection, the `lg`
       branch of the header (render at 1280 and 360 with a matchMedia stub)
-- [ ] E2E chromium (1280): the smoke spec asserts the S-08 header row and the
+- [x] E2E chromium (1280): the smoke spec asserts the S-08 header row and the
       absence of the footer; a new `mobile-chromium` project (Pixel 5) runs
       the same spec and asserts the S-12 footer
 
@@ -139,19 +140,19 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/layouts/StudentLayout.tsx`, `web/src/layouts/StudentDetailLayout.tsx` (removed), `web/src/app/router.tsx`, `web/src/components/shared/`
 **Size:** M
 **Done when:**
-- [ ] Top bar: logo, "Bài của tôi", "Lớp", and from `lg` a user menu (avatar
+- [x] Top bar: logo, "Bài của tôi", "Lớp", and from `lg` a user menu (avatar
       initial + given name + chevron → Cài đặt, Đăng xuất); below `lg` the
       S-03 bar with its icon button, unchanged
-- [ ] From `lg` the content area is the admin's two columns: a scrolling
+- [x] From `lg` the content area is the admin's two columns: a scrolling
       middle with `p-8` and the `PageAsideSlot`, so a page's `PageAside`
       lands beside the scroll at F-11's width with F-13's handle; below `lg`
       the phone padding and a 40rem cap
-- [ ] Detail routes (`assignments/:id`, `attempts/:id/result`, `settings`)
+- [x] Detail routes (`assignments/:id`, `attempts/:id/result`, `settings`)
       declare `handle.detail`; below `lg` the layout shows the back arrow +
       title, from `lg` the nav bar with the page drawing its own "← Bài của
       tôi" link (S-14, S-16)
-- [ ] `/app/settings` lights no nav item; `/app/classes` lights "Lớp"
-- [ ] Unit test: the layout renders the arrow at 360 and the bar at 1280 for a
+- [x] `/app/settings` lights no nav item; `/app/classes` lights "Lớp"
+- [x] Unit test: the layout renders the arrow at 360 and the bar at 1280 for a
       detail route
 
 ---
@@ -161,13 +162,13 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/assignments/pages/StudentHomePage.tsx`
 **Size:** M
 **Done when:**
-- [ ] From `lg`: the middle fills its column; due and resume cards lay out
+- [x] From `lg`: the middle fills its column; due and resume cards lay out
       sideways with the button at its own width on the right; completed rows
       add the class name before "Nộp dd/mm"
-- [ ] Panel (`PageAside`): "Sắp tới · n" then "Lớp của tôi" (names, teacher,
+- [x] Panel (`PageAside`): "Sắp tới · n" then "Lớp của tôi" (names, teacher,
       "Tham gia lớp") under F-11's uppercase labels; not rendered when both
       are empty; empty states stay in the middle
-- [ ] Below `lg`: S-03 exactly as today
+- [x] Below `lg`: S-03 exactly as today
 
 ---
 
@@ -176,11 +177,11 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/assignments/pages/AssignmentIntroPage.tsx`
 **Size:** S
 **Done when:**
-- [ ] From `lg`: back link, provenance and title over "Khi làm bài" and "Sau
+- [x] From `lg`: back link, provenance and title over "Khi làm bài" and "Sau
       khi nộp" side by side (3fr / 2fr); the panel holds "Tóm tắt" as
       label/value rows, the start button and its note; blocked states and
       resume take the button's place
-- [ ] Below `lg`: S-04 exactly as today
+- [x] Below `lg`: S-04 exactly as today
 
 ---
 
@@ -189,13 +190,13 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/results/pages/ResultPage.tsx`
 **Size:** M
 **Done when:**
-- [ ] From `lg`: back link, title, and the "Nộp lúc … · Lượt n/m" line over
+- [x] From `lg`: back link, title, and the "Nộp lúc … · Lượt n/m" line over
       the filters and the paper at 720px in the middle; the panel holds "Kết
       quả": the tile, then Đúng / Sai / Chờ chấm / Nộp lúc / Lượt as
       label/value rows, then the withheld-block sentence
-- [ ] The S-09b subtractions hold in both columns; a withheld score leaves
+- [x] The S-09b subtractions hold in both columns; a withheld score leaves
       the right column empty except the one muted sentence
-- [ ] Below `lg`: S-09 exactly as today
+- [x] Below `lg`: S-09 exactly as today
 
 ---
 
@@ -204,15 +205,15 @@ engine, then the shell and the four pages, then release.
 **Touches:** `web/src/features/classes/pages/StudentClassesPage.tsx`, `web/src/features/auth/pages/StudentSettingsPage.tsx`, `web/src/features/auth/pages/LoginPage.tsx`, `web/src/layouts/PublicLayout.tsx`
 **Size:** S
 **Done when:**
-- [ ] Classes: a two-column grid of class cards (name, teacher · joined,
+- [x] Classes: a two-column grid of class cards (name, teacher · joined,
       description, open / submitted counts derived from the home's lists)
       with "Lớp" lit, and the panel holding S-01's join-code field that goes
       to `/join/:code/confirm`; below `lg` the "Tham gia lớp" button as S-10
-- [ ] Settings: a two-column grid of Hồ sơ / Mật khẩu / Tài khoản Google /
+- [x] Settings: a two-column grid of Hồ sơ / Mật khẩu / Tài khoản Google /
       Ngôn ngữ, nothing lit, and the panel holding the account (avatar, name,
       email, role, sign-in methods, since, classes) with "Đăng xuất"; below
       `lg` S-10's list with sign-out at the bottom
-- [ ] Login shows S-02's brand panel from `lg`; join is S-01's single card at
+- [x] Login shows S-02's brand panel from `lg`; join is S-01's single card at
       every width — both measured in the browser, fixed if off
 
 ---
@@ -222,12 +223,12 @@ engine, then the shell and the four pages, then release.
 **Touches:** —
 **Size:** M
 **Done when:**
-- [ ] Every `/app/*` route captured at 1440, 1280, 1024, 768 and 360 as the
-      seed student, with the engine on a two-section test (the dev seed gains
-      one: `seed/04-dev-e2e.sql`), compared board by board with the deck open
-      beside it
-- [ ] Deviations fixed in the same PR, or filed as issues if outside this
-      phase's scope
+- [x] Every `/app/*` route measured at 1280, 1024, 768 and 360 as the seed
+      student, with the engine on a three-part paper (the dev seed gained one:
+      `seed/05-dev-sections.sql`), compared board by board with the deck open
+      beside it (2026-09-07)
+- [x] Deviations fixed in the same PR: the phone's flag beside the paper, the
+      worth said once at 1024, the nav's "Lớp", full dates in the panels
 
 ---
 

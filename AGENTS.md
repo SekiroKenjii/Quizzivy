@@ -302,6 +302,22 @@ not in v1 but must remain addable without touching components.
 Integrity UI is calm: plain dialogs, plain text, no alarm iconography, no red
 banners, no shame. The teacher judges; the app reports.
 
+The student's screens branch at 1024px in code, not only in CSS
+(`useMediaQuery("(min-width: 1024px)")`): below it the phone boards
+(S-01–S-12) apply, above it the desk boards (S-13–S-17). One `StudentLayout`
+serves both; a detail route declares `handle.detail` for the phone's back
+arrow. From 1024px the shell exposes the same `PageAsideSlot` the admin shell
+does, and a page's right column is `PageAside` — F-11's panel with F-13's
+handle, never a grid column. The take-test engine keeps `FocusLayout` and
+S-08's chrome from 1024px. Unit tests of a phone board pin
+`viewport("phone")` (`tests/support/viewport.ts`); jsdom answers "wide" by
+default.
+
+A paper's questions are dealt inside their section: `DealManager.Present`
+keeps section order and shuffles within each, so the navigator can group by
+part (S-06, S-08). A single-section paper deals exactly as it did before
+sections reached the payload.
+
 ## Language
 
 Vietnamese first. Write the `vi` string, then `en`. No English-only
