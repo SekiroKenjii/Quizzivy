@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/tests/application/command"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -12,7 +13,7 @@ import (
 
 // PublishTest validates the draft and freezes it as a new version.
 func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestRequestObject) (openapi.PublishTestResponseObject, error) {
-	if h.publisher == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -21,12 +22,12 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	version, err := h.publisher.Publish(ctx, domain.PublishRequest{
+	version, err := h.app.Commands.Publish.Handle(ctx, command.Publish{Request: domain.PublishRequest{
 		TestID:    request.Id.String(),
 		ActorID:   principal.UserID,
 		IP:        meta.IP,
 		UserAgent: meta.UserAgent,
-	})
+	}})
 	switch {
 	case err == nil:
 	case errors.Is(err, domain.ErrDraftNotFound):

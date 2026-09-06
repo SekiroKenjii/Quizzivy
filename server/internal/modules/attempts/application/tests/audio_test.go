@@ -5,6 +5,8 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/attempts/application/command"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"sync"
 	"testing"
@@ -17,14 +19,14 @@ func TestRecordingAPlayCountsFromOne(t *testing.T) {
 	svc, w, session := started(t, pool)
 	ctx := context.Background()
 
-	first, err := svc.RecordPlay(ctx, session.Attempt.ID, w.student, w.choice)
+	first, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.choice})
 	if err != nil {
 		t.Fatalf("first play: %v", err)
 	}
 	if first.Plays != 1 {
 		t.Errorf("plays %d, want 1", first.Plays)
 	}
-	second, err := svc.RecordPlay(ctx, session.Attempt.ID, w.student, w.choice)
+	second, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.choice})
 	if err != nil {
 		t.Fatalf("second play: %v", err)
 	}
@@ -49,7 +51,7 @@ func TestTenConcurrentPlaysCountTen(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			_, errs[i] = svc.RecordPlay(context.Background(), session.Attempt.ID, w.student, w.choice)
+			_, errs[i] = svc.Commands.RecordPlay.Handle(context.Background(), command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.choice})
 		}()
 	}
 	close(start)
@@ -84,7 +86,7 @@ func TestAPlayBeyondTheLimitSucceedsAndReportsTheHigherCount(t *testing.T) {
 
 	var last domain.Plays
 	for i := range 4 {
-		got, err := svc.RecordPlay(ctx, session.Attempt.ID, w.student, w.listening)
+		got, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.listening})
 		if err != nil {
 			t.Fatalf("play %d was refused: %v", i+1, err)
 		}
@@ -102,7 +104,7 @@ func TestPlaysOnSomeoneElsesAttemptAreRefused(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 
-	if _, err := svc.RecordPlay(context.Background(), session.Attempt.ID, w.outsider, w.choice); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := svc.Commands.RecordPlay.Handle(context.Background(), command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.outsider, QuestionID: w.choice}); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}
 }
@@ -121,7 +123,7 @@ func TestAPlayOnAQuestionOutsideThePaperIsRefused(t *testing.T) {
 		{"a question that does not exist", uuid.NewString()},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if _, err := svc.RecordPlay(ctx, session.Attempt.ID, w.student, c.question); !errors.Is(err, domain.ErrForbidden) {
+			if _, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: c.question}); !errors.Is(err, domain.ErrForbidden) {
 				t.Fatalf("got %v, want ErrForbidden", err)
 			}
 		})
@@ -136,11 +138,11 @@ func TestTheReloadedPayloadCarriesThePlaysAlreadyRecorded(t *testing.T) {
 	ctx := context.Background()
 
 	for range 3 {
-		if _, err := svc.RecordPlay(ctx, session.Attempt.ID, w.student, w.choice); err != nil {
+		if _, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.choice}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	reloaded, err := svc.Get(ctx, session.Attempt.ID, w.student)
+	reloaded, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}

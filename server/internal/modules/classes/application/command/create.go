@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/opt"
 )
 
@@ -11,9 +12,7 @@ type Create struct {
 	Name        string
 	Description *string
 	SelfJoin    bool
-	ActorID     string
-	IP          string
-	UserAgent   string
+	Actor       actor.Actor
 }
 
 type CreateHandler struct {
@@ -22,7 +21,7 @@ type CreateHandler struct {
 
 func (s CreateHandler) Handle(ctx context.Context, cmd Create) (domain.Class, error) {
 	return s.Repo.Create(ctx, domain.CreateInput{
-		Name: cmd.Name, Description: cmd.Description, SelfJoinEnabled: cmd.SelfJoin, ActorUserID: cmd.ActorID,
-		Now: s.Now(), IP: opt.String(cmd.IP), UserAgent: opt.String(cmd.UserAgent),
+		Name: cmd.Name, Description: cmd.Description, SelfJoinEnabled: cmd.SelfJoin, ActorUserID: cmd.Actor.ID,
+		Now: s.Now(), IP: opt.String(cmd.Actor.IP), UserAgent: opt.String(cmd.Actor.UserAgent),
 	})
 }

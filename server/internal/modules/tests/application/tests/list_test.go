@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/modules/tests/application/command"
 	"quizzivy/internal/platform/db"
 	"slices"
 	"strings"
@@ -31,25 +32,25 @@ func TestTestsAreFilteredByTheirQuestionsTags(t *testing.T) {
 	tagged := newTaggedQuestion(t, pool, author, "Câu có thẻ", tag)
 	plain := newQuestion(t, pool, author, "Câu không thẻ")
 
-	withTag, err := svc.Create(ctx, req(author), "Đề có thẻ", nil)
+	withTag, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề có thẻ", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Update(ctx, reqFor(withTag.ID, author), domain.UpdateInput{
+	if _, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(withTag.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: withTag.UpdatedAt, SetSections: true,
 		Sections: []domain.SectionInput{{Title: "P1", QuestionIDs: []string{tagged}}},
-	}); err != nil {
+	}}); err != nil {
 		t.Fatal(err)
 	}
 
-	without, err := svc.Create(ctx, req(author), "Đề không thẻ", nil)
+	without, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề không thẻ", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Update(ctx, reqFor(without.ID, author), domain.UpdateInput{
+	if _, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(without.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: without.UpdatedAt, SetSections: true,
 		Sections: []domain.SectionInput{{Title: "P1", QuestionIDs: []string{plain}}},
-	}); err != nil {
+	}}); err != nil {
 		t.Fatal(err)
 	}
 

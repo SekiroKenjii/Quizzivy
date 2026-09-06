@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/platform/db"
 	"testing"
 
@@ -52,18 +53,19 @@ func ids(found []domain.Student) map[string]bool {
 // keyboard must still find Hân.
 func TestSearchIgnoresAccentsAndCase(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	han := makeStudent(t, pool, "Phạm Gia Hân")
 	makeStudent(t, pool, "Trần Bảo Long")
 
-	for _, query := range []string{"hân", "han", "HAN", "Gia Hân"} {
-		t.Run(query, func(t *testing.T) {
-			found, _, err := store.List(context.Background(), domain.StudentQuery{Query: query})
+	for _, term := range []string{"hân", "han", "HAN", "Gia Hân"} {
+		t.Run(term, func(t *testing.T) {
+			listStudentsResult, err := store.Queries.ListStudents.Handle(context.Background(), query.ListStudents{Query: domain.StudentQuery{Query: term}})
+			found := listStudentsResult.Items
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !ids(found)[han] {
-				t.Errorf("%q did not find Phạm Gia Hân", query)
+				t.Errorf("%q did not find Phạm Gia Hân", term)
 			}
 		})
 	}
@@ -71,11 +73,12 @@ func TestSearchIgnoresAccentsAndCase(t *testing.T) {
 
 func TestSearchDoesNotMatchEverybody(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	makeStudent(t, pool, "Phạm Gia Hân")
 	long := makeStudent(t, pool, "Trần Bảo Long")
 
-	found, _, err := store.List(context.Background(), domain.StudentQuery{Query: "Hân"})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(context.Background(), query.ListStudents{Query: domain.StudentQuery{Query: "Hân"}})
+	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,10 +90,11 @@ func TestSearchDoesNotMatchEverybody(t *testing.T) {
 // A '%' typed into the box is a character, not a wildcard.
 func TestWildcardsInTheQueryAreLiteral(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	makeStudent(t, pool, "Phạm Gia Hân")
 
-	found, _, err := store.List(context.Background(), domain.StudentQuery{Query: "%"})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(context.Background(), query.ListStudents{Query: domain.StudentQuery{Query: "%"}})
+	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +105,7 @@ func TestWildcardsInTheQueryAreLiteral(t *testing.T) {
 
 func TestAnAdminIsNeverAStudent(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	var admin string
@@ -114,7 +118,8 @@ func TestAnAdminIsNeverAStudent(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1::uuid`, admin)
 	})
 
-	found, _, err := store.List(ctx, domain.StudentQuery{Query: "Kiểm"})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Query: "Kiểm"}})
+	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +130,7 @@ func TestAnAdminIsNeverAStudent(t *testing.T) {
 
 func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	inside := makeStudent(t, pool, "Trong Lớp")
@@ -154,7 +159,8 @@ func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = $1::uuid`, teacher)
 	})
 
-	found, _, err := store.List(ctx, domain.StudentQuery{ClassID: classID})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{ClassID: classID}})
+	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +175,7 @@ func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 
 func TestThePageStopsAtTheLimitAndTheNextPageFollowsWithoutOverlap(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
 	tag := nonce(t)
@@ -177,7 +183,8 @@ func TestThePageStopsAtTheLimitAndTheNextPageFollowsWithoutOverlap(t *testing.T)
 		makeStudent(t, pool, "Phân Trang "+tag)
 	}
 
-	first, page, err := store.List(ctx, domain.StudentQuery{Query: tag, Limit: 2})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Query: tag, Limit: 2}})
+	first, page := listStudentsResult.Items, listStudentsResult.Page
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +192,8 @@ func TestThePageStopsAtTheLimitAndTheNextPageFollowsWithoutOverlap(t *testing.T)
 		t.Fatalf("first page = %d rows, %+v; want 2 of 3", len(first), page)
 	}
 
-	second, page, err := store.List(ctx, domain.StudentQuery{Query: tag, Limit: 2, Page: 2})
+	listStudentsResult, err = store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Query: tag, Limit: 2, Page: 2}})
+	second, page := listStudentsResult.Items, listStudentsResult.Page
 	if err != nil {
 		t.Fatal(err)
 	}

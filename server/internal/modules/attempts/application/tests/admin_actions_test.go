@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
 	"testing"
 	"time"
@@ -59,7 +60,7 @@ func TestExtendingMovesTheDeadlineAndAuditsBothValuesInOneStatement(t *testing.T
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 
-	extended, err := svc.Extend(context.Background(), teacher(w), session.Attempt.ID, 10, "  Mất mạng 8 phút, đã xác nhận ")
+	extended, err := svc.Commands.Extend.Handle(context.Background(), command.Extend{Request: teacher(w), AttemptID: session.Attempt.ID, Minutes: 10, Reason: "  Mất mạng 8 phút, đã xác nhận "})
 	if err != nil {
 		t.Fatalf("extend: %v", err)
 	}
@@ -90,12 +91,12 @@ func TestExtendingMayPushTheDeadlinePastTheAssignmentsClose(t *testing.T) {
 	o.closesAt = time.Now().Add(5 * time.Minute)
 	w := seedWorld(t, pool, o)
 	svc := newService(t, pool)
-	session, err := svc.StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	extended, err := svc.Extend(context.Background(), teacher(w), session.Attempt.ID, 30, "Nộp muộn có lý do")
+	extended, err := svc.Commands.Extend.Handle(context.Background(), command.Extend{Request: teacher(w), AttemptID: session.Attempt.ID, Minutes: 30, Reason: "Nộp muộn có lý do"})
 	if err != nil {
 		t.Fatalf("extend: %v", err)
 	}
@@ -111,10 +112,10 @@ func TestABlankReasonIsRefusedBeforeAnythingChanges(t *testing.T) {
 	ctx := context.Background()
 
 	for _, reason := range []string{"", "   ", "\n\t"} {
-		if _, err := svc.Extend(ctx, teacher(w), session.Attempt.ID, 5, reason); !errors.Is(err, domain.ErrBlankReason) {
+		if _, err := svc.Commands.Extend.Handle(ctx, command.Extend{Request: teacher(w), AttemptID: session.Attempt.ID, Minutes: 5, Reason: reason}); !errors.Is(err, domain.ErrBlankReason) {
 			t.Errorf("extend with %q: %v, want ErrBlankReason", reason, err)
 		}
-		if _, err := svc.Void(ctx, teacher(w), session.Attempt.ID, reason); !errors.Is(err, domain.ErrBlankReason) {
+		if _, err := svc.Commands.Void.Handle(ctx, command.Void{Request: teacher(w), AttemptID: session.Attempt.ID, Reason: reason}); !errors.Is(err, domain.ErrBlankReason) {
 			t.Errorf("void with %q: %v, want ErrBlankReason", reason, err)
 		}
 	}
@@ -138,7 +139,7 @@ func TestVoidingKeepsTheRecordAndAuditsTheStatusChange(t *testing.T) {
 	answerEverythingRight(t, pool, w, session, svc)
 	ctx := context.Background()
 
-	voided, err := svc.Void(ctx, teacher(w), session.Attempt.ID, "Làm nhầm đề của lớp khác")
+	voided, err := svc.Commands.Void.Handle(ctx, command.Void{Request: teacher(w), AttemptID: session.Attempt.ID, Reason: "Làm nhầm đề của lớp khác"})
 	if err != nil {
 		t.Fatalf("void: %v", err)
 	}
@@ -163,13 +164,13 @@ func TestVoidingKeepsTheRecordAndAuditsTheStatusChange(t *testing.T) {
 	}
 
 	// The student's tab finds out on its next save.
-	_, err = svc.Save(ctx, domain.SaveInput{
+	_, err = svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
 		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
-	})
+	}})
 	if !errors.Is(err, domain.ErrAttemptClosed) {
 		t.Errorf("save after void: %v, want ErrAttemptClosed", err)
 	}
-	if _, err := svc.Void(ctx, teacher(w), session.Attempt.ID, "lại"); !errors.Is(err, domain.ErrAttemptVoided) {
+	if _, err := svc.Commands.Void.Handle(ctx, command.Void{Request: teacher(w), AttemptID: session.Attempt.ID, Reason: "lại"}); !errors.Is(err, domain.ErrAttemptVoided) {
 		t.Errorf("voiding twice: %v, want ErrAttemptVoided", err)
 	}
 }
@@ -178,15 +179,15 @@ func TestOnlyALiveAttemptCanBeExtended(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 	ctx := context.Background()
-	if _, err := svc.Submit(ctx, session.Attempt.ID, w.student, domain.Manual); err != nil {
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := svc.Extend(ctx, teacher(w), session.Attempt.ID, 5, "Thử")
+	_, err := svc.Commands.Extend.Handle(ctx, command.Extend{Request: teacher(w), AttemptID: session.Attempt.ID, Minutes: 5, Reason: "Thử"})
 	if !errors.Is(err, domain.ErrAttemptClosed) {
 		t.Errorf("extend after submit: %v, want ErrAttemptClosed", err)
 	}
-	_, err = svc.Extend(ctx, teacher(w), "01935000-0000-7000-8000-00000000dead", 5, "Thử")
+	_, err = svc.Commands.Extend.Handle(ctx, command.Extend{Request: teacher(w), AttemptID: "01935000-0000-7000-8000-00000000dead", Minutes: 5, Reason: "Thử"})
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("extend unknown: %v, want ErrNotFound", err)
 	}
@@ -197,7 +198,7 @@ func TestFlaggingByHandIsAuditedInBothDirections(t *testing.T) {
 	svc, w, session := started(t, pool)
 	ctx := context.Background()
 
-	flagged, err := svc.Flag(ctx, teacher(w), session.Attempt.ID, true, "  hỏi lại em về lúc 10:04  ")
+	flagged, err := svc.Commands.Flag.Handle(ctx, command.Flag{Request: teacher(w), AttemptID: session.Attempt.ID, Flagged: true, Reason: "  hỏi lại em về lúc 10:04  "})
 	if err != nil {
 		t.Fatalf("flag: %v", err)
 	}
@@ -216,7 +217,7 @@ func TestFlaggingByHandIsAuditedInBothDirections(t *testing.T) {
 		t.Errorf("reason = %v, want the trimmed one", audits[0].diff["reason"])
 	}
 
-	cleared, err := svc.Flag(ctx, teacher(w), session.Attempt.ID, false, "")
+	cleared, err := svc.Commands.Flag.Handle(ctx, command.Flag{Request: teacher(w), AttemptID: session.Attempt.ID, Flagged: false, Reason: ""})
 	if err != nil {
 		t.Fatalf("unflag: %v", err)
 	}
@@ -231,13 +232,13 @@ func TestFlaggingByHandIsAuditedInBothDirections(t *testing.T) {
 		t.Errorf("an empty reason was audited as %v, want null", unflagged[0].diff["reason"])
 	}
 
-	if _, err := svc.Void(ctx, teacher(w), session.Attempt.ID, "huỷ"); err != nil {
+	if _, err := svc.Commands.Void.Handle(ctx, command.Void{Request: teacher(w), AttemptID: session.Attempt.ID, Reason: "huỷ"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Flag(ctx, teacher(w), session.Attempt.ID, true, ""); !errors.Is(err, domain.ErrAttemptVoided) {
+	if _, err := svc.Commands.Flag.Handle(ctx, command.Flag{Request: teacher(w), AttemptID: session.Attempt.ID, Flagged: true, Reason: ""}); !errors.Is(err, domain.ErrAttemptVoided) {
 		t.Errorf("flagging a voided attempt: %v, want ErrAttemptVoided", err)
 	}
-	if _, err := svc.Flag(ctx, teacher(w), "00000000-0000-7000-8000-000000000000", true, ""); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := svc.Commands.Flag.Handle(ctx, command.Flag{Request: teacher(w), AttemptID: "00000000-0000-7000-8000-000000000000", Flagged: true, Reason: ""}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("flagging an unknown attempt: %v, want ErrNotFound", err)
 	}
 }

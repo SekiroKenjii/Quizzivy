@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
+// Upload validates, stores the object, then records the row.
 type Upload struct {
 	Filename   string
 	Body       io.Reader

@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/classes/domain"
 )
 
+// ActiveCode returns the live code's metadata, or nil.
 type ActiveCode struct {
 	ClassID string
 }

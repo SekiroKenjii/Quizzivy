@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
+// EnrolNewMember creates an account and enrols it (§6.3). The signup path.
 type EnrolNewMember struct {
 	Member domain.NewMember
 	Code   string

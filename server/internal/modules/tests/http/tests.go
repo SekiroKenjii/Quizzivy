@@ -5,6 +5,8 @@ import (
 	"errors"
 	"quizzivy/gen/openapi"
 	mediahttp "quizzivy/internal/modules/media/http"
+	"quizzivy/internal/modules/tests/application/command"
+	"quizzivy/internal/modules/tests/application/query"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -14,7 +16,7 @@ import (
 const msgTestNotFound = "Không tìm thấy đề."
 
 func (h Tests) ListTests(ctx context.Context, request openapi.ListTestsRequestObject) (openapi.ListTestsResponseObject, error) {
-	if h.tests == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -36,17 +38,18 @@ func (h Tests) ListTests(ctx context.Context, request openapi.ListTestsRequestOb
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, page, err := h.tests.List(ctx, in)
+	listResult, err := h.app.Queries.List.Handle(ctx, query.List{Input: in})
+	found, page := listResult.Items, listResult.Page
 	if err != nil {
 		return nil, err
 	}
 
-	facets, err := h.tests.Facets(ctx, in)
+	facets, err := h.app.Queries.Facets.Handle(ctx, query.Facets{Input: in})
 	if err != nil {
 		return nil, err
 	}
 
-	tagList, err := h.tests.Tags(ctx, in)
+	tagList, err := h.app.Queries.Tags.Handle(ctx, query.Tags{Input: in})
 	if err != nil {
 		return nil, err
 	}
@@ -73,10 +76,10 @@ func (h Tests) ListTests(ctx context.Context, request openapi.ListTestsRequestOb
 }
 
 func (h Tests) GetTest(ctx context.Context, request openapi.GetTestRequestObject) (openapi.GetTestResponseObject, error) {
-	if h.tests == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	t, err := h.tests.Get(ctx, request.Id.String())
+	t, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String()})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgTestNotFound))}, nil
@@ -92,7 +95,7 @@ func (h Tests) GetTest(ctx context.Context, request openapi.GetTestRequestObject
 }
 
 func (h Tests) CreateTest(ctx context.Context, request openapi.CreateTestRequestObject) (openapi.CreateTestResponseObject, error) {
-	if h.tests == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := testRequest(ctx, "")
@@ -100,7 +103,7 @@ func (h Tests) CreateTest(ctx context.Context, request openapi.CreateTestRequest
 		return nil, httpx.ErrNotImplemented
 	}
 
-	t, err := h.tests.Create(ctx, req, request.Body.Title, request.Body.Description)
+	t, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: req, Title: request.Body.Title, Description: request.Body.Description})
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +115,7 @@ func (h Tests) CreateTest(ctx context.Context, request openapi.CreateTestRequest
 }
 
 func (h Tests) UpdateTest(ctx context.Context, request openapi.UpdateTestRequestObject) (openapi.UpdateTestResponseObject, error) {
-	if h.tests == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := testRequest(ctx, request.Id.String())
@@ -120,7 +123,7 @@ func (h Tests) UpdateTest(ctx context.Context, request openapi.UpdateTestRequest
 		return nil, httpx.ErrNotImplemented
 	}
 
-	t, err := h.tests.Update(ctx, req, toUpdateInput(*request.Body))
+	t, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req, Input: toUpdateInput(*request.Body)})
 	switch {
 	case err == nil:
 	case errors.Is(err, domain.ErrStaleWrite):
@@ -150,7 +153,7 @@ func (h Tests) UpdateTest(ctx context.Context, request openapi.UpdateTestRequest
 }
 
 func (h Tests) DuplicateTest(ctx context.Context, request openapi.DuplicateTestRequestObject) (openapi.DuplicateTestResponseObject, error) {
-	if h.tests == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := testRequest(ctx, request.Id.String())
@@ -158,7 +161,7 @@ func (h Tests) DuplicateTest(ctx context.Context, request openapi.DuplicateTestR
 		return nil, httpx.ErrNotImplemented
 	}
 
-	t, err := h.tests.Duplicate(ctx, req)
+	t, err := h.app.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.DuplicateTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgTestNotFound))}, nil
@@ -264,10 +267,10 @@ func toAPITest(t domain.Test) (openapi.Test, error) {
 }
 
 func (h Tests) ListTestVersions(ctx context.Context, request openapi.ListTestVersionsRequestObject) (openapi.ListTestVersionsResponseObject, error) {
-	if h.tests == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	versions, err := h.tests.ListVersions(ctx, request.Id.String())
+	versions, err := h.app.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: request.Id.String()})
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +296,7 @@ func (h Tests) ListTestVersions(ctx context.Context, request openapi.ListTestVer
 }
 
 func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestRequestObject) (openapi.PreviewTestResponseObject, error) {
-	if h.tests == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -302,7 +305,8 @@ func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestReque
 		version = *request.Params.Version
 	}
 
-	resolved, questions, err := h.tests.Preview(ctx, request.Id.String(), version)
+	previewResult, err := h.app.Queries.Preview.Handle(ctx, query.Preview{TestID: request.Id.String(), Version: version})
+	resolved, questions := previewResult.Total, previewResult.Questions
 	if errors.Is(err, domain.ErrNotPublished) {
 		return openapi.PreviewTest409JSONResponse(httpapi.Error(ctx,
 			openapi.TESTNOTPUBLISHED, "Đề này chưa được phát hành.")), nil

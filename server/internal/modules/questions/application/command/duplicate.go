@@ -6,6 +6,10 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 )
 
+// Duplicate is A-06a's "Nhân bản": the same question again as a new bank row
+// -- options, blanks, media and tags copied, ids fresh -- that no test holds
+// yet. It goes through the same write as a create, so it is validated and
+// audited like one.
 type Duplicate struct {
 	Request domain.WriteRequest
 }

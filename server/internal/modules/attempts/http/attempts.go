@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/attempts/application/command"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -14,7 +16,7 @@ import (
 // StartOrResumeAttempt backs §9's "Bắt đầu": one call whether the student is
 // starting, reloading after a crash, or arriving on a second device.
 func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.StartOrResumeAttemptRequestObject) (openapi.StartOrResumeAttemptResponseObject, error) {
-	if h.attempts == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -22,7 +24,7 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 		return nil, httpx.ErrNotImplemented
 	}
 
-	session, err := h.attempts.StartOrResume(ctx, request.Id.String(), principal.UserID)
+	session, err := h.app.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: request.Id.String(), StudentID: principal.UserID})
 	switch {
 	case errors.Is(err, domain.ErrForbidden), errors.Is(err, domain.ErrNotFound):
 
@@ -51,7 +53,7 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 // is the same shape the start returns, so there is one definition of what a
 // student may see rather than two that can drift apart.
 func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequestObject) (openapi.GetAttemptResponseObject, error) {
-	if h.attempts == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -59,7 +61,7 @@ func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequ
 		return nil, httpx.ErrNotImplemented
 	}
 
-	session, err := h.attempts.Get(ctx, request.Id.String(), principal.UserID)
+	session, err := h.app.Queries.Get.Handle(ctx, query.Get{AttemptID: request.Id.String(), StudentID: principal.UserID})
 	if errors.Is(err, domain.ErrForbidden) || errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
@@ -194,7 +196,7 @@ func toAPIAnswers(stored map[string][]byte) (map[string]openapi.Answer, error) {
 // SaveAnswers is §9's autosave: answers and the events that accompanied them,
 // in one call and one transaction.
 func (h Attempts) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRequestObject) (openapi.SaveAnswersResponseObject, error) {
-	if h.attempts == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -215,7 +217,7 @@ func (h Attempts) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRe
 		return nil, err
 	}
 
-	saved, err := h.attempts.Save(ctx, in)
+	saved, err := h.app.Commands.Save.Handle(ctx, command.Save{Input: in})
 	switch {
 	case errors.Is(err, domain.ErrForbidden):
 		return openapi.SaveAnswers403JSONResponse{
@@ -294,7 +296,7 @@ func toDomainEvents(in *[]openapi.IntegrityEventInput) ([]domain.Event, error) {
 
 // RecordAudioPlay increments the server-authoritative counter (§11.4).
 func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAudioPlayRequestObject) (openapi.RecordAudioPlayResponseObject, error) {
-	if h.attempts == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -302,8 +304,7 @@ func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAud
 		return nil, httpx.ErrNotImplemented
 	}
 
-	plays, err := h.attempts.RecordPlay(ctx,
-		request.Id.String(), principal.UserID, request.Body.QuestionId.String())
+	plays, err := h.app.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: request.Id.String(), StudentID: principal.UserID, QuestionID: request.Body.QuestionId.String()})
 	if errors.Is(err, domain.ErrForbidden) {
 		return openapi.RecordAudioPlay403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
@@ -327,7 +328,7 @@ type beaconFlush struct {
 
 // FlushEvents accepts the ordinary authenticated flush and the beacon one.
 func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRequestObject) (openapi.FlushEventsResponseObject, error) {
-	if h.attempts == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -364,7 +365,7 @@ func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRe
 		return forbiddenFlush(ctx), nil
 	}
 
-	err := h.attempts.Flush(ctx, in)
+	_, err := h.app.Commands.Flush.Handle(ctx, command.Flush{Input: in})
 	if errors.Is(err, domain.ErrForbidden) || errors.Is(err, domain.ErrBeaconExpired) {
 		return forbiddenFlush(ctx), nil
 	}
@@ -383,7 +384,7 @@ func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {
 
 // SubmitAttempt closes an attempt and grades everything a machine can.
 func (h Attempts) SubmitAttempt(ctx context.Context, request openapi.SubmitAttemptRequestObject) (openapi.SubmitAttemptResponseObject, error) {
-	if h.attempts == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -396,7 +397,7 @@ func (h Attempts) SubmitAttempt(ctx context.Context, request openapi.SubmitAttem
 		reason = domain.Reason(*request.Body.Reason)
 	}
 
-	closed, err := h.attempts.Submit(ctx, request.Id.String(), principal.UserID, reason)
+	closed, err := h.app.Commands.Submit.Handle(ctx, command.Submit{AttemptID: request.Id.String(), StudentID: principal.UserID, Reason: reason})
 	switch {
 	case errors.Is(err, domain.ErrForbidden):
 		return openapi.SubmitAttempt403JSONResponse{

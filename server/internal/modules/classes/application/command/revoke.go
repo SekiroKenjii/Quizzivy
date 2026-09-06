@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
+// Revoke ends the active code and closes self-join (§6.4).
 type Revoke struct {
 	Request domain.RevokeRequest
 }

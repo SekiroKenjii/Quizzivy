@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
 	"testing"
 )
@@ -15,16 +16,16 @@ func TestAfterAResetTheOldAttemptIsReadableAndTheNewOneIsNumberedNext(t *testing
 	svc, w, first := started(t, pool)
 	answerEverythingRight(t, pool, w, first, svc)
 	ctx := context.Background()
-	if _, err := svc.Submit(ctx, first.Attempt.ID, w.student, domain.Manual); err != nil {
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: first.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
 		t.Fatal(err)
 	}
 
 	// max_attempts is 1, so without the reset the student is done.
-	if _, err := svc.StartOrResume(ctx, w.assignment, w.student); err != domain.ErrLimitReached {
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != domain.ErrLimitReached {
 		t.Fatalf("before reset: %v, want ErrLimitReached", err)
 	}
 
-	voided, err := svc.Reset(ctx, teacher(w), first.Attempt.ID, "Mất điện giữa giờ, cả lớp xác nhận")
+	voided, err := svc.Commands.Reset.Handle(ctx, command.Reset{Request: teacher(w), AttemptID: first.Attempt.ID, Reason: "Mất điện giữa giờ, cả lớp xác nhận"})
 	if err != nil {
 		t.Fatalf("reset: %v", err)
 	}
@@ -35,7 +36,7 @@ func TestAfterAResetTheOldAttemptIsReadableAndTheNewOneIsNumberedNext(t *testing
 		t.Errorf("%d audit rows for the reset, want 1", len(audits))
 	}
 
-	second, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	second, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start after reset: %v", err)
 	}

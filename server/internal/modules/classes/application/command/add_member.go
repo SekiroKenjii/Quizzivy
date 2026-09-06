@@ -4,15 +4,14 @@ import (
 	"context"
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/opt"
 )
 
 type AddMember struct {
-	ClassID   string
-	UserID    string
-	ActorID   string
-	IP        string
-	UserAgent string
+	ClassID string
+	UserID  string
+	Actor   actor.Actor
 }
 
 type AddMemberHandler struct {
@@ -21,8 +20,8 @@ type AddMemberHandler struct {
 
 func (s AddMemberHandler) Handle(ctx context.Context, cmd AddMember) (domain.Member, error) {
 	member, err := s.Repo.AddMember(ctx, domain.AddMemberInput{
-		ClassID: cmd.ClassID, UserID: cmd.UserID, ActorUserID: cmd.ActorID,
-		Now: s.Now(), IP: opt.String(cmd.IP), UserAgent: opt.String(cmd.UserAgent),
+		ClassID: cmd.ClassID, UserID: cmd.UserID, ActorUserID: cmd.Actor.ID,
+		Now: s.Now(), IP: opt.String(cmd.Actor.IP), UserAgent: opt.String(cmd.Actor.UserAgent),
 	})
 	if err != nil {
 		return domain.Member{}, err

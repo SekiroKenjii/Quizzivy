@@ -4,15 +4,14 @@ import (
 	"context"
 	"quizzivy/internal/modules/classes/application/internal/support"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/opt"
 )
 
 type Archive struct {
-	ClassID   string
-	Archived  bool
-	ActorID   string
-	IP        string
-	UserAgent string
+	ClassID  string
+	Archived bool
+	Actor    actor.Actor
 }
 
 type ArchiveHandler struct {
@@ -21,7 +20,7 @@ type ArchiveHandler struct {
 
 func (s ArchiveHandler) Handle(ctx context.Context, cmd Archive) (domain.Class, error) {
 	return s.Repo.Archive(ctx, domain.ArchiveInput{
-		ClassID: cmd.ClassID, Archived: cmd.Archived, ActorUserID: cmd.ActorID,
-		Now: s.Now(), IP: opt.String(cmd.IP), UserAgent: opt.String(cmd.UserAgent),
+		ClassID: cmd.ClassID, Archived: cmd.Archived, ActorUserID: cmd.Actor.ID,
+		Now: s.Now(), IP: opt.String(cmd.Actor.IP), UserAgent: opt.String(cmd.Actor.UserAgent),
 	})
 }

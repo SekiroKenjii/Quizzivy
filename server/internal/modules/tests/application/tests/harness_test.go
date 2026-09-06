@@ -61,9 +61,9 @@ func makeAuthor(t *testing.T, pool *pgxpool.Pool) string {
 	return id
 }
 
-func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
+func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
+	return application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 }
 
 func req(author string) domain.Request { return domain.Request{ActorID: author} }

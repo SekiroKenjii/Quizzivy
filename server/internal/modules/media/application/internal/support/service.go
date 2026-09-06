@@ -23,6 +23,9 @@ func NewService(repo domain.Repository, object ports.ObjectStore, probe ports.Au
 	return &Service{Repo: repo, Object: object, Probe: probe, Now: time.Now, TTL: DefaultSignedURLTTL}
 }
 
+// WithSignedURLTTL sets the signature lifetime from configuration. A
+// non-positive value keeps the default rather than minting URLs that are
+// already expired.
 func (s *Service) WithSignedURLTTL(ttl time.Duration) *Service {
 	if ttl > 0 {
 		s.TTL = ttl
@@ -30,6 +33,11 @@ func (s *Service) WithSignedURLTTL(ttl time.Duration) *Service {
 	return s
 }
 
+// SignedURLTTL is the lifetime this service signs with. Exported because the
+// Cache-Control directive on a signed-URL response has to be derived from the
+// same value -- a cache entry outliving its signature is what §11.2's max-age
+// exists to prevent, and two independent copies of "ten minutes" is how that
+// stops being true.
 func (s *Service) SignedURLTTL() time.Duration { return s.TTL }
 
 func (s *Service) Identify(r io.ReaderAt, size int64) (domain.Kind, string, *int, error) {

@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
+// Rotate issues a new join code, revoking any existing one.
 type Rotate struct {
 	Request domain.RotateRequest
 }

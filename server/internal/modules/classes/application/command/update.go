@@ -6,6 +6,7 @@ import (
 	"quizzivy/internal/modules/classes/domain"
 )
 
+// Update edits a class's own fields.
 type Update struct {
 	ClassID string
 	Input   domain.UpdateInput

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -14,7 +15,7 @@ import (
 // GetAttemptResult is §9's result page. What the policy withheld never left
 // the database, so there is nothing here to strip (§13.5).
 func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttemptResultRequestObject) (openapi.GetAttemptResultResponseObject, error) {
-	if h.attempts == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -22,7 +23,7 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 		return nil, httpx.ErrNotImplemented
 	}
 
-	result, err := h.attempts.Result(ctx, request.Id.String(), principal.UserID)
+	result, err := h.app.Queries.Result.Handle(ctx, query.Result{AttemptID: request.Id.String(), StudentID: principal.UserID})
 	switch {
 	case errors.Is(err, domain.ErrForbidden), errors.Is(err, domain.ErrNotFound):
 		return openapi.GetAttemptResult403JSONResponse{ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(

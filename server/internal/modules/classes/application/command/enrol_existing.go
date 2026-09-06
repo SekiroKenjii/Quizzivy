@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
+// EnrolExisting enrols a student who is already signed in (§6.2).
 type EnrolExisting struct {
 	UserID string
 	Code   string

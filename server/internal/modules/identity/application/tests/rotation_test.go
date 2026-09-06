@@ -6,6 +6,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/platform/db"
 	"strings"
 	"sync"
@@ -24,11 +26,9 @@ import (
 // row lock, not in the Go code, and an in-memory fake would assert nothing.
 
 // login returns a live refresh token for a fresh user.
-func login(t *testing.T, svc *application.Service, email string) string {
+func login(t *testing.T, svc *application.Application, email string) string {
 	t.Helper()
-	session, err := svc.Login(context.Background(), application.LoginInput{
-		Email: email, Password: testPassword, IP: "203.0.113.7", UserAgent: "go-test",
-	})
+	session, err := svc.Commands.Login.Handle(context.Background(), command.Login{Email: email, Password: testPassword, IP: "203.0.113.7", UserAgent: "go-test"})
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -78,9 +78,7 @@ func TestRotationIssuesASuccessorInTheSameFamilyWithReplacedBySet(t *testing.T) 
 	first := login(t, svc, email)
 	before := loadToken(t, pool, first)
 
-	res, err := svc.Refresh(context.Background(), application.RefreshInput{
-		Token: first, IP: "203.0.113.9", UserAgent: "go-test",
-	})
+	res, err := svc.Commands.Refresh.Handle(context.Background(), command.Refresh{Token: first, IP: "203.0.113.9", UserAgent: "go-test"})
 	if err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
@@ -123,11 +121,11 @@ func TestReplayingARotatedTokenRevokesEveryTokenInTheFamily(t *testing.T) {
 	family := loadToken(t, pool, first).familyID
 
 	// Rotate twice, so the family has a history rather than a single link.
-	second, err := svc.Refresh(ctx, application.RefreshInput{Token: first})
+	second, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first})
 	if err != nil {
 		t.Fatal(err)
 	}
-	third, err := svc.Refresh(ctx, application.RefreshInput{Token: second.RefreshToken})
+	third, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: second.RefreshToken})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +134,7 @@ func TestReplayingARotatedTokenRevokesEveryTokenInTheFamily(t *testing.T) {
 	}
 
 	// Replay the ORIGINAL, long-rotated token.
-	_, err = svc.Refresh(ctx, application.RefreshInput{Token: first})
+	_, err = svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first})
 	if !errors.Is(err, domain.ErrRefreshReused) {
 		t.Fatalf("replay error = %v, want ErrRefreshReused", err)
 	}
@@ -144,7 +142,7 @@ func TestReplayingARotatedTokenRevokesEveryTokenInTheFamily(t *testing.T) {
 	if n := liveTokensInFamily(t, pool, family); n != 0 {
 		t.Errorf("live tokens after reuse = %d, want 0 -- §5.2 revokes the WHOLE family", n)
 	}
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: third.RefreshToken}); err == nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: third.RefreshToken}); err == nil {
 		t.Error("the newest token still works after its family was revoked")
 	}
 }
@@ -171,7 +169,7 @@ func TestConcurrentRefreshesOfOneTokenElectExactlyOneWinner(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-release // line them all up on the same starting gun
-			_, err := svc.Refresh(context.Background(), application.RefreshInput{Token: first})
+			_, err := svc.Commands.Refresh.Handle(context.Background(), command.Refresh{Token: first})
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
@@ -212,7 +210,7 @@ func TestAnExpiredTokenIsRejectedButIsNotTreatedAsReuse(t *testing.T) {
 	family := loadToken(t, pool, token).familyID
 
 	svc.SetClock(time.Now) // the token's 30 days elapsed long ago
-	_, err := svc.Refresh(context.Background(), application.RefreshInput{Token: token})
+	_, err := svc.Commands.Refresh.Handle(context.Background(), command.Refresh{Token: token})
 	if !errors.Is(err, domain.ErrRefreshRejected) {
 		t.Fatalf("expired token error = %v, want ErrRefreshRejected", err)
 	}
@@ -230,7 +228,7 @@ func TestAnUnknownTokenIsRejected(t *testing.T) {
 	pool := newPool(t)
 	svc := newService(t, pool)
 
-	_, err := svc.Refresh(context.Background(), application.RefreshInput{Token: "not-a-token-we-ever-issued"})
+	_, err := svc.Commands.Refresh.Handle(context.Background(), command.Refresh{Token: "not-a-token-we-ever-issued"})
 	if !errors.Is(err, domain.ErrRefreshRejected) {
 		t.Fatalf("error = %v, want ErrRefreshRejected", err)
 	}
@@ -240,7 +238,7 @@ func TestAnEmptyTokenIsRejectedWithoutTouchingTheDatabase(t *testing.T) {
 	pool := newPool(t)
 	svc := newService(t, pool)
 
-	if _, err := svc.Refresh(context.Background(), application.RefreshInput{Token: ""}); !errors.Is(err, domain.ErrRefreshRejected) {
+	if _, err := svc.Commands.Refresh.Handle(context.Background(), command.Refresh{Token: ""}); !errors.Is(err, domain.ErrRefreshRejected) {
 		t.Fatalf("error = %v, want ErrRefreshRejected", err)
 	}
 }
@@ -259,7 +257,7 @@ func TestASuspendedUserCannotRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: token}); !errors.Is(err, domain.ErrRefreshRejected) {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: token}); !errors.Is(err, domain.ErrRefreshRejected) {
 		t.Fatalf("error = %v, want ErrRefreshRejected", err)
 	}
 	if n := liveTokensInFamily(t, pool, family); n != 0 {
@@ -275,12 +273,10 @@ func TestReuseDetectionIsRecordedInTheAuditLog(t *testing.T) {
 
 	first := login(t, svc, email)
 	family := loadToken(t, pool, first).familyID
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: first}); err != nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Refresh(ctx, application.RefreshInput{
-		Token: first, IP: "198.51.100.23", UserAgent: "replayer/1.0",
-	}); !errors.Is(err, domain.ErrRefreshReused) {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first, IP: "198.51.100.23", UserAgent: "replayer/1.0"}); !errors.Is(err, domain.ErrRefreshReused) {
 		t.Fatal("expected reuse detection")
 	}
 
@@ -312,18 +308,18 @@ func TestLogoutRevokesTheWholeFamilyNotJustTheCurrentToken(t *testing.T) {
 
 	first := login(t, svc, email)
 	family := loadToken(t, pool, first).familyID
-	second, err := svc.Refresh(ctx, application.RefreshInput{Token: first})
+	second, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := svc.Logout(ctx, second.RefreshToken); err != nil {
+	if _, err := svc.Commands.Logout.Handle(ctx, command.Logout{Token: second.RefreshToken}); err != nil {
 		t.Fatalf("logout: %v", err)
 	}
 	if n := liveTokensInFamily(t, pool, family); n != 0 {
 		t.Errorf("live tokens after logout = %d, want 0", n)
 	}
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: second.RefreshToken}); err == nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: second.RefreshToken}); err == nil {
 		t.Error("the token still refreshes after logout")
 	}
 }
@@ -336,11 +332,11 @@ func TestLogoutIsIdempotentAndForgivingOfUnknownTokens(t *testing.T) {
 
 	token := login(t, svc, email)
 	for i := range 3 {
-		if err := svc.Logout(ctx, token); err != nil {
+		if _, err := svc.Commands.Logout.Handle(ctx, command.Logout{Token: token}); err != nil {
 			t.Fatalf("logout %d: %v", i+1, err)
 		}
 	}
-	if err := svc.Logout(ctx, "a-token-that-was-never-issued"); err != nil {
+	if _, err := svc.Commands.Logout.Handle(ctx, command.Logout{Token: "a-token-that-was-never-issued"}); err != nil {
 		t.Errorf("logout with an unknown token = %v, want nil", err)
 	}
 }
@@ -358,7 +354,7 @@ func TestPruningDeletesExpiredTokensAndLeavesLiveOnes(t *testing.T) {
 	svc.SetClock(time.Now)
 	live := login(t, svc, email)
 
-	if _, err := svc.PruneExpiredTokens(ctx); err != nil {
+	if _, err := svc.Commands.PruneExpiredTokens.Handle(ctx, command.PruneExpiredTokens{}); err != nil {
 		t.Fatalf("prune: %v", err)
 	}
 
@@ -381,11 +377,11 @@ func TestLoggingOutIsNotReportedAsReuse(t *testing.T) {
 	ctx := context.Background()
 
 	token := login(t, svc, email)
-	if err := svc.Logout(ctx, token); err != nil {
+	if _, err := svc.Commands.Logout.Handle(ctx, command.Logout{Token: token}); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := svc.Refresh(ctx, application.RefreshInput{Token: token})
+	_, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: token})
 	if errors.Is(err, domain.ErrRefreshReused) {
 		t.Fatal("refreshing after logout was reported as token REUSE; the student " +
 			"would be told someone else used their session")
@@ -402,18 +398,18 @@ func TestAVictimOfSomeoneElsesReplayIsNotAccusedOfReuse(t *testing.T) {
 	ctx := context.Background()
 
 	first := login(t, svc, email)
-	current, err := svc.Refresh(ctx, application.RefreshInput{Token: first})
+	current, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// The replay, by someone else.
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: first}); !errors.Is(err, domain.ErrRefreshReused) {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first}); !errors.Is(err, domain.ErrRefreshReused) {
 		t.Fatalf("replay error = %v, want ErrRefreshReused", err)
 	}
 
 	// The victim, holding a token that was revoked but never rotated.
-	_, err = svc.Refresh(ctx, application.RefreshInput{Token: current.RefreshToken})
+	_, err = svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: current.RefreshToken})
 	if errors.Is(err, domain.ErrRefreshReused) {
 		t.Error("the victim's own token was reported as reused")
 	}
@@ -429,11 +425,11 @@ func TestReplayingAnAlreadyReplayedTokenStaysReuse(t *testing.T) {
 	ctx := context.Background()
 
 	first := login(t, svc, email)
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: first}); err != nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first}); err != nil {
 		t.Fatal(err)
 	}
 	for i := range 3 {
-		if _, err := svc.Refresh(ctx, application.RefreshInput{Token: first}); !errors.Is(err, domain.ErrRefreshReused) {
+		if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: first}); !errors.Is(err, domain.ErrRefreshReused) {
 			t.Fatalf("replay %d: error = %v, want ErrRefreshReused", i+1, err)
 		}
 	}
@@ -447,12 +443,12 @@ func TestPruningNeverBreaksARotationChainItLeavesBehind(t *testing.T) {
 	long := newService(t, pool) // 30-day tokens
 	first := login(t, long, email)
 	family := loadToken(t, pool, first).familyID
-	short := application.NewService(repositories.NewUsers(db.NewContext(pool)), mustIssuer(t), time.Hour)
-	if _, err := short.Refresh(ctx, application.RefreshInput{Token: first}); err != nil {
+	short := application.New(repositories.NewUsers(db.NewContext(pool)), mustIssuer(t), time.Hour, nil, nil)
+	if _, err := short.Commands.Refresh.Handle(ctx, command.Refresh{Token: first}); err != nil {
 		t.Fatal(err)
 	}
 	short.SetClock(func() time.Time { return time.Now().Add(2 * time.Hour) })
-	if _, err := short.PruneExpiredTokens(ctx); err != nil {
+	if _, err := short.Commands.PruneExpiredTokens.Handle(ctx, command.PruneExpiredTokens{}); err != nil {
 		t.Fatalf("prune: %v", err)
 	}
 
@@ -463,7 +459,7 @@ func TestPruningNeverBreaksARotationChainItLeavesBehind(t *testing.T) {
 	}
 
 	// The property that link protects, asserted end to end.
-	if _, err := long.Refresh(ctx, application.RefreshInput{Token: first}); !errors.Is(err, domain.ErrRefreshReused) {
+	if _, err := long.Commands.Refresh.Handle(ctx, command.Refresh{Token: first}); !errors.Is(err, domain.ErrRefreshReused) {
 		t.Fatalf("replay after pruning = %v, want ErrRefreshReused", err)
 	}
 	if n := liveTokensInFamily(t, pool, family); n != 0 {
@@ -481,7 +477,7 @@ func TestPruningRemovesAFullyExpiredFamily(t *testing.T) {
 	past := time.Now().Add(-90 * 24 * time.Hour)
 	svc.SetClock(func() time.Time { return past })
 	stale := login(t, svc, email)
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: stale}); err != nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: stale}); err != nil {
 		t.Fatal(err)
 	}
 	family := loadToken(t, pool, stale).familyID
@@ -489,7 +485,7 @@ func TestPruningRemovesAFullyExpiredFamily(t *testing.T) {
 	svc.SetClock(time.Now)
 	live := login(t, svc, email) // a separate, current family
 
-	if _, err := svc.PruneExpiredTokens(ctx); err != nil {
+	if _, err := svc.Commands.PruneExpiredTokens.Handle(ctx, command.PruneExpiredTokens{}); err != nil {
 		t.Fatalf("prune: %v", err)
 	}
 
@@ -504,9 +500,9 @@ func TestPruningRemovesAFullyExpiredFamily(t *testing.T) {
 	loadToken(t, pool, live) // fatals if the live family was pruned
 }
 
-func mustIssuer(t *testing.T) *application.TokenIssuer {
+func mustIssuer(t *testing.T) *token.Issuer {
 	t.Helper()
-	issuer, err := application.NewTokenIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
+	issuer, err := token.NewIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

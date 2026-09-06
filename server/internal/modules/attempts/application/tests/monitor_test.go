@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"os"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/platform/db"
@@ -154,7 +155,7 @@ func TestARowShowsTheAttemptThatStillCountsAndReadsProgressFromTheAnswers(t *tes
 	handIn(t, pool, w, other, 1, "voided")
 	live := handIn(t, pool, w, other, 2, "submitted")
 
-	monitor, err := svc.Monitor(context.Background(), w.assignment)
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +190,7 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	monitor, err := svc.Monitor(context.Background(), w.assignment)
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}

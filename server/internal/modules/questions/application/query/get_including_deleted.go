@@ -6,6 +6,8 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 )
 
+// GetIncludingDeleted resolves a question whether or not it is deleted, for the
+// version snapshot path.
 type GetIncludingDeleted struct {
 	ID string
 }

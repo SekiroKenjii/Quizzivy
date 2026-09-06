@@ -15,4 +15,5 @@ func NewEnrolment(repo domain.Repository) *Enrolment {
 	return &Enrolment{Repo: repo, Now: time.Now}
 }
 
+// SetClock replaces the time source. Tests only.
 func (s *Enrolment) SetClock(now func() time.Time) { s.Now = now }

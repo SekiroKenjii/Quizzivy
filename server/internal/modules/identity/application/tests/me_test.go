@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"quizzivy/internal/modules/identity/application/query"
 	"testing"
 
 	"quizzivy/internal/modules/identity/domain"
@@ -42,7 +43,7 @@ func TestCurrentUserReportsTheSessionShape(t *testing.T) {
 	svc := newService(t, pool)
 	id, email := makeUser(t, pool, admin)
 
-	user, err := svc.CurrentUser(context.Background(), id)
+	user, err := svc.Queries.CurrentUser.Handle(context.Background(), query.CurrentUser{UserID: id})
 	if err != nil {
 		t.Fatalf("CurrentUser: %v", err)
 	}
@@ -66,7 +67,7 @@ func TestAGoogleOnlyUserReportsNoPasswordAndTheGoogleProvider(t *testing.T) {
 	id, email := makeUser(t, pool, googleOnly)
 	linkGoogle(t, pool, id, email)
 
-	user, err := svc.CurrentUser(context.Background(), id)
+	user, err := svc.Queries.CurrentUser.Handle(context.Background(), query.CurrentUser{UserID: id})
 	if err != nil {
 		t.Fatalf("CurrentUser: %v", err)
 	}
@@ -83,7 +84,7 @@ func TestASuspendedAccountHasNoCurrentUser(t *testing.T) {
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool, disabled)
 
-	if _, err := svc.CurrentUser(context.Background(), id); !errors.Is(err, domain.ErrAccountDisabled) {
+	if _, err := svc.Queries.CurrentUser.Handle(context.Background(), query.CurrentUser{UserID: id}); !errors.Is(err, domain.ErrAccountDisabled) {
 		t.Fatalf("error = %v, want ErrAccountDisabled", err)
 	}
 }
@@ -92,7 +93,7 @@ func TestCurrentUserRejectsAnIdThatNoLongerExists(t *testing.T) {
 	pool := newPool(t)
 	svc := newService(t, pool)
 
-	_, err := svc.CurrentUser(context.Background(), "00000000-0000-7000-8000-000000000000")
+	_, err := svc.Queries.CurrentUser.Handle(context.Background(), query.CurrentUser{UserID: "00000000-0000-7000-8000-000000000000"})
 	if !errors.Is(err, domain.ErrUserNotFound) {
 		t.Fatalf("error = %v, want ErrUserNotFound", err)
 	}

@@ -250,7 +250,7 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 	return w
 }
 
-func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
+func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(db.NewContext(pool)))
+	return application.New(nil, nil, repositories.NewPostgres(db.NewContext(pool)))
 }

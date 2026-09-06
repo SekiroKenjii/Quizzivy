@@ -4,13 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	identitymodel "quizzivy/internal/modules/identity/application/model"
 	mediaquery "quizzivy/internal/modules/media/application/query"
 
 	attemptshttp "quizzivy/internal/modules/attempts/http"
-	classesapp "quizzivy/internal/modules/classes/application"
-	classescommand "quizzivy/internal/modules/classes/application/command"
-	classesdomain "quizzivy/internal/modules/classes/domain"
-	identityapp "quizzivy/internal/modules/identity/application"
 	identitydomain "quizzivy/internal/modules/identity/domain"
 	mediaapp "quizzivy/internal/modules/media/application"
 	mediamodel "quizzivy/internal/modules/media/application/model"
@@ -30,12 +27,12 @@ func (g googleProvider) Exchange(ctx context.Context, code, codeVerifier, redire
 	return token, googleError(err)
 }
 
-func (g googleProvider) Verify(ctx context.Context, rawIDToken string) (identityapp.GoogleIdentity, error) {
+func (g googleProvider) Verify(ctx context.Context, rawIDToken string) (identitymodel.GoogleIdentity, error) {
 	id, err := g.provider.Verify(ctx, rawIDToken)
 	if err != nil {
-		return identityapp.GoogleIdentity{}, googleError(err)
+		return identitymodel.GoogleIdentity{}, googleError(err)
 	}
-	return identityapp.GoogleIdentity{
+	return identitymodel.GoogleIdentity{
 		Subject: id.Subject, Email: id.Email, EmailVerified: id.EmailVerified, Name: id.Name, Picture: id.Picture,
 	}, nil
 }
@@ -54,12 +51,6 @@ func googleError(err error) error {
 		return errors.Join(identitydomain.ErrGoogleEmailUnverified, err)
 	}
 	return err
-}
-
-type selfEnroller struct{ app *classesapp.Application }
-
-func (e selfEnroller) EnrolNewMember(ctx context.Context, m classesdomain.NewMember, rawCode string, meta classesdomain.Meta) (classesdomain.EnrolResult, error) {
-	return e.app.Commands.EnrolNewMember.Handle(ctx, classescommand.EnrolNewMember{Member: m, Code: rawCode, Meta: meta})
 }
 
 type audioProbe struct{}

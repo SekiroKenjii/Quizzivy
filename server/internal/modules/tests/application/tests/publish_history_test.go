@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	questionscommand "quizzivy/internal/modules/questions/application/command"
+	"quizzivy/internal/modules/tests/application/command"
+	"quizzivy/internal/modules/tests/application/query"
 	"quizzivy/internal/platform/db"
 	"testing"
 
@@ -27,7 +29,7 @@ func TestListVersionsIsNewestFirstAndCountsFrozenRows(t *testing.T) {
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 	ctx := context.Background()
 
 	first := b.shortAnswer("Câu một", "2.00")
@@ -41,7 +43,7 @@ func TestListVersionsIsNewestFirstAndCountsFrozenRows(t *testing.T) {
 		t.Fatalf("publish v2: %v", err)
 	}
 
-	versions, err := svc.ListVersions(ctx, draft.ID)
+	versions, err := svc.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: draft.ID})
 	if err != nil {
 		t.Fatalf("list versions: %v", err)
 	}
@@ -67,7 +69,7 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 	qsvc := questionsapp.New(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
 	ctx := context.Background()
 
@@ -103,7 +105,8 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 		t.Fatalf("edit the bank question: %v", err)
 	}
 
-	version, questionsOut, err := svc.Preview(ctx, draft.ID, 0)
+	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
+	version, questionsOut := previewResult.Total, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview: %v", err)
 	}
@@ -131,12 +134,12 @@ func TestPreviewOfAnUnpublishedTestSaysSoRatherThanReturningNothing(t *testing.T
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 
 	draft := b.draft("Chưa phát hành", b.shortAnswer("Câu một", "1.00"))
 
 	// An empty list would render as a published test with no questions.
-	if _, _, err := svc.Preview(context.Background(), draft.ID, 0); !errors.Is(err, domain.ErrNotPublished) {
+	if _, err := svc.Queries.Preview.Handle(context.Background(), query.Preview{TestID: draft.ID, Version: 0}); !errors.Is(err, domain.ErrNotPublished) {
 		t.Fatalf("want ErrNotPublished, got %v", err)
 	}
 }
@@ -145,7 +148,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
-	svc := application.NewService(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 	ctx := context.Background()
 
 	one := b.shortAnswer("Chỉ ở v1", "1.00")
@@ -155,22 +158,23 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	}
 
 	two := b.shortAnswer("Thêm ở v2", "1.00")
-	reread, err := svc.Get(ctx, draft.ID)
+	reread, err := svc.Queries.Get.Handle(ctx, query.Get{ID: draft.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Update(ctx, domain.Request{ID: draft.ID, ActorID: author}, domain.UpdateInput{
+	if _, err := svc.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: draft.ID, ActorID: author}, Input: domain.UpdateInput{
 		ExpectedUpdatedAt: reread.UpdatedAt,
 		SetSections:       true,
 		Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: []string{one, two}}},
-	}); err != nil {
+	}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := b.publish(draft.ID); err != nil {
 		t.Fatalf("publish v2: %v", err)
 	}
 
-	v1, questionsV1, err := svc.Preview(ctx, draft.ID, 1)
+	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 1})
+	v1, questionsV1 := previewResult.Total, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview v1: %v", err)
 	}
@@ -178,7 +182,8 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 		t.Fatalf("v1: want version 1 with 1 question, got %d with %d", v1, len(questionsV1))
 	}
 
-	v2, questionsV2, err := svc.Preview(ctx, draft.ID, 0)
+	previewResult, err = svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
+	v2, questionsV2 := previewResult.Total, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview current: %v", err)
 	}

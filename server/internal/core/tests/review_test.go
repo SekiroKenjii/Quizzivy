@@ -8,7 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"quizzivy/internal/core"
+	attemptsapp "quizzivy/internal/modules/attempts/application"
+	attemptsquery "quizzivy/internal/modules/attempts/application/query"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
+	identityquery "quizzivy/internal/modules/identity/application/query"
+	"quizzivy/internal/shared/cqrs"
 	"testing"
 	"time"
 
@@ -18,28 +22,22 @@ import (
 
 type fakeReview struct{ rv attemptsdomain.Review }
 
-func (f fakeReview) Get(context.Context, string) (attemptsdomain.Review, error) { return f.rv, nil }
-func (f fakeReview) Grade(context.Context, string, string, []attemptsdomain.GradeItem) (attemptsdomain.Score, error) {
-	return attemptsdomain.Score{}, nil
-}
-func (f fakeReview) SetNote(context.Context, string, *string) error { return nil }
-func (f fakeReview) AnswersForQuestion(context.Context, string, string) (attemptsdomain.ByQuestion, error) {
-	return attemptsdomain.ByQuestion{}, nil
-}
-func (f fakeReview) Finish(context.Context, string) (attemptsdomain.Attempt, error) {
-	return attemptsdomain.Attempt{}, nil
+func (f fakeReview) app() *attemptsapp.Application {
+	review := func(context.Context, attemptsquery.Review) (attemptsdomain.Review, error) { return f.rv, nil }
+	timeline := func(context.Context, attemptsquery.Timeline) (attemptsdomain.Timeline, error) {
+		return attemptsdomain.Timeline{}, nil
+	}
+	return &attemptsapp.Application{Queries: attemptsapp.Queries{
+		Review:   cqrs.HandlerFunc[attemptsquery.Review, attemptsdomain.Review](review),
+		Timeline: cqrs.HandlerFunc[attemptsquery.Timeline, attemptsdomain.Timeline](timeline),
+	}}
 }
 
 type fakeStudents struct{ student identitydomain.Student }
 
-func (f fakeStudents) Get(context.Context, string) (identitydomain.Student, error) {
-	return f.student, nil
-}
-
-type fakeIntegrity struct{}
-
-func (fakeIntegrity) Timeline(context.Context, string) (attemptsdomain.Timeline, error) {
-	return attemptsdomain.Timeline{}, nil
+func (f fakeStudents) handler() attemptshttp.Students {
+	get := func(context.Context, identityquery.GetStudent) (identitydomain.Student, error) { return f.student, nil }
+	return cqrs.HandlerFunc[identityquery.GetStudent, identitydomain.Student](get)
 }
 
 // A disabled account is refused a session, but its papers are still the
@@ -63,7 +61,7 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 	}}
 	router, err := core.NewRouter(core.Deps{
 		DB:      fakeDB{},
-		Modules: core.Modules{Attempts: attemptshttp.NewAttempts(nil, review, fakeIntegrity{}, nil, students, nil)},
+		Modules: core.Modules{Attempts: attemptshttp.NewAttempts(review.app(), nil, students.handler(), nil)},
 		Tokens:  issuer,
 	}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {

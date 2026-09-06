@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
 	"testing"
 	"time"
@@ -46,11 +47,11 @@ func TestResumingReturnsTheSameAttemptOnANewSession(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	second, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	second, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("resume: %v", err)
 	}
@@ -81,8 +82,8 @@ func TestTheSupersededSessionIsNoLongerTheAttemptsSession(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, _ := svc.StartOrResume(ctx, w.assignment, w.student)
-	second, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, _ := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	second, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("resume: %v", err)
 	}
@@ -107,8 +108,8 @@ func TestAReloadIsAResumeAndNotATakeover(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, _ := svc.StartOrResume(ctx, w.assignment, w.student)
-	if _, err := svc.StartOrResume(ctx, w.assignment, w.student); err != nil {
+	first, _ := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 
@@ -124,7 +125,7 @@ func TestASecondDeviceOnALiveSessionIsRecordedAsATakeover(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, _ := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, _ := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO app.attempt_events (attempt_id, session_id, kind, occurred_at, client_seq)
@@ -133,7 +134,7 @@ func TestASecondDeviceOnALiveSessionIsRecordedAsATakeover(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.StartOrResume(ctx, w.assignment, w.student); err != nil {
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 
@@ -157,9 +158,9 @@ func TestBackToBackReloadsDoNotInventATakeover(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, _ := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, _ := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	for i := range 3 {
-		if _, err := svc.StartOrResume(ctx, w.assignment, w.student); err != nil {
+		if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
 			t.Fatalf("reload %d: %v", i, err)
 		}
 	}
@@ -178,7 +179,7 @@ func TestAnOldEventDoesNotKeepASessionLookingAlive(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, _ := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, _ := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO app.attempt_events
 		  (attempt_id, session_id, kind, occurred_at, received_at, client_seq)
@@ -187,7 +188,7 @@ func TestAnOldEventDoesNotKeepASessionLookingAlive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.StartOrResume(ctx, w.assignment, w.student); err != nil {
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 	for _, kind := range eventKinds(t, pool, first.Attempt.ID) {
@@ -205,7 +206,7 @@ func TestAnAttemptInFlightSurvivesTheAssignmentClosing(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -215,7 +216,7 @@ func TestAnAttemptInFlightSurvivesTheAssignmentClosing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resumed, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	resumed, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("a closed assignment took away an attempt already in flight: %v", err)
 	}

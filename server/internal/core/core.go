@@ -42,7 +42,7 @@ type App struct {
 	cfg    config.Config
 	logger *slog.Logger
 	pool   *db.Pool
-	auth   *identityapp.Service
+	auth   *identityapp.Application
 	deps   Deps
 }
 

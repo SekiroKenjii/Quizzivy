@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"errors"
-	identityapp "quizzivy/internal/modules/identity/application"
+	identitytoken "quizzivy/internal/modules/identity/application/token"
 
 	"quizzivy/internal/platform/httpx"
 )
@@ -18,7 +18,7 @@ type DB interface {
 // auth middleware needs it before any handler runs, and because verification is
 // pure -- no database, no state.
 type TokenVerifier interface {
-	Verify(raw string) (*identityapp.Claims, error)
+	Verify(raw string) (*identitytoken.Claims, error)
 }
 
 func (d Deps) verifyAccessToken(bearer string) (httpx.Principal, error) {

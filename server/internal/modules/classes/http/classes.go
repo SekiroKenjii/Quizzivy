@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/actor"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -51,7 +52,7 @@ func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassReq
 
 	class, err := h.app.Commands.Update.Handle(ctx, command.Update{ClassID: request.Id.String(), Input: in})
 	if err == nil && request.Body.Archived != nil {
-		class, err = h.app.Commands.Archive.Handle(ctx, command.Archive{ClassID: request.Id.String(), Archived: *request.Body.Archived, ActorID: httpapi.ActorID(ctx), IP: httpx.RequestMetaFromContext(ctx).IP, UserAgent: httpx.RequestMetaFromContext(ctx).UserAgent})
+		class, err = h.app.Commands.Archive.Handle(ctx, command.Archive{ClassID: request.Id.String(), Archived: *request.Body.Archived, Actor: actor.Actor{ID: httpapi.ActorID(ctx), IP: httpx.RequestMetaFromContext(ctx).IP, UserAgent: httpx.RequestMetaFromContext(ctx).UserAgent}})
 	}
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -73,7 +74,7 @@ func (h Classes) CreateClass(ctx context.Context, request openapi.CreateClassReq
 		selfJoin = *request.Body.SelfJoinEnabled
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
-	class, err := h.app.Commands.Create.Handle(ctx, command.Create{Name: request.Body.Name, Description: request.Body.Description, SelfJoin: selfJoin, ActorID: httpapi.ActorID(ctx), IP: meta.IP, UserAgent: meta.UserAgent})
+	class, err := h.app.Commands.Create.Handle(ctx, command.Create{Name: request.Body.Name, Description: request.Body.Description, SelfJoin: selfJoin, Actor: actor.Actor{ID: httpapi.ActorID(ctx), IP: meta.IP, UserAgent: meta.UserAgent}})
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +161,7 @@ func (h Classes) AddClassMember(ctx context.Context, request openapi.AddClassMem
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
 
-	m, err := h.app.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: request.Id.String(), UserID: request.Body.UserId.String(), ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent})
+	m, err := h.app.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: request.Id.String(), UserID: request.Body.UserId.String(), Actor: actor.Actor{ID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}})
 	switch {
 	case err == nil:
 	case errors.Is(err, domain.ErrNotFound):
@@ -200,7 +201,7 @@ func (h Classes) RemoveClassMember(ctx context.Context, request openapi.RemoveCl
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
 
-	_, err := h.app.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: request.Id.String(), UserID: request.UserId.String(), ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent})
+	_, err := h.app.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: request.Id.String(), UserID: request.UserId.String(), Actor: actor.Actor{ID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}})
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return openapi.RemoveClassMember404JSONResponse{

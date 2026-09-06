@@ -8,6 +8,8 @@ import (
 	"quizzivy/internal/modules/media/domain"
 )
 
+// MintForStudent issues a signed URL only for an asset the student can reach
+// through an attempt of their own (§11.2).
 type MintForStudent struct {
 	StudentID string
 	AssetID   string

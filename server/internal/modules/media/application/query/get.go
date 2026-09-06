@@ -6,6 +6,8 @@ import (
 	"quizzivy/internal/modules/media/domain"
 )
 
+// Get resolves one live asset, so another package can render an attachment
+// without reaching into media's store.
 type Get struct {
 	ID string
 }

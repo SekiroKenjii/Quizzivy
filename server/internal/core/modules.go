@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"log/slog"
+	identityports "quizzivy/internal/modules/identity/application/ports"
+	identitytoken "quizzivy/internal/modules/identity/application/token"
 
 	assignmentsapp "quizzivy/internal/modules/assignments/application"
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
@@ -39,20 +41,20 @@ import (
 //
 // The auth service is returned separately because the token-pruning job needs
 // it directly, not through the interface the handlers see.
-func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Deps, *identityapp.Service, error) {
+func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Deps, *identityapp.Application, error) {
 	boundPasswordHashing(cfg, logger)
 
-	tokens, err := identityapp.NewTokenIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
+	tokens, err := identitytoken.NewIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
 	if err != nil {
 		return Deps{}, nil, err
 	}
 
-	authService := identityapp.NewService(identityrepo.NewUsers(db.NewContext(pool.Pool)), tokens, cfg.RefreshTokenTTL)
 	studentStats := attemptsrepo.NewStudentStats(db.NewContext(pool.Pool))
-	studentsService := identityapp.NewStudents(identityrepo.NewStudents(db.NewContext(pool.Pool)), studentStats)
+	identityApp := identityapp.New(identityrepo.NewUsers(db.NewContext(pool.Pool)), tokens, cfg.RefreshTokenTTL,
+		identityrepo.NewStudents(db.NewContext(pool.Pool)), studentStats)
 	classesRepo := classesrepo.NewPostgres(db.NewContext(pool.Pool))
 	classesApp := classesapp.New(classesRepo, studentStats)
-	attachGoogle(cfg, logger, authService, selfEnroller{classesApp})
+	attachGoogle(cfg, logger, identityApp, classesApp.Commands.EnrolNewMember)
 
 	mediaRepo := mediarepo.NewPostgres(db.NewContext(pool.Pool))
 	questionsRepo := questionsrepo.NewPostgres(db.NewContext(pool.Pool))
@@ -62,6 +64,7 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		return Deps{}, nil, err
 	}
 
+	attemptsApp := attemptsapp.New(attemptsrepo.NewTimelines(db.NewContext(pool.Pool)), attemptsrepo.NewReviews(db.NewContext(pool.Pool)), attemptsrepo.NewPostgres(db.NewContext(pool.Pool)))
 	deps := Deps{
 		DB:     pool,
 		Tokens: tokens,
@@ -69,14 +72,14 @@ func buildModules(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	deps.Modules = Modules{
 		Dashboard:   dashboardhttp.NewDashboard(dashboardapp.New(dashboardrepo.NewPostgres(db.NewContext(pool.Pool)))),
 		Media:       mediahttp.NewMedia(mediaService),
-		Attempts:    attemptshttp.NewAttempts(attemptsapp.NewService(attemptsrepo.NewPostgres(db.NewContext(pool.Pool))), attemptsapp.NewReview(attemptsrepo.NewReviews(db.NewContext(pool.Pool))), attemptsapp.NewIntegrity(attemptsrepo.NewTimelines(db.NewContext(pool.Pool))), attemptsMedia(mediaService), studentsService, logger),
+		Attempts:    attemptshttp.NewAttempts(attemptsApp, attemptsMedia(mediaService), identityApp.Queries.GetStudent, logger),
 		Assignments: assignmentshttp.NewAssignments(assignmentsapp.New(assignmentsrepo.NewPostgres(db.NewContext(pool.Pool)))),
-		Tests:       testshttp.NewTests(testsapp.NewService(testsRepo), testsapp.NewPublisher(testsRepo), testsMedia(mediaService)),
+		Tests:       testshttp.NewTests(testsapp.New(testsRepo), testsMedia(mediaService)),
 		Questions:   questionshttp.NewQuestions(questionsapp.New(questionsRepo, mediaKinds{mediaService}), questionsMedia(mediaService)),
-		Identity:    identityhttp.NewIdentity(authService, studentsService, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
+		Identity:    identityhttp.NewIdentity(identityApp, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure),
 		Classes:     classeshttp.NewClasses(classesApp),
 	}
-	return deps, authService, nil
+	return deps, identityApp, nil
 }
 
 func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
@@ -88,7 +91,7 @@ func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {
 
 // attachGoogle enables §5.3 sign-in when credentials are configured. Config has
 // already refused a half-configured set, so this is all-or-nothing.
-func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identityapp.Service, enroller identityapp.SelfEnroller) {
+func attachGoogle(cfg config.Config, logger *slog.Logger, authService *identityapp.Application, enroller identityports.SelfEnroller) {
 	if !cfg.GoogleEnabled() {
 		logger.Info("google sign-in disabled (no credentials configured)")
 		return

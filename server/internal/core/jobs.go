@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"log/slog"
+	identitycommand "quizzivy/internal/modules/identity/application/command"
 	"time"
 
 	identityapp "quizzivy/internal/modules/identity/application"
@@ -19,12 +20,12 @@ const (
 // One machine runs this, so there is nothing to coordinate; a second would
 // simply remove nothing, since the DELETE is idempotent. It runs once at
 // startup so a long-lived deployment is not the only thing that ever prunes.
-func prunePeriodically(ctx context.Context, logger *slog.Logger, svc *identityapp.Service) {
+func prunePeriodically(ctx context.Context, logger *slog.Logger, svc *identityapp.Application) {
 	prune := func() {
 		runCtx, cancel := context.WithTimeout(ctx, pruneTimeout)
 		defer cancel()
 
-		n, err := svc.PruneExpiredTokens(runCtx)
+		n, err := svc.Commands.PruneExpiredTokens.Handle(runCtx, identitycommand.PruneExpiredTokens{})
 		if err != nil {
 			logger.Warn("refresh token prune failed", "err", err)
 			return

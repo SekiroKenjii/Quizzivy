@@ -5,6 +5,8 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/platform/db"
 	"strings"
 	"testing"
@@ -18,18 +20,19 @@ import (
 
 func TestCreatingAStudentEnrolsThemAndForcesAChange(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 	email := "new-" + nonce(t) + "@example.com"
 
-	created, _, err := store.Create(ctx, domain.WriteRequest{ActorID: w.admin}, domain.NewStudent{
+	createStudentResult, err := store.Commands.CreateStudent.Handle(ctx, command.CreateStudent{Request: domain.WriteRequest{ActorID: w.admin}, Input: domain.NewStudent{
 		Email:    email,
 		FullName: "Vũ Minh Khôi",
 		ClassIDs: []string{w.class},
 		Hash:     "$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$aGFzaA",
 		Now:      time.Now(),
-	})
+	}})
+	created := createStudentResult.Student
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -60,7 +63,7 @@ func TestCreatingAStudentEnrolsThemAndForcesAChange(t *testing.T) {
 // ON CONFLICT.
 func TestEmailUniquenessIgnoresCase(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 	email := "Mixed-" + nonce(t) + "@Example.com"
@@ -71,7 +74,8 @@ func TestEmailUniquenessIgnoresCase(t *testing.T) {
 		Hash:     "$argon2id$v=19$m=65536,t=3,p=2$c2FsdA$aGFzaA",
 		Now:      time.Now(),
 	}
-	created, _, err := store.Create(ctx, domain.WriteRequest{ActorID: w.admin}, input)
+	createStudentResult, err := store.Commands.CreateStudent.Handle(ctx, command.CreateStudent{Request: domain.WriteRequest{ActorID: w.admin}, Input: input})
+	created := createStudentResult.Student
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -84,14 +88,14 @@ func TestEmailUniquenessIgnoresCase(t *testing.T) {
 	lowered := input
 	lowered.Email = strings.ToLower(email)
 	lowered.FullName = "Người Sau"
-	if _, _, err := store.Create(ctx, domain.WriteRequest{ActorID: w.admin}, lowered); !errors.Is(err, domain.ErrEmailTaken) {
+	if _, err := store.Commands.CreateStudent.Handle(ctx, command.CreateStudent{Request: domain.WriteRequest{ActorID: w.admin}, Input: lowered}); !errors.Is(err, domain.ErrEmailTaken) {
 		t.Fatalf("want ErrEmailTaken for the same address in another case, got %v", err)
 	}
 }
 
 func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 
@@ -100,9 +104,9 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 
 	yes := true
 	// The contract declares 200 with a StudentRow for this exact request.
-	disabled, err := store.Update(ctx, domain.WriteRequest{ActorID: w.admin}, domain.StudentPatch{
+	disabled, err := store.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: domain.WriteRequest{ActorID: w.admin}, Input: domain.StudentPatch{
 		ID: w.student, Disabled: &yes, Now: time.Now(),
-	})
+	}})
 	if err != nil {
 		t.Fatalf("disabling returned an error for a write that lands: %v", err)
 	}
@@ -121,7 +125,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 	}
 
 	// Findable again, which is what makes the disable reversible.
-	back, err := store.Get(ctx, w.student)
+	back, err := store.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: w.student})
 	if err != nil {
 		t.Fatalf("Get on a disabled student: %v", err)
 	}
@@ -129,7 +133,8 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		t.Error("the row does not report that it is disabled")
 	}
 
-	active, _, err := store.List(ctx, domain.StudentQuery{})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{}})
+	active := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +144,8 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		}
 	}
 
-	found, _, err := store.List(ctx, domain.StudentQuery{Status: domain.StudentsDisabled})
+	listStudentsResult, err = store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Status: domain.StudentsDisabled}})
+	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +174,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 
 func TestResettingAPasswordRevokesEverySession(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	ctx := context.Background()
 
@@ -182,7 +188,7 @@ func TestResettingAPasswordRevokesEverySession(t *testing.T) {
 		}
 	}
 
-	if _, err := store.ResetPassword(ctx, domain.WriteRequest{ActorID: w.admin}, w.student); err != nil {
+	if _, err := store.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: domain.WriteRequest{ActorID: w.admin}, ID: w.student}); err != nil {
 		t.Fatalf("ResetPassword: %v", err)
 	}
 
@@ -211,7 +217,7 @@ func TestResettingAPasswordRevokesEverySession(t *testing.T) {
 // it as activity -- so the row must not read as "never started anything".
 func TestAnAbandonedAttemptStillCountsAsActivity(t *testing.T) {
 	pool := newPool(t)
-	store := application.NewStudents(repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	w := seedWorld(t, pool, "10.00")
 	a := w.assignment(t, pool)
 

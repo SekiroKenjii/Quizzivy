@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/actor"
 	"testing"
 	"time"
 
@@ -186,7 +187,7 @@ func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: classID, UserID: studentID, ActorID: teacherID, IP: "203.0.113.9", UserAgent: "go-test"}); err != nil {
+	if _, err := svc.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "203.0.113.9", UserAgent: "go-test"}}); err != nil {
 		t.Fatalf("RemoveMember: %v", err)
 	}
 
@@ -222,10 +223,10 @@ func TestRemovingSomeoneWhoIsNotAMemberSucceedsButAMissingClassDoesNot(t *testin
 	ctx := context.Background()
 
 	// Idempotent: the class ends up in the requested state either way.
-	if _, err := svc.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: classID, UserID: studentID, ActorID: teacherID, IP: "", UserAgent: ""}); err != nil {
+	if _, err := svc.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}}); err != nil {
 		t.Errorf("removing a non-member: %v", err)
 	}
-	_, err := svc.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: "01935000-0000-7000-8000-00000000ffff", UserID: studentID, ActorID: teacherID, IP: "", UserAgent: ""})
+	_, err := svc.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: "01935000-0000-7000-8000-00000000ffff", UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}})
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("error = %v, want ErrNotFound", err)
 	}
@@ -237,7 +238,7 @@ func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
-	m, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, ActorID: teacherID, IP: "203.0.113.9", UserAgent: "go-test"})
+	m, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "203.0.113.9", UserAgent: "go-test"}})
 	if err != nil {
 		t.Fatalf("AddMember: %v", err)
 	}
@@ -269,10 +270,10 @@ func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
-	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, ActorID: teacherID, IP: "", UserAgent: ""}); err != nil {
+	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}}); err != nil {
 		t.Fatalf("first add: %v", err)
 	}
-	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, ActorID: teacherID, IP: "", UserAgent: ""}); err != nil {
+	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}}); err != nil {
 		t.Fatalf("second add: %v", err)
 	}
 
@@ -301,7 +302,7 @@ func TestOnlyAStudentCanBeEnrolled(t *testing.T) {
 	classID, teacherID, _ := makeClass(t, pool)
 	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 
-	_, err := svc.Commands.AddMember.Handle(context.Background(), command.AddMember{ClassID: classID, UserID: teacherID, ActorID: teacherID, IP: "", UserAgent: ""})
+	_, err := svc.Commands.AddMember.Handle(context.Background(), command.AddMember{ClassID: classID, UserID: teacherID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}})
 	if !errors.Is(err, domain.ErrNotAStudent) {
 		t.Fatalf("enrolling an admin: want ErrNotAStudent, got %v", err)
 	}
@@ -312,7 +313,7 @@ func TestAddingToAClassThatIsNotThereIsNotFound(t *testing.T) {
 	_, teacherID, studentID := makeClass(t, pool)
 	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 
-	_, err := svc.Commands.AddMember.Handle(context.Background(), command.AddMember{ClassID: "00000000-0000-7000-8000-0000000000cc", UserID: studentID, ActorID: teacherID, IP: "", UserAgent: ""})
+	_, err := svc.Commands.AddMember.Handle(context.Background(), command.AddMember{ClassID: "00000000-0000-7000-8000-0000000000cc", UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}})
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
@@ -327,7 +328,7 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 	ctx := context.Background()
 
-	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, ActorID: teacherID, IP: "", UserAgent: ""}); err != nil {
+	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}}); err != nil {
 		t.Fatal(err)
 	}
 	before, err := svc.Queries.Get.Handle(ctx, query.Get{ClassID: classID})

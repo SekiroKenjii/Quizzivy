@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"quizzivy/internal/modules/identity/application/model"
 	"strings"
 	"testing"
 	"time"
@@ -12,8 +13,9 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/application"
-	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/modules/identity/application/command"
 	identityhttp "quizzivy/internal/modules/identity/http"
+	"quizzivy/internal/shared/cqrs"
 )
 
 type fakeAuth struct {
@@ -21,41 +23,28 @@ type fakeAuth struct {
 	presented    string
 }
 
-func (f *fakeAuth) Login(context.Context, application.LoginInput) (application.Session, error) {
-	return application.Session{AccessToken: "access", ExpiresIn: 900, RefreshToken: f.refreshToken}, nil
+func (f *fakeAuth) app() *application.Application {
+	login := func(context.Context, command.Login) (model.Session, error) {
+		return model.Session{AccessToken: "access", ExpiresIn: 900, RefreshToken: f.refreshToken}, nil
+	}
+	refresh := func(_ context.Context, cmd command.Refresh) (model.RefreshResult, error) {
+		f.presented = cmd.Token
+		return model.RefreshResult{AccessToken: "access", ExpiresIn: 900, RefreshToken: "next"}, nil
+	}
+	logout := func(_ context.Context, cmd command.Logout) (cqrs.Nothing, error) {
+		f.presented = cmd.Token
+		return cqrs.Nothing{}, nil
+	}
+	return &application.Application{Commands: application.Commands{
+		Login:   cqrs.HandlerFunc[command.Login, model.Session](login),
+		Refresh: cqrs.HandlerFunc[command.Refresh, model.RefreshResult](refresh),
+		Logout:  cqrs.HandlerFunc[command.Logout, cqrs.Nothing](logout),
+	}}
 }
-
-func (f *fakeAuth) Refresh(_ context.Context, in application.RefreshInput) (application.RefreshResult, error) {
-	f.presented = in.Token
-	return application.RefreshResult{AccessToken: "access", ExpiresIn: 900, RefreshToken: "next"}, nil
-}
-
-func (f *fakeAuth) Logout(_ context.Context, token string) error {
-	f.presented = token
-	return nil
-}
-
-func (f *fakeAuth) CurrentUser(context.Context, string) (domain.User, error) {
-	return domain.User{}, nil
-}
-
-func (f *fakeAuth) ChangePassword(context.Context, application.ChangePasswordInput) error {
-	return nil
-}
-
-func (f *fakeAuth) GoogleSignIn(context.Context, application.GoogleSignInInput) (application.GoogleSignInResult, error) {
-	return application.GoogleSignInResult{}, nil
-}
-
-func (f *fakeAuth) LinkGoogle(context.Context, application.LinkGoogleInput) (domain.User, error) {
-	return domain.User{}, nil
-}
-
-func (f *fakeAuth) UnlinkGoogle(context.Context, string, string, string) error { return nil }
 
 func loginCookie(t *testing.T, ttl time.Duration, secure bool) *http.Cookie {
 	t.Helper()
-	h := identityhttp.NewIdentity(&fakeAuth{refreshToken: "opaque-token-value"}, nil, ttl, secure)
+	h := identityhttp.NewIdentity((&fakeAuth{refreshToken: "opaque-token-value"}).app(), ttl, secure)
 	resp, err := h.Login(context.Background(), openapi.LoginRequestObject{
 		Body: &openapi.LoginJSONRequestBody{Email: openapi_types.Email("a@example.com"), Password: "mật-khẩu"},
 	})
@@ -104,7 +93,7 @@ func TestRefreshCookieSecureFlagFollowsConfiguration(t *testing.T) {
 
 func TestLogoutClearsTheCookieItReplaces(t *testing.T) {
 	live := loginCookie(t, time.Hour, true)
-	h := identityhttp.NewIdentity(&fakeAuth{}, nil, time.Hour, true)
+	h := identityhttp.NewIdentity((&fakeAuth{}).app(), time.Hour, true)
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.AddCookie(&http.Cookie{Name: live.Name, Value: "the-token"})
 
@@ -157,7 +146,7 @@ func TestMiddlewareLiftsTheCookieAndToleratesItsAbsence(t *testing.T) {
 	name := loginCookie(t, time.Hour, true).Name
 	presented := func(cookie *http.Cookie) string {
 		fake := &fakeAuth{}
-		h := identityhttp.NewIdentity(fake, nil, time.Hour, true)
+		h := identityhttp.NewIdentity(fake.app(), time.Hour, true)
 		req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 		if cookie != nil {
 			req.AddCookie(cookie)

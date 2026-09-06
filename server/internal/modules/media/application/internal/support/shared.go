@@ -27,7 +27,7 @@ func SniffImage(head []byte) string {
 	return ""
 }
 
-// boundedCopy copies at most limit+1 bytes, so exceeding the limit is
+// BoundedCopy copies at most limit+1 bytes, so exceeding the limit is
 // detectable without ever holding limit+n of an attacker's choosing.
 //
 // The +1 matters: copying exactly `limit` cannot distinguish a file at the
@@ -79,13 +79,11 @@ func SanitiseFilename(name string) string {
 	return name
 }
 
-const
-
 // DefaultSignedURLTTL is §11.2's ten minutes. Short because the URL IS the
 // capability: one that outlives its purpose cannot be revoked afterwards.
-DefaultSignedURLTTL = 10 * time.Minute
+const DefaultSignedURLTTL = 10 * time.Minute
 
-// newAssetID mints the id up front, because the storage key contains it -- the
+// NewAssetID mints the id up front, because the storage key contains it -- the
 // object has to be written before the row exists, so the row cannot supply it.
 func NewAssetID() (string, error) {
 	id, err := uuid.NewV7()

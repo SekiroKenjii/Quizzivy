@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/internal/modules/attempts/application"
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
 	"strings"
 	"testing"
@@ -15,11 +16,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func started(t *testing.T, pool *pgxpool.Pool) (*application.Service, world, domain.Session) {
+func started(t *testing.T, pool *pgxpool.Pool) (*application.Application, world, domain.Session) {
 	t.Helper()
 	w := seedWorld(t, pool, openAssignment())
 	svc := newService(t, pool)
-	session, err := svc.StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -51,7 +52,7 @@ func TestAutosaveWritesAnswersAndTheEventsBesideThem(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 
-	got, err := svc.Save(context.Background(), batch(w, session, 1))
+	got, err := svc.Commands.Save.Handle(context.Background(), command.Save{Input: batch(w, session, 1)})
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -75,10 +76,10 @@ func TestReplayingTheIdenticalBatchChangesNothing(t *testing.T) {
 	ctx := context.Background()
 	same := batch(w, session, 1)
 
-	if _, err := svc.Save(ctx, same); err != nil {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: same}); err != nil {
 		t.Fatalf("first save: %v", err)
 	}
-	if _, err := svc.Save(ctx, same); err != nil {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: same}); err != nil {
 		t.Fatalf("replay: %v", err)
 	}
 
@@ -98,14 +99,14 @@ func TestAnsweringTheSameQuestionAgainOverwrites(t *testing.T) {
 	ctx := context.Background()
 
 	first := batch(w, session, 1)
-	if _, err := svc.Save(ctx, first); err != nil {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: first}); err != nil {
 		t.Fatalf("first: %v", err)
 	}
 	second := batch(w, session, 3)
 	second.Answers = []domain.Answer{
 		{QuestionID: w.essay, Payload: []byte(`{"type":"text","value":"Tôi dậy lúc 5 giờ."}`)},
 	}
-	if _, err := svc.Save(ctx, second); err != nil {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: second}); err != nil {
 		t.Fatalf("second: %v", err)
 	}
 
@@ -131,7 +132,7 @@ func TestASupersededSessionIsRefusedAndWritesNothing(t *testing.T) {
 	svc, w, first := started(t, pool)
 	ctx := context.Background()
 
-	second, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	second, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("resume: %v", err)
 	}
@@ -139,7 +140,7 @@ func TestASupersededSessionIsRefusedAndWritesNothing(t *testing.T) {
 		t.Fatal("the session did not change; this test proves nothing")
 	}
 
-	if _, err := svc.Save(ctx, batch(w, first, 1)); !errors.Is(err, domain.ErrSessionSuperseded) {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, first, 1)}); !errors.Is(err, domain.ErrSessionSuperseded) {
 		t.Fatalf("got %v, want ErrSessionSuperseded", err)
 	}
 	if n := answerCount(t, pool, first.Attempt.ID); n != 0 {
@@ -164,7 +165,7 @@ func TestWritingAfterTheDeadlineIsRefused(t *testing.T) {
 		  WHERE id = $1::uuid`, session.Attempt.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Save(ctx, batch(w, session, 1)); !errors.Is(err, domain.ErrDeadlinePassed) {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, session, 1)}); !errors.Is(err, domain.ErrDeadlinePassed) {
 		t.Fatalf("got %v, want ErrDeadlinePassed", err)
 	}
 	if n := answerCount(t, pool, session.Attempt.ID); n != 0 {
@@ -182,7 +183,7 @@ func TestWritingToASubmittedAttemptIsRefused(t *testing.T) {
 		session.Attempt.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Save(ctx, batch(w, session, 1)); !errors.Is(err, domain.ErrAttemptClosed) {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, session, 1)}); !errors.Is(err, domain.ErrAttemptClosed) {
 		t.Fatalf("got %v, want ErrAttemptClosed", err)
 	}
 }
@@ -201,7 +202,7 @@ func TestAClosedAttemptOutranksTheDeadline(t *testing.T) {
 		 WHERE id=$1::uuid`, session.Attempt.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Save(ctx, batch(w, session, 1)); !errors.Is(err, domain.ErrAttemptClosed) {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, session, 1)}); !errors.Is(err, domain.ErrAttemptClosed) {
 		t.Fatalf("got %v, want ErrAttemptClosed", err)
 	}
 }
@@ -213,7 +214,7 @@ func TestASupersededSessionOutranksTheDeadline(t *testing.T) {
 	svc, w, first := started(t, pool)
 	ctx := context.Background()
 
-	if _, err := svc.StartOrResume(ctx, w.assignment, w.student); err != nil {
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
@@ -222,7 +223,7 @@ func TestASupersededSessionOutranksTheDeadline(t *testing.T) {
 		  WHERE id=$1::uuid`, first.Attempt.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Save(ctx, batch(w, first, 1)); !errors.Is(err, domain.ErrSessionSuperseded) {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, first, 1)}); !errors.Is(err, domain.ErrSessionSuperseded) {
 		t.Fatalf("got %v, want ErrSessionSuperseded", err)
 	}
 }
@@ -233,7 +234,7 @@ func TestAnotherStudentCannotWriteToThisAttempt(t *testing.T) {
 
 	in := batch(w, session, 1)
 	in.StudentID = w.outsider
-	if _, err := svc.Save(context.Background(), in); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := svc.Commands.Save.Handle(context.Background(), command.Save{Input: in}); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}
 	if n := answerCount(t, pool, session.Attempt.ID); n != 0 {
@@ -248,7 +249,7 @@ func TestOnlyTheHandGradedTypeIsMarkedForManualGrading(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 
-	if _, err := svc.Save(context.Background(), batch(w, session, 1)); err != nil {
+	if _, err := svc.Commands.Save.Handle(context.Background(), command.Save{Input: batch(w, session, 1)}); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -289,7 +290,7 @@ func TestAQuestionFromAnotherPaperIsIgnoredRatherThanFatal(t *testing.T) {
 		QuestionID: other.choice, Payload: []byte(`{"type":"choice","optionIds":[]}`),
 	})
 
-	got, err := svc.Save(context.Background(), in)
+	got, err := svc.Commands.Save.Handle(context.Background(), command.Save{Input: in})
 	if err != nil {
 		t.Fatalf("a foreign question id was fatal: %v", err)
 	}
@@ -316,7 +317,7 @@ func TestAnEventNamingAnUnknownQuestionIsStoredWithoutIt(t *testing.T) {
 	in.Events = []domain.Event{
 		{Kind: "paste", OccurredAt: time.Now(), ClientSeq: 9, QuestionID: &stranger},
 	}
-	if _, err := svc.Save(context.Background(), in); err != nil {
+	if _, err := svc.Commands.Save.Handle(context.Background(), command.Save{Input: in}); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -348,14 +349,14 @@ func TestAChoiceNamingAnOptionThatIsNotTheQuestionsIsDroppedNotStored(t *testing
 		t.Fatal(err)
 	}
 
-	got, err := svc.Save(ctx, domain.SaveInput{
+	got, err := svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
 		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
 		Answers: []domain.Answer{
 			{QuestionID: w.choice, Payload: []byte(`{"type":"choice","optionIds":[""]}`)},
 			{QuestionID: w.listening, Payload: []byte(`{"type":"choice","optionIds":["` + choiceOption + `"]}`)},
 			{QuestionID: w.essay, Payload: []byte(`{"type":"text","value":"Tôi dậy lúc 6 giờ."}`)},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -373,12 +374,12 @@ func TestAChoiceNamingAnOptionThatIsNotTheQuestionsIsDroppedNotStored(t *testing
 	}
 
 	// The same question with its own option is an ordinary save.
-	got, err = svc.Save(ctx, domain.SaveInput{
+	got, err = svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
 		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
 		Answers: []domain.Answer{
 			{QuestionID: w.choice, Payload: []byte(`{"type":"choice","optionIds":["` + choiceOption + `"]}`)},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatalf("second save: %v", err)
 	}
@@ -392,7 +393,7 @@ func TestABatchThatFullyLandsNamesNothingAsDropped(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 
-	got, err := svc.Save(context.Background(), batch(w, session, 1))
+	got, err := svc.Commands.Save.Handle(context.Background(), command.Save{Input: batch(w, session, 1)})
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -407,10 +408,10 @@ func TestAReplayedBatchIsNotAdrop(t *testing.T) {
 	svc, w, session := started(t, pool)
 	ctx := context.Background()
 
-	if _, err := svc.Save(ctx, batch(w, session, 1)); err != nil {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, session, 1)}); err != nil {
 		t.Fatalf("first save: %v", err)
 	}
-	again, err := svc.Save(ctx, batch(w, session, 1))
+	again, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, session, 1)})
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}

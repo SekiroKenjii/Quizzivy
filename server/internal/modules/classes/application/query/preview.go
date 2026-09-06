@@ -6,6 +6,8 @@ import (
 	"quizzivy/internal/modules/classes/domain"
 )
 
+// Preview backs the /join/:code/confirm step (§6.2), which exists so a student
+// sees WHICH class they are joining before authenticating.
 type Preview struct {
 	Code string
 }

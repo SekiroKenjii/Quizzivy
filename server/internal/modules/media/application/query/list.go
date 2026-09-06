@@ -7,6 +7,8 @@ import (
 	"quizzivy/internal/shared/paging"
 )
 
+// List returns a page of the library with a signed URL on every item, since the
+// bucket is private and a listing without URLs cannot render a preview (§11.2).
 type List struct {
 	Input domain.ListInput
 }

@@ -9,6 +9,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/platform/db"
 	"strings"
 	"testing"
@@ -45,13 +47,13 @@ func newPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
+func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	issuer, err := application.NewTokenIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
+	issuer, err := token.NewIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return application.NewService(repositories.NewUsers(db.NewContext(pool)), issuer, 30*24*time.Hour)
+	return application.New(repositories.NewUsers(db.NewContext(pool)), issuer, 30*24*time.Hour, nil, nil)
 }
 
 // makeUser inserts a user with a generated email so tests never collide with
@@ -110,9 +112,7 @@ func TestCorrectPasswordSucceeds(t *testing.T) {
 	svc := newService(t, pool)
 	id, email := makeUser(t, pool, admin)
 
-	session, err := svc.Login(context.Background(), application.LoginInput{
-		Email: email, Password: testPassword, IP: "203.0.113.5", UserAgent: "test",
-	})
+	session, err := svc.Commands.Login.Handle(context.Background(), command.Login{Email: email, Password: testPassword, IP: "203.0.113.5", UserAgent: "test"})
 	if err != nil {
 		t.Fatalf("login failed: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestOnlyTheHashOfTheRefreshTokenIsStored(t *testing.T) {
 	svc := newService(t, pool)
 	id, email := makeUser(t, pool)
 
-	session, err := svc.Login(context.Background(), application.LoginInput{Email: email, Password: testPassword})
+	session, err := svc.Commands.Login.Handle(context.Background(), command.Login{Email: email, Password: testPassword})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestEveryFailureLooksIdentical(t *testing.T) {
 	_, googleEmail := makeUser(t, pool, googleOnly)
 	_, disabledEmail := makeUser(t, pool, disabled)
 
-	cases := map[string]application.LoginInput{
+	cases := map[string]command.Login{
 		"no such user":             {Email: "nobody-here@example.com", Password: testPassword},
 		"wrong password":           {Email: goodEmail, Password: "sai-mật-khẩu"},
 		"google-only account":      {Email: googleEmail, Password: testPassword},
@@ -184,7 +184,7 @@ func TestEveryFailureLooksIdentical(t *testing.T) {
 
 	for name, in := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := svc.Login(ctx, in)
+			_, err := svc.Commands.Login.Handle(ctx, in)
 			if !errors.Is(err, domain.ErrInvalidCredentials) {
 				t.Fatalf("err = %v, want ErrInvalidCredentials", err)
 			}
@@ -197,7 +197,7 @@ func TestDisabledAccountCannotLogInEvenWithTheRightPassword(t *testing.T) {
 	svc := newService(t, pool)
 	id, email := makeUser(t, pool, disabled)
 
-	if _, err := svc.Login(context.Background(), application.LoginInput{Email: email, Password: testPassword}); err == nil {
+	if _, err := svc.Commands.Login.Handle(context.Background(), command.Login{Email: email, Password: testPassword}); err == nil {
 		t.Fatal("a disabled account logged in")
 	}
 
@@ -217,9 +217,7 @@ func TestEmailMatchIsCaseInsensitive(t *testing.T) {
 	svc := newService(t, pool)
 	_, email := makeUser(t, pool)
 
-	if _, err := svc.Login(context.Background(), application.LoginInput{
-		Email: strings.ToUpper(email), Password: testPassword,
-	}); err != nil {
+	if _, err := svc.Commands.Login.Handle(context.Background(), command.Login{Email: strings.ToUpper(email), Password: testPassword}); err != nil {
 		t.Errorf("upper-cased email failed to log in: %v", err)
 	}
 }
@@ -232,12 +230,12 @@ func TestDisabledCostsTheSameTimeAsAWrongPassword(t *testing.T) {
 	_, activeEmail := makeUser(t, pool)
 	_, disabledEmail := makeUser(t, pool, disabled)
 
-	median := func(in application.LoginInput) time.Duration {
+	median := func(in command.Login) time.Duration {
 		const runs = 5
 		var samples []time.Duration
 		for i := 0; i < runs; i++ {
 			start := time.Now()
-			_, _ = svc.Login(ctx, in)
+			_, _ = svc.Commands.Login.Handle(ctx, in)
 			samples = append(samples, time.Since(start))
 		}
 		for i := 1; i < len(samples); i++ {
@@ -248,8 +246,8 @@ func TestDisabledCostsTheSameTimeAsAWrongPassword(t *testing.T) {
 		return samples[runs/2]
 	}
 
-	wrong := median(application.LoginInput{Email: activeEmail, Password: "sai"})
-	disabledTime := median(application.LoginInput{Email: disabledEmail, Password: testPassword})
+	wrong := median(command.Login{Email: activeEmail, Password: "sai"})
+	disabledTime := median(command.Login{Email: disabledEmail, Password: testPassword})
 
 	ratio := float64(disabledTime) / float64(wrong)
 	if ratio < 0.5 || ratio > 2.0 {
