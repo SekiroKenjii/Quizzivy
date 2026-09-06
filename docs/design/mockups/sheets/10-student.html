@@ -37,7 +37,8 @@
         Phone first, 390px, one-handed. The student’s whole product is four verbs: join,
         start, answer, see how I did. Everything below is measured against whether a
         fifteen-year-old on a bus with one bar of signal can do those four things without
-        being told how.
+        being told how. Section 6 is the same student at a laptop: nothing redesigned, and
+        nothing left stretched.
       </p>
 
       <!-- ================================================== ENTRY -->
@@ -2168,6 +2169,759 @@
 
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================== DESKTOP -->
+      <section class="deck-section">
+        <h2 class="deck-h">6 · The same student at a desk</h2>
+        <p class="deck-sub mt-1">
+          §1.1 says students are “often on a phone”, not always: homework gets done on the family
+          laptop, and a school lab is a room of 1366px monitors. Sections 1–5 were drawn at 390 and
+          the running app stretched them — a 768px column of full-width buttons that looked like a
+          phone screen projected onto a wall. These boards keep every decision above and change
+          only what the width buys: a second column, buttons that are as wide as their label, and
+          the nav bar in place of the back arrow. Measured against the same question as the rest of
+          this sheet — can the student do the four verbs without being told how — with one added:
+          does it look like it was made for the screen it is on.
+        </p>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">S-13</span>
+            <span class="board-name">Shell and home at 1280 — one bar, two columns</span>
+            <span class="board-route">/app · ≥1024px</span>
+          </div>
+          <p class="board-note">
+            Still no sidebar (§9): the student has two destinations and a menu, and a rail for
+            three items is a rail that is mostly empty. The page is a 64rem column with a 1.5rem
+            gutter; from 1024 it splits into <code class="font-mono">minmax(0, 1fr) 20rem</code>
+            with a 2rem gap. The right column is F-11’s panel width — the same 20rem, so there
+            are still two side-column widths in the product — but it has no border and no full
+            height, because a home page is a document, not a workspace. The next action stays the
+            first thing in reading order; “Sắp tới” and the student’s classes move beside it
+            where a glance finds them without scrolling past the thing to do. Below 1024 the
+            phone boards apply unchanged, with the column capped at 40rem so a due card at 768 is
+            a card and not a banner.
+          </p>
+          <div class="frame-row">
+            <div class="frame frame-desktop">
+              <div class="border-b">
+                <div class="mx-auto max-w-5xl px-6 h-14 flex items-center gap-3">
+                  <svg width="126" height="29" aria-hidden="true"><use href="#qz-logo-h-color" /></svg>
+                  <nav class="flex items-center gap-1 ml-4">
+                    <span class="btn btn-sm btn-secondary">Bài của tôi</span>
+                    <span class="btn btn-sm btn-ghost text-muted-foreground">Lớp</span>
+                  </nav>
+                  <div class="ml-auto relative">
+                    <button class="btn btn-sm btn-ghost">
+                      <span class="avatar avatar-sm">M</span>
+                      Minh
+                      <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                    </button>
+                    <div class="popover p-1.5 absolute" style="right: 0; top: 2.5rem; width: 12rem">
+                      <div class="menu-item">
+                        <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-settings" /></svg>
+                        Cài đặt
+                      </div>
+                      <div class="menu-item">
+                        <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-log-out" /></svg>
+                        Đăng xuất
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="mx-auto max-w-5xl px-6 py-8">
+                <div class="grid gap-8" style="grid-template-columns: minmax(0, 1fr) 20rem">
+                  <div class="min-w-0 space-y-6">
+                    <div>
+                      <p class="text-xl font-semibold tracking-tight">Chào Minh 👋</p>
+                      <p class="text-sm text-muted-foreground mt-1">Bạn có 1 bài đến hạn hôm nay.</p>
+                    </div>
+
+                    <div class="card border-foreground/20 shadow-sm">
+                      <div class="card-body flex items-center gap-6">
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-center gap-2">
+                            <span class="badge b-warning"><svg class="i" aria-hidden="true"><use href="#i-clock" /></svg> Còn 3 giờ</span>
+                            <span class="text-xs text-muted-foreground">IELTS Foundation</span>
+                          </div>
+                          <p class="text-lg font-semibold mt-2.5 leading-snug">
+                            Unit 5 — Present perfect &amp; listening
+                          </p>
+                          <div class="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span class="flex items-center gap-1.5"><svg class="i" aria-hidden="true"><use href="#i-timer" /></svg> 45 phút</span>
+                            <span class="flex items-center gap-1.5"><svg class="i" aria-hidden="true"><use href="#i-list" /></svg> 24 câu</span>
+                            <span class="flex items-center gap-1.5"><svg class="i" aria-hidden="true"><use href="#i-repeat" /></svg> Lượt 1/2</span>
+                            <span>Đóng lúc 21:00 hôm nay</span>
+                          </div>
+                        </div>
+                        <button class="btn btn-lg btn-primary shrink-0">Bắt đầu làm bài</button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Đã hoàn thành · 6</p>
+                      <div class="space-y-2">
+                        <div class="card p-3.5 flex items-center gap-3">
+                          <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium truncate">Unit 4 — Passive voice</p>
+                            <p class="text-xs text-muted-foreground">IELTS Foundation · Nộp 26/08</p>
+                          </div>
+                          <span class="text-sm font-semibold tabular-nums">27/30</span>
+                        </div>
+                        <div class="card p-3.5 flex items-center gap-3">
+                          <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium truncate">Mid-term mock</p>
+                            <p class="text-xs text-muted-foreground">IELTS Foundation · Nộp 22/08</p>
+                          </div>
+                          <span class="badge b-outline">Chờ chấm</span>
+                        </div>
+                        <div class="card p-3.5 flex items-center gap-3">
+                          <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium truncate">Listening practice 02</p>
+                            <p class="text-xs text-muted-foreground">IELTS Foundation · Nộp 19/08</p>
+                          </div>
+                          <span class="text-sm font-semibold tabular-nums">18/20</span>
+                        </div>
+                        <div class="card p-3.5 flex items-center gap-3">
+                          <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium truncate">Unit 3 — Past tenses</p>
+                            <p class="text-xs text-muted-foreground">Grammar booster · Nộp 12/08</p>
+                          </div>
+                          <span class="text-sm font-semibold tabular-nums">24/30</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside class="space-y-6">
+                    <div>
+                      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Sắp tới · 2</p>
+                      <div class="space-y-2">
+                        <div class="card p-3.5">
+                          <p class="text-sm font-medium truncate">Listening practice 03</p>
+                          <p class="text-xs text-muted-foreground mt-0.5">Mở 08:00 · Thứ hai, 01/09</p>
+                          <span class="badge b-outline mt-2">Đã lên lịch</span>
+                        </div>
+                        <div class="card p-3.5">
+                          <p class="text-sm font-medium truncate">Vocabulary — Unit 5</p>
+                          <p class="text-xs text-muted-foreground mt-0.5">Mở 08:00 · Thứ tư, 03/09</p>
+                          <span class="badge b-outline mt-2">Đã lên lịch</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Lớp của tôi</p>
+                      <div class="card p-4 space-y-3">
+                        <div>
+                          <p class="text-sm font-medium">IELTS Foundation — Lớp tối T3/T5</p>
+                          <p class="text-xs text-muted-foreground mt-0.5">Cô Thương</p>
+                        </div>
+                        <div>
+                          <p class="text-sm font-medium">Grammar booster — Hè 2026</p>
+                          <p class="text-xs text-muted-foreground mt-0.5">Cô Thương</p>
+                        </div>
+                        <button class="btn btn-sm btn-outline">
+                          <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg>
+                          Tham gia lớp
+                        </button>
+                      </div>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+
+            <div class="max-w-md space-y-3 pt-2">
+              <div class="callout">
+                <strong>The menu replaces the icon.</strong> S-03’s bar ends in a bare user icon
+                that goes to settings, which is right for a thumb and wrong for a pointer: a
+                pointer expects a name and a menu. Two items, and the second is “Đăng xuất”, so
+                the way out is one click from every page instead of buried at the bottom of
+                settings.
+              </div>
+              <div class="callout">
+                <strong>The due card turns sideways.</strong> Same badge, same title, same three
+                facts; the button moves to the right edge at its own width. A
+                <code class="font-mono">btn-block</code> at 640px is a banner, and a banner is what
+                students learn to scroll past.
+              </div>
+              <div class="callout">
+                <strong>Resume outranks everything here too.</strong> When an attempt is live the
+                S-03 resume card takes the due card’s slot, with the same sideways layout, and the
+                rest of the page is unchanged. The empty states are S-03’s dashed boxes in the left
+                column, and the right column is simply absent when there is nothing to put in it.
+              </div>
+              <div class="callout">
+                <strong>Completed rows name the class.</strong> With six or more papers from two
+                classes the title alone stops being enough, and there is room for it now. On the
+                phone the row stays as S-03 draws it.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">S-14</span>
+            <span class="board-name">Assignment intro at 1280 — the contract on the left, the signature on the right</span>
+            <span class="board-route">/app/assignments/:id · ≥1024px</span>
+          </div>
+          <p class="board-note">
+            S-04’s back-arrow chrome is a phone idiom: it exists because the bar has no room for
+            both the nav and a title. From 1024 the nav bar stays — the student is not in a modal,
+            they are reading a page under “Bài của tôi” — and a text link above the title does
+            what the arrow did. The facts and the start button share the right column, so the
+            two things a returning student wants (how long, and go) are visible before the rules
+            and stay visible while the rules are read. Nothing is sticky; the column is short
+            enough not to need it.
+          </p>
+          <div class="frame-row">
+            <div class="frame frame-desktop">
+              <div class="border-b">
+                <div class="mx-auto max-w-5xl px-6 h-14 flex items-center gap-3">
+                  <svg width="126" height="29" aria-hidden="true"><use href="#qz-logo-h-color" /></svg>
+                  <nav class="flex items-center gap-1 ml-4">
+                    <span class="btn btn-sm btn-secondary">Bài của tôi</span>
+                    <span class="btn btn-sm btn-ghost text-muted-foreground">Lớp</span>
+                  </nav>
+                  <button class="btn btn-sm btn-ghost ml-auto">
+                    <span class="avatar avatar-sm">M</span>
+                    Minh
+                    <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="mx-auto max-w-5xl px-6 py-8">
+                <div class="grid gap-8" style="grid-template-columns: minmax(0, 1fr) 20rem">
+                  <div class="min-w-0 space-y-4">
+                    <div>
+                      <span class="btn btn-xs btn-ghost text-muted-foreground px-1">
+                        <svg class="i" aria-hidden="true"><use href="#i-arrow-left" /></svg>
+                        Bài của tôi
+                      </span>
+                      <p class="text-xs text-muted-foreground mt-3">IELTS Foundation · Cô Thương</p>
+                      <h1 class="text-xl font-semibold tracking-tight mt-1 leading-snug">
+                        Unit 5 — Present perfect &amp; listening
+                      </h1>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-head"><p class="card-title">Khi làm bài</p></div>
+                      <div class="card-body pt-0 space-y-2.5">
+                        <div class="flex gap-2.5">
+                          <svg class="i text-muted-foreground mt-0.5 shrink-0" aria-hidden="true"><use href="#i-timer" /></svg>
+                          <p class="text-sm leading-relaxed">Đồng hồ chạy liên tục kể từ khi bạn bấm bắt đầu, kể cả khi bạn đóng trang.</p>
+                        </div>
+                        <div class="flex gap-2.5">
+                          <svg class="i text-muted-foreground mt-0.5 shrink-0" aria-hidden="true"><use href="#i-headphones" /></svg>
+                          <p class="text-sm leading-relaxed">Mỗi câu nghe được phát tối đa <strong>2 lần</strong>. Không tua.</p>
+                        </div>
+                        <div class="flex gap-2.5">
+                          <svg class="i text-muted-foreground mt-0.5 shrink-0" aria-hidden="true"><use href="#i-copy" /></svg>
+                          <p class="text-sm leading-relaxed">Sao chép và dán bị tắt trong lúc làm bài.</p>
+                        </div>
+                        <div class="flex gap-2.5">
+                          <svg class="i text-muted-foreground mt-0.5 shrink-0" aria-hidden="true"><use href="#i-flag" /></svg>
+                          <p class="text-sm leading-relaxed">
+                            Nếu bạn rời khỏi trang làm bài quá <strong>2 lần</strong>, bài sẽ được
+                            đánh dấu để giáo viên xem lại. Bài không bị dừng và điểm không bị trừ tự động.
+                          </p>
+                        </div>
+                        <div class="flex gap-2.5">
+                          <svg class="i text-muted-foreground mt-0.5 shrink-0" aria-hidden="true"><use href="#i-save" /></svg>
+                          <p class="text-sm leading-relaxed">Câu trả lời được lưu tự động. Mất mạng một lúc cũng không mất bài.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-head"><p class="card-title">Sau khi nộp</p></div>
+                      <div class="card-body pt-0 space-y-2">
+                        <div class="flex items-center gap-2.5 text-sm">
+                          <svg class="i text-success" aria-hidden="true"><use href="#i-check" /></svg> Xem điểm của mình
+                        </div>
+                        <div class="flex items-center gap-2.5 text-sm">
+                          <svg class="i text-success" aria-hidden="true"><use href="#i-check" /></svg> Xem giải thích từng câu
+                        </div>
+                        <div class="flex items-center gap-2.5 text-sm text-muted-foreground">
+                          <svg class="i" aria-hidden="true"><use href="#i-x" /></svg> Không xem đáp án đúng
+                        </div>
+                        <div class="flex items-center gap-2.5 text-sm">
+                          <svg class="i text-success" aria-hidden="true"><use href="#i-check" /></svg> Xem lời thoại bài nghe
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside>
+                    <div class="card">
+                      <div class="card-body grid grid-cols-2 gap-y-3 gap-x-4">
+                        <div>
+                          <p class="text-xs text-muted-foreground">Thời lượng</p>
+                          <p class="text-sm font-medium">45 phút</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">Số câu</p>
+                          <p class="text-sm font-medium">24 câu · 30 điểm</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">Lượt làm</p>
+                          <p class="text-sm font-medium">1 / 2</p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-muted-foreground">Hạn nộp</p>
+                          <p class="text-sm font-medium">21:00 · 29/08</p>
+                        </div>
+                      </div>
+                      <div class="card-body pt-0">
+                        <button class="btn btn-lg btn-primary btn-block">Bắt đầu làm bài</button>
+                        <p class="text-xs text-muted-foreground text-center leading-relaxed mt-3">
+                          Bấm bắt đầu là đồng hồ chạy. Bạn không thể tạm dừng.
+                        </p>
+                      </div>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+
+            <div class="max-w-md space-y-3 pt-2">
+              <div class="callout">
+                <strong>The button keeps its phone width inside the column.</strong> The right
+                column is 20rem — a phone’s width — so S-04’s <code class="font-mono">btn-block</code>
+                and the sentence under it are correct there without change. The rule from S-13
+                (“as wide as the label”) is for buttons in the reading column.
+              </div>
+              <div class="callout">
+                <strong>Blocked states take the button’s place.</strong> “Đã hết lượt làm”, “Mở lúc
+                08:00 · 01/09” and “Bài đã đóng” are one muted sentence where the button would be,
+                as S-04 draws them under the facts on the phone. The facts stay; only the action
+                changes.
+              </div>
+              <div class="callout">
+                <strong>Resume goes straight in.</strong> A live attempt shows “Tiếp tục làm bài”
+                in the same slot; the rules were read when the clock started.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">S-15</span>
+            <span class="board-name">Review before submitting at 1024 — the rail stays, its button goes</span>
+            <span class="board-route">/app/attempts/:id · ≥1024px</span>
+          </div>
+          <p class="board-note">
+            S-08 is the engine above 1024; this is S-06’s review at the same width. The header
+            keeps S-08’s single row with “Quay lại bài” where “Thoát” was, and the paper column
+            holds the review at 720px. The rail keeps its dots so any question is still one click
+            away, and loses “Xem lại &amp; nộp” — this page <em>is</em> that button. The two
+            actions sit side by side at their own width, primary on the right, and the sentence
+            about what submitting means stays under them, left-aligned with the text it belongs
+            to. The confirm dialog is S-06’s, unchanged: a dialog is 28rem at every width.
+          </p>
+          <div class="board-scroll">
+            <div class="frame frame-tablet" style="width: 1024px">
+              <div class="border-b">
+                <div class="px-5 h-12 flex items-center gap-3">
+                  <button class="btn btn-xs btn-ghost text-muted-foreground px-1">
+                    <svg class="i" aria-hidden="true"><use href="#i-chevron-left" /></svg> Quay lại bài
+                  </button>
+                  <span class="text-xs text-muted-foreground">Unit 5 — Present perfect &amp; listening</span>
+                  <span class="badge b-outline ml-auto"><svg class="i" aria-hidden="true"><use href="#i-check" /></svg> Đã lưu 09:58</span>
+                  <span class="text-xs text-muted-foreground">Còn 2 lần rời trang</span>
+                  <span class="sep-v mx-1"></span>
+                  <span class="text-sm font-semibold tabular-nums">03:02</span>
+                </div>
+                <div class="progress rounded-none h-1"><i style="width: 100%"></i></div>
+              </div>
+              <div class="flex" style="min-height: 520px">
+                <div class="flex-1 min-w-0 p-8">
+                  <div class="mx-auto max-w-[720px] space-y-5">
+                    <div>
+                      <h1 class="text-xl font-semibold tracking-tight">Xem lại trước khi nộp</h1>
+                      <p class="text-sm text-muted-foreground mt-1">Bạn đã trả lời 21 / 24 câu.</p>
+                    </div>
+                    <div class="card">
+                      <div class="card-body space-y-3">
+                        <div class="flex items-center gap-2">
+                          <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-circle-alert" /></svg>
+                          <p class="text-sm font-medium">3 câu chưa trả lời</p>
+                        </div>
+                        <div class="qnav">
+                          <span class="qdot">7</span><span class="qdot">10</span><span class="qdot">19</span>
+                        </div>
+                        <hr class="sep" />
+                        <div class="flex items-center gap-2">
+                          <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-flag" /></svg>
+                          <p class="text-sm font-medium">1 câu bạn đã đánh dấu</p>
+                        </div>
+                        <div class="qnav"><span class="qdot is-flagged is-answered">4</span></div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button class="btn btn-lg btn-outline">Quay lại làm tiếp</button>
+                      <button class="btn btn-lg btn-primary">Nộp bài</button>
+                    </div>
+                    <p class="text-xs text-muted-foreground leading-relaxed">
+                      Nộp rồi bạn không sửa được nữa. Bạn còn 1 lượt làm lại.
+                    </p>
+                  </div>
+                </div>
+                <aside class="w-80 shrink-0 border-l p-5 space-y-5">
+                  <div>
+                    <p class="text-xs text-muted-foreground mb-2">Phần 1 · Ngữ pháp</p>
+                    <div class="qnav">
+                      <span class="qdot is-answered">1</span><span class="qdot is-answered">2</span>
+                      <span class="qdot is-answered">3</span><span class="qdot is-flagged is-answered">4</span>
+                      <span class="qdot is-answered">5</span><span class="qdot is-answered">6</span>
+                      <span class="qdot">7</span><span class="qdot is-answered">8</span>
+                      <span class="qdot is-answered">9</span><span class="qdot">10</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground mb-2">Phần 2 · Nghe</p>
+                    <div class="qnav">
+                      <span class="qdot is-answered">11</span><span class="qdot is-answered">12</span>
+                      <span class="qdot is-answered">13</span><span class="qdot is-answered">14</span>
+                      <span class="qdot is-answered">15</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted-foreground mb-2">Phần 3 · Viết</p>
+                    <div class="qnav">
+                      <span class="qdot is-answered">16</span><span class="qdot is-answered">17</span>
+                      <span class="qdot is-answered">18</span><span class="qdot">19</span>
+                      <span class="qdot is-answered">20</span><span class="qdot is-answered">21</span>
+                      <span class="qdot is-answered">22</span><span class="qdot is-answered">23</span>
+                      <span class="qdot is-answered">24</span>
+                    </div>
+                  </div>
+                  <hr class="sep" />
+                  <div class="text-xs text-muted-foreground space-y-1.5">
+                    <p>Đã trả lời <span class="text-foreground font-medium">21 / 24</span></p>
+                    <p>Đánh dấu <span class="text-foreground font-medium">1</span></p>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-4 mt-5">
+            <div class="callout">
+              <strong>“Đã nộp” is a centred card at every width.</strong> S-11’s submitted,
+              timed-out and auto-submitted screens are one card of text; at 1024 and up they sit
+              in the 720px column with the same S-08 header row above them and nothing else. No
+              rail — there are no questions to go to.
+            </div>
+            <div class="callout">
+              <strong>The header never changes height between views.</strong> Question, review and
+              submitted all use the S-08 row, so moving between them does not move the timer.
+              Only the first control changes: Thoát → Quay lại bài → nothing.
+            </div>
+            <div class="callout">
+              <strong>Integrity dialogs are untouched.</strong> S-07 is drawn at 390 and reads the
+              same at 1280; a non-dismissible dialog does not grow to fill a monitor.
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">S-16</span>
+            <span class="board-name">Result at 1280 — the score beside the paper</span>
+            <span class="board-route">/app/attempts/:id/result · ≥1024px</span>
+          </div>
+          <p class="board-note">
+            The review reads top to bottom for a long time; the score is one glance. So the score
+            tile moves into the right column and stays in view while the first screenful of
+            questions is read, and the paper takes the reading column at 720px — the width the
+            same questions had when they were answered. The filters stay above the paper because
+            they change the paper. Every S-09b subtraction still applies: a withheld block is one
+            muted sentence in place, and a withheld score tile leaves the right column empty rather
+            than inventing something to fill it.
+          </p>
+          <div class="frame-row">
+            <div class="frame frame-desktop">
+              <div class="border-b">
+                <div class="mx-auto max-w-5xl px-6 h-14 flex items-center gap-3">
+                  <svg width="126" height="29" aria-hidden="true"><use href="#qz-logo-h-color" /></svg>
+                  <nav class="flex items-center gap-1 ml-4">
+                    <span class="btn btn-sm btn-secondary">Bài của tôi</span>
+                    <span class="btn btn-sm btn-ghost text-muted-foreground">Lớp</span>
+                  </nav>
+                  <button class="btn btn-sm btn-ghost ml-auto">
+                    <span class="avatar avatar-sm">M</span>
+                    Minh
+                    <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="mx-auto max-w-5xl px-6 py-8">
+                <div class="grid gap-8" style="grid-template-columns: minmax(0, 1fr) 20rem">
+                  <div class="min-w-0 max-w-[720px] space-y-4">
+                    <div>
+                      <span class="btn btn-xs btn-ghost text-muted-foreground px-1">
+                        <svg class="i" aria-hidden="true"><use href="#i-arrow-left" /></svg>
+                        Bài của tôi
+                      </span>
+                      <h1 class="text-xl font-semibold tracking-tight mt-3 leading-snug">Unit 4 — Passive voice</h1>
+                      <p class="text-xs text-muted-foreground mt-1">IELTS Foundation · Nộp lúc 20:14 · 26/08 · Lượt 1/2</p>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                      <span class="btn btn-xs btn-secondary">Tất cả 24</span>
+                      <span class="btn btn-xs btn-ghost text-muted-foreground">Sai 3</span>
+                      <span class="btn btn-xs btn-ghost text-muted-foreground">Chờ chấm 0</span>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-body space-y-3">
+                        <div class="flex items-center gap-2">
+                          <span class="qdot is-correct size-6 text-xs">3</span>
+                          <span class="text-xs text-muted-foreground">1/1 điểm</span>
+                          <span class="badge b-success ml-auto">Đúng</span>
+                        </div>
+                        <p class="text-sm leading-relaxed">
+                          She <span class="underline">has been living</span> in Hanoi since 2019.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-body space-y-3">
+                        <div class="flex items-center gap-2">
+                          <span class="qdot is-wrong size-6 text-xs">7</span>
+                          <span class="text-xs text-muted-foreground">0/1 điểm</span>
+                          <span class="badge b-danger ml-auto">Sai</span>
+                        </div>
+                        <p class="text-sm leading-relaxed">The letter ____ yesterday.</p>
+                        <div class="space-y-2">
+                          <div class="option is-wrong py-2.5">
+                            <span class="option-key">B</span>
+                            <span class="text-sm">was wrote</span>
+                            <span class="text-xs text-muted-foreground ml-auto self-center">bạn chọn</span>
+                          </div>
+                          <div class="option is-correct py-2.5">
+                            <span class="option-key">C</span>
+                            <span class="text-sm">was written</span>
+                            <span class="text-xs text-muted-foreground ml-auto self-center">đáp án đúng</span>
+                          </div>
+                        </div>
+                        <div class="alert alert-muted py-2.5">
+                          <svg class="i" aria-hidden="true"><use href="#i-info" /></svg>
+                          <p class="text-xs leading-relaxed">
+                            Bị động thì quá khứ đơn dùng <em>was/were</em> + phân từ II. “Write” có
+                            phân từ II là “written”.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-body space-y-3">
+                        <div class="flex items-center gap-2">
+                          <span class="qdot is-correct size-6 text-xs">11</span>
+                          <span class="text-xs text-muted-foreground">1/1 điểm</span>
+                          <span class="badge b-outline ml-auto"><svg class="i" aria-hidden="true"><use href="#i-headphones" /></svg> Nghe</span>
+                        </div>
+                        <p class="text-sm leading-relaxed">Người phụ nữ đề nghị làm gì?</p>
+                        <div class="player py-2.5">
+                          <button class="player-btn" style="width: 2.25rem; height: 2.25rem" aria-label="Phát lại">
+                            <svg class="i" aria-hidden="true"><use href="#i-play" /></svg>
+                          </button>
+                          <div class="flex-1 min-w-0">
+                            <div class="player-track"><i style="width: 0%"></i></div>
+                            <p class="text-xs text-muted-foreground mt-1.5">Nghe lại thoải mái sau khi nộp</p>
+                          </div>
+                        </div>
+                        <details class="text-sm">
+                          <summary class="cursor-pointer text-muted-foreground flex items-center gap-1.5">
+                            <svg class="i" aria-hidden="true"><use href="#i-scroll-text" /></svg> Xem lời thoại
+                          </summary>
+                          <p class="mt-2 leading-relaxed text-muted-foreground">
+                            <strong class="text-foreground">A:</strong> I’m struggling to keep up with
+                            the Tuesday class…
+                          </p>
+                        </details>
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside class="space-y-4">
+                    <div class="card">
+                      <div class="card-body text-center">
+                        <p class="text-xs text-muted-foreground uppercase tracking-wide">Điểm của bạn</p>
+                        <p class="text-4xl font-semibold tabular-nums mt-2">27<span class="text-xl text-muted-foreground">/30</span></p>
+                        <div class="progress progress-success mt-4"><i style="width: 90%"></i></div>
+                        <p class="text-xs text-muted-foreground mt-3">21 đúng · 3 sai · 0 chờ chấm</p>
+                      </div>
+                    </div>
+                    <p class="text-xs text-muted-foreground leading-relaxed px-1">
+                      Giáo viên không cho xem đáp án đúng ở bài này; bạn thấy câu nào sai, không thấy
+                      câu trả lời đúng là gì.
+                    </p>
+                  </aside>
+                </div>
+              </div>
+            </div>
+
+            <div class="max-w-md space-y-3 pt-2">
+              <div class="callout">
+                <strong>The right column is the phone’s first card.</strong> S-09’s score tile is
+                moved, not redrawn: same label, same number, same bar, same “Nộp lúc” line — which
+                goes under the title here because the title now has room for it.
+              </div>
+              <div class="callout">
+                <strong>“Chờ chấm” keeps its sentence.</strong> When a paper is partly manual,
+                S-09’s second frame (“chưa gồm 8 điểm đang chấm tay”) stays under the number in the
+                tile, and F-08’s “Bài này chấm tay một phần” alert sits above the filters where the
+                phone puts it.
+              </div>
+              <div class="callout">
+                <strong>One withheld thing, one sentence.</strong> The muted paragraph under the
+                tile is S-09b’s rule applied to the column: it names what the teacher chose not to
+                show, once, rather than leaving a gap the student reads as a bug.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="board-bar">
+            <span class="board-id">S-17</span>
+            <span class="board-name">Classes and settings at 1280 — one narrow column each</span>
+            <span class="board-route">/app/classes · /app/settings · ≥1024px</span>
+          </div>
+          <p class="board-note">
+            Neither page has a second thing to show, so neither gets a second column. Classes is
+            a 42rem column under the bar with the nav’s “Lớp” lit; settings is a 36rem column
+            reached from the menu, with nothing lit, and “Đăng xuất” as a plain outline button at
+            its own width — it is no longer the only way out (S-13). The change-password screen is
+            S-10’s third frame at every width: a card centred in an empty page, because it is the
+            only screen the account can open until it is done (§5.4).
+          </p>
+          <div class="frame-row">
+            <div class="frame frame-desktop">
+              <div class="border-b">
+                <div class="mx-auto max-w-5xl px-6 h-14 flex items-center gap-3">
+                  <svg width="126" height="29" aria-hidden="true"><use href="#qz-logo-h-color" /></svg>
+                  <nav class="flex items-center gap-1 ml-4">
+                    <span class="btn btn-sm btn-ghost text-muted-foreground">Bài của tôi</span>
+                    <span class="btn btn-sm btn-secondary">Lớp</span>
+                  </nav>
+                  <button class="btn btn-sm btn-ghost ml-auto">
+                    <span class="avatar avatar-sm">M</span>
+                    Minh
+                    <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="mx-auto max-w-5xl px-6 py-8">
+                <div class="max-w-2xl space-y-3">
+                  <div class="flex items-center justify-between">
+                    <h1 class="text-xl font-semibold tracking-tight">Lớp của tôi</h1>
+                    <button class="btn btn-sm btn-outline">
+                      <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg>
+                      Tham gia lớp
+                    </button>
+                  </div>
+                  <div class="card p-4">
+                    <p class="text-sm font-medium">IELTS Foundation — Lớp tối T3/T5</p>
+                    <p class="text-xs text-muted-foreground mt-1">Cô Thương · tham gia 12/07</p>
+                  </div>
+                  <div class="card p-4">
+                    <p class="text-sm font-medium">Grammar booster — Hè 2026</p>
+                    <p class="text-xs text-muted-foreground mt-1">Cô Thương · tham gia 02/06</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="frame frame-desktop">
+              <div class="border-b">
+                <div class="mx-auto max-w-5xl px-6 h-14 flex items-center gap-3">
+                  <svg width="126" height="29" aria-hidden="true"><use href="#qz-logo-h-color" /></svg>
+                  <nav class="flex items-center gap-1 ml-4">
+                    <span class="btn btn-sm btn-ghost text-muted-foreground">Bài của tôi</span>
+                    <span class="btn btn-sm btn-ghost text-muted-foreground">Lớp</span>
+                  </nav>
+                  <button class="btn btn-sm btn-ghost ml-auto">
+                    <span class="avatar avatar-sm">M</span>
+                    Minh
+                    <svg class="i text-muted-foreground" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="mx-auto max-w-5xl px-6 py-8">
+                <div class="max-w-xl space-y-3">
+                  <h1 class="text-xl font-semibold tracking-tight mb-4">Cài đặt</h1>
+                  <div class="card">
+                    <div class="card-head"><p class="card-title">Hồ sơ</p></div>
+                    <div class="card-body pt-0 space-y-3">
+                      <div>
+                        <label class="label" for="d1">Họ và tên</label>
+                        <input class="input h-11" id="d1" value="Nguyễn Đức Minh" />
+                      </div>
+                      <div>
+                        <label class="label" for="d2">Email</label>
+                        <input class="input h-11" id="d2" value="minh.nguyen@gmail.com" disabled />
+                        <p class="hint">Email lấy từ tài khoản Google, không đổi được.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <div class="card-head"><p class="card-title">Tài khoản Google</p></div>
+                    <div class="card-body pt-0">
+                      <div class="flex items-center gap-2">
+                        <svg class="i text-success" aria-hidden="true"><use href="#i-circle-check" /></svg>
+                        <p class="text-sm">Đã liên kết với Google.</p>
+                      </div>
+                      <p class="text-xs text-muted-foreground mt-2 leading-relaxed">
+                        Google đang là cách duy nhất để đăng nhập vào tài khoản này. Hãy đặt mật
+                        khẩu trước khi bỏ liên kết.
+                      </p>
+                      <button class="btn btn-sm btn-outline mt-3" aria-disabled="true">Bỏ liên kết Google</button>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <div class="card-head"><p class="card-title">Ngôn ngữ</p></div>
+                    <div class="card-body pt-0">
+                      <div class="tabs">
+                        <button class="tab is-active">Tiếng Việt</button>
+                        <button class="tab">English</button>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="btn btn-outline text-muted-foreground">
+                    <svg class="i" aria-hidden="true"><use href="#i-log-out" /></svg>
+                    Đăng xuất
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-4 mt-5">
+            <div class="callout">
+              <strong>Join and login already have their desktop.</strong> S-01 is one centred card
+              under the logo at every width, and S-02 draws the brand panel from
+              <code class="font-mono">lg</code>. Neither is redrawn here; both are measured in the
+              running app against those boards.
+            </div>
+            <div class="callout">
+              <strong>Settings has no nav item lit</strong> because it is not a place the student
+              goes, it is a thing they open from their name. The phone reaches it from S-03’s
+              icon; the desk reaches it from S-13’s menu. Same page.
+            </div>
+            <div class="callout">
+              <strong>“Hồ sơ” is drawn as S-10 draws it.</strong> Whether the block exists at all
+              is #94’s decision, and it is one decision for both widths — this board does not
+              take it.
             </div>
           </div>
         </div>
