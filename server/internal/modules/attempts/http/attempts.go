@@ -105,6 +105,7 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 
 	return openapi.AttemptSession{
 		Attempt:     toAPIAttempt(in.Attempt),
+		TestTitle:   in.TestTitle,
 		Sections:    sections,
 		Questions:   questions,
 		SessionId:   httpapi.ParseUUID(in.SessionID),

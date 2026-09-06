@@ -1,22 +1,19 @@
-import { useEffect, useReducer, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  Flag,
-  List,
-  LoaderCircle,
-  X,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { LoadError } from "@/components/shared/ListState";
-import { Clock } from "../components/Clock";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { cn } from "@/lib/utils";
+import { EngineHeader } from "../components/EngineHeader";
 import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviewScreen } from "../components/ReviewScreen";
+import { SaveStrip } from "../components/SaveState";
+import { SectionInstructions } from "../components/SectionInstructions";
 import { SubmittedScreen } from "../components/SubmittedScreen";
 import { clearSession } from "@/features/integrity/buffer";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
@@ -26,18 +23,27 @@ import { strikeState } from "@/features/integrity/strikes";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { answered } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
+import {
+  groupBySection,
+  opensSection,
+  sectionAt,
+  type SectionGroup,
+} from "../sections";
 import { useTakeTestStore } from "../store";
-import { formatTime } from "@/lib/i18n/datetime";
+import { worth } from "../worth";
 
 /**
  * S-05's engine, one question at a time -- and S-06's two other views of the
  * same attempt: the navigator (a sheet in thumb range, a rail from 1024px)
- * and the review before submitting.
+ * and the review before submitting. From 1024px the chrome is S-08's: one
+ * header row, no save strip, no sticky footer, the two buttons under the
+ * answer at their own width.
  */
 export default function TakeTestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { attemptId } = useParams<{ attemptId: string }>();
+  const wide = useMediaQuery("(min-width: 1024px)");
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -46,6 +52,7 @@ export default function TakeTestPage() {
   const [navOpen, setNavOpen] = useState(false);
 
   const questions = useTakeTestStore((s) => s.questions);
+  const sections = useTakeTestStore((s) => s.sections);
   const answers = useTakeTestStore((s) => s.answers);
   const flags = useTakeTestStore((s) => s.flags);
   const sessionId = useTakeTestStore((s) => s.sessionId);
@@ -56,14 +63,16 @@ export default function TakeTestPage() {
   const submitState = useTakeTestStore((s) => s.submitState);
   const submitReason = useTakeTestStore((s) => s.submitReason);
   const submittedAt = useTakeTestStore((s) => s.submittedAt);
-  const dirty = useTakeTestStore((s) => s.dirty.size);
-  const inFlight = useTakeTestStore((s) => s.flushInFlight);
   const hydrate = useTakeTestStore((s) => s.hydrate);
   const setAnswer = useTakeTestStore((s) => s.setAnswer);
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const reset = useTakeTestStore((s) => s.reset);
 
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
+  const groups = useMemo(
+    () => groupBySection(sections, questions),
+    [sections, questions],
+  );
 
   // Every §10 listener, in one place.
   const { strikes, lastAwayMs, fullscreen } = useIntegrityMonitor({
@@ -141,7 +150,6 @@ export default function TakeTestPage() {
   if (question === undefined) {
     return <Notice>{t("takeTest.empty")}</Notice>;
   }
-  const last = index >= questions.length - 1;
 
   const dots: DotState[] = questions.map((q) => ({
     id: q.id,
@@ -156,13 +164,16 @@ export default function TakeTestPage() {
 
   if (submitState === "done" && submittedAt !== null) {
     return (
-      <SubmittedScreen
-        reason={submitReason ?? "manual"}
-        submittedAt={submittedAt}
-        answered={dots.filter((d) => d.answered).length}
-        total={dots.length}
-        onHome={() => void navigate("/app", { replace: true })}
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        {wide && <EngineHeader wide leading={null} progress={null} live={false} />}
+        <SubmittedScreen
+          reason={submitReason ?? "manual"}
+          submittedAt={submittedAt}
+          answered={dots.filter((d) => d.answered).length}
+          total={dots.length}
+          onHome={() => void navigate("/app", { replace: true })}
+        />
+      </div>
     );
   }
 
@@ -174,52 +185,161 @@ export default function TakeTestPage() {
   const strikeDialog = strikeStatus !== null && (
     <StrikeDialog state={strikeStatus} strikes={strikes} lastAwayMs={lastAwayMs} />
   );
+  const strikeIndicator =
+    strikeStatus === null ? null : <StrikeIndicator state={strikeStatus} />;
 
   if (view === "review") {
     return (
       <>
-        <ReviewScreen dots={dots} onBack={() => setView("question")} onJump={jump} />
+        <ReviewScreen
+          wide={wide}
+          dots={dots}
+          groups={groups}
+          status={strikeIndicator}
+          onBack={() => setView("question")}
+          onJump={jump}
+        />
         {strikeDialog}
       </>
     );
   }
 
-  const flagged = flags.has(question.id);
+  return (
+    <>
+      <Paper
+        wide={wide}
+        index={index}
+        question={question}
+        total={questions.length}
+        group={sectionAt(groups, index)}
+        sectioned={groups.length > 1}
+        dots={dots}
+        groups={groups}
+        status={strikeIndicator}
+        fullscreenBar={watching && integrity.requireFullscreen && !fullscreen}
+        navOpen={navOpen}
+        onNavOpen={setNavOpen}
+        onExit={() => void navigate("/app")}
+        onMove={setIndex}
+        onJump={jump}
+        onReview={() => setView("review")}
+        onReload={reload}
+      />
+      {strikeDialog}
+    </>
+  );
+}
+
+/** The paper itself: header, strip, one question, the way to the next. */
+function Paper({
+  wide,
+  index,
+  question,
+  total,
+  group,
+  sectioned,
+  dots,
+  groups,
+  status,
+  fullscreenBar,
+  navOpen,
+  onNavOpen,
+  onExit,
+  onMove,
+  onJump,
+  onReview,
+  onReload,
+}: Readonly<{
+  wide: boolean;
+  index: number;
+  question: StudentQuestion;
+  total: number;
+  group: SectionGroup | null;
+  /** More than one part: the meta line names the part (S-08). */
+  sectioned: boolean;
+  dots: DotState[];
+  groups: SectionGroup[];
+  status: ReactNode;
+  fullscreenBar: boolean;
+  navOpen: boolean;
+  onNavOpen: (open: boolean) => void;
+  onExit: () => void;
+  onMove: (index: number) => void;
+  onJump: (index: number) => void;
+  onReview: () => void;
+  onReload: () => void;
+}>) {
+  const { t } = useTranslation();
+  const flagged = useTakeTestStore((s) => s.flags.has(question.id));
+  const lock = useTakeTestStore((s) => s.lock);
+  const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
+  const last = index >= total - 1;
   const choice =
     question.type === "single_choice" || question.type === "multiple_choice";
 
+  const previous = (
+    <Button
+      variant="outline"
+      size={wide ? "default" : "icon"}
+      aria-label={wide ? undefined : t("takeTest.previous")}
+      disabled={index === 0}
+      onClick={() => onMove(Math.max(0, index - 1))}
+    >
+      <ChevronLeft aria-hidden="true" />
+      {wide && t("takeTest.previous")}
+    </Button>
+  );
+  const next = last ? (
+    <Button className={wide ? undefined : "flex-1"} onClick={onReview}>
+      {t("takeTest.reviewAndSubmit")}
+    </Button>
+  ) : (
+    <Button className={wide ? undefined : "flex-1"} onClick={() => onMove(index + 1)}>
+      {t("takeTest.next")}
+      <ChevronRight aria-hidden="true" />
+    </Button>
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Header
-        index={index}
-        total={questions.length}
-        onExit={() => void navigate("/app")}
-      />
-      <SaveStrip
-        dirty={dirty}
-        inFlight={inFlight}
-        lock={lock}
-        indicator={
-          strikeStatus === null ? null : <StrikeIndicator state={strikeStatus} />
+      <EngineHeader
+        wide={wide}
+        counter={{ n: index + 1, total }}
+        progress={(index + 1) / total}
+        status={status}
+        leading={
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-muted-foreground px-1"
+            onClick={onExit}
+          >
+            <X aria-hidden="true" />
+            {t("takeTest.exit")}
+          </Button>
         }
       />
-      {watching && integrity.requireFullscreen && !fullscreen && <FullscreenBar />}
-      {strikeDialog}
+      <SaveStrip wide={wide} indicator={status} />
+      {fullscreenBar && <FullscreenBar />}
 
       <div data-columns className="flex min-h-0 flex-1">
-        <main data-resize-middle className="min-w-0 flex-1 overflow-y-auto px-4 py-5">
-          <div className="mx-auto w-full max-w-[720px]">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-muted-foreground text-xs">
-                {t("takeTest.questionCounter", {
-                  n: index + 1,
-                  total: questions.length,
-                })}
-              </p>
+        <main
+          data-resize-middle
+          className={cn("min-w-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-5")}
+        >
+          <div className="mx-auto w-full max-w-[720px] space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              {wide ? (
+                <p className="text-muted-foreground text-xs">
+                  {metaLine(t, question, index, total, sectioned ? group : null)}
+                </p>
+              ) : (
+                <span />
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground"
+                className="text-muted-foreground shrink-0"
                 aria-pressed={flagged}
                 aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
                 disabled={lock !== null}
@@ -229,79 +349,100 @@ export default function TakeTestPage() {
                   className={flagged ? "fill-current" : undefined}
                   aria-hidden="true"
                 />
-                <span className="hidden lg:inline">{t("takeTest.flag")}</span>
+                {wide && t("takeTest.flag")}
               </Button>
             </div>
-            <QuestionCard question={question} onAudioExpired={reload} />
-            <p className="text-muted-foreground mt-6 hidden items-center gap-1 text-xs lg:flex">
-              {t("takeTest.shortcuts")}
-              {choice && (
-                <>
-                  {" "}
-                  <Kbd>{KEY.a}</Kbd>
-                  {KEY.dash}
-                  <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
-                </>
-              )}{" "}
-              <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd> {t("takeTest.shortcutMove")}{" "}
-              {KEY.dot} <Kbd>{KEY.f}</Kbd> {t("takeTest.shortcutFlag")}
-            </p>
+            {group !== null && opensSection(group, index) && (
+              <SectionInstructions
+                group={group}
+                audio={question.media?.kind === "audio"}
+              />
+            )}
+            <QuestionCard question={question} onAudioExpired={onReload} />
+            {wide && (
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                {previous}
+                {next}
+                <p className="text-muted-foreground ml-3 flex items-center gap-1 text-xs">
+                  {t("takeTest.shortcuts")}
+                  {choice && (
+                    <>
+                      {" "}
+                      <Kbd>{KEY.a}</Kbd>
+                      {KEY.dash}
+                      <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
+                    </>
+                  )}{" "}
+                  <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd>{" "}
+                  {t("takeTest.shortcutMove")} {KEY.dot} <Kbd>{KEY.f}</Kbd>{" "}
+                  {t("takeTest.shortcutFlag")}
+                </p>
+              </div>
+            )}
           </div>
         </main>
-        <NavigatorRail
-          dots={dots}
-          current={index}
-          onJump={jump}
-          onReview={() => setView("review")}
-        />
+        {wide && (
+          <NavigatorRail
+            dots={dots}
+            current={index}
+            groups={groups}
+            onJump={onJump}
+            onReview={onReview}
+          />
+        )}
       </div>
 
-      <footer
-        className="flex shrink-0 items-center gap-2 border-t p-3"
-        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-      >
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label={t("takeTest.previous")}
-          disabled={index === 0}
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
+      {!wide && (
+        <footer
+          className="flex shrink-0 items-center gap-2 border-t p-3"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
-          <ChevronLeft aria-hidden="true" />
-        </Button>
-        <Button
-          variant="outline"
-          className="flex-1 lg:hidden"
-          onClick={() => setNavOpen(true)}
-        >
-          <List aria-hidden="true" />
-          {t("takeTest.questionList")}
-        </Button>
-        {last ? (
-          <Button className="flex-1" onClick={() => setView("review")}>
-            {t("takeTest.reviewAndSubmit")}
+          {previous}
+          <Button variant="outline" className="flex-1" onClick={() => onNavOpen(true)}>
+            <List aria-hidden="true" />
+            {t("takeTest.questionList")}
           </Button>
-        ) : (
-          <Button className="flex-1" onClick={() => setIndex((i) => i + 1)}>
-            {t("takeTest.next")}
-            <ChevronRight aria-hidden="true" />
-          </Button>
-        )}
-      </footer>
+          {next}
+        </footer>
+      )}
 
       <NavigatorSheet
         open={navOpen}
-        onOpenChange={setNavOpen}
+        onOpenChange={onNavOpen}
         dots={dots}
         current={index}
-        onJump={jump}
+        groups={groups}
+        onJump={onJump}
         onReview={() => {
-          setNavOpen(false);
-          setView("review");
+          onNavOpen(false);
+          onReview();
         }}
       />
     </div>
   );
+}
+
+/** S-08's line above the stem: the part when there is more than one, the position, the worth. */
+function metaLine(
+  t: TFunction,
+  question: StudentQuestion,
+  index: number,
+  total: number,
+  group: SectionGroup | null,
+): string {
+  const points = worth(question, t);
+  if (group === null) {
+    return t("takeTest.questionMeta", { n: index + 1, total, points });
+  }
+  return t("takeTest.sectionMeta", {
+    section: t("takeTest.sectionLabel", {
+      n: group.ordinal,
+      title: group.section.title,
+    }),
+    n: index + 1,
+    total,
+    points,
+  });
 }
 
 /** The key caps S-08 draws. Not translated: they are the keys. */
@@ -348,124 +489,5 @@ function Notice({ children }: Readonly<{ children: string }>) {
     >
       <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
     </main>
-  );
-}
-
-/**
- * The clock, and the exit that §10.2 forbids ever removing -- deliberately
- * the least prominent control here, and never beside the submit.
- */
-function Header({
-  index,
-  total,
-  onExit,
-}: Readonly<{
-  index: number;
-  total: number;
-  onExit: () => void;
-}>) {
-  const { t } = useTranslation();
-  return (
-    <header className="border-b">
-      <div className="mx-auto flex h-12 w-full max-w-[720px] items-center gap-3 px-4">
-        <Button
-          variant="ghost"
-          size="xs"
-          className="text-muted-foreground px-1"
-          onClick={onExit}
-        >
-          <X aria-hidden="true" />
-          {t("takeTest.exit")}
-        </Button>
-        <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-          {t("takeTest.questionCounter", { n: index + 1, total })}
-        </span>
-        <Clock />
-      </div>
-      <div className="bg-secondary h-1">
-        <div
-          className="bg-primary h-full transition-[width]"
-          style={{ width: `${(((index + 1) / total) * 100).toFixed(2)}%` }}
-        />
-      </div>
-    </header>
-  );
-}
-
-/**
- * "Did my work survive?" -- asked constantly and quietly, so it gets its own
- * strip. In the header it would compete with the timer; in a toast it would
- * disappear exactly when the student wanted it.
- */
-function SaveStrip({
-  dirty,
-  inFlight,
-  lock,
-  indicator,
-}: Readonly<{
-  dirty: number;
-  inFlight: boolean;
-  lock: string | null;
-  /** S-05 puts the strike count at the strip's far end, beside the save state. */
-  indicator: ReactNode;
-}>) {
-  const { t } = useTranslation();
-  // The moment the SERVER confirmed, not the moment this rendered.
-  const lastSavedAt = useTakeTestStore((s) => s.lastSavedAt);
-
-  if (lock !== null) {
-    const message = t(lockMessageKey(lock));
-    return (
-      <div className="bg-warning/10 border-b px-4 py-3">
-        <p className="mx-auto w-full max-w-[720px] text-xs leading-relaxed">
-          {message}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-muted/30 border-b px-4 py-3">
-      <div className="text-muted-foreground mx-auto flex w-full max-w-[720px] items-center gap-2 text-xs">
-        <SaveState inFlight={inFlight} dirty={dirty} lastSavedAt={lastSavedAt} />
-        {indicator !== null && <span className="ml-auto">{indicator}</span>}
-      </div>
-    </div>
-  );
-}
-
-function lockMessageKey(lock: string | null): string {
-  if (lock === "superseded") return "takeTest.lockedSuperseded";
-  if (lock === "deadline") return "takeTest.lockedDeadline";
-  return "takeTest.lockedClosed";
-}
-
-/** S-05's save state: in flight, unsaved edits, or the last save's time. */
-function SaveState({
-  inFlight,
-  dirty,
-  lastSavedAt,
-}: Readonly<{
-  inFlight: boolean;
-  dirty: number;
-  lastSavedAt: Parameters<typeof formatTime>[0] | null;
-}>) {
-  const { t } = useTranslation();
-  if (inFlight) {
-    return (
-      <>
-        <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-        {t("takeTest.saving")}
-      </>
-    );
-  }
-  if (dirty > 0) return <>{t("takeTest.unsaved")}</>;
-  return (
-    <>
-      <Check className="size-3.5" aria-hidden="true" />
-      {lastSavedAt === null
-        ? t("takeTest.savedNothingYet")
-        : t("takeTest.saved", { time: formatTime(lastSavedAt) })}
-    </>
   );
 }

@@ -2182,6 +2182,8 @@ export interface components {
          */
         AttemptSession: {
             attempt: components["schemas"]["Attempt"];
+            /** @description The engine's header names the paper from 1024px up (S-08). */
+            testTitle: string;
             /** @description In test order. `questions` never interleaves two sections, whatever the shuffle. */
             sections: components["schemas"]["StudentSection"][];
             /**

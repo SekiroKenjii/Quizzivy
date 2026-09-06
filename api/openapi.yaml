@@ -1293,10 +1293,13 @@ components:
       description: |
         Returned when an attempt is created or resumed. Everything the engine
         needs to run authoritatively.
-      required: [attempt, sections, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
+      required: [attempt, testTitle, sections, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
       additionalProperties: false
       properties:
         attempt: { $ref: '#/components/schemas/Attempt' }
+        testTitle:
+          type: string
+          description: The engine's header names the paper from 1024px up (S-08).
         sections:
           type: array
           items: { $ref: '#/components/schemas/StudentSection' }

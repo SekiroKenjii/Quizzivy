@@ -21,7 +21,7 @@ const rulesQuery = `
 	       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded,
-	       a.integrity_min_away_ms,
+	       a.integrity_min_away_ms, t.title,
 	       -- Targeted by class or by name is one answer, not two: EXISTS over
 	       -- the union rather than two counts, for the same reason the roster
 	       -- count is a union (a student reached both ways is one person).
@@ -39,6 +39,8 @@ const rulesQuery = `
 	        WHERE roster.user_id = $2::uuid
 	       )
 	  FROM app.assignments a
+	  JOIN app.test_versions v ON v.id = a.test_version_id
+	  JOIN app.tests t ON t.id = v.test_id
 	 WHERE a.id = $1::uuid`
 
 func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (domain.Rules, error) {
@@ -48,7 +50,7 @@ func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (d
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
 		&r.Integrity.MaxFocusLoss, &r.Integrity.OnLimitExceeded, &r.Integrity.MinAwayMs,
-		&r.Targeted,
+		&r.TestTitle, &r.Targeted,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Rules{}, domain.ErrNotFound
@@ -403,16 +405,20 @@ func (s *Postgres) ByID(ctx context.Context, attemptID, studentID string) (domai
 func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Rules, error) {
 	var r domain.Rules
 	err := s.QueryRow(ctx, `
-		SELECT test_version_id, opens_at, closes_at, closed_at, published_at,
-		       duration_minutes, max_attempts, shuffle_questions, shuffle_options,
-		       integrity_require_fullscreen, integrity_block_copy_paste,
-		       integrity_max_focus_loss, integrity_on_limit_exceeded,
-		       integrity_min_away_ms
-		  FROM app.assignments WHERE id = $1::uuid`, assignmentID).Scan(
+		SELECT a.test_version_id, a.opens_at, a.closes_at, a.closed_at, a.published_at,
+		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
+		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
+		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded,
+		       a.integrity_min_away_ms, t.title
+		  FROM app.assignments a
+		  JOIN app.test_versions v ON v.id = a.test_version_id
+		  JOIN app.tests t ON t.id = v.test_id
+		 WHERE a.id = $1::uuid`, assignmentID).Scan(
 		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
 		&r.Integrity.MaxFocusLoss, &r.Integrity.OnLimitExceeded, &r.Integrity.MinAwayMs,
+		&r.TestTitle,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Rules{}, domain.ErrNotFound

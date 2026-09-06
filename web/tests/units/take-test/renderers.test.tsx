@@ -286,3 +286,44 @@ describe("what the question says it is worth", () => {
     expect(screen.getByText("1 điểm")).toBeInTheDocument();
   });
 });
+
+describe("the fill-blank matching rule (S-05)", () => {
+  const render1 = (q: StudentQuestion) =>
+    render(<QuestionCard question={q} onAudioExpired={vi.fn()} />);
+
+  it("says capitals do not matter when no blank is case-sensitive", () => {
+    render1(
+      question({
+        type: "fill_blank",
+        prompt: "If it {{1}} tomorrow.",
+        blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
+      }),
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Không phân biệt hoa thường. Viết đúng chính tả.",
+    );
+  });
+
+  it("says capitals matter as soon as one blank is case-sensitive", () => {
+    render1(
+      question({
+        type: "fill_blank",
+        prompt: "{{1}} {{2}}",
+        blanks: [
+          { id: "b1", ordinal: 1, caseSensitive: false },
+          { id: "b2", ordinal: 2, caseSensitive: true },
+        ],
+      }),
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Phân biệt hoa thường. Viết đúng chính tả.",
+    );
+  });
+
+  it("puts a short answer's worth and word count on one row", () => {
+    render1(question({ type: "short_answer", points: 5 }));
+    const row = screen.getByText("5 điểm · giáo viên chấm tay").parentElement!;
+    expect(row).toHaveTextContent("0 từ");
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+});

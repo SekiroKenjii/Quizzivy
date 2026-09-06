@@ -1097,7 +1097,13 @@
     "submittedBody_timer_expired": "Hết thời gian làm bài, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
     "submittedBody_auto_submit": "Bài làm ghi nhận bạn rời khỏi trang sau lần cuối được cho phép, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
     "submittedMeta": "Nộp lúc {{time}} · {{date}} · {{answered}}/{{total}} câu đã trả lời",
-    "backHome": "Về trang chủ"
+    "backHome": "Về trang chủ",
+    "sectionLabel": "Phần {{n}} · {{title}}",
+    "sectionNote": "Phần {{n}} · {{text}}",
+    "sectionMeta": "{{section}} — Câu {{n}} / {{total}} · {{points}}",
+    "questionMeta": "Câu {{n}} / {{total}} · {{points}}",
+    "blankRuleInsensitive": "Không phân biệt hoa thường. Viết đúng chính tả.",
+    "blankRuleSensitive": "Phân biệt hoa thường. Viết đúng chính tả."
   },
   "integrity": {
     "leftTitle": "Bạn vừa rời khỏi trang làm bài",
