@@ -87,6 +87,7 @@ beforeEach(() => {
         questions: [
           {
             id: "018f0000-0000-7000-8000-0000000000e1",
+            sectionId: "018f0000-0000-7000-8000-0000000000c1",
             type: "single_choice",
             prompt: publishedPrompt,
             media: null,

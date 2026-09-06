@@ -1866,10 +1866,27 @@ export interface components {
             id: components["schemas"]["Uuid"];
             text: string;
         };
-        /** @description No `acceptedAnswers`, no `caseSensitive` — both are grading key. */
+        /**
+         * @description No `acceptedAnswers` — that is the grading key. `caseSensitive` is a
+         *     rule, not a key: the engine states it under the blanks (S-05, "Không
+         *     phân biệt hoa thường"), and a rule the student cannot read is one they
+         *     are graded on blind.
+         */
         StudentBlank: {
             id: components["schemas"]["Uuid"];
             ordinal: number;
+            caseSensitive: boolean;
+        };
+        /**
+         * @description One part of the paper, in test order. `instructions` is the teacher's
+         *     text to the student for this part; the engine shows it above the
+         *     section's first question and the navigator groups the numbers under
+         *     `title` (S-05, S-06, S-08).
+         */
+        StudentSection: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            instructions: string | null;
         };
         /**
          * @description What a student receives while taking a test. Contains none of
@@ -1884,6 +1901,8 @@ export interface components {
         StudentQuestion: {
             /** @description A `test_version_questions` id — never a bank question id (§7). */
             id: components["schemas"]["Uuid"];
+            /** @description The `AttemptSession.sections` entry this question belongs to. */
+            sectionId: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
@@ -2163,7 +2182,13 @@ export interface components {
          */
         AttemptSession: {
             attempt: components["schemas"]["Attempt"];
-            /** @description Already in presentation order, shuffled server-side and stable across reloads (D-02). */
+            /** @description In test order. `questions` never interleaves two sections, whatever the shuffle. */
+            sections: components["schemas"]["StudentSection"][];
+            /**
+             * @description Already in presentation order, shuffled server-side and stable
+             *     across reloads (D-02). Shuffling happens inside each section, so
+             *     the order of sections is the order of `sections`.
+             */
             questions: components["schemas"]["StudentQuestion"][];
             /**
              * @description Identifies this device/tab. Every write carries it; a superseded

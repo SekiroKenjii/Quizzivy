@@ -201,8 +201,14 @@ func appendEvent(ctx context.Context, q db.Querier, attemptID, sessionID, kind s
 	return nil
 }
 
+const sectionsQuery = `
+	SELECT id, title, instructions
+	  FROM app.test_version_sections
+	 WHERE test_version_id = $1::uuid
+	 ORDER BY ordinal`
+
 const questionsQuery = `
-	SELECT q.id, q.type, q.prompt, q.points,
+	SELECT q.id, q.test_version_section_id, q.type, q.prompt, q.points,
 	       q.media_asset_id, q.media_asset_kind, m.mime_type, m.original_filename,
 	       m.bytes, m.duration_ms, m.created_at,
 	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after
@@ -247,6 +253,27 @@ func (r questionRow) audio() *domain.AudioPolicy {
 	}
 }
 
+func (s *Postgres) Sections(ctx context.Context, testVersionID string) ([]domain.Section, error) {
+	rows, err := s.Query(ctx, sectionsQuery, testVersionID)
+	if err != nil {
+		return nil, fmt.Errorf("attempts: read sections: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domain.Section
+	for rows.Next() {
+		var sec domain.Section
+		if err := rows.Scan(&sec.ID, &sec.Title, &sec.Instructions); err != nil {
+			return nil, fmt.Errorf("attempts: scan section: %w", err)
+		}
+		out = append(out, sec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attempts: read sections: %w", err)
+	}
+	return out, nil
+}
+
 func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domain.Question, error) {
 	rows, err := s.Query(ctx, questionsQuery, testVersionID)
 	if err != nil {
@@ -259,7 +286,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 	for rows.Next() {
 		var q domain.Question
 		var r questionRow
-		if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
+		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.Points,
 			&r.mediaID, &r.mediaKind, &r.mimeType, &r.filename, &r.mediaBytes,
 			&r.durationMs, &r.createdAt,
 			&r.maxPlays, &r.allowSeek, &r.showTranscript); err != nil {
@@ -307,7 +334,7 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 
 func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT b.test_version_question_id, b.id, b.ordinal
+		SELECT b.test_version_question_id, b.id, b.ordinal, b.case_sensitive
 		  FROM app.test_version_blanks b
 		  JOIN app.test_version_questions q ON q.id = b.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -316,7 +343,7 @@ func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []doma
 		func(rows pgx.Rows) (string, domain.Blank, error) {
 			var questionID string
 			var b domain.Blank
-			err := rows.Scan(&questionID, &b.ID, &b.Ordinal)
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive)
 			return questionID, b, err
 		})
 	if err != nil {

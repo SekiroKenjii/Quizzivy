@@ -5,27 +5,38 @@ import (
 )
 
 type Question struct {
-	ID      string
-	Type    string
-	Prompt  string
-	Points  float64
-	Media   *Media
-	Audio   *AudioPolicy
-	Options []Option
-	Blanks  []Blank
+	ID        string
+	SectionID string
+	Type      string
+	Prompt    string
+	Points    float64
+	Media     *Media
+	Audio     *AudioPolicy
+	Options   []Option
+	Blanks    []Blank
+}
+
+// Section is one part of the paper in test order; Instructions is the
+// teacher's text to the student for that part, nil when they wrote none.
+type Section struct {
+	ID           string
+	Title        string
+	Instructions *string
 }
 
 // Option carries no IsCorrect, and Blank no accepted answers: these types are
 // the projection a student receives, and the surest way not to leak a grading
-// key is to have nowhere to put one (§13.5).
+// key is to have nowhere to put one (§13.5). CaseSensitive stays because it is
+// the rule the student is graded by, not the key.
 type Option struct {
 	ID   string
 	Text string
 }
 
 type Blank struct {
-	ID      string
-	Ordinal int
+	ID            string
+	Ordinal       int
+	CaseSensitive bool
 }
 
 // Media is the asset metadata a paper carries. The signed URL is not here:

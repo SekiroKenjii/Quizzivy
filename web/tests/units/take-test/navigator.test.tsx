@@ -27,6 +27,7 @@ const deadline = "2026-09-01T09:00:00.000Z";
 const questions: StudentQuestion[] = [
   {
     id: "q1",
+    sectionId: "s1",
     type: "single_choice",
     prompt: "Pick one",
     points: 1,
@@ -35,8 +36,8 @@ const questions: StudentQuestion[] = [
       { id: "o2", text: "Beta" },
     ],
   },
-  { id: "q2", type: "short_answer", prompt: "Write", points: 1 },
-  { id: "q3", type: "true_false", prompt: "True?", points: 1 },
+  { id: "q2", sectionId: "s1", type: "short_answer", prompt: "Write", points: 1 },
+  { id: "q3", sectionId: "s1", type: "true_false", prompt: "True?", points: 1 },
 ];
 
 function paper(over: Partial<AttemptSession> = {}): AttemptSession {

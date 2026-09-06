@@ -38,6 +38,7 @@ const (
 // the paper in presentation order, and the identity of this tab.
 type Session struct {
 	Attempt     Attempt
+	Sections    []Section
 	Questions   []Question
 	SessionID   string
 	BeaconToken string

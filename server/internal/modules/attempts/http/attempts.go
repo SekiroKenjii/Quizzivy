@@ -94,8 +94,18 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 		return openapi.AttemptSession{}, err
 	}
 
+	sections := make([]openapi.StudentSection, len(in.Sections))
+	for i, sec := range in.Sections {
+		sections[i] = openapi.StudentSection{
+			Id:           httpapi.ParseUUID(sec.ID),
+			Title:        sec.Title,
+			Instructions: sec.Instructions,
+		}
+	}
+
 	return openapi.AttemptSession{
 		Attempt:     toAPIAttempt(in.Attempt),
+		Sections:    sections,
 		Questions:   questions,
 		SessionId:   httpapi.ParseUUID(in.SessionID),
 		BeaconToken: in.BeaconToken,
@@ -134,10 +144,11 @@ func toAPIAttempt(a domain.Attempt) openapi.Attempt {
 
 func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q domain.Question) (openapi.StudentQuestion, error) {
 	out := openapi.StudentQuestion{
-		Id:     httpapi.ParseUUID(q.ID),
-		Type:   openapi.QuestionType(q.Type),
-		Prompt: q.Prompt,
-		Points: q.Points,
+		Id:        httpapi.ParseUUID(q.ID),
+		SectionId: httpapi.ParseUUID(q.SectionID),
+		Type:      openapi.QuestionType(q.Type),
+		Prompt:    q.Prompt,
+		Points:    q.Points,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
@@ -149,7 +160,11 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 	if len(q.Blanks) > 0 {
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
 		for i, b := range q.Blanks {
-			blanks[i] = openapi.StudentBlank{Id: httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal}
+			blanks[i] = openapi.StudentBlank{
+				Id:            httpapi.ParseUUID(b.ID),
+				Ordinal:       b.Ordinal,
+				CaseSensitive: b.CaseSensitive,
+			}
 		}
 		out.Blanks = &blanks
 	}

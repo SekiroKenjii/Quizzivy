@@ -21,11 +21,15 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord) (doma
 	if err != nil {
 		return domain.Result{}, err
 	}
+	sections, err := s.Sections(ctx, a.TestVersionID)
+	if err != nil {
+		return domain.Result{}, err
+	}
 	base, err := s.Questions(ctx, a.TestVersionID)
 	if err != nil {
 		return domain.Result{}, err
 	}
-	base = domain.Deal.Present(a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, base)
+	base = domain.Deal.Present(a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
 
 	extras, err := s.resultExtras(ctx, a.TestVersionID, rules.Review)
 	if err != nil {

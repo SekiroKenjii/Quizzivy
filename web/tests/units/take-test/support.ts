@@ -18,6 +18,7 @@ export function session(over: {
       startedAt: "2026-09-01T08:00:00.000Z",
       deadlineAt: over.deadlineAt,
     },
+    sections: [],
     questions: [],
     sessionId: "ses-1",
     beaconToken: "beacon",

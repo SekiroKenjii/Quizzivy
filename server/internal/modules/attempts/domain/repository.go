@@ -16,6 +16,7 @@ type Repository interface {
 	Resume(ctx context.Context, in ResumeInput) (AttemptRecord, bool, error)
 	ByID(ctx context.Context, attemptID, studentID string) (AttemptRecord, error)
 	Rebeacon(ctx context.Context, attemptID string, hash []byte) error
+	Sections(ctx context.Context, testVersionID string) ([]Section, error)
 	Questions(ctx context.Context, testVersionID string) ([]Question, error)
 	Answers(ctx context.Context, attemptID string) (map[string][]byte, error)
 	AudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
