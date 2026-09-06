@@ -202,8 +202,8 @@ function ShortAnswer({ question, answer, onAnswer, disabled }: Readonly<Props>) 
         aria-label={t("takeTest.yourAnswer")}
         onChange={(event) => onAnswer({ type: "text", value: event.target.value })}
       />
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-muted-foreground text-xs">{worth(question, t)}</p>
+      <div className="flex items-center justify-between gap-3 lg:justify-end">
+        <p className="text-muted-foreground text-xs lg:hidden">{worth(question, t)}</p>
         <p className="text-muted-foreground text-xs tabular-nums">
           {t("takeTest.wordCount", { count: words })}
         </p>

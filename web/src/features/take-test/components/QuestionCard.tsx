@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Note } from "./Note";
 import { QuestionAudio } from "./QuestionAudio";
 import { QuestionBody } from "./QuestionBody";
@@ -11,9 +10,9 @@ import type { StudentQuestion } from "../api";
 /**
  * The store-connected renderer: the one place a question is joined to the
  * answer being written into it. Under the answer, what it is worth (S-05) --
- * except for a short answer, whose body already says so beside the word
- * count, and except from 1024px for a choice, where the meta line above the
- * stem says it (S-08). A fill-blank closes with the rule it is matched by.
+ * except for a short answer, whose body says so beside the word count, and
+ * except from 1024px, where the meta line above the stem says it (S-08). A
+ * fill-blank closes with the rule it is matched by.
  */
 export function QuestionCard({
   question,
@@ -27,7 +26,6 @@ export function QuestionCard({
   const answer = useTakeTestStore((s) => s.answers[question.id]);
   const setAnswer = useTakeTestStore((s) => s.setAnswer);
   const locked = useTakeTestStore((s) => s.lock !== null);
-  const choice = question.type !== "fill_blank" && question.type !== "short_answer";
 
   return (
     <div className="space-y-4">
@@ -39,9 +37,7 @@ export function QuestionCard({
         disabled={locked}
       />
       {question.type !== "short_answer" && (
-        <p className={cn("text-muted-foreground text-xs", choice && "lg:hidden")}>
-          {worth(question, t)}
-        </p>
+        <p className="text-muted-foreground text-xs lg:hidden">{worth(question, t)}</p>
       )}
       {question.type === "fill_blank" && (
         <Note icon={Info}>

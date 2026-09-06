@@ -277,6 +277,20 @@ function Paper({
   const choice =
     question.type === "single_choice" || question.type === "multiple_choice";
 
+  const flag = (
+    <Button
+      variant="ghost"
+      size={wide ? "sm" : "icon-sm"}
+      className="text-muted-foreground shrink-0"
+      aria-pressed={flagged}
+      aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
+      disabled={lock !== null}
+      onClick={() => toggleFlag(question.id)}
+    >
+      <Flag className={flagged ? "fill-current" : undefined} aria-hidden="true" />
+      {wide && t("takeTest.flag")}
+    </Button>
+  );
   const previous = (
     <Button
       variant="outline"
@@ -328,37 +342,26 @@ function Paper({
           className={cn("min-w-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-5")}
         >
           <div className="mx-auto w-full max-w-[720px] space-y-5">
-            <div className="flex items-center justify-between gap-3">
-              {wide ? (
+            {wide && (
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-muted-foreground text-xs">
                   {metaLine(t, question, index, total, sectioned ? group : null)}
                 </p>
-              ) : (
-                <span />
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground shrink-0"
-                aria-pressed={flagged}
-                aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
-                disabled={lock !== null}
-                onClick={() => toggleFlag(question.id)}
-              >
-                <Flag
-                  className={flagged ? "fill-current" : undefined}
-                  aria-hidden="true"
-                />
-                {wide && t("takeTest.flag")}
-              </Button>
-            </div>
+                {flag}
+              </div>
+            )}
             {group !== null && opensSection(group, index) && (
               <SectionInstructions
                 group={group}
                 audio={question.media?.kind === "audio"}
               />
             )}
-            <QuestionCard question={question} onAudioExpired={onReload} />
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <QuestionCard question={question} onAudioExpired={onReload} />
+              </div>
+              {!wide && flag}
+            </div>
             {wide && (
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 {previous}
