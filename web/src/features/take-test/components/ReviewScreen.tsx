@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, CircleCheck, CircleHelp, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,20 +10,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Clock } from "./Clock";
-import { QuestionDots, type DotState } from "./Navigator";
+import { cn } from "@/lib/utils";
+import { EngineHeader } from "./EngineHeader";
+import { NavigatorRail, QuestionDots, type DotState } from "./Navigator";
 import { useTakeTestStore } from "../store";
+import type { SectionGroup } from "../sections";
 
 /**
  * S-06's review: what is still empty, what was flagged, and the one button
- * that ends the attempt.
+ * that ends the attempt. From 1024px it is S-15: the same header row as the
+ * paper, the rail beside it without its button, and the two actions side by
+ * side at their own width.
  */
 export function ReviewScreen({
+  wide,
   dots,
+  groups,
+  status,
   onBack,
   onJump,
 }: Readonly<{
+  wide: boolean;
   dots: DotState[];
+  groups: SectionGroup[];
+  status: ReactNode;
   onBack: () => void;
   onJump: (index: number) => void;
 }>) {
@@ -51,8 +61,11 @@ export function ReviewScreen({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="border-b">
-        <div className="mx-auto flex h-12 w-full max-w-[720px] items-center gap-3 px-4">
+      <EngineHeader
+        wide={wide}
+        progress={1}
+        status={status}
+        leading={
           <Button
             variant="ghost"
             size="xs"
@@ -62,82 +75,99 @@ export function ReviewScreen({
             <ChevronLeft aria-hidden="true" />
             {t("takeTest.backToPaper")}
           </Button>
-          <span className="ml-auto">
-            <Clock />
-          </span>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="min-w-0 flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto w-full max-w-[720px] space-y-4">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight">
-              {t("takeTest.reviewTitle")}
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              {t("takeTest.reviewAnswered", { answered, total: dots.length })}
-            </p>
-          </div>
-
-          <Card className="gap-0 p-4">
-            <div className="space-y-3">
-              {unanswered.length === 0 ? (
-                <div className="flex items-center gap-2">
-                  <CircleCheck className="text-success size-4" aria-hidden="true" />
-                  <p className="text-sm font-medium">{t("takeTest.allAnswered")}</p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <CircleHelp
-                      className="text-muted-foreground size-4"
-                      aria-hidden="true"
-                    />
-                    <p className="text-sm font-medium">
-                      {t("takeTest.unanswered", { count: unanswered.length })}
-                    </p>
-                  </div>
-                  <Dots items={unanswered} onJump={onJump} />
-                </>
-              )}
-              {flagged.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="flex items-center gap-2">
-                    <Flag className="text-muted-foreground size-4" aria-hidden="true" />
-                    <p className="text-sm font-medium">
-                      {t("takeTest.flagged", { count: flagged.length })}
-                    </p>
-                  </div>
-                  <Dots items={flagged} onJump={onJump} />
-                </>
-              )}
+      <div data-columns className="flex min-h-0 flex-1">
+        <main
+          className={cn("min-w-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-4")}
+        >
+          <div className="mx-auto w-full max-w-[720px] space-y-4">
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
+                {t("takeTest.reviewTitle")}
+              </h1>
+              <p className="text-muted-foreground mt-1 text-sm">
+                {t("takeTest.reviewAnswered", { answered, total: dots.length })}
+              </p>
             </div>
-          </Card>
 
-          {failed && (
-            <p role="alert" className="text-sm">
-              {t("takeTest.submitFailed")}
-            </p>
-          )}
-          <div className="space-y-2">
-            <Button variant="outline" size="lg" className="w-full" onClick={onBack}>
-              {t("takeTest.keepWorking")}
-            </Button>
-            <Button
-              size="lg"
-              className="w-full"
-              disabled={busy}
-              onClick={() => setConfirming(true)}
+            <Card className="gap-0 p-4">
+              <div className="space-y-3">
+                {unanswered.length === 0 ? (
+                  <div className="flex items-center gap-2">
+                    <CircleCheck className="text-success size-4" aria-hidden="true" />
+                    <p className="text-sm font-medium">{t("takeTest.allAnswered")}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <CircleHelp
+                        className="text-muted-foreground size-4"
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm font-medium">
+                        {t("takeTest.unanswered", { count: unanswered.length })}
+                      </p>
+                    </div>
+                    <Dots items={unanswered} onJump={onJump} />
+                  </>
+                )}
+                {flagged.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center gap-2">
+                      <Flag
+                        className="text-muted-foreground size-4"
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm font-medium">
+                        {t("takeTest.flagged", { count: flagged.length })}
+                      </p>
+                    </div>
+                    <Dots items={flagged} onJump={onJump} />
+                  </>
+                )}
+              </div>
+            </Card>
+
+            {failed && (
+              <p role="alert" className="text-sm">
+                {t("takeTest.submitFailed")}
+              </p>
+            )}
+            <div className={wide ? "flex items-center gap-2" : "space-y-2"}>
+              <Button
+                variant="outline"
+                size="lg"
+                className={wide ? undefined : "w-full"}
+                onClick={onBack}
+              >
+                {t("takeTest.keepWorking")}
+              </Button>
+              <Button
+                size="lg"
+                className={wide ? undefined : "w-full"}
+                disabled={busy}
+                onClick={() => setConfirming(true)}
+              >
+                {busy ? t("takeTest.submitting") : t("takeTest.submit")}
+              </Button>
+            </div>
+            <p
+              className={cn(
+                "text-muted-foreground text-xs leading-relaxed",
+                !wide && "text-center",
+              )}
             >
-              {busy ? t("takeTest.submitting") : t("takeTest.submit")}
-            </Button>
+              {t("takeTest.submitNote")}
+            </p>
           </div>
-          <p className="text-muted-foreground text-center text-xs leading-relaxed">
-            {t("takeTest.submitNote")}
-          </p>
-        </div>
-      </main>
+        </main>
+        {wide && (
+          <NavigatorRail dots={dots} current={null} groups={groups} onJump={onJump} />
+        )}
+      </div>
 
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent className="gap-0 p-5 sm:max-w-md" showCloseButton={false}>

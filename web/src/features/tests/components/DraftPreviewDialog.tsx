@@ -23,7 +23,7 @@ export function DraftPreviewDialog({
   onOpenChange,
 }: Readonly<{
   open: boolean;
-  questions: AdminQuestion[];
+  questions: { sectionId: string; question: AdminQuestion }[];
   onOpenChange: (open: boolean) => void;
 }>) {
   const { t } = useTranslation();
@@ -37,7 +37,11 @@ export function DraftPreviewDialog({
         {questions.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t("builder.previewEmpty")}</p>
         ) : (
-          <StudentPreview questions={questions.map(asStudent)} />
+          <StudentPreview
+            questions={questions.map(({ sectionId, question }) =>
+              asStudent(sectionId, question),
+            )}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -45,15 +49,20 @@ export function DraftPreviewDialog({
 }
 
 /** §13.5's boundary, applied client-side: nothing that grades survives the mapping. */
-function asStudent(q: AdminQuestion): StudentQuestion {
+function asStudent(sectionId: string, q: AdminQuestion): StudentQuestion {
   return {
     id: q.id,
+    sectionId,
     type: q.type,
     prompt: q.prompt,
     points: q.points,
     media: q.media ?? null,
     audio: q.audio ?? null,
     options: (q.options ?? []).map((o) => ({ id: o.id, text: o.text })),
-    blanks: (q.blanks ?? []).map((b) => ({ id: b.id, ordinal: b.ordinal })),
+    blanks: (q.blanks ?? []).map((b) => ({
+      id: b.id,
+      ordinal: b.ordinal,
+      caseSensitive: b.caseSensitive ?? false,
+    })),
   };
 }

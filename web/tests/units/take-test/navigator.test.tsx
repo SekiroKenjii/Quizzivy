@@ -11,7 +11,7 @@ import {
   type StudentQuestion,
 } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
-import { session } from "./support";
+import { session, viewport } from "./support";
 import "@/lib/i18n";
 
 vi.mock("@/features/take-test/api", () => ({
@@ -27,6 +27,7 @@ const deadline = "2026-09-01T09:00:00.000Z";
 const questions: StudentQuestion[] = [
   {
     id: "q1",
+    sectionId: "s1",
     type: "single_choice",
     prompt: "Pick one",
     points: 1,
@@ -35,8 +36,8 @@ const questions: StudentQuestion[] = [
       { id: "o2", text: "Beta" },
     ],
   },
-  { id: "q2", type: "short_answer", prompt: "Write", points: 1 },
-  { id: "q3", type: "true_false", prompt: "True?", points: 1 },
+  { id: "q2", sectionId: "s1", type: "short_answer", prompt: "Write", points: 1 },
+  { id: "q3", sectionId: "s1", type: "true_false", prompt: "True?", points: 1 },
 ];
 
 function paper(over: Partial<AttemptSession> = {}): AttemptSession {
@@ -61,6 +62,7 @@ const counter = () => screen.getAllByText(/^Câu \d\/3$/)[0]!;
 const footer = () => within(screen.getByRole("contentinfo"));
 
 beforeEach(() => {
+  viewport("phone");
   sessionStorage.clear();
   vi.mocked(getAttempt).mockReset().mockResolvedValue(paper());
   vi.mocked(saveAnswers)
@@ -73,7 +75,10 @@ beforeEach(() => {
     );
   useTakeTestStore.getState().reset();
 });
-afterEach(() => useTakeTestStore.getState().reset());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  useTakeTestStore.getState().reset();
+});
 
 describe("the navigator", () => {
   it("opens from the footer, shows each question's state, and jumps", async () => {
@@ -253,5 +258,85 @@ describe("review and submit", () => {
       "Sau khi nộp, bạn không sửa được nữa.",
     );
     expect(screen.getByRole("dialog")).not.toHaveTextContent("chưa trả lời");
+  });
+});
+
+describe("from 1024px (S-08, S-15)", () => {
+  const listening = paper({
+    sections: [
+      { id: "s1", title: "Phần 1 · Ngữ pháp", instructions: null },
+      {
+        id: "s2",
+        title: "Phần 2 · Nghe",
+        instructions: "Nghe đoạn hội thoại rồi trả lời.",
+      },
+    ],
+    questions: [...questions.slice(0, 2), { ...questions[2]!, sectionId: "s2" }],
+  });
+
+  beforeEach(() => viewport("desktop"));
+
+  it("puts the title, the save state and the clock in one row, and drops the footer", async () => {
+    renderPage();
+    await screen.findByRole("radio", { name: /Alpha/ });
+
+    const header = within(screen.getByRole("banner"));
+    expect(
+      header.getByText("Unit 5 — Present perfect & listening"),
+    ).toBeInTheDocument();
+    expect(header.getByText("Chưa có gì để lưu")).toBeInTheDocument();
+    expect(header.queryByText(/^Câu \d\/3$/)).toBeNull();
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Danh sách câu" })).toBeNull();
+
+    expect(screen.getByText("Câu 1 / 3 · 1 điểm")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Câu trước" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Câu sau" })).toHaveTextContent(
+      "Câu sau",
+    );
+    expect(screen.getByText(/Phím tắt/)).toBeInTheDocument();
+  });
+
+  it("groups the rail by part and states a part's instructions on its first question", async () => {
+    vi.mocked(getAttempt).mockResolvedValue(listening);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("radio", { name: /Alpha/ });
+
+    const rail = within(screen.getByRole("complementary", { name: "Danh sách câu" }));
+    expect(rail.getByText("Phần 1 · Ngữ pháp")).toBeInTheDocument();
+    expect(rail.getByText("Phần 2 · Nghe")).toBeInTheDocument();
+    expect(
+      screen.getByText("Phần 1 · Ngữ pháp — Câu 1 / 3 · 1 điểm"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("note")).toBeNull();
+
+    await user.click(rail.getByRole("button", { name: "Câu 3" }));
+    expect(screen.getByText("Phần 2 · Nghe — Câu 3 / 3 · 1 điểm")).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Nghe đoạn hội thoại rồi trả lời.",
+    );
+  });
+
+  it("reviews beside the rail, which keeps its dots and loses its button", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("radio", { name: /Alpha/ });
+    const rail = () =>
+      within(screen.getByRole("complementary", { name: "Danh sách câu" }));
+    await user.click(rail().getByRole("button", { name: "Xem lại & nộp" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Xem lại trước khi nộp" }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("banner")).getByRole("button", { name: "Quay lại bài" }),
+    ).toBeInTheDocument();
+    expect(rail().queryByRole("button", { name: "Xem lại & nộp" })).toBeNull();
+    expect(rail().getByRole("button", { name: "Câu 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Quay lại làm tiếp" })).not.toHaveClass(
+      "w-full",
+    );
+    expect(screen.getByRole("button", { name: "Nộp bài" })).not.toHaveClass("w-full");
   });
 });

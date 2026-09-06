@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { AttemptSession } from "@/features/take-test/api";
 
 /** A payload the store can hydrate from, with only the parts it reads. */
@@ -18,6 +19,8 @@ export function session(over: {
       startedAt: "2026-09-01T08:00:00.000Z",
       deadlineAt: over.deadlineAt,
     },
+    testTitle: "Unit 5 — Present perfect & listening",
+    sections: [{ id: "s1", title: "Phần 1", instructions: null }],
     questions: [],
     sessionId: "ses-1",
     beaconToken: "beacon",
@@ -36,4 +39,26 @@ export function session(over: {
 
 export function text(value: string) {
   return { type: "text", value } as const;
+}
+
+/**
+ * The engine branches on 1024px in code, not only in CSS, so a test says which
+ * side it is on. jsdom's default stub answers "wide" to every min-width query.
+ */
+export function viewport(width: "phone" | "desktop") {
+  const wide = width === "desktop";
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({
+        matches: wide && query.includes("min-width"),
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as MediaQueryList,
+  );
 }

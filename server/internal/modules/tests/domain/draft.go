@@ -61,6 +61,7 @@ func isChoice(questionType string) bool {
 // PreviewQuestion is one question as a student receives it.
 type PreviewQuestion struct {
 	ID           string
+	SectionID    string
 	Type         string
 	Prompt       string
 	Points       string
@@ -78,6 +79,7 @@ type PreviewOption struct {
 }
 
 type PreviewBlank struct {
-	ID      string
-	Ordinal int
+	ID            string
+	Ordinal       int
+	CaseSensitive bool
 }

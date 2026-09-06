@@ -11,12 +11,15 @@ import (
 // paper, whatever order the rows arrive in.
 type DealManager struct{}
 
-// Present applies §7's two Shuffle switches. Blanks are never shuffled: a
-// blank's ordinal is its position in the prompt text, so reordering them would
-// renumber the sentence the student is reading.
-func (DealManager) Present(seed int64, shuffleQuestions, shuffleOptions bool, qs []Question) []Question {
+// Present applies §7's two Shuffle switches. Questions move only inside their
+// section and sections keep the order given, so the navigator can group the
+// numbers by part (S-06, S-08) and still count them in presentation order; a
+// question whose section is not listed sorts after the listed ones. Blanks are
+// never shuffled: a blank's ordinal is its position in the prompt text, so
+// reordering them would renumber the sentence the student is reading.
+func (DealManager) Present(seed int64, shuffleQuestions, shuffleOptions bool, sections []Section, qs []Question) []Question {
 	if shuffleQuestions {
-		qs = Shuffle(seed, "questions", qs, func(q Question) string { return q.ID })
+		qs = shuffleWithinSections(seed, sections, qs)
 	}
 	if !shuffleOptions {
 		return qs
@@ -25,6 +28,27 @@ func (DealManager) Present(seed int64, shuffleQuestions, shuffleOptions bool, qs
 		qs[i].Options = Shuffle(seed, q.ID, q.Options, func(o Option) string { return o.ID })
 	}
 	return qs
+}
+
+func shuffleWithinSections(seed int64, sections []Section, qs []Question) []Question {
+	order := make([]string, 0, len(sections))
+	groups := map[string][]Question{}
+	for _, sec := range sections {
+		order = append(order, sec.ID)
+		groups[sec.ID] = nil
+	}
+	for _, q := range qs {
+		if _, listed := groups[q.SectionID]; !listed {
+			order = append(order, q.SectionID)
+		}
+		groups[q.SectionID] = append(groups[q.SectionID], q)
+	}
+
+	out := make([]Question, 0, len(qs))
+	for _, id := range order {
+		out = append(out, Shuffle(seed, "questions", groups[id], func(q Question) string { return q.ID })...)
+	}
+	return out
 }
 
 // Shuffle puts items into presentation order.

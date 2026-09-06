@@ -1,13 +1,18 @@
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { Info } from "lucide-react";
+import { Note } from "./Note";
 import { QuestionAudio } from "./QuestionAudio";
 import { QuestionBody } from "./QuestionBody";
 import { useTakeTestStore } from "../store";
+import { worth } from "../worth";
 import type { StudentQuestion } from "../api";
 
 /**
  * The store-connected renderer: the one place a question is joined to the
- * answer being written into it.
+ * answer being written into it. Under the answer, what it is worth (S-05) --
+ * except for a short answer, whose body says so beside the word count, and
+ * except from 1024px, where the meta line above the stem says it (S-08). A
+ * fill-blank closes with the rule it is matched by.
  */
 export function QuestionCard({
   question,
@@ -31,32 +36,18 @@ export function QuestionCard({
         onAnswer={(next) => setAnswer(question.id, next)}
         disabled={locked}
       />
-      <p className="text-muted-foreground text-xs">{worth(question, t)}</p>
+      {question.type !== "short_answer" && (
+        <p className="text-muted-foreground text-xs lg:hidden">{worth(question, t)}</p>
+      )}
+      {question.type === "fill_blank" && (
+        <Note icon={Info}>
+          {t(
+            (question.blanks ?? []).some((b) => b.caseSensitive)
+              ? "takeTest.blankRuleSensitive"
+              : "takeTest.blankRuleInsensitive",
+          )}
+        </Note>
+      )}
     </div>
   );
-}
-
-/**
- * What the question is worth, and how it is divided (S-05).
- *
- * fill_blank names the per-blank share because that is how it is graded
- * (O-17) -- the line is a promise about scoring, so it has to match
- * grading.gradeFillBlank rather than merely sit near it.
- */
-function worth(question: StudentQuestion, t: TFunction): string {
-  const parts = [t("takeTest.points", { points: decimal(question.points) })];
-
-  const blanks = question.blanks?.length ?? 0;
-  if (question.type === "fill_blank" && blanks > 0) {
-    parts.push(t("takeTest.perBlank", { points: decimal(question.points / blanks) }));
-  }
-  if (question.type === "short_answer") {
-    parts.push(t("takeTest.manualGrading"));
-  }
-  return parts.join(" · ");
-}
-
-/** Two decimals at most, and none when the number is whole: "1", not "1.00". */
-function decimal(value: number): string {
-  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
 }

@@ -1097,7 +1097,12 @@
     "submittedBody_timer_expired": "The time for this test ended, so it went in with the questions you answered. Everything saved stays as it was.",
     "submittedBody_auto_submit": "You left the page after the last allowed time, so the test went in with the questions you answered. Everything saved stays as it was.",
     "submittedMeta": "Submitted at {{time}} · {{date}} · {{answered}}/{{total}} questions answered",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "sectionNote": "{{title}} — {{text}}",
+    "sectionMeta": "{{section}} — Question {{n}} / {{total}} · {{points}}",
+    "questionMeta": "Question {{n}} / {{total}} · {{points}}",
+    "blankRuleInsensitive": "Capital letters do not matter. Spell it exactly.",
+    "blankRuleSensitive": "Capital letters matter. Spell it exactly."
   },
   "integrity": {
     "leftTitle": "You left the test page",

@@ -354,10 +354,11 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		return openapi.StudentQuestion{}, err
 	}
 	sq := openapi.StudentQuestion{
-		Id:     httpapi.ParseUUID(q.ID),
-		Type:   openapi.QuestionType(q.Type),
-		Prompt: q.Prompt,
-		Points: points,
+		Id:        httpapi.ParseUUID(q.ID),
+		SectionId: httpapi.ParseUUID(q.SectionID),
+		Type:      openapi.QuestionType(q.Type),
+		Prompt:    q.Prompt,
+		Points:    points,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
@@ -369,7 +370,11 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 	if len(q.Blanks) > 0 {
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
 		for j, b := range q.Blanks {
-			blanks[j] = openapi.StudentBlank{Id: httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal}
+			blanks[j] = openapi.StudentBlank{
+				Id:            httpapi.ParseUUID(b.ID),
+				Ordinal:       b.Ordinal,
+				CaseSensitive: b.CaseSensitive,
+			}
 		}
 		sq.Blanks = &blanks
 	}
