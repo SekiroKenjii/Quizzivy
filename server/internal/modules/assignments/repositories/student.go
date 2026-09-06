@@ -27,7 +27,7 @@ const studentCardColumns = `
 	          JOIN app.class_members m ON m.class_id = ac.class_id
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
-	       (SELECT CASE WHEN count(*) = 1 THEN min(c.id)::text END
+	       (SELECT CASE WHEN count(*) = 1 THEN min(c.id::text) END
 	          FROM app.assignment_classes ac
 	          JOIN app.classes c ON c.id = ac.class_id
 	          JOIN app.class_members m ON m.class_id = ac.class_id
