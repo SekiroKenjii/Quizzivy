@@ -5,10 +5,11 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/query"
 	"strings"
 	"testing"
 
-	"quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/modules/identity/domain"
 )
 
@@ -23,8 +24,7 @@ func TestChangingPasswordKillsASecondDevice(t *testing.T) {
 	mine := login(t, svc, email)   // the device doing the changing
 	theirs := login(t, svc, email) // a second device, its own family
 
-	if err := svc.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID:           id,
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id,
 		CurrentPassword:  testPassword,
 		NewPassword:      newPassword,
 		KeepRefreshToken: mine,
@@ -34,10 +34,10 @@ func TestChangingPasswordKillsASecondDevice(t *testing.T) {
 		t.Fatalf("ChangePassword: %v", err)
 	}
 
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: theirs}); err == nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: theirs}); err == nil {
 		t.Error("the second device can still refresh after the password change")
 	}
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: mine}); err != nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: mine}); err != nil {
 		t.Errorf("the changing device was signed out too: %v", err)
 	}
 }
@@ -48,16 +48,14 @@ func TestTheNewPasswordWorksAndTheOldOneDoesNot(t *testing.T) {
 	id, email := makeUser(t, pool)
 	ctx := context.Background()
 
-	if err := svc.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID: id, CurrentPassword: testPassword, NewPassword: newPassword,
-	}); err != nil {
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: newPassword}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.Login(ctx, application.LoginInput{Email: email, Password: newPassword}); err != nil {
+	if _, err := svc.Commands.Login.Handle(ctx, command.Login{Email: email, Password: newPassword}); err != nil {
 		t.Errorf("the new password does not work: %v", err)
 	}
-	if _, err := svc.Login(ctx, application.LoginInput{Email: email, Password: testPassword}); !errors.Is(err, domain.ErrInvalidCredentials) {
+	if _, err := svc.Commands.Login.Handle(ctx, command.Login{Email: email, Password: testPassword}); !errors.Is(err, domain.ErrInvalidCredentials) {
 		t.Errorf("the old password still works: %v", err)
 	}
 }
@@ -73,13 +71,11 @@ func TestChangingPasswordClearsMustChangePassword(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := svc.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID: id, CurrentPassword: testPassword, NewPassword: newPassword,
-	}); err != nil {
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: newPassword}); err != nil {
 		t.Fatal(err)
 	}
 
-	user, err := svc.CurrentUser(ctx, id)
+	user, err := svc.Queries.CurrentUser.Handle(ctx, query.CurrentUser{UserID: id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,8 +92,7 @@ func TestAWrongCurrentPasswordChangesNothing(t *testing.T) {
 
 	token := login(t, svc, email)
 
-	err := svc.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID: id, CurrentPassword: "not-the-password", NewPassword: newPassword,
+	_, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: "not-the-password", NewPassword: newPassword,
 		KeepRefreshToken: token,
 	})
 	if !errors.Is(err, domain.ErrInvalidCredentials) {
@@ -105,10 +100,10 @@ func TestAWrongCurrentPasswordChangesNothing(t *testing.T) {
 	}
 
 	// The failed attempt must not have revoked anything on its way out.
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: token}); err != nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: token}); err != nil {
 		t.Errorf("a failed password change signed the user out: %v", err)
 	}
-	if _, err := svc.Login(ctx, application.LoginInput{Email: email, Password: testPassword}); err != nil {
+	if _, err := svc.Commands.Login.Handle(ctx, command.Login{Email: email, Password: testPassword}); err != nil {
 		t.Errorf("the original password stopped working: %v", err)
 	}
 }
@@ -118,9 +113,7 @@ func TestAGoogleOnlyAccountCannotChangeAPasswordItDoesNotHave(t *testing.T) {
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool, googleOnly)
 
-	err := svc.ChangePassword(context.Background(), application.ChangePasswordInput{
-		UserID: id, CurrentPassword: "", NewPassword: newPassword,
-	})
+	_, err := svc.Commands.ChangePassword.Handle(context.Background(), command.ChangePassword{UserID: id, CurrentPassword: "", NewPassword: newPassword})
 	if !errors.Is(err, domain.ErrNoPasswordSet) {
 		t.Fatalf("error = %v, want ErrNoPasswordSet", err)
 	}
@@ -141,9 +134,7 @@ func TestAShortNewPasswordIsRejectedBeforeAnyHashingHappens(t *testing.T) {
 		{"far too long", strings.Repeat("a", domain.MaxPasswordLength+1), domain.ErrPasswordTooLong},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := svc.ChangePassword(context.Background(), application.ChangePasswordInput{
-				UserID: id, CurrentPassword: "wrong", NewPassword: tc.pw,
-			})
+			_, err := svc.Commands.ChangePassword.Handle(context.Background(), command.ChangePassword{UserID: id, CurrentPassword: "wrong", NewPassword: tc.pw})
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("error = %v, want %v", err, tc.want)
 			}
@@ -157,9 +148,7 @@ func TestEightCharactersIsAccepted(t *testing.T) {
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool)
 
-	if err := svc.ChangePassword(context.Background(), application.ChangePasswordInput{
-		UserID: id, CurrentPassword: testPassword, NewPassword: "12345678",
-	}); err != nil {
+	if _, err := svc.Commands.ChangePassword.Handle(context.Background(), command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: "12345678"}); err != nil {
 		t.Fatalf("an 8-character password was rejected: %v", err)
 	}
 }
@@ -173,15 +162,14 @@ func TestAnUnknownKeepTokenRevokesEverySession(t *testing.T) {
 	a := login(t, svc, email)
 	b := login(t, svc, email)
 
-	if err := svc.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID: id, CurrentPassword: testPassword, NewPassword: newPassword,
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: newPassword,
 		KeepRefreshToken: "a-token-from-nowhere",
 	}); err != nil {
 		t.Fatal(err)
 	}
 
 	for name, token := range map[string]string{"first": a, "second": b} {
-		if _, err := svc.Refresh(ctx, application.RefreshInput{Token: token}); err == nil {
+		if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: token}); err == nil {
 			t.Errorf("the %s session survived a change with an unidentifiable caller", name)
 		}
 	}
@@ -197,18 +185,17 @@ func TestAnotherUsersRefreshTokenCannotSpareASession(t *testing.T) {
 	victimSession := login(t, svc, victimEmail)
 	othersToken := login(t, svc, otherEmail)
 
-	if err := svc.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID: victimID, CurrentPassword: testPassword, NewPassword: newPassword,
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: victimID, CurrentPassword: testPassword, NewPassword: newPassword,
 		KeepRefreshToken: othersToken,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: victimSession}); err == nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: victimSession}); err == nil {
 		t.Error("presenting another account's token spared a session it should not have")
 	}
 	// The other account is untouched: this endpoint changes one user's password.
-	if _, err := svc.Refresh(ctx, application.RefreshInput{Token: othersToken}); err != nil {
+	if _, err := svc.Commands.Refresh.Handle(ctx, command.Refresh{Token: othersToken}); err != nil {
 		t.Errorf("another user's session was revoked: %v", err)
 	}
 }
@@ -218,8 +205,7 @@ func TestThePasswordChangeIsAudited(t *testing.T) {
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool)
 
-	if err := svc.ChangePassword(context.Background(), application.ChangePasswordInput{
-		UserID: id, CurrentPassword: testPassword, NewPassword: newPassword,
+	if _, err := svc.Commands.ChangePassword.Handle(context.Background(), command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: newPassword,
 		IP: "198.51.100.7", UserAgent: "go-test",
 	}); err != nil {
 		t.Fatal(err)
@@ -254,13 +240,11 @@ func TestAForcedChangeDoesNotNeedTheCurrentPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := svc.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID: id, CurrentPassword: "", NewPassword: newPassword,
-	}); err != nil {
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: "", NewPassword: newPassword}); err != nil {
 		t.Fatalf("a forced change was refused without the current password: %v", err)
 	}
 
-	user, err := svc.CurrentUser(ctx, id)
+	user, err := svc.Queries.CurrentUser.Handle(ctx, query.CurrentUser{UserID: id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,9 +261,7 @@ func TestAnOrdinaryChangeStillNeedsTheCurrentPassword(t *testing.T) {
 	svc := newService(t, pool)
 	id, _ := makeUser(t, pool)
 
-	err := svc.ChangePassword(context.Background(), application.ChangePasswordInput{
-		UserID: id, CurrentPassword: "", NewPassword: newPassword,
-	})
+	_, err := svc.Commands.ChangePassword.Handle(context.Background(), command.ChangePassword{UserID: id, CurrentPassword: "", NewPassword: newPassword})
 	if !errors.Is(err, domain.ErrInvalidCredentials) {
 		t.Fatalf("want ErrInvalidCredentials, got %v", err)
 	}

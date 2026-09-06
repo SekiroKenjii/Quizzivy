@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/opt"
 	"strings"
 	"time"
 
@@ -33,8 +34,8 @@ func (s *Postgres) Extend(ctx context.Context, req domain.Request, attemptID str
 		    FROM updated
 		)
 		SELECT ` + attemptColumns + ` FROM updated`
-	out, err := scanAttempt(s.pool.QueryRow(ctx, q,
-		attemptID, minutes, req.ActorID, now, optionalIP(req.IP), optional(req.UserAgent), reason))
+	out, err := scanAttempt(s.QueryRow(ctx, q,
+		attemptID, minutes, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), reason))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Attempt{}, s.whyNotLive(ctx, attemptID)
 	}
@@ -78,8 +79,8 @@ func (s *Postgres) void(ctx context.Context, req domain.Request, attemptID, reas
 		    FROM updated
 		)
 		SELECT ` + attemptColumns + ` FROM updated`
-	out, err := scanAttempt(s.pool.QueryRow(ctx, q,
-		attemptID, reason, req.ActorID, now, optionalIP(req.IP), optional(req.UserAgent), action))
+	out, err := scanAttempt(s.QueryRow(ctx, q,
+		attemptID, reason, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), action))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Attempt{}, s.whyNotLive(ctx, attemptID)
 	}
@@ -111,8 +112,8 @@ func (s *Postgres) Flag(ctx context.Context, req domain.Request, attemptID strin
 		    FROM updated
 		)
 		SELECT ` + attemptColumns + ` FROM updated`
-	out, err := scanAttempt(s.pool.QueryRow(ctx, q,
-		attemptID, flagged, req.ActorID, now, optionalIP(req.IP), optional(req.UserAgent), strings.TrimSpace(reason)))
+	out, err := scanAttempt(s.QueryRow(ctx, q,
+		attemptID, flagged, req.ActorID, now, opt.String(req.IP), opt.String(req.UserAgent), strings.TrimSpace(reason)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Attempt{}, s.whyNotFlaggable(ctx, attemptID)
 	}
@@ -132,7 +133,7 @@ func (s *Postgres) whyNotFlaggable(ctx context.Context, attemptID string) error 
 
 func (s *Postgres) whyNotLive(ctx context.Context, attemptID string) error {
 	var status domain.Status
-	err := s.pool.QueryRow(ctx,
+	err := s.QueryRow(ctx,
 		`SELECT status FROM app.attempts WHERE id = $1::uuid`, attemptID).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound

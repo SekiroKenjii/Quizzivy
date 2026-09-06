@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/classes/application/command"
+	"quizzivy/internal/modules/classes/application/query"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/actor"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -15,10 +18,10 @@ const msgClassNotFound = "Không tìm thấy lớp học."
 
 // GetClass implements GET /admin/classes/{id} (§6.4).
 func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestObject) (openapi.GetClassResponseObject, error) {
-	if h.classes == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	class, err := h.classes.Get(ctx, request.Id.String())
+	class, err := h.app.Queries.Get.Handle(ctx, query.Get{ClassID: request.Id.String()})
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return openapi.GetClass404JSONResponse{
@@ -32,7 +35,7 @@ func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestOb
 
 // UpdateClass implements PATCH /admin/classes/{id}.
 func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
-	if h.classes == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -47,10 +50,9 @@ func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassReq
 		in.SelfJoinEnabled = request.Body.SelfJoinEnabled
 	}
 
-	class, err := h.classes.Update(ctx, request.Id.String(), in)
+	class, err := h.app.Commands.Update.Handle(ctx, command.Update{ClassID: request.Id.String(), Input: in})
 	if err == nil && request.Body.Archived != nil {
-		class, err = h.classes.Archive(ctx, request.Id.String(), *request.Body.Archived,
-			httpapi.ActorID(ctx), httpx.RequestMetaFromContext(ctx).IP, httpx.RequestMetaFromContext(ctx).UserAgent)
+		class, err = h.app.Commands.Archive.Handle(ctx, command.Archive{ClassID: request.Id.String(), Archived: *request.Body.Archived, Actor: actor.Actor{ID: httpapi.ActorID(ctx), IP: httpx.RequestMetaFromContext(ctx).IP, UserAgent: httpx.RequestMetaFromContext(ctx).UserAgent}})
 	}
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -64,7 +66,7 @@ func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassReq
 }
 
 func (h Classes) CreateClass(ctx context.Context, request openapi.CreateClassRequestObject) (openapi.CreateClassResponseObject, error) {
-	if h.classes == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	selfJoin := true
@@ -72,8 +74,7 @@ func (h Classes) CreateClass(ctx context.Context, request openapi.CreateClassReq
 		selfJoin = *request.Body.SelfJoinEnabled
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
-	class, err := h.classes.Create(ctx, request.Body.Name, request.Body.Description, selfJoin,
-		httpapi.ActorID(ctx), meta.IP, meta.UserAgent)
+	class, err := h.app.Commands.Create.Handle(ctx, command.Create{Name: request.Body.Name, Description: request.Body.Description, SelfJoin: selfJoin, Actor: actor.Actor{ID: httpapi.ActorID(ctx), IP: meta.IP, UserAgent: meta.UserAgent}})
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func (h Classes) CreateClass(ctx context.Context, request openapi.CreateClassReq
 
 // ListClasses implements GET /admin/classes.
 func (h Classes) ListClasses(ctx context.Context, request openapi.ListClassesRequestObject) (openapi.ListClassesResponseObject, error) {
-	if h.classes == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	in := domain.ListInput{}
@@ -99,11 +100,12 @@ func (h Classes) ListClasses(ctx context.Context, request openapi.ListClassesReq
 		in.Status = string(*request.Params.Status)
 	}
 
-	found, page, err := h.classes.List(ctx, in)
+	listResult, err := h.app.Queries.List.Handle(ctx, query.List{Input: in})
+	found, page := listResult.Items, listResult.Page
 	if err != nil {
 		return nil, err
 	}
-	facets, err := h.classes.Facets(ctx, in.Query)
+	facets, err := h.app.Queries.Facets.Handle(ctx, query.Facets{Query: in.Query})
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +123,7 @@ func (h Classes) ListClasses(ctx context.Context, request openapi.ListClassesReq
 
 // ListClassMembers implements GET /admin/classes/{id}/members (§6.4).
 func (h Classes) ListClassMembers(ctx context.Context, request openapi.ListClassMembersRequestObject) (openapi.ListClassMembersResponseObject, error) {
-	if h.classes == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	in := domain.MembersInput{}
@@ -135,7 +137,8 @@ func (h Classes) ListClassMembers(ctx context.Context, request openapi.ListClass
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, page, err := h.classes.Members(ctx, request.Id.String(), in)
+	membersResult, err := h.app.Queries.Members.Handle(ctx, query.Members{ClassID: request.Id.String(), Input: in})
+	found, page := membersResult.Items, membersResult.Page
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +152,7 @@ func (h Classes) ListClassMembers(ctx context.Context, request openapi.ListClass
 }
 
 func (h Classes) AddClassMember(ctx context.Context, request openapi.AddClassMemberRequestObject) (openapi.AddClassMemberResponseObject, error) {
-	if h.classes == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -158,8 +161,7 @@ func (h Classes) AddClassMember(ctx context.Context, request openapi.AddClassMem
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
 
-	m, err := h.classes.AddMember(ctx, request.Id.String(), request.Body.UserId.String(),
-		principal.UserID, meta.IP, meta.UserAgent)
+	m, err := h.app.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: request.Id.String(), UserID: request.Body.UserId.String(), Actor: actor.Actor{ID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}})
 	switch {
 	case err == nil:
 	case errors.Is(err, domain.ErrNotFound):
@@ -190,7 +192,7 @@ func toAPIMember(m domain.Member) openapi.ClassMember {
 
 // RemoveClassMember implements DELETE /admin/classes/{id}/members/{userId}.
 func (h Classes) RemoveClassMember(ctx context.Context, request openapi.RemoveClassMemberRequestObject) (openapi.RemoveClassMemberResponseObject, error) {
-	if h.classes == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -199,8 +201,7 @@ func (h Classes) RemoveClassMember(ctx context.Context, request openapi.RemoveCl
 	}
 	meta := httpx.RequestMetaFromContext(ctx)
 
-	err := h.classes.RemoveMember(ctx, request.Id.String(), request.UserId.String(),
-		principal.UserID, meta.IP, meta.UserAgent)
+	_, err := h.app.Commands.RemoveMember.Handle(ctx, command.RemoveMember{ClassID: request.Id.String(), UserID: request.UserId.String(), Actor: actor.Actor{ID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}})
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return openapi.RemoveClassMember404JSONResponse{

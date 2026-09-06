@@ -6,6 +6,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	questionscommand "quizzivy/internal/modules/questions/application/command"
+	"quizzivy/internal/modules/tests/application/command"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -50,15 +53,15 @@ type builder struct {
 	t      *testing.T
 	pool   *pgxpool.Pool
 	author string
-	tests  *application.Service
-	qsvc   *questionsapp.Service
+	tests  *application.Application
+	qsvc   *questionsapp.Application
 }
 
 func newBuilder(t *testing.T, pool *pgxpool.Pool, author string) *builder {
 	return &builder{
 		t: t, pool: pool, author: author,
-		tests: application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool))),
-		qsvc:  questionsapp.NewService(questionsrepo.NewPostgres(pool), mediaKinds{pool}),
+		tests: application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool)))),
+		qsvc:  questionsapp.New(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool}),
 	}
 }
 
@@ -67,7 +70,7 @@ func (b *builder) question(in questionsdomain.Input) string {
 	if in.Tags == nil {
 		in.Tags = []string{}
 	}
-	q, err := b.qsvc.Create(context.Background(), questionsdomain.WriteRequest{Input: in, ActorID: b.author})
+	q, err := b.qsvc.Commands.Create.Handle(context.Background(), questionscommand.Create{Request: questionsdomain.WriteRequest{Input: in, ActorID: b.author}})
 	if err != nil {
 		b.t.Fatalf("question %q: %v", in.Prompt, err)
 	}
@@ -84,16 +87,15 @@ func (b *builder) shortAnswer(prompt, points string) string {
 func (b *builder) draft(title string, questionIDs ...string) domain.Test {
 	b.t.Helper()
 	ctx := context.Background()
-	created, err := b.tests.Create(ctx, domain.Request{ActorID: b.author}, title, nil)
+	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: b.author}, Title: title, Description: nil})
 	if err != nil {
 		b.t.Fatal(err)
 	}
-	saved, err := b.tests.Update(ctx, domain.Request{ID: created.ID, ActorID: b.author},
-		domain.UpdateInput{
-			ExpectedUpdatedAt: created.UpdatedAt,
-			SetSections:       true,
-			Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: questionIDs}},
-		})
+	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: b.author}, Input: domain.UpdateInput{
+		ExpectedUpdatedAt: created.UpdatedAt,
+		SetSections:       true,
+		Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: questionIDs}},
+	}})
 	if err != nil {
 		b.t.Fatal(err)
 	}
@@ -101,6 +103,5 @@ func (b *builder) draft(title string, questionIDs ...string) domain.Test {
 }
 
 func (b *builder) publish(testID string) (domain.PublishedVersion, error) {
-	return application.NewPublisher(repositories.NewPostgres(b.pool, questionsrepo.NewPostgres(b.pool), mediarepo.NewPostgres(b.pool))).Publish(context.Background(),
-		domain.PublishRequest{TestID: testID, ActorID: b.author})
+	return application.New(repositories.NewPostgres(db.NewContext(b.pool), questionsrepo.NewPostgres(db.NewContext(b.pool)), mediarepo.NewPostgres(db.NewContext(b.pool)))).Commands.Publish.Handle(context.Background(), command.Publish{Request: domain.PublishRequest{TestID: testID, ActorID: b.author}})
 }

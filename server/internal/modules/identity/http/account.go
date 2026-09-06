@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/identity/application"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -12,7 +13,7 @@ import (
 
 // GetCurrentUser implements GET /auth/me (§5.4).
 func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRequestObject) (openapi.GetCurrentUserResponseObject, error) {
-	if h.auth == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -22,7 +23,7 @@ func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRe
 		}, nil
 	}
 
-	user, err := h.auth.CurrentUser(ctx, principal.UserID)
+	user, err := h.app.Queries.CurrentUser.Handle(ctx, query.CurrentUser{UserID: principal.UserID})
 	if err != nil {
 		if errors.Is(err, domain.ErrAccountDisabled) || errors.Is(err, domain.ErrUserNotFound) {
 			return openapi.GetCurrentUser401JSONResponse{
@@ -37,7 +38,7 @@ func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRe
 
 // ChangePassword implements POST /auth/change-password (§5.4).
 func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePasswordRequestObject) (openapi.ChangePasswordResponseObject, error) {
-	if h.auth == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -52,8 +53,7 @@ func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePass
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	err := h.auth.ChangePassword(ctx, application.ChangePasswordInput{
-		UserID:           principal.UserID,
+	_, err := h.app.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: principal.UserID,
 		CurrentPassword:  httpapi.DerefString(request.Body.CurrentPassword),
 		NewPassword:      request.Body.NewPassword,
 		KeepRefreshToken: refreshTokenFromContext(ctx),

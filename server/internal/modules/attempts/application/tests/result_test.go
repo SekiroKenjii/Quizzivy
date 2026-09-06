@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"quizzivy/internal/modules/attempts/application"
+	"quizzivy/internal/modules/attempts/application/command"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"strings"
 	"testing"
@@ -24,11 +26,11 @@ func setReview(t *testing.T, pool *pgxpool.Pool, w world, score, correct, explan
 	}
 }
 
-func submitted(t *testing.T, pool *pgxpool.Pool) (*application.Service, world, domain.Session) {
+func submitted(t *testing.T, pool *pgxpool.Pool) (*application.Application, world, domain.Session) {
 	t.Helper()
 	svc, w, session := started(t, pool)
 	answerEverythingRight(t, pool, w, session, svc)
-	if _, err := svc.Submit(context.Background(), session.Attempt.ID, w.student, domain.Manual); err != nil {
+	if _, err := svc.Commands.Submit.Handle(context.Background(), command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
 		t.Fatal(err)
 	}
 	return svc, w, session
@@ -54,7 +56,7 @@ func TestEachReviewFlagReleasesExactlyItsOwnBlock(t *testing.T) {
 		{true, true, false}, {true, false, true}, {false, true, true}, {true, true, true},
 	} {
 		setReview(t, pool, w, tc.score, tc.correct, tc.explanations)
-		result, err := svc.Result(ctx, session.Attempt.ID, w.student)
+		result, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student})
 		if err != nil {
 			t.Fatalf("%+v: %v", tc, err)
 		}
@@ -90,7 +92,7 @@ func TestTheSampleAnswerNeverReachesTheResultEvenWithEverythingOn(t *testing.T) 
 	svc, w, session := submitted(t, pool)
 	setReview(t, pool, w, true, true, true)
 
-	result, err := svc.Result(context.Background(), session.Attempt.ID, w.student)
+	result, err := svc.Queries.Result.Handle(context.Background(), query.Result{AttemptID: session.Attempt.ID, StudentID: w.student})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +119,7 @@ func TestTheTranscriptFollowsTheQuestionsOwnFlagAndNothingElse(t *testing.T) {
 	ctx := context.Background()
 
 	setReview(t, pool, w, false, false, false)
-	result, err := svc.Result(ctx, session.Attempt.ID, w.student)
+	result, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +131,7 @@ func TestTheTranscriptFollowsTheQuestionsOwnFlagAndNothingElse(t *testing.T) {
 		t.Fatal(err)
 	}
 	setReview(t, pool, w, true, true, true)
-	result, err = svc.Result(ctx, session.Attempt.ID, w.student)
+	result, err = svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,20 +145,20 @@ func TestAResultIsRefusedWhileTheAttemptIsLiveAndForbiddenToAnyoneElse(t *testin
 	svc, w, session := started(t, pool)
 	ctx := context.Background()
 
-	if _, err := svc.Result(ctx, session.Attempt.ID, w.student); !errors.Is(err, domain.ErrAttemptInProgress) {
+	if _, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student}); !errors.Is(err, domain.ErrAttemptInProgress) {
 		t.Errorf("live attempt: %v, want ErrAttemptInProgress", err)
 	}
-	if _, err := svc.Submit(ctx, session.Attempt.ID, w.student, domain.Manual); err != nil {
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Result(ctx, session.Attempt.ID, w.outsider); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.outsider}); !errors.Is(err, domain.ErrForbidden) {
 		t.Errorf("outsider: %v, want ErrForbidden", err)
 	}
-	if _, err := svc.Void(ctx, teacher(w), session.Attempt.ID, "huỷ"); err != nil {
+	if _, err := svc.Commands.Void.Handle(ctx, command.Void{Request: teacher(w), AttemptID: session.Attempt.ID, Reason: "huỷ"}); err != nil {
 		t.Fatal(err)
 	}
 	auditRows(t, pool, session.Attempt.ID, "attempt.voided")
-	if _, err := svc.Result(ctx, session.Attempt.ID, w.student); !errors.Is(err, domain.ErrAttemptVoided) {
+	if _, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student}); !errors.Is(err, domain.ErrAttemptVoided) {
 		t.Errorf("voided: %v, want ErrAttemptVoided", err)
 	}
 }

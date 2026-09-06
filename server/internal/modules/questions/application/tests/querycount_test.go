@@ -5,6 +5,9 @@ package application_test
 import (
 	"context"
 	"os"
+	"quizzivy/internal/modules/questions/application/command"
+	"quizzivy/internal/modules/questions/application/query"
+	"quizzivy/internal/platform/db"
 	"sync"
 	"testing"
 
@@ -69,7 +72,7 @@ func tracedPool(t *testing.T) (*pgxpool.Pool, *countingTracer) {
 func TestListCostsAFixedNumberOfQueries(t *testing.T) {
 	pool, tracer := tracedPool(t)
 	author := makeAuthor(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), mediaKinds{pool})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
 	ctx := context.Background()
 
 	const rows = 12
@@ -84,14 +87,14 @@ func TestListCostsAFixedNumberOfQueries(t *testing.T) {
 				{Text: "C", IsCorrect: false},
 			},
 		}
-		if _, err := svc.Create(ctx, domain.WriteRequest{Input: in, ActorID: author}); err != nil {
+		if _, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{Input: in, ActorID: author}}); err != nil {
 			t.Fatalf("seed %d: %v", i, err)
 		}
 	}
 
 	measure := func(limit int) int {
 		before := tracer.count()
-		if _, _, err := svc.List(ctx, domain.ListInput{Limit: limit}); err != nil {
+		if _, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: limit}}); err != nil {
 			t.Fatal(err)
 		}
 		return tracer.count() - before

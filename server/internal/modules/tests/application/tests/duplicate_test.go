@@ -4,6 +4,8 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/modules/tests/application/command"
+	"quizzivy/internal/modules/tests/application/query"
 	"testing"
 
 	"quizzivy/internal/modules/tests/domain"
@@ -18,21 +20,21 @@ func TestDuplicateCopiesTheDraftAndNoVersions(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	source, err := svc.Create(ctx, req(author), "Đề gốc", strptr("Mô tả gốc"))
+	source, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề gốc", Description: strptr("Mô tả gốc")})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q1 := newQuestion(t, pool, author, "Câu một")
 	q2 := newQuestion(t, pool, author, "Câu hai")
 
-	source, err = svc.Update(ctx, reqFor(source.ID, author), domain.UpdateInput{
+	source, err = svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(source.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: source.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
 			{Title: "Phần nghe", Instructions: strptr("Nghe kỹ"), QuestionIDs: []string{q1, q2}},
 			{Title: "Phần đọc", QuestionIDs: []string{q2}},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +46,7 @@ func TestDuplicateCopiesTheDraftAndNoVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	copied, err := svc.Duplicate(ctx, reqFor(source.ID, author))
+	copied, err := svc.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: reqFor(source.ID, author)})
 	if err != nil {
 		t.Fatalf("duplicate: %v", err)
 	}
@@ -97,7 +99,7 @@ func TestDuplicateCopiesTheDraftAndNoVersions(t *testing.T) {
 	}
 
 	// The source is untouched.
-	after, err := svc.Get(ctx, source.ID)
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: source.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,8 +113,7 @@ func TestDuplicatingAMissingTestIsNotFound(t *testing.T) {
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
 
-	_, err := svc.Duplicate(context.Background(),
-		reqFor("00000000-0000-7000-8000-000000000000", author))
+	_, err := svc.Commands.Duplicate.Handle(context.Background(), command.Duplicate{Request: reqFor("00000000-0000-7000-8000-000000000000", author)})
 	if err == nil {
 		t.Error("duplicating a missing test succeeded")
 	}

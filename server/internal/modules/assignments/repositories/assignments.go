@@ -5,29 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/paging"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const DefaultLimit = 20
 
 const MaxLimit = 100
 
-// DB is what the store queries through: the pool in production, and a
-// transaction in a test that needs one consistent snapshot of tables every
-// package on the shared database inserts into.
-type DB interface {
-	Begin(ctx context.Context) (pgx.Tx, error)
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
+type Postgres struct{ db.Repository }
 
-type Postgres struct{ pool DB }
-
-func NewPostgres(db DB) *Postgres { return &Postgres{pool: db} }
+func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
 const selectAssignment = `
 		SELECT a.id::text, a.test_id::text, a.test_version_id::text, v.version, t.title,
@@ -88,11 +78,6 @@ const selectAssignment = `
 		  JOIN app.test_versions v ON v.id = a.test_version_id
 `
 
-type querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
-
 func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 	var a domain.Assignment
 	err := row.Scan(&a.ID, &a.TestID, &a.TestVersionID, &a.TestVersion, &a.TestTitle,
@@ -108,10 +93,10 @@ func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 
 // Get returns one assignment.
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Assignment, error) {
-	return s.get(ctx, s.pool, id)
+	return s.get(ctx, s.Conn(), id)
 }
 
-func (s *Postgres) get(ctx context.Context, q querier, id string) (domain.Assignment, error) {
+func (s *Postgres) get(ctx context.Context, q db.Querier, id string) (domain.Assignment, error) {
 	a, err := scanAssignment(q.QueryRow(ctx, selectAssignment+`
 		 WHERE a.id = $1::uuid`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -137,7 +122,7 @@ const derivedStatus = `
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
 	where, args := narrow(domain.ListInput{ClassID: in.ClassID})
 	var f domain.Facets
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT count(*),
 		       count(*) FILTER (WHERE `+derivedStatus+` = 'draft'),
 		       count(*) FILTER (WHERE `+derivedStatus+` = 'scheduled'),
@@ -171,13 +156,13 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assi
 	where, args := narrow(in)
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.assignments a WHERE `+join(where), args...).
+	if err := s.QueryRow(ctx, `SELECT count(*) FROM app.assignments a WHERE `+join(where), args...).
 		Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("assignments: count: %w", err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.pool.Query(ctx, selectAssignment+`
+	rows, err := s.Query(ctx, selectAssignment+`
 		 WHERE `+join(where)+fmt.Sprintf(`
 		 ORDER BY a.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)

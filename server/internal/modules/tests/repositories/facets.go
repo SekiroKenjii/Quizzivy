@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/platform/db"
 	"strings"
 )
 
@@ -12,7 +13,7 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Stat
 	args := []any{}
 	where := []string{liveTests}
 	if q := strings.TrimSpace(in.Query); q != "" {
-		args = append(args, escapeLike(q))
+		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(titleSearch, len(args)))
 	}
 
@@ -21,7 +22,7 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Stat
 		     WHERE ` + strings.Join(where, " AND ") + `
 		     GROUP BY t.status`
 
-	rows, err := s.pool.Query(ctx, sql, args...)
+	rows, err := s.Query(ctx, sql, args...)
 	if err != nil {
 		return domain.StatusFacets{}, fmt.Errorf("tests: facets: %w", err)
 	}

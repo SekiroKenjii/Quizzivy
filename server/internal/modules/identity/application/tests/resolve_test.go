@@ -5,6 +5,10 @@ package application_test
 import (
 	"context"
 	"errors"
+	classescommand "quizzivy/internal/modules/classes/application/command"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/model"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	"quizzivy/internal/modules/identity/application"
@@ -25,7 +29,7 @@ import (
 // stubGoogle stands in for the exchange and the token verification, so these
 // tests exercise the RESOLUTION and nothing else.
 type stubGoogle struct {
-	identity  application.GoogleIdentity
+	identity  model.GoogleIdentity
 	exchange  error
 	verify    error
 	exchanged bool
@@ -36,11 +40,11 @@ func (s *stubGoogle) Exchange(context.Context, string, string, string) (string, 
 	return "an.id.token", s.exchange
 }
 
-func (s *stubGoogle) Verify(context.Context, string) (application.GoogleIdentity, error) {
+func (s *stubGoogle) Verify(context.Context, string) (model.GoogleIdentity, error) {
 	return s.identity, s.verify
 }
 
-func googleService(t *testing.T, pool *pgxpool.Pool, identity application.GoogleIdentity) (*application.Service, *stubGoogle) {
+func googleService(t *testing.T, pool *pgxpool.Pool, identity model.GoogleIdentity) (*application.Application, *stubGoogle) {
 	t.Helper()
 	svc := newService(t, pool)
 	stub := &stubGoogle{identity: identity}
@@ -48,8 +52,8 @@ func googleService(t *testing.T, pool *pgxpool.Pool, identity application.Google
 	return svc, stub
 }
 
-func verifiedIdentity(email string) application.GoogleIdentity {
-	return application.GoogleIdentity{
+func verifiedIdentity(email string) model.GoogleIdentity {
+	return model.GoogleIdentity{
 		Subject:       "google-sub-" + email,
 		Email:         email,
 		EmailVerified: true,
@@ -57,9 +61,8 @@ func verifiedIdentity(email string) application.GoogleIdentity {
 	}
 }
 
-func signIn(svc *application.Service, joinCode string) (application.GoogleSignInResult, error) {
-	return svc.GoogleSignIn(context.Background(), application.GoogleSignInInput{
-		Code: "c", CodeVerifier: "v", RedirectURI: "https://app.quizzivy.com/cb",
+func signIn(svc *application.Application, joinCode string) (model.GoogleSignInResult, error) {
+	return svc.Commands.GoogleSignIn.Handle(context.Background(), command.GoogleSignIn{Code: "c", CodeVerifier: "v", RedirectURI: "https://app.quizzivy.com/cb",
 		JoinCode: joinCode, IP: "203.0.113.11", UserAgent: "go-test",
 	})
 }
@@ -91,7 +94,7 @@ func TestBranch1MatchesOnSubjectNotEmail(t *testing.T) {
 	id, email := makeUser(t, pool, googleOnly)
 	linkGoogleSubject(t, pool, id, "the-stable-subject", email)
 
-	identity := application.GoogleIdentity{
+	identity := model.GoogleIdentity{
 		Subject:       "the-stable-subject",
 		Email:         "changed-address@example.com", // no user has this
 		EmailVerified: true,
@@ -242,7 +245,7 @@ func TestAnAccountLinkedToADifferentGoogleAccountIsRefused(t *testing.T) {
 	linkGoogleSubject(t, pool, id, "the-first-google-account", email)
 
 	// Same email, different Google account.
-	identity := application.GoogleIdentity{Subject: "a-second-google-account", Email: email, EmailVerified: true}
+	identity := model.GoogleIdentity{Subject: "a-second-google-account", Email: email, EmailVerified: true}
 	svc, _ := googleService(t, pool, identity)
 
 	if _, err := signIn(svc, ""); !errors.Is(err, domain.ErrIdentityAlreadyLinked) {
@@ -273,11 +276,11 @@ func TestGoogleSignInIsUnavailableWhenUnconfigured(t *testing.T) {
 // IS an enrolment -- testing it against a fake enroller would assert only that
 // the wiring compiles.
 
-func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity application.GoogleIdentity) (*application.Service, *stubGoogle) {
+func googleServiceWithEnroller(t *testing.T, pool *pgxpool.Pool, identity model.GoogleIdentity) (*application.Application, *stubGoogle) {
 	t.Helper()
 	svc := newService(t, pool)
 	stub := &stubGoogle{identity: identity}
-	svc.SetGoogle(stub, classesapp.NewEnrolment(classesrepo.NewPostgres(pool)))
+	svc.SetGoogle(stub, classesapp.New(classesrepo.NewPostgres(db.NewContext(pool)), nil).Commands.EnrolNewMember)
 	return svc, stub
 }
 
@@ -300,8 +303,8 @@ func makeClassForEnrol(t *testing.T, pool *pgxpool.Pool) (classID, teacherID str
 
 func issueJoinCode(t *testing.T, pool *pgxpool.Pool, classID, teacherID string) string {
 	t.Helper()
-	rotated, err := classesapp.NewEnrolment(classesrepo.NewPostgres(pool)).Rotate(context.Background(),
-		classesdomain.RotateRequest{ClassID: classID, ActorUserID: teacherID})
+	rotated, err := classesapp.New(classesrepo.NewPostgres(db.NewContext(pool)), nil).Commands.Rotate.Handle(context.Background(),
+		classescommand.Rotate{Request: classesdomain.RotateRequest{ClassID: classID, ActorUserID: teacherID}})
 	if err != nil {
 		t.Fatalf("issue join code: %v", err)
 	}

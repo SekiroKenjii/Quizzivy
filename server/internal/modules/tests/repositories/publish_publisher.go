@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,7 +15,7 @@ import (
 // Publish validates the draft, freezes it as a new version, bumps
 // current_version, sets status published, and audits -- all in one transaction.
 func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now time.Time, validate func(domain.DraftContent) error) (domain.PublishedVersion, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.PublishedVersion{}, fmt.Errorf("publish: begin: %w", err)
 	}
@@ -55,8 +56,8 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 		Entity:      "test_version",
 		EntityID:    &versionID,
 		OccurredAt:  now,
-		IP:          optionalString(req.IP),
-		UserAgent:   optionalString(req.UserAgent),
+		IP:          opt.String(req.IP),
+		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
 		return domain.PublishedVersion{}, err
 	}
@@ -109,11 +110,4 @@ func readVersion(ctx context.Context, tx pgx.Tx, versionID string) (domain.Publi
 		return domain.PublishedVersion{}, fmt.Errorf("publish: read version: %w", err)
 	}
 	return v, nil
-}
-
-func optionalString(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }

@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"strings"
+	"quizzivy/internal/shared/validation"
 	"time"
 )
 
@@ -39,33 +39,21 @@ type WriteInput struct {
 	Now   time.Time
 }
 
-type FieldError struct{ Field, Message string }
-
-type ValidationError struct{ Fields []FieldError }
-
-func (e *ValidationError) Error() string {
-	parts := make([]string, len(e.Fields))
-	for i, f := range e.Fields {
-		parts[i] = f.Field + ": " + f.Message
-	}
-	return "assignments: " + strings.Join(parts, "; ")
-}
-
 func (in WriteInput) Validate() error {
 	var fields []FieldError
 
 	if !in.ClosesAt.After(in.OpensAt) {
-		fields = append(fields, FieldError{"window.closesAt", "Thời điểm đóng phải sau thời điểm mở."})
+		fields = append(fields, FieldError{Field: "window.closesAt", Message: "Thời điểm đóng phải sau thời điểm mở."})
 	}
 
 	if !in.Draft && len(in.ClassIDs) == 0 && len(in.StudentIDs) == 0 {
-		fields = append(fields, FieldError{"targets", "Chọn ít nhất một lớp hoặc một học viên."})
+		fields = append(fields, FieldError{Field: "targets", Message: "Chọn ít nhất một lớp hoặc một học viên."})
 	}
 
 	if in.Integrity.OnLimitExceeded == "auto_submit" {
 		fields = append(fields, FieldError{
-			"integrity.onLimitExceeded",
-			"Chế độ tự động nộp bài chưa khả dụng.",
+			Field:   "integrity.onLimitExceeded",
+			Message: "Chế độ tự động nộp bài chưa khả dụng.",
 		})
 	}
 
@@ -74,3 +62,8 @@ func (in WriteInput) Validate() error {
 	}
 	return nil
 }
+
+type (
+	FieldError      = validation.Field
+	ValidationError = validation.Error
+)

@@ -5,8 +5,11 @@ package application_test
 import (
 	"context"
 	"os"
+	"quizzivy/internal/modules/attempts/application/command"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
+	"quizzivy/internal/platform/db"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -110,7 +113,7 @@ func TestTheMonitorIsTwoQueriesForFiftyStudentsAndThirtyAttempts(t *testing.T) {
 		handIn(t, pool, w, id, 1, status)
 	}
 
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	counter.n.Store(0)
 	monitor, err := store.Monitor(context.Background(), w.assignment, time.Now())
 	if err != nil {
@@ -153,7 +156,7 @@ func TestARowShowsTheAttemptThatStillCountsAndReadsProgressFromTheAnswers(t *tes
 	handIn(t, pool, w, other, 1, "voided")
 	live := handIn(t, pool, w, other, 2, "submitted")
 
-	monitor, err := svc.Monitor(context.Background(), w.assignment)
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +191,10 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	monitor, err := svc.Monitor(context.Background(), w.assignment)
+	if _, err := svc.Commands.ExpireDue.Handle(context.Background(), command.ExpireDue{AssignmentID: w.assignment}); err != nil {
+		t.Fatal(err)
+	}
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +207,7 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 
 func TestAnUnknownAssignmentIsNotAnEmptyMonitor(t *testing.T) {
 	pool := newPool(t)
-	_, err := repositories.NewPostgres(pool).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
+	_, err := repositories.NewPostgres(db.NewContext(pool)).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
 	if err != domain.ErrNotFound {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}

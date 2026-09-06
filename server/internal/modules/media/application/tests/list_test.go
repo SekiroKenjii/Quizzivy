@@ -4,6 +4,9 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/modules/media/application/command"
+	"quizzivy/internal/modules/media/application/query"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	"quizzivy/internal/modules/media/application"
@@ -14,10 +17,9 @@ import (
 )
 
 // upload puts one asset in the library and returns it.
-func upload(t *testing.T, svc *application.Service, uploader, name string) domain.Asset {
+func upload(t *testing.T, svc *application.Application, uploader, name string) domain.Asset {
 	t.Helper()
-	asset, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename:   name,
+	asset, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: name,
 		Body:       bytesReader(fixture(t, "cbr-128k.mp3")),
 		UploaderID: uploader,
 	})
@@ -41,7 +43,7 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	svc := application.NewService(repositories.NewPostgres(tx), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(tx)), newFakeStore(), audioProbe{})
 
 	const total = 5
 	want := make([]string, 0, total)
@@ -67,7 +69,8 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 		if number > maxPages {
 			t.Fatalf("pagination did not terminate after %d pages for %d live assets", number, live)
 		}
-		assets, page, err := svc.List(context.Background(), domain.ListInput{Limit: 1, Page: number})
+		listResult, err := svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Limit: 1, Page: number}})
+		assets, page := listResult.Items, listResult.Page
 		if err != nil {
 			t.Fatalf("list: %v", err)
 		}
@@ -107,11 +110,12 @@ func TestListPagesWithoutRepeatingOrSkipping(t *testing.T) {
 func TestListFiltersByKindAndSignsEveryItem(t *testing.T) {
 	pool := newPool(t)
 	uploader := makeUploader(t, pool)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	mine := upload(t, svc, uploader, "nghe.mp3").ID
 
 	image := domain.KindImage
-	assets, _, err := svc.List(context.Background(), domain.ListInput{Kind: &image, Limit: 100})
+	listResult, err := svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Kind: &image, Limit: 100}})
+	assets := listResult.Items
 	if err != nil {
 		t.Fatalf("list images: %v", err)
 	}
@@ -125,7 +129,8 @@ func TestListFiltersByKindAndSignsEveryItem(t *testing.T) {
 	}
 
 	audio := domain.KindAudio
-	assets, _, err = svc.List(context.Background(), domain.ListInput{Kind: &audio, Limit: 100})
+	listResult, err = svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Kind: &audio, Limit: 100}})
+	assets = listResult.Items
 	if err != nil {
 		t.Fatalf("list audio: %v", err)
 	}
@@ -147,16 +152,18 @@ func TestListFiltersByKindAndSignsEveryItem(t *testing.T) {
 // from `total`, so the number must not vanish on the page nothing is on.
 func TestAPagePastTheEndIsEmptyWithTheSameTotal(t *testing.T) {
 	pool := newPool(t)
-	svc := application.NewService(repositories.NewPostgres(pool), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), newFakeStore(), audioProbe{})
 	// One asset of its own, so the total it reasons about is never zero.
 	upload(t, svc, makeUploader(t, pool), "beyond.mp3")
 
-	_, page, err := svc.List(context.Background(), domain.ListInput{Limit: 1})
+	listResult, err := svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Limit: 1}})
+	page := listResult.Page
 	if err != nil {
 		t.Fatal(err)
 	}
 	requested := page.Total + 50
-	beyond, far, err := svc.List(context.Background(), domain.ListInput{Limit: 1, Page: requested})
+	listResult, err = svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Limit: 1, Page: requested}})
+	beyond, far := listResult.Items, listResult.Page
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,14 +190,14 @@ func TestTotalBytesSumsTheWholeShelfNotThePage(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	svc := application.NewService(repositories.NewPostgres(tx), newFakeStore(), audioProbe{})
+	svc := application.New(repositories.NewPostgres(db.NewContext(tx)), newFakeStore(), audioProbe{})
 
-	before, err := svc.TotalBytes(ctx, nil)
+	before, err := svc.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	a := upload(t, svc, uploader, "shelf.mp3")
-	after, err := svc.TotalBytes(ctx, nil)
+	after, err := svc.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +205,7 @@ func TestTotalBytesSumsTheWholeShelfNotThePage(t *testing.T) {
 		t.Errorf("total moved from %d to %d after a %d-byte upload", before, after, a.Bytes)
 	}
 	audio := domain.Kind("audio")
-	if byKind, err := svc.TotalBytes(ctx, &audio); err != nil || byKind < a.Bytes {
+	if byKind, err := svc.Queries.TotalBytes.Handle(ctx, query.TotalBytes{Kind: &audio}); err != nil || byKind < a.Bytes {
 		t.Errorf("audio total %d (%v), want at least %d", byKind, err, a.Bytes)
 	}
 }

@@ -7,15 +7,15 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/text/unicode/norm"
 )
 
-type Postgres struct{ pool *pgxpool.Pool }
+type Postgres struct{ db.Repository }
 
-func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
+func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
 const questionColumns = `
 	       q.id::text, q.type::text, q.prompt,
@@ -59,21 +59,16 @@ func scanQuestion(row pgx.Row) (domain.Question, error) {
 
 // Get returns one live question with its children.
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Question, error) {
-	return s.get(ctx, s.pool, id, false)
+	return s.get(ctx, s.Conn(), id, false)
 }
 
 // GetIncludingDeleted resolves a question by id whether or not it is deleted,
 // so a soft delete cannot break a published version snapshot.
 func (s *Postgres) GetIncludingDeleted(ctx context.Context, id string) (domain.Question, error) {
-	return s.get(ctx, s.pool, id, true)
+	return s.get(ctx, s.Conn(), id, true)
 }
 
-type querier interface {
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
-func (s *Postgres) get(ctx context.Context, q querier, id string, includeDeleted bool) (domain.Question, error) {
+func (s *Postgres) get(ctx context.Context, q db.Querier, id string, includeDeleted bool) (domain.Question, error) {
 	filter := ` AND q.deleted_at IS NULL`
 	if includeDeleted {
 		filter = ``
@@ -92,7 +87,7 @@ func (s *Postgres) get(ctx context.Context, q querier, id string, includeDeleted
 	return question, nil
 }
 
-func (s *Postgres) loadOptions(ctx context.Context, q querier, questionID string) ([]domain.Option, error) {
+func (s *Postgres) loadOptions(ctx context.Context, q db.Querier, questionID string) ([]domain.Option, error) {
 	byQuestion, err := s.loadOptionsFor(ctx, q, []string{questionID})
 	if err != nil {
 		return nil, err
@@ -100,7 +95,7 @@ func (s *Postgres) loadOptions(ctx context.Context, q querier, questionID string
 	return byQuestion[questionID], nil
 }
 
-func (s *Postgres) loadOptionsFor(ctx context.Context, q querier, questionIDs []string) (map[string][]domain.Option, error) {
+func (s *Postgres) loadOptionsFor(ctx context.Context, q db.Querier, questionIDs []string) (map[string][]domain.Option, error) {
 	if len(questionIDs) == 0 {
 		return map[string][]domain.Option{}, nil
 	}
@@ -121,7 +116,7 @@ func (s *Postgres) loadOptionsFor(ctx context.Context, q querier, questionIDs []
 	return byQuestion, nil
 }
 
-func (s *Postgres) loadBlanks(ctx context.Context, q querier, questionID string) ([]domain.Blank, error) {
+func (s *Postgres) loadBlanks(ctx context.Context, q db.Querier, questionID string) ([]domain.Blank, error) {
 	byQuestion, err := s.loadBlanksFor(ctx, q, []string{questionID})
 	if err != nil {
 		return nil, err
@@ -129,7 +124,7 @@ func (s *Postgres) loadBlanks(ctx context.Context, q querier, questionID string)
 	return byQuestion[questionID], nil
 }
 
-func (s *Postgres) loadBlanksFor(ctx context.Context, q querier, questionIDs []string) (map[string][]domain.Blank, error) {
+func (s *Postgres) loadBlanksFor(ctx context.Context, q db.Querier, questionIDs []string) (map[string][]domain.Blank, error) {
 	if len(questionIDs) == 0 {
 		return map[string][]domain.Blank{}, nil
 	}
@@ -166,7 +161,7 @@ func (s *Postgres) Update(ctx context.Context, in domain.WriteInput) (domain.Que
 }
 
 func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool) (domain.Question, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Question{}, fmt.Errorf("questions: begin: %w", err)
 	}
@@ -239,8 +234,8 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 		Entity:      "question",
 		EntityID:    &id,
 		OccurredAt:  in.Now,
-		IP:          optional(in.IP),
-		UserAgent:   optional(in.UserAgent),
+		IP:          opt.String(in.IP),
+		UserAgent:   opt.String(in.UserAgent),
 	}); err != nil {
 		return domain.Question{}, err
 	}
@@ -313,7 +308,7 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in domain.
 
 // SoftDelete marks a question deleted and audits it.
 func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("questions: begin delete: %w", err)
 	}
@@ -351,8 +346,8 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
 		Entity:      "question",
 		EntityID:    &in.ID,
 		OccurredAt:  in.Now,
-		IP:          optional(in.IP),
-		UserAgent:   optional(in.UserAgent),
+		IP:          opt.String(in.IP),
+		UserAgent:   opt.String(in.UserAgent),
 	}); err != nil {
 		return err
 	}
@@ -362,16 +357,9 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
 	return nil
 }
 
-func optional(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
-}
-
 // AddTags attaches tags to several bank questions at once (A-06's "Gắn thẻ").
 func (s *Postgres) AddTags(ctx context.Context, ids []string, tags []string) (int, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		UPDATE app.questions q
 		   SET tags = (
 		         SELECT array_agg(DISTINCT t ORDER BY t)

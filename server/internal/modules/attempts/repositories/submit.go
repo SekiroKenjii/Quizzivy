@@ -13,7 +13,7 @@ import (
 
 // Submit closes an attempt and grades everything a machine can.
 func (s *Postgres) Submit(ctx context.Context, attemptID, studentID string, reason domain.Reason, now time.Time) (domain.AttemptRecord, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.AttemptRecord{}, fmt.Errorf("attempts: begin submit: %w", err)
 	}
@@ -231,7 +231,7 @@ func submittedAnswers(ctx context.Context, tx pgx.Tx, attemptID string) (map[str
 // ExpireIfDue closes an attempt whose time ran out, and does nothing to one
 // that has not.
 func (s *Postgres) ExpireIfDue(ctx context.Context, attemptID string, now time.Time) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("attempts: begin expiry: %w", err)
 	}

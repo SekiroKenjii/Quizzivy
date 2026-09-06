@@ -3,13 +3,14 @@ package http
 import (
 	"context"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/classes/application/query"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 )
 
 // ListMyClasses backs §9's /app/classes in the student's own shape (S-10).
 func (h Classes) ListMyClasses(ctx context.Context, _ openapi.ListMyClassesRequestObject) (openapi.ListMyClassesResponseObject, error) {
-	if h.classes == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -17,7 +18,7 @@ func (h Classes) ListMyClasses(ctx context.Context, _ openapi.ListMyClassesReque
 		return nil, httpx.ErrNotImplemented
 	}
 
-	found, err := h.classes.ListMine(ctx, principal.UserID)
+	found, err := h.app.Queries.ListMine.Handle(ctx, query.ListMine{UserID: principal.UserID})
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
 	"sync"
 	"testing"
@@ -16,7 +17,7 @@ func TestStartingAnAttemptDealsThePaperAndOpensASession(t *testing.T) {
 	w := seedWorld(t, pool, openAssignment())
 	svc := newService(t, pool)
 
-	got, err := svc.StartOrResume(context.Background(), w.assignment, w.student)
+	got, err := svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -45,7 +46,7 @@ func TestTheBeaconTokenIsStoredHashedAndNeverInTheClear(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
 
-	got, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	got, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -92,7 +93,7 @@ func TestTwoConcurrentStartsYieldOneAttempt(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			sessions[i], errs[i] = svc.StartOrResume(context.Background(), w.assignment, w.student)
+			sessions[i], errs[i] = svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 		}()
 	}
 	close(start)
@@ -124,7 +125,7 @@ func TestAStudentNotTargetedByTheAssignmentCannotStartIt(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
 
-	_, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.outsider)
+	_, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.outsider})
 	if !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}
@@ -161,7 +162,7 @@ func TestAnAssignmentOutsideItsWindowCannotBeStarted(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			pool := newPool(t)
 			w := seedWorld(t, pool, c.opts)
-			_, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+			_, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 			if !errors.Is(err, c.want) {
 				t.Fatalf("got %v, want %v", err, c.want)
 			}
@@ -175,7 +176,7 @@ func TestAStudentCannotStartMoreAttemptsThanTheyWereGiven(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -185,7 +186,7 @@ func TestAStudentCannotStartMoreAttemptsThanTheyWereGiven(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.StartOrResume(ctx, w.assignment, w.student); !errors.Is(err, domain.ErrLimitReached) {
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); !errors.Is(err, domain.ErrLimitReached) {
 		t.Fatalf("got %v, want ErrLimitReached", err)
 	}
 }
@@ -198,7 +199,7 @@ func TestAVoidedAttemptDoesNotSpendTheStudentsLastTry(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	first, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	first, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -208,7 +209,7 @@ func TestAVoidedAttemptDoesNotSpendTheStudentsLastTry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	second, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	second, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start after void: %v", err)
 	}

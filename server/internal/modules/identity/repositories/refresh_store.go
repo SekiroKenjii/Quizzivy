@@ -13,7 +13,7 @@ import (
 
 // Rotate consumes one refresh token and issues its successor, atomically.
 func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.RefreshTokenRecord, now time.Time) (domain.RotateResult, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.RotateResult{}, fmt.Errorf("begin rotation: %w", err)
 	}
@@ -147,7 +147,7 @@ func (s *Users) RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now t
 		 WHERE t.family_id = p.family_id AND t.revoked_at IS NULL
 		RETURNING t.family_id::text`
 
-	rows, err := s.pool.Query(ctx, q, tokenHash, now)
+	rows, err := s.Query(ctx, q, tokenHash, now)
 	if err != nil {
 		return "", fmt.Errorf("revoke family: %w", err)
 	}
@@ -166,7 +166,7 @@ func (s *Users) RevokeFamilyByToken(ctx context.Context, tokenHash []byte, now t
 		return familyID, nil
 	}
 	const lookup = `SELECT family_id::text FROM app.refresh_tokens WHERE token_hash = $1`
-	err = s.pool.QueryRow(ctx, lookup, tokenHash).Scan(&familyID)
+	err = s.QueryRow(ctx, lookup, tokenHash).Scan(&familyID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", domain.ErrRefreshTokenNotFound
 	}
@@ -196,7 +196,7 @@ func (s *Users) DeleteExpired(ctx context.Context, before time.Time) (int64, err
 		         FROM app.refresh_tokens
 		        GROUP BY family_id
 		       HAVING max(expires_at) < $1)`
-	tag, err := s.pool.Exec(ctx, q, before)
+	tag, err := s.Exec(ctx, q, before)
 	if err != nil {
 		return 0, fmt.Errorf("delete expired refresh tokens: %w", err)
 	}
@@ -206,7 +206,7 @@ func (s *Users) DeleteExpired(ctx context.Context, before time.Time) (int64, err
 // ChangePassword swaps the hash, clears must_change_password, and revokes every
 // refresh family except the caller's -- all in one transaction.
 func (s *Users) ChangePassword(ctx context.Context, in domain.ChangePasswordRecord) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin password change: %w", err)
 	}

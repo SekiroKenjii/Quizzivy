@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/platform/db"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,7 +14,7 @@ import (
 // Save writes a batch of answers and the events that accompanied them, in one
 // transaction.
 func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time) (domain.SaveResult, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.SaveResult{}, fmt.Errorf("attempts: begin save: %w", err)
 	}
@@ -126,7 +127,7 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in domain.SaveInput, versionI
 	return len(landed), dropped, nil
 }
 
-func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, events []domain.Event, versionID string) error {
+func insertEvents(ctx context.Context, q db.Querier, attemptID, sessionID string, events []domain.Event, versionID string) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -167,7 +168,7 @@ func insertEvents(ctx context.Context, q querier, attemptID, sessionID string, e
 	return deriveFocusLoss(ctx, q, attemptID)
 }
 
-func deriveFocusLoss(ctx context.Context, q querier, attemptID string) error {
+func deriveFocusLoss(ctx context.Context, q db.Querier, attemptID string) error {
 	_, err := q.Exec(ctx, `
 		UPDATE app.attempts at
 		   SET focus_loss_count = counted.n,

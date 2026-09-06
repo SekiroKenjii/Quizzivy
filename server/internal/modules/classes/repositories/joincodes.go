@@ -13,7 +13,7 @@ import (
 // Rotate revokes the class's active code and issues a replacement in one
 // transaction, so a class is never left with two active codes or none.
 func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.IssuedCode, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.IssuedCode{}, fmt.Errorf("begin rotate: %w", err)
 	}
@@ -88,7 +88,7 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 // Revoke ends the active code without issuing a replacement, and turns off
 // self-join (§6.4).
 func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin revoke: %w", err)
 	}
@@ -145,7 +145,7 @@ func (s *Postgres) ActiveCode(ctx context.Context, classID string) (*domain.Issu
 		 WHERE class_id = $1 AND revoked_at IS NULL`
 
 	var c domain.IssuedCode
-	err := s.pool.QueryRow(ctx, q, classID).Scan(
+	err := s.QueryRow(ctx, q, classID).Scan(
 		&c.ID, &c.ClassID, &c.Hint, &c.ExpiresAt, &c.MaxUses, &c.UsesCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil

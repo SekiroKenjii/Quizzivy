@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/paging"
 	"strings"
 )
@@ -24,10 +25,6 @@ const tagCondition = `EXISTS (
 		 WHERE s.test_id = t.id AND q.tags && $%d::text[]
 	)`
 
-var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
-
-func escapeLike(s string) string { return likeEscaper.Replace(s) }
-
 // List returns one page of live tests, newest first, and the paging that
 // goes with it (O-20: OFFSET, so the client can draw numbered pages).
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Test, paging.Page, error) {
@@ -44,7 +41,7 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Test
 		where = append(where, fmt.Sprintf(tagCondition, len(args)))
 	}
 	if q := strings.TrimSpace(in.Query); q != "" {
-		args = append(args, escapeLike(q))
+		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(titleSearch, len(args)))
 	}
 	from := `
@@ -52,12 +49,12 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Test
 		 WHERE ` + strings.Join(where, "\n		   AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("tests: count: %w", err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.pool.Query(ctx, `SELECT`+testColumns+from+fmt.Sprintf(`
+	rows, err := s.Query(ctx, `SELECT`+testColumns+from+fmt.Sprintf(`
 		 ORDER BY t.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
@@ -92,7 +89,7 @@ func (s *Postgres) attachSections(ctx context.Context, list []domain.Test) error
 		ids[i] = t.ID
 	}
 
-	byTest, err := s.sectionsFor(ctx, s.pool, ids)
+	byTest, err := s.sectionsFor(ctx, s.Conn(), ids)
 	if err != nil {
 		return err
 	}
@@ -115,11 +112,11 @@ func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, err
 		where = append(where, fmt.Sprintf(`t.status = $%d::app.test_status`, len(args)))
 	}
 	if q := strings.TrimSpace(in.Query); q != "" {
-		args = append(args, escapeLike(q))
+		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(titleSearch, len(args)))
 	}
 
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT DISTINCT unnest(q.tags)
 		  FROM app.tests t
 		  JOIN app.test_sections sec ON sec.test_id = t.id

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/assignments/application/query"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -12,7 +13,7 @@ import (
 
 // ListMyAssignments backs §9's /app: the three sections, already sorted.
 func (h Assignments) ListMyAssignments(ctx context.Context, _ openapi.ListMyAssignmentsRequestObject) (openapi.ListMyAssignmentsResponseObject, error) {
-	if h.assignments == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -21,7 +22,7 @@ func (h Assignments) ListMyAssignments(ctx context.Context, _ openapi.ListMyAssi
 	}
 
 	now := time.Now()
-	sections, err := h.assignments.ForStudent(ctx, principal.UserID, now)
+	sections, err := h.app.Queries.ForStudent.Handle(ctx, query.ForStudent{StudentID: principal.UserID, Now: now})
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (h Assignments) ListMyAssignments(ctx context.Context, _ openapi.ListMyAssi
 // starts (§10.2). Not targeted, not published and not found are one 403 --
 // which assignments exist is not a student's to enumerate.
 func (h Assignments) GetMyAssignment(ctx context.Context, request openapi.GetMyAssignmentRequestObject) (openapi.GetMyAssignmentResponseObject, error) {
-	if h.assignments == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -44,7 +45,7 @@ func (h Assignments) GetMyAssignment(ctx context.Context, request openapi.GetMyA
 		return nil, httpx.ErrNotImplemented
 	}
 
-	d, err := h.assignments.StudentDetail(ctx, request.Id.String(), principal.UserID)
+	d, err := h.app.Queries.StudentDetail.Handle(ctx, query.StudentDetail{ID: request.Id.String(), StudentID: principal.UserID})
 	if errors.Is(err, domain.ErrForbidden) {
 		return openapi.GetMyAssignment403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/internal/modules/attempts/application"
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
 	"sync"
 	"testing"
@@ -15,7 +16,7 @@ import (
 
 // answerEverythingRight fills the fixture's paper with the correct answers, so
 // a test can assert on a score rather than on zero.
-func answerEverythingRight(t *testing.T, pool *pgxpool.Pool, w world, s domain.Session, svc *application.Service) {
+func answerEverythingRight(t *testing.T, pool *pgxpool.Pool, w world, s domain.Session, svc *application.Application) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -43,7 +44,7 @@ func answerEverythingRight(t *testing.T, pool *pgxpool.Pool, w world, s domain.S
 			{QuestionID: w.essay, Payload: []byte(`{"type":"text","value":"Tôi dậy lúc 6 giờ."}`)},
 		},
 	}
-	if _, err := svc.Save(ctx, in); err != nil {
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: in}); err != nil {
 		t.Fatalf("save answers: %v", err)
 	}
 }
@@ -73,7 +74,7 @@ func TestSubmittingGradesWhatAMachineCanAndLeavesTheRest(t *testing.T) {
 	svc, w, session := started(t, pool)
 	answerEverythingRight(t, pool, w, session, svc)
 
-	closed, err := svc.Submit(context.Background(), session.Attempt.ID, w.student, domain.Manual)
+	closed, err := svc.Commands.Submit.Handle(context.Background(), command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual})
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -108,10 +109,10 @@ func TestASecondSubmitIsRefusedRatherThanRegrading(t *testing.T) {
 	answerEverythingRight(t, pool, w, session, svc)
 	ctx := context.Background()
 
-	if _, err := svc.Submit(ctx, session.Attempt.ID, w.student, domain.Manual); err != nil {
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
 		t.Fatalf("first submit: %v", err)
 	}
-	if _, err := svc.Submit(ctx, session.Attempt.ID, w.student, domain.Manual); !errors.Is(err, domain.ErrAttemptClosed) {
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); !errors.Is(err, domain.ErrAttemptClosed) {
 		t.Fatalf("second submit gave %v, want ErrAttemptClosed", err)
 	}
 }
@@ -130,7 +131,7 @@ func TestConcurrentSubmitsProduceOneSubmission(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			_, errs[i] = svc.Submit(context.Background(), session.Attempt.ID, w.student, domain.Manual)
+			_, errs[i] = svc.Commands.Submit.Handle(context.Background(), command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual})
 		}()
 	}
 	close(start)
@@ -166,16 +167,16 @@ func TestAPaperWithNoEssayIsScoredButNotDeclaredGraded(t *testing.T) {
 		 WHERE test_version_question_id = $1::uuid AND is_correct`, w.choice).Scan(&correct); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Save(ctx, domain.SaveInput{
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
 		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
 		Answers: []domain.Answer{
 			{QuestionID: w.choice, Payload: []byte(`{"type":"choice","optionIds":["` + correct + `"]}`)},
 		},
-	}); err != nil {
+	}}); err != nil {
 		t.Fatal(err)
 	}
 
-	closed, err := svc.Submit(ctx, session.Attempt.ID, w.student, domain.Manual)
+	closed, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual})
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
@@ -200,7 +201,7 @@ func TestAnotherStudentCannotSubmitThisAttempt(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 
-	if _, err := svc.Submit(context.Background(), session.Attempt.ID, w.outsider, domain.Manual); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := svc.Commands.Submit.Handle(context.Background(), command.Submit{AttemptID: session.Attempt.ID, StudentID: w.outsider, Reason: domain.Manual}); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}
 }
@@ -213,13 +214,13 @@ func TestSubmittingHalfAFillBlankEarnsHalfItsPoints(t *testing.T) {
 
 	blanks := blankIDs(t, pool, w.blank)
 	only := `{"type":"fill_blank","values":{"` + blanks[0] + `":"` + secretBlankAnswer + `","` + blanks[1] + `":"sai"}}`
-	if _, err := svc.Save(ctx, domain.SaveInput{
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
 		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
 		Answers: []domain.Answer{{QuestionID: w.blank, Payload: []byte(only)}},
-	}); err != nil {
+	}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Submit(ctx, session.Attempt.ID, w.student, domain.Manual); err != nil {
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 

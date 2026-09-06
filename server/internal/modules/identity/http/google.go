@@ -5,21 +5,22 @@ import (
 	"errors"
 	"quizzivy/gen/openapi"
 	classeshttp "quizzivy/internal/modules/classes/http"
-	"quizzivy/internal/modules/identity/application"
+	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/actor"
 )
 
 // GoogleAuth completes the §5.3 sign-in: verify the ID token, then resolve the
 // account by provider identity, then by verified email, then create one.
 func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequestObject) (openapi.GoogleAuthResponseObject, error) {
-	if h.auth == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	in := application.GoogleSignInInput{
+	in := command.GoogleSignIn{
 		Code:         request.Body.Code,
 		CodeVerifier: request.Body.CodeVerifier,
 		RedirectURI:  request.Body.RedirectUri,
@@ -31,7 +32,7 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 	}
 
 	var rejected domain.JoinCodeRejected
-	result, err := h.auth.GoogleSignIn(ctx, in)
+	result, err := h.app.Commands.GoogleSignIn.Handle(ctx, in)
 	switch {
 	case err == nil:
 
@@ -81,7 +82,7 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 
 // LinkGoogle implements POST /auth/google/link (§15).
 func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequestObject) (openapi.LinkGoogleResponseObject, error) {
-	if h.auth == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -90,8 +91,7 @@ func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequ
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	user, err := h.auth.LinkGoogle(ctx, application.LinkGoogleInput{
-		UserID:       principal.UserID,
+	user, err := h.app.Commands.LinkGoogle.Handle(ctx, command.LinkGoogle{UserID: principal.UserID,
 		Code:         request.Body.Code,
 		CodeVerifier: request.Body.CodeVerifier,
 		RedirectURI:  request.Body.RedirectUri,
@@ -129,7 +129,7 @@ func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequ
 
 // UnlinkGoogle implements DELETE /auth/google/link (§15).
 func (h Identity) UnlinkGoogle(ctx context.Context, _ openapi.UnlinkGoogleRequestObject) (openapi.UnlinkGoogleResponseObject, error) {
-	if h.auth == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -138,7 +138,7 @@ func (h Identity) UnlinkGoogle(ctx context.Context, _ openapi.UnlinkGoogleReques
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	err := h.auth.UnlinkGoogle(ctx, principal.UserID, meta.IP, meta.UserAgent)
+	_, err := h.app.Commands.UnlinkGoogle.Handle(ctx, command.UnlinkGoogle{Actor: actor.Actor{ID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}})
 	switch {
 	case err == nil:
 		return openapi.UnlinkGoogle204Response{}, nil

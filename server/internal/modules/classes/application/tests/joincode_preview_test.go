@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"quizzivy/internal/modules/classes/application"
+	"quizzivy/internal/modules/classes/application/command"
+	"quizzivy/internal/modules/classes/application/query"
 	"quizzivy/internal/modules/classes/domain"
 )
 
@@ -15,11 +17,11 @@ import (
 // on success, and what it refuses to distinguish on failure, are both §6.5
 // requirements rather than presentation choices.
 
-func issueCode(t *testing.T, svc *application.Enrolment, classID, teacherID string) string {
+func issueCode(t *testing.T, svc *application.Application, classID, teacherID string) string {
 	t.Helper()
-	rotated, err := svc.Rotate(context.Background(), domain.RotateRequest{
+	rotated, err := svc.Commands.Rotate.Handle(context.Background(), command.Rotate{Request: domain.RotateRequest{
 		ClassID: classID, ActorUserID: teacherID,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("issue code: %v", err)
 	}
@@ -32,7 +34,7 @@ func TestPreviewReturnsTheClassAndTheTeacher(t *testing.T) {
 	classID, teacherID, _ := makeClassRow(t, pool)
 	code := issueCode(t, svc, classID, teacherID)
 
-	got, err := svc.Preview(context.Background(), code)
+	got, err := svc.Queries.Preview.Handle(context.Background(), query.Preview{Code: code})
 	if err != nil {
 		t.Fatalf("Preview: %v", err)
 	}
@@ -56,7 +58,7 @@ func TestPreviewAcceptsTheCodeHoweverItWasTyped(t *testing.T) {
 
 	plain := domain.JoinCodes.Normalize(code)
 	for _, typed := range []string{code, plain, "  " + plain + "  ", lower(plain), lower(code)} {
-		got, err := svc.Preview(context.Background(), typed)
+		got, err := svc.Queries.Preview.Handle(context.Background(), query.Preview{Code: typed})
 		if err != nil {
 			t.Fatalf("Preview(%q): %v", typed, err)
 		}
@@ -82,7 +84,7 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("invalid", func(t *testing.T) {
-		got, err := svc.Preview(ctx, "ZZZZ-ZZZZ")
+		got, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: "ZZZZ-ZZZZ"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -94,14 +96,14 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 	t.Run("revoked", func(t *testing.T) {
 		classID, teacherID, _ := makeClassRow(t, pool)
 		code := issueCode(t, svc, classID, teacherID)
-		if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+		if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := pool.Exec(ctx,
 			`UPDATE app.classes SET self_join_enabled = true WHERE id = $1`, classID); err != nil {
 			t.Fatal(err)
 		}
-		got, err := svc.Preview(ctx, code)
+		got, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: code})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +122,7 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 			  WHERE class_id = $1 AND revoked_at IS NULL`, classID); err != nil {
 			t.Fatal(err)
 		}
-		got, err := svc.Preview(ctx, code)
+		got, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: code})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -132,9 +134,9 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 	t.Run("exhausted", func(t *testing.T) {
 		classID, teacherID, _ := makeClassRow(t, pool)
 		one := 1
-		rotated, err := svc.Rotate(ctx, domain.RotateRequest{
+		rotated, err := svc.Commands.Rotate.Handle(ctx, command.Rotate{Request: domain.RotateRequest{
 			ClassID: classID, ActorUserID: teacherID, MaxUses: &one,
-		})
+		}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -143,7 +145,7 @@ func TestTheFourRefusalsAreDistinguishable(t *testing.T) {
 			  WHERE class_id = $1 AND revoked_at IS NULL`, classID); err != nil {
 			t.Fatal(err)
 		}
-		got, err := svc.Preview(ctx, rotated.Code)
+		got, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: rotated.Code})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,11 +167,11 @@ func TestAClosedClassIsIndistinguishableFromANonexistentOne(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	closed, err := svc.Preview(ctx, code)
+	closed, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: code})
 	if err != nil {
 		t.Fatal(err)
 	}
-	nonexistent, err := svc.Preview(ctx, "ZZZZ-ZZZZ")
+	nonexistent, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: "ZZZZ-ZZZZ"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +203,7 @@ func TestAClosedClassLeaksNothingEvenWhenTheCodeIsAlsoExpired(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := svc.Preview(ctx, code)
+	got, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: code})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,11 +219,11 @@ func TestNoRefusalCarriesClassData(t *testing.T) {
 	code := issueCode(t, svc, classID, teacherID)
 	ctx := context.Background()
 
-	if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
 	for _, input := range []string{code, "ZZZZ-ZZZZ", "", "not a code at all"} {
-		got, err := svc.Preview(ctx, input)
+		got, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: input})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +243,7 @@ func TestPreviewUsesTheServiceClockForExpiry(t *testing.T) {
 	code := issueCode(t, svc, classID, teacherID)
 
 	svc.SetClock(func() time.Time { return time.Now().AddDate(0, 0, domain.DefaultExpiryDays+1) })
-	got, err := svc.Preview(context.Background(), code)
+	got, err := svc.Queries.Preview.Handle(context.Background(), query.Preview{Code: code})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,11 +264,11 @@ func TestAnArchivedClassRefusesItsCodeLikeAClosedOne(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	archived, err := svc.Preview(ctx, code)
+	archived, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: code})
 	if err != nil {
 		t.Fatal(err)
 	}
-	nonexistent, err := svc.Preview(ctx, "ZZZZ-ZZZZ")
+	nonexistent, err := svc.Queries.Preview.Handle(ctx, query.Preview{Code: "ZZZZ-ZZZZ"})
 	if err != nil {
 		t.Fatal(err)
 	}

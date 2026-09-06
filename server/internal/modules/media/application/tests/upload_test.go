@@ -11,6 +11,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"quizzivy/internal/modules/media/application/command"
+	"quizzivy/internal/modules/media/application/ports"
+	"quizzivy/internal/platform/db"
 	"sync"
 	"testing"
 	"time"
@@ -111,9 +114,9 @@ func fixture(t *testing.T, name string) []byte {
 	return data
 }
 
-func newService(t *testing.T, pool *pgxpool.Pool, object application.ObjectStore) *application.Service {
+func newService(t *testing.T, pool *pgxpool.Pool, object ports.ObjectStore) *application.Application {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(pool), object, audioProbe{})
+	return application.New(repositories.NewPostgres(db.NewContext(pool)), object, audioProbe{})
 }
 
 func TestAValidUploadStoresTheObjectAndThenTheRow(t *testing.T) {
@@ -122,8 +125,7 @@ func TestAValidUploadStoresTheObjectAndThenTheRow(t *testing.T) {
 	objects := newFakeStore()
 	svc := newService(t, pool, objects)
 
-	asset, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename:   "bài nghe 1.mp3",
+	asset, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "bài nghe 1.mp3",
 		Body:       bytes.NewReader(fixture(t, "cbr-128k.mp3")),
 		UploaderID: uploader,
 		IP:         "203.0.113.5",
@@ -156,8 +158,7 @@ func TestAWavRenamedMp3IsRejectedOnItsBytes(t *testing.T) {
 	objects := newFakeStore()
 	svc := newService(t, pool, objects)
 
-	_, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename:   "bai-nghe.mp3",
+	_, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "bai-nghe.mp3",
 		Body:       bytes.NewReader(fixture(t, "wav-renamed.mp3")),
 		UploaderID: uploader,
 	})
@@ -184,8 +185,7 @@ func TestAnOverlongRecordingIsRejected(t *testing.T) {
 	objects := newFakeStore()
 	svc := newService(t, pool, objects)
 
-	_, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename:   "bai-giang-dai.mp3",
+	_, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "bai-giang-dai.mp3",
 		Body:       bytes.NewReader(sixMinuteMP3()),
 		UploaderID: uploader,
 	})
@@ -203,8 +203,7 @@ func TestAnOversizedUploadIsCutOffBeforeAnythingParsesIt(t *testing.T) {
 	objects := newFakeStore()
 	svc := newService(t, pool, objects)
 
-	_, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename:   "khong-lo.mp3",
+	_, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "khong-lo.mp3",
 		Body:       bytes.NewReader(make([]byte, domain.MaxBytes+1024)),
 		UploaderID: uploader,
 	})
@@ -220,15 +219,11 @@ func TestTheSameFileTwiceMakesTwoRowsWithTwoKeys(t *testing.T) {
 	svc := newService(t, pool, objects)
 	data := fixture(t, "cbr-128k.mp3")
 
-	first, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename: "bai-nghe.mp3", Body: bytes.NewReader(data), UploaderID: uploader,
-	})
+	first, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "bai-nghe.mp3", Body: bytes.NewReader(data), UploaderID: uploader})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename: "bai-nghe.mp3", Body: bytes.NewReader(data), UploaderID: uploader,
-	})
+	second, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "bai-nghe.mp3", Body: bytes.NewReader(data), UploaderID: uploader})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,8 +247,7 @@ func TestAFailedRowInsertRemovesTheObject(t *testing.T) {
 	objects := newFakeStore()
 	svc := newService(t, pool, objects)
 
-	_, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename:   "bai-nghe.mp3",
+	_, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "bai-nghe.mp3",
 		Body:       bytes.NewReader(fixture(t, "cbr-128k.mp3")),
 		UploaderID: "01935000-0000-7000-8000-00000000ffff",
 	})
@@ -273,8 +267,7 @@ func TestAFilenameNeverBecomesAPath(t *testing.T) {
 	uploader := makeUploader(t, pool)
 	svc := newService(t, pool, newFakeStore())
 
-	asset, err := svc.Upload(context.Background(), application.UploadInput{
-		Filename:   "../../etc/passwd.mp3",
+	asset, err := svc.Commands.Upload.Handle(context.Background(), command.Upload{Filename: "../../etc/passwd.mp3",
 		Body:       bytes.NewReader(fixture(t, "cbr-128k.mp3")),
 		UploaderID: uploader,
 	})

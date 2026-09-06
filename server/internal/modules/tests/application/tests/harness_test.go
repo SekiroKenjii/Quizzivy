@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	questionscommand "quizzivy/internal/modules/questions/application/command"
+	"quizzivy/internal/platform/db"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -59,9 +61,9 @@ func makeAuthor(t *testing.T, pool *pgxpool.Pool) string {
 	return id
 }
 
-func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
+func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(pool, questionsrepo.NewPostgres(pool), mediarepo.NewPostgres(pool)))
+	return application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 }
 
 func req(author string) domain.Request { return domain.Request{ActorID: author} }
@@ -73,13 +75,13 @@ func reqFor(id, author string) domain.Request {
 // newQuestion adds a bank question the outline can reference.
 func newQuestion(t *testing.T, pool *pgxpool.Pool, author, prompt string) string {
 	t.Helper()
-	svc := questionsapp.NewService(questionsrepo.NewPostgres(pool), mediaKinds{pool})
-	q, err := svc.Create(context.Background(), questionsdomain.WriteRequest{
+	svc := questionsapp.New(questionsrepo.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
+	q, err := svc.Commands.Create.Handle(context.Background(), questionscommand.Create{Request: questionsdomain.WriteRequest{
 		Input: questionsdomain.Input{
 			Type: questionsdomain.ShortAnswer, Prompt: prompt, Points: "2.00", Tags: []string{},
 		},
 		ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("question %q: %v", prompt, err)
 	}

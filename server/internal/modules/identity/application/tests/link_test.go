@@ -5,6 +5,10 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/model"
+	"quizzivy/internal/modules/identity/application/query"
+	"quizzivy/internal/shared/actor"
 	"testing"
 
 	"quizzivy/internal/modules/identity/application"
@@ -16,16 +20,15 @@ import (
 // §15's two rules: a Google account belongs to one Quizzivy account, and an
 // account never ends up with no way in.
 
-func linkService(t *testing.T, pool *pgxpool.Pool, identity application.GoogleIdentity) *application.Service {
+func linkService(t *testing.T, pool *pgxpool.Pool, identity model.GoogleIdentity) *application.Application {
 	t.Helper()
 	svc := newService(t, pool)
 	svc.SetGoogle(&stubGoogle{identity: identity}, nil)
 	return svc
 }
 
-func link(svc *application.Service, userID string) (domain.User, error) {
-	return svc.LinkGoogle(context.Background(), application.LinkGoogleInput{
-		UserID: userID, Code: "c", CodeVerifier: "v",
+func link(svc *application.Application, userID string) (domain.User, error) {
+	return svc.Commands.LinkGoogle.Handle(context.Background(), command.LinkGoogle{UserID: userID, Code: "c", CodeVerifier: "v",
 		RedirectURI: "https://app.quizzivy.com/cb", IP: "203.0.113.30", UserAgent: "go-test",
 	})
 }
@@ -98,7 +101,7 @@ func TestASecondGoogleAccountCannotBeAddedToOneUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	other := application.GoogleIdentity{Subject: "a-different-google-account", Email: email, EmailVerified: true}
+	other := model.GoogleIdentity{Subject: "a-different-google-account", Email: email, EmailVerified: true}
 	if _, err := link(linkService(t, pool, other), id); !errors.Is(err, domain.ErrIdentityAlreadyLinked) {
 		t.Fatalf("error = %v, want ErrIdentityAlreadyLinked", err)
 	}
@@ -141,7 +144,7 @@ func TestUnlinkingFromAPasswordlessAccountIsRefused(t *testing.T) {
 	linkGoogleSubject(t, pool, id, "google-sub-"+email, email)
 
 	svc := newService(t, pool)
-	if err := svc.UnlinkGoogle(context.Background(), id, "203.0.113.31", "go-test"); !errors.Is(err, domain.ErrLastLoginMethod) {
+	if _, err := svc.Commands.UnlinkGoogle.Handle(context.Background(), command.UnlinkGoogle{Actor: actor.Actor{ID: id, IP: "203.0.113.31", UserAgent: "go-test"}}); !errors.Is(err, domain.ErrLastLoginMethod) {
 		t.Fatalf("error = %v, want ErrLastLoginMethod", err)
 	}
 
@@ -163,10 +166,10 @@ func TestUnlinkingWorksWhenAPasswordRemains(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	if err := svc.UnlinkGoogle(ctx, id, "203.0.113.32", "go-test"); err != nil {
+	if _, err := svc.Commands.UnlinkGoogle.Handle(ctx, command.UnlinkGoogle{Actor: actor.Actor{ID: id, IP: "203.0.113.32", UserAgent: "go-test"}}); err != nil {
 		t.Fatalf("UnlinkGoogle: %v", err)
 	}
-	user, err := svc.CurrentUser(ctx, id)
+	user, err := svc.Queries.CurrentUser.Handle(ctx, query.CurrentUser{UserID: id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +177,7 @@ func TestUnlinkingWorksWhenAPasswordRemains(t *testing.T) {
 		t.Errorf("linkedProviders = %v, want empty", user.LinkedProviders)
 	}
 	// The account is still reachable, which is the whole point of the rule.
-	if _, err := svc.Login(ctx, application.LoginInput{Email: email, Password: testPassword}); err != nil {
+	if _, err := svc.Commands.Login.Handle(ctx, command.Login{Email: email, Password: testPassword}); err != nil {
 		t.Errorf("the account cannot be signed into after unlinking: %v", err)
 	}
 
@@ -195,7 +198,7 @@ func TestUnlinkingWhenNothingIsLinkedSucceeds(t *testing.T) {
 	svc := newService(t, pool)
 
 	for i := range 2 {
-		if err := svc.UnlinkGoogle(context.Background(), id, "", ""); err != nil {
+		if _, err := svc.Commands.UnlinkGoogle.Handle(context.Background(), command.UnlinkGoogle{Actor: actor.Actor{ID: id, IP: "", UserAgent: ""}}); err != nil {
 			t.Fatalf("unlink %d: %v", i+1, err)
 		}
 	}
@@ -210,7 +213,7 @@ func TestASuspendedAccountCanNeitherLinkNorUnlink(t *testing.T) {
 	if _, err := link(svc, id); !errors.Is(err, domain.ErrAccountDisabled) {
 		t.Errorf("link: error = %v, want ErrAccountDisabled", err)
 	}
-	if err := svc.UnlinkGoogle(ctx, id, "", ""); !errors.Is(err, domain.ErrAccountDisabled) {
+	if _, err := svc.Commands.UnlinkGoogle.Handle(ctx, command.UnlinkGoogle{Actor: actor.Actor{ID: id, IP: "", UserAgent: ""}}); !errors.Is(err, domain.ErrAccountDisabled) {
 		t.Errorf("unlink: error = %v, want ErrAccountDisabled", err)
 	}
 }

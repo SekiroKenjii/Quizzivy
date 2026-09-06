@@ -13,7 +13,7 @@ import (
 func (s *Postgres) Preview(ctx context.Context, testID string, version int) (int, []domain.PreviewQuestion, error) {
 	var versionID string
 	var resolved int
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT v.id::text, v.version
 		  FROM app.test_versions v
 		 WHERE v.test_id = $1
@@ -32,7 +32,7 @@ func (s *Postgres) Preview(ctx context.Context, testID string, version int) (int
 }
 
 func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]domain.PreviewQuestion, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT q.id::text, q.type::text, q.prompt, q.points::text,
 		       q.media_asset_id::text, q.audio_max_plays, q.audio_allow_seek,
 		       q.audio_show_transcript_after
@@ -72,7 +72,7 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 func (s *Postgres) attachPreviewOptions(
 	ctx context.Context, versionID string, out []domain.PreviewQuestion, byID map[string]int,
 ) error {
-	byQuestion, err := db.GroupBy(ctx, s.pool, `
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
 		SELECT o.test_version_question_id::text, o.id::text, o.text
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
@@ -99,7 +99,7 @@ func (s *Postgres) attachPreviewOptions(
 func (s *Postgres) attachPreviewBlanks(
 	ctx context.Context, versionID string, out []domain.PreviewQuestion, byID map[string]int,
 ) error {
-	byQuestion, err := db.GroupBy(ctx, s.pool, `
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
 		SELECT b.test_version_question_id::text, b.id::text, b.ordinal
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id

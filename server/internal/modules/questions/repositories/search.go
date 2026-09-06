@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/paging"
 	"strings"
 )
@@ -23,10 +24,6 @@ const searchCondition = `(
 		to_tsvector('simple', q.prompt) @@ plainto_tsquery('simple', $%[1]d)
 		OR ` + TrigramExpression + ` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'
 	)`
-
-var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
-
-func escapeLike(s string) string { return likeEscaper.Replace(s) }
 
 func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
 	var args []any
@@ -50,7 +47,7 @@ func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
 			`(q.media_asset_kind = 'audio') = $%d::boolean`, len(args)))
 	}
 	if q := strings.TrimSpace(in.Query); q != "" {
-		args = append(args, escapeLike(q))
+		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(searchCondition, len(args)))
 	}
 	return args, where
@@ -76,12 +73,12 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Ques
 		 WHERE ` + strings.Join(where, "\n		   AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("questions: count: %w", err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.pool.Query(ctx, `SELECT`+questionColumns+from+fmt.Sprintf(`
+	rows, err := s.Query(ctx, `SELECT`+questionColumns+from+fmt.Sprintf(`
 		 ORDER BY q.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
@@ -117,11 +114,11 @@ func (s *Postgres) attachChildren(ctx context.Context, questions []domain.Questi
 		ids[i] = q.ID
 	}
 
-	options, err := s.loadOptionsFor(ctx, s.pool, ids)
+	options, err := s.loadOptionsFor(ctx, s.Conn(), ids)
 	if err != nil {
 		return err
 	}
-	blanks, err := s.loadBlanksFor(ctx, s.pool, ids)
+	blanks, err := s.loadBlanksFor(ctx, s.Conn(), ids)
 	if err != nil {
 		return err
 	}

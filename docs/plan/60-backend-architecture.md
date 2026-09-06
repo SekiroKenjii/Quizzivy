@@ -19,13 +19,40 @@ the "one package per feature" layout AGENTS.md described until then.
   single entity is a `*Manager` (GradingManager, DealManager,
   TimelineManager, InterventionManager, PublishManager, ScheduleManager,
   JoinCodeManager, PasswordManager, QuestionManager, AssetManager), reached
-  as a package value. `Service` is the application layer's word.
+  as a package value. The application layer speaks in commands and queries.
+- **CQRS in the application layer** (second review, 2026-09-06). Every
+  module's `application/` is `Application{Commands, Queries}` built by `New`:
+  `command/` and `query/` hold one struct and one handler per use case
+  (`command.Create` / `command.CreateHandler.Handle(ctx, cmd)`), typed by the
+  shared contracts in `shared/cqrs` (`CommandHandler[C, R]`,
+  `QueryHandler[Q, R]`, `HandlerFunc` for stubs, `Nothing` for commands that
+  only succeed or fail, `Err` for callers that keep only the error). `ports/`
+  is what the module needs from outside, `model/` the results other modules
+  read, `internal/support/` the ports, clock and helpers the handlers share.
+  A command that acts for a signed-in user carries `shared/actor.Actor`.
+  A query never writes: the attempts monitor screen runs the `ExpireDue`
+  command and then the `Monitor` query.
 - **Ports at the application boundary.** identity declares `GoogleProvider`;
   media declares `AudioProbe` and `ObjectStore`; questions declares
   `MediaKinds`; classes and identity read student figures through
   `shared/stats.Source`, which attempts implements; tests' repository takes
   `QuestionLocks` and `MediaLocks` for the row locks another module holds
-  inside its transaction. core adapts.
+  inside its transaction. A port one operation fills is typed as the other
+  module's handler (identity's `SelfEnroller` is the classes `EnrolNewMember`
+  command; attempts' `Students` is the identity `GetStudent` query); the
+  rest `core/adapters` adapts.
+- **One database context, one repository base.** `platform/db.Context` wraps
+  a pool or a transaction (`Exec`, `Query`, `QueryRow`, `InTx`); every module
+  Postgres type embeds `db.Repository` and uses the generic `QueryOne`,
+  `QueryMany`, `Count`, `Exists`, `IsUniqueViolation`, `EscapeLike`. Optional
+  values go through `shared/opt`, field errors through `shared/validation`.
+- **core is four packages.** `core/wiring` builds each module (one file per
+  module, in dependency order) and returns the `Assembly`; `core/router`
+  fronts the transports with the generated strict server, the middleware
+  order, `/healthz`, `/docs` and the rate limits; `core/adapters` translates
+  platform errors into domain errors and one module's handlers into another's
+  port; `core/jobs` runs background commands. `platform/httpserver` owns the
+  listener and its shutdown.
 - **Tests in three tiers** (unit, integration, e2e — see server/README.md),
   every test file in a `<layer>/tests/` directory as an external package,
   none reaching a private identifier.
@@ -40,13 +67,16 @@ the "one package per feature" layout AGENTS.md described until then.
 
 | before | after |
 |---|---|
-| `internal/api` (one Server, every handler) | each module's `http/`; core's `composite.go` embeds them |
+| `internal/api` (one Server, every handler) | each module's `http/`; `core/router/server.go` embeds them |
 | `internal/auth`, `internal/students` | `modules/identity` |
 | `internal/join`, `internal/classes` | `modules/classes` (join code as a value object with a manager) |
 | `internal/tests`, `internal/tests/publish` | `modules/tests` (publishing is one repository transaction handed the domain's validation) |
 | `internal/attempts`, `grading`, `review`, `integrity` | `modules/attempts` |
 | `internal/{db,storage,config,httpx,ratelimit}`, `auth/google`, `media/probe` | `platform/*` |
 | `internal/{paging,audit}` | `shared/*`, plus `shared/stats` |
+| `application.Service` methods (second review) | `application/command/*.go`, `application/query/*.go`, `application/{ports,model}`, `application/internal/support` |
+| module-local `DB`/`Postgres`/`querier` types | `platform/db.Context` + `db.Repository`, embedded |
+| `core/{modules,adapters,composite,router,server,jobs}.go` | `core/wiring`, `core/adapters`, `core/router`, `core/jobs`, `platform/httpserver` |
 
 ## Why
 

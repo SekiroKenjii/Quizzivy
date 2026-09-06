@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/tests/application/command"
 	"testing"
 
 	"quizzivy/internal/modules/tests/domain"
@@ -116,20 +117,19 @@ func TestPublishRejectsAnEmptySection(t *testing.T) {
 	b := newBuilder(t, pool, author)
 	ctx := context.Background()
 
-	created, err := b.tests.Create(ctx, domain.Request{ActorID: author}, "Đề có phần rỗng", nil)
+	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: author}, Title: "Đề có phần rỗng", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q := b.shortAnswer("Câu duy nhất", "1.00")
-	saved, err := b.tests.Update(ctx, domain.Request{ID: created.ID, ActorID: author},
-		domain.UpdateInput{
-			ExpectedUpdatedAt: created.UpdatedAt,
-			SetSections:       true,
-			Sections: []domain.SectionInput{
-				{Title: "Phần có câu", QuestionIDs: []string{q}},
-				{Title: "Phần rỗng", QuestionIDs: []string{}},
-			},
-		})
+	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: author}, Input: domain.UpdateInput{
+		ExpectedUpdatedAt: created.UpdatedAt,
+		SetSections:       true,
+		Sections: []domain.SectionInput{
+			{Title: "Phần có câu", QuestionIDs: []string{q}},
+			{Title: "Phần rỗng", QuestionIDs: []string{}},
+		},
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,19 +157,18 @@ func TestPublishReportsEveryProblemAtOnce(t *testing.T) {
 		Type: questionsdomain.FillBlank, Prompt: "Điền {{1}}", Points: "1.00",
 		Blanks: []questionsdomain.BlankInput{{Ordinal: 1, AcceptedAnswers: []string{"x"}}},
 	})
-	created, err := b.tests.Create(ctx, domain.Request{ActorID: author}, "Đề nhiều lỗi", nil)
+	created, err := b.tests.Commands.Create.Handle(ctx, command.Create{Request: domain.Request{ActorID: author}, Title: "Đề nhiều lỗi", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := b.tests.Update(ctx, domain.Request{ID: created.ID, ActorID: author},
-		domain.UpdateInput{
-			ExpectedUpdatedAt: created.UpdatedAt,
-			SetSections:       true,
-			Sections: []domain.SectionInput{
-				{Title: "Phần 1", QuestionIDs: []string{bad, alsoBad}},
-				{Title: "Phần rỗng", QuestionIDs: []string{}},
-			},
-		})
+	saved, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: created.ID, ActorID: author}, Input: domain.UpdateInput{
+		ExpectedUpdatedAt: created.UpdatedAt,
+		SetSections:       true,
+		Sections: []domain.SectionInput{
+			{Title: "Phần 1", QuestionIDs: []string{bad, alsoBad}},
+			{Title: "Phần rỗng", QuestionIDs: []string{}},
+		},
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +201,7 @@ func TestPublishingATestWithNoSectionsIsRefused(t *testing.T) {
 	author := pubMakeAuthor(t, pool)
 	b := newBuilder(t, pool, author)
 
-	created, err := b.tests.Create(context.Background(), domain.Request{ActorID: author}, "Đề rỗng", nil)
+	created, err := b.tests.Commands.Create.Handle(context.Background(), command.Create{Request: domain.Request{ActorID: author}, Title: "Đề rỗng", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}

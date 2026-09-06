@@ -4,6 +4,7 @@ package application_test
 
 import (
 	"context"
+	questionscommand "quizzivy/internal/modules/questions/application/command"
 	"testing"
 
 	questionsdomain "quizzivy/internal/modules/questions/domain"
@@ -27,13 +28,13 @@ func TestEditingTheBankAfterPublishLeavesTheVersionUnchanged(t *testing.T) {
 	}
 
 	// Edit the bank question in every way the snapshot copies.
-	if _, err := b.qsvc.Update(ctx, questionsdomain.WriteRequest{
+	if _, err := b.qsvc.Commands.Update.Handle(ctx, questionscommand.Update{Request: questionsdomain.WriteRequest{
 		ID: q, ActorID: author,
 		Input: questionsdomain.Input{
 			Type: questionsdomain.ShortAnswer, Prompt: "ĐÃ SỬA SAU KHI XUẤT BẢN",
 			Points: "99.00", Tags: []string{},
 		},
-	}); err != nil {
+	}}); err != nil {
 		t.Fatalf("editing the bank question: %v", err)
 	}
 

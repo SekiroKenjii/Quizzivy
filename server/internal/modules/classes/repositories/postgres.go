@@ -5,27 +5,25 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/paging"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const entityClassMember = "class_member"
 
-type Postgres struct{ pool *pgxpool.Pool }
+type Postgres struct{ db.Repository }
 
-func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
+func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
 const (
 	DefaultLimit = 20
 	MaxLimit     = 100
 )
-
-var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 const nameSearch = `app.immutable_unaccent(lower(c.name))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
@@ -80,7 +78,7 @@ func scanClass(row pgx.Row) (domain.Class, error) {
 }
 
 func (s *Postgres) Get(ctx context.Context, classID string) (domain.Class, error) {
-	c, err := scanClass(s.pool.QueryRow(ctx, classProjection+` WHERE c.id = $1`, classID))
+	c, err := scanClass(s.QueryRow(ctx, classProjection+` WHERE c.id = $1`, classID))
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return domain.Class{}, fmt.Errorf("load class %s: %w", classID, err)
 	}
@@ -106,14 +104,14 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Clas
 	condition := " WHERE " + strings.Join(where, " AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM app.classes c
+	if err := s.QueryRow(ctx, `SELECT count(*) FROM app.classes c
 	  LEFT JOIN app.class_join_codes jc ON jc.class_id = c.id AND jc.revoked_at IS NULL`+condition,
 		args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("count classes: %w", err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.pool.Query(ctx, classProjection+condition+fmt.Sprintf(
+	rows, err := s.Query(ctx, classProjection+condition+fmt.Sprintf(
 		` ORDER BY c.id DESC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, paging.Page{}, fmt.Errorf("list classes: %w", err)
@@ -135,7 +133,7 @@ func searchClause(query string) ([]any, []string) {
 	var args []any
 	where := []string{"TRUE"}
 	if q := strings.TrimSpace(query); q != "" {
-		args = append(args, likeEscaper.Replace(q))
+		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(nameSearch, len(args)))
 	}
 	return args, where
@@ -144,7 +142,7 @@ func searchClause(query string) ([]any, []string) {
 func (s *Postgres) Facets(ctx context.Context, query string) (domain.Facets, error) {
 	args, where := searchClause(query)
 	var f domain.Facets
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 	SELECT count(*),
 	       count(*) FILTER (WHERE `+joinable+`),
 	       count(*) FILTER (WHERE c.archived_at IS NOT NULL),
@@ -165,7 +163,7 @@ func (s *Postgres) Facets(ctx context.Context, query string) (domain.Facets, err
 // whose hint is the teacher's, and never the roster. The teacher is the
 // practice's one admin account (§1.1).
 func (s *Postgres) ListMine(ctx context.Context, userID string) ([]domain.MyClass, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 	SELECT c.id::text, c.name, c.description, me.joined_at,
 	       (SELECT t.full_name FROM app.users t
 	         WHERE t.role = 'admin' AND t.disabled_at IS NULL
@@ -198,7 +196,7 @@ func (s *Postgres) Members(ctx context.Context, classID string, in domain.Member
 	args := []any{classID}
 	where := []string{`m.class_id = $1`}
 	if q := strings.TrimSpace(in.Query); q != "" {
-		args = append(args, likeEscaper.Replace(q))
+		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(`(app.immutable_unaccent(lower(u.full_name))
 		           LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'
 		        OR lower(u.email) LIKE '%%' || lower($%[1]d) || '%%' ESCAPE '\')`, len(args)))
@@ -210,12 +208,12 @@ func (s *Postgres) Members(ctx context.Context, classID string, in domain.Member
 		 WHERE ` + strings.Join(where, "\n		   AND ")
 
 	page := paging.Page{Number: number, Size: limit}
-	if err := s.pool.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
+	if err := s.QueryRow(ctx, `SELECT count(*)`+from, args...).Scan(&page.Total); err != nil {
 		return nil, paging.Page{}, fmt.Errorf("count members of %s: %w", classID, err)
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.pool.Query(ctx, memberColumns+`
+	rows, err := s.Query(ctx, memberColumns+`
 		  FROM app.class_members m
 		  JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
 		  LEFT JOIN app.class_join_codes jc ON jc.id = m.join_code_id
@@ -253,7 +251,7 @@ func scanMember(row pgx.Row) (domain.Member, error) {
 
 // RemoveMember revokes access. It does NOT touch attempts (§6.4).
 func (s *Postgres) RemoveMember(ctx context.Context, in domain.RemoveMemberInput) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin remove member: %w", err)
 	}
@@ -304,7 +302,7 @@ func (s *Postgres) Update(ctx context.Context, classID string, in domain.UpdateI
 		return s.Get(ctx, classID)
 	}
 
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.Exec(ctx,
 		`UPDATE app.classes SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)
 	if err != nil {
 		return domain.Class{}, fmt.Errorf("update class %s: %w", classID, err)
@@ -316,7 +314,7 @@ func (s *Postgres) Update(ctx context.Context, classID string, in domain.UpdateI
 }
 
 func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Class, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Class{}, fmt.Errorf("begin create class: %w", err)
 	}
@@ -349,7 +347,7 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Cl
 
 // Archive sets or clears archived_at. Idempotent: a repeat is not audited.
 func (s *Postgres) Archive(ctx context.Context, in domain.ArchiveInput) (domain.Class, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Class{}, fmt.Errorf("begin archive class: %w", err)
 	}
@@ -393,7 +391,7 @@ func (s *Postgres) Archive(ctx context.Context, in domain.ArchiveInput) (domain.
 
 // AddMember enrols an existing student directly, as joined_via 'admin'.
 func (s *Postgres) AddMember(ctx context.Context, in domain.AddMemberInput) (domain.Member, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Member{}, fmt.Errorf("begin add member: %w", err)
 	}

@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/questions/application/command"
 	"sync"
 	"testing"
 
@@ -31,7 +32,7 @@ func TestLockForDraftUseSerialisesAgainstDelete(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			deleteErr = svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author})
+			_, deleteErr = svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}})
 		}()
 		go func() {
 			defer wg.Done()
@@ -68,7 +69,7 @@ func TestLockForDraftUseRefusesADeletedQuestion(t *testing.T) {
 
 	q := write(t, svc, author, "Câu hỏi đã xoá")
 	sectionID := newDraftSection(t, pool, author)
-	if err := svc.Delete(ctx, domain.WriteRequest{ID: q.ID, ActorID: author}); err != nil {
+	if _, err := svc.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{ID: q.ID, ActorID: author}}); err != nil {
 		t.Fatal(err)
 	}
 

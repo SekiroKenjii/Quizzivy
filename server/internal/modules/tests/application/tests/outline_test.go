@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/tests/application/command"
 	"testing"
 
 	"quizzivy/internal/modules/tests/domain"
@@ -19,13 +20,13 @@ func TestReorderingSectionsKeepsTheirIdentity(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Đề sắp xếp lại", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề sắp xếp lại", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q := newQuestion(t, pool, author, "Câu hỏi dùng chung")
 
-	saved, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	saved, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
@@ -33,14 +34,14 @@ func TestReorderingSectionsKeepsTheirIdentity(t *testing.T) {
 			{Title: "B", QuestionIDs: []string{}},
 			{Title: "C", QuestionIDs: []string{}},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	first, second, third := saved.Sections[0], saved.Sections[1], saved.Sections[2]
 
 	// Drag the first section to the end.
-	reordered, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	reordered, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: saved.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
@@ -48,7 +49,7 @@ func TestReorderingSectionsKeepsTheirIdentity(t *testing.T) {
 			{ID: third.ID, Title: "C", QuestionIDs: []string{}},
 			{ID: first.ID, Title: "A", QuestionIDs: []string{q}},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatalf("reorder: %v", err)
 	}
@@ -82,32 +83,32 @@ func TestDroppingASectionRemovesItAndItsQuestionRows(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Đề bỏ phần", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề bỏ phần", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q := newQuestion(t, pool, author, "Câu hỏi còn lại")
 
-	saved, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	saved, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
 			{Title: "Giữ lại", QuestionIDs: []string{q}},
 			{Title: "Sẽ bị bỏ", QuestionIDs: []string{q}},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	dropped := saved.Sections[1].ID
 
-	after, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	after, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: saved.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
 			{ID: saved.Sections[0].ID, Title: "Giữ lại", QuestionIDs: []string{q}},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func TestTotalsFollowTheOutline(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Đề tính điểm", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề tính điểm", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,11 +155,11 @@ func TestTotalsFollowTheOutline(t *testing.T) {
 	q1 := newQuestion(t, pool, author, "Câu 2 điểm A")
 	q2 := newQuestion(t, pool, author, "Câu 2 điểm B")
 
-	saved, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	saved, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: []string{q1, q2}}},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,17 +179,17 @@ func TestAQuestionCannotAppearTwiceInASection(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Đề trùng câu", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề trùng câu", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q := newQuestion(t, pool, author, "Câu bị lặp")
 
-	_, err = svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	_, err = svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: []string{q, q}}},
-	})
+	}})
 	var invalid *domain.ValidationError
 	if !errors.As(err, &invalid) {
 		t.Fatalf("got %v, want a ValidationError", err)

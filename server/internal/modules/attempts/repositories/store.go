@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Postgres struct{ pool *pgxpool.Pool }
+type Postgres struct{ db.Repository }
 
-func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
+func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
 const rulesQuery = `
 	SELECT a.test_version_id, a.opens_at, a.closes_at, a.closed_at, a.published_at,
@@ -44,7 +43,7 @@ const rulesQuery = `
 
 func (s *Postgres) Rules(ctx context.Context, assignmentID, studentID string) (domain.Rules, error) {
 	var r domain.Rules
-	err := s.pool.QueryRow(ctx, rulesQuery, assignmentID, studentID).Scan(
+	err := s.QueryRow(ctx, rulesQuery, assignmentID, studentID).Scan(
 		&r.TestVersionID, &r.OpensAt, &r.ClosesAt, &r.ClosedAt, &r.PublishedAt,
 		&r.DurationMinutes, &r.MaxAttempts, &r.ShuffleQuestions, &r.ShuffleOptions,
 		&r.Integrity.RequireFullscreen, &r.Integrity.BlockCopyPaste,
@@ -82,7 +81,7 @@ func (s *Postgres) Live(ctx context.Context, assignmentID, studentID string) (do
 	        FROM app.attempts
 	       WHERE assignment_id = $1::uuid AND student_id = $2::uuid
 	         AND status = 'in_progress'`
-	out, err := scanAttempt(s.pool.QueryRow(ctx, q, assignmentID, studentID))
+	out, err := scanAttempt(s.QueryRow(ctx, q, assignmentID, studentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AttemptRecord{}, domain.ErrNotFound
 	}
@@ -94,7 +93,7 @@ func (s *Postgres) Live(ctx context.Context, assignmentID, studentID string) (do
 
 func (s *Postgres) Tally(ctx context.Context, assignmentID, studentID string) (domain.Tally, error) {
 	var t domain.Tally
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE status <> 'voided'),
 		       coalesce(max(attempt_no), 0) + 1
 		  FROM app.attempts
@@ -113,10 +112,10 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.At
 		   shuffle_seed, beacon_token_hash, started_at, deadline_at)
 		VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
 		RETURNING ` + attemptColumns
-	out, err := scanAttempt(s.pool.QueryRow(ctx, q,
+	out, err := scanAttempt(s.QueryRow(ctx, q,
 		in.AssignmentID, in.TestVersionID, in.StudentID, in.AttemptNo, in.SessionID,
 		in.Seed, in.BeaconHash, in.StartedAt, in.DeadlineAt))
-	if isUniqueViolation(err) {
+	if db.IsUniqueViolation(err, "") {
 		return domain.AttemptRecord{}, domain.ErrRaceLost
 	}
 	if err != nil {
@@ -125,16 +124,11 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.At
 	return out, nil
 }
 
-func isUniqueViolation(err error) bool {
-	var pg *pgconn.PgError
-	return errors.As(err, &pg) && pg.Code == "23505"
-}
-
 // Resume hands the attempt to a new tab and records why, in one transaction:
 // the session swap and the events explaining it are the same fact, and a
 // timeline missing the takeover it caused is worse than no timeline.
 func (s *Postgres) Resume(ctx context.Context, in domain.ResumeInput) (domain.AttemptRecord, bool, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.AttemptRecord{}, false, fmt.Errorf("attempts: begin resume: %w", err)
 	}
@@ -181,7 +175,7 @@ func (s *Postgres) Resume(ctx context.Context, in domain.ResumeInput) (domain.At
 	return updated, takeover, nil
 }
 
-func sessionWasLive(ctx context.Context, q querier, attemptID, sessionID string, now time.Time) (bool, error) {
+func sessionWasLive(ctx context.Context, q db.Querier, attemptID, sessionID string, now time.Time) (bool, error) {
 	var live bool
 	err := q.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -196,7 +190,7 @@ func sessionWasLive(ctx context.Context, q querier, attemptID, sessionID string,
 	return live, nil
 }
 
-func appendEvent(ctx context.Context, q querier, attemptID, sessionID, kind string, now time.Time) error {
+func appendEvent(ctx context.Context, q db.Querier, attemptID, sessionID, kind string, now time.Time) error {
 	_, err := q.Exec(ctx, `
 		INSERT INTO app.attempt_events (attempt_id, session_id, kind, occurred_at)
 		VALUES ($1::uuid, $2::uuid, $3, $4)`,
@@ -205,12 +199,6 @@ func appendEvent(ctx context.Context, q querier, attemptID, sessionID, kind stri
 		return fmt.Errorf("attempts: append %s event: %w", kind, err)
 	}
 	return nil
-}
-
-type querier interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 const questionsQuery = `
@@ -236,8 +224,8 @@ func (r questionRow) media() *domain.Media {
 		return nil
 	}
 	m := &domain.Media{
-		ID: *r.mediaID, Kind: deref(r.mediaKind), MimeType: deref(r.mimeType),
-		Filename: deref(r.filename), DurationMs: r.durationMs,
+		ID: *r.mediaID, Kind: opt.Deref(r.mediaKind), MimeType: opt.Deref(r.mimeType),
+		Filename: opt.Deref(r.filename), DurationMs: r.durationMs,
 	}
 	if r.mediaBytes != nil {
 		m.Bytes = *r.mediaBytes
@@ -260,7 +248,7 @@ func (r questionRow) audio() *domain.AudioPolicy {
 }
 
 func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domain.Question, error) {
-	rows, err := s.pool.Query(ctx, questionsQuery, testVersionID)
+	rows, err := s.Query(ctx, questionsQuery, testVersionID)
 	if err != nil {
 		return nil, fmt.Errorf("attempts: read questions: %w", err)
 	}
@@ -293,7 +281,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 }
 
 func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
-	byQuestion, err := db.GroupBy(ctx, s.pool, `
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
 		SELECT o.test_version_question_id, o.id, o.text
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
@@ -318,7 +306,7 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 }
 
 func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
-	byQuestion, err := db.GroupBy(ctx, s.pool, `
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
 		SELECT b.test_version_question_id, b.id, b.ordinal
 		  FROM app.test_version_blanks b
 		  JOIN app.test_version_questions q ON q.id = b.test_version_question_id
@@ -345,7 +333,7 @@ func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []doma
 // Answers is the base for the resume merge: what the server already holds,
 // which the client reconciles against its own unflushed edits (§1.2).
 func (s *Postgres) Answers(ctx context.Context, attemptID string) (map[string][]byte, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT question_id, payload FROM app.attempt_answers
 		 WHERE attempt_id = $1::uuid`, attemptID)
 	if err != nil {
@@ -365,13 +353,6 @@ func (s *Postgres) Answers(ctx context.Context, attemptID string) (map[string][]
 	return out, rows.Err()
 }
 
-func deref(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
 // ByID reads one attempt for its owner. The student id is part of the
 // predicate rather than a check afterwards, so a caller cannot forget it and
 // there is no window where the AttemptRecord exists in a variable belonging to nobody.
@@ -379,7 +360,7 @@ func (s *Postgres) ByID(ctx context.Context, attemptID, studentID string) (domai
 	q := `SELECT ` + attemptColumns + `
 	        FROM app.attempts
 	       WHERE id = $1::uuid AND student_id = $2::uuid`
-	out, err := scanAttempt(s.pool.QueryRow(ctx, q, attemptID, studentID))
+	out, err := scanAttempt(s.QueryRow(ctx, q, attemptID, studentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AttemptRecord{}, domain.ErrNotFound
 	}
@@ -394,7 +375,7 @@ func (s *Postgres) ByID(ctx context.Context, attemptID, studentID string) (domai
 // client-supplied id would be a way to render one paper under another's rules.
 func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Rules, error) {
 	var r domain.Rules
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT test_version_id, opens_at, closes_at, closed_at, published_at,
 		       duration_minutes, max_attempts, shuffle_questions, shuffle_options,
 		       integrity_require_fullscreen, integrity_block_copy_paste,
@@ -418,7 +399,7 @@ func (s *Postgres) RulesFor(ctx context.Context, assignmentID string) (domain.Ru
 
 // Rebeacon issues a fresh append-only token WITHOUT touching session_id.
 func (s *Postgres) Rebeacon(ctx context.Context, attemptID string, hash []byte) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.Exec(ctx,
 		`UPDATE app.attempts SET beacon_token_hash = $2 WHERE id = $1::uuid`, attemptID, hash)
 	if err != nil {
 		return fmt.Errorf("attempts: reissue beacon token: %w", err)

@@ -4,16 +4,15 @@ package application_test
 
 import (
 	"errors"
+	"quizzivy/internal/modules/identity/application/token"
 	"strings"
 	"testing"
 	"time"
-
-	"quizzivy/internal/modules/identity/application"
 )
 
-func issuer(t *testing.T) *application.TokenIssuer {
+func issuer(t *testing.T) *token.Issuer {
 	t.Helper()
-	i, err := application.NewTokenIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
+	i, err := token.NewIssuer([]byte(strings.Repeat("k", 32)), 15*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +35,7 @@ func TestIssueAndVerify(t *testing.T) {
 }
 
 func TestRejectsAShortSigningKey(t *testing.T) {
-	if _, err := application.NewTokenIssuer([]byte("too-short"), time.Minute); err == nil {
+	if _, err := token.NewIssuer([]byte("too-short"), time.Minute); err == nil {
 		t.Error("a 9-byte signing key was accepted")
 	}
 }
@@ -49,14 +48,14 @@ func TestExpiredTokenIsRejected(t *testing.T) {
 
 	i.SetClock(func() time.Time { return base.Add(16 * time.Minute) })
 	_, err := i.Verify(tok)
-	if !errors.Is(err, application.ErrTokenExpired) {
+	if !errors.Is(err, token.ErrTokenExpired) {
 		t.Errorf("err = %v, want ErrTokenExpired", err)
 	}
 }
 
 func TestTokenFromADifferentKeyIsRejected(t *testing.T) {
 	a := issuer(t)
-	b, _ := application.NewTokenIssuer([]byte(strings.Repeat("z", 32)), time.Minute)
+	b, _ := token.NewIssuer([]byte(strings.Repeat("z", 32)), time.Minute)
 	tok, _ := a.Issue("user-1", "admin")
 	if _, err := b.Verify(tok); err == nil {
 		t.Error("a token signed with another key verified")

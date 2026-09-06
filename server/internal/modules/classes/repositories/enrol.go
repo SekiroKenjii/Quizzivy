@@ -23,7 +23,7 @@ func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.Enro
 		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
 	}
 
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.EnrolResult{}, fmt.Errorf("begin enrol: %w", err)
 	}

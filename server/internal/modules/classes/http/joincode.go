@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/classes/application/command"
+	"quizzivy/internal/modules/classes/application/query"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -11,7 +13,7 @@ import (
 
 // RotateJoinCode implements POST /admin/classes/{id}/join-code (§6.1).
 func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinCodeRequestObject) (openapi.RotateJoinCodeResponseObject, error) {
-	if h.enrolment == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -31,7 +33,7 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 		req.MaxUses = request.Body.MaxUses
 	}
 
-	rotated, err := h.enrolment.Rotate(ctx, req)
+	rotated, err := h.app.Commands.Rotate.Handle(ctx, command.Rotate{Request: req})
 	if err != nil {
 		if errors.Is(err, domain.ErrClassNotFound) {
 			return openapi.RotateJoinCode404JSONResponse{
@@ -50,7 +52,7 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 
 // RevokeJoinCode implements DELETE /admin/classes/{id}/join-code (§6.4).
 func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinCodeRequestObject) (openapi.RevokeJoinCodeResponseObject, error) {
-	if h.enrolment == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -59,12 +61,12 @@ func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinC
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	err := h.enrolment.Revoke(ctx, domain.RevokeRequest{
+	_, err := h.app.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{
 		ClassID:     request.Id.String(),
 		ActorUserID: principal.UserID,
 		IP:          meta.IP,
 		UserAgent:   meta.UserAgent,
-	})
+	}})
 	if err != nil {
 		if errors.Is(err, domain.ErrClassNotFound) {
 			return openapi.RevokeJoinCode404JSONResponse{
@@ -78,11 +80,11 @@ func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinC
 
 // PreviewJoinCode resolves a join code for an anonymous caller.
 func (h Classes) PreviewJoinCode(ctx context.Context, request openapi.PreviewJoinCodeRequestObject) (openapi.PreviewJoinCodeResponseObject, error) {
-	if h.enrolment == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	result, err := h.enrolment.Preview(ctx, request.Body.JoinCode)
+	result, err := h.app.Queries.Preview.Handle(ctx, query.Preview{Code: request.Body.JoinCode})
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +131,7 @@ func ToAPIClass(c domain.EnrolledClass) openapi.Class {
 
 // JoinClass implements POST /app/classes/join (§6.2).
 func (h Classes) JoinClass(ctx context.Context, request openapi.JoinClassRequestObject) (openapi.JoinClassResponseObject, error) {
-	if h.enrolment == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	principal, ok := httpx.PrincipalFromContext(ctx)
@@ -138,8 +140,7 @@ func (h Classes) JoinClass(ctx context.Context, request openapi.JoinClassRequest
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	result, err := h.enrolment.EnrolExisting(ctx, principal.UserID, request.Body.JoinCode,
-		domain.Meta{IP: meta.IP, UserAgent: meta.UserAgent})
+	result, err := h.app.Commands.EnrolExisting.Handle(ctx, command.EnrolExisting{UserID: principal.UserID, Code: request.Body.JoinCode, Meta: domain.Meta{IP: meta.IP, UserAgent: meta.UserAgent}})
 	if err != nil {
 		return nil, err
 	}

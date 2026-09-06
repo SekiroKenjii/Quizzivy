@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
-	"quizzivy/internal/modules/identity/application"
+	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -14,7 +14,7 @@ import (
 
 // Login implements POST /auth/login (§5.1).
 func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject) (openapi.LoginResponseObject, error) {
-	if h.auth == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	if request.Body == nil {
@@ -22,8 +22,7 @@ func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject)
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	session, err := h.auth.Login(ctx, application.LoginInput{
-		Email:     string(request.Body.Email),
+	session, err := h.app.Commands.Login.Handle(ctx, command.Login{Email: string(request.Body.Email),
 		Password:  request.Body.Password,
 		UserAgent: meta.UserAgent,
 		IP:        meta.IP,
@@ -64,13 +63,12 @@ func invalidCredentials(ctx context.Context) openapi.ErrorResponse {
 
 // RefreshSession implements POST /auth/refresh (§5.2).
 func (h Identity) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRequestObject) (openapi.RefreshSessionResponseObject, error) {
-	if h.auth == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
 	meta := httpx.RequestMetaFromContext(ctx)
-	res, err := h.auth.Refresh(ctx, application.RefreshInput{
-		Token:     refreshTokenFromContext(ctx),
+	res, err := h.app.Commands.Refresh.Handle(ctx, command.Refresh{Token: refreshTokenFromContext(ctx),
 		UserAgent: meta.UserAgent,
 		IP:        meta.IP,
 	})
@@ -94,7 +92,7 @@ func (h Identity) RefreshSession(ctx context.Context, _ openapi.RefreshSessionRe
 
 // Logout implements POST /auth/logout (§5.4).
 func (h Identity) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (openapi.LogoutResponseObject, error) {
-	if h.auth == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -103,7 +101,7 @@ func (h Identity) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (op
 		return openapi.Logout401JSONResponse(httpapi.Error(ctx, openapi.REFRESHTOKENINVALID,
 			"Không có phiên đăng nhập.")), nil
 	}
-	if err := h.auth.Logout(ctx, token); err != nil {
+	if _, err := h.app.Commands.Logout.Handle(ctx, command.Logout{Token: token}); err != nil {
 		return nil, err
 	}
 

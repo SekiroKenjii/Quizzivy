@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"quizzivy/internal/modules/classes/application/command"
 	"quizzivy/internal/modules/classes/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,9 +26,9 @@ func TestAnEnrolmentWritesExactlyOneAuditRowWithANonNullIp(t *testing.T) {
 
 	m := newMember(t)
 	dropUser(t, pool, m.Email)
-	result, err := svc.EnrolNewMember(ctx, m, code, domain.Meta{
+	result, err := svc.Commands.EnrolNewMember.Handle(ctx, command.EnrolNewMember{Member: m, Code: code, Meta: domain.Meta{
 		IP: "203.0.113.201", UserAgent: "Mozilla/5.0 (iPhone)",
-	})
+	}})
 	if err != nil {
 		t.Fatalf("EnrolNewMember: %v", err)
 	}
@@ -97,12 +98,12 @@ func TestARepeatedEnrolmentDoesNotWriteASecondAuditRow(t *testing.T) {
 
 	m := newMember(t)
 	dropUser(t, pool, m.Email)
-	first, err := svc.EnrolNewMember(ctx, m, code, domain.Meta{IP: "203.0.113.202"})
+	first, err := svc.Commands.EnrolNewMember.Handle(ctx, command.EnrolNewMember{Member: m, Code: code, Meta: domain.Meta{IP: "203.0.113.202"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for range 3 {
-		if _, err := svc.EnrolExisting(ctx, first.UserID, code, domain.Meta{IP: "203.0.113.202"}); err != nil {
+		if _, err := svc.Commands.EnrolExisting.Handle(ctx, command.EnrolExisting{UserID: first.UserID, Code: code, Meta: domain.Meta{IP: "203.0.113.202"}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -124,12 +125,12 @@ func TestARefusedEnrolmentIsNotAudited(t *testing.T) {
 	code := issueCode(t, svc, classID, teacherID)
 	ctx := context.Background()
 
-	if err := svc.Revoke(ctx, domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}); err != nil {
+	if _, err := svc.Commands.Revoke.Handle(ctx, command.Revoke{Request: domain.RevokeRequest{ClassID: classID, ActorUserID: teacherID}}); err != nil {
 		t.Fatal(err)
 	}
 	before := auditRowsFor(t, pool, teacherID)
 
-	if _, err := svc.EnrolExisting(ctx, teacherID, code, domain.Meta{IP: "203.0.113.203"}); err != nil {
+	if _, err := svc.Commands.EnrolExisting.Handle(ctx, command.EnrolExisting{UserID: teacherID, Code: code, Meta: domain.Meta{IP: "203.0.113.203"}}); err != nil {
 		t.Fatal(err)
 	}
 	if after := auditRowsFor(t, pool, teacherID); after != before {

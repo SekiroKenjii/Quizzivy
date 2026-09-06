@@ -100,7 +100,7 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 
 func (s *Postgres) resultRules(ctx context.Context, assignmentID string) (resultRules, error) {
 	var r resultRules
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT a.shuffle_questions, a.shuffle_options,
 		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
 		       a.max_attempts, t.title
@@ -130,7 +130,7 @@ type resultExtra struct {
 // SQL: when the policy is off the AttemptRecord carries NULL, not a value the Go side
 // has to remember to drop (§13.5).
 func (s *Postgres) resultExtras(ctx context.Context, versionID string, p domain.ReviewPolicy) (map[string]resultExtra, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT q.id::text,
 		       CASE WHEN $2 THEN q.explanation END,
 		       CASE WHEN q.audio_show_transcript_after THEN q.transcript END,
@@ -183,7 +183,7 @@ type gradedAnswer struct {
 }
 
 func (s *Postgres) gradedAnswers(ctx context.Context, attemptID string) (map[string]gradedAnswer, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT question_id::text, payload, final_score, manual_score, requires_manual, grader_comment
 		  FROM app.attempt_answers WHERE attempt_id = $1::uuid`, attemptID)
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *Postgres) gradedAnswers(ctx context.Context, attemptID string) (map[str
 
 func (s *Postgres) scoreTotal(ctx context.Context, attemptID string) (float64, error) {
 	var total *float64
-	if err := s.pool.QueryRow(ctx,
+	if err := s.QueryRow(ctx,
 		`SELECT score_total FROM app.attempts WHERE id = $1::uuid`, attemptID).Scan(&total); err != nil {
 		return 0, fmt.Errorf("attempts: read score total: %w", err)
 	}

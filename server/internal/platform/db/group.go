@@ -6,12 +6,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Querier is the one method the helpers need, which a pool and a transaction
-// both have.
-type Querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-}
-
 // GroupBy runs one query and appends each scanned value under the key scan
 // returns: the "children of a whole page in one round trip" shape §13.8 asks
 // of every store, written once.

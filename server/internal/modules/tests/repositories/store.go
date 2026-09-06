@@ -6,11 +6,12 @@ import (
 	"fmt"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 	"slices"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const entityTest = "test"
@@ -28,13 +29,13 @@ type MediaLocks interface {
 }
 
 type Postgres struct {
-	pool      *pgxpool.Pool
+	db.Repository
 	questions QuestionLocks
 	media     MediaLocks
 }
 
-func NewPostgres(pool *pgxpool.Pool, questions QuestionLocks, media MediaLocks) *Postgres {
-	return &Postgres{pool: pool, questions: questions, media: media}
+func NewPostgres(dbx db.Context, questions QuestionLocks, media MediaLocks) *Postgres {
+	return &Postgres{Repository: db.NewRepository(dbx), questions: questions, media: media}
 }
 
 const testColumns = `
@@ -55,11 +56,6 @@ const testColumns = `
 	         WHERE s.test_id = t.id AND q.media_asset_kind = 'audio'),
 	       t.created_at, t.updated_at, t.deleted_at`
 
-type querier interface {
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
 func scanTest(row pgx.Row) (domain.Test, error) {
 	var t domain.Test
 	var status string
@@ -77,10 +73,10 @@ func scanTest(row pgx.Row) (domain.Test, error) {
 
 // Get returns one live test with its draft outline.
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Test, error) {
-	return s.get(ctx, s.pool, id)
+	return s.get(ctx, s.Conn(), id)
 }
 
-func (s *Postgres) get(ctx context.Context, q querier, id string) (domain.Test, error) {
+func (s *Postgres) get(ctx context.Context, q db.Querier, id string) (domain.Test, error) {
 	t, err := scanTest(q.QueryRow(ctx,
 		`SELECT`+testColumns+` FROM app.tests t WHERE t.id = $1 AND t.deleted_at IS NULL`, id))
 	if err != nil {
@@ -92,7 +88,7 @@ func (s *Postgres) get(ctx context.Context, q querier, id string) (domain.Test, 
 	return t, nil
 }
 
-func (s *Postgres) loadSections(ctx context.Context, q querier, testIDs []string) ([]domain.Section, error) {
+func (s *Postgres) loadSections(ctx context.Context, q db.Querier, testIDs []string) ([]domain.Section, error) {
 	byTest, err := s.sectionsFor(ctx, q, testIDs)
 	if err != nil {
 		return nil, err
@@ -103,7 +99,7 @@ func (s *Postgres) loadSections(ctx context.Context, q querier, testIDs []string
 	return nil, nil
 }
 
-func (s *Postgres) sectionsFor(ctx context.Context, q querier, testIDs []string) (map[string][]domain.Section, error) {
+func (s *Postgres) sectionsFor(ctx context.Context, q db.Querier, testIDs []string) (map[string][]domain.Section, error) {
 	byTest := make(map[string][]domain.Section, len(testIDs))
 	if len(testIDs) == 0 {
 		return byTest, nil
@@ -136,7 +132,7 @@ func (s *Postgres) sectionsFor(ctx context.Context, q querier, testIDs []string)
 }
 
 func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Test, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Test{}, fmt.Errorf("tests: begin create: %w", err)
 	}
@@ -154,8 +150,8 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Te
 		Entity:      entityTest,
 		EntityID:    &id,
 		OccurredAt:  in.Now,
-		IP:          optional(in.IP),
-		UserAgent:   optional(in.UserAgent),
+		IP:          opt.String(in.IP),
+		UserAgent:   opt.String(in.UserAgent),
 	}); err != nil {
 		return domain.Test{}, err
 	}
@@ -168,13 +164,6 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Te
 		return domain.Test{}, fmt.Errorf("tests: commit create: %w", err)
 	}
 	return created, nil
-}
-
-func optional(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return &v
 }
 
 func (s *Postgres) lockQuestions(ctx context.Context, tx pgx.Tx, sections []domain.SectionInput) error {

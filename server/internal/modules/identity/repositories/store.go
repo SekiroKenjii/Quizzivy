@@ -5,19 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Users struct {
-	pool *pgxpool.Pool
+	db.Repository
 }
 
-func NewUsers(pool *pgxpool.Pool) *Users { return &Users{pool: pool} }
+func NewUsers(dbx db.Context) *Users { return &Users{Repository: db.NewRepository(dbx)} }
 
 const userProjection = `
 	SELECT u.id::text, u.email, u.full_name, u.role::text, u.password_hash,
@@ -48,7 +48,7 @@ func (s *Users) FindUserByEmail(ctx context.Context, email string) (domain.User,
 	q := userProjection + `
 		 WHERE lower(u.email) = lower($1)
 		 GROUP BY u.id`
-	return scanUser(s.pool.QueryRow(ctx, q, email))
+	return scanUser(s.QueryRow(ctx, q, email))
 }
 
 // FindUserByID is the refresh path's lookup: the token names its owner, and
@@ -58,7 +58,7 @@ func (s *Users) FindUserByID(ctx context.Context, id string) (domain.User, error
 	q := userProjection + `
 		 WHERE u.id = $1
 		 GROUP BY u.id`
-	return scanUser(s.pool.QueryRow(ctx, q, id))
+	return scanUser(s.QueryRow(ctx, q, id))
 }
 
 // CreateRefreshToken stores the hash of a newly minted refresh token.
@@ -67,7 +67,7 @@ func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRe
 		INSERT INTO app.refresh_tokens
 		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := s.pool.Exec(ctx, q,
+	_, err := s.Exec(ctx, q,
 		in.UserID, in.FamilyID, in.TokenHash, in.IssuedAt, in.ExpiresAt, in.UserAgent, in.IP)
 	return err
 }
@@ -80,7 +80,7 @@ func (s *Users) FindUserByProviderIdentity(ctx context.Context, provider, provid
 		 WHERE u.id = (SELECT user_id FROM app.user_identities
 		                WHERE provider = $1 AND provider_user_id = $2)
 		 GROUP BY u.id`
-	return scanUser(s.pool.QueryRow(ctx, q, provider, providerUserID))
+	return scanUser(s.QueryRow(ctx, q, provider, providerUserID))
 }
 
 // LinkIdentity is step 4's second branch: a verified Google email matching an
@@ -89,7 +89,7 @@ func (s *Users) LinkIdentity(ctx context.Context, userID, provider, providerUser
 	const q = `
 		INSERT INTO app.user_identities (user_id, provider, provider_user_id, email_at_link)
 		VALUES ($1, $2, $3, $4)`
-	_, err := s.pool.Exec(ctx, q, userID, provider, providerUserID, emailAtLink)
+	_, err := s.Exec(ctx, q, userID, provider, providerUserID, emailAtLink)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
@@ -104,7 +104,7 @@ func (s *Users) LinkIdentity(ctx context.Context, userID, provider, providerUser
 // the caller can tell "unlinked" from "there was nothing to unlink".
 func (s *Users) UnlinkIdentity(ctx context.Context, userID, provider string) (bool, error) {
 	const q = `DELETE FROM app.user_identities WHERE user_id = $1 AND provider = $2`
-	tag, err := s.pool.Exec(ctx, q, userID, provider)
+	tag, err := s.Exec(ctx, q, userID, provider)
 	if err != nil {
 		return false, fmt.Errorf("unlink %s identity: %w", provider, err)
 	}
@@ -115,5 +115,5 @@ func (s *Users) UnlinkIdentity(ctx context.Context, userID, provider string) (bo
 // audited change is a single statement that has already committed, so there is
 // no transaction to join.
 func (s *Users) WriteAudit(ctx context.Context, e audit.Entry) error {
-	return audit.Write(ctx, s.pool, e)
+	return audit.Write(ctx, s.Conn(), e)
 }

@@ -8,7 +8,7 @@ import (
 
 // ListVersions returns the test's publish history, newest first.
 func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Version, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT v.id::text,
 		       v.version,
 		       v.total_points::text,

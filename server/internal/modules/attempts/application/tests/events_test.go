@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/application"
+	"quizzivy/internal/modules/attempts/application/command"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"testing"
 	"time"
@@ -29,7 +31,7 @@ func TestABearerFlushAppendsEvents(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool)
 
-	if err := svc.Flush(context.Background(), flushOf(w, session, 1, "window_blur")); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: flushOf(w, session, 1, "window_blur")}); err != nil {
 		t.Fatalf("flush: %v", err)
 	}
 	kinds := eventKinds(t, pool, session.Attempt.ID)
@@ -48,14 +50,14 @@ func TestTheSameClientSeqFromTwoSessionsBothPersist(t *testing.T) {
 	svc, w, first := started(t, pool)
 	ctx := context.Background()
 
-	if err := svc.Flush(ctx, flushOf(w, first, 0, "tab_hidden")); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushOf(w, first, 0, "tab_hidden")}); err != nil {
 		t.Fatalf("first session: %v", err)
 	}
-	second, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	second, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("resume: %v", err)
 	}
-	if err := svc.Flush(ctx, flushOf(w, second, 0, "tab_visible")); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushOf(w, second, 0, "tab_visible")}); err != nil {
 		t.Fatalf("second session, same clientSeq: %v", err)
 	}
 
@@ -73,10 +75,10 @@ func TestADuplicateBatchInsertsNothingAndSucceeds(t *testing.T) {
 	ctx := context.Background()
 	same := flushOf(w, session, 7, "paste")
 
-	if err := svc.Flush(ctx, same); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: same}); err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	if err := svc.Flush(ctx, same); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: same}); err != nil {
 		t.Fatalf("replay must succeed, got %v", err)
 	}
 	if n := count(t, pool, `
@@ -93,7 +95,7 @@ func TestAnUnknownKindIsStoredRatherThanRejected(t *testing.T) {
 	svc, w, session := started(t, pool)
 
 	in := flushOf(w, session, 11, "quantum_tunnelling_detected")
-	if err := svc.Flush(context.Background(), in); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: in}); err != nil {
 		t.Fatalf("an unknown kind was rejected: %v", err)
 	}
 	if !containsKind(eventKinds(t, pool, session.Attempt.ID), "quantum_tunnelling_detected") {
@@ -111,7 +113,7 @@ func TestBothClocksAreStored(t *testing.T) {
 
 	in := flushOf(w, session, 21, "network_offline")
 	in.Events[0].OccurredAt = claimed
-	if err := svc.Flush(context.Background(), in); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: in}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -140,7 +142,7 @@ func TestABeaconTokenAppendsEvents(t *testing.T) {
 		BeaconToken: session.BeaconToken,
 		Events:      []domain.Event{{Kind: "page_hide", OccurredAt: time.Now(), ClientSeq: 99}},
 	}
-	if err := svc.Flush(context.Background(), in); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: in}); err != nil {
 		t.Fatalf("beacon flush: %v", err)
 	}
 	if !containsKind(eventKinds(t, pool, session.Attempt.ID), "page_hide") {
@@ -166,7 +168,7 @@ func TestAnExpiredBeaconTokenIsRejected(t *testing.T) {
 		BeaconToken: session.BeaconToken,
 		Events:      []domain.Event{{Kind: "page_hide", OccurredAt: time.Now(), ClientSeq: 99}},
 	}
-	if err := svc.Flush(ctx, in); !errors.Is(err, domain.ErrBeaconExpired) {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: in}); !errors.Is(err, domain.ErrBeaconExpired) {
 		t.Fatalf("got %v, want ErrBeaconExpired", err)
 	}
 	if containsKind(eventKinds(t, pool, session.Attempt.ID), "page_hide") {
@@ -187,7 +189,7 @@ func TestABearerFlushStillWorksAfterTheDeadline(t *testing.T) {
 		 WHERE id = $1::uuid`, session.Attempt.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Flush(ctx, flushOf(w, session, 31, "page_hide")); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushOf(w, session, 31, "page_hide")}); err != nil {
 		t.Fatalf("a late bearer flush was refused: %v", err)
 	}
 }
@@ -213,7 +215,7 @@ func TestAWrongOrMissingCredentialIsRefused(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if err := svc.Flush(ctx, c.in); !errors.Is(err, domain.ErrForbidden) {
+			if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: c.in}); !errors.Is(err, domain.ErrForbidden) {
 				t.Fatalf("got %v, want ErrForbidden", err)
 			}
 		})
@@ -242,11 +244,11 @@ func TestABeaconTokenBuysNoRead(t *testing.T) {
 		BeaconToken: session.BeaconToken,
 		Events:      []domain.Event{{Kind: "page_hide", OccurredAt: time.Now(), ClientSeq: 41}},
 	}
-	if err := svc.Flush(ctx, appended); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: appended}); err != nil {
 		t.Fatalf("the token should append: %v", err)
 	}
 
-	got, err := svc.Get(ctx, session.Attempt.ID, session.BeaconToken)
+	got, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: session.BeaconToken})
 	if err == nil {
 		t.Fatal("the beacon token read the attempt")
 	}
@@ -290,11 +292,11 @@ func focusState(t *testing.T, pool *pgxpool.Pool, attemptID string) (count int, 
 	return count, flagged
 }
 
-func startWith(t *testing.T, pool *pgxpool.Pool, o worldOpts) (*application.Service, world, domain.Session) {
+func startWith(t *testing.T, pool *pgxpool.Pool, o worldOpts) (*application.Application, world, domain.Session) {
 	t.Helper()
 	w := seedWorld(t, pool, o)
 	svc := newService(t, pool)
-	session, err := svc.StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -310,7 +312,7 @@ func TestAwayEpisodesOverTheThresholdAreCountedAndExceedingTheLimitFlags(t *test
 	ctx := context.Background()
 
 	// Two episodes: at the limit, not over it. "Quá 2 lần" means more than two.
-	if err := svc.Flush(ctx, flushEvents(w, session, away(1, 3502), away(2, 90_000))); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushEvents(w, session, away(1, 3502), away(2, 90_000))}); err != nil {
 		t.Fatal(err)
 	}
 	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || flagged {
@@ -318,7 +320,7 @@ func TestAwayEpisodesOverTheThresholdAreCountedAndExceedingTheLimitFlags(t *test
 	}
 
 	// A notification, not a search: below the threshold, so not an episode.
-	if err := svc.Flush(ctx, flushEvents(w, session, away(3, 2000))); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushEvents(w, session, away(3, 2000))}); err != nil {
 		t.Fatal(err)
 	}
 	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || flagged {
@@ -326,7 +328,7 @@ func TestAwayEpisodesOverTheThresholdAreCountedAndExceedingTheLimitFlags(t *test
 	}
 
 	// The third is the one over the limit.
-	if err := svc.Flush(ctx, flushEvents(w, session, away(4, 3000))); err != nil {
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushEvents(w, session, away(4, 3000))}); err != nil {
 		t.Fatal(err)
 	}
 	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 3 || !flagged {
@@ -334,7 +336,7 @@ func TestAwayEpisodesOverTheThresholdAreCountedAndExceedingTheLimitFlags(t *test
 	}
 
 	// What the student sees on the next resume is the same number.
-	resumed, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	resumed, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,8 +350,7 @@ func TestWarnCountsButNeverFlags(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := startWith(t, pool, focusLimit(1, "warn"))
 
-	if err := svc.Flush(context.Background(),
-		flushEvents(w, session, away(1, 5000), away(2, 5000), away(3, 5000))); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: flushEvents(w, session, away(1, 5000), away(2, 5000), away(3, 5000))}); err != nil {
 		t.Fatal(err)
 	}
 	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 3 || flagged {
@@ -361,8 +362,7 @@ func TestNoLimitCountsButNeverFlags(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session := started(t, pool) // §10.3's default: maxFocusLoss 0
 
-	if err := svc.Flush(context.Background(),
-		flushEvents(w, session, away(1, 5000), away(2, 5000))); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: flushEvents(w, session, away(1, 5000), away(2, 5000))}); err != nil {
 		t.Fatal(err)
 	}
 	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || flagged {
@@ -377,8 +377,7 @@ func TestTheAssignmentsOwnThresholdDecidesAnEpisode(t *testing.T) {
 	o.minAwayMs = 10_000
 	svc, w, session := startWith(t, pool, o)
 
-	if err := svc.Flush(context.Background(),
-		flushEvents(w, session, away(1, 5000), away(2, 10_000))); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: flushEvents(w, session, away(1, 5000), away(2, 10_000))}); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := focusState(t, pool, session.Attempt.ID); n != 1 {
@@ -394,7 +393,7 @@ func TestARetriedBatchDoesNotDoubleCount(t *testing.T) {
 
 	in := flushEvents(w, session, away(1, 4000), away(2, 4000))
 	for range 3 {
-		if err := svc.Flush(ctx, in); err != nil {
+		if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: in}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -412,7 +411,7 @@ func TestTheBeaconPathCountsToo(t *testing.T) {
 		BeaconToken: session.BeaconToken,
 		Events:      []domain.Event{away(1, 4000), away(2, 4000)},
 	}
-	if err := svc.Flush(context.Background(), in); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: in}); err != nil {
 		t.Fatal(err)
 	}
 	if n, flagged := focusState(t, pool, session.Attempt.ID); n != 2 || !flagged {
@@ -430,7 +429,7 @@ func TestAMalformedAwayMsIsSkippedNotFatal(t *testing.T) {
 		Kind: "window_focus", OccurredAt: time.Now(), ClientSeq: 1,
 		Meta: []byte(`{"awayMs": "soon"}`),
 	}
-	if err := svc.Flush(context.Background(), flushEvents(w, session, junk, away(2, 4000))); err != nil {
+	if _, err := svc.Commands.Flush.Handle(context.Background(), command.Flush{Input: flushEvents(w, session, junk, away(2, 4000))}); err != nil {
 		t.Fatalf("a malformed awayMs failed the flush: %v", err)
 	}
 	if n, _ := focusState(t, pool, session.Attempt.ID); n != 1 {

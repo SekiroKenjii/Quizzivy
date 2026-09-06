@@ -4,6 +4,8 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/modules/attempts/application/command"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"testing"
 
@@ -32,7 +34,7 @@ func TestAnAttemptPastItsDeadlineReadsBackAsTimedOut(t *testing.T) {
 
 	expire(t, pool, session.Attempt.ID)
 
-	reloaded, err := svc.Get(ctx, session.Attempt.ID, w.student)
+	reloaded, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -50,7 +52,7 @@ func TestATimedOutAttemptIsStillGraded(t *testing.T) {
 	ctx := context.Background()
 
 	expire(t, pool, session.Attempt.ID)
-	if _, err := svc.Get(ctx, session.Attempt.ID, w.student); err != nil {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: w.student}); err != nil {
 		t.Fatalf("get: %v", err)
 	}
 
@@ -75,7 +77,7 @@ func TestTheEndTimeIsTheDeadlineNotTheMomentItWasNoticed(t *testing.T) {
 	ctx := context.Background()
 
 	expire(t, pool, session.Attempt.ID)
-	if _, err := svc.Get(ctx, session.Attempt.ID, w.student); err != nil {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: w.student}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +102,7 @@ func TestATimedOutEssayStillReachesTheGradingQueue(t *testing.T) {
 	ctx := context.Background()
 
 	expire(t, pool, session.Attempt.ID)
-	if _, err := svc.Get(ctx, session.Attempt.ID, w.student); err != nil {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: w.student}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,7 +126,7 @@ func TestResumingAnExpiredAttemptClosesItRatherThanReopeningIt(t *testing.T) {
 
 	expire(t, pool, session.Attempt.ID)
 
-	_, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	_, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err == nil {
 		t.Fatal("StartOrResume handed back an attempt whose deadline had passed")
 	}
@@ -149,7 +151,7 @@ func TestExpiringTwiceIsHarmless(t *testing.T) {
 
 	expire(t, pool, session.Attempt.ID)
 	for range 3 {
-		if _, err := svc.Get(ctx, session.Attempt.ID, w.student); err != nil {
+		if _, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: w.student}); err != nil {
 			t.Fatalf("get: %v", err)
 		}
 	}

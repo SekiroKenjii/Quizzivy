@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"quizzivy/internal/modules/attempts/application/command"
+	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"strings"
 	"testing"
@@ -18,7 +20,7 @@ func TestThePaperCarriesNoPartOfTheGradingKey(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
 
-	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -43,7 +45,7 @@ func TestNoAnswerBearingFieldAppearsAtAnyDepth(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
 
-	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -87,7 +89,7 @@ func TestBlanksArriveWithoutTheirAcceptedAnswers(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
 
-	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -119,7 +121,7 @@ func TestOptionsArriveWithoutTheirCorrectness(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
 
-	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -144,16 +146,16 @@ func TestAnotherStudentsAttemptIsNotReadable(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	mine, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	mine, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
 
 	// Refused as forbidden rather than missing.
-	if _, err := svc.Get(ctx, mine.Attempt.ID, w.outsider); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: mine.Attempt.ID, StudentID: w.outsider}); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("got %v, want ErrForbidden", err)
 	}
-	if _, err := svc.Get(ctx, "01935000-0000-7000-8000-0000000000ff", w.student); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: "01935000-0000-7000-8000-0000000000ff", StudentID: w.student}); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("an attempt that does not exist gave %v, want the same ErrForbidden", err)
 	}
 }
@@ -166,11 +168,11 @@ func TestFetchingThePayloadDoesNotSupersedeTheSession(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	started, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	started, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	fetched, err := svc.Get(ctx, started.Attempt.ID, w.student)
+	fetched, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: started.Attempt.ID, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -198,12 +200,12 @@ func TestRefetchingDealsTheSamePaper(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	started, err := svc.StartOrResume(ctx, w.assignment, w.student)
+	started, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
 	for i := range 5 {
-		fetched, err := svc.Get(ctx, started.Attempt.ID, w.student)
+		fetched, err := svc.Queries.Get.Handle(ctx, query.Get{AttemptID: started.Attempt.ID, StudentID: w.student})
 		if err != nil {
 			t.Fatalf("get %d: %v", i, err)
 		}
@@ -232,7 +234,7 @@ func TestTheListeningQuestionsTranscriptNeverReachesTheStudent(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
 
-	session, err := newService(t, pool).StartOrResume(context.Background(), w.assignment, w.student)
+	session, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}

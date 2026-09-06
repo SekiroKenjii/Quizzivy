@@ -11,7 +11,7 @@ import (
 
 // Grade writes manual marks for a closed attempt and returns the live score.
 func (s *Reviews) Grade(ctx context.Context, attemptID, graderID string, items []domain.GradeItem) (domain.Score, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Score{}, fmt.Errorf("review: begin grade: %w", err)
 	}
@@ -56,7 +56,7 @@ func (s *Reviews) Grade(ctx context.Context, attemptID, graderID string, items [
 // Finish declares the paper graded. Re-enterable: a graded attempt can be
 // marked again and finished again, and the score is recomputed each time.
 func (s *Reviews) Finish(ctx context.Context, attemptID string) (domain.Attempt, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Attempt{}, fmt.Errorf("review: begin finish: %w", err)
 	}

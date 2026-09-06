@@ -5,6 +5,8 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/tests/application/command"
+	"quizzivy/internal/modules/tests/application/query"
 	"testing"
 	"time"
 
@@ -20,16 +22,16 @@ func TestAStaleUpdatedAtIsRejected(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Đề kiểm tra", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề kiểm tra", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	stale := created.UpdatedAt
 
 	title := "Đã đổi tên"
-	saved, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	saved, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: stale, Title: &title,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("the first save should succeed: %v", err)
 	}
@@ -39,14 +41,14 @@ func TestAStaleUpdatedAtIsRejected(t *testing.T) {
 
 	// The second tab still holds the version it read before the first save.
 	other := "Tên từ tab cũ"
-	_, err = svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	_, err = svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: stale, Title: &other,
-	})
+	}})
 	if !errors.Is(err, domain.ErrStaleWrite) {
 		t.Errorf("stale save returned %v, want ErrStaleWrite", err)
 	}
 
-	after, err := svc.Get(ctx, created.ID)
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,19 +66,19 @@ func TestAnOutlineOnlySaveStillAdvancesTheVersion(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Đề có phần", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề có phần", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q := newQuestion(t, pool, author, "Câu hỏi trong đề")
 
-	saved, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	saved, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
 			{Title: "Phần nghe", QuestionIDs: []string{q}},
 		},
-	})
+	}})
 	if err != nil {
 		t.Fatalf("outline save: %v", err)
 	}
@@ -84,9 +86,9 @@ func TestAnOutlineOnlySaveStillAdvancesTheVersion(t *testing.T) {
 		t.Error("an outline-only save left updated_at unchanged")
 	}
 
-	_, err = svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	_, err = svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt, SetSections: true,
-	})
+	}})
 	if !errors.Is(err, domain.ErrStaleWrite) {
 		t.Errorf("re-using the pre-outline version returned %v, want ErrStaleWrite", err)
 	}
@@ -97,9 +99,7 @@ func TestUpdatingAMissingTestIsNotFound(t *testing.T) {
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
 
-	_, err := svc.Update(context.Background(),
-		reqFor("00000000-0000-7000-8000-000000000000", author),
-		domain.UpdateInput{ExpectedUpdatedAt: time.Now()})
+	_, err := svc.Commands.Update.Handle(context.Background(), command.Update{Request: reqFor("00000000-0000-7000-8000-000000000000", author), Input: domain.UpdateInput{ExpectedUpdatedAt: time.Now()}})
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}
@@ -113,34 +113,34 @@ func TestARejectedOutlineLeavesThePreviousOneIntact(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Đề nguyên vẹn", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Đề nguyên vẹn", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
 	good := newQuestion(t, pool, author, "Câu hỏi tốt")
 
-	saved, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	saved, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt,
 		SetSections:       true,
 		Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: []string{good}}},
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	_, err = svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: saved.UpdatedAt,
 		SetSections:       true,
 		Sections: []domain.SectionInput{
 			{Title: "Phần 1", QuestionIDs: []string{good}},
 			{Title: "Phần 2", QuestionIDs: []string{"00000000-0000-7000-8000-000000000000"}},
 		},
-	})
+	}})
 	if !errors.Is(err, domain.ErrUnknownQuestion) {
 		t.Fatalf("got %v, want ErrUnknownQuestion", err)
 	}
 
-	after, err := svc.Get(ctx, created.ID)
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestANeverPublishedDraftCanBeArchived(t *testing.T) {
 	svc := newService(t, pool)
 	ctx := context.Background()
 
-	created, err := svc.Create(ctx, req(author), "Nháp bỏ dở", nil)
+	created, err := svc.Commands.Create.Handle(ctx, command.Create{Request: req(author), Title: "Nháp bỏ dở", Description: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,9 +167,9 @@ func TestANeverPublishedDraftCanBeArchived(t *testing.T) {
 	}
 
 	archived := domain.Archived
-	saved, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	saved, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: created.UpdatedAt, Status: &archived,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("archiving a never-published draft: %v", err)
 	}
@@ -178,9 +178,9 @@ func TestANeverPublishedDraftCanBeArchived(t *testing.T) {
 	}
 
 	draft := domain.Draft
-	restored, err := svc.Update(ctx, reqFor(created.ID, author), domain.UpdateInput{
+	restored, err := svc.Commands.Update.Handle(ctx, command.Update{Request: reqFor(created.ID, author), Input: domain.UpdateInput{
 		ExpectedUpdatedAt: saved.UpdatedAt, Status: &draft,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("restoring it: %v", err)
 	}

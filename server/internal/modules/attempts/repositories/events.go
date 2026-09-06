@@ -20,7 +20,7 @@ func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Tim
 		deadlineAt time.Time
 		versionID  string
 	)
-	err := s.pool.QueryRow(ctx, `
+	err := s.QueryRow(ctx, `
 		SELECT student_id, beacon_token_hash, deadline_at, test_version_id
 		  FROM app.attempts WHERE id = $1::uuid`, in.AttemptID).
 		Scan(&studentID, &beaconHash, &deadlineAt, &versionID)
@@ -34,7 +34,7 @@ func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Tim
 	if err := authorizeFlush(in, studentID, beaconHash, deadlineAt, now); err != nil {
 		return err
 	}
-	return insertEvents(ctx, s.pool, in.AttemptID, in.SessionID, in.Events, versionID)
+	return insertEvents(ctx, s.Conn(), in.AttemptID, in.SessionID, in.Events, versionID)
 }
 
 func authorizeFlush(in domain.FlushInput, studentID string, beaconHash []byte, deadlineAt, now time.Time) error {

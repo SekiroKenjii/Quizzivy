@@ -1,3 +1,4 @@
+// Package core is the composition root: it opens the database, has wiring assemble every module, puts the router in front of them and runs the server and the background jobs for the life of the process.
 package core
 
 import (
@@ -9,15 +10,18 @@ import (
 	"syscall"
 	"time"
 
-	identityapp "quizzivy/internal/modules/identity/application"
+	"quizzivy/internal/core/jobs"
+	"quizzivy/internal/core/router"
+	"quizzivy/internal/core/wiring"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/httpserver"
 )
 
 const dbReadyBudget = 60 * time.Second
 
-// Run is the composition root: load configuration, build every module against a
-// live database, then serve until the process is signalled.
+// Run loads configuration, builds every module against a live database, then
+// serves until the process is signalled.
 func Run(ctx context.Context, logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -39,11 +43,10 @@ func Run(ctx context.Context, logger *slog.Logger) error {
 // App is the assembled application: every module wired to a live pool, behind a
 // configured HTTP handler.
 type App struct {
-	cfg    config.Config
-	logger *slog.Logger
-	pool   *db.Pool
-	auth   *identityapp.Service
-	deps   Deps
+	cfg      config.Config
+	logger   *slog.Logger
+	pool     *db.Pool
+	assembly wiring.Assembly
 }
 
 // New opens the database and builds every module. The returned App owns the
@@ -58,34 +61,35 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 
-	deps, authService, err := buildModules(ctx, cfg, logger, pool)
+	assembly, err := wiring.Build(ctx, cfg, logger, pool)
 	if err != nil {
 		pool.Close()
 		return nil, err
 	}
 
-	return &App{cfg: cfg, logger: logger, pool: pool, auth: authService, deps: deps}, nil
+	return &App{cfg: cfg, logger: logger, pool: pool, assembly: assembly}, nil
 }
 
 func (a *App) Close() {
 	a.pool.Close()
 }
 
-// Serve starts the background jobs and the HTTP server, and shuts down when ctx
-// is cancelled.
 // Handler is the assembled HTTP surface, for the server and for tests that
 // drive the whole application in-process.
 func (a *App) Handler() (http.Handler, error) {
-	return NewRouter(a.deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
+	deps := router.Deps{Modules: a.assembly.Modules, DB: a.pool, Tokens: a.assembly.Tokens}
+	return router.New(deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
 }
 
+// Serve starts the background jobs and the HTTP server, and shuts down when ctx
+// is cancelled.
 func (a *App) Serve(ctx context.Context) error {
 	handler, err := a.Handler()
 	if err != nil {
 		return err
 	}
 
-	go prunePeriodically(ctx, a.logger, a.auth)
+	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
 
-	return Serve(ctx, a.logger, a.cfg, handler)
+	return httpserver.Serve(ctx, a.logger, a.cfg, handler)
 }

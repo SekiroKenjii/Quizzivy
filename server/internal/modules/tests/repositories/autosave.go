@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,7 +15,7 @@ import (
 // Update applies an autosave: metadata and, when present, the whole outline, in
 // one transaction guarded on the version the client read.
 func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.Test, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Test{}, fmt.Errorf("tests: begin update: %w", err)
 	}
@@ -45,8 +46,8 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 		Entity:      entityTest,
 		EntityID:    &in.ID,
 		OccurredAt:  in.Now,
-		IP:          optional(in.IP),
-		UserAgent:   optional(in.UserAgent),
+		IP:          opt.String(in.IP),
+		UserAgent:   opt.String(in.UserAgent),
 	}); err != nil {
 		return domain.Test{}, err
 	}

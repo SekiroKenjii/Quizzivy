@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -16,7 +18,7 @@ const msgStudentNotFound = "Không tìm thấy học viên."
 // ListStudents backs §8's students table (G-07) and the two pickers that add a
 // student to a class (G-06) or to an assignment (G-01).
 func (h Identity) ListStudents(ctx context.Context, request openapi.ListStudentsRequestObject) (openapi.ListStudentsResponseObject, error) {
-	if h.students == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
@@ -37,12 +39,13 @@ func (h Identity) ListStudents(ctx context.Context, request openapi.ListStudents
 		in.Limit = int(*request.Params.Limit)
 	}
 
-	found, page, err := h.students.List(ctx, in)
+	listStudentsResult, err := h.app.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: in})
+	found, page := listStudentsResult.Items, listStudentsResult.Page
 	if err != nil {
 		return nil, err
 	}
 
-	facets, err := h.students.Facets(ctx, in)
+	facets, err := h.app.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: in})
 	if err != nil {
 		return nil, err
 	}
@@ -64,10 +67,10 @@ func (h Identity) ListStudents(ctx context.Context, request openapi.ListStudents
 }
 
 func (h Identity) GetStudent(ctx context.Context, request openapi.GetStudentRequestObject) (openapi.GetStudentResponseObject, error) {
-	if h.students == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	student, err := h.students.Get(ctx, request.Id.String())
+	student, err := h.app.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: request.Id.String()})
 	if errors.Is(err, domain.ErrStudentNotFound) {
 		return openapi.GetStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgStudentNotFound))}, nil
@@ -79,7 +82,7 @@ func (h Identity) GetStudent(ctx context.Context, request openapi.GetStudentRequ
 }
 
 func (h Identity) CreateStudent(ctx context.Context, request openapi.CreateStudentRequestObject) (openapi.CreateStudentResponseObject, error) {
-	if h.students == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := studentRequest(ctx)
@@ -92,11 +95,12 @@ func (h Identity) CreateStudent(ctx context.Context, request openapi.CreateStude
 		classIDs[i] = id.String()
 	}
 
-	student, temporary, err := h.students.Create(ctx, req, domain.NewStudent{
+	createStudentResult, err := h.app.Commands.CreateStudent.Handle(ctx, command.CreateStudent{Request: req, Input: domain.NewStudent{
 		Email:    string(request.Body.Email),
 		FullName: request.Body.FullName,
 		ClassIDs: classIDs,
-	})
+	}})
+	student, temporary := createStudentResult.Student, createStudentResult.TemporaryPassword
 	switch {
 	case err == nil:
 	case errors.Is(err, domain.ErrEmailTaken):
@@ -113,7 +117,7 @@ func (h Identity) CreateStudent(ctx context.Context, request openapi.CreateStude
 }
 
 func (h Identity) UpdateStudent(ctx context.Context, request openapi.UpdateStudentRequestObject) (openapi.UpdateStudentResponseObject, error) {
-	if h.students == nil || request.Body == nil {
+	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := studentRequest(ctx)
@@ -131,7 +135,7 @@ func (h Identity) UpdateStudent(ctx context.Context, request openapi.UpdateStude
 		in.Email = &email
 	}
 
-	student, err := h.students.Update(ctx, req, in)
+	student, err := h.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: req, Input: in})
 	switch {
 	case err == nil:
 	case errors.Is(err, domain.ErrStudentNotFound):
@@ -149,7 +153,7 @@ func (h Identity) UpdateStudent(ctx context.Context, request openapi.UpdateStude
 // ResetStudentPassword is §5.4's answer to having no email provider: the
 // teacher is the reset flow. The password is returned once and never stored.
 func (h Identity) ResetStudentPassword(ctx context.Context, request openapi.ResetStudentPasswordRequestObject) (openapi.ResetStudentPasswordResponseObject, error) {
-	if h.students == nil {
+	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	req, ok := studentRequest(ctx)
@@ -157,7 +161,7 @@ func (h Identity) ResetStudentPassword(ctx context.Context, request openapi.Rese
 		return nil, httpx.ErrNotImplemented
 	}
 
-	temporary, err := h.students.ResetPassword(ctx, req, request.Id.String())
+	temporary, err := h.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: req, ID: request.Id.String()})
 	if errors.Is(err, domain.ErrStudentNotFound) {
 		return openapi.ResetStudentPassword404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgStudentNotFound))}, nil

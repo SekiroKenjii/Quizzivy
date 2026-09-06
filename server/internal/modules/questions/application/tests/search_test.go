@@ -8,6 +8,9 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"quizzivy/internal/modules/questions/application/command"
+	"quizzivy/internal/modules/questions/application/query"
+	"quizzivy/internal/platform/db"
 	"slices"
 	"strings"
 	"testing"
@@ -58,23 +61,23 @@ func makeAuthor(t *testing.T, pool *pgxpool.Pool) string {
 	return id
 }
 
-func newService(t *testing.T, pool *pgxpool.Pool) *application.Service {
+func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.NewService(repositories.NewPostgres(pool), mediaKinds{pool})
+	return application.New(repositories.NewPostgres(db.NewContext(pool)), mediaKinds{pool})
 }
 
 // write creates a short_answer question with the given prompt and tags.
-func write(t *testing.T, svc *application.Service, author, prompt string, tags ...string) domain.Question {
+func write(t *testing.T, svc *application.Application, author, prompt string, tags ...string) domain.Question {
 	t.Helper()
 	if tags == nil {
 		tags = []string{}
 	}
-	q, err := svc.Create(context.Background(), domain.WriteRequest{
+	q, err := svc.Commands.Create.Handle(context.Background(), command.Create{Request: domain.WriteRequest{
 		Input: domain.Input{
 			Type: domain.ShortAnswer, Prompt: prompt, Points: "1.00", Tags: tags,
 		},
 		ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("create %q: %v", prompt, err)
 	}
@@ -82,12 +85,12 @@ func write(t *testing.T, svc *application.Service, author, prompt string, tags .
 }
 
 // found reports whether a search returned the given question id.
-func found(t *testing.T, svc *application.Service, query, id string) bool {
+func found(t *testing.T, svc *application.Application, term, id string) bool {
 	t.Helper()
-	results, _, err := svc.List(context.Background(),
-		domain.ListInput{Query: query, Limit: repositories.MaxLimit})
+	listResult, err := svc.Queries.List.Handle(context.Background(), query.List{Input: domain.ListInput{Query: term, Limit: repositories.MaxLimit}})
+	results := listResult.Items
 	if err != nil {
-		t.Fatalf("search %q: %v", query, err)
+		t.Fatalf("search %q: %v", term, err)
 	}
 	for _, q := range results {
 		if q.ID == id {
@@ -277,14 +280,14 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	tag := "grp-" + strings.ReplaceAll(author, "-", "")[:12]
 
 	essay := write(t, svc, author, "Câu tự luận", tag, tag+"-b")
 
 	// A second type, so the type group has something to widen into.
-	single, err := svc.Create(ctx, domain.WriteRequest{
+	single, err := svc.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
 		Input: domain.Input{
 			Type: domain.SingleChoice, Prompt: "Câu một đáp án", Points: "1.00",
 			Tags: []string{tag},
@@ -293,7 +296,7 @@ func TestFiltersWidenWithinAGroupAndNarrowAcross(t *testing.T) {
 			},
 		},
 		ActorID: author,
-	})
+	}})
 	if err != nil {
 		t.Fatalf("create single_choice: %v", err)
 	}
@@ -339,7 +342,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 	tag := "bulk-" + strings.ReplaceAll(author, "-", "")[:10]
 
@@ -354,7 +357,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 		t.Errorf("updated = %d, want 2", updated)
 	}
 
-	got, err := svc.Get(ctx, keeps.ID)
+	got, err := svc.Queries.Get.Handle(ctx, query.Get{ID: keeps.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +377,7 @@ func TestAddingTagsInBulkIsAdditiveAndIdempotent(t *testing.T) {
 		t.Errorf("re-applying the same tags reported %d updated, want 0", again)
 	}
 
-	after, err := svc.Get(ctx, keeps.ID)
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: keeps.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +392,7 @@ func TestBulkTaggingSkipsDeletedQuestions(t *testing.T) {
 	pool := newPool(t)
 	author := makeAuthor(t, pool)
 	svc := newService(t, pool)
-	store := repositories.NewPostgres(pool)
+	store := repositories.NewPostgres(db.NewContext(pool))
 	ctx := context.Background()
 
 	q := write(t, svc, author, "Sắp bị xoá")

@@ -5,26 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// DB is what the store queries through: the pool in production, and a
-// transaction in a test that needs one consistent snapshot of a table every
-// package on the shared database inserts into.
-type DB interface {
-	Begin(ctx context.Context) (pgx.Tx, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
+type Postgres struct{ db.Repository }
 
-type Postgres struct{ pool DB }
-
-func NewPostgres(db DB) *Postgres { return &Postgres{pool: db} }
+func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
 func (s *Postgres) Insert(ctx context.Context, in domain.InsertInput) (domain.Asset, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Asset{}, fmt.Errorf("media: begin insert: %w", err)
 	}
@@ -80,7 +72,7 @@ func (s *Postgres) Get(ctx context.Context, id string) (domain.Asset, error) {
 
 	var a domain.Asset
 	var kind string
-	err := s.pool.QueryRow(ctx, q, id).Scan(
+	err := s.QueryRow(ctx, q, id).Scan(
 		&a.ID, &kind, &a.StorageKey, &a.MimeType, &a.Bytes, &a.DurationMs,
 		&a.OriginalFilename, &a.ChecksumSHA256, &a.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -97,7 +89,7 @@ func (s *Postgres) Get(ctx context.Context, id string) (domain.Asset, error) {
 // never blocks a write: §11.1 says a re-upload creates a new row.
 func (s *Postgres) CountByChecksum(ctx context.Context, checksum []byte) (int, error) {
 	var n int
-	err := s.pool.QueryRow(ctx,
+	err := s.QueryRow(ctx,
 		`SELECT count(*) FROM app.media_assets
 		  WHERE checksum_sha256 = $1 AND deleted_at IS NULL`, checksum).Scan(&n)
 	if err != nil {

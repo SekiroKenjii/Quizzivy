@@ -29,7 +29,7 @@ const recordPlayQuery = `
 
 func (s *Postgres) RecordPlay(ctx context.Context, attemptID, studentID, questionID string, now time.Time) (domain.Plays, error) {
 	var out domain.Plays
-	err := s.pool.QueryRow(ctx, recordPlayQuery, attemptID, studentID, questionID, now).
+	err := s.QueryRow(ctx, recordPlayQuery, attemptID, studentID, questionID, now).
 		Scan(&out.Plays, &out.MaxPlays)
 	if errors.Is(err, pgx.ErrNoRows) {
 
@@ -44,7 +44,7 @@ func (s *Postgres) RecordPlay(ctx context.Context, attemptID, studentID, questio
 // AudioPlays is what the payload carries so the client can render remaining
 // plays after a reload, having lost whatever it was counting locally.
 func (s *Postgres) AudioPlays(ctx context.Context, attemptID string) (map[string]int, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.Query(ctx, `
 		SELECT question_id, plays FROM app.attempt_audio_plays
 		 WHERE attempt_id = $1::uuid`, attemptID)
 	if err != nil {
