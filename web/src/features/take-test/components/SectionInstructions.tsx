@@ -5,8 +5,8 @@ import type { SectionGroup } from "../sections";
 
 /**
  * A section's instructions, above its first question (S-05). A listening
- * section gets the boxed note with the headphones, named by its part number;
- * any other section gets the plain muted line the fill-blank frame draws.
+ * section gets the boxed note with the headphones, led by the section's
+ * title; any other section gets the plain muted line the fill-blank frame draws.
  */
 export function SectionInstructions({
   group,
@@ -19,7 +19,7 @@ export function SectionInstructions({
   if (audio) {
     return (
       <Note icon={Headphones}>
-        {t("takeTest.sectionNote", { n: group.ordinal, text })}
+        {t("takeTest.sectionNote", { title: group.section.title, text })}
       </Note>
     );
   }

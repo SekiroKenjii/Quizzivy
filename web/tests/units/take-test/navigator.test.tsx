@@ -264,8 +264,12 @@ describe("review and submit", () => {
 describe("from 1024px (S-08, S-15)", () => {
   const listening = paper({
     sections: [
-      { id: "s1", title: "Ngữ pháp", instructions: null },
-      { id: "s2", title: "Nghe", instructions: "Nghe đoạn hội thoại rồi trả lời." },
+      { id: "s1", title: "Phần 1 · Ngữ pháp", instructions: null },
+      {
+        id: "s2",
+        title: "Phần 2 · Nghe",
+        instructions: "Nghe đoạn hội thoại rồi trả lời.",
+      },
     ],
     questions: [...questions.slice(0, 2), { ...questions[2]!, sectionId: "s2" }],
   });

@@ -20,7 +20,7 @@ export function session(over: {
       deadlineAt: over.deadlineAt,
     },
     testTitle: "Unit 5 — Present perfect & listening",
-    sections: [{ id: "s1", title: "Ngữ pháp", instructions: null }],
+    sections: [{ id: "s1", title: "Phần 1", instructions: null }],
     questions: [],
     sessionId: "ses-1",
     beaconToken: "beacon",

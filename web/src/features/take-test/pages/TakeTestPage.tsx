@@ -435,10 +435,7 @@ function metaLine(
     return t("takeTest.questionMeta", { n: index + 1, total, points });
   }
   return t("takeTest.sectionMeta", {
-    section: t("takeTest.sectionLabel", {
-      n: group.ordinal,
-      title: group.section.title,
-    }),
+    section: group.section.title,
     n: index + 1,
     total,
     points,

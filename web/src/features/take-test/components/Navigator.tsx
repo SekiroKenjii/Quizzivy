@@ -18,8 +18,8 @@ export interface DotState {
  * S-06's grid: one dot per question, three states that combine. The dot is a
  * button, because jumping is the point, and its label carries the states so a
  * screen reader hears "Câu 4, đã đánh dấu" rather than "4". With more than one
- * section the grid splits under "Phần n · Title" (S-06, S-08); one section
- * needs no heading to say what it is.
+ * section the grid splits under each section's title (S-06, S-08) -- the
+ * builder names them "Phần n" by default; one section needs no heading.
  */
 export function QuestionDots({
   dots,
@@ -32,7 +32,6 @@ export function QuestionDots({
   onJump: (index: number) => void;
   groups?: SectionGroup[];
 }>) {
-  const { t } = useTranslation();
   if (groups.length < 2) {
     return (
       <Grid>
@@ -46,12 +45,7 @@ export function QuestionDots({
     <div className="space-y-4">
       {groups.map((group) => (
         <div key={group.section.id}>
-          <p className="text-muted-foreground mb-2 text-xs">
-            {t("takeTest.sectionLabel", {
-              n: group.ordinal,
-              title: group.section.title,
-            })}
-          </p>
+          <p className="text-muted-foreground mb-2 text-xs">{group.section.title}</p>
           <Grid>
             {group.indexes.map((i) => {
               const dot = dots[i];
