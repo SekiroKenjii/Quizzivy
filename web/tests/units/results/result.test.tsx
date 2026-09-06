@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { http, HttpResponse } from "msw";
@@ -7,6 +7,7 @@ import ResultPage from "@/features/results/pages/ResultPage";
 import type { components } from "@/lib/api/schema";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { viewport } from "@tests/support/viewport";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -111,6 +112,9 @@ function serve(body: unknown) {
   );
 }
 
+beforeEach(() => viewport("phone"));
+afterEach(() => vi.unstubAllGlobals());
+
 describe("the result page", () => {
   const flags: [boolean, boolean, boolean][] = [
     [false, false, false],
@@ -191,6 +195,36 @@ describe("the result page", () => {
     renderResult();
     expect(await screen.findByText("Kết quả chưa sẵn sàng.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Về trang chủ" })).toHaveAttribute(
+      "href",
+      "/app",
+    );
+  });
+});
+
+describe("from 1024px (S-16)", () => {
+  beforeEach(() => viewport("desktop"));
+
+  it("puts the score and the counts in the panel, and the paper's title over the paper", async () => {
+    serve(
+      result(
+        { showScore: true, showCorrectAnswers: false, showExplanations: true },
+        true,
+      ),
+    );
+    renderResult();
+    await screen.findByText("The letter ____ yesterday.");
+
+    const panel = within(screen.getByRole("complementary", { name: "Kết quả" }));
+    expect(panel.getByText("Điểm của bạn")).toBeInTheDocument();
+    expect(panel.getByText("Đúng").nextElementSibling).toHaveTextContent("1");
+    expect(panel.getByText("Sai").nextElementSibling).toHaveTextContent("1");
+    expect(panel.getByText("Lượt").nextElementSibling).toHaveTextContent("1 / 2");
+    expect(
+      panel.getByText("Giáo viên không hiển thị đáp án đúng cho bài này."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Unit 4");
+    expect(screen.getByText("Nộp lúc 20:14 · 26/08 · Lượt 1/2")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Bài của tôi" })).toHaveAttribute(
       "href",
       "/app",
     );
