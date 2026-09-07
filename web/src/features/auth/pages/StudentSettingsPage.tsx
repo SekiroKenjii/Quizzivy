@@ -8,6 +8,7 @@ import {
   GoogleSection,
   LanguageSection,
   PasswordSection,
+  ProfileSection,
 } from "@/features/auth/components/SettingsSections";
 import { SignOutButton } from "@/features/auth/SignOutButton";
 import { fetchMyClasses } from "@/features/classes/api";
@@ -35,6 +36,7 @@ export default function StudentSettingsPage() {
   if (!wide) {
     return (
       <div className="space-y-3">
+        <ProfileSection />
         <PasswordSection />
         <GoogleSection />
         <LanguageSection />
@@ -52,6 +54,7 @@ export default function StudentSettingsPage() {
     <div className="space-y-5">
       <h1 className="text-xl font-semibold tracking-tight">{t("nav.settings")}</h1>
       <div className="grid grid-cols-2 items-start gap-4">
+        <ProfileSection />
         <PasswordSection />
         <GoogleSection />
         <LanguageSection />
@@ -70,15 +73,17 @@ export default function StudentSettingsPage() {
           </div>
           <div className="space-y-2">
             <PanelRow label={t("settings.role")}>{t("settings.roleStudent")}</PanelRow>
-            <PanelRow label={t("settings.signInWith")}>{signIn.join(" · ")}</PanelRow>
+            <PanelRow label={t("settings.signInWith")}>
+              {signIn.length === 0 ? "—" : signIn.join(" · ")}
+            </PanelRow>
             <PanelRow label={t("settings.since")}>
               {formatDate(user.createdAt)}
             </PanelRow>
-            {classes.data !== undefined && (
-              <PanelRow label={t("settings.classCount")}>
-                <span className="tabular-nums">{classes.data.items.length}</span>
-              </PanelRow>
-            )}
+            <PanelRow label={t("settings.classCount")}>
+              <span className="tabular-nums">
+                {classes.data === undefined ? "—" : classes.data.items.length}
+              </span>
+            </PanelRow>
           </div>
           <Separator />
           <SignOutButton variant="outline" className="text-muted-foreground w-full" />

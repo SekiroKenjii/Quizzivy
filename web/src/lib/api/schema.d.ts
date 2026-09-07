@@ -126,7 +126,20 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename yourself
+         * @description The one thing an account may change about itself, and the only write
+         *     behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
+         *
+         *     The name is the account's own; the email is not. An address is issued
+         *     by the teacher or arrives from Google, it is the login, and moving it
+         *     would move who the account is — so it stays read-only here and only
+         *     `PATCH /admin/students/{id}` can change it. Role, password and provider
+         *     links each have their own endpoint for the same reason.
+         *
+         *     Bounds match `users_full_name_check` and createStudent.
+         */
+        patch: operations["updateCurrentUser"];
         trace?: never;
     };
     "/auth/logout": {
@@ -2769,6 +2782,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fullName: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved. The whole user, so the client can replace its session copy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — the name is empty or too long. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];

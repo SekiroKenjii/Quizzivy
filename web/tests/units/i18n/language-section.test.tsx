@@ -15,10 +15,33 @@ describe("the language control", () => {
     const user = userEvent.setup();
     render(<LanguageSection />);
 
-    await user.click(screen.getByRole("tab", { name: "English" }));
+    await user.click(screen.getByRole("button", { name: "English" }));
 
     expect(i18n.language).toBe("en");
     expect(localStorage.getItem("quizzivy.locale")).toBe("en");
     expect(document.documentElement.lang).toBe("en");
+  });
+
+  /**
+   * It is a group of buttons, not a tab strip: Radix Tabs with no panel to
+   * control emitted a dangling aria-controls and left every trigger at
+   * tabindex="-1", which put the switch out of reach of the keyboard.
+   */
+  it("is reachable by keyboard and says which language is on", async () => {
+    const user = userEvent.setup();
+    render(<LanguageSection />);
+
+    const vi = screen.getByRole("button", { name: "Tiếng Việt" });
+    const en = screen.getByRole("button", { name: "English" });
+    expect(vi).toHaveAttribute("aria-pressed", "true");
+    expect(en).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("tab")).toBeNull();
+
+    await user.tab();
+    expect(vi).toHaveFocus();
+    await user.tab();
+    expect(en).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(i18n.language).toBe("en");
   });
 });

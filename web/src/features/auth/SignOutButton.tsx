@@ -24,7 +24,6 @@ export function SignOutButton({
   return (
     <Button
       variant={variant}
-      size="sm"
       className={cn(className)}
       disabled={pending}
       onClick={() => {
