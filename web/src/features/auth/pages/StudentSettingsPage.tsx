@@ -17,11 +17,10 @@ import { formatDate } from "@/lib/i18n/datetime";
 import { useAuthStore } from "@/stores/auth";
 
 /**
- * §9's settings: three sections, and no profile block -- a student's name and
- * email come from the teacher or from Google, and there is nothing here for
- * them to edit. From 1024px it is S-17: the sections in a grid, and the
- * account -- who, how they sign in, since when, in how many classes, and the
- * way out -- in F-11's panel.
+ * §9's settings, as the four cards both boards draw: the account's own name,
+ * its password, its Google link, its language. From 1024px it is S-17 -- the
+ * cards in a grid, and the account itself (who, how they sign in, since when,
+ * in how many classes, and the way out) in F-11's panel.
  */
 export default function StudentSettingsPage() {
   const { t } = useTranslation();

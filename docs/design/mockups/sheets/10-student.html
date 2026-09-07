@@ -1983,6 +1983,7 @@
                       <input class="input h-11" id="s2" value="minh.nguyen@gmail.com" disabled />
                       <p class="hint">Email lấy từ tài khoản Google, không đổi được.</p>
                     </div>
+                    <button class="btn btn-sm btn-primary">Lưu thay đổi</button>
                   </div>
                 </div>
                 <div class="card">
@@ -3040,10 +3041,13 @@
               running app against those boards. The panel's field goes to S-01's confirm card.
             </div>
             <div class="callout">
-              <strong>“Hồ sơ” and “Mật khẩu” are drawn as S-10 draws them.</strong> Whether the
-              profile block exists at all is #94's decision, and it is one decision for both
-              widths — this board does not take it. Settings has no nav item lit because it is
-              opened from the student's name, not from the nav.
+              <strong>“Hồ sơ” is the account's own name, and nothing else.</strong> #94 asked
+              whether the block should exist at all; on 2026-09-07 the answer was to build it as
+              both boards draw it, so <code class="font-mono">PATCH /auth/me</code> takes a name
+              and only a name. The email stays disabled because it is the login — the teacher
+              issued it or Google did, and the hint says which, so the field explains itself.
+              Settings has no nav item lit because it is opened from the student's name, not
+              from the nav.
             </div>
           </div>
         </div>
