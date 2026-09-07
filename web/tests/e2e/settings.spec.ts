@@ -53,12 +53,15 @@ test("unlinking is disabled, with a reason, when Google is the only way in", asy
   );
   await page.goto("/app/settings");
 
-  await expect(page.getByRole("button", { name: "Bỏ liên kết Google" })).toBeDisabled();
+  // aria-disabled, not disabled: S-10 keeps the control focusable so the reason
+  // beside it is announced instead of skipped.
+  const unlink = page.getByRole("button", { name: "Bỏ liên kết Google" });
+  await expect(unlink).toHaveAttribute("aria-disabled", "true");
   await expect(page.getByText(/cách duy nhất để đăng nhập/)).toBeVisible();
-  // And no password form to offer instead -- there is no password to change.
-  await expect(
-    page.getByText(/đăng nhập bằng Google nên chưa có mật khẩu/),
-  ).toBeVisible();
+  // And no password card at all: S-10's Google-only settings frame draws three
+  // cards, none of them "Mật khẩu" -- there is nothing to change and no way to
+  // set one, so a card would only be a hole in S-17's grid.
+  await expect(page.getByRole("heading", { name: "Mật khẩu" })).toHaveCount(0);
 });
 
 test("a teacher's settings screen adds the profile block", async ({ page }) => {

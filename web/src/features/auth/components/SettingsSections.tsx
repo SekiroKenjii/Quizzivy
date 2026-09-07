@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Segmented } from "@/components/ui/segmented";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,19 +98,16 @@ export function PasswordSection() {
     }
   });
 
-  if (user && !user.hasPassword) {
-    return (
-      <Section title={t("settings.password")} labelledBy="settings-password">
-        <p className="text-muted-foreground text-sm">{t("settings.noPassword")}</p>
-      </Section>
-    );
-  }
+  // S-10 draws no password card for a Google-only account: there is nothing to
+  // change and no way to set one, and the Google card already says so. A card
+  // whose whole body is "you have no password" is a hole in the grid (S-17).
+  if (user && !user.hasPassword) return null;
 
   return (
     <Section title={t("settings.password")} labelledBy="settings-password">
       <form
         onSubmit={(e) => void onSubmit(e)}
-        className="max-w-sm space-y-3"
+        className="max-w-md space-y-3"
         noValidate
       >
         <div className="space-y-1.5">
@@ -131,14 +128,20 @@ export function PasswordSection() {
             className="h-11"
             autoComplete="new-password"
             aria-invalid={newPasswordError ? true : undefined}
-            aria-describedby={newPasswordError ? "settings-new-error" : undefined}
+            aria-describedby={
+              newPasswordError ? "settings-new-error" : "settings-new-hint"
+            }
             {...form.register("newPassword")}
           />
           {newPasswordError ? (
             <p id="settings-new-error" className="text-destructive text-sm">
               {t(newPasswordError.message ?? "changePassword.errors.tooShort")}
             </p>
-          ) : null}
+          ) : (
+            <p id="settings-new-hint" className="text-muted-foreground text-xs">
+              {t("changePassword.hint")}
+            </p>
+          )}
         </div>
         {status ? (
           <p
@@ -148,7 +151,7 @@ export function PasswordSection() {
             {status.message}
           </p>
         ) : null}
-        <Button type="submit" disabled={form.formState.isSubmitting}>
+        <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting
             ? t("common.loading")
             : t("changePassword.submit")}
@@ -201,9 +204,16 @@ export function GoogleSection() {
         </p>
       ) : null}
 
-      {wouldLockOut ? (
-        <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-          {t("settings.googleOnlyExplainer")}
+      {linked ? (
+        <p
+          id="settings-google-explainer"
+          className="text-muted-foreground mt-2 text-xs leading-relaxed"
+        >
+          {t(
+            wouldLockOut
+              ? "settings.googleOnlyExplainer"
+              : "settings.googleBothExplainer",
+          )}
         </p>
       ) : null}
 
@@ -212,8 +222,13 @@ export function GoogleSection() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => void unlink()}
-            disabled={pending || wouldLockOut}
+            aria-disabled={pending || wouldLockOut}
+            aria-describedby="settings-google-explainer"
+            className={wouldLockOut ? "opacity-50" : undefined}
+            onClick={() => {
+              if (pending || wouldLockOut) return;
+              void unlink();
+            }}
           >
             {t("settings.unlinkGoogle")}
           </Button>
@@ -235,18 +250,20 @@ export function LanguageSection() {
 
   return (
     <Section title={t("common.language")} labelledBy="settings-language">
-      <Tabs
+      <Segmented
+        label={t("common.language")}
         value={i18n.language}
-        onValueChange={(locale) => setLocale(locale as Locale)}
-      >
-        <TabsList aria-label={t("common.language")}>
-          {SUPPORTED_LOCALES.map((locale: Locale) => (
-            <TabsTrigger key={locale} value={locale}>
-              {t(`settings.locale.${locale}`)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+        options={SUPPORTED_LOCALES.map((locale: Locale) => ({
+          value: locale,
+          label: t(`settings.locale.${locale}`),
+        }))}
+        onChange={(locale) => setLocale(locale as Locale)}
+      />
+      {/* S-17 writes this under the switch; S-10's phone card is the tabs and
+          nothing else, so the sentence arrives with the room for it. */}
+      <p className="text-muted-foreground mt-3 hidden text-xs leading-relaxed lg:block">
+        {t("settings.languageExplainer")}
+      </p>
     </Section>
   );
 }

@@ -57,9 +57,11 @@ export default function StudentLayout() {
         </header>
         <div data-columns className="flex min-h-0 flex-1">
           <main data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-8">
-            <PageAsideSlot.Provider value={asideSlot}>
-              <Outlet context={context} />
-            </PageAsideSlot.Provider>
+            <div className="w-full max-w-4xl">
+              <PageAsideSlot.Provider value={asideSlot}>
+                <Outlet context={context} />
+              </PageAsideSlot.Provider>
+            </div>
           </main>
           <div ref={setAsideSlot} className="contents" />
         </div>
@@ -121,16 +123,18 @@ function DetailBar({ title }: Readonly<{ title: string }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   return (
-    <header className="flex h-14 items-center gap-2 border-b px-4">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("common.back")}
-        onClick={() => void (cameFromInside() ? navigate(-1) : navigate("/app"))}
-      >
-        <ArrowLeft aria-hidden="true" />
-      </Button>
-      <h1 className="truncate text-sm font-medium">{title}</h1>
+    <header className="border-b">
+      <div className="mx-auto flex h-14 w-full max-w-[40rem] items-center gap-2 px-4">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("common.back")}
+          onClick={() => void (cameFromInside() ? navigate(-1) : navigate("/app"))}
+        >
+          <ArrowLeft aria-hidden="true" />
+        </Button>
+        <h1 className="truncate text-sm font-medium">{title}</h1>
+      </div>
     </header>
   );
 }

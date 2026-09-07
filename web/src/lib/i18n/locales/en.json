@@ -366,7 +366,6 @@
     "email": "Email",
     "password": "Password",
     "passwordChanged": "Password changed. Other devices have been signed out.",
-    "noPassword": "This account signs in with Google and has no password.",
     "google": "Google account",
     "googleLinked": "Linked to Google.",
     "googleNotLinked": "Not linked to Google.",
@@ -384,7 +383,9 @@
     "signInPassword": "Password",
     "signInGoogle": "Google",
     "since": "Account since",
-    "classCount": "Classes"
+    "classCount": "Classes",
+    "googleBothExplainer": "You can sign in with Google or with your password. Unlinking leaves only the password.",
+    "languageExplainer": "Changes the interface language. Tests still read exactly as your teacher wrote them."
   },
   "media": {
     "cancel": "Cancel",
