@@ -30,7 +30,8 @@
       "hours": "Giờ",
       "minutes": "Phút"
     },
-    "pickTime": "Chọn giờ"
+    "pickTime": "Chọn giờ",
+    "saveChanges": "Lưu thay đổi"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -385,7 +386,14 @@
     "since": "Tài khoản từ",
     "classCount": "Lớp",
     "googleBothExplainer": "Bạn có thể đăng nhập bằng Google hoặc bằng mật khẩu. Bỏ liên kết thì chỉ còn mật khẩu.",
-    "languageExplainer": "Đổi ngôn ngữ giao diện. Đề thi vẫn hiện đúng như giáo viên soạn."
+    "languageExplainer": "Đổi ngôn ngữ giao diện. Đề thi vẫn hiện đúng như giáo viên soạn.",
+    "profileSaved": "Đã lưu họ và tên.",
+    "emailFromGoogle": "Email lấy từ tài khoản Google, không đổi được.",
+    "emailFromTeacher": "Email do giáo viên cấp, không đổi được.",
+    "errors": {
+      "nameRequired": "Họ và tên không được để trống.",
+      "nameTooLong": "Họ và tên tối đa 200 ký tự."
+    }
   },
   "media": {
     "cancel": "Huỷ",

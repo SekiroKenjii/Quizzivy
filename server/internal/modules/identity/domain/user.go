@@ -39,3 +39,10 @@ func (u User) HasPassword() bool { return u.PasswordHash != nil && *u.PasswordHa
 
 // Disabled reports whether the account is suspended.
 func (u User) Disabled() bool { return u.DisabledAt != nil }
+
+// Name bounds, matching users_full_name_check and the contract. A name is
+// trimmed before it is measured: " " is not a name.
+const (
+	MinFullNameLength = 1
+	MaxFullNameLength = 200
+)

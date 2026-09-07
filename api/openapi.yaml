@@ -1871,6 +1871,43 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      operationId: updateCurrentUser
+      tags: [auth]
+      summary: Rename yourself
+      description: |
+        The one thing an account may change about itself, and the only write
+        behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
+
+        The name is the account's own; the email is not. An address is issued
+        by the teacher or arrives from Google, it is the login, and moving it
+        would move who the account is — so it stays read-only here and only
+        `PATCH /admin/students/{id}` can change it. Role, password and provider
+        links each have their own endpoint for the same reason.
+
+        Bounds match `users_full_name_check` and createStudent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName]
+              additionalProperties: false
+              properties:
+                fullName: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200':
+          description: Saved. The whole user, so the client can replace its session copy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400':
+          description: '`VALIDATION_FAILED` — the name is empty or too long.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
   /auth/logout:
     post:

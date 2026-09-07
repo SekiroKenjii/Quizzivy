@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/identity/domain"
@@ -59,6 +60,57 @@ func (s *Users) FindUserByID(ctx context.Context, id string) (domain.User, error
 		 WHERE u.id = $1
 		 GROUP BY u.id`
 	return scanUser(s.QueryRow(ctx, q, id))
+}
+
+// Rename writes an account's own display name, with the audit row in the same
+// transaction: a name change is how an account presents itself to the teacher,
+// so the trail and the change are one fact, not two that can diverge.
+func (s *Users) Rename(ctx context.Context, in domain.RenameRecord) (domain.User, error) {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("begin rename: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var before string
+	err = tx.QueryRow(ctx, `
+		UPDATE app.users SET full_name = $2
+		 WHERE id = $1
+		RETURNING OLD.full_name`, in.UserID, in.FullName).Scan(&before)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.User{}, domain.ErrUserNotFound
+	}
+	if err != nil {
+		return domain.User{}, fmt.Errorf("rename user: %w", err)
+	}
+
+	diff, err := json.Marshal(map[string]string{"from": before, "to": in.FullName})
+	if err != nil {
+		return domain.User{}, fmt.Errorf("encode rename diff: %w", err)
+	}
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: &in.UserID,
+		Action:      "user.renamed",
+		Entity:      "user",
+		EntityID:    &in.UserID,
+		OccurredAt:  in.Now,
+		IP:          in.IP,
+		UserAgent:   in.UserAgent,
+		Diff:        diff,
+	}); err != nil {
+		return domain.User{}, err
+	}
+
+	user, err := scanUser(tx.QueryRow(ctx, userProjection+`
+		 WHERE u.id = $1
+		 GROUP BY u.id`, in.UserID))
+	if err != nil {
+		return domain.User{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.User{}, fmt.Errorf("commit rename: %w", err)
+	}
+	return user, nil
 }
 
 // CreateRefreshToken stores the hash of a newly minted refresh token.

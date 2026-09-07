@@ -30,7 +30,8 @@
       "hours": "Hours",
       "minutes": "Minutes"
     },
-    "pickTime": "Pick a time"
+    "pickTime": "Pick a time",
+    "saveChanges": "Save changes"
   },
   "error": {
     "title": "Something went wrong",
@@ -385,7 +386,14 @@
     "since": "Account since",
     "classCount": "Classes",
     "googleBothExplainer": "You can sign in with Google or with your password. Unlinking leaves only the password.",
-    "languageExplainer": "Changes the interface language. Tests still read exactly as your teacher wrote them."
+    "languageExplainer": "Changes the interface language. Tests still read exactly as your teacher wrote them.",
+    "profileSaved": "Your name has been saved.",
+    "emailFromGoogle": "The email comes from your Google account and cannot be changed.",
+    "emailFromTeacher": "Your teacher issued this email; it cannot be changed here.",
+    "errors": {
+      "nameRequired": "Enter your name.",
+      "nameTooLong": "A name is at most 200 characters."
+    }
   },
   "media": {
     "cancel": "Cancel",

@@ -32,16 +32,20 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
   );
 });
 
-test("E2E 2a: the student settings screen renders §9's three sections", async ({
+test("E2E 2a: the student settings screen renders the four cards both boards draw", async ({
   page,
 }) => {
   await stubApi(page, sessionAs(studentUser));
   await page.goto("/app/settings");
 
-  for (const heading of ["Mật khẩu", "Tài khoản Google", "Ngôn ngữ"]) {
+  // S-17's grid, in its order: Hồ sơ, Mật khẩu, Tài khoản Google, Ngôn ngữ.
+  for (const heading of ["Hồ sơ", "Mật khẩu", "Tài khoản Google", "Ngôn ngữ"]) {
     await expect(page.getByRole("heading", { name: heading })).toBeVisible();
   }
-  await expect(page.getByRole("heading", { name: "Hồ sơ" })).toHaveCount(0);
+  // The name is the one thing the account may change about itself; the email is
+  // the login and only an admin moves it.
+  await expect(page.getByLabel("Họ và tên")).toBeEditable();
+  await expect(page.getByLabel("Email")).toBeDisabled();
 });
 
 test("unlinking is disabled, with a reason, when Google is the only way in", async ({
@@ -69,7 +73,7 @@ test("a teacher's settings screen adds the profile block", async ({ page }) => {
   await page.goto("/admin/settings");
 
   await expect(page.getByRole("heading", { name: "Hồ sơ" })).toBeVisible();
-  await expect(page.getByText("Thuong")).toBeVisible();
+  await expect(page.getByLabel("Họ và tên")).toHaveValue("Thuong");
 });
 
 test("signing out lives behind the student's name, and on the settings screen (S-13)", async ({

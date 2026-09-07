@@ -16,6 +16,8 @@ var (
 	ErrNoPasswordSet    = errors.New("account has no password")
 	ErrPasswordTooShort = errors.New("new password is too short")
 	ErrPasswordTooLong  = errors.New("new password is too long")
+	ErrNameRequired     = errors.New("full name is empty")
+	ErrNameTooLong      = errors.New("full name is too long")
 )
 
 // ErrRefreshRejected covers every ordinary refresh failure: no cookie, an

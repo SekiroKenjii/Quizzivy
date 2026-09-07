@@ -6,14 +6,16 @@ import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
+import { toast } from "@/components/ui/sonner";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { changePassword, fetchCurrentUser } from "@/features/auth/api";
+import { changePassword, fetchCurrentUser, updateProfile } from "@/features/auth/api";
 import {
   changePasswordSchema,
   type ChangePasswordValues,
 } from "@/features/auth/changePasswordSchema";
+import { profileSchema, type ProfileValues } from "@/features/auth/profileSchema";
 import {
   googleSignInAvailable,
   useGoogleSignIn,
@@ -49,20 +51,92 @@ function Section({
   );
 }
 
-/** §8's profile block. Read-only: there is no endpoint to change it yet. */
+/**
+ * The "Hồ sơ" card both settings boards draw (S-10, S-17): a name the account
+ * owns and may change, and the email it signs in with, which it may not. The
+ * hint says who the address came from, because that is the answer to "why can
+ * I not edit this?" -- Google for a linked account, the teacher otherwise.
+ */
 export function ProfileSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    values: { fullName: user?.fullName ?? "" },
+    mode: "onTouched",
+  });
+  const nameError = form.formState.errors.fullName;
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setError(null);
+    try {
+      setUser(await updateProfile(values.fullName));
+      // F-08: a completed action is confirmed by a toast, not by a sentence
+      // that stays on the screen and pushes the button under the pointer.
+      toast(t("settings.profileSaved"));
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : t("error.body"));
+    }
+  });
+
   if (!user) return null;
+  const fromGoogle = user.linkedProviders.includes("google");
 
   return (
     <Section title={t("settings.profile")} labelledBy="settings-profile">
-      <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
-        <dt className="text-muted-foreground">{t("settings.fullName")}</dt>
-        <dd>{user.fullName}</dd>
-        <dt className="text-muted-foreground">{t("settings.email")}</dt>
-        <dd>{user.email}</dd>
-      </dl>
+      <form
+        onSubmit={(e) => void onSubmit(e)}
+        className="max-w-md space-y-3"
+        noValidate
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="settings-name">{t("settings.fullName")}</Label>
+          <Input
+            id="settings-name"
+            className="h-11"
+            autoComplete="name"
+            aria-invalid={nameError ? true : undefined}
+            aria-describedby={nameError ? "settings-name-error" : undefined}
+            {...form.register("fullName")}
+          />
+          {nameError ? (
+            <p id="settings-name-error" className="text-destructive text-xs">
+              {t(nameError.message ?? "settings.errors.nameRequired")}
+            </p>
+          ) : null}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="settings-email">{t("settings.email")}</Label>
+          <Input
+            id="settings-email"
+            className="h-11"
+            value={user.email}
+            disabled
+            readOnly
+            aria-describedby="settings-email-hint"
+          />
+          <p id="settings-email-hint" className="text-muted-foreground text-xs">
+            {t(fromGoogle ? "settings.emailFromGoogle" : "settings.emailFromTeacher")}
+          </p>
+        </div>
+        {error !== null ? (
+          // S-02's rule, which holds anywhere a form can fail: an error is a
+          // line under the button, never a toast that leaves before it is read.
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        ) : null}
+        <Button
+          type="submit"
+          size="sm"
+          disabled={form.formState.isSubmitting || !form.formState.isDirty}
+        >
+          {form.formState.isSubmitting ? t("common.loading") : t("common.saveChanges")}
+        </Button>
+      </form>
     </Section>
   );
 }
@@ -72,10 +146,7 @@ export function PasswordSection() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
 
-  const [status, setStatus] = useState<{
-    kind: "ok" | "error";
-    message: string;
-  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const form = useForm<ChangePasswordValues>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { currentPassword: "", newPassword: "" },
@@ -84,17 +155,14 @@ export function PasswordSection() {
   const newPasswordError = form.formState.errors.newPassword;
 
   const onSubmit = form.handleSubmit(async (values) => {
-    setStatus(null);
+    setError(null);
     try {
       await changePassword(values.currentPassword, values.newPassword);
       setUser(await fetchCurrentUser());
       form.reset();
-      setStatus({ kind: "ok", message: t("settings.passwordChanged") });
+      toast(t("settings.passwordChanged"));
     } catch (cause) {
-      setStatus({
-        kind: "error",
-        message: cause instanceof ApiError ? cause.message : t("error.body"),
-      });
+      setError(cause instanceof ApiError ? cause.message : t("error.body"));
     }
   });
 
@@ -134,7 +202,9 @@ export function PasswordSection() {
             {...form.register("newPassword")}
           />
           {newPasswordError ? (
-            <p id="settings-new-error" className="text-destructive text-sm">
+            // F-06 swaps the hint's colour, not its size: the card must not
+            // grow the moment a field goes invalid.
+            <p id="settings-new-error" className="text-destructive text-xs">
               {t(newPasswordError.message ?? "changePassword.errors.tooShort")}
             </p>
           ) : (
@@ -143,12 +213,11 @@ export function PasswordSection() {
             </p>
           )}
         </div>
-        {status ? (
-          <p
-            role={status.kind === "error" ? "alert" : "status"}
-            className={status.kind === "error" ? "text-destructive text-sm" : "text-sm"}
-          >
-            {status.message}
+        {error !== null ? (
+          // S-02's rule, which holds anywhere a form can fail: an error is a
+          // line under the button, never a toast that leaves before it is read.
+          <p role="alert" className="text-destructive text-sm">
+            {error}
           </p>
         ) : null}
         <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
