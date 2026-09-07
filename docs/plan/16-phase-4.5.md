@@ -62,8 +62,12 @@ engine, then the shell and the four pages, then release.
   the same content returns to the flow where S-03/S-10 draw it (Thuong,
   2026-09-07: "nhớ áp dụng quy ước aside", and the narrow-column classes and
   settings pages "bị bóp lại … khá đơn điệu").
-- **#94 ("Hồ sơ" card) is not decided here.** S-17 draws the card as S-10
-  does; whichever way #94 goes applies to both widths.
+- **#94 ("Hồ sơ" card) was decided on 2026-09-07: build it.** Thuong chose the
+  deck-faithful answer over dropping the card, so `PATCH /auth/me` takes a
+  `fullName` and nothing else, and both boards now draw the same card. The
+  email is the login and stays read-only; only `PATCH /admin/students/{id}`
+  moves it. The card's hint names where the address came from, which is the
+  answer to "why can I not edit this?".
 
 ---
 
