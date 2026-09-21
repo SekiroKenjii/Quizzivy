@@ -2,7 +2,7 @@
 # T-0.3 — verify the R2 bucket and credentials end to end.
 #
 # Reads .env. Never prints secrets. Exits non-zero on failure.
-# Uses the minio/mc image the compose stack already pulls, so there is nothing
+# Uses the mc image the compose stack already pulls, so there is nothing
 # extra to install.
 #
 # Checks the things that actually matter for §11.2: the credentials work, the
@@ -36,7 +36,7 @@ KEY="_quizzivy-verify-$$.txt"
 mcrun() {
   docker run --rm -i \
     -e MC_HOST_r2="https://${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}@${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
-    --entrypoint /bin/sh minio/mc:latest -c "$1" 2>&1
+    --entrypoint /bin/sh quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z -c "$1" 2>&1
 }
 
 # 1. credentials + bucket exist
