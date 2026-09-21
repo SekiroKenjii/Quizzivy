@@ -16,19 +16,29 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { BackLink } from "@/components/shared/BackLink";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { PageAside } from "@/components/shared/PageAside";
+import { PanelLabel, PanelRow } from "@/components/shared/PanelLabel";
 import { Card } from "@/components/ui/card";
 import { enterFullscreen } from "@/features/integrity/fullscreen";
 import { startOrResumeAttempt } from "@/features/take-test/api";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ApiError } from "@/lib/api/errors";
 import { formatTime, shortDate } from "@/lib/i18n/datetime";
 import { getMyAssignment, type StudentAssignmentDetail } from "../api";
 import { duringRules, type Rule } from "../studentRules";
 
-/** S-04: the contract before the clock starts. */
+/**
+ * S-04: the contract before the clock starts. From 1024px it is S-14: the
+ * two cards side by side in the middle, the facts and the start button in
+ * F-11's panel, and a text link back where the phone had its arrow.
+ */
 export default function AssignmentIntroPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const wide = useMediaQuery("(min-width: 1024px)");
 
   const detail = useQuery({
     queryKey: ["my-assignment", id],
@@ -62,6 +72,97 @@ export default function AssignmentIntroPage() {
   const attemptNo = Math.min(a.attemptsUsed + 1, a.maxAttempts);
 
   const provenance = introProvenance(a, t);
+  const facts = [
+    [t("student.intro.duration"), t("student.minutes", { count: a.durationMinutes })],
+    [
+      t("student.intro.questions"),
+      t("student.intro.questionsValue", {
+        questions: t("student.questions", { count: a.questionCount }),
+        points: decimal(a.totalPoints),
+      }),
+    ],
+    [
+      t("student.intro.attempts"),
+      t("student.intro.attemptsValue", { n: attemptNo, total: a.maxAttempts }),
+    ],
+    [
+      t("student.intro.closes"),
+      t("student.intro.closesValue", {
+        time: formatTime(a.closesAt),
+        date: shortDate(a.closesAt),
+      }),
+    ],
+  ] as const;
+
+  const during = (
+    <Card className="gap-0 p-5">
+      <h2 className="text-sm font-semibold">{t("student.intro.during")}</h2>
+      <ul className="mt-3 space-y-2.5">
+        {rules.map((rule) => (
+          <li key={rule.kind} className="flex gap-2.5">
+            <RuleIcon kind={rule.kind} />
+            <p className="text-sm leading-relaxed">{rule.text}</p>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+  const after = (
+    <Card className="gap-0 p-5">
+      <h2 className="text-sm font-semibold">{t("student.intro.after")}</h2>
+      <ul className="mt-3 space-y-2">
+        <Permission on={a.review.showScore} yes="seeScore" no="notSeeScore" />
+        <Permission
+          on={a.review.showCorrectAnswers}
+          yes="seeCorrect"
+          no="notSeeCorrect"
+        />
+        <Permission
+          on={a.review.showExplanations}
+          yes="seeExplanations"
+          no="notSeeExplanations"
+        />
+        {a.showsTranscript && <Permission on yes="seeTranscript" no="seeTranscript" />}
+      </ul>
+    </Card>
+  );
+
+  if (wide) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <BackLink to="/app">{t("student.myAssignments")}</BackLink>
+          {provenance !== null && (
+            <p className="text-muted-foreground mt-3 text-xs">{provenance}</p>
+          )}
+          <h1 className="mt-1 text-xl leading-snug font-semibold tracking-tight">
+            {a.testTitle}
+          </h1>
+        </div>
+        <div
+          className="grid items-start gap-4"
+          style={{ gridTemplateColumns: "3fr 2fr" }}
+        >
+          {during}
+          {after}
+        </div>
+        <PageAside label={t("student.intro.summary")}>
+          <div>
+            <PanelLabel>{t("student.intro.summary")}</PanelLabel>
+            <div className="space-y-2">
+              {facts.map(([label, value]) => (
+                <PanelRow key={label} label={label}>
+                  {value}
+                </PanelRow>
+              ))}
+            </div>
+          </div>
+          <Separator />
+          <StartControl assignment={a} live={live} />
+        </PageAside>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -75,57 +176,15 @@ export default function AssignmentIntroPage() {
       </div>
 
       <Card className="grid grid-cols-2 gap-x-4 gap-y-3 p-5">
-        <Fact label={t("student.intro.duration")}>
-          {t("student.minutes", { count: a.durationMinutes })}
-        </Fact>
-        <Fact label={t("student.intro.questions")}>
-          {t("student.intro.questionsValue", {
-            questions: t("student.questions", { count: a.questionCount }),
-            points: decimal(a.totalPoints),
-          })}
-        </Fact>
-        <Fact label={t("student.intro.attempts")}>
-          {t("student.intro.attemptsValue", { n: attemptNo, total: a.maxAttempts })}
-        </Fact>
-        <Fact label={t("student.intro.closes")}>
-          {t("student.intro.closesValue", {
-            time: formatTime(a.closesAt),
-            date: shortDate(a.closesAt),
-          })}
-        </Fact>
+        {facts.map(([label, value]) => (
+          <Fact key={label} label={label}>
+            {value}
+          </Fact>
+        ))}
       </Card>
 
-      <Card className="gap-0 p-5">
-        <h2 className="text-sm font-semibold">{t("student.intro.during")}</h2>
-        <ul className="mt-3 space-y-2.5">
-          {rules.map((rule) => (
-            <li key={rule.kind} className="flex gap-2.5">
-              <RuleIcon kind={rule.kind} />
-              <p className="text-sm leading-relaxed">{rule.text}</p>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      <Card className="gap-0 p-5">
-        <h2 className="text-sm font-semibold">{t("student.intro.after")}</h2>
-        <ul className="mt-3 space-y-2">
-          <Permission on={a.review.showScore} yes="seeScore" no="notSeeScore" />
-          <Permission
-            on={a.review.showCorrectAnswers}
-            yes="seeCorrect"
-            no="notSeeCorrect"
-          />
-          <Permission
-            on={a.review.showExplanations}
-            yes="seeExplanations"
-            no="notSeeExplanations"
-          />
-          {a.showsTranscript && (
-            <Permission on yes="seeTranscript" no="seeTranscript" />
-          )}
-        </ul>
-      </Card>
+      {during}
+      {after}
 
       <StartControl assignment={a} live={live} />
     </div>

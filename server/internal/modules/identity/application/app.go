@@ -38,6 +38,7 @@ type Commands struct {
 	Logout               cqrs.CommandHandler[command.Logout, cqrs.Nothing]
 	PruneExpiredTokens   cqrs.CommandHandler[command.PruneExpiredTokens, int64]
 	Refresh              cqrs.CommandHandler[command.Refresh, model.RefreshResult]
+	Rename               cqrs.CommandHandler[command.Rename, domain.User]
 	ResetStudentPassword cqrs.CommandHandler[command.ResetStudentPassword, string]
 	UnlinkGoogle         cqrs.CommandHandler[command.UnlinkGoogle, cqrs.Nothing]
 	UpdateStudent        cqrs.CommandHandler[command.UpdateStudent, domain.Student]
@@ -63,6 +64,7 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			Logout:               command.LogoutHandler{Service: service},
 			PruneExpiredTokens:   command.PruneExpiredTokensHandler{Service: service},
 			Refresh:              command.RefreshHandler{Service: service},
+			Rename:               command.RenameHandler{Service: service},
 			ResetStudentPassword: command.ResetStudentPasswordHandler{Students: students},
 			UnlinkGoogle:         command.UnlinkGoogleHandler{Service: service},
 			UpdateStudent:        command.UpdateStudentHandler{Students: students},

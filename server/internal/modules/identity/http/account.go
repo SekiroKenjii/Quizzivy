@@ -36,6 +36,51 @@ func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRe
 	return openapi.GetCurrentUser200JSONResponse(toAPIUser(user)), nil
 }
 
+// UpdateCurrentUser implements PATCH /auth/me: the "Hồ sơ" card's save.
+func (h Identity) UpdateCurrentUser(ctx context.Context, request openapi.UpdateCurrentUserRequestObject) (openapi.UpdateCurrentUserResponseObject, error) {
+	if h.app == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return openapi.UpdateCurrentUser401JSONResponse{
+			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
+		}, nil
+	}
+	if request.Body == nil {
+		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			"Thiếu họ và tên.")), nil
+	}
+
+	meta := httpx.RequestMetaFromContext(ctx)
+	user, err := h.app.Commands.Rename.Handle(ctx, command.Rename{
+		UserID:    principal.UserID,
+		FullName:  request.Body.FullName,
+		IP:        meta.IP,
+		UserAgent: meta.UserAgent,
+	})
+	switch {
+	case err == nil:
+		return openapi.UpdateCurrentUser200JSONResponse(toAPIUser(user)), nil
+
+	case errors.Is(err, domain.ErrNameRequired):
+		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			"Họ và tên không được để trống.")), nil
+
+	case errors.Is(err, domain.ErrNameTooLong):
+		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			"Họ và tên quá dài.")), nil
+
+	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
+		return openapi.UpdateCurrentUser401JSONResponse{
+			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
+		}, nil
+
+	default:
+		return nil, err
+	}
+}
+
 // ChangePassword implements POST /auth/change-password (§5.4).
 func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePasswordRequestObject) (openapi.ChangePasswordResponseObject, error) {
 	if h.app == nil {

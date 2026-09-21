@@ -50,7 +50,9 @@ describe("when the paper does not load", () => {
           serverTime: "2026-09-01T08:00:00.000Z",
           deadlineAt: "2026-09-01T09:00:00.000Z",
         }),
-        questions: [{ id: "q1", type: "true_false", prompt: "True?", points: 1 }],
+        questions: [
+          { id: "q1", sectionId: "s1", type: "true_false", prompt: "True?", points: 1 },
+        ],
       });
     const user = userEvent.setup();
     renderPage();

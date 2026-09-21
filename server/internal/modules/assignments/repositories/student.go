@@ -27,6 +27,12 @@ const studentCardColumns = `
 	          JOIN app.class_members m ON m.class_id = ac.class_id
 	                                  AND m.user_id = $1::uuid
 	         WHERE ac.assignment_id = a.id),
+	       (SELECT CASE WHEN count(*) = 1 THEN min(c.id::text) END
+	          FROM app.assignment_classes ac
+	          JOIN app.classes c ON c.id = ac.class_id
+	          JOIN app.class_members m ON m.class_id = ac.class_id
+	                                  AND m.user_id = $1::uuid
+	         WHERE ac.assignment_id = a.id),
 	       a.opens_at, a.closes_at, a.closed_at, a.published_at,
 	       a.duration_minutes, a.max_attempts, a.review_show_score,
 	       (SELECT count(*) FROM app.test_version_questions q
@@ -95,7 +101,7 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 		showScore bool
 		l         lastAttempt
 	)
-	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName,
+	err := row.Scan(&c.ID, &c.TestTitle, &c.ClassName, &c.ClassID,
 		&c.OpensAt, &c.ClosesAt, &c.ClosedAt, &c.PublishedAt,
 		&c.DurationMin, &c.MaxAttempts, &showScore,
 		&c.QuestionCount, &c.TotalPoints,
@@ -173,7 +179,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	           AND q.media_asset_kind = 'audio')`+studentCardFrom+`
 	 WHERE a.id = $2::uuid AND a.published_at IS NOT NULL AND `+targeted,
 		studentID, id).Scan(
-		&d.ID, &d.TestTitle, &d.ClassName,
+		&d.ID, &d.TestTitle, &d.ClassName, &d.ClassID,
 		&d.OpensAt, &d.ClosesAt, &d.ClosedAt, &d.PublishedAt,
 		&d.DurationMin, &d.MaxAttempts, &showScore,
 		&d.QuestionCount, &d.TotalPoints,

@@ -3,6 +3,7 @@ import type { components } from "@/lib/api/schema";
 
 export type AttemptSession = components["schemas"]["AttemptSession"];
 export type StudentQuestion = components["schemas"]["StudentQuestion"];
+export type StudentSection = components["schemas"]["StudentSection"];
 export type Answer = components["schemas"]["Answer"];
 export type Attempt = components["schemas"]["Attempt"];
 export type IntegrityPolicy = components["schemas"]["IntegrityPolicy"];

@@ -4,14 +4,21 @@ import type { StudentQuestion } from "@/features/take-test/api";
 
 /** Any question; only `blanks` is ever read. */
 function question(over: Partial<StudentQuestion> = {}): StudentQuestion {
-  return { id: "q1", type: "single_choice", prompt: "…", points: 1, ...over };
+  return {
+    id: "q1",
+    sectionId: "s1",
+    type: "single_choice",
+    prompt: "…",
+    points: 1,
+    ...over,
+  };
 }
 
 const twoBlanks = question({
   type: "fill_blank",
   blanks: [
-    { id: "b1", ordinal: 1 },
-    { id: "b2", ordinal: 2 },
+    { id: "b1", ordinal: 1, caseSensitive: false },
+    { id: "b2", ordinal: 2, caseSensitive: false },
   ],
 });
 

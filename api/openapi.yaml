@@ -870,12 +870,31 @@ components:
 
     StudentBlank:
       type: object
-      description: No `acceptedAnswers`, no `caseSensitive` — both are grading key.
-      required: [id, ordinal]
+      description: |
+        No `acceptedAnswers` — that is the grading key. `caseSensitive` is a
+        rule, not a key: the engine states it under the blanks (S-05, "Không
+        phân biệt hoa thường"), and a rule the student cannot read is one they
+        are graded on blind.
+      required: [id, ordinal, caseSensitive]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         ordinal: { type: integer, minimum: 1 }
+        caseSensitive: { type: boolean }
+
+    StudentSection:
+      type: object
+      description: |
+        One part of the paper, in test order. `instructions` is the teacher's
+        text to the student for this part; the engine shows it above the
+        section's first question and the navigator groups the numbers under
+        `title` (S-05, S-06, S-08).
+      required: [id, title, instructions]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        instructions: { type: [string, 'null'] }
 
     StudentQuestion:
       type: object
@@ -888,12 +907,15 @@ components:
         Options arrive in the order the student must see them, already shuffled
         server-side from the attempt's `shuffleSeed` so a reload cannot reorder
         them (D-02).
-      required: [id, type, prompt, points]
+      required: [id, sectionId, type, prompt, points]
       additionalProperties: false
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
           description: A `test_version_questions` id — never a bank question id (§7).
+        sectionId:
+          $ref: '#/components/schemas/Uuid'
+          description: The `AttemptSession.sections` entry this question belongs to.
         type: { $ref: '#/components/schemas/QuestionType' }
         prompt: { type: string }
         media:
@@ -1271,14 +1293,24 @@ components:
       description: |
         Returned when an attempt is created or resumed. Everything the engine
         needs to run authoritatively.
-      required: [attempt, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
+      required: [attempt, testTitle, sections, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
       additionalProperties: false
       properties:
         attempt: { $ref: '#/components/schemas/Attempt' }
+        testTitle:
+          type: string
+          description: The engine's header names the paper from 1024px up (S-08).
+        sections:
+          type: array
+          items: { $ref: '#/components/schemas/StudentSection' }
+          description: In test order. `questions` never interleaves two sections, whatever the shuffle.
         questions:
           type: array
           items: { $ref: '#/components/schemas/StudentQuestion' }
-          description: Already in presentation order, shuffled server-side and stable across reloads (D-02).
+          description: |
+            Already in presentation order, shuffled server-side and stable
+            across reloads (D-02). Shuffling happens inside each section, so
+            the order of sections is the order of `sections`.
         sessionId:
           $ref: '#/components/schemas/Uuid'
           description: |
@@ -1438,6 +1470,10 @@ components:
           description: >-
             The class this assignment reached the student through. Null unless
             exactly one targeted class contains them.
+        classId:
+          type: [string, 'null']
+          format: uuid
+          description: The id behind `className`, so S-17 can count a class's papers. Null when `className` is.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         opensAt: { $ref: '#/components/schemas/Timestamp' }
         closesAt: { $ref: '#/components/schemas/Timestamp' }
@@ -1834,6 +1870,43 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      operationId: updateCurrentUser
+      tags: [auth]
+      summary: Rename yourself
+      description: |
+        The one thing an account may change about itself, and the only write
+        behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
+
+        The name is the account's own; the email is not. An address is issued
+        by the teacher or arrives from Google, it is the login, and moving it
+        would move who the account is — so it stays read-only here and only
+        `PATCH /admin/students/{id}` can change it. Role, password and provider
+        links each have their own endpoint for the same reason.
+
+        Bounds match `users_full_name_check` and createStudent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName]
+              additionalProperties: false
+              properties:
+                fullName: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200':
+          description: Saved. The whole user, so the client can replace its session copy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400':
+          description: '`VALIDATION_FAILED` — the name is empty or too long.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /auth/logout:

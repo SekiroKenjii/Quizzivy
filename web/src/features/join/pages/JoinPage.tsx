@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { format, isComplete, normalize } from "@/features/join/code";
+import { isComplete, normalize } from "@/features/join/code";
+import { JoinCodeForm } from "@/features/join/components/JoinCodeForm";
 import { joinClass } from "@/features/join/api";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
@@ -22,7 +20,6 @@ export default function JoinPage() {
   const isSignedIn = useAuthStore((s) => s.user !== null);
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
 
-  const [code, setCode] = useState(() => format(codeParam ?? ""));
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
   const enrol = useMutation({
@@ -40,16 +37,6 @@ export default function JoinPage() {
     enrolMutate(normalize(codeParam));
   }, [isBootstrapping, isSignedIn, codeParam, enrolMutate]);
 
-  function onSubmit(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!isComplete(code)) {
-      setError(t("join.errors.incomplete"));
-      return;
-    }
-    // The confirm step is mandatory (§6.2): nothing creates an account here.
-    void navigate(`/join/${normalize(code)}/confirm`);
-  }
-
   if (enrol.isPending) {
     return (
       <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
@@ -64,43 +51,19 @@ export default function JoinPage() {
         <h1 className="text-xl font-semibold tracking-tight">{t("join.title")}</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">{t("join.subtitle")}</p>
 
-        <form onSubmit={onSubmit} className="mt-5" noValidate>
-          <Label htmlFor="join-code">{t("join.codeLabel")}</Label>
-          <Input
-            id="join-code"
-            className="mt-1.5 h-11 font-mono text-lg tracking-wide"
-            value={code}
-            onChange={(e) => {
-              setCode(format(e.target.value));
-              setError(null);
-            }}
-            autoCapitalize="characters"
-            autoComplete="off"
-            spellCheck={false}
-            inputMode="text"
-            maxLength={9}
-            aria-describedby="join-code-hint"
-            aria-invalid={error ? true : undefined}
-          />
-          <p id="join-code-hint" className="text-muted-foreground mt-1.5 text-xs">
-            {t("join.codeHint")}
+        {error ? (
+          <p role="alert" className="text-destructive mt-3 text-xs">
+            {error}
           </p>
-
-          {error ? (
-            <p role="alert" className="text-destructive mt-1.5 text-xs">
-              {error}
-            </p>
-          ) : null}
-
-          <Button
-            type="submit"
-            size="lg"
-            className="mt-5 w-full"
-            disabled={!isComplete(code)}
-          >
-            {t("join.continue")}
-          </Button>
-        </form>
+        ) : null}
+        <div className="mt-5">
+          {/* The confirm step is mandatory (§6.2): nothing creates an account here. */}
+          <JoinCodeForm
+            id="join-code"
+            initial={codeParam ?? ""}
+            onContinue={(code) => void navigate(`/join/${code}/confirm`)}
+          />
+        </div>
       </Card>
 
       <p className="text-muted-foreground mt-5 text-center text-xs leading-relaxed">

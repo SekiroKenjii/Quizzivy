@@ -153,6 +153,10 @@ func (s *Service) Resume(ctx context.Context, live domain.AttemptRecord, r domai
 }
 
 func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon string, r domain.Rules) (domain.Session, error) {
+	sections, err := s.Store.Sections(ctx, a.TestVersionID)
+	if err != nil {
+		return domain.Session{}, err
+	}
 	questions, err := s.Store.Questions(ctx, a.TestVersionID)
 	if err != nil {
 		return domain.Session{}, err
@@ -167,7 +171,9 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	}
 	return domain.Session{
 		Attempt:     a.Attempt,
-		Questions:   domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, questions),
+		TestTitle:   r.TestTitle,
+		Sections:    sections,
+		Questions:   domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions),
 		SessionID:   a.SessionID,
 		BeaconToken: beacon,
 		ServerTime:  s.Now(),

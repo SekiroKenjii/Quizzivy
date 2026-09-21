@@ -14,6 +14,11 @@ export function fetchCurrentUser(signal?: AbortSignal): Promise<User> {
   return api("get", "/auth/me", signal ? { signal } : {});
 }
 
+/** The "Hồ sơ" card's save. The email is not here: only an admin moves that. */
+export function updateProfile(fullName: string) {
+  return api("patch", "/auth/me", { body: { fullName } });
+}
+
 export function login(email: string, password: string) {
   return api("post", "/auth/login", { body: { email, password } });
 }

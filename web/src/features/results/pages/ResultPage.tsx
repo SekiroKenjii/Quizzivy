@@ -11,10 +11,14 @@ import {
   RefreshCw,
   ScrollText,
 } from "lucide-react";
+import { BackLink } from "@/components/shared/BackLink";
 import { Markdown } from "@/components/shared/Markdown";
+import { PageAside } from "@/components/shared/PageAside";
+import { PanelLabel, PanelRow } from "@/components/shared/PanelLabel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { DOT, OPTION, optionKey } from "@/features/attempts/components/answerStyles";
@@ -22,6 +26,7 @@ import { scoreText } from "@/features/assignments/studentTime";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { Answer } from "@/features/take-test/api";
 import { blankInputs } from "@/features/take-test/components/blankInputs";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useDetailShell } from "@/layouts/detailShell";
 import { ApiError } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -35,12 +40,15 @@ type Chip = "all" | "wrong" | "pending";
 
 /**
  * S-09: the score if allowed, then every question with exactly what the
- * policy released. A withheld block is a muted sentence, never a gap.
+ * policy released. A withheld block is a muted sentence, never a gap. From
+ * 1024px it is S-16: the paper in the middle at 720px, the score and the
+ * counts in F-11's panel.
  */
 export default function ResultPage() {
   const { t } = useTranslation();
   const { attemptId = "" } = useParams<{ attemptId: string }>();
   const shell = useDetailShell();
+  const wide = useMediaQuery("(min-width: 1024px)");
   const [chip, setChip] = useState<Chip>("all");
 
   const result = useQuery({
@@ -76,6 +84,7 @@ export default function ResultPage() {
   const data = result.data;
   const { attempt, review, questions } = data;
   const wrong = questions.filter((q) => verdict(q, review) === "wrong").length;
+  const correct = questions.filter((q) => verdict(q, review) === "correct").length;
   const pending = questions.filter((q) => q.pendingManual === true).length;
   const shown = questions.filter((q) => {
     if (chip === "wrong") return verdict(q, review) === "wrong";
@@ -84,8 +93,50 @@ export default function ResultPage() {
   });
   const hasAudio = questions.some((q) => q.media?.kind === "audio");
 
+  const scoreBlock = review.showScore ? (
+    <ScoreTile data={data} pending={pending} compact={wide} />
+  ) : (
+    <Card>
+      <CardContent className="text-center">
+        <Lock className="text-muted-foreground mx-auto size-6" aria-hidden="true" />
+        <p className="mt-3 text-sm font-medium">{t("result.hiddenTitle")}</p>
+        <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
+          {t("result.hiddenBody", {
+            time: attempt.submittedAt ? formatTime(attempt.submittedAt) : "",
+            date: attempt.submittedAt ? shortDate(attempt.submittedAt) : "",
+          })}
+        </p>
+      </CardContent>
+    </Card>
+  );
+  const noKey = !review.showCorrectAnswers && (
+    <p className="text-muted-foreground flex items-start gap-1.5 text-xs leading-relaxed">
+      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+      <span>{t("result.noKey")}</span>
+    </p>
+  );
+
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", wide && "mx-auto max-w-[720px]")}>
+      {wide && (
+        <div>
+          <BackLink to="/app">{t("student.myAssignments")}</BackLink>
+          <h1 className="mt-3 text-xl leading-snug font-semibold tracking-tight">
+            {data.testTitle}
+          </h1>
+          {attempt.submittedAt && (
+            <p className="text-muted-foreground mt-1 text-xs">
+              {t("result.submittedMeta", {
+                time: formatTime(attempt.submittedAt),
+                date: shortDate(attempt.submittedAt),
+                n: attempt.attemptNo,
+                total: data.maxAttempts,
+              })}
+            </p>
+          )}
+        </div>
+      )}
+
       {pending > 0 && review.showScore && (
         <div className="bg-muted/40 flex items-start gap-2.5 rounded-md px-3 py-2.5">
           <Pencil
@@ -101,42 +152,24 @@ export default function ResultPage() {
         </div>
       )}
 
-      {review.showScore ? (
-        <ScoreTile data={data} pending={pending} />
-      ) : (
-        <>
-          <Card>
-            <CardContent className="text-center">
-              <Lock
-                className="text-muted-foreground mx-auto size-6"
-                aria-hidden="true"
-              />
-              <p className="mt-3 text-sm font-medium">{t("result.hiddenTitle")}</p>
-              <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
-                {t("result.hiddenBody", {
-                  time: attempt.submittedAt ? formatTime(attempt.submittedAt) : "",
-                  date: attempt.submittedAt ? shortDate(attempt.submittedAt) : "",
-                })}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="space-y-2">
-              <p className="text-sm font-medium">{t("result.yourPaper")}</p>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                {t(
-                  review.showCorrectAnswers
-                    ? "result.answeredWithKey"
-                    : "result.answeredNoKey",
-                  {
-                    answered: questions.filter((q) => q.answer !== null).length,
-                    total: questions.length,
-                  },
-                )}
-              </p>
-            </CardContent>
-          </Card>
-        </>
+      {!wide && scoreBlock}
+      {!review.showScore && (
+        <Card>
+          <CardContent className="space-y-2">
+            <p className="text-sm font-medium">{t("result.yourPaper")}</p>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {t(
+                review.showCorrectAnswers
+                  ? "result.answeredWithKey"
+                  : "result.answeredNoKey",
+                {
+                  answered: questions.filter((q) => q.answer !== null).length,
+                  total: questions.length,
+                },
+              )}
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       <div
@@ -160,12 +193,7 @@ export default function ResultPage() {
         ))}
       </div>
 
-      {!review.showCorrectAnswers && (
-        <p className="text-muted-foreground flex items-start gap-1.5 text-xs leading-relaxed">
-          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          <span>{t("result.noKey")}</span>
-        </p>
-      )}
+      {!wide && noKey}
 
       {shown.map((question) => (
         <QuestionCard
@@ -182,6 +210,50 @@ export default function ResultPage() {
         </p>
       )}
       {hasAudio && null}
+
+      {wide && (
+        <PageAside label={t("result.panel")}>
+          <div>
+            <PanelLabel>{t("result.panel")}</PanelLabel>
+            {scoreBlock}
+          </div>
+          <div className="space-y-2">
+            {review.showScore && (
+              <>
+                <PanelRow label={t("result.rows.correct")}>
+                  <span className="tabular-nums">{correct}</span>
+                </PanelRow>
+                <PanelRow label={t("result.rows.wrong")}>
+                  <span className="tabular-nums">{wrong}</span>
+                </PanelRow>
+              </>
+            )}
+            <PanelRow label={t("result.rows.pending")}>
+              <span className="tabular-nums">{pending}</span>
+            </PanelRow>
+            {attempt.submittedAt && (
+              <PanelRow label={t("result.rows.submittedAt")}>
+                {t("result.rows.moment", {
+                  time: formatTime(attempt.submittedAt),
+                  date: shortDate(attempt.submittedAt),
+                })}
+              </PanelRow>
+            )}
+            <PanelRow label={t("result.rows.attempt")}>
+              {t("result.rows.attemptOf", {
+                n: attempt.attemptNo,
+                total: data.maxAttempts,
+              })}
+            </PanelRow>
+          </div>
+          {noKey && (
+            <>
+              <Separator />
+              {noKey}
+            </>
+          )}
+        </PageAside>
+      )}
     </div>
   );
 }
@@ -190,10 +262,12 @@ function hasAny(questions: ResultQuestion[]): boolean {
   return questions.length > 0;
 }
 
+/** S-09's tile; `compact` is S-16's, whose "Nộp lúc" line the panel says in a row. */
 function ScoreTile({
   data,
   pending,
-}: Readonly<{ data: AttemptResult; pending: number }>) {
+  compact = false,
+}: Readonly<{ data: AttemptResult; pending: number; compact?: boolean }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const { attempt } = data;
@@ -233,7 +307,7 @@ function ScoreTile({
             style={{ width: `${percent}%` }}
           />
         </span>
-        {attempt.submittedAt && (
+        {attempt.submittedAt && !compact && (
           <p className="text-muted-foreground mt-3 text-xs">
             {t("result.submittedMeta", {
               time: formatTime(attempt.submittedAt),

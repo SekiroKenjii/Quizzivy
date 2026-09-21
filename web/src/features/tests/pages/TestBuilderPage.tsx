@@ -266,10 +266,12 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [unsaved]);
 
-  const draftQuestions = questionIds.flatMap((questionId) => {
-    const found = loaded[questionIds.indexOf(questionId)]?.data;
-    return found ? [found] : [];
-  });
+  const draftQuestions = sections.flatMap((section) =>
+    section.questionIds.flatMap((questionId) => {
+      const found = loaded[questionIds.indexOf(questionId)]?.data;
+      return found ? [{ sectionId: section.id ?? "", question: found }] : [];
+    }),
+  );
 
   return (
     <div className="-m-6 flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden">

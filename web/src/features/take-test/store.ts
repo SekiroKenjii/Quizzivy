@@ -14,6 +14,7 @@ import {
   type AttemptSession,
   type IntegrityPolicy,
   type StudentQuestion,
+  type StudentSection,
 } from "./api";
 
 /** Why the paper is no longer writable. Null while the student is working. */
@@ -35,6 +36,9 @@ interface TakeTestState {
   beaconToken: string;
   /** Already in presentation order; the server shuffled it and it must not move. */
   questions: StudentQuestion[];
+  /** In test order; questions never interleave two of them (S-08's rail). */
+  sections: StudentSection[];
+  testTitle: string;
   answers: Record<string, Answer>;
   /** Question ids edited since the server last confirmed them. */
   dirty: Set<string>;
@@ -83,6 +87,8 @@ const initial = {
   sessionId: null,
   beaconToken: "",
   questions: [] as StudentQuestion[],
+  sections: [] as StudentSection[],
+  testTitle: "",
   answers: {} as Record<string, Answer>,
   dirty: new Set<string>(),
   touchedAt: {} as Record<string, number>,
@@ -117,6 +123,8 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         sessionId: session.sessionId,
         beaconToken: session.beaconToken,
         questions: session.questions,
+        sections: session.sections,
+        testTitle: session.testTitle,
         answers,
         audioPlays: session.audioPlays,
         integrity: session.integrity,

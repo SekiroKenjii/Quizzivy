@@ -38,6 +38,8 @@ const (
 // the paper in presentation order, and the identity of this tab.
 type Session struct {
 	Attempt     Attempt
+	TestTitle   string
+	Sections    []Section
 	Questions   []Question
 	SessionID   string
 	BeaconToken string
@@ -68,6 +70,7 @@ type Rules struct {
 	ShuffleQuestions bool
 	ShuffleOptions   bool
 	Integrity        Integrity
+	TestTitle        string
 	Targeted         bool
 }
 

@@ -9,7 +9,7 @@ import "@/lib/i18n";
 function question(
   over: Partial<StudentQuestion> & { type: StudentQuestion["type"] },
 ): StudentQuestion {
-  return { id: "q1", prompt: "Prompt", points: 1, ...over };
+  return { id: "q1", sectionId: "s1", prompt: "Prompt", points: 1, ...over };
 }
 
 function renderQuestion(q: StudentQuestion, answer?: Answer) {
@@ -105,9 +105,9 @@ describe("fill_blank", () => {
         type: "fill_blank",
         prompt: "If it {{1}} tomorrow, we {{2}} the trip, and {{3}} home.",
         blanks: [
-          { id: "b1", ordinal: 1 },
-          { id: "b2", ordinal: 2 },
-          { id: "b3", ordinal: 3 },
+          { id: "b1", ordinal: 1, caseSensitive: false },
+          { id: "b2", ordinal: 2, caseSensitive: false },
+          { id: "b3", ordinal: 3, caseSensitive: false },
         ],
       }),
     );
@@ -124,7 +124,7 @@ describe("fill_blank", () => {
       question({
         type: "fill_blank",
         prompt: "If it {{1}} tomorrow, we cancel.",
-        blanks: [{ id: "b1", ordinal: 1 }],
+        blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
       }),
     );
     expect(screen.getByText(/If it/)).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe("fill_blank", () => {
         question={question({
           type: "fill_blank",
           prompt: "She **{{1}} here** now.",
-          blanks: [{ id: "b1", ordinal: 1 }],
+          blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
         })}
         answer={undefined}
         onAnswer={vi.fn()}
@@ -154,7 +154,7 @@ describe("fill_blank", () => {
       question({
         type: "fill_blank",
         prompt: "If it {{1}} tomorrow.",
-        blanks: [{ id: "b1", ordinal: 1 }],
+        blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
       }),
     );
     await userEvent.type(screen.getByRole("textbox"), "r");
@@ -211,9 +211,9 @@ describe("blank ordering", () => {
           type: "fill_blank",
           prompt: "First {{1}}, then {{2}}, last {{3}}.",
           blanks: [
-            { id: "third", ordinal: 3 },
-            { id: "first", ordinal: 1 },
-            { id: "second", ordinal: 2 },
+            { id: "third", ordinal: 3, caseSensitive: false },
+            { id: "first", ordinal: 1, caseSensitive: false },
+            { id: "second", ordinal: 2, caseSensitive: false },
           ],
         })}
         answer={undefined}
@@ -252,8 +252,8 @@ describe("what the question says it is worth", () => {
         points: 2,
         prompt: "If it {{1}} tomorrow, we {{2}} the trip.",
         blanks: [
-          { id: "b1", ordinal: 1 },
-          { id: "b2", ordinal: 2 },
+          { id: "b1", ordinal: 1, caseSensitive: false },
+          { id: "b2", ordinal: 2, caseSensitive: false },
         ],
       }),
     );
@@ -267,9 +267,9 @@ describe("what the question says it is worth", () => {
         points: 2,
         prompt: "{{1}} {{2}} {{3}}",
         blanks: [
-          { id: "b1", ordinal: 1 },
-          { id: "b2", ordinal: 2 },
-          { id: "b3", ordinal: 3 },
+          { id: "b1", ordinal: 1, caseSensitive: false },
+          { id: "b2", ordinal: 2, caseSensitive: false },
+          { id: "b3", ordinal: 3, caseSensitive: false },
         ],
       }),
     );
@@ -284,5 +284,46 @@ describe("what the question says it is worth", () => {
   it("says only the total for a choice question", () => {
     render1(question({ type: "single_choice", points: 1, options }));
     expect(screen.getByText("1 điểm")).toBeInTheDocument();
+  });
+});
+
+describe("the fill-blank matching rule (S-05)", () => {
+  const render1 = (q: StudentQuestion) =>
+    render(<QuestionCard question={q} onAudioExpired={vi.fn()} />);
+
+  it("says capitals do not matter when no blank is case-sensitive", () => {
+    render1(
+      question({
+        type: "fill_blank",
+        prompt: "If it {{1}} tomorrow.",
+        blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
+      }),
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Không phân biệt hoa thường. Viết đúng chính tả.",
+    );
+  });
+
+  it("says capitals matter as soon as one blank is case-sensitive", () => {
+    render1(
+      question({
+        type: "fill_blank",
+        prompt: "{{1}} {{2}}",
+        blanks: [
+          { id: "b1", ordinal: 1, caseSensitive: false },
+          { id: "b2", ordinal: 2, caseSensitive: true },
+        ],
+      }),
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Phân biệt hoa thường. Viết đúng chính tả.",
+    );
+  });
+
+  it("puts a short answer's worth and word count on one row", () => {
+    render1(question({ type: "short_answer", points: 5 }));
+    const row = screen.getByText("5 điểm · giáo viên chấm tay").parentElement!;
+    expect(row).toHaveTextContent("0 từ");
+    expect(screen.queryByRole("note")).toBeNull();
   });
 });

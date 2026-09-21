@@ -48,3 +48,13 @@ type ChangePasswordRecord struct {
 	IP            *string
 	UserAgent     *string
 }
+
+// RenameRecord is an account changing its own display name. Nothing else about
+// the account travels with it: the email is the login and only an admin moves it.
+type RenameRecord struct {
+	UserID    string
+	FullName  string
+	Now       time.Time
+	IP        *string
+	UserAgent *string
+}

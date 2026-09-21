@@ -30,7 +30,8 @@
       "hours": "Giờ",
       "minutes": "Phút"
     },
-    "pickTime": "Chọn giờ"
+    "pickTime": "Chọn giờ",
+    "saveChanges": "Lưu thay đổi"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -134,12 +135,22 @@
       "questions": "Số câu",
       "questionsValue": "{{questions}} · {{points}} điểm",
       "seeTranscript": "Xem lời thoại bài nghe",
-      "classAndTeacher": "{{className}} · {{teacher}}"
+      "classAndTeacher": "{{className}} · {{teacher}}",
+      "summary": "Tóm tắt"
     },
     "questions_one": "{{count}} câu",
     "questions_other": "{{count}} câu",
     "submittedOn": "Nộp {{date}}",
-    "resumeBodyLeft": "{{title}}. Đồng hồ vẫn đang chạy, còn {{left}}."
+    "resumeBodyLeft": "{{title}}. Đồng hồ vẫn đang chạy, còn {{left}}.",
+    "homePanel": "Sắp tới và lớp của tôi",
+    "inClasses_one": "Bạn đang ở trong {{count}} lớp.",
+    "inClasses_other": "Bạn đang ở trong {{count}} lớp.",
+    "classOpen_one": "{{count}} bài đang mở",
+    "classOpen_other": "{{count}} bài đang mở",
+    "classOpenNone": "Không có bài đang mở",
+    "classSubmitted_one": "{{count}} bài đã nộp",
+    "classSubmitted_other": "{{count}} bài đã nộp",
+    "classesNav": "Lớp"
   },
   "changePassword": {
     "title": "Đổi mật khẩu",
@@ -194,7 +205,8 @@
     },
     "haveAccount": "Đã có tài khoản?",
     "signIn": "Đăng nhập",
-    "anotherCode": "Nhập mã khác"
+    "anotherCode": "Nhập mã khác",
+    "panelNote": "Bạn sẽ thấy tên lớp và giáo viên trước khi xác nhận tham gia."
   },
   "classDetail": {
     "joinCode": "Mã tham gia lớp",
@@ -355,7 +367,6 @@
     "email": "Email",
     "password": "Mật khẩu",
     "passwordChanged": "Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.",
-    "noPassword": "Tài khoản này đăng nhập bằng Google nên chưa có mật khẩu.",
     "google": "Tài khoản Google",
     "googleLinked": "Đã liên kết với Google.",
     "googleNotLinked": "Chưa liên kết với Google.",
@@ -365,6 +376,23 @@
     "locale": {
       "vi": "Tiếng Việt",
       "en": "English"
+    },
+    "account": "Tài khoản",
+    "role": "Vai trò",
+    "roleStudent": "Học viên",
+    "signInWith": "Đăng nhập",
+    "signInPassword": "Mật khẩu",
+    "signInGoogle": "Google",
+    "since": "Tài khoản từ",
+    "classCount": "Lớp",
+    "googleBothExplainer": "Bạn có thể đăng nhập bằng Google hoặc bằng mật khẩu. Bỏ liên kết thì chỉ còn mật khẩu.",
+    "languageExplainer": "Đổi ngôn ngữ giao diện. Đề thi vẫn hiện đúng như giáo viên soạn.",
+    "profileSaved": "Đã lưu họ và tên.",
+    "emailFromGoogle": "Email lấy từ tài khoản Google, không đổi được.",
+    "emailFromTeacher": "Email do giáo viên cấp, không đổi được.",
+    "errors": {
+      "nameRequired": "Họ và tên không được để trống.",
+      "nameTooLong": "Họ và tên tối đa 200 ký tự."
     }
   },
   "media": {
@@ -1097,7 +1125,12 @@
     "submittedBody_timer_expired": "Hết thời gian làm bài, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
     "submittedBody_auto_submit": "Bài làm ghi nhận bạn rời khỏi trang sau lần cuối được cho phép, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
     "submittedMeta": "Nộp lúc {{time}} · {{date}} · {{answered}}/{{total}} câu đã trả lời",
-    "backHome": "Về trang chủ"
+    "backHome": "Về trang chủ",
+    "sectionNote": "{{title}} — {{text}}",
+    "sectionMeta": "{{section}} — Câu {{n}} / {{total}} · {{points}}",
+    "questionMeta": "Câu {{n}} / {{total}} · {{points}}",
+    "blankRuleInsensitive": "Không phân biệt hoa thường. Viết đúng chính tả.",
+    "blankRuleSensitive": "Phân biệt hoa thường. Viết đúng chính tả."
   },
   "integrity": {
     "leftTitle": "Bạn vừa rời khỏi trang làm bài",
@@ -1389,7 +1422,17 @@
     "youChose": "bạn chọn",
     "correctOption": "đáp án đúng",
     "loadFailed": "Không tải được kết quả",
-    "loadFailedBody": "Bài làm của bạn đã nộp và vẫn được lưu. Kiểm tra kết nối rồi thử lại."
+    "loadFailedBody": "Bài làm của bạn đã nộp và vẫn được lưu. Kiểm tra kết nối rồi thử lại.",
+    "panel": "Kết quả",
+    "rows": {
+      "correct": "Đúng",
+      "wrong": "Sai",
+      "pending": "Chờ chấm",
+      "submittedAt": "Nộp lúc",
+      "moment": "{{time}} · {{date}}",
+      "attempt": "Lượt",
+      "attemptOf": "{{n}} / {{total}}"
+    }
   },
   "queue": {
     "summary": {

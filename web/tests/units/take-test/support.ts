@@ -18,6 +18,8 @@ export function session(over: {
       startedAt: "2026-09-01T08:00:00.000Z",
       deadlineAt: over.deadlineAt,
     },
+    testTitle: "Unit 5 — Present perfect & listening",
+    sections: [{ id: "s1", title: "Phần 1", instructions: null }],
     questions: [],
     sessionId: "ses-1",
     beaconToken: "beacon",
@@ -37,3 +39,5 @@ export function session(over: {
 export function text(value: string) {
   return { type: "text", value } as const;
 }
+
+export { viewport } from "@tests/support/viewport";

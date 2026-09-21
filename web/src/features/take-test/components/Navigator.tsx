@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { PageAside } from "@/components/shared/PageAside";
 import { cn } from "@/lib/utils";
+import type { SectionGroup } from "../sections";
 
 /** What one dot needs to know. Computed once by the page, read by every view. */
 export interface DotState {
@@ -16,46 +17,96 @@ export interface DotState {
 /**
  * S-06's grid: one dot per question, three states that combine. The dot is a
  * button, because jumping is the point, and its label carries the states so a
- * screen reader hears "Câu 4, đã đánh dấu" rather than "4".
+ * screen reader hears "Câu 4, đã đánh dấu" rather than "4". With more than one
+ * section the grid splits under each section's title (S-06, S-08) -- the
+ * builder names them "Phần n" by default; one section needs no heading.
  */
 export function QuestionDots({
   dots,
   current,
   onJump,
+  groups = [],
 }: Readonly<{
   dots: DotState[];
   current: number | null;
   onJump: (index: number) => void;
+  groups?: SectionGroup[];
 }>) {
-  const { t } = useTranslation();
+  if (groups.length < 2) {
+    return (
+      <Grid>
+        {dots.map((dot, i) => (
+          <Dot key={dot.id} dot={dot} index={i} current={current} onJump={onJump} />
+        ))}
+      </Grid>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <div key={group.section.id}>
+          <p className="text-muted-foreground mb-2 text-xs">{group.section.title}</p>
+          <Grid>
+            {group.indexes.map((i) => {
+              const dot = dots[i];
+              return dot === undefined ? null : (
+                <Dot
+                  key={dot.id}
+                  dot={dot}
+                  index={i}
+                  current={current}
+                  onJump={onJump}
+                />
+              );
+            })}
+          </Grid>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Grid({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1.5">
-      {dots.map((dot, i) => {
-        const states = [
-          i === current ? t("takeTest.dotCurrent") : null,
-          dot.answered ? t("takeTest.dotAnswered") : null,
-          dot.flagged ? t("takeTest.dotFlagged") : null,
-        ].filter((s): s is string => s !== null);
-        return (
-          <button
-            key={dot.id}
-            type="button"
-            aria-current={i === current ? "true" : undefined}
-            aria-label={[t("takeTest.dotLabel", { n: i + 1 }), ...states].join(", ")}
-            onClick={() => onJump(i)}
-            className={cn(
-              "bg-background grid h-9 place-content-center rounded-md border text-xs tabular-nums",
-              dot.answered && "bg-secondary text-foreground font-medium",
-              dot.flagged && "border-warning/55",
-              i === current &&
-                "border-foreground ring-foreground text-foreground font-semibold ring-1 ring-inset",
-            )}
-          >
-            {i + 1}
-          </button>
-        );
-      })}
+      {children}
     </div>
+  );
+}
+
+function Dot({
+  dot,
+  index,
+  current,
+  onJump,
+}: Readonly<{
+  dot: DotState;
+  index: number;
+  current: number | null;
+  onJump: (index: number) => void;
+}>) {
+  const { t } = useTranslation();
+  const states = [
+    index === current ? t("takeTest.dotCurrent") : null,
+    dot.answered ? t("takeTest.dotAnswered") : null,
+    dot.flagged ? t("takeTest.dotFlagged") : null,
+  ].filter((s): s is string => s !== null);
+  return (
+    <button
+      type="button"
+      aria-current={index === current ? "true" : undefined}
+      aria-label={[t("takeTest.dotLabel", { n: index + 1 }), ...states].join(", ")}
+      onClick={() => onJump(index)}
+      className={cn(
+        "bg-background grid h-9 place-content-center rounded-md border text-xs tabular-nums",
+        dot.answered && "bg-secondary text-foreground font-medium",
+        dot.flagged && "border-warning/55",
+        index === current &&
+          "border-foreground ring-foreground text-foreground font-semibold ring-1 ring-inset",
+      )}
+    >
+      {index + 1}
+    </button>
   );
 }
 
@@ -91,6 +142,7 @@ export function NavigatorSheet({
   onOpenChange,
   dots,
   current,
+  groups,
   onJump,
   onReview,
 }: Readonly<{
@@ -98,6 +150,7 @@ export function NavigatorSheet({
   onOpenChange: (open: boolean) => void;
   dots: DotState[];
   current: number;
+  groups: SectionGroup[];
   onJump: (index: number) => void;
   onReview: () => void;
 }>) {
@@ -106,7 +159,7 @@ export function NavigatorSheet({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="top-auto right-0 bottom-0 left-0 max-w-none translate-x-0 translate-y-0 gap-0 rounded-t-lg rounded-b-none border-t p-4 sm:max-w-none"
+        className="top-auto right-0 bottom-0 left-0 max-h-[85svh] max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-t-lg rounded-b-none border-t p-4 sm:max-w-none"
         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between">
@@ -123,7 +176,7 @@ export function NavigatorSheet({
           </Button>
         </div>
         <div className="mt-4">
-          <QuestionDots dots={dots} current={current} onJump={onJump} />
+          <QuestionDots dots={dots} current={current} onJump={onJump} groups={groups} />
         </div>
         <div className="mt-4">
           <Legend />
@@ -136,24 +189,29 @@ export function NavigatorSheet({
   );
 }
 
-/** From 1024px the same navigator stands beside the paper (S-08). */
+/**
+ * From 1024px the same navigator stands beside the paper (S-08). On the
+ * review it keeps its dots and loses its button: that page is the button (S-15).
+ */
 export function NavigatorRail({
   dots,
   current,
+  groups,
   onJump,
   onReview,
 }: Readonly<{
   dots: DotState[];
-  current: number;
+  current: number | null;
+  groups: SectionGroup[];
   onJump: (index: number) => void;
-  onReview: () => void;
+  onReview?: () => void;
 }>) {
   const { t } = useTranslation();
   const answered = dots.filter((d) => d.answered).length;
   const flagged = dots.filter((d) => d.flagged).length;
   return (
     <PageAside label={t("takeTest.navTitle")} hideBelow="lg">
-      <QuestionDots dots={dots} current={current} onJump={onJump} />
+      <QuestionDots dots={dots} current={current} onJump={onJump} groups={groups} />
       <Separator />
       <div className="text-muted-foreground space-y-1.5 text-xs">
         <p>
@@ -167,9 +225,11 @@ export function NavigatorRail({
           <span className="text-foreground font-medium">{flagged}</span>
         </p>
       </div>
-      <Button className="w-full" onClick={onReview}>
-        {t("takeTest.reviewAndSubmit")}
-      </Button>
+      {onReview !== undefined && (
+        <Button className="w-full" onClick={onReview}>
+          {t("takeTest.reviewAndSubmit")}
+        </Button>
+      )}
     </PageAside>
   );
 }

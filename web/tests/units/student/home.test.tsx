@@ -6,6 +6,7 @@ import StudentHomePage from "@/features/assignments/pages/StudentHomePage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
+import { viewport } from "@tests/support/viewport";
 import { ATTEMPT, BASE, card, mockStart, renderAt } from "./support";
 import "@/lib/i18n";
 
@@ -40,11 +41,13 @@ function home(
 }
 
 beforeEach(() => {
+  viewport("phone");
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-08-29T10:00:00Z")); // 17:00 in Asia/Ho_Chi_Minh
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   useAuthStore.getState().clearSession();
 });
 

@@ -2,14 +2,18 @@ import { useEffect, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, History, List, Repeat, Timer } from "lucide-react";
+import { Clock, History, List, Plus, Repeat, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
+import { PageAside } from "@/components/shared/PageAside";
+import { PanelLabel } from "@/components/shared/PanelLabel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { fetchMyClasses } from "@/features/classes/api";
+import { fetchMyClasses, type MyClass } from "@/features/classes/api";
 import { startOrResumeAttempt } from "@/features/take-test/api";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -23,11 +27,16 @@ import type { Locale } from "@/lib/i18n";
 import { listMyAssignments, type StudentAssignmentCard } from "../api";
 import { closesLine, givenName, scoreText, timeLeft } from "../studentTime";
 
-/** S-03: what to do next, in the order it matters. */
+/**
+ * S-03: what to do next, in the order it matters. From 1024px it is S-13: the
+ * next action and the history in the middle, "Sắp tới" and the student's
+ * classes in F-11's panel.
+ */
 export default function StudentHomePage() {
   const { t, i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const locale = i18n.language as Locale;
+  const wide = useMediaQuery("(min-width: 1024px)");
 
   const assignments = useQuery({
     queryKey: ["my-assignments"],
@@ -43,7 +52,7 @@ export default function StudentHomePage() {
   if (!assignments.isSuccess) {
     return (
       <div className="space-y-5">
-        <h1 className="text-lg font-semibold tracking-tight">
+        <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
           {t("student.greetingPlain", { name })}
         </h1>
         {assignments.isPending ? (
@@ -66,11 +75,45 @@ export default function StudentHomePage() {
   const nothing = dueNow.length + upcoming.length + completed.length === 0;
   const now = new Date();
   const dueToday = due.filter((c) => sameAppDay(c.closesAt, now)).length;
+  const myClasses = classes.data?.items ?? [];
+
+  const upcomingSection = upcoming.length > 0 && (
+    <Section title={t("student.upcoming", { count: upcoming.length })}>
+      {upcoming.map((card) => (
+        <Card
+          key={card.id}
+          className="flex-row items-center gap-3 p-3.5 lg:flex-col lg:items-stretch lg:gap-1"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{card.testTitle}</p>
+            <p className="text-muted-foreground text-xs">
+              {t("student.opensAt", {
+                time: formatTime(card.opensAt),
+                date: weekdayDate(card.opensAt, locale),
+              })}
+            </p>
+          </div>
+          <div className="lg:mt-1">
+            <StatusBadge kind="assignment" status="scheduled" />
+          </div>
+        </Card>
+      ))}
+    </Section>
+  );
+
+  // S-13: a panel with nothing in it is not drawn.
+  const panel = wide && (upcomingSection || myClasses.length > 0) && (
+    <PageAside label={t("student.homePanel")}>
+      {upcomingSection}
+      {upcomingSection && myClasses.length > 0 && <Separator />}
+      {myClasses.length > 0 && <ClassesBlock classes={myClasses} />}
+    </PageAside>
+  );
 
   if (nothing) {
     return (
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">
+        <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
           {t("student.greetingPlain", { name })}
         </h1>
         <div className="mt-6">
@@ -78,7 +121,7 @@ export default function StudentHomePage() {
             {t("student.noAssignments")}
           </EmptyState>
         </div>
-        {classes.data !== undefined && classes.data.items.length === 0 && (
+        {classes.data !== undefined && myClasses.length === 0 && (
           <div className="mt-3">
             <EmptyState
               action={
@@ -91,18 +134,19 @@ export default function StudentHomePage() {
             </EmptyState>
           </div>
         )}
+        {panel}
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">
+        <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
           {t(live ? "student.greetingPlain" : "student.greeting", { name })}
         </h1>
         {due.length > 0 && (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm lg:mt-1">
             {dueToday > 0
               ? t("student.dueToday", { count: dueToday })
               : t("student.dueOpen", { count: due.length })}
@@ -113,27 +157,10 @@ export default function StudentHomePage() {
       {live && <ResumeCard card={live} />}
 
       {due.map((card) => (
-        <DueCard key={card.id} card={card} now={now} />
+        <DueCard key={card.id} card={card} now={now} wide={wide} />
       ))}
 
-      {upcoming.length > 0 && (
-        <Section title={t("student.upcoming", { count: upcoming.length })}>
-          {upcoming.map((card) => (
-            <Card key={card.id} className="flex-row items-center gap-3 p-3.5">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{card.testTitle}</p>
-                <p className="text-muted-foreground text-xs">
-                  {t("student.opensAt", {
-                    time: formatTime(card.opensAt),
-                    date: weekdayDate(card.opensAt, locale),
-                  })}
-                </p>
-              </div>
-              <StatusBadge kind="assignment" status="scheduled" />
-            </Card>
-          ))}
-        </Section>
-      )}
+      {!wide && upcomingSection}
 
       {completed.length > 0 && (
         <Section title={t("student.completed", { count: completed.length })}>
@@ -152,6 +179,8 @@ export default function StudentHomePage() {
                   <p className="truncate text-sm font-medium">{card.testTitle}</p>
                 )}
                 <p className="text-muted-foreground text-xs">
+                  {/* S-13: with room, the row names the class as well. */}
+                  {wide && card.className != null && `${card.className} · `}
                   {card.lastSubmittedAt == null
                     ? t("student.attempt", {
                         n: card.attemptsUsed,
@@ -167,6 +196,8 @@ export default function StudentHomePage() {
           ))}
         </Section>
       )}
+
+      {panel}
     </div>
   );
 }
@@ -177,7 +208,7 @@ function Section({
 }: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
     <section>
-      <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+      <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase lg:mb-3">
         {title}
       </h2>
       <div className="space-y-2">{children}</div>
@@ -185,43 +216,83 @@ function Section({
   );
 }
 
-/** The deck's due card: the one with a button, because it is the one to act on. */
-function DueCard({ card, now }: Readonly<{ card: StudentAssignmentCard; now: Date }>) {
+/** S-13's "Lớp của tôi": the names, who teaches them, and the way into another. */
+function ClassesBlock({ classes }: Readonly<{ classes: MyClass[] }>) {
   const { t } = useTranslation();
   return (
-    <Card className="border-foreground/20 gap-0 p-5 shadow-sm">
-      <div className="flex items-center gap-2">
-        <Badge variant="warning">
-          <Clock aria-hidden="true" />
-          {timeLeft(card.closesAt, now, t)}
-        </Badge>
-        {card.className != null && (
-          <span className="text-muted-foreground text-xs">{card.className}</span>
+    <section>
+      <PanelLabel>{t("student.myClasses")}</PanelLabel>
+      <div className="space-y-3">
+        {classes.map((c) => (
+          <div key={c.id}>
+            <p className="text-sm font-medium">{c.name}</p>
+            {c.teacherName !== null && (
+              <p className="text-muted-foreground mt-0.5 text-xs">{c.teacherName}</p>
+            )}
+          </div>
+        ))}
+      </div>
+      <Button asChild variant="outline" size="sm" className="mt-4">
+        <Link to="/join">
+          <Plus aria-hidden="true" />
+          {t("student.joinClass")}
+        </Link>
+      </Button>
+    </section>
+  );
+}
+
+/**
+ * The deck's due card: the one with a button, because it is the one to act on.
+ * From 1024px it turns sideways, the button at its own width on the right (S-13).
+ */
+function DueCard({
+  card,
+  now,
+  wide,
+}: Readonly<{ card: StudentAssignmentCard; now: Date; wide: boolean }>) {
+  const { t } = useTranslation();
+  return (
+    <Card className="border-foreground/20 gap-0 p-5 shadow-sm lg:flex-row lg:items-center lg:gap-6">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <Badge variant="warning">
+            <Clock aria-hidden="true" />
+            {timeLeft(card.closesAt, now, t)}
+          </Badge>
+          {card.className != null && (
+            <span className="text-muted-foreground text-xs">{card.className}</span>
+          )}
+        </div>
+        <p className="mt-2.5 text-base leading-snug font-semibold lg:text-lg">
+          {card.testTitle}
+        </p>
+        <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-4 text-xs">
+          <span className="flex items-center gap-1.5">
+            <Timer className="size-3.5" aria-hidden="true" />
+            {t("student.minutes", { count: card.durationMinutes })}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <List className="size-3.5" aria-hidden="true" />
+            {t("student.questions", { count: card.questionCount })}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Repeat className="size-3.5" aria-hidden="true" />
+            {t("student.attempt", {
+              n: Math.min(card.attemptsUsed + 1, card.maxAttempts),
+              total: card.maxAttempts,
+            })}
+          </span>
+          {wide && <span>{closesLine(card.closesAt, now, t)}</span>}
+        </div>
+        {!wide && (
+          <p className="text-muted-foreground mt-2 text-xs">
+            {closesLine(card.closesAt, now, t)}
+          </p>
         )}
       </div>
-      <p className="mt-2.5 text-base leading-snug font-semibold">{card.testTitle}</p>
-      <div className="text-muted-foreground mt-2 flex items-center gap-4 text-xs">
-        <span className="flex items-center gap-1.5">
-          <Timer className="size-3.5" aria-hidden="true" />
-          {t("student.minutes", { count: card.durationMinutes })}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <List className="size-3.5" aria-hidden="true" />
-          {t("student.questions", { count: card.questionCount })}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Repeat className="size-3.5" aria-hidden="true" />
-          {t("student.attempt", {
-            n: Math.min(card.attemptsUsed + 1, card.maxAttempts),
-            total: card.maxAttempts,
-          })}
-        </span>
-      </div>
-      <p className="text-muted-foreground mt-2 text-xs">
-        {closesLine(card.closesAt, now, t)}
-      </p>
       {/* To the intro, not the paper: the rules are read before the clock starts (S-04). */}
-      <Button asChild size="lg" className="mt-4 w-full">
+      <Button asChild size="lg" className="mt-4 w-full lg:mt-0 lg:w-auto lg:shrink-0">
         <Link to={`/app/assignments/${card.id}`}>{t("student.start")}</Link>
       </Button>
     </Card>
@@ -253,25 +324,27 @@ function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   };
 
   return (
-    <Card className="border-warning/30 bg-warning/8 gap-0 p-5">
-      <div className="flex items-start gap-3">
-        <History
-          className="text-warning-ink mt-0.5 size-5 shrink-0"
-          aria-hidden="true"
-        />
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">{t("student.resumeTitle")}</p>
-          <ResumeBody card={card} />
+    <Card className="border-warning/30 bg-warning/8 gap-0 p-5 lg:flex-row lg:items-center lg:gap-6">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-3">
+          <History
+            className="text-warning-ink mt-0.5 size-5 shrink-0"
+            aria-hidden="true"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{t("student.resumeTitle")}</p>
+            <ResumeBody card={card} />
+          </div>
         </div>
+        {error !== null && (
+          <p role="alert" className="mt-3 text-xs">
+            {error}
+          </p>
+        )}
       </div>
-      {error !== null && (
-        <p role="alert" className="mt-3 text-xs">
-          {error}
-        </p>
-      )}
       <Button
         size="lg"
-        className="mt-4 w-full"
+        className="mt-4 w-full lg:mt-0 lg:w-auto lg:shrink-0"
         disabled={busy}
         onClick={() => void resume()}
       >

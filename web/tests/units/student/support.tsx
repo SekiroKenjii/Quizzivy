@@ -77,6 +77,8 @@ export function attemptSession() {
       startedAt: "2026-08-29T10:00:00Z",
       deadlineAt: "2026-08-29T10:45:00Z",
     },
+    testTitle: "Unit 5 — Present perfect & listening",
+    sections: [],
     questions: [],
     sessionId: "018f0000-0000-7000-8000-0000000000c9",
     beaconToken: "beacon",

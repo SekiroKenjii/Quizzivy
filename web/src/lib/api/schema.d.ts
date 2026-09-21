@@ -126,7 +126,20 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename yourself
+         * @description The one thing an account may change about itself, and the only write
+         *     behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
+         *
+         *     The name is the account's own; the email is not. An address is issued
+         *     by the teacher or arrives from Google, it is the login, and moving it
+         *     would move who the account is — so it stays read-only here and only
+         *     `PATCH /admin/students/{id}` can change it. Role, password and provider
+         *     links each have their own endpoint for the same reason.
+         *
+         *     Bounds match `users_full_name_check` and createStudent.
+         */
+        patch: operations["updateCurrentUser"];
         trace?: never;
     };
     "/auth/logout": {
@@ -1866,10 +1879,27 @@ export interface components {
             id: components["schemas"]["Uuid"];
             text: string;
         };
-        /** @description No `acceptedAnswers`, no `caseSensitive` — both are grading key. */
+        /**
+         * @description No `acceptedAnswers` — that is the grading key. `caseSensitive` is a
+         *     rule, not a key: the engine states it under the blanks (S-05, "Không
+         *     phân biệt hoa thường"), and a rule the student cannot read is one they
+         *     are graded on blind.
+         */
         StudentBlank: {
             id: components["schemas"]["Uuid"];
             ordinal: number;
+            caseSensitive: boolean;
+        };
+        /**
+         * @description One part of the paper, in test order. `instructions` is the teacher's
+         *     text to the student for this part; the engine shows it above the
+         *     section's first question and the navigator groups the numbers under
+         *     `title` (S-05, S-06, S-08).
+         */
+        StudentSection: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            instructions: string | null;
         };
         /**
          * @description What a student receives while taking a test. Contains none of
@@ -1884,6 +1914,8 @@ export interface components {
         StudentQuestion: {
             /** @description A `test_version_questions` id — never a bank question id (§7). */
             id: components["schemas"]["Uuid"];
+            /** @description The `AttemptSession.sections` entry this question belongs to. */
+            sectionId: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
@@ -2163,7 +2195,15 @@ export interface components {
          */
         AttemptSession: {
             attempt: components["schemas"]["Attempt"];
-            /** @description Already in presentation order, shuffled server-side and stable across reloads (D-02). */
+            /** @description The engine's header names the paper from 1024px up (S-08). */
+            testTitle: string;
+            /** @description In test order. `questions` never interleaves two sections, whatever the shuffle. */
+            sections: components["schemas"]["StudentSection"][];
+            /**
+             * @description Already in presentation order, shuffled server-side and stable
+             *     across reloads (D-02). Shuffling happens inside each section, so
+             *     the order of sections is the order of `sections`.
+             */
             questions: components["schemas"]["StudentQuestion"][];
             /**
              * @description Identifies this device/tab. Every write carries it; a superseded
@@ -2303,6 +2343,11 @@ export interface components {
             testTitle: string;
             /** @description The class this assignment reached the student through. Null unless exactly one targeted class contains them. */
             className?: string | null;
+            /**
+             * Format: uuid
+             * @description The id behind `className`, so S-17 can count a class's papers. Null when `className` is.
+             */
+            classId?: string | null;
             status: components["schemas"]["AssignmentStatus"];
             opensAt: components["schemas"]["Timestamp"];
             closesAt: components["schemas"]["Timestamp"];
@@ -2737,6 +2782,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fullName: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved. The whole user, so the client can replace its session copy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description `VALIDATION_FAILED` — the name is empty or too long. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];

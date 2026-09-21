@@ -30,7 +30,8 @@
       "hours": "Hours",
       "minutes": "Minutes"
     },
-    "pickTime": "Pick a time"
+    "pickTime": "Pick a time",
+    "saveChanges": "Save changes"
   },
   "error": {
     "title": "Something went wrong",
@@ -134,12 +135,22 @@
       "questions": "Questions",
       "questionsValue": "{{questions}} · {{points}} points",
       "seeTranscript": "See the listening transcript",
-      "classAndTeacher": "{{className}} · {{teacher}}"
+      "classAndTeacher": "{{className}} · {{teacher}}",
+      "summary": "Summary"
     },
     "questions_one": "{{count}} question",
     "questions_other": "{{count}} questions",
     "submittedOn": "Submitted {{date}}",
-    "resumeBodyLeft": "{{title}}. The clock is still running, {{left}} left."
+    "resumeBodyLeft": "{{title}}. The clock is still running, {{left}} left.",
+    "homePanel": "Upcoming and my classes",
+    "inClasses_one": "You are in {{count}} class.",
+    "inClasses_other": "You are in {{count}} classes.",
+    "classOpen_one": "{{count}} open paper",
+    "classOpen_other": "{{count}} open papers",
+    "classOpenNone": "No open papers",
+    "classSubmitted_one": "{{count}} paper submitted",
+    "classSubmitted_other": "{{count}} papers submitted",
+    "classesNav": "Classes"
   },
   "changePassword": {
     "title": "Change your password",
@@ -194,7 +205,8 @@
     },
     "haveAccount": "Already have an account?",
     "signIn": "Sign in",
-    "anotherCode": "Enter a different code"
+    "anotherCode": "Enter a different code",
+    "panelNote": "You will see the class and its teacher before you confirm."
   },
   "classDetail": {
     "joinCode": "Class join code",
@@ -355,7 +367,6 @@
     "email": "Email",
     "password": "Password",
     "passwordChanged": "Password changed. Other devices have been signed out.",
-    "noPassword": "This account signs in with Google and has no password.",
     "google": "Google account",
     "googleLinked": "Linked to Google.",
     "googleNotLinked": "Not linked to Google.",
@@ -365,6 +376,23 @@
     "locale": {
       "vi": "Tiếng Việt",
       "en": "English"
+    },
+    "account": "Account",
+    "role": "Role",
+    "roleStudent": "Student",
+    "signInWith": "Sign in",
+    "signInPassword": "Password",
+    "signInGoogle": "Google",
+    "since": "Account since",
+    "classCount": "Classes",
+    "googleBothExplainer": "You can sign in with Google or with your password. Unlinking leaves only the password.",
+    "languageExplainer": "Changes the interface language. Tests still read exactly as your teacher wrote them.",
+    "profileSaved": "Your name has been saved.",
+    "emailFromGoogle": "The email comes from your Google account and cannot be changed.",
+    "emailFromTeacher": "Your teacher issued this email; it cannot be changed here.",
+    "errors": {
+      "nameRequired": "Enter your name.",
+      "nameTooLong": "A name is at most 200 characters."
     }
   },
   "media": {
@@ -1097,7 +1125,12 @@
     "submittedBody_timer_expired": "The time for this test ended, so it went in with the questions you answered. Everything saved stays as it was.",
     "submittedBody_auto_submit": "You left the page after the last allowed time, so the test went in with the questions you answered. Everything saved stays as it was.",
     "submittedMeta": "Submitted at {{time}} · {{date}} · {{answered}}/{{total}} questions answered",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "sectionNote": "{{title}} — {{text}}",
+    "sectionMeta": "{{section}} — Question {{n}} / {{total}} · {{points}}",
+    "questionMeta": "Question {{n}} / {{total}} · {{points}}",
+    "blankRuleInsensitive": "Capital letters do not matter. Spell it exactly.",
+    "blankRuleSensitive": "Capital letters matter. Spell it exactly."
   },
   "integrity": {
     "leftTitle": "You left the test page",
@@ -1389,7 +1422,17 @@
     "youChose": "your choice",
     "correctOption": "correct answer",
     "loadFailed": "Couldn't load the result",
-    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again."
+    "loadFailedBody": "Your paper was submitted and is safe. Check your connection and try again.",
+    "panel": "Result",
+    "rows": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "pending": "Awaiting grading",
+      "submittedAt": "Submitted",
+      "moment": "{{time}} · {{date}}",
+      "attempt": "Attempt",
+      "attemptOf": "{{n}} / {{total}}"
+    }
   },
   "queue": {
     "summary": {
