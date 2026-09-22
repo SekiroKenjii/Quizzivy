@@ -1,57 +1,11 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
 import { cn } from "@/lib/utils";
-import type { ContentBlock, ContentInline, ContentMark } from "./model";
+import type { ContentBlock } from "./model";
 import { validateContent } from "./validation";
 import "./content.css";
-
-function markedText(value: string, marks: ContentMark[]): ReactNode {
-  return marks.reduce<ReactNode>((child, mark) => {
-    switch (mark) {
-      case "bold":
-        return <strong>{child}</strong>;
-      case "italic":
-        return <em>{child}</em>;
-      case "underline":
-        return <u>{child}</u>;
-      case "strike":
-        return <s>{child}</s>;
-      case "superscript":
-        return <sup>{child}</sup>;
-      case "subscript":
-        return <sub>{child}</sub>;
-    }
-  }, value);
-}
-
-function Inline({ node }: Readonly<{ node: ContentInline }>) {
-  const { t } = useTranslation();
-  switch (node.type) {
-    case "text":
-      return <>{markedText(node.text, node.marks)}</>;
-    case "break":
-      return <br />;
-    case "gap":
-      return (
-        <span
-          className="content-gap"
-          role="img"
-          aria-label={t("contentEditor.gapLabel", { label: node.label })}
-        >
-          {node.label}
-        </span>
-      );
-    case "link":
-      return (
-        <a href={node.href} target="_blank" rel="noopener noreferrer">
-          {node.content.map((text, i) => (
-            <Inline key={i} node={text} />
-          ))}
-        </a>
-      );
-  }
-}
+import { ContentInlineView } from "./ContentInlineView";
 
 function Block({ node }: Readonly<{ node: ContentBlock }>) {
   const { t } = useTranslation();
@@ -60,7 +14,7 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
       return (
         <p>
           {node.content.map((inline, i) => (
-            <Inline key={i} node={inline} />
+            <ContentInlineView key={i} node={inline} />
           ))}
         </p>
       );
@@ -69,7 +23,7 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
       return (
         <Heading>
           {node.content.map((inline, i) => (
-            <Inline key={i} node={inline} />
+            <ContentInlineView key={i} node={inline} />
           ))}
         </Heading>
       );

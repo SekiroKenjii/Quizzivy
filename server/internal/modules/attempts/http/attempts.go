@@ -155,7 +155,7 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
 		for i, o := range q.Options {
-			options[i] = openapi.StudentOption{Id: httpapi.ParseUUID(o.ID), Text: o.Text}
+			options[i] = openapi.StudentOption{Id: httpapi.ParseUUID(o.ID), Text: o.Text, Content: o.Content}
 		}
 		out.Options = &options
 	}

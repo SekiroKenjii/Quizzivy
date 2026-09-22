@@ -124,11 +124,27 @@ pin structure, Unicode, projection, table/gap rules and unsafe-data rejection
 against the frontend validator and JSON Schema. The Go parser also bounds raw
 JSON and rejects duplicate keys and malformed encodings before validation.
 [The content contract](19-content-contract.md) names ownership, recovery,
-integration and rollback requirements. No question write, schema migration,
-asset delivery or durable browser storage is enabled yet. D-02 and the recovery
+integration and rollback requirements. That checkpoint added no question write,
+schema migration, asset delivery or durable browser storage; §1.4 now connects
+the bounded inline option subset. D-02 and the recovery
 policy within D-04 are approved. Thuong also approved D-03 group ordering and
 shared recording allowances. Final editor acceptance, the complete graph/revision
 API and implementation of these approved policies remain open.
+
+### 1.4 Implementation checkpoint — inline option slice (W-05a)
+
+Option formatting now connects bank/builder to normalized storage and immutable
+snapshot/restore, previews, attempts/results and teacher review. The bounded
+profile is one paragraph of marked text and breaks; it preserves pronunciation
+underlines without exposing answer metadata or enabling unbound media/gaps.
+`text` remains an exact literal/plain projection. Migration 00032 is additive;
+no old snapshot is rewritten. See `19-content-contract.md` for legacy writes and
+rollback constraints. The pilot formatting affordance is opt-in with
+`VITE_RICH_OPTION_EDITOR`; existing rich readers/editors remain available.
+
+This is a reviewable W-05/W-06 sub-slice, not completion of either package.
+Rich prompts/explanations, structured paste, grouped materials, shared playback,
+revision recovery and the import journey remain the next work packages.
 
 ## 2. Current code and the actual gaps
 

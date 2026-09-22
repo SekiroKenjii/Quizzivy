@@ -277,7 +277,7 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 	}
 	options := make([]openapi.AdminQuestionOption, len(q.Options))
 	for i, o := range q.Options {
-		options[i] = openapi.AdminQuestionOption{Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, IsCorrect: o.IsCorrect}
+		options[i] = openapi.AdminQuestionOption{Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect}
 	}
 	out.Options = &options
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))

@@ -1987,9 +1987,27 @@ export interface components {
             allowSeek: boolean;
             showTranscriptAfterSubmit: boolean;
         };
+        /**
+         * @description Versioned inline option text: one paragraph of marked text and line breaks.
+         *     No links, gaps, media, tables, source metadata or answer keys. The server
+         *     validates the original JSON and requires text to equal its plain projection.
+         *     Omitted content preserves rich formatting only when the current option id and
+         *     text match; stale or changed legacy writes are rejected. Explicit null
+         *     removes formatting. Options without rich content remain plain text.
+         */
+        OptionContent: {
+            /** @constant */
+            format: "semantic_v1";
+            blocks: {
+                /** @constant */
+                type: "paragraph";
+                content: (components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"])[];
+            }[];
+        };
         AdminQuestionOption: {
             id: components["schemas"]["Uuid"];
             ordinal: number;
+            content?: components["schemas"]["OptionContent"] | null;
             text: string;
             isCorrect: boolean;
         };
@@ -2073,6 +2091,7 @@ export interface components {
         /** @description No `isCorrect`. Deliberately not a subset-by-omission of AdminQuestionOption. */
         StudentOption: {
             id: components["schemas"]["Uuid"];
+            content?: components["schemas"]["OptionContent"] | null;
             text: string;
         };
         /**
@@ -2214,7 +2233,7 @@ export interface components {
          */
         PublishValidationError: {
             /** @enum {string} */
-            rule: "points_positive" | "choice_has_correct_option" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
+            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
             message: string;
             /** Format: uuid */
             sectionId?: string | null;
@@ -2620,6 +2639,7 @@ export interface components {
                  * @description Omit to create.
                  */
                 id?: string | null;
+                content?: components["schemas"]["OptionContent"] | null;
                 text: string;
                 isCorrect: boolean;
             }[];

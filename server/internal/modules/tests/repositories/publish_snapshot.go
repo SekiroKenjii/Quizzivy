@@ -92,11 +92,11 @@ func freezeOptions(ctx context.Context, tx pgx.Tx, questionID string, options []
 	}
 	rows := make([][]any, len(options))
 	for i, o := range options {
-		rows[i] = []any{questionID, o.Ordinal, o.Text, o.IsCorrect}
+		rows[i] = []any{questionID, o.Ordinal, o.Text, o.IsCorrect, o.Content}
 	}
 	if _, err := tx.CopyFrom(ctx,
 		pgx.Identifier{"app", "test_version_options"},
-		[]string{"test_version_question_id", "ordinal", "text", "is_correct"},
+		[]string{"test_version_question_id", "ordinal", "text", "is_correct", "content"},
 		pgx.CopyFromRows(rows)); err != nil {
 		return fmt.Errorf("publish: freeze options: %w", err)
 	}

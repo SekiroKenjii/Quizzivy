@@ -1,5 +1,7 @@
 package domain
 
+import "encoding/json"
+
 // DraftContent is the whole outline, resolved against the bank, ready to validate and
 // freeze.
 type DraftContent struct {
@@ -38,6 +40,7 @@ type DraftQuestion struct {
 
 // DraftOption is a choice option as the draft holds it.
 type DraftOption struct {
+	Content   json.RawMessage
 	Ordinal   int
 	Text      string
 	IsCorrect bool
@@ -74,8 +77,9 @@ type PreviewQuestion struct {
 }
 
 type PreviewOption struct {
-	ID   string
-	Text string
+	Content json.RawMessage
+	ID      string
+	Text    string
 }
 
 type PreviewBlank struct {

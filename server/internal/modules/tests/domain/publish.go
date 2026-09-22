@@ -70,6 +70,7 @@ const (
 	BlankHasAcceptedAnswer Rule = "blank_has_accepted_answer"
 	BlankPlaceholdersMatch Rule = "blank_placeholders_match"
 	AudioQuestionHasAsset  Rule = "audio_question_has_asset"
+	OptionContentValid     Rule = "option_content_valid"
 	SectionNotEmpty        Rule = "section_not_empty"
 )
 
@@ -105,6 +106,13 @@ func validateQuestion(section DraftSection, q DraftQuestion, add func(Violation)
 
 	if isChoice(q.Type) && !hasCorrectOption(q.Options) {
 		add(anchor(ChoiceHasCorrectOption, "Câu hỏi trắc nghiệm cần ít nhất một phương án đúng."))
+	}
+
+	for _, option := range q.Options {
+		in := questionsdomain.OptionInput{Text: option.Text, Content: option.Content}
+		if in.ValidateContent() != nil {
+			add(anchor(OptionContentValid, "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản."))
+		}
 	}
 
 	if q.Type == "fill_blank" {

@@ -575,7 +575,8 @@
       "twoOptions": "Cần ít nhất hai lựa chọn.",
       "blankRequired": "Chưa có chỗ trống nào.",
       "answerRequired": "Còn chỗ trống chưa có đáp án.",
-      "placeholderMismatch": "Ký hiệu chỗ trống chưa khớp."
+      "placeholderMismatch": "Ký hiệu chỗ trống chưa khớp.",
+      "optionContent": "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản."
     },
     "preview": "Học viên sẽ thấy",
     "removeOptionN": "Xoá lựa chọn {{n}}",
@@ -584,7 +585,11 @@
     "caseSensitiveFor": "Phân biệt hoa thường cho chỗ trống {{n}}",
     "saved": "Đã lưu câu hỏi",
     "matchingTags": "Thẻ phù hợp",
-    "suggestedTags": "Thẻ gần đây và gợi ý"
+    "suggestedTags": "Thẻ gần đây và gợi ý",
+    "formatOption": "Định dạng phương án {{n}}",
+    "editFormattedOption": "Sửa định dạng phương án {{n}}",
+    "removeFormatting": "Bỏ định dạng",
+    "doneFormatting": "Xong"
   },
   "builder": {
     "outline": "Cấu trúc",

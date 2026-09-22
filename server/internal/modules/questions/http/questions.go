@@ -286,7 +286,12 @@ func toQuestionInput(body openapi.QuestionInput) domain.Input {
 	}
 	if body.Options != nil {
 		for _, o := range *body.Options {
-			in.Options = append(in.Options, domain.OptionInput{Text: o.Text, IsCorrect: o.IsCorrect})
+			option := domain.OptionInput{Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect}
+			if o.Id != nil {
+				id := o.Id.String()
+				option.ID = &id
+			}
+			in.Options = append(in.Options, option)
 		}
 	}
 	if body.Blanks != nil {
@@ -344,7 +349,7 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	options := make([]openapi.AdminQuestionOption, len(q.Options))
 	for i, o := range q.Options {
 		options[i] = openapi.AdminQuestionOption{
-			Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, IsCorrect: o.IsCorrect,
+			Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect,
 		}
 	}
 	out.Options = &options

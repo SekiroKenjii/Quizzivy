@@ -169,7 +169,7 @@ func orZero[T any](p *T) T {
 
 func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct
+		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct, o.content
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -178,7 +178,7 @@ func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []doma
 		func(rows pgx.Rows) (string, domain.ReviewOption, error) {
 			var questionID string
 			var o domain.ReviewOption
-			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect)
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect, &o.Content)
 			return questionID, o, err
 		})
 	if err != nil {

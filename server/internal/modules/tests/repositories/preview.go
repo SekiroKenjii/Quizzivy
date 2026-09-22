@@ -73,7 +73,7 @@ func (s *Postgres) attachPreviewOptions(
 	ctx context.Context, versionID string, out []domain.PreviewQuestion, byID map[string]int,
 ) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id::text, o.id::text, o.text
+		SELECT o.test_version_question_id::text, o.id::text, o.text, o.content
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		  JOIN app.test_version_options o ON o.test_version_question_id = q.id
@@ -82,7 +82,7 @@ func (s *Postgres) attachPreviewOptions(
 		func(rows pgx.Rows) (string, domain.PreviewOption, error) {
 			var questionID string
 			var option domain.PreviewOption
-			err := rows.Scan(&questionID, &option.ID, &option.Text)
+			err := rows.Scan(&questionID, &option.ID, &option.Text, &option.Content)
 			return questionID, option, err
 		})
 	if err != nil {

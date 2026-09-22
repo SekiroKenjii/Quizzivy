@@ -58,7 +58,11 @@ function asStudent(sectionId: string, q: AdminQuestion): StudentQuestion {
     points: q.points,
     media: q.media ?? null,
     audio: q.audio ?? null,
-    options: (q.options ?? []).map((o) => ({ id: o.id, text: o.text })),
+    options: (q.options ?? []).map((o) => ({
+      id: o.id,
+      text: o.text,
+      content: o.content ?? null,
+    })),
     blanks: (q.blanks ?? []).map((b) => ({
       id: b.id,
       ordinal: b.ordinal,

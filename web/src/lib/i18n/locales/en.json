@@ -575,7 +575,8 @@
       "twoOptions": "At least two options are needed.",
       "blankRequired": "There are no blanks yet.",
       "answerRequired": "A blank still has no accepted answer.",
-      "placeholderMismatch": "The blank markers do not match."
+      "placeholderMismatch": "The blank markers do not match.",
+      "optionContent": "Option formatting is invalid or does not match its text."
     },
     "preview": "What the student sees",
     "removeOptionN": "Remove option {{n}}",
@@ -584,7 +585,11 @@
     "caseSensitiveFor": "Case sensitivity for blank {{n}}",
     "saved": "Question saved",
     "matchingTags": "Matching tags",
-    "suggestedTags": "Recent and suggested tags"
+    "suggestedTags": "Recent and suggested tags",
+    "formatOption": "Format option {{n}}",
+    "editFormattedOption": "Edit formatted option {{n}}",
+    "removeFormatting": "Remove formatting",
+    "doneFormatting": "Done"
   },
   "builder": {
     "outline": "Structure",

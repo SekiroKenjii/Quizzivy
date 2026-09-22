@@ -48,7 +48,10 @@ function ToolButton({ tool }: Readonly<{ tool: Tool }>) {
 }
 
 /** ContentToolbar subscribes only to the selection state displayed by its controls. */
-export function ContentToolbar({ editor }: Readonly<{ editor: Editor }>) {
+export function ContentToolbar({
+  editor,
+  profile = "document",
+}: Readonly<{ editor: Editor; profile?: "document" | "option" }>) {
   const { t } = useTranslation();
   const state = useEditorState({
     editor,
@@ -173,9 +176,24 @@ export function ContentToolbar({ editor }: Readonly<{ editor: Editor }>) {
         aria-label={t("contentEditor.formatting")}
         className="flex flex-wrap gap-0.5"
       >
-        {tools.map((tool) => (
-          <ToolButton key={tool.key} tool={tool} />
-        ))}
+        {tools
+          .filter(
+            (tool) =>
+              profile === "document" ||
+              [
+                "bold",
+                "italic",
+                "underline",
+                "strike",
+                "superscript",
+                "subscript",
+                "undo",
+                "redo",
+              ].includes(tool.key),
+          )
+          .map((tool) => (
+            <ToolButton key={tool.key} tool={tool} />
+          ))}
       </div>
       {state.table && (
         <div

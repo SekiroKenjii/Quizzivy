@@ -6,6 +6,35 @@ import {
 import { contentExtensions } from "@/components/shared/content/editor/extensions";
 import { formattingSample, tableSample } from "@tests/support/content-editor/fixtures";
 import type { SemanticContent } from "@/components/shared/content/model";
+import {
+  isOptionContent,
+  plainOptionContent,
+} from "@/components/shared/content/optionContent";
+
+test("option editing preserves underline and undo while refusing structural content", () => {
+  const editor = new Editor({
+    extensions: contentExtensions(undefined, "option"),
+    content: toEditorJSON(plainOptionContent("think")),
+  });
+  try {
+    editor.commands.setTextSelection({ from: 1, to: 3 });
+    editor.commands.toggleUnderline();
+    expect(editor.getHTML()).toContain("<u>th</u>ink");
+    const before = editor.getJSON();
+    editor.commands.toggleHeading({ level: 2 });
+    expect(editor.getJSON()).toEqual(before);
+    editor.commands.insertTable({ rows: 2, cols: 2 });
+    expect(editor.getJSON()).toEqual(before);
+    editor.commands.insertContent({ type: "gap", attrs: { id: "gap1", label: "1" } });
+    expect(editor.getJSON()).toEqual(before);
+    const parsed = fromEditorJSON(editor.getJSON());
+    expect(parsed.ok && isOptionContent(parsed.value)).toBe(true);
+    editor.commands.undo();
+    expect(editor.getHTML()).toBe("<p>think</p>");
+  } finally {
+    editor.destroy();
+  }
+});
 
 test("preserves supported links, line breaks and inert media references", () => {
   const document: SemanticContent = {

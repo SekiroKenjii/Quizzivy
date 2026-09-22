@@ -57,6 +57,7 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
     options: (question.options ?? []).map((option) => ({
       id: option.id,
       text: option.text,
+      content: option.content ?? null,
       isCorrect: option.isCorrect,
     })),
     blanks: (question.blanks ?? []).map((blank) => ({

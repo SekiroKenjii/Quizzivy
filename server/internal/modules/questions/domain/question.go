@@ -4,6 +4,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -31,6 +32,7 @@ type Question struct {
 }
 
 type Option struct {
+	Content   json.RawMessage
 	ID        string
 	Ordinal   int
 	Text      string

@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.9 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.10 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.9**
+
+- Inline option formatting now has additive storage, snapshot/restore and learner
+  readers (§7.1, §13.3). New authoring is a pilot opt-in; legacy options remain
+  literal text and existing published rows are not backfilled.
+- Option documents contain only marked text and line breaks; their plain text
+  must match the stored `text`. Missing rich content in a legacy write cannot
+  silently erase formatting. See `docs/plan/19-content-contract.md`.
 
 **Changes since v0.8**
 
@@ -380,12 +389,27 @@ schema is in `api/openapi.yaml`; aggregate and cross-node rules are described in
 validators. Unknown fields, answer metadata, raw HTML nodes and editor-specific
 JSON are refused. Text is not rewritten or Unicode-normalized during validation.
 
-The standalone components and value object are foundation work, not enabled
-question writes or migrated snapshots. Rich question fields, media bindings,
-group schema, publication, restoration, delivery and grading must be integrated
-before new-format production writes. The renderer never resolves an asset ID
+The general content components and value object remain a foundation for rich
+prompts and grouped material. Each new profile needs matching persistence,
+publication, restoration and delivery before enabling its writes. The inline
+option profile below is the first such slice; media/group integration is pending. The renderer never resolves an asset ID
 without an authorized media binding. Existing question payloads above remain the
-active contract until that integration explicitly changes them.
+active contract except for the additive inline option rollout below.
+
+**Inline option rollout (W-05a).** Choice options may carry optional `content`
+using the `OptionContent` subset: exactly one semantic paragraph of text marks
+and line breaks. Existing option text is literal, not Markdown, and stays exact.
+`text` is the deterministic plain projection when `content` is present. Preserve
+both fields in bank copies, version snapshots, restored drafts, previews,
+attempts, results and teacher review. The document cannot contain links, gaps,
+assets, source metadata or answer keys; grading remains in normalized columns.
+An omitted document on update may retain existing formatting only when the
+current option ID and text match. Stale or changed legacy writes fail atomically;
+explicit `content: null` removes formatting. `VITE_RICH_OPTION_EDITOR=true`
+enables the pilot affordance to format plain options; readers and editing
+existing rich options remain available. This is not an import release or final
+editor acceptance. Prompt/explanation Markdown, grouped content and shared audio
+remain on their existing paths until their separate integration gates pass.
 
 ### 7.2 Word milestone group ordering (approved, not yet enabled)
 
@@ -740,6 +764,13 @@ CREATE INDEX ON app.media_assets (kind, created_at DESC);
 ```
 
 **Question bank** — normalize; do not stuff options into `jsonb`. Options and blanks are ordered, queried, and graded against.
+
+Migration `00032_add_option_content.sql` adds nullable `content jsonb` to
+`question_options` and `test_version_options` for the bounded inline AST only.
+Option identity, order, text and correctness stay relational. No grading key is
+placed in the AST, and no legacy row is rewritten. Read-compatible binaries are
+the rollback floor after rich writes; rolling back the migration discards rich
+formatting and is only a pre-rollout development operation.
 
 ```sql
 CREATE TABLE app.questions (

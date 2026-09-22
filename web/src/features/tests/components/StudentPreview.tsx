@@ -1,3 +1,4 @@
+import { OptionText } from "@/components/shared/content/OptionText";
 import { useTranslation } from "react-i18next";
 import { Headphones } from "lucide-react";
 import { Markdown } from "@/components/shared/Markdown";
@@ -46,7 +47,7 @@ export function StudentPreview({
                     <span className="text-muted-foreground w-4 shrink-0 text-center text-xs">
                       {String.fromCharCode(65 + optionIndex)}
                     </span>
-                    {option.text}
+                    <OptionText text={option.text} content={option.content} />
                   </li>
                 ))}
               </ul>

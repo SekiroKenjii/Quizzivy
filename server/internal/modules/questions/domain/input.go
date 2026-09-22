@@ -1,7 +1,10 @@
 package domain
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/validation"
 	"strings"
 	"time"
@@ -42,6 +45,7 @@ type WriteInput struct {
 }
 
 type OptionInput struct {
+	Content   json.RawMessage
 	ID        *string
 	Text      string
 	IsCorrect bool
@@ -111,6 +115,9 @@ func validateOptions(in Input, add func(string, string)) {
 	}
 	correct := 0
 	for i, o := range in.Options {
+		if err := o.ValidateContent(); err != nil {
+			add(fmt.Sprintf("options[%d].content", i), "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.")
+		}
 		if strings.TrimSpace(o.Text) == "" {
 			add(fmt.Sprintf("options[%d].text", i), "Nội dung phương án không được để trống.")
 		}
@@ -210,3 +217,15 @@ type (
 	FieldError      = validation.Field
 	ValidationError = validation.Error
 )
+
+// ValidateContent checks the optional versioned option document and its exact text projection.
+func (o OptionInput) ValidateContent() error {
+	if len(o.Content) == 0 || bytes.Equal(bytes.TrimSpace(o.Content), []byte("null")) {
+		return nil
+	}
+	document, err := content.ParseOption(o.Content)
+	if err != nil || document.PlainText() != o.Text || strings.TrimSpace(o.Text) == "" {
+		return content.ErrInvalidDocument
+	}
+	return nil
+}

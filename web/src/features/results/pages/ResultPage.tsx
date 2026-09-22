@@ -1,3 +1,4 @@
+import { OptionText } from "@/components/shared/content/OptionText";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
@@ -484,7 +485,9 @@ function Body({
                   <span className={OPTION.key}>
                     {optionKey(options.indexOf(option))}
                   </span>
-                  <span className="text-sm">{option.text}</span>
+                  <span className="text-sm">
+                    <OptionText text={option.text} content={option.content} />
+                  </span>
                   <span className="text-muted-foreground ml-auto self-center text-xs">
                     {optionNote(picked, right, t)}
                   </span>

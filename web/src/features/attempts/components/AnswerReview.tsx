@@ -1,3 +1,4 @@
+import { OptionText } from "@/components/shared/content/OptionText";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
@@ -106,7 +107,9 @@ function Body({
                 )}
               >
                 <span className={OPTION.key}>{optionKey(index)}</span>
-                <span className="text-sm">{option.text}</span>
+                <span className="text-sm">
+                  <OptionText text={option.text} content={option.content} />
+                </span>
                 <span className="text-muted-foreground ml-auto self-center text-xs">
                   {optionNote(picked, option.isCorrect, t)}
                 </span>

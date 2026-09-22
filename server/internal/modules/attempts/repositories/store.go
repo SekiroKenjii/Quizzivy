@@ -311,7 +311,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 
 func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id, o.id, o.text
+		SELECT o.test_version_question_id, o.id, o.text, o.content
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -320,7 +320,7 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 		func(rows pgx.Rows) (string, domain.Option, error) {
 			var questionID string
 			var o domain.Option
-			err := rows.Scan(&questionID, &o.ID, &o.Text)
+			err := rows.Scan(&questionID, &o.ID, &o.Text, &o.Content)
 			return questionID, o, err
 		})
 	if err != nil {

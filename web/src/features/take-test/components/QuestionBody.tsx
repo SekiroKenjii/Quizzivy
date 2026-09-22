@@ -1,3 +1,4 @@
+import { OptionText } from "@/components/shared/content/OptionText";
 import {
   createContext,
   useContext,
@@ -159,7 +160,9 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
               >
                 {optionKey(index)}
               </span>
-              <span className="text-base">{option.text}</span>
+              <span className="text-base">
+                <OptionText text={option.text} content={option.content} />
+              </span>
             </label>
           );
         })}

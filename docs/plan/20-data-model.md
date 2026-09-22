@@ -1274,6 +1274,7 @@ the file it adds.
 | `00029_index_integrity_retention.sql` | integrity retention index | 5 |
 | `00030_test_version_sequence.sql` | monotonic publication counter | Admin change request |
 | `00031_allow_no_focus_loss.sql` | no-departure integrity policy | Admin change request |
+| `00032_add_option_content.sql` | bounded inline documents on normalized bank/snapshot options | Word W-05a |
 
 Notes on migration mechanics (§13.7):
 
@@ -1358,3 +1359,30 @@ in the same transaction; existing audit and attempt events are never updated or
 deleted by the application. Restoring a version creates independent bank rows,
 including frozen grading keys, and takes the draft-use question locks before
 inserting the replacement outline.
+
+
+## 16. Inline option content (W-05a, spec v0.10)
+
+`00032_add_option_content.sql` adds nullable `content jsonb` to
+`app.question_options` and `app.test_version_options`. Each stores one bounded
+`OptionContent` document alongside the existing literal/plain-projection `text`.
+The CHECK accepts SQL NULL or an object with explicit `semantic_v1` format;
+the shared domain validator checks closed shape, marked text/break vocabulary,
+Unicode/budgets and exact text projection before a write and again at publish.
+There are no asset or gap nodes, so this slice adds no media bindings or FK locks.
+Options, ordinals and correctness stay normalized; there is no whole-question or
+whole-version JSON blob. No index is needed: content is loaded with its existing
+parent/ordinal queries and existing search behavior is unchanged.
+
+Question UPDATE takes the parent row lock before replacing children. Under that
+lock, a legacy write omitting content retains it only for a matching current
+option ID and unchanged text; a mismatch aborts the entire write. Explicit JSON
+null removes formatting and is stored as SQL NULL. Bank duplication copies the
+validated document; publication freezes it, restoration copies the snapshot into
+fresh bank option identities. Student/teacher reads use the snapshot document,
+never a live bank join. Existing rows remain SQL NULL without backfill.
+
+Down drops the two columns and preserves relational text/keys but loses rich
+formatting. Do not use it after rollout; retain this schema and compatible readers
+when disabling the pilot authoring flag. App-role privileges and append-only
+logs are unchanged. Up/down/up is tested only on a disposable database.

@@ -105,14 +105,14 @@ func (s *Postgres) loadOptionsFor(ctx context.Context, q db.Querier, questionIDs
 		return map[string][]domain.Option{}, nil
 	}
 	byQuestion, err := db.GroupBy(ctx, q,
-		`SELECT question_id::text, id::text, ordinal, text, is_correct
+		`SELECT question_id::text, id::text, ordinal, text, is_correct, content
 		   FROM app.question_options
 		  WHERE question_id = ANY($1::uuid[])
 		  ORDER BY question_id, ordinal`, []any{questionIDs},
 		func(rows pgx.Rows) (string, domain.Option, error) {
 			var questionID string
 			var o domain.Option
-			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect)
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect, &o.Content)
 			return questionID, o, err
 		})
 	if err != nil {
@@ -256,6 +256,9 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 }
 
 func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain.Input) error {
+	if err := preserveOptionContent(ctx, tx, questionID, in.Options); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM app.question_options WHERE question_id = $1`, questionID); err != nil {
 		return fmt.Errorf("questions: clear options: %w", err)
@@ -265,11 +268,11 @@ func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain
 	}
 	rows := make([][]any, len(in.Options))
 	for i, o := range in.Options {
-		rows[i] = []any{questionID, i, o.Text, o.IsCorrect}
+		rows[i] = []any{questionID, i, o.Text, o.IsCorrect, optionContentValue(o.Content)}
 	}
 	_, err := tx.CopyFrom(ctx,
 		pgx.Identifier{"app", "question_options"},
-		[]string{"question_id", "ordinal", "text", "is_correct"},
+		[]string{"question_id", "ordinal", "text", "is_correct", "content"},
 		pgx.CopyFromRows(rows))
 	if err != nil {
 		return fmt.Errorf("questions: write options: %w", err)

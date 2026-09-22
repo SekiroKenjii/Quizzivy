@@ -113,6 +113,7 @@ export function QuestionEditor({
 
         {isChoice ? (
           <OptionsEditor
+            key={value.type}
             options={value.options}
             multiple={value.type === "multiple_choice"}
             fixed={value.type === "true_false"}

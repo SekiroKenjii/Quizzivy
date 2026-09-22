@@ -64,8 +64,8 @@ func copySnapshotQuestion(ctx context.Context, tx pgx.Tx, sourceID, actorID stri
 	if err != nil {
 		return "", err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO app.question_options (question_id, ordinal, text, is_correct)
-  SELECT $2, ordinal, text, is_correct FROM app.test_version_options WHERE test_version_question_id = $1`, sourceID, id); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.question_options (question_id, ordinal, text, is_correct, content)
+  SELECT $2, ordinal, text, is_correct, content FROM app.test_version_options WHERE test_version_question_id = $1`, sourceID, id); err != nil {
 		return "", err
 	}
 	if err := copySnapshotBlanks(ctx, tx, sourceID, id); err != nil {

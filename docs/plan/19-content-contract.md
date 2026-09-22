@@ -1,7 +1,7 @@
 # Versioned content contract — W-02 foundation
 
-Status: additive domain/API foundation; no production question writer, data
-migration, group persistence or import endpoint is enabled by this change.
+Status: content foundation plus W-05a inline option persistence/readers and a
+pilot authoring affordance. Groups, rich prompts and import endpoints remain pending.
 `api/openapi.yaml` is the structural authority. Go's `shared/content.Parse` and
 the frontend validator enforce the cross-node rules below. They share synthetic
 accept/reject fixtures; generated TS types are the frontend model. Go's domain
@@ -136,3 +136,39 @@ shared across children but separate across two groups using the same asset;
 idempotent playback retries and session handover; immutable published bindings;
 and unchanged legacy deal/audio/leak canaries. This is an approved product policy,
 not an enabled player, new ledger schema or implemented group endpoint.
+
+
+## W-05a — inline option integration
+
+`OptionContent` is a deliberately smaller semantic document: exactly one
+paragraph, with text/marks and breaks only. It inherits all `ContentDocument`
+budgets. It cannot bind media/gaps or carry links, tables, source evidence or
+answer keys. `content.ParseOption` checks original raw JSON, including duplicate
+keys; generated Go request fields use `json.RawMessage` so typed decoding does
+not destroy that evidence. Frontend validation uses the same content validator
+plus this profile. The stored `text` must equal the exact plain projection.
+Legacy options are literal text, unlike legacy Markdown prompts. Conversion
+wraps text/breaks without interpreting Markdown, HTML or normalization.
+
+The additive nullable option field travels through bank CRUD/duplication,
+publication, restore, published/draft preview, attempts, results and teacher
+review. Migration 00032 stores it per normalized option; it does not rewrite
+historical versions. Absent content retains existing rich formatting only with
+a matching current option ID and unchanged text, checked while the parent write
+lock is held. Explicit null clears it. Stale or changed legacy writes roll back
+instead of dropping marks. New clients send the complete document or explicit
+null. Existing full-question concurrency semantics are otherwise unchanged;
+revision-based authoring conflicts remain a later work package.
+
+`VITE_RICH_OPTION_EDITOR` defaults to false and controls the pilot affordance to
+format plain options in both bank and builder. It is a UI rollout flag, not an
+API authorization boundary. Authenticated question writes validate rich content
+regardless of the flag. Existing rich options always remain readable/editable.
+The option editor loads on demand, accepts the inline profile only, maps Enter
+to a line break, rejects formatted/file paste visibly, and updates the existing
+bank save/builder autosave coordinator immediately. No local recovery claim is
+made. Disabling the flag must not remove readers or roll back migration 00032.
+
+W-05/W-06 remain partial: rich prompts/explanations, broader content adapters,
+five-type authoring, safe structured paste, final D-01 acceptance and complete
+shared validation are still pending. W-07–W-09 group/media behavior is unchanged.

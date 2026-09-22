@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -29,8 +30,9 @@ type Section struct {
 // key is to have nowhere to put one (§13.5). CaseSensitive stays because it is
 // the rule the student is graded by, not the key.
 type Option struct {
-	ID   string
-	Text string
+	Content json.RawMessage
+	ID      string
+	Text    string
 }
 
 type Blank struct {

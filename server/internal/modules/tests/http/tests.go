@@ -363,7 +363,7 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
 		for j, o := range q.Options {
-			options[j] = openapi.StudentOption{Id: httpapi.ParseUUID(o.ID), Text: o.Text}
+			options[j] = openapi.StudentOption{Id: httpapi.ParseUUID(o.ID), Text: o.Text, Content: o.Content}
 		}
 		sq.Options = &options
 	}

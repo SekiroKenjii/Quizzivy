@@ -117,14 +117,14 @@ func loadOptions(ctx context.Context, tx pgx.Tx, questionIDs []string) (map[stri
 		return map[string][]domain.DraftOption{}, nil
 	}
 	byQuestion, err := db.GroupBy(ctx, tx,
-		`SELECT question_id::text, ordinal, text, is_correct
+		`SELECT question_id::text, ordinal, text, is_correct, content
 		   FROM app.question_options
 		  WHERE question_id = ANY($1::uuid[])
 		  ORDER BY question_id, ordinal`, []any{questionIDs},
 		func(rows pgx.Rows) (string, domain.DraftOption, error) {
 			var questionID string
 			var o domain.DraftOption
-			err := rows.Scan(&questionID, &o.Ordinal, &o.Text, &o.IsCorrect)
+			err := rows.Scan(&questionID, &o.Ordinal, &o.Text, &o.IsCorrect, &o.Content)
 			return questionID, o, err
 		})
 	if err != nil {

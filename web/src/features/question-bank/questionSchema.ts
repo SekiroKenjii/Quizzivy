@@ -1,3 +1,5 @@
+import { optionContentSchema } from "@/components/shared/content/optionContent";
+import { contentPlainText } from "@/components/shared/content/plainText";
 import { z } from "zod";
 import type { components } from "@/lib/api/schema";
 
@@ -8,11 +10,22 @@ const audioPolicySchema = z.object({
   showTranscriptAfterSubmit: z.boolean(),
 });
 
-const optionSchema = z.object({
-  id: z.uuid().nullable(),
-  text: z.string().min(1, "questionEditor.errors.optionRequired"),
-  isCorrect: z.boolean(),
-});
+const optionSchema = z
+  .object({
+    id: z.uuid().nullable(),
+    text: z.string().min(1, "questionEditor.errors.optionRequired"),
+    isCorrect: z.boolean(),
+    content: optionContentSchema.nullable().optional(),
+  })
+  .refine(
+    (option) =>
+      option.content == null || contentPlainText(option.content) === option.text,
+    { message: "questionEditor.errors.optionContent", path: ["content"] },
+  )
+  .transform(({ content, ...option }) => ({
+    ...option,
+    ...(content === undefined ? {} : { content }),
+  }));
 
 const blankSchema = z.object({
   id: z.uuid().nullable(),

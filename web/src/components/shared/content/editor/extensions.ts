@@ -1,10 +1,12 @@
 import { Extension, Node } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
+import { Slice } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
-import { fromEditorJSON } from "./adapter";
+import { fromEditorJSON, toEditorJSON } from "./adapter";
+import { isOptionContent, plainOptionContent } from "../optionContent";
 import { safeContentURL } from "../validation";
 
 const Gap = Node.create({
@@ -40,6 +42,7 @@ export type EditorNotice = "pasteBlocked" | "editBlocked";
 /** contentExtensions limits the editor to the W03 candidate content vocabulary. */
 export function contentExtensions(
   notify: (notice: EditorNotice) => void = () => undefined,
+  profile: "document" | "option" = "document",
 ) {
   return [
     StarterKit.configure({
@@ -67,19 +70,48 @@ export function contentExtensions(
       addProseMirrorPlugins: () => [
         new Plugin({
           filterTransaction(transaction) {
-            if (!transaction.docChanged || fromEditorJSON(transaction.doc.toJSON()).ok)
+            if (!transaction.docChanged) return true;
+            const parsed = fromEditorJSON(transaction.doc.toJSON());
+            if (parsed.ok && (profile === "document" || isOptionContent(parsed.value)))
               return true;
             queueMicrotask(() => notify("editBlocked"));
             return false;
           },
           props: {
-            handlePaste(_view, event) {
-              if (
-                !event.clipboardData?.files.length &&
-                !event.clipboardData?.getData("text/html")
-              )
+            handleKeyDown(view, event) {
+              if (profile !== "option" || event.key !== "Enter" || event.isComposing)
                 return false;
-              notify("pasteBlocked");
+              const hardBreak = view.state.schema.nodes.hardBreak;
+              if (!hardBreak) return false;
+              view.dispatch(
+                view.state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView(),
+              );
+              return true;
+            },
+            handlePaste(view, event) {
+              if (
+                event.clipboardData?.files.length ||
+                event.clipboardData?.getData("text/html")
+              ) {
+                notify("pasteBlocked");
+                return true;
+              }
+              if (profile !== "option") return false;
+              const text = event.clipboardData?.getData("text/plain") ?? "";
+              const document = plainOptionContent(text);
+              if (!isOptionContent(document)) {
+                notify("pasteBlocked");
+                return true;
+              }
+              const paragraph = view.state.schema.nodeFromJSON(
+                toEditorJSON(document),
+              ).firstChild;
+              if (paragraph)
+                view.dispatch(
+                  view.state.tr
+                    .replaceSelection(new Slice(paragraph.content, 0, 0))
+                    .scrollIntoView(),
+                );
               return true;
             },
             handleDrop(_view, event, _slice, moved) {
