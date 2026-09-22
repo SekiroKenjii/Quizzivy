@@ -33,7 +33,10 @@
     "pickTime": "Pick a time",
     "saveChanges": "Save changes",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "justDuplicated": "Just duplicated",
+    "duplicateNamed": "Duplicate {{name}}",
+    "updated": "Updated"
   },
   "error": {
     "title": "Something went wrong",
@@ -548,7 +551,9 @@
     "removeBlankN": "Remove blank {{n}}",
     "acceptedAnswersFor": "Accepted answers for blank {{n}}",
     "caseSensitiveFor": "Case sensitivity for blank {{n}}",
-    "saved": "Question saved"
+    "saved": "Question saved",
+    "matchingTags": "Matching tags",
+    "suggestedTags": "Recent and suggested tags"
   },
   "builder": {
     "outline": "Structure",
@@ -624,7 +629,9 @@
     "correctOptionRequired": "Choose at least one correct option.",
     "blankAnswerRequired": "A blank has no accepted answer.",
     "blankMismatch": "The blanks do not match the prompt.",
-    "audioRequired": "The listening question has no audio file."
+    "audioRequired": "The listening question has no audio file.",
+    "saveBeforeSwitchFailed": "The question could not be saved. Retry saving before switching questions.",
+    "sectionDropHint": "Drop a question here or add a new question."
   },
   "bank": {
     "filters": "Filters",
@@ -1016,7 +1023,10 @@
     "rosterTotal": "{{count}} students will receive this assignment. Each student is counted once.",
     "rosterOverlap": "Counted duplicate selections once: {{names}}.",
     "rosterLoading": "Counting the selected students…",
-    "rosterFailed": "Could not count the roster. Select to retry."
+    "rosterFailed": "Could not count the roster. Select to retry.",
+    "customDuration": "Custom duration",
+    "customMinutes": "Custom duration (minutes)",
+    "minuteUnit": "minutes"
   },
   "students": {
     "summary": "{{count}} students · {{active}} active in the last 7 days",

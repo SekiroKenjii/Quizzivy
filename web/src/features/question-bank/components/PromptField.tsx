@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Bold, Italic, Link2, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface PromptFieldProps {
   value: string;
+  clearOnFocus?: boolean;
   onChange: (value: string) => void;
   id: string;
 }
@@ -13,8 +15,14 @@ interface PromptFieldProps {
  * The deck's A-04 prompt field: a bordered box with a small toolbar and a
  * "Markdown" hint, over a plain textarea.
  */
-export function PromptField({ value, onChange, id }: Readonly<PromptFieldProps>) {
+export function PromptField({
+  value,
+  onChange,
+  id,
+  clearOnFocus = false,
+}: Readonly<PromptFieldProps>) {
   const { t } = useTranslation();
+  const untouched = useRef(clearOnFocus && value === t("builder.starterPrompt"));
 
   function wrap(marker: string) {
     const field = document.getElementById(id);
@@ -90,7 +98,16 @@ export function PromptField({ value, onChange, id }: Readonly<PromptFieldProps>)
       <Textarea
         id={id}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onFocus={() => {
+          if (untouched.current) {
+            untouched.current = false;
+            onChange("");
+          }
+        }}
+        onChange={(event) => {
+          untouched.current = false;
+          onChange(event.target.value);
+        }}
         className="min-h-18 rounded-none border-0 shadow-none focus-visible:ring-0"
       />
     </div>

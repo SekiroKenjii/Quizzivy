@@ -11,6 +11,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Info, SquarePen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import {
   Card,
@@ -55,8 +56,7 @@ import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 import { failureMessage, fieldMessages } from "@/lib/api/errors";
 import type { TFunction } from "i18next";
 
-const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
-const ATTEMPTS = [1, 2, 3];
+const DURATIONS = [30, 45, 60];
 const FOCUS_LIMITS = [0, 1, 2, 3, 5];
 
 interface Draft {
@@ -282,23 +282,7 @@ export default function AssignmentFormPage() {
                 hint={t("assignments.durationHint")}
               >
                 {(id) => (
-                  <Select
-                    value={String(draft.durationMinutes)}
-                    onValueChange={(next) =>
-                      setDraft((d) => ({ ...d, durationMinutes: Number(next) }))
-                    }
-                  >
-                    <SelectTrigger id={id} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATIONS.map((minutes) => (
-                        <SelectItem key={minutes} value={String(minutes)}>
-                          {t("assignments.minutes", { count: minutes })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <DurationInput id={id} value={draft.durationMinutes} onChange={(durationMinutes) => setDraft((d) => ({ ...d, durationMinutes }))} />
                 )}
               </Field>
               <Field
@@ -308,23 +292,7 @@ export default function AssignmentFormPage() {
                   : {})}
               >
                 {(id) => (
-                  <Select
-                    value={String(draft.maxAttempts)}
-                    onValueChange={(next) =>
-                      setDraft((d) => ({ ...d, maxAttempts: Number(next) }))
-                    }
-                  >
-                    <SelectTrigger id={id} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ATTEMPTS.map((count) => (
-                        <SelectItem key={count} value={String(count)}>
-                          {t("assignments.attemptCount", { count })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input id={id} type="number" min={1} max={32767} step={1} required value={Number.isFinite(draft.maxAttempts) ? draft.maxAttempts : ""} onChange={(event) => setDraft((d) => ({ ...d, maxAttempts: event.target.valueAsNumber }))} />
                 )}
               </Field>
             </div>
@@ -837,6 +805,27 @@ function RosterSummary({
           {t("assignments.rosterOverlap", { names: roster.data.overlaps.join(", ") })}
         </p>
       )}
+    </div>
+  );
+}
+
+function DurationInput({ id, value, onChange }: Readonly<{ id: string; value: number; onChange: (minutes: number) => void }>) {
+  const { t } = useTranslation();
+  const [custom, setCustom] = useState(!DURATIONS.includes(value));
+  const manual = custom || !DURATIONS.includes(value);
+  return (
+    <div className="space-y-2">
+      <Select value={manual ? "custom" : String(value)} onValueChange={(next) => {
+        setCustom(next === "custom");
+        if (next !== "custom") onChange(Number(next));
+      }}>
+        <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {DURATIONS.map((minutes) => <SelectItem key={minutes} value={String(minutes)}>{t("assignments.minutes", { count: minutes })}</SelectItem>)}
+          <SelectItem value="custom">{t("assignments.customDuration")}</SelectItem>
+        </SelectContent>
+      </Select>
+      {manual ? <div className="flex items-center gap-2"><Input aria-label={t("assignments.customMinutes")} type="number" min={1} max={600} step={1} required value={Number.isFinite(value) ? value : ""} onChange={(event) => onChange(event.target.valueAsNumber)} /><span className="text-muted-foreground shrink-0 text-sm">{t("assignments.minuteUnit")}</span></div> : null}
     </div>
   );
 }

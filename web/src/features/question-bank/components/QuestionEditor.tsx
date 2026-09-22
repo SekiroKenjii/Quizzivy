@@ -33,6 +33,7 @@ const CHOICE_TYPES = new Set<QuestionType>([
 
 interface QuestionEditorProps {
   value: QuestionValues;
+  clearPromptOnFocus?: boolean;
   asset: MediaAsset | null;
   /** "Câu 2 · Phần 1" when the builder hosts this; absent on the bank's own page. */
   contextLabel?: string | null;
@@ -51,6 +52,7 @@ interface QuestionEditorProps {
  */
 export function QuestionEditor({
   value,
+  clearPromptOnFocus = false,
   asset,
   onRefresh,
   contextLabel = null,
@@ -104,6 +106,7 @@ export function QuestionEditor({
           <PromptField
             id="question-prompt"
             value={value.prompt}
+            clearOnFocus={clearPromptOnFocus}
             onChange={(prompt) => onChange({ ...value, prompt })}
           />
         </div>

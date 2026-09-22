@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useState } from "react";
+import { History } from "lucide-react";
+import { PageAside } from "@/components/shared/PageAside";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation, useParams } from "react-router";
+import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { StudentPreview } from "@/features/tests/components/StudentPreview";
 import { getTest, listVersions, previewTest } from "@/features/tests/api";
 import type { Locale } from "@/lib/i18n";
@@ -22,6 +23,14 @@ export default function TestDetailPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const locale = useLocale();
+  const { hash } = useLocation();
+  const [historyOpen, setHistoryOpen] = useState(hash === "#versions");
+  const [params, setParams] = useSearchParams();
+  const requestedVersion = Number(params.get("version"));
+  const version =
+    Number.isSafeInteger(requestedVersion) && requestedVersion > 0
+      ? requestedVersion
+      : undefined;
 
   const test = useQuery({
     queryKey: ["admin-test", id],
@@ -32,19 +41,10 @@ export default function TestDetailPage() {
     queryFn: ({ signal }) => listVersions(id, signal),
   });
   const preview = useQuery({
-    queryKey: ["admin-test-preview", id],
-    queryFn: ({ signal }) => previewTest(id, undefined, signal),
+    queryKey: ["admin-test-preview", id, version],
+    queryFn: ({ signal }) => previewTest(id, version, signal),
     retry: false,
   });
-
-  // The builder's "Phiên bản" lands on the history card, not the top of the page.
-  const { hash } = useLocation();
-  const ready = test.isSuccess;
-  useEffect(() => {
-    if (ready && hash === "#versions") {
-      document.getElementById("versions")?.scrollIntoView?.({ block: "start" });
-    }
-  }, [ready, hash]);
 
   if (test.isPending) {
     return <ListSkeleton rows={6} />;
@@ -67,63 +67,72 @@ export default function TestDetailPage() {
         backTo="/admin/tests"
         meta={<StatusBadge kind="test" status={test.data.status} />}
         actions={
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="lg:hidden"
+              onClick={() => setHistoryOpen(true)}
+            >
+              <History aria-hidden="true" />
+              {t("tests.versionHistory")}
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
+            </Button>
+          </>
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <div>
-            <h2 className="text-[0.9375rem] font-semibold tracking-[-0.01em]">
-              {t("tests.preview")}
-            </h2>
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {preview.data
-                ? t("tests.previewOf", { n: preview.data.version })
-                : t("tests.previewNote")}
-            </p>
-          </div>
-
-          {notPublished && !preview.isPending ? (
-            <div className="space-y-3">
-              <p className="text-muted-foreground text-sm">{t("tests.notPublished")}</p>
-              <Button asChild size="sm">
-                <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
-              </Button>
-            </div>
-          ) : (
-            <QueryStates
-              query={preview}
-              skeleton={<ListSkeleton rows={4} />}
-              failed={t("tests.previewFailed")}
-            >
-              {(data) => <StudentPreview questions={data.questions} />}
-            </QueryStates>
-          )}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-[0.9375rem] font-semibold tracking-[-0.01em]">
+            {t("tests.preview")}
+          </h2>
+          <p className="text-muted-foreground mt-0.5 text-sm">
+            {preview.data
+              ? t("tests.previewOf", { n: preview.data.version })
+              : t("tests.previewNote")}
+          </p>
         </div>
 
-        <Card asChild className="gap-0 py-0">
-          <section
-            id="versions"
-            aria-labelledby="versions-heading"
-            className="self-start"
+        {notPublished && !preview.isPending ? (
+          <div className="space-y-3">
+            <p className="text-muted-foreground text-sm">{t("tests.notPublished")}</p>
+            <Button asChild size="sm">
+              <Link to={`/admin/tests/${id}/edit`}>{t("tests.openBuilder")}</Link>
+            </Button>
+          </div>
+        ) : (
+          <QueryStates
+            query={preview}
+            skeleton={<ListSkeleton rows={4} />}
+            failed={t("tests.previewFailed")}
           >
-            <div className="px-5 pt-4 pb-3">
-              <h2
-                id="versions-heading"
-                className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
-              >
-                {t("tests.versionHistory")}
-              </h2>
-            </div>
-            <div className="px-5 pb-4">
-              <VersionHistory query={versions} locale={locale} />
-            </div>
-          </section>
-        </Card>
+            {(data) => <StudentPreview questions={data.questions} />}
+          </QueryStates>
+        )}
       </div>
+      <PageAside
+        label={t("tests.versionHistory")}
+        hideBelow="lg"
+        sheet={{ open: historyOpen, onOpenChange: setHistoryOpen }}
+      >
+        <h2 className="text-sm font-semibold">{t("tests.versionHistory")}</h2>
+        <VersionHistory
+          query={versions}
+          locale={locale}
+          selected={version ?? test.data.currentVersion}
+          onSelect={(value) => {
+            setParams((current) => {
+              const next = new URLSearchParams(current);
+              next.set("version", String(value));
+              return next;
+            });
+            setHistoryOpen(false);
+          }}
+        />
+      </PageAside>
     </>
   );
 }
@@ -131,9 +140,13 @@ export default function TestDetailPage() {
 function VersionHistory({
   query,
   locale,
+  selected,
+  onSelect,
 }: Readonly<{
   query: UseQueryResult<Awaited<ReturnType<typeof listVersions>>>;
   locale: Locale;
+  selected: number;
+  onSelect: (version: number) => void;
 }>) {
   const { t } = useTranslation();
   if (query.isPending) {
@@ -153,15 +166,20 @@ function VersionHistory({
     <ol className="space-y-3">
       {query.data.items.map((version) => (
         <li key={version.id} className="text-sm">
-          <div className="flex items-baseline justify-between gap-3">
+          <button
+            type="button"
+            aria-pressed={selected === version.version}
+            onClick={() => onSelect(version.version)}
+            className="hover:bg-accent aria-pressed:bg-accent flex w-full items-baseline justify-between gap-3 rounded-md p-2 text-left"
+          >
             <span className="font-medium tabular-nums">
               {t("tests.versionNumber", { n: version.version })}
             </span>
             <span className="text-muted-foreground text-xs tabular-nums">
               {version.questionCount} · {version.totalPoints}
             </span>
-          </div>
-          <p className="text-muted-foreground text-xs">
+          </button>
+          <p className="text-muted-foreground px-2 text-xs">
             {formatDateTime(version.publishedAt, locale)} · {version.publishedBy}
           </p>
         </li>

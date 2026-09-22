@@ -1,3 +1,6 @@
+import { formatRelative } from "@/lib/i18n/datetime";
+import { useLocale } from "@/lib/i18n/useLocale";
+import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
@@ -74,9 +77,15 @@ export default function QuestionBankPage() {
   const navigate = useNavigate();
 
   // Sets, not single values: A-06's rail is checkboxes and chips.
-  const [types, setTypes] = useState<readonly QuestionType[]>([]);
-  const [tags, setTags] = useState<readonly string[]>([]);
-  const [audioOnly, setAudioOnly] = useState(false);
+  const { params, setFilter } = useListFilters();
+  const types = params
+    .getAll("type")
+    .filter((value): value is QuestionType => TYPES.some((type) => type === value));
+  const setTypes = (value: readonly QuestionType[]) => setFilter("type", value);
+  const tags = params.getAll("tag");
+  const setTags = (value: readonly string[]) => setFilter("tag", value);
+  const audioOnly = params.get("hasAudio") === "true";
+  const setAudioOnly = (value: boolean) => setFilter("hasAudio", value ? "true" : null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [tagging, setTagging] = useState(false);
   const [addingOne, setAddingOne] = useState<string | null>(null);
@@ -96,18 +105,19 @@ export default function QuestionBankPage() {
       else toast(t("bank.deleteFailed"));
     },
   });
-  // A-06a's "Nhân bản": the copy opens for editing, the way a duplicated test does.
+  const [duplicated, setDuplicated] = useState<ReadonlySet<string>>(new Set());
   const duplicate = useMutation({
     mutationFn: (id: string) => duplicateQuestion(id),
-    onSuccess: async (copy) => {
+    onSuccess: async (copy, sourceId) => {
+      setDuplicated((current) => new Set([...current, sourceId, copy.id]));
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
       toast(t("bank.duplicated"));
-      void navigate(`/admin/question-bank/${copy.id}`);
     },
     onError: () => toast(t("bank.duplicateFailed")),
   });
   const [adding, setAdding] = useState(false);
-  const [query, setQuery] = useState("");
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
   const [playing, setPlaying] = useState<string | null>(null);
 
   const search = useDebounced(query, 300);
@@ -259,6 +269,7 @@ export default function QuestionBankPage() {
                         <TableHead>{t("bank.tags")}</TableHead>
                         <TableHead className="text-right">{t("bank.points")}</TableHead>
                         <TableHead>{t("bank.usedIn")}</TableHead>
+                        <TableHead>{t("common.updated")}</TableHead>
                         <TableHead className="w-10" />
                       </TableRow>
                     </TableHeader>
@@ -269,6 +280,8 @@ export default function QuestionBankPage() {
                           selected={selected.has(question.id)}
                           onToggleSelect={() => toggleSelected(question.id)}
                           question={question}
+                          duplicated={duplicated.has(question.id)}
+                          duplicating={duplicate.isPending}
                           playing={playing === question.id}
                           onOpen={() =>
                             void navigate(`/admin/question-bank/${question.id}`)
@@ -355,6 +368,8 @@ export default function QuestionBankPage() {
 
 function Row({
   question,
+  duplicated,
+  duplicating,
   playing,
   onOpen,
   onRetry,
@@ -366,6 +381,8 @@ function Row({
   onDelete,
 }: Readonly<{
   question: AdminQuestion;
+  duplicated: boolean;
+  duplicating: boolean;
   playing: boolean;
   selected: boolean;
   onOpen: () => void;
@@ -377,6 +394,7 @@ function Row({
   onDelete: () => void;
 }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const audio = question.media?.kind === "audio" ? question.media : null;
 
   return (
@@ -409,6 +427,9 @@ function Row({
             >
               {question.prompt.replace(/\{\{\d+\}\}/g, "___")}
             </Link>
+            {duplicated ? (
+              <Badge variant="outline">{t("common.justDuplicated")}</Badge>
+            ) : null}
           </div>
         </TableCell>
         <TableCell className="text-muted-foreground">
@@ -425,32 +446,46 @@ function Row({
         <TableCell className="text-muted-foreground tabular-nums">
           {usedInText(question.usedInTests, t)}
         </TableCell>
+        <TableCell className="text-muted-foreground">
+          {formatRelative(question.updatedAt, locale)}
+        </TableCell>
         <TableCell className="text-right">
-          <RowMenu>
-            <DropdownMenuItem onSelect={onOpen}>
-              <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
-              {t("bank.open")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onAddToTest}>
-              <Plus className="text-muted-foreground" aria-hidden="true" />
-              {t("bank.addToTest")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onDuplicate}>
-              <Copy className="text-muted-foreground" aria-hidden="true" />
-              {t("bank.duplicate")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-              <Trash2 aria-hidden="true" />
-              {t("bank.delete")}
-            </DropdownMenuItem>
-          </RowMenu>
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("common.duplicateNamed", { name: question.prompt })}
+              disabled={duplicating}
+              onClick={onDuplicate}
+            >
+              <Copy aria-hidden="true" />
+            </Button>
+            <RowMenu>
+              <DropdownMenuItem onSelect={onOpen}>
+                <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
+                {t("bank.open")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onAddToTest}>
+                <Plus className="text-muted-foreground" aria-hidden="true" />
+                {t("bank.addToTest")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onDuplicate}>
+                <Copy className="text-muted-foreground" aria-hidden="true" />
+                {t("bank.duplicate")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                <Trash2 aria-hidden="true" />
+                {t("bank.delete")}
+              </DropdownMenuItem>
+            </RowMenu>
+          </div>
         </TableCell>
       </TableRow>
 
       {audio && playing ? (
         <TableRow>
-          <TableCell colSpan={7} className="p-0">
+          <TableCell colSpan={8} className="p-0">
             <AudioPreviewRow
               key={audio.url}
               asset={audio}

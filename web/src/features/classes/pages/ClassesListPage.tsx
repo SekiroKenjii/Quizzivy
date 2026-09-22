@@ -1,3 +1,4 @@
+import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -57,8 +58,11 @@ const TABS: Tab[] = ["all", "joinable", "archived"];
 export default function ClassesListPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<Tab>("all");
+  const { params, setFilter } = useListFilters();
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
+  const tab = TABS.find((value) => value === params.get("status")) ?? "all";
+  const setTab = (value: Tab) => setFilter("status", value === "all" ? null : value);
   const [creating, setCreating] = useState(false);
   const [archiving, setArchiving] = useState<Class | null>(null);
   const search = useDebounced(query, 300).trim();

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useListFilters } from "@/hooks/useListFilters";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Flag, GraduationCap, Pencil, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -53,11 +53,13 @@ const PAGE_SIZE = 20;
 export default function AssignmentsListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<AssignmentStatus | "all">("all");
+  const { params, setParams, setFilter } = useListFilters();
+  const tab = TABS.find((value) => value === params.get("status")) ?? "all";
+  const setTab = (value: AssignmentStatus | "all") =>
+    setFilter("status", value === "all" ? null : value);
   const locale = useLocale();
   const now = new Date();
   // G-12: arriving from a class narrows the list, and the chip is the way out.
-  const [params, setParams] = useSearchParams();
   const classId = params.get("classId") ?? undefined;
   const klass = useQuery({
     queryKey: ["admin-class", classId],

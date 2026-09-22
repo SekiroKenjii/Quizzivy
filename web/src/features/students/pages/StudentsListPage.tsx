@@ -1,5 +1,5 @@
+import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
-import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
@@ -40,8 +40,13 @@ const PAGE_SIZE = 20;
 /** §8's students table, as the deck's G-07. */
 export default function StudentsListPage() {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    params: searchParams,
+    setParams: setSearchParams,
+    setFilter,
+  } = useListFilters();
+  const query = searchParams.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
   const selectedId = searchParams.get("studentId");
   const setSelectedId = (id: string | null) =>
     setSearchParams((previous) => {
@@ -50,7 +55,9 @@ export default function StudentsListPage() {
       else next.set("studentId", id);
       return next;
     });
-  const [showDisabled, setShowDisabled] = useState(false);
+  const showDisabled = searchParams.get("status") === "disabled";
+  const setShowDisabled = (value: boolean) =>
+    setFilter("status", value ? "disabled" : null);
   const [creating, setCreating] = useState(false);
   const search = useDebounced(query, 300).trim();
   const locale = useLocale();

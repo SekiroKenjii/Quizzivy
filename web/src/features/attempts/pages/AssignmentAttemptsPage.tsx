@@ -1,6 +1,7 @@
+import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, Eye, RotateCw } from "lucide-react";
 import {
@@ -55,9 +56,10 @@ type Tab = (typeof TABS)[number];
 export default function AssignmentAttemptsPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams<{ id: string }>();
-  const [params, setParams] = useSearchParams();
+  const { params, setParams, setFilter } = useListFilters();
   const tab = readTab(params.get("tab"));
-  const [query, setQuery] = useState("");
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
   const search = fold(useDebounced(query, 300).trim());
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<{ kind: Intervention; row: MonitorRow } | null>(

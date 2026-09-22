@@ -6,6 +6,7 @@ import {
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -122,7 +123,11 @@ export function OutlineTree({
     if (overId === null || overId === activeId) return;
 
     const from = findQuestion(sections, activeId);
-    const to = findQuestion(sections, overId);
+    const emptySection = event.over?.data.current?.["sectionIndex"];
+    const to =
+      typeof emptySection === "number"
+        ? { sectionIndex: emptySection, index: 0 }
+        : findQuestion(sections, overId);
     if (!from || !to) return;
     onChange(moveQuestion(sections, from, to));
   }
@@ -251,9 +256,10 @@ export function OutlineTree({
                         />
                       ))}
                       {section.questionIds.length === 0 ? (
-                        <p className="text-muted-foreground px-2 py-1.5 text-xs">
-                          {t("builder.sectionEmpty")}
-                        </p>
+                        <EmptySectionDrop
+                          id={`section-${key}`}
+                          sectionIndex={sectionIndex}
+                        />
                       ) : null}
                     </div>
                   </SortableContext>
@@ -382,6 +388,7 @@ function SectionHeader({
         className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
         aria-expanded={open}
         onClick={onToggle}
+        onDoubleClick={onStartRename}
       >
         <Chevron
           className="text-muted-foreground size-3.5 shrink-0"
@@ -429,6 +436,25 @@ function SectionHeader({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+    </div>
+  );
+}
+
+function EmptySectionDrop({
+  id,
+  sectionIndex,
+}: Readonly<{ id: string; sectionIndex: number }>) {
+  const { t } = useTranslation();
+  const { setNodeRef, isOver } = useDroppable({ id, data: { sectionIndex } });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "text-muted-foreground min-h-12 rounded-md border border-dashed px-2 py-3 text-xs",
+        isOver && "bg-accent border-foreground",
+      )}
+    >
+      {t("builder.sectionDropHint")}
     </div>
   );
 }

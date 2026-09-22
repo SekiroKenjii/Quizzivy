@@ -1,3 +1,4 @@
+import { useListFilters } from "@/hooks/useListFilters";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import {
   EmptyState,
@@ -60,7 +61,9 @@ export default function ClassDetailPage() {
     queryKey: ["admin-class", id],
     queryFn: ({ signal }) => fetchClass(id, signal),
   });
-  const [query, setQuery] = useState("");
+  const { params, setFilter } = useListFilters();
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
   const search = useDebounced(query, 300).trim();
   const [page] = usePage(search);
   const members = useQuery({

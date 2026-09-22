@@ -1,6 +1,7 @@
+import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   keepPreviousData,
   useMutation,
@@ -72,7 +73,7 @@ export default function TestsListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [params, setParams] = useSearchParams();
+  const { params, setParams, setFilter } = useListFilters();
   const requested = params.get("status");
   const tab = TABS.find((value) => value === requested) ?? "all";
   const setTab = (value: TestStatus | "all") =>
@@ -83,8 +84,10 @@ export default function TestsListPage() {
       next.delete("page");
       return next;
     });
-  const [query, setQuery] = useState("");
-  const [tags, setTags] = useState<readonly string[]>([]);
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
+  const tags = params.getAll("tag");
+  const setTags = (value: readonly string[]) => setFilter("tag", value);
   const [error, setError] = useState<string | null>(null);
   const search = useDebounced(query, 300);
   const locale = useLocale();
@@ -119,11 +122,13 @@ export default function TestsListPage() {
     onError: (cause) => setError(message(cause, t("tests.createFailed"))),
   });
 
+  const [duplicated, setDuplicated] = useState<ReadonlySet<string>>(new Set());
   const duplicate = useMutation({
     mutationFn: (id: string) => duplicateTest(id),
-    onSuccess: async (test) => {
+    onSuccess: async (test, sourceId) => {
+      setDuplicated((current) => new Set([...current, sourceId, test.id]));
       await invalidate();
-      void navigate(`/admin/tests/${test.id}/edit`);
+      toast(t("common.justDuplicated"));
     },
     onError: (cause) => setError(message(cause, t("tests.duplicateFailed"))),
   });
@@ -296,6 +301,11 @@ export default function TestsListPage() {
                             >
                               {test.title}
                             </Link>
+                            {duplicated.has(test.id) ? (
+                              <Badge variant="outline">
+                                {t("common.justDuplicated")}
+                              </Badge>
+                            ) : null}
                             {test.audioCount > 0 ? (
                               <Badge
                                 variant="outline"
@@ -327,13 +337,28 @@ export default function TestsListPage() {
                           {formatRelative(test.updatedAt, locale)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <RowActions
-                            test={test}
-                            onEdit={() => void navigate(`/admin/tests/${test.id}/edit`)}
-                            onDuplicate={() => duplicate.mutate(test.id)}
-                            onArchive={() => setArchiving(test)}
-                            onRestore={() => restore.mutate(test)}
-                          />
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={t("common.duplicateNamed", {
+                                name: test.title,
+                              })}
+                              disabled={duplicate.isPending}
+                              onClick={() => duplicate.mutate(test.id)}
+                            >
+                              <Copy aria-hidden="true" />
+                            </Button>
+                            <RowActions
+                              test={test}
+                              onEdit={() =>
+                                void navigate(`/admin/tests/${test.id}/edit`)
+                              }
+                              onDuplicate={() => duplicate.mutate(test.id)}
+                              onArchive={() => setArchiving(test)}
+                              onRestore={() => restore.mutate(test)}
+                            />
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
