@@ -1,3 +1,4 @@
+import { useTargetRoster } from "../useTargetRoster";
 import {
   useId,
   useState,
@@ -145,6 +146,11 @@ export default function AssignmentFormPage() {
       }),
   });
 
+  const roster = useTargetRoster(
+    draft.classes.map((item) => item.id),
+    draft.students.map((item) => item.id),
+  );
+
   const hasTargets = draft.classes.length > 0 || draft.students.length > 0;
   const ready = draft.picked !== null && hasTargets;
   const savable = draft.picked !== null;
@@ -238,7 +244,7 @@ export default function AssignmentFormPage() {
                 className="text-muted-foreground mt-0.5 size-4 shrink-0"
                 aria-hidden="true"
               />
-              <p className="text-xs leading-relaxed">{t("assignments.rosterNote")}</p>
+              <RosterSummary roster={roster} />
             </div>
           </CardContent>
         </Card>
@@ -476,7 +482,7 @@ export default function AssignmentFormPage() {
       </div>
 
       <PageAside label={t("assignments.summaryTitle")}>
-        <Summary draft={draft} />
+        <Summary draft={draft} count={roster.data?.total ?? null} />
         <Separator />
         <StudentRulesPreview draft={draft} />
 
@@ -579,12 +585,10 @@ function fromAssignment(a: Assignment, versions: TestVersion[]): Draft {
   };
 }
 
-function Summary({ draft }: Readonly<{ draft: Draft }>) {
+function Summary({ draft, count }: Readonly<{ draft: Draft; count: number | null }>) {
   const { t } = useTranslation();
 
-  const upperBound =
-    draft.classes.reduce((sum, c) => sum + Number(c.hint ?? 0), 0) +
-    draft.students.length;
+  const total = count ?? 0;
   const manual = draft.picked?.version.manualCount ?? 0;
   const days = windowDays(draft.opensAt, draft.closesAt);
 
@@ -596,7 +600,7 @@ function Summary({ draft }: Readonly<{ draft: Draft }>) {
       <dl className="space-y-2 text-sm">
         <Line
           label={t("assignments.studentsLabel")}
-          value={t("assignments.upTo", { count: upperBound })}
+          value={count === null ? "—" : String(count)}
         />
         <Line
           label={t("assignments.windowLabel")}
@@ -616,7 +620,7 @@ function Summary({ draft }: Readonly<{ draft: Draft }>) {
         />
       </dl>
 
-      {manual > 0 && upperBound > 0 ? (
+      {manual > 0 && total > 0 ? (
         <div className="bg-warning/15 mt-3 flex items-start gap-2 rounded-md p-2.5">
           <SquarePen
             className="text-warning-ink mt-0.5 size-4 shrink-0"
@@ -624,9 +628,9 @@ function Summary({ draft }: Readonly<{ draft: Draft }>) {
           />
           <p className="text-xs leading-relaxed">
             {t("assignments.gradingCost", {
-              students: upperBound,
+              students: total,
               each: manual,
-              total: upperBound * manual,
+              total: total * manual,
             })}
           </p>
         </div>
@@ -805,4 +809,34 @@ function focusLimitLabel(count: number, t: TFunction): string {
   return count === 0
     ? t("assignments.unlimited")
     : t("assignments.timesAway", { count });
+}
+
+function RosterSummary({
+  roster,
+}: Readonly<{ roster: ReturnType<typeof useTargetRoster> }>) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-1 text-xs leading-relaxed" aria-live="polite">
+      {roster.isError ? (
+        <button
+          type="button"
+          className="underline"
+          onClick={() => void roster.refetch()}
+        >
+          {t("assignments.rosterFailed")}
+        </button>
+      ) : (
+        <p>
+          {roster.data
+            ? t("assignments.rosterTotal", { count: roster.data.total })
+            : t("assignments.rosterLoading")}
+        </p>
+      )}
+      {roster.data && roster.data.overlaps.length > 0 && (
+        <p>
+          {t("assignments.rosterOverlap", { names: roster.data.overlaps.join(", ") })}
+        </p>
+      )}
+    </div>
+  );
 }

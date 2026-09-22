@@ -173,7 +173,7 @@ export default function AttemptReviewPage() {
         }
         actions={
           <>
-            {score && (
+            {tab === "paper" && score && (
               <span className="text-sm tabular-nums">
                 <span className="font-semibold">
                   {scoreText(score.earned, score.total, locale, t).split("/")[0]}
@@ -181,12 +181,12 @@ export default function AttemptReviewPage() {
                 <span className="text-muted-foreground">/{score.total}</span>
               </span>
             )}
-            {pending > 0 && gradable && (
+            {tab === "paper" && pending > 0 && gradable && (
               <Badge variant="outline" className="hidden lg:inline-flex">
                 {t("review.pendingBadge", { count: pending })}
               </Badge>
             )}
-            {attempt.status === "graded" && (
+            {tab === "paper" && attempt.status === "graded" && (
               <Badge variant="success">{t("status.attempt.graded")}</Badge>
             )}
             {/* G-05: a mark to look again, set or cleared by hand; never a verdict. */}
@@ -216,13 +216,15 @@ export default function AttemptReviewPage() {
                 <span className="hidden lg:inline">{t("review.flag")}</span>
               </Button>
             )}
-            <Button
-              size="sm"
-              disabled={!gradable || pending > 0 || finish.isPending}
-              onClick={() => finish.mutate()}
-            >
-              {t("review.finish")}
-            </Button>
+            {tab === "paper" && (
+              <Button
+                size="sm"
+                disabled={!gradable || pending > 0 || finish.isPending}
+                onClick={() => finish.mutate()}
+              >
+                {t("review.finish")}
+              </Button>
+            )}
           </>
         }
       />

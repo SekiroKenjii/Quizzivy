@@ -150,6 +150,9 @@ export default function MediaLibraryPage() {
           )
         }
       </QueryStates>
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        {t("media.blockedNote")}
+      </p>
 
       <ConfirmDialog
         open={confirming !== null}
@@ -298,11 +301,15 @@ function AssetTable({
                   {formatBytes(asset.bytes)}
                 </TableCell>
                 <TableCell>
-                  <Badge>
-                    {used
-                      ? t("media.usedInPublished", { count: asset.usageCount ?? 0 })
-                      : t("media.notUsedBadge")}
-                  </Badge>
+                  {used ? (
+                    <Badge>
+                      {t("media.usedInPublished", { count: asset.usageCount ?? 0 })}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {t("media.notUsedBadge")}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {shortDate(asset.createdAt)}

@@ -407,7 +407,7 @@ function Row({
               to={`/admin/question-bank/${question.id}`}
               className="truncate hover:underline"
             >
-              {question.prompt}
+              {question.prompt.replace(/\{\{\d+\}\}/g, "___")}
             </Link>
           </div>
         </TableCell>
@@ -495,12 +495,6 @@ function FilterRail({
           {t("bank.typeFilter")}
         </p>
         <div className="space-y-3">
-          <FilterOption
-            label={t("bank.allTypes")}
-            count={facets?.all}
-            checked={types.length === 0}
-            onChange={() => onTypes([])}
-          />
           {TYPES.map((value) => (
             <FilterOption
               key={value}

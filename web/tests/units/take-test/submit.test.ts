@@ -35,6 +35,48 @@ function start() {
 }
 
 describe("submitting", () => {
+  it("waits for an outstanding autosave and then saves newer edits before submitting", async () => {
+    start();
+    let release!: () => void;
+    saved.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ serverTime: now, savedAt: now });
+        }),
+    );
+    useTakeTestStore.getState().setAnswer("q1", text("first"));
+    const saving = useTakeTestStore.getState().flush();
+    useTakeTestStore.getState().setAnswer("q1", text("last edit"));
+    const submitting = useTakeTestStore.getState().submit();
+    await Promise.resolve();
+    expect(submitted).not.toHaveBeenCalled();
+    release();
+    await Promise.all([saving, submitting]);
+    expect(saved).toHaveBeenCalledTimes(2);
+    expect(saved.mock.calls[1]?.[1].answers).toEqual({ q1: text("last edit") });
+    expect(submitted).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not close the paper when the last answer could not be saved", async () => {
+    start();
+    saved.mockRejectedValueOnce(new Error("offline"));
+    useTakeTestStore.getState().setAnswer("q1", text("must not be lost"));
+    await useTakeTestStore.getState().submit();
+    expect(submitted).not.toHaveBeenCalled();
+    expect(useTakeTestStore.getState().submitState).toBe("idle");
+    expect(useTakeTestStore.getState().dirty.has("q1")).toBe(true);
+  });
+
+  it("cannot submit from a tab that lost its session while saving", async () => {
+    start();
+    saved.mockRejectedValueOnce(
+      new ApiError({ status: 409, code: "SESSION_SUPERSEDED", message: "superseded" }),
+    );
+    useTakeTestStore.getState().setAnswer("q1", text("old tab"));
+    await useTakeTestStore.getState().submit();
+    expect(submitted).not.toHaveBeenCalled();
+    expect(useTakeTestStore.getState().lock).toBe("superseded");
+  });
   it("issues one request when tapped twice", async () => {
     start();
     const store = useTakeTestStore.getState();

@@ -2119,9 +2119,12 @@ export interface components {
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
             status: components["schemas"]["AssignmentStatus"];
+            /** @description Distinct enabled students with at least one handed-in non-voided attempt. */
             submittedCount?: number;
             targetCount?: number;
             flaggedCount?: number;
+            /** @description Outstanding manual answers across handed-in attempts, including partially graded papers. */
+            pendingManualCount?: number;
             /** @description Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm"). */
             pendingGradingCount?: number;
         };
@@ -2194,6 +2197,8 @@ export interface components {
          *     needs to run authoritatively.
          */
         AttemptSession: {
+            /** @description Additional attempts available after this one */
+            remainingAttempts?: number;
             attempt: components["schemas"]["Attempt"];
             /** @description The engine's header names the paper from 1024px up (S-08). */
             testTitle: string;
@@ -2332,11 +2337,30 @@ export interface components {
          *     round trip, not five.
          */
         Dashboard: {
+            /** @description Open assignments closing within the next 24 hours. */
+            closingSoon?: number;
+            /** @description Distinct students with unmarked manual answers in handed-in papers. */
+            waitingStudents?: number;
+            /** Format: date-time */
+            oldestWaitingAt?: string | null;
+            /** @description Enabled student accounts. */
+            totalStudents?: number;
+            nextClosing?: components["schemas"]["ClosingAssignment"] | null;
             openAssignments: number;
             awaitingGrading: number;
             activeStudents: number;
             flaggedAttempts: number;
             recentAttempts: components["schemas"]["AttemptListRow"][];
+        };
+        ClosingAssignment: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /** Format: date-time */
+            closesAt: string;
+            /** @description Distinct enabled students who have handed in at least one non-voided attempt. */
+            submittedCount: number;
+            /** @description Enabled students in the union of class and individual targets. */
+            targetCount: number;
         };
         StudentAssignmentCard: {
             id: components["schemas"]["Uuid"];

@@ -39,7 +39,7 @@ export function AuthLayout({
           <div className="mb-6 flex justify-center lg:hidden">
             <BrandLockup height={35} />
           </div>
-          <Card className="gap-0 p-5">{children}</Card>
+          <Card className="gap-0 p-5 lg:p-6">{children}</Card>
           {footer === undefined ? null : (
             <div className="text-muted-foreground mt-5 px-2 text-center text-xs leading-relaxed">
               {footer}

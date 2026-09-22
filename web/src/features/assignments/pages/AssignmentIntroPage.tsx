@@ -98,12 +98,14 @@ export default function AssignmentIntroPage() {
     <Card className="gap-0 p-5">
       <h2 className="text-sm font-semibold">{t("student.intro.during")}</h2>
       <ul className="mt-3 space-y-2.5">
-        {rules.map((rule) => (
-          <li key={rule.kind} className="flex gap-2.5">
-            <RuleIcon kind={rule.kind} />
-            <p className="text-sm leading-relaxed">{rule.text}</p>
-          </li>
-        ))}
+        {rules
+          .filter((rule) => rule.kind !== "attempts")
+          .map((rule) => (
+            <li key={rule.kind} className="flex gap-2.5">
+              <RuleIcon kind={rule.kind} />
+              <p className="text-sm leading-relaxed">{rule.text}</p>
+            </li>
+          ))}
       </ul>
     </Card>
   );
@@ -139,10 +141,7 @@ export default function AssignmentIntroPage() {
             {a.testTitle}
           </h1>
         </div>
-        <div
-          className="grid items-start gap-4"
-          style={{ gridTemplateColumns: "3fr 2fr" }}
-        >
+        <div className="grid items-start gap-4 xl:grid-cols-[3fr_2fr]">
           {during}
           {after}
         </div>
@@ -156,6 +155,11 @@ export default function AssignmentIntroPage() {
                 </PanelRow>
               ))}
             </div>
+            {a.maxAttempts > 1 && (
+              <p className="text-muted-foreground mt-2 text-xs">
+                {t("student.intro.bestScore")}
+              </p>
+            )}
           </div>
           <Separator />
           <StartControl assignment={a} live={live} />
@@ -181,6 +185,11 @@ export default function AssignmentIntroPage() {
             {value}
           </Fact>
         ))}
+        {a.maxAttempts > 1 && (
+          <p className="text-muted-foreground col-span-2 text-xs">
+            {t("student.intro.bestScore")}
+          </p>
+        )}
       </Card>
 
       {during}

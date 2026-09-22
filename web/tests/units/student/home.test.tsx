@@ -114,7 +114,7 @@ describe("the three sections", () => {
     expect(
       await screen.findByRole("heading", { name: "Sắp tới · 1" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Mở 08:00 · Thứ Ba, 01/09")).toBeInTheDocument();
+    expect(screen.getByText("Mở 08:00 · Thứ ba, 01/09")).toBeInTheDocument();
     expect(screen.getByText("Đã lên lịch")).toBeInTheDocument();
 
     const done = screen.getByRole("heading", {

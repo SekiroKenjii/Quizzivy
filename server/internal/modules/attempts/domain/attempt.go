@@ -37,16 +37,17 @@ const (
 // Session is everything the engine needs to run authoritatively: the attempt,
 // the paper in presentation order, and the identity of this tab.
 type Session struct {
-	Attempt     Attempt
-	TestTitle   string
-	Sections    []Section
-	Questions   []Question
-	SessionID   string
-	BeaconToken string
-	ServerTime  time.Time
-	AudioPlays  map[string]int
-	Answers     map[string][]byte
-	Integrity   Integrity
+	RemainingAttempts int
+	Attempt           Attempt
+	TestTitle         string
+	Sections          []Section
+	Questions         []Question
+	SessionID         string
+	BeaconToken       string
+	ServerTime        time.Time
+	AudioPlays        map[string]int
+	Answers           map[string][]byte
+	Integrity         Integrity
 }
 
 // AttemptRecord carries the two columns Attempt deliberately does not: the seed is the

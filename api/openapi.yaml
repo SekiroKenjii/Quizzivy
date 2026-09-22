@@ -17,6 +17,10 @@ info:
     fixtures are validated against these schemas. CI regenerates and fails on
     drift. Change the contract here first, then `make gen`.
 
+    Non-upload request bodies are capped at 1 MiB before schema validation;
+    oversized bodies receive HTTP 413 with the standard validation-error envelope.
+    Multipart media uploads retain their separate upload limits.
+
     ## Reading this file
 
     - Operations with `security: []` are **public**. Spec §6.5 requires every
@@ -1189,9 +1193,13 @@ components:
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
         status: { $ref: '#/components/schemas/AssignmentStatus' }
-        submittedCount: { type: integer, minimum: 0 }
+        submittedCount: { type: integer, minimum: 0, description: Distinct enabled students with at least one handed-in non-voided attempt. }
         targetCount: { type: integer, minimum: 0 }
         flaggedCount: { type: integer, minimum: 0 }
+        pendingManualCount:
+          type: integer
+          minimum: 0
+          description: Outstanding manual answers across handed-in attempts, including partially graded papers.
         pendingGradingCount:
           type: integer
           minimum: 0
@@ -1296,6 +1304,7 @@ components:
       required: [attempt, testTitle, sections, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
       additionalProperties: false
       properties:
+        remainingAttempts: { type: integer, minimum: 0, description: Additional attempts available after this one, excluding voided attempts. }
         attempt: { $ref: '#/components/schemas/Attempt' }
         testTitle:
           type: string
@@ -1447,6 +1456,12 @@ components:
       required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, recentAttempts]
       additionalProperties: false
       properties:
+        closingSoon: { type: integer, minimum: 0, description: Open assignments closing within the next 24 hours. }
+        waitingStudents: { type: integer, minimum: 0, description: Distinct students with unmarked manual answers in handed-in papers. }
+        oldestWaitingAt: { type: [string, 'null'], format: date-time }
+        totalStudents: { type: integer, minimum: 0, description: Enabled student accounts. }
+        nextClosing:
+          oneOf: [{ $ref: '#/components/schemas/ClosingAssignment' }, { type: 'null' }]
         openAssignments: { type: integer, minimum: 0 }
         awaitingGrading: { type: integer, minimum: 0 }
         activeStudents: { type: integer, minimum: 0 }
@@ -1455,6 +1470,17 @@ components:
           type: array
           maxItems: 10
           items: { $ref: '#/components/schemas/AttemptListRow' }
+
+    ClosingAssignment:
+      type: object
+      required: [id, title, closesAt, submittedCount, targetCount]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        closesAt: { type: string, format: date-time }
+        submittedCount: { type: integer, minimum: 0, description: Distinct enabled students who have handed in at least one non-voided attempt. }
+        targetCount: { type: integer, minimum: 0, description: Enabled students in the union of class and individual targets. }
 
     StudentAssignmentCard:
       type: object

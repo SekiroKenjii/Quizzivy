@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuestionBody } from "@/features/take-test/components/QuestionBody";
@@ -98,6 +99,30 @@ describe("true_false", () => {
 });
 
 describe("fill_blank", () => {
+  it("keeps focus and the full answer while the controlled value changes", async () => {
+    const q = question({
+      type: "fill_blank",
+      prompt: "If it {{1}} tomorrow, we {{2}} home.",
+      blanks: [
+        { id: "b1", ordinal: 1, caseSensitive: false },
+        { id: "b2", ordinal: 2, caseSensitive: false },
+      ],
+    });
+    function Paper() {
+      const [answer, setAnswer] = useState<Answer>();
+      return <QuestionBody question={q} answer={answer} onAnswer={setAnswer} />;
+    }
+    render(<Paper />);
+    const user = userEvent.setup();
+    const first = screen.getByRole("textbox", { name: "Chỗ trống 1" });
+    await user.type(first, "rains");
+    expect(first).toHaveFocus();
+    expect(first).toHaveValue("rains");
+    await user.tab();
+    await user.keyboard("stay");
+    expect(screen.getByRole("textbox", { name: "Chỗ trống 2" })).toHaveValue("stay");
+    expect(first).toHaveValue("rains");
+  });
   // T-3.11's named case.
   it("puts three labelled inputs in prompt order", () => {
     renderQuestion(

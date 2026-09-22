@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { SaveStrip } from "./SaveState";
 import { EngineHeader } from "./EngineHeader";
 import { NavigatorRail, QuestionDots, type DotState } from "./Navigator";
 import { useTakeTestStore } from "../store";
@@ -49,6 +50,8 @@ export function ReviewScreen({
     .filter((d) => !d.answered);
   const flagged = dots.map((d, i) => ({ ...d, index: i })).filter((d) => d.flagged);
   const busy = submitState === "inFlight";
+  const lock = useTakeTestStore((s) => s.lock);
+  const remainingAttempts = useTakeTestStore((s) => s.remainingAttempts);
 
   const confirm = async () => {
     setFailed(false);
@@ -69,7 +72,7 @@ export function ReviewScreen({
           <Button
             variant="ghost"
             size="xs"
-            className="text-muted-foreground px-1"
+            className="text-muted-foreground h-11 px-1 lg:h-7"
             onClick={onBack}
           >
             <ChevronLeft aria-hidden="true" />
@@ -78,8 +81,10 @@ export function ReviewScreen({
         }
       />
 
+      <SaveStrip wide={wide} indicator={status} />
       <div data-columns className="flex min-h-0 flex-1">
         <main
+          data-resize-middle
           className={cn("min-w-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-4")}
         >
           <div className="mx-auto w-full max-w-[720px] space-y-4">
@@ -148,7 +153,7 @@ export function ReviewScreen({
               <Button
                 size="lg"
                 className={wide ? undefined : "w-full"}
-                disabled={busy}
+                disabled={busy || lock === "superseded" || lock === "closed"}
                 onClick={() => setConfirming(true)}
               >
                 {busy ? t("takeTest.submitting") : t("takeTest.submit")}
@@ -160,7 +165,9 @@ export function ReviewScreen({
                 !wide && "text-center",
               )}
             >
-              {t("takeTest.submitNote")}
+              {t("takeTest.submitNote")}{" "}
+              {remainingAttempts > 0 &&
+                t("takeTest.retakeNote", { count: remainingAttempts })}
             </p>
           </div>
         </main>
@@ -187,7 +194,11 @@ export function ReviewScreen({
             >
               {t("takeTest.confirmBack")}
             </Button>
-            <Button className="flex-1" disabled={busy} onClick={() => void confirm()}>
+            <Button
+              className="flex-1"
+              disabled={busy || lock === "superseded" || lock === "closed"}
+              onClick={() => void confirm()}
+            >
               {t("takeTest.submit")}
             </Button>
           </div>
@@ -214,7 +225,7 @@ function Dots({
           type="button"
           aria-label={t("takeTest.dotLabel", { n: d.index + 1 })}
           onClick={() => onJump(d.index)}
-          className="bg-background grid h-9 w-9 place-content-center rounded-md border text-xs tabular-nums"
+          className="bg-background text-muted-foreground grid h-11 w-11 place-content-center rounded-md border text-xs tabular-nums lg:h-9 lg:w-9"
         >
           {d.index + 1}
         </button>

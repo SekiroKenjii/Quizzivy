@@ -1,3 +1,4 @@
+import { publishProblem } from "../publishProblem";
 import {
   lazy,
   Suspense,
@@ -151,11 +152,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         prompt: result.data.prompt,
         points: result.data.points,
         hasAudio: result.data.media?.kind === "audio",
-        problem: problemFor(violations, questionId),
+        problem: publishProblem(result.data, t) ?? problemFor(violations, questionId),
       });
     }
     return map;
-  }, [loaded, questionIds, violations]);
+  }, [loaded, questionIds, violations, t]);
 
   useEffect(() => {
     latestOutline.current = sections;
@@ -235,7 +236,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       await navigate(`/admin/tests/${test.id}`);
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "PUBLISH_VALIDATION_FAILED") {
-        setViolations(readViolations(cause));
+        setViolations(cause.violations);
         return;
       }
       setPublishError(
@@ -415,6 +416,36 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
       <PublishDialog
         violations={violations}
+        warnings={loaded.flatMap((result, index) =>
+          result.data && !result.data.explanation?.trim()
+            ? [
+                {
+                  questionId: result.data.id,
+                  message: t("builder.missingExplanation", { number: index + 1 }),
+                },
+              ]
+            : [],
+        )}
+        location={(violation) =>
+          violation.questionId
+            ? describePosition(sections, violation.questionId, t)
+            : (sections.find((section) => section.id === violation.sectionId)?.title ??
+              null)
+        }
+        onGoToSection={(sectionId) => {
+          setViolations(null);
+          requestAnimationFrame(() => {
+            const section = document.querySelector(
+              `[data-outline-section="${CSS.escape(sectionId)}"]`,
+            );
+            const control = section?.querySelector<HTMLButtonElement>(
+              "button[aria-expanded]",
+            );
+            if (control?.getAttribute("aria-expanded") === "false") control.click();
+            control?.focus();
+            control?.scrollIntoView({ block: "nearest" });
+          });
+        }}
         onClose={() => setViolations(null)}
         onGoTo={(questionId) => {
           setSelectedId(questionId);
@@ -605,9 +636,4 @@ function problemFor(
   questionId: string,
 ): string | null {
   return violations?.find((v) => v.questionId === questionId)?.message ?? null;
-}
-
-function readViolations(error: ApiError): PublishViolation[] {
-  const raw = (error.details as { violations?: unknown } | undefined)?.violations;
-  return Array.isArray(raw) ? (raw as PublishViolation[]) : [];
 }

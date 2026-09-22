@@ -404,7 +404,6 @@ function Note({ icon, children }: Readonly<{ icon: ReactNode; children: ReactNod
 
 function ResultsStrip({
   a,
-  version,
   panelOpen,
   onTogglePanel,
 }: Readonly<{
@@ -450,9 +449,9 @@ function ResultsStrip({
           label={t("assignments.detail.pending")}
           value={a.pendingGradingCount ?? 0}
           hint={
-            version === undefined
+            a.pendingManualCount === undefined
               ? null
-              : t("assignments.detail.pendingHint", { count: version.manualCount })
+              : t("assignments.detail.pendingHint", { count: a.pendingManualCount })
           }
         />
         <div className="bg-border h-10 w-px" />
@@ -706,6 +705,10 @@ function RulesCard({ a }: Readonly<{ a: Assignment }>) {
 function ReviewCard({ a }: Readonly<{ a: Assignment }>) {
   const { t } = useTranslation();
   const { review } = a;
+  let hint = "assignments.detail.reuseHint";
+  if (review.showCorrectAnswers) hint = "assignments.detail.reviewWhileOpen";
+  if (statusAt(a, new Date()) === "closed")
+    hint = "assignments.detail.reviewAfterClose";
   return (
     <Card>
       <CardHeader>
@@ -717,11 +720,7 @@ function ReviewCard({ a }: Readonly<{ a: Assignment }>) {
           {t("assignments.showCorrectAnswers")}
         </Flag>
         <Flag on={review.showExplanations}>{t("assignments.showExplanations")}</Flag>
-        {review.showCorrectAnswers ? null : (
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            {t("assignments.detail.reuseHint")}
-          </p>
-        )}
+        <p className="text-muted-foreground text-xs leading-relaxed">{t(hint)}</p>
       </CardContent>
     </Card>
   );

@@ -122,6 +122,7 @@ func toAPIAssignment(a domain.Assignment) openapi.Assignment {
 		TargetCount:         &a.TargetCount,
 		FlaggedCount:        &a.FlaggedCount,
 		PendingGradingCount: &a.PendingGradingCount,
+		PendingManualCount:  &a.PendingManualCount,
 	}
 	out.Window.OpensAt = a.OpensAt
 	out.Window.ClosesAt = a.ClosesAt

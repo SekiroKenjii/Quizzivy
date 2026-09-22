@@ -169,14 +169,19 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	if err != nil {
 		return domain.Session{}, err
 	}
+	tally, err := s.Store.Tally(ctx, a.AssignmentID, a.StudentID)
+	if err != nil {
+		return domain.Session{}, err
+	}
 	return domain.Session{
-		Attempt:     a.Attempt,
-		TestTitle:   r.TestTitle,
-		Sections:    sections,
-		Questions:   domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions),
-		SessionID:   a.SessionID,
-		BeaconToken: beacon,
-		ServerTime:  s.Now(),
+		RemainingAttempts: max(0, r.MaxAttempts-tally.Spent),
+		Attempt:           a.Attempt,
+		TestTitle:         r.TestTitle,
+		Sections:          sections,
+		Questions:         domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions),
+		SessionID:         a.SessionID,
+		BeaconToken:       beacon,
+		ServerTime:        s.Now(),
 
 		AudioPlays: plays,
 		Answers:    answers,

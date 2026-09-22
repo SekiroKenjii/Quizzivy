@@ -45,7 +45,7 @@ export function ConfirmDialog({
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="gap-4 p-5 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description === undefined ? null : (

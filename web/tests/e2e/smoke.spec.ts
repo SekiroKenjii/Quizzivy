@@ -54,7 +54,7 @@ test("admin sidebar collapses at 1280px and the toggle reopens it", async ({
   await toggle.click();
 
   await expect(nav).toBeVisible();
-  await expect(page.getByRole("button", { name: "Đóng menu" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Thu gọn menu" })).toHaveAttribute(
     "aria-expanded",
     "true",
   );

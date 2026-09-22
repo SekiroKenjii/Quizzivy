@@ -52,6 +52,7 @@
   --success-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
+  --destructive-ink: color-mix(in oklch, var(--destructive) 82%, var(--foreground));
   --warning: oklch(0.769 0.188 70.08);
   --warning-foreground: oklch(0.21 0.006 285.885);
 }
@@ -78,12 +79,25 @@
   --color-success-foreground: var(--success-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-ink: var(--destructive-ink);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.45;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.35;
+  --text-input: 1rem;
+  --tracking-tight: -0.015em;
 
   /* §12: system UI stack or Inter. Designed for longer Vietnamese strings. */
   --font-sans:

@@ -68,7 +68,7 @@
     "classes": "Classes",
     "settings": "Settings",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu",
+    "closeMenu": "Collapse menu",
     "mainNavigation": "Main navigation",
     "sectionTeaching": "Teaching",
     "sectionClasses": "Classes",
@@ -136,7 +136,8 @@
       "questionsValue": "{{questions}} · {{points}} points",
       "seeTranscript": "See the listening transcript",
       "classAndTeacher": "{{className}} · {{teacher}}",
-      "summary": "Summary"
+      "summary": "Summary",
+      "bestScore": "If you take more than one attempt, your highest score counts."
     },
     "questions_one": "{{count}} question",
     "questions_other": "{{count}} questions",
@@ -428,9 +429,9 @@
     "rejectType": "{{name}} is not an mp3 or m4a. Only those two are accepted.",
     "summary": "{{count}} files · {{size}}",
     "title": "Media library",
-    "upload": "Upload a file",
+    "upload": "Upload",
     "uploadFailed": "Upload failed. Please try again.",
-    "uploading": "Uploading…",
+    "uploading": "Uploading",
     "usedIn": "{{count}} published test(s)",
     "usedInPublished": "{{count}} published test(s)",
     "rejectTitle": "This file cannot be used",
@@ -596,7 +597,13 @@
     "sectionInstructionsTitle": "Instructions for {{title}}",
     "sectionInstructionsHint": "Students read this before the questions in this section.",
     "sectionInstructionsPlaceholder": "For example: listen twice, then choose the right answer.",
-    "dropFromTest": "Remove question {{number}} from the test"
+    "dropFromTest": "Remove question {{number}} from the test",
+    "publishWarnings": "Notes · do not block publishing",
+    "missingExplanation": "Question {{number}} has no explanation.",
+    "correctOptionRequired": "Choose at least one correct option.",
+    "blankAnswerRequired": "A blank has no accepted answer.",
+    "blankMismatch": "The blanks do not match the prompt.",
+    "audioRequired": "The listening question has no audio file."
   },
   "bank": {
     "filters": "Filters",
@@ -700,7 +707,8 @@
     "restore": "Restore",
     "restoreHint": "Restoring returns the test as a draft.",
     "restored": "Test restored",
-    "restoreFailed": "Could not restore the test."
+    "restoreFailed": "Could not restore the test.",
+    "archiveTab": "Archived"
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -724,7 +732,7 @@
     "awaitingGrading": "Short answers to grade",
     "awaitingGradingHint": "Submitted, with answers only you can score.",
     "flagged": "Attempts to review",
-    "flaggedHint": "Signs of leaving the page repeatedly.",
+    "flaggedHint": "frequent departures from the test",
     "openAssignments": "Open assignments",
     "openAssignmentsHint": "Inside their window right now.",
     "grade": "Grade",
@@ -754,7 +762,13 @@
     "notifications": "Notifications",
     "notificationsWith": "Notifications, {{count}} outstanding",
     "nothingOutstanding": "Nothing outstanding.",
-    "state": "State"
+    "state": "State",
+    "waitingContext": "{{count}} students · oldest submission {{age}}",
+    "noWaiting": "No answers waiting for grading",
+    "closingSoon": "Closing soon",
+    "closingContext": "{{title}} · {{when}} · {{submitted}}/{{total}} submitted",
+    "noClosingSoon": "No assignments close in the next 24 hours",
+    "notOpenYet": "not open yet"
   },
   "assignments": {
     "summary": "{{count}} assignments · {{open}} open",
@@ -837,7 +851,7 @@
       "clock": "The clock runs for {{minutes}} minutes from the moment you press start, even if you close the page.",
       "attempts": "You may take up to {{count}} attempts; the highest score counts.",
       "fullscreen": "The test runs in fullscreen.",
-      "noCopyPaste": "Copy and paste are disabled.",
+      "noCopyPaste": "Copy and paste are disabled while taking the test.",
       "focusLoss": {
         "warn": "If you leave the test page more than {{count}} times, you will be warned. The test does not stop and no marks are deducted automatically.",
         "flag": "If you leave the test page more than {{count}} times, your attempt is marked for your teacher to review. The test does not stop and no marks are deducted automatically.",
@@ -903,7 +917,7 @@
       "submitted": "Submitted",
       "notSubmitted": "Not submitted: {{count}}",
       "pending": "To grade",
-      "pendingHint": "{{count}} manually graded questions per attempt",
+      "pendingHint": "{{count}} answers still need grading",
       "flagged": "To review",
       "flaggedHint": "Left the page more than {{count}} times",
       "flaggedHintNone": "No limit on leaving the page",
@@ -956,7 +970,9 @@
       "closeFailed": "Could not close the assignment.",
       "closeTable": "Close the student table",
       "reopenMenuHint": "The next step asks for a reason. Anyone with attempts left can go back in.",
-      "extraStudents": "+{{count}} individual students"
+      "extraStudents": "+{{count}} individual students",
+      "reviewAfterClose": "The assignment is closed. Students can review it according to the permissions above; pending grades update when marking is complete.",
+      "reviewWhileOpen": "Students can see correct answers after submitting, even while the assignment is still open."
     },
     "panel": {
       "title": "Student table",
@@ -975,7 +991,11 @@
     },
     "classFilterLoading": "Class…",
     "clearClassFilter": "Clear the class filter",
-    "emptyForClass": "Nothing has been assigned to this class yet."
+    "emptyForClass": "Nothing has been assigned to this class yet.",
+    "rosterTotal": "{{count}} students will receive this assignment. Each student is counted once.",
+    "rosterOverlap": "Counted duplicate selections once: {{names}}.",
+    "rosterLoading": "Counting the selected students…",
+    "rosterFailed": "Could not count the roster. Select to retry."
   },
   "students": {
     "summary": "{{count}} students · {{active}} active in the last 7 days",
@@ -1051,7 +1071,8 @@
       "nameRequired": "Enter the full name.",
       "nameTooLong": "A name has at most 200 characters.",
       "emailInvalid": "That email does not look right."
-    }
+    },
+    "submittedShort": "Submitted"
   },
   "takeTest": {
     "answerOptions": "Answer options",
@@ -1130,7 +1151,11 @@
     "sectionMeta": "{{section}} — Question {{n}} / {{total}} · {{points}}",
     "questionMeta": "Question {{n}} / {{total}} · {{points}}",
     "blankRuleInsensitive": "Capital letters do not matter. Spell it exactly.",
-    "blankRuleSensitive": "Capital letters matter. Spell it exactly."
+    "blankRuleSensitive": "Capital letters matter. Spell it exactly.",
+    "leaveUnsavedTitle": "Your answers have not been saved",
+    "leaveUnsavedDescription": "The connection is unstable. Try saving again before leaving. The timer is still running.",
+    "retrySave": "Try saving again",
+    "retakeNote": "You have {{count}} further attempts while the assignment is open."
   },
   "integrity": {
     "leftTitle": "You left the test page",
@@ -1377,7 +1402,7 @@
     },
     "noteTitle": "Your note",
     "noteHint": "Only you can read this. Never shown to the student.",
-    "notePlaceholder": "asked Hân, she said the power went out at 10:04"
+    "notePlaceholder": "For example: spoke with Hân; she reported a power outage at 10:04."
   },
   "result": {
     "title": "Result",
@@ -1503,7 +1528,9 @@
     "tookUnderMinute": "under a minute",
     "emptyTab": "No papers in this view.",
     "noMatches": "No student matches “{{query}}”.",
-    "hint": "One row per student, the latest attempt. Earlier attempts stay readable from the paper."
+    "hint": "One row per student, the latest attempt. Earlier attempts stay readable from the paper.",
+    "backToAssignment": "Back to assignment",
+    "viewStudent": "View student"
   },
   "layout": {
     "resize": {

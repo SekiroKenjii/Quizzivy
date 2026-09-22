@@ -127,7 +127,7 @@ export function StudentDrawer({
 
       <div className="grid grid-cols-3 gap-3">
         <Tile
-          label={t("students.submitted")}
+          label={t("students.submittedShort")}
           value={String(student.stats.submittedCount)}
         />
         <Tile
@@ -268,6 +268,9 @@ function IdentityBadges({ student }: Readonly<{ student: Student }>) {
   const { t } = useTranslation();
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {student.classes.some((klass) => klass.joinedVia === "join_code") && (
+        <Badge variant="outline">{t("students.joinedVia.join_code")}</Badge>
+      )}
       {student.linkedProviders.includes("google") && (
         <Badge variant="outline">{t("students.google")}</Badge>
       )}

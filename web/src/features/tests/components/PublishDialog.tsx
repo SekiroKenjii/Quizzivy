@@ -15,6 +15,9 @@ interface PublishDialogProps {
   violations: PublishViolation[] | null;
   onClose: () => void;
   onGoTo: (questionId: string) => void;
+  onGoToSection?: (sectionId: string) => void;
+  warnings?: { questionId: string; message: string }[];
+  location?: (violation: PublishViolation) => string | null;
 }
 
 /**
@@ -26,12 +29,15 @@ export function PublishDialog({
   violations,
   onClose,
   onGoTo,
+  onGoToSection,
+  warnings = [],
+  location,
 }: Readonly<PublishDialogProps>) {
   const { t } = useTranslation();
 
   return (
     <Dialog open={violations !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("builder.publishBlockedTitle")}</DialogTitle>
           <DialogDescription>
@@ -50,14 +56,22 @@ export function PublishDialog({
                 aria-hidden="true"
               />
               <p id={messageId(index)} className="min-w-0 flex-1 text-sm">
+                {location?.(violation) && (
+                  <span className="mb-0.5 block font-medium">
+                    {location(violation)}
+                  </span>
+                )}
                 {violation.message}
               </p>
-              {violation.questionId ? (
+              {violation.questionId || (violation.sectionId && onGoToSection) ? (
                 <Button
                   variant="outline"
                   size="xs"
                   aria-describedby={messageId(index)}
-                  onClick={() => onGoTo(violation.questionId!)}
+                  onClick={() => {
+                    if (violation.questionId) onGoTo(violation.questionId);
+                    else if (violation.sectionId) onGoToSection?.(violation.sectionId);
+                  }}
                 >
                   {t("builder.goToQuestion")}
                 </Button>
@@ -66,9 +80,33 @@ export function PublishDialog({
           ))}
         </div>
 
+        {warnings.length > 0 && (
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-xs font-medium">{t("builder.publishWarnings")}</p>
+            {warnings.map((warning) => (
+              <div
+                key={warning.questionId}
+                className="text-muted-foreground flex items-center gap-2 text-sm"
+              >
+                <span className="flex-1">{warning.message}</span>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => onGoTo(warning.questionId)}
+                >
+                  {t("builder.goToQuestion")}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <DialogFooter>
-          <Button variant="outline" className="w-full" onClick={onClose}>
+          <Button variant="outline" className="flex-1" onClick={onClose}>
             {t("builder.later")}
+          </Button>
+          <Button className="flex-1" disabled>
+            {t("builder.publish")}
           </Button>
         </DialogFooter>
       </DialogContent>

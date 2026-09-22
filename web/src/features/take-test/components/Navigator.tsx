@@ -98,7 +98,7 @@ function Dot({
       aria-label={[t("takeTest.dotLabel", { n: index + 1 }), ...states].join(", ")}
       onClick={() => onJump(index)}
       className={cn(
-        "bg-background grid h-9 place-content-center rounded-md border text-xs tabular-nums",
+        "bg-background text-muted-foreground grid h-11 place-content-center rounded-md border text-xs tabular-nums lg:h-9",
         dot.answered && "bg-secondary text-foreground font-medium",
         dot.flagged && "border-warning/55",
         index === current &&

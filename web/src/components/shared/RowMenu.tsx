@@ -20,7 +20,12 @@ export function RowMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-xs" aria-label={t("common.actions")}>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="data-[state=open]:bg-accent"
+          aria-label={t("common.actions")}
+        >
           <Ellipsis aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>

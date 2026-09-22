@@ -39,7 +39,7 @@ import { FocusLossCell } from "@/features/attempts/components/FocusLossCell";
 import { monitorKey } from "@/features/attempts/keys";
 import { ApiError } from "@/lib/api/errors";
 import { fold } from "@/lib/fold";
-import { formatDateTime } from "@/lib/i18n/datetime";
+import { compactMoment } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
@@ -102,7 +102,12 @@ export default function AssignmentAttemptsPage() {
   }
 
   const a = assignment.data;
-  const rows = monitor.data?.rows ?? [];
+  const collator = new Intl.Collator("vi", { sensitivity: "base", numeric: true });
+  const rows = [...(monitor.data?.rows ?? [])].sort(
+    (a, b) =>
+      collator.compare(a.fullName, b.fullName) ||
+      a.studentId.localeCompare(b.studentId),
+  );
   const counts = Object.fromEntries(
     TABS.map((key) => [key, rows.filter((row) => inTab(row, key)).length]),
   ) as Record<Tab, number>;
@@ -123,6 +128,7 @@ export default function AssignmentAttemptsPage() {
       <PageHeader
         title={t("papers.title", { title: a.testTitle })}
         backTo={`/admin/assignments/${a.id}`}
+        backLabel={t("papers.backToAssignment")}
         meta={
           <>
             <StatusBadge kind="assignment" status={statusAt(a, new Date())} />
@@ -167,6 +173,7 @@ export default function AssignmentAttemptsPage() {
             </TabsList>
           </Tabs>
           <SearchInput
+            dense
             className="ml-auto w-56"
             value={query}
             onChange={setQuery}
@@ -290,7 +297,7 @@ function Row({
           : t("papers.attemptOf", { no: row.attemptNo, max: maxAttempts })}
       </TableCell>
       <TableCell className="text-muted-foreground tabular-nums">
-        {row.submittedAt ? formatDateTime(row.submittedAt, locale) : dash}
+        {row.submittedAt ? compactMoment(row.submittedAt) : dash}
       </TableCell>
       <TableCell className="text-right tabular-nums">
         {took === null ? dash : tookText(took, t)}
@@ -320,29 +327,40 @@ function Row({
         )}
       </TableCell>
       <TableCell className="text-right">
-        {row.attemptId ? (
-          <RowMenu>
-            <DropdownMenuItem asChild>
-              <Link to={`/admin/attempts/${row.attemptId}`}>
-                <Eye aria-hidden="true" />
-                {t("monitor.menu.view")}
-              </Link>
-            </DropdownMenuItem>
-            {row.state !== "voided" ? (
-              <>
-                <DropdownMenuItem onSelect={() => onAct("reset")}>
-                  <RotateCw aria-hidden="true" />
-                  {t("monitor.menu.reset")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => onAct("void")}>
-                  <Ban aria-hidden="true" />
-                  {t("monitor.menu.void")}
-                </DropdownMenuItem>
-              </>
-            ) : null}
-          </RowMenu>
-        ) : null}
+        <RowMenu>
+          <DropdownMenuItem asChild>
+            <Link to={`/admin/students?studentId=${row.studentId}`}>
+              <Eye aria-hidden="true" />
+              {t("papers.viewStudent")}
+            </Link>
+          </DropdownMenuItem>
+          {row.attemptId ? (
+            <>
+              <DropdownMenuItem asChild>
+                <Link to={`/admin/attempts/${row.attemptId}`}>
+                  <Eye aria-hidden="true" />
+                  {t("monitor.menu.view")}
+                </Link>
+              </DropdownMenuItem>
+              {row.state !== "voided" ? (
+                <>
+                  <DropdownMenuItem onSelect={() => onAct("reset")}>
+                    <RotateCw aria-hidden="true" />
+                    {t("monitor.menu.reset")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => onAct("void")}
+                  >
+                    <Ban aria-hidden="true" />
+                    {t("monitor.menu.void")}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </>
+          ) : null}
+        </RowMenu>
       </TableCell>
     </TableRow>
   );

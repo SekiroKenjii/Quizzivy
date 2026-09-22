@@ -58,7 +58,13 @@ export function PageAside({
   if (wide) return column;
   return (
     <Dialog open={sheet.open} onOpenChange={sheet.onOpenChange}>
-      <DialogContent className="max-h-[80svh] space-y-5 overflow-y-auto">
+      <DialogContent
+        className={cn(
+          "inset-y-0 right-0 left-auto h-svh max-h-svh w-[min(90vw,24rem)] max-w-none translate-x-0 translate-y-0 space-y-5 overflow-y-auto rounded-none border-y-0 border-r-0 p-5 pt-12 sm:max-w-none",
+          side === "left" && "right-auto left-0 border-r border-l-0",
+        )}
+        aria-describedby={undefined}
+      >
         <DialogTitle className="sr-only">{label}</DialogTitle>
         {children}
       </DialogContent>
