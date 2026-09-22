@@ -204,6 +204,9 @@ components:
         # students
         - EMAIL_TAKEN
         # authoring
+        - RESOURCE_REFERENCED
+        - RESOURCE_NOT_ARCHIVED
+        - VERSION_IS_CURRENT
         - TEST_NOT_PUBLISHED
         - PUBLISH_VALIDATION_FAILED
         - STALE_WRITE
@@ -860,6 +863,10 @@ components:
             teacher deserves to know about before they type (A-06). Published
             versions are deliberately not counted: they hold their own snapshot
             and a bank edit cannot reach them (§7).
+        usedIn:
+          type: array
+          items: { $ref: '#/components/schemas/ReferencingTest' }
+          description: Current test outlines using the question, sorted by title. Included on individual question responses; loaded on demand for the bank's nested usage table. Published snapshots are excluded.
         createdAt: { $ref: '#/components/schemas/Timestamp' }
         updatedAt: { $ref: '#/components/schemas/Timestamp' }
 
@@ -1113,12 +1120,12 @@ components:
       properties:
         requireFullscreen: { type: boolean, default: false }
         blockCopyPaste: { type: boolean, default: true }
-        maxFocusLoss: { type: integer, minimum: 0, default: 0, description: '0 = unlimited.' }
+        maxFocusLoss: { type: integer, minimum: -1, default: 0, description: '-1 = no away episodes allowed; 0 = unlimited; positive values = allowed counted episodes.' }
         onLimitExceeded:
           type: string
           enum: [warn, flag, auto_submit]
           default: flag
-          description: '`auto_submit` ships in Phase 5 (T-5.1); `warn` and `flag` in Phase 3.'
+          description: '`auto_submit` immediately submits after the allowed number of counted away episodes is exceeded, preserving answers and recording the violation.'
         minAwayMs:
           type: integer
           minimum: 0
@@ -2173,6 +2180,18 @@ paths:
 
   /admin/tests/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      operationId: deleteTest
+      tags: [admin-tests]
+      description: Permanently deletes an archived test and its unused versions. Assignments or attempts referencing the test block deletion.
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The resource is still referenced or has not reached its required inactive state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getTest
       description: Full test including the draft outline. Published content lives in versions, not here.
@@ -2298,6 +2317,94 @@ paths:
                 additionalProperties: false
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/TestVersion' } }
+
+  /admin/tests/{id}/versions/{version}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - name: version
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    delete:
+      operationId: deleteTestVersion
+      tags: [admin-tests]
+      description: Deletes an unused, non-current version. Existing assignments and attempts prevent deletion.
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The version is referenced/current, the test is archived, or the expected update time is stale.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/tests/{id}/versions/{version}/current:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - name: version
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      operationId: setCurrentTestVersion
+      tags: [admin-tests]
+      description: Selects the default published version for future assignments. Existing assignments and snapshots are unchanged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedUpdatedAt]
+              additionalProperties: false
+              properties:
+                expectedUpdatedAt: { $ref: '#/components/schemas/Timestamp' }
+      responses:
+        '200':
+          description: Updated test.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Test' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The version is referenced/current, the test is archived, or the expected update time is stale.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/tests/{id}/versions/{version}/draft:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - name: version
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      operationId: createDraftFromTestVersion
+      tags: [admin-tests]
+      description: Replaces the draft outline with independent bank-question copies of this snapshot. Published content and existing assignments are unchanged. The caller confirms replacement of any existing draft.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedUpdatedAt]
+              additionalProperties: false
+              properties:
+                expectedUpdatedAt: { $ref: '#/components/schemas/Timestamp' }
+      responses:
+        '200':
+          description: Updated test.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Test' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The version is referenced/current, the test is archived, or the expected update time is stale.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/tests/{id}/preview:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2726,6 +2833,18 @@ paths:
 
   /admin/assignments/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      operationId: deleteAssignment
+      tags: [admin-assignments]
+      description: Permanently deletes a draft or closed assignment with no attempts. Open or scheduled assignments and any historical attempts block deletion.
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The resource is still referenced or has not reached its required inactive state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getAssignment
       description: A single assignment with its targets, window, and review and integrity policies.
@@ -3314,6 +3433,18 @@ paths:
 
   /admin/students/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      operationId: deleteStudent
+      tags: [admin-students]
+      description: Permanently deletes a disabled student account only when no assignment, attempt, or retained audit record references it. Historical identities use the approved manual anonymization process instead.
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The resource is still referenced or has not reached its required inactive state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getStudent
       description: A student with their class memberships, linked providers and `joinedVia` (§8).
@@ -3443,6 +3574,18 @@ paths:
 
   /admin/classes/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      operationId: deleteClass
+      tags: [admin-classes]
+      description: Permanently deletes an archived class and its owned memberships/join codes. Assignment references block deletion; student accounts and papers are retained.
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The resource is still referenced or has not reached its required inactive state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getClass
       description: A single class, including its active join code metadata -- but never the code itself (§13.3).

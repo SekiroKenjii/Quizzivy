@@ -309,5 +309,9 @@ it("renames a section after a double click on its title", async () => {
   const field = await screen.findByLabelText("Tên phần");
   await user.clear(field);
   await user.type(field, "Listening{Enter}");
-  expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual(["Ngữ pháp", "Listening", "Viết"]);
+  expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
+    "Ngữ pháp",
+    "Listening",
+    "Viết",
+  ]);
 });

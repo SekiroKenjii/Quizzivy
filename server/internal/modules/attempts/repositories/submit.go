@@ -39,6 +39,18 @@ func (s *Postgres) Submit(ctx context.Context, attemptID, studentID string, reas
 		return domain.AttemptRecord{}, domain.ErrAttemptClosed
 	}
 
+	if closed, err := closeForFocusLimit(ctx, tx, attemptID, now); err != nil {
+		return domain.AttemptRecord{}, err
+	} else if closed {
+		result, err := scanAttempt(tx.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.attempts WHERE id = $1`, attemptID))
+		if err != nil {
+			return domain.AttemptRecord{}, err
+		}
+		return result, tx.Commit(ctx)
+	}
+	if reason == domain.AutoSubmit {
+		reason = domain.Manual
+	}
 	closed, err := gradeAndClose(ctx, tx, attemptID, versionID, reason, deadlineAt, now)
 	if err != nil {
 		return domain.AttemptRecord{}, err
@@ -252,7 +264,10 @@ func (s *Postgres) ExpireIfDue(ctx context.Context, attemptID string, now time.T
 	if err != nil {
 		return fmt.Errorf("attempts: lock attempt for expiry: %w", err)
 	}
-	if status != domain.InProgress || !now.After(deadlineAt) {
+	if status != domain.InProgress {
+		return nil
+	}
+	if !now.After(deadlineAt) {
 		return nil
 	}
 

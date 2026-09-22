@@ -1,3 +1,5 @@
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActions } from "@/components/shared/BulkActions";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useListFilters } from "@/hooks/useListFilters";
@@ -12,6 +14,7 @@ import {
 } from "@tanstack/react-query";
 import {
   ArrowUpRight,
+  ChevronDown,
   Copy,
   Play,
   Plus,
@@ -35,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AudioPreviewRow } from "@/features/question-bank/components/AudioPreviewRow";
+import { QuestionUsageRow } from "@/features/question-bank/components/QuestionUsageRow";
 import {
   deleteQuestion,
   duplicateQuestion,
@@ -86,7 +90,8 @@ export default function QuestionBankPage() {
   const setTags = (value: readonly string[]) => setFilter("tag", value);
   const audioOnly = params.get("hasAudio") === "true";
   const setAudioOnly = (value: boolean) => setFilter("hasAudio", value ? "true" : null);
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const bulk = useBulkSelection<AdminQuestion>();
+  const selected = new Set(bulk.selected.keys());
   const [tagging, setTagging] = useState(false);
   const [addingOne, setAddingOne] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
@@ -149,20 +154,11 @@ export default function QuestionBankPage() {
 
   const items = bank.data?.items ?? [];
   const data = bank.data;
-  const pageIds = new Set(items.map((q) => q.id));
-  // Only this page: a filtered-away selection is still a selection the teacher made.
-  const selectPage = (checked: boolean) =>
-    setSelected(
-      checked
-        ? new Set([...selected, ...pageIds])
-        : new Set([...selected].filter((id) => !pageIds.has(id))),
-    );
-  const toggleSelected = (id: string) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  const selectPage = (checked: boolean) => bulk.selectPage(items, checked);
+  const toggleSelected = (id: string) => {
+    const item = items.find((q) => q.id === id);
+    if (item) bulk.toggle(item);
+  };
   const facets = data?.facets;
   // From the server, not from `items`.
   const shownTags = [...new Set([...tags, ...(bank.data?.tags ?? [])])].sort((a, b) =>
@@ -207,32 +203,32 @@ export default function QuestionBankPage() {
           placeholder={t("bank.searchPlaceholder")}
         />
 
-        {selected.size === 0 ? null : (
-          <div className="bg-secondary flex h-11 items-center gap-3 rounded-md px-3">
-            <span className="text-sm font-medium">
-              {t("bank.selectedCount", { count: selected.size })}
-            </span>
-            <div className="ml-auto flex items-center gap-2">
-              <Button variant="outline" size="xs" onClick={() => setAdding(true)}>
-                <Plus aria-hidden="true" />
-                {t("bank.addToTest")}
-              </Button>
-              <Button variant="outline" size="xs" onClick={() => setTagging(true)}>
-                <TagIcon aria-hidden="true" />
-                {t("bank.bulkTag")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="text-muted-foreground"
-                onClick={() => setSelected(new Set())}
-              >
-                {t("bank.clearSelection")}
-              </Button>
-            </div>
-          </div>
-        )}
-
+        <BulkActions
+          selected={[...bulk.selected.values()]}
+          name={(item) => item.prompt}
+          selectionLabel={t("bank.selectedCount", { count: selected.size })}
+          actions={[
+            {
+              label: t("common.bulkDelete"),
+              description: t("common.permanentDeleteBody"),
+              run: (item) => deleteQuestion(item.id),
+            },
+          ]}
+          onRemoved={bulk.remove}
+          onClear={bulk.clear}
+          onSettled={() =>
+            queryClient.invalidateQueries({ queryKey: ["admin-questions"] })
+          }
+        >
+          <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+            <Plus aria-hidden="true" />
+            {t("bank.addToTest")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setTagging(true)}>
+            <TagIcon aria-hidden="true" />
+            {t("bank.bulkTag")}
+          </Button>
+        </BulkActions>
         <QueryStates
           query={bank}
           skeleton={<ListSkeleton />}
@@ -315,7 +311,7 @@ export default function QuestionBankPage() {
         suggestions={shownTags}
         open={tagging}
         onOpenChange={setTagging}
-        onApplied={() => setSelected(new Set())}
+        onApplied={() => bulk.clear()}
       />
       <AddToTestDialog
         questionIds={addingOne === null ? [...selected] : [addingOne]}
@@ -326,7 +322,7 @@ export default function QuestionBankPage() {
           setAddingOne(null);
         }}
         onAdded={() => {
-          if (addingOne === null) setSelected(new Set());
+          if (addingOne === null) bulk.clear();
         }}
       />
       <ConfirmDialog
@@ -396,6 +392,7 @@ function Row({
   const { t } = useTranslation();
   const locale = useLocale();
   const audio = question.media?.kind === "audio" ? question.media : null;
+  const [usageOpen, setUsageOpen] = useState(false);
 
   return (
     <>
@@ -444,7 +441,24 @@ function Row({
         </TableCell>
         <TableCell className="text-right tabular-nums">{question.points}</TableCell>
         <TableCell className="text-muted-foreground tabular-nums">
-          {usedInText(question.usedInTests, t)}
+          {question.usedInTests ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-1.5"
+              aria-expanded={usageOpen}
+              aria-controls={`question-usage-${question.id}`}
+              onClick={() => setUsageOpen(!usageOpen)}
+            >
+              <ChevronDown
+                className={usageOpen ? "rotate-180" : ""}
+                aria-hidden="true"
+              />
+              {t("bank.usedInCount", { count: question.usedInTests })}
+            </Button>
+          ) : (
+            "—"
+          )}
         </TableCell>
         <TableCell className="text-muted-foreground">
           {formatRelative(question.updatedAt, locale)}
@@ -483,6 +497,9 @@ function Row({
         </TableCell>
       </TableRow>
 
+      {usageOpen ? (
+        <QuestionUsageRow questionId={question.id} prompt={question.prompt} />
+      ) : null}
       {audio && playing ? (
         <TableRow>
           <TableCell colSpan={8} className="p-0">
@@ -625,8 +642,4 @@ function bankSubtitle(
   if (data.total === data.bankTotal)
     return t("bank.summary", { count: data.bankTotal });
   return t("bank.summaryFiltered", { count: data.bankTotal, filtered: data.total });
-}
-
-function usedInText(count: number | undefined, t: TFunction): string {
-  return count ? t("bank.usedInCount", { count }) : "—";
 }

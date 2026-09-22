@@ -36,7 +36,28 @@
     "hidePassword": "Ẩn mật khẩu",
     "justDuplicated": "Vừa nhân bản",
     "duplicateNamed": "Nhân bản {{name}}",
-    "updated": "Cập nhật"
+    "updated": "Cập nhật",
+    "actionFailed": "Không thể thực hiện thao tác. Vui lòng thử lại.",
+    "refreshFailed": "Thao tác đã hoàn tất nhưng chưa tải lại được danh sách.",
+    "bulkCompleted": "Đã xử lý {{count}} mục.",
+    "selectedCount": "Đã chọn {{count}} mục",
+    "clearSelection": "Bỏ chọn",
+    "retryFailed": "Thử lại {{count}} mục chưa thành công",
+    "confirmSelected": "Xác nhận {{count}} mục",
+    "bulkProgress": "Đang xử lý {{completed}}/{{total}} mục",
+    "selectPage": "Chọn tất cả mục trên trang này",
+    "selectNamed": "Chọn {{name}}",
+    "deleteNamed": "Xoá vĩnh viễn {{name}}",
+    "deleted": "Đã xoá.",
+    "deletePermanently": "Xoá vĩnh viễn",
+    "permanentDeleteBody": "Không thể hoàn tác. Mục còn được bài giao, bài làm hoặc lịch sử tham chiếu sẽ được giữ lại.",
+    "bulkDelete": "Xoá các mục đã chọn",
+    "archiveSelected": "Lưu trữ các mục đã chọn",
+    "archiveSelectedBody": "Các mục đã chọn sẽ chuyển vào danh sách lưu trữ. Bạn có thể khôi phục sau.",
+    "disableSelected": "Vô hiệu hoá các mục đã chọn",
+    "disableSelectedBody": "Học viên được chọn sẽ không thể đăng nhập. Dữ liệu học tập được giữ lại.",
+    "deleteInactiveBody": "Chỉ xoá mục đã lưu trữ hoặc vô hiệu hoá và không còn dữ liệu tham chiếu. Các mục không đủ điều kiện sẽ được giữ lại.",
+    "deleteAssignmentsBody": "Chỉ xoá bản nháp hoặc bài giao đã đóng và chưa có bài làm. Không thể hoàn tác."
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -324,7 +345,9 @@
     "assignmentsSummary": "{{count}} bài · {{open}} đang mở",
     "assignmentsEmpty": "Chưa giao bài nào cho lớp này.",
     "assignmentsFailed": "Không tải được bài giao của lớp.",
-    "viewAllAssignments": "Xem tất cả"
+    "viewAllAssignments": "Xem tất cả",
+    "removeSelected": "Xoá học viên đã chọn khỏi lớp",
+    "removeSelectedBody": "Chỉ xoá tư cách thành viên lớp. Tài khoản và bài làm của học viên vẫn được giữ lại."
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -656,6 +679,12 @@
     "summarySoFar": "{{count}} câu đã tải",
     "usedIn": "Đang dùng",
     "usedInCount": "{{count}} đề",
+    "usageTitle": "Đề đang gắn câu hỏi: {{prompt}}",
+    "usageHint": "Chỉnh sửa câu hỏi sẽ cập nhật các bản soạn dưới đây. Phiên bản đã phát hành giữ nguyên.",
+    "usageFailed": "Không tải được danh sách đề đang gắn câu hỏi.",
+    "usageEmpty": "Câu hỏi không còn được gắn vào bản soạn nào.",
+    "usageLocation": "Nơi sử dụng",
+    "currentOutline": "Bản soạn hiện tại",
     "audioOnly": "Chỉ câu có audio",
     "selectedCount": "Đã chọn {{count}} câu",
     "clearSelection": "Bỏ chọn",
@@ -736,7 +765,19 @@
     "restoreHint": "Khôi phục đưa đề về trạng thái nháp.",
     "restored": "Đã khôi phục đề",
     "restoreFailed": "Không khôi phục được đề.",
-    "archiveTab": "Lưu trữ"
+    "archiveTab": "Lưu trữ",
+    "defaultVersion": "Mặc định",
+    "versionActionSaved": "Đã cập nhật phiên bản.",
+    "versionActions": {
+      "draft": "Sửa từ phiên bản này",
+      "current": "Đặt làm mặc định",
+      "delete": "Xoá phiên bản"
+    },
+    "versionActionBodies": {
+      "draft": "Nội dung phiên bản này sẽ được sao chép vào bản soạn hiện tại, thay thế các chỉnh sửa chưa phát hành. Các phiên bản đã giao và bài làm được giữ nguyên.",
+      "current": "Chỉ những lần giao bài tiếp theo dùng mặc định này. Bài đã giao không thay đổi.",
+      "delete": "Chỉ xoá được phiên bản chưa được bài giao hoặc bài làm sử dụng. Không thể hoàn tác."
+    }
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
@@ -883,7 +924,7 @@
       "focusLoss": {
         "warn": "Nếu bạn rời khỏi trang làm bài quá {{count}} lần, bạn sẽ được nhắc. Bài không bị dừng và điểm không bị trừ tự động.",
         "flag": "Nếu bạn rời khỏi trang làm bài quá {{count}} lần, bài sẽ được đánh dấu để giáo viên xem lại. Bài không bị dừng và điểm không bị trừ tự động.",
-        "auto_submit": "Rời trang quá {{count}} lần thì bài được nộp tự động."
+        "auto_submit": "Được rời trang tối đa {{count}} lần. Vượt giới hạn sẽ tự nộp ngay, giữ câu trả lời và ghi nhận vi phạm."
       },
       "score": "điểm",
       "correctAnswers": "đáp án đúng",
@@ -981,7 +1022,7 @@
       "focusLimit": {
         "warn": "Cho phép {{count}} lần, quá thì nhắc học viên",
         "flag": "Cho phép {{count}} lần, quá thì đánh dấu để xem lại",
-        "auto_submit": "Cho phép {{count}} lần, quá thì nộp tự động"
+        "auto_submit": "Tối đa {{count}} lần; vượt giới hạn tự nộp ngay và ghi nhận vi phạm."
       },
       "shuffleQuestions": "Trộn câu hỏi",
       "shuffleOptions": "Trộn lựa chọn",
@@ -1026,7 +1067,12 @@
     "rosterFailed": "Không tính được danh sách. Bấm để thử lại.",
     "customDuration": "Nhập thời lượng khác",
     "customMinutes": "Thời lượng tự nhập (phút)",
-    "minuteUnit": "phút"
+    "minuteUnit": "phút",
+    "focusNotAllowed": "Không được phép",
+    "customFocusLimit": "Nhập số lần cho phép",
+    "actionAutoSubmit": "Tự nộp ngay, ghi nhận vi phạm",
+    "defaultVersion": "Phiên bản mặc định: v{{version}}",
+    "invalidNumbers": "Nhập số nguyên hợp lệ: thời lượng 1–600 phút, số lượt làm từ 1 và số lần rời trang tuỳ chỉnh từ 1."
   },
   "students": {
     "summary": "{{count}} học viên · {{active}} hoạt động 7 ngày qua",
@@ -1175,7 +1221,7 @@
     "submittedTitle_auto_submit": "Bài đã được nộp vì rời trang lần nữa.",
     "submittedBody_manual": "Bài làm của bạn đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
     "submittedBody_timer_expired": "Hết thời gian làm bài, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
-    "submittedBody_auto_submit": "Bài làm ghi nhận bạn rời khỏi trang sau lần cuối được cho phép, nên bài đã được nộp với các câu bạn đã trả lời. Mọi câu đã lưu đều được giữ nguyên.",
+    "submittedBody_auto_submit": "Bài đã được tự nộp do vượt giới hạn rời trang. Câu trả lời được giữ để chấm và vi phạm đã được ghi nhận.",
     "submittedMeta": "Nộp lúc {{time}} · {{date}} · {{answered}}/{{total}} câu đã trả lời",
     "backHome": "Về trang chủ",
     "sectionNote": "{{title}} — {{text}}",
@@ -1214,7 +1260,13 @@
     "overLimit": "Quá số lần rời trang",
     "fullscreenExited": "Bạn đã thoát chế độ toàn màn hình.",
     "fullscreenUnsupported": "Trình duyệt này không hỗ trợ chế độ toàn màn hình. Bạn vẫn làm bài bình thường.",
-    "fullscreenReturn": "Quay lại toàn màn hình"
+    "fullscreenReturn": "Quay lại toàn màn hình",
+    "spentAutoSubmit": "Bạn đã dùng hết số lần cho phép. Nếu rời trang thêm một lần, bài sẽ tự nộp ngay.",
+    "remainingAutoSubmit": "Còn {{count}} lần được phép. Vượt giới hạn sẽ tự nộp ngay và giữ câu trả lời.",
+    "autoSubmitTitle": "Bài làm buộc phải nộp",
+    "autoSubmitBody": "Bạn đã vượt giới hạn rời trang. Hệ thống đang nộp bài, giữ các câu trả lời để chấm và ghi nhận vi phạm cho giáo viên.",
+    "autoSubmitSending": "Đang gửi câu trả lời và nộp bài…",
+    "autoSubmitRetry": "Chưa xác nhận được việc nộp bài. Câu trả lời được giữ trên thiết bị và sẽ tự gửi lại. Vui lòng giữ trang này mở."
   },
   "pagination": {
     "label": "Phân trang",
@@ -1423,7 +1475,8 @@
       "session_takeover": "Vào lại bài từ thiết bị khác",
       "page_hide": "Đóng trang",
       "tab_visible": "Quay lại tab",
-      "window_focus": "Quay lại cửa sổ"
+      "window_focus": "Quay lại cửa sổ",
+      "auto_submit": "Tự nộp vì vượt giới hạn rời trang"
     },
     "ongoing": "— đang tiếp diễn",
     "stillOpen": "· đang mở",

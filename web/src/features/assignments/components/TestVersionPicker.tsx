@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLazyList } from "@/hooks/useLazyList";
 import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import { FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -67,11 +68,10 @@ export function TestVersionPicker({
                     className="text-muted-foreground size-5 shrink-0"
                     aria-hidden="true"
                   />
-                  {/* Title and latest version only. */}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{test.title}</p>
                     <p className="text-muted-foreground text-xs">
-                      {t("assignments.latestVersion", {
+                      {t("assignments.defaultVersion", {
                         version: test.currentVersion,
                       })}
                     </p>
@@ -81,6 +81,7 @@ export function TestVersionPicker({
                 {expanded === test.id ? (
                   <VersionList
                     testId={test.id}
+                    current={test.currentVersion}
                     onPick={(version) => {
                       onPick({ testId: test.id, testTitle: test.title, version });
                       onOpenChange(false);
@@ -101,10 +102,12 @@ export function TestVersionPicker({
 }
 
 function VersionList({
+  current,
   testId,
   onPick,
 }: Readonly<{
   testId: string;
+  current: number;
   onPick: (version: TestVersion) => void;
 }>) {
   const { t } = useTranslation();
@@ -128,29 +131,38 @@ function VersionList({
 
   return (
     <ul className="space-y-1 border-t p-2">
-      {versions.data?.items.map((version) => (
-        <li key={version.id}>
-          <button
-            type="button"
-            className="hover:bg-secondary flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left text-xs"
-            onClick={() => onPick(version)}
-          >
-            <span className="font-medium tabular-nums">
-              {t("tests.versionNumber", { n: version.version })}
-            </span>
-            <span className="text-muted-foreground">
-              {t("assignments.versionMeta", {
-                questions: version.questionCount,
-                points: version.totalPoints,
-                audio: version.audioCount,
-              })}
-            </span>
-            <span className="text-muted-foreground ml-auto">
-              {t("assignments.use")}
-            </span>
-          </button>
-        </li>
-      ))}
+      {[...versions.data.items]
+        .sort(
+          (a, b) =>
+            Number(b.version === current) - Number(a.version === current) ||
+            b.version - a.version,
+        )
+        .map((version) => (
+          <li key={version.id}>
+            <button
+              type="button"
+              className="hover:bg-secondary flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left text-xs"
+              onClick={() => onPick(version)}
+            >
+              <span className="font-medium tabular-nums">
+                {t("tests.versionNumber", { n: version.version })}
+              </span>
+              {version.version === current ? (
+                <Badge variant="outline">{t("tests.defaultVersion")}</Badge>
+              ) : null}
+              <span className="text-muted-foreground">
+                {t("assignments.versionMeta", {
+                  questions: version.questionCount,
+                  points: version.totalPoints,
+                  audio: version.audioCount,
+                })}
+              </span>
+              <span className="text-muted-foreground ml-auto">
+                {t("assignments.use")}
+              </span>
+            </button>
+          </li>
+        ))}
     </ul>
   );
 }

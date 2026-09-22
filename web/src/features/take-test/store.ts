@@ -184,7 +184,12 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
   },
 
   setAnswer: (questionId, answer) => {
-    if (get().lock !== null || get().submitState !== "idle") return;
+    if (
+      get().lock !== null ||
+      get().submitState !== "idle" ||
+      get().submitReason === "auto_submit"
+    )
+      return;
     set((state) => {
       const dirty = new Set(state.dirty);
       dirty.add(questionId);
@@ -295,7 +300,10 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
       if (generation !== epoch) return;
       if (
         get().lock === "superseded" ||
-        (!saved && get().dirty.size > 0 && get().lock === null)
+        (!saved &&
+          (get().dirty.size > 0 ||
+            (reason === "auto_submit" && pendingEvents().length > 0)) &&
+          get().lock === null)
       ) {
         set({ submitState: "idle" });
         return;
@@ -360,7 +368,9 @@ export function armDeadline() {
   deadlineTimer = setTimeout(
     () => {
       deadlineTimer = undefined;
-      void useTakeTestStore.getState().submit("timer_expired");
+      void useTakeTestStore
+        .getState()
+        .submit(state.submitReason === "auto_submit" ? "auto_submit" : "timer_expired");
     },
     Math.max(
       remainingMs(state),

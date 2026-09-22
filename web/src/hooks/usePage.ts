@@ -27,9 +27,9 @@ export function usePage(filters = ""): [number, (page: number) => void] {
 
   const seen = useRef<string | null>(null);
   useEffect(() => {
-    if (seen.current !== null && seen.current !== filters) setPage(1);
+    if (seen.current !== null && seen.current !== filters && page > 1) setPage(1);
     seen.current = filters;
-  }, [filters, setPage]);
+  }, [filters, page, setPage]);
 
   return [page, setPage];
 }

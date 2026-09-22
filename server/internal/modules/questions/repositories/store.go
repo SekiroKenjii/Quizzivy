@@ -59,7 +59,12 @@ func scanQuestion(row pgx.Row) (domain.Question, error) {
 
 // Get returns one live question with its children.
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Question, error) {
-	return s.get(ctx, s.Conn(), id, false)
+	question, err := s.get(ctx, s.Conn(), id, false)
+	if err != nil {
+		return domain.Question{}, err
+	}
+	question.UsedIn, err = s.questionUses(ctx, id)
+	return question, err
 }
 
 // GetIncludingDeleted resolves a question by id whether or not it is deleted,

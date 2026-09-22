@@ -1,3 +1,8 @@
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActions } from "@/components/shared/BulkActions";
+import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
+import { DeleteItemButton } from "@/components/shared/DeleteItemButton";
+import type { ReactNode } from "react";
 import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -33,6 +38,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArchiveClassDialog } from "@/features/classes/components/ArchiveClassDialog";
 import { NewClassDialog } from "@/features/classes/components/NewClassDialog";
 import {
+  deleteClass,
   fetchClasses,
   isJoinOpen,
   updateClass,
@@ -54,10 +60,13 @@ const PAGE_SIZE = 20;
 type Tab = Extract<ClassStatus, "all" | "joinable" | "archived">;
 const TABS: Tab[] = ["all", "joinable", "archived"];
 
-/** §8's classes list, as the deck's G-08: create and archive, never delete. */
+/** §8's classes list, as the deck's G-08: archive and delete unused archived classes. */
 export default function ClassesListPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const bulk = useBulkSelection<Class>();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
   const { params, setFilter } = useListFilters();
   const query = params.get("q") ?? "";
   const setQuery = (value: string) => setFilter("q", value);
@@ -151,6 +160,25 @@ export default function ClassesListPage() {
             />
           </div>
 
+          <BulkActions
+            selected={[...bulk.selected.values()]}
+            name={(item) => item.name}
+            actions={[
+              {
+                label: t("common.archiveSelected"),
+                description: t("common.archiveSelectedBody"),
+                run: (item) => updateClass(item.id, { archived: true }),
+              },
+              {
+                label: t("common.deletePermanently"),
+                description: t("common.deleteInactiveBody"),
+                run: (item) => deleteClass(item.id),
+              },
+            ]}
+            onRemoved={bulk.remove}
+            onClear={bulk.clear}
+            onSettled={invalidate}
+          />
           <QueryStates
             query={classes}
             skeleton={<ListSkeleton />}
@@ -165,6 +193,9 @@ export default function ClassesListPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            <BulkSelectAll items={items} selection={bulk} />
+                          </TableHead>
                           <TableHead className="w-[36%]">
                             {t("classes.columns.class")}
                           </TableHead>
@@ -184,6 +215,22 @@ export default function ClassesListPage() {
                           <Row
                             key={klass.id}
                             klass={klass}
+                            selection={
+                              <BulkSelectRow
+                                item={klass}
+                                name={klass.name}
+                                selection={bulk}
+                              />
+                            }
+                            deleteAction={
+                              klass.archivedAt ? (
+                                <DeleteItemButton
+                                  name={klass.name}
+                                  onDelete={() => deleteClass(klass.id)}
+                                  onDeleted={invalidate}
+                                />
+                              ) : null
+                            }
                             onArchive={() => setArchiving(klass)}
                             onRestore={() => restore.mutate(klass.id)}
                           />
@@ -217,10 +264,14 @@ export default function ClassesListPage() {
 }
 
 function Row({
+  selection,
+  deleteAction,
   klass,
   onArchive,
   onRestore,
 }: Readonly<{
+  selection: ReactNode;
+  deleteAction: ReactNode;
   klass: Class;
   onArchive: () => void;
   onRestore: () => void;
@@ -232,6 +283,7 @@ function Row({
 
   return (
     <TableRow>
+      <TableCell>{selection}</TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
           <Link to={href} className={cn("font-medium hover:underline", muted)}>
@@ -265,42 +317,45 @@ function Row({
         {shortDate(klass.createdAt)}
       </TableCell>
       <TableCell className="text-right">
-        <RowMenu>
-          <DropdownMenuItem asChild>
-            <Link to={href}>
-              <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
-              {t("classes.open")}
-            </Link>
-          </DropdownMenuItem>
-          {archived ? null : (
-            <>
-              <DropdownMenuItem asChild>
-                <Link to={`/admin/assignments/new?classId=${klass.id}`}>
-                  <Send className="text-muted-foreground" aria-hidden="true" />
-                  {t("classes.assign")}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={href}>
-                  <UserPlus className="text-muted-foreground" aria-hidden="true" />
-                  {t("classes.addStudents")}
-                </Link>
-              </DropdownMenuItem>
-            </>
-          )}
-          <DropdownMenuSeparator />
-          {archived ? (
-            <DropdownMenuItem onSelect={onRestore}>
-              <ArchiveRestore className="text-muted-foreground" aria-hidden="true" />
-              {t("classes.restore")}
+        <div className="flex items-center justify-end gap-1">
+          {deleteAction}
+          <RowMenu>
+            <DropdownMenuItem asChild>
+              <Link to={href}>
+                <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
+                {t("classes.open")}
+              </Link>
             </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem className="text-muted-foreground" onSelect={onArchive}>
-              <Inbox aria-hidden="true" />
-              {t("classes.archive")}
-            </DropdownMenuItem>
-          )}
-        </RowMenu>
+            {archived ? null : (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link to={`/admin/assignments/new?classId=${klass.id}`}>
+                    <Send className="text-muted-foreground" aria-hidden="true" />
+                    {t("classes.assign")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={href}>
+                    <UserPlus className="text-muted-foreground" aria-hidden="true" />
+                    {t("classes.addStudents")}
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            {archived ? (
+              <DropdownMenuItem onSelect={onRestore}>
+                <ArchiveRestore className="text-muted-foreground" aria-hidden="true" />
+                {t("classes.restore")}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem className="text-muted-foreground" onSelect={onArchive}>
+                <Inbox aria-hidden="true" />
+                {t("classes.archive")}
+              </DropdownMenuItem>
+            )}
+          </RowMenu>
+        </div>
       </TableCell>
     </TableRow>
   );

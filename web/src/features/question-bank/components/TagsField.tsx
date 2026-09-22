@@ -29,8 +29,10 @@ export function TagsField({ tags, onChange }: Readonly<TagsFieldProps>) {
     staleTime: 60_000,
   });
   const known = [...new Set([...recent, ...(available.data?.tags ?? [])])];
+  const selected = new Set(tags);
+  const search = fold(draft.trim());
   const matches = known
-    .filter((tag) => !tags.includes(tag) && fold(tag).includes(fold(draft.trim())))
+    .filter((tag) => !selected.has(tag) && fold(tag).includes(search))
     .slice(0, 6);
 
   function add(value: string) {

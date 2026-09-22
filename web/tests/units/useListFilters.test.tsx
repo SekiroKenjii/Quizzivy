@@ -7,22 +7,35 @@ import { useListFilters } from "@/hooks/useListFilters";
 
 function List() {
   const { params, setFilter } = useListFilters();
-  return <>
-    <input aria-label="Search" value={params.get("q") ?? ""} onChange={(event) => setFilter("q", event.target.value)} />
-    <button onClick={() => setFilter("status", "archived")}>Archived</button>
-    <button onClick={() => setFilter("q", null)}>Clear search</button>
-    <output>{params.get("status")}</output>
-    <Link to="/list/child">Open</Link>
-  </>;
+  return (
+    <>
+      <input
+        aria-label="Search"
+        value={params.get("q") ?? ""}
+        onChange={(event) => setFilter("q", event.target.value)}
+      />
+      <button onClick={() => setFilter("status", "archived")}>Archived</button>
+      <button onClick={() => setFilter("q", null)}>Clear search</button>
+      <output>{params.get("status")}</output>
+      <Link to="/list/child">Open</Link>
+    </>
+  );
 }
 
 function mount(initial = "/list") {
   const client = new QueryClient();
-  const router = createMemoryRouter([
-    { path: "/list", element: <List /> },
-    { path: "/list/child", element: <Link to="/list">Back</Link> },
-  ], { initialEntries: [initial] });
-  render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>);
+  const router = createMemoryRouter(
+    [
+      { path: "/list", element: <List /> },
+      { path: "/list/child", element: <Link to="/list">Back</Link> },
+    ],
+    { initialEntries: [initial] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
   return { user: userEvent.setup(), router };
 }
 
@@ -33,7 +46,11 @@ it("keeps URL filters after returning through a plain list link", async () => {
   await user.click(screen.getByText("Open"));
   await user.click(await screen.findByText("Back"));
   expect(await screen.findByLabelText("Search")).toHaveValue("listening");
-  await waitFor(() => expect(new URLSearchParams(router.state.location.search).get("status")).toBe("archived"));
+  await waitFor(() =>
+    expect(new URLSearchParams(router.state.location.search).get("status")).toBe(
+      "archived",
+    ),
+  );
 });
 
 it("respects an explicit URL and does not restore a deliberately cleared filter", async () => {
@@ -44,7 +61,9 @@ it("respects an explicit URL and does not restore a deliberately cleared filter"
   await user.click(screen.getByText("Open"));
   await user.click(await screen.findByText("Back"));
   expect(await screen.findByLabelText("Search")).toHaveValue("");
-  await act(async () => { await router.navigate("/list?q=shared"); });
+  await act(async () => {
+    await router.navigate("/list?q=shared");
+  });
   expect(screen.getByLabelText("Search")).toHaveValue("shared");
   expect(screen.getByRole("status")).toHaveTextContent("");
 });

@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.5 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.6 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.5**
+
+- Admin lists retain filters, support bulk removal and duplicate in place. The
+  question bank exposes attached outlines in a nested table (§8).
+- Version history supports safe draft restoration, default selection and unused
+  version deletion without changing assigned snapshots or reusing version numbers.
+- Assignment limits support custom durations, attempt counts and immediate
+  integrity submission with retained answers and recorded violations (§10).
 
 **Changes since v0.4**
 
@@ -296,7 +305,7 @@ interface Test {
 interface IntegrityPolicy {
   requireFullscreen: boolean;
   blockCopyPaste: boolean;
-  maxFocusLoss: number;                 // 0 = unlimited
+  maxFocusLoss: number;                 // -1 = none allowed; 0 = unlimited
   onLimitExceeded: 'warn' | 'flag' | 'auto_submit';
 }
 
@@ -342,9 +351,9 @@ type Answer =
 | Route | Screen | Key behaviour |
 |---|---|---|
 | `/admin` | Dashboard | Open assignments, attempts awaiting grading, active students, flagged attempts, recent attempts. |
-| `/admin/tests` | Tests list | Title, status, #questions, total points, updated. Filter by status. Create / duplicate / archive. |
+| `/admin/tests` | Tests list | Title, status, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. |
 | `/admin/tests/new`, `/admin/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **audio attach** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. |
-| `/admin/tests/:id` | Test detail | Read-only student-eye preview + version history. |
+| `/admin/tests/:id` | Test detail | Student-eye preview of any version, with history in the shared right sidebar. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
 | `/admin/question-bank` | Question bank | Type/tag filters + full-text search. CRUD. Audio badge + inline preview. CSV import (P1). |
 | `/admin/media` | Media library | Uploaded audio/images: filename, duration, size, where used. Delete blocked if referenced by any published version. |
 | `/admin/assignments` | Assignments list | Test, targets, window, status, `submitted/total`, flagged count. |
@@ -354,6 +363,17 @@ type Answer =
 | `/admin/students` | Students | Table + create/edit. Linked providers, `joined_via`. Reset password. CSV import (P1). |
 | `/admin/classes`, `/admin/classes/:id` | Classes | CRUD, members, **join-code panel** (§6.4). |
 | `/admin/settings` | Settings | Profile, password, link/unlink Google, language. |
+
+Admin list behaviour (approved change request, 2026-09-22):
+
+- Tests, questions, media, classes, students and assignments support explicit multi-selection and confirmed bulk removal. Class rosters support bulk membership removal. Failed items remain selected with an individual explanation; successful items are not retried. Attempt history, grading records and integrity/audit events remain retained.
+- Tests and questions expose duplication beside the row menu and inside it. A duplicate leaves the teacher on the list and marks the source and newly created row until navigation.
+- List search, filters and pagination survive navigation to a child and back for the signed-in session. Explicit shared URLs take precedence. The question bank shows updated time and orders newest-created questions first.
+- The question bank's usage count expands a nested table of currently attached test outlines, fetched on demand, with links to their builders. Frozen published snapshots are excluded from this count and remain unaffected by bank edits.
+- Archive tests/classes or disable student accounts before permanent deletion. Assignment deletion requires a draft or closed assignment without attempts. Foreign-key references to assigned work block deletion. Student actor references in retained audit history also block deletion; the existing manual anonymization policy remains separate.
+- Published snapshots are never edited in place. Editing an old version copies its frozen content into new bank questions and replaces the editable draft after confirmation. Existing assignments retain their version. Switching the default does not reset the monotonically increasing publication counter. Only unused, non-default versions can be deleted.
+- Empty builder groups accept question drops; double-clicking a group title opens rename. Switching questions flushes the current editor and uses the returned saved record. Fresh starter text disappears on focus without scheduling an invalid empty save. Tags suggest recent and matching existing names.
+- Assignment duration offers 30, 45 and 60 minutes plus a custom minute input. Attempt count is a number input defaulting to 1. Focus loss offers unlimited, none allowed, or a custom positive count.
 
 ## 9. Screens & routes — student and public
 
@@ -420,8 +440,8 @@ Announced, visible, never silent.
 
 - The intro page states the active rules in plain Vietnamese before starting. If `requireFullscreen` is on, the "Bắt đầu" click is what enters fullscreen (browsers require a gesture).
 - First violation: a non-dismissible dialog — what happened, strikes remaining, what happens at zero. The timer keeps running.
-- A small persistent indicator shows remaining strikes when `maxFocusLoss > 0`.
-- `onLimitExceeded`: `warn` = dialog only; `flag` = attempt marked for the admin, student told; `auto_submit` = 10s countdown with a "Tôi vẫn đang làm bài" cancel granting one final strike, then submit.
+- A small persistent indicator shows remaining strikes when a limit is set. `maxFocusLoss = 0` retains the unlimited default; `-1` permits no counted departure; positive values permit that many departures.
+- `onLimitExceeded`: `warn` = dialog only; `flag` = attempt marked for the admin, student told; `auto_submit` = immediate submission on exceeding the count, retaining answers for grading and recording the violation. There is no cancellation or extra strike. The final answer/event batch is saved before the server grades and closes. While offline, the attempt is locked locally, pending answers are retained and submission is retried with a visible notice.
 - Fullscreen exit shows a "Quay lại toàn màn hình" button. Never trap the student: `Esc` always works and there is always a visible way to leave and submit.
 
 ### 10.3 Policy defaults (per assignment)
@@ -441,8 +461,10 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - One `useIntegrityMonitor(attemptId, policy)` hook owns all listeners, registered and torn down in a single `useEffect`. No scattered listeners.
 - Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`.
 - `clientSeq` is monotonic so the server can order events despite clock skew.
-- Fire-and-forget: a failed event flush never blocks answering or submitting.
-- Never block input on an integrity failure. Integrity is observational; the timer and the answers are the contract.
+- Failed background event flushes do not block answering or manual submission.
+  The immediate `auto_submit` policy retries its final answer/event batch before
+  confirming submission so the violation is retained with the answers.
+- An event transport failure alone does not block input. The explicit `auto_submit` policy locks further answering once exceeded, while preserving and retrying the pending answers.
 
 ---
 
@@ -680,7 +702,7 @@ CREATE TABLE app.question_options (
 **Tests and versioning** — the load-bearing decision. On publish, snapshot resolved content into version tables so editing a test can never mutate an in-flight or historical attempt:
 
 ```
-tests(id, title, description, status, current_version, ...)
+tests(id, title, description, status, current_version, last_published_version, ...)
 test_versions(id, test_id, version, published_at, total_points, UNIQUE(test_id, version))
 test_version_sections(id, test_version_id, ordinal, title, instructions)
 test_version_questions(id, test_version_section_id, ordinal, source_question_id,

@@ -1,3 +1,11 @@
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { useListFilters } from "@/hooks/useListFilters";
+import { BulkActions } from "@/components/shared/BulkActions";
+import {
+  BulkSelectAll,
+  BulkSelectRow,
+  type BulkSelection,
+} from "@/components/shared/BulkSelection";
 import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -48,6 +56,8 @@ const PAGE_SIZE = 24;
 export default function MediaLibraryPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const bulk = useBulkSelection<LibraryAsset>();
+  useListFilters();
   const uploader = useRef<UploadHandle>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<LibraryAsset | null>(null);
@@ -122,6 +132,20 @@ export default function MediaLibraryPage() {
         </p>
       ) : null}
 
+      <BulkActions
+        selected={[...bulk.selected.values()]}
+        name={(item) => item.originalFilename}
+        actions={[
+          {
+            label: t("common.bulkDelete"),
+            description: t("common.permanentDeleteBody"),
+            run: (item) => deleteMedia(item.id),
+          },
+        ]}
+        onRemoved={bulk.remove}
+        onClear={bulk.clear}
+        onSettled={invalidate}
+      />
       <QueryStates
         query={library}
         skeleton={<ListSkeleton />}
@@ -134,6 +158,7 @@ export default function MediaLibraryPage() {
             <div className="bg-card overflow-hidden rounded-lg border">
               <AssetTable
                 assets={assets}
+                selection={bulk}
                 playing={playing}
                 onRefresh={() => void library.refetch()}
                 onBlocked={setBlocked}
@@ -242,6 +267,7 @@ export default function MediaLibraryPage() {
 }
 
 function AssetTable({
+  selection,
   assets,
   playing,
   onDelete,
@@ -250,6 +276,7 @@ function AssetTable({
   onView,
   onRefresh,
 }: Readonly<{
+  selection: BulkSelection<LibraryAsset>;
   assets: LibraryAsset[];
   playing: string | null;
   onDelete: (asset: LibraryAsset) => void;
@@ -264,6 +291,9 @@ function AssetTable({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10">
+            <BulkSelectAll items={assets} selection={selection} />
+          </TableHead>
           <TableHead className="w-[34%]">{t("media.columnFile")}</TableHead>
           <TableHead>{t("media.columnType")}</TableHead>
           <TableHead className="text-right">{t("media.columnDuration")}</TableHead>
@@ -280,6 +310,13 @@ function AssetTable({
           return (
             <Fragment key={asset.id}>
               <TableRow>
+                <TableCell>
+                  <BulkSelectRow
+                    item={asset}
+                    name={asset.originalFilename}
+                    selection={selection}
+                  />
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Icon
@@ -358,7 +395,7 @@ function AssetTable({
 
               {asset.kind === "audio" && playing === asset.id ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={8} className="p-0">
                     <AudioPreviewRow
                       key={asset.url}
                       asset={asset}

@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { fold } from "@/lib/fold";
+import { useAuthStore } from "@/stores/auth";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
@@ -40,6 +42,13 @@ export function BulkTagDialog({
 }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const suggestionId = useId();
+  const userId = useAuthStore((state) => state.user?.id ?? "anonymous");
+  const recentKey = ["recent-question-tags", userId];
+  const [recent, setRecent] = useState(
+    () => queryClient.getQueryData<string[]>(recentKey) ?? [],
+  );
+  const known = [...new Set([...recent, ...suggestions])];
   const [tags, setTags] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -52,20 +61,28 @@ export function BulkTagDialog({
   }
 
   function add(value: string) {
-    const tag = value.trim();
+    const tag = known.find((item) => fold(item) === fold(value.trim())) ?? value.trim();
     if (tag === "" || tags.includes(tag)) return;
     setTags([...tags, tag]);
+    const next = [tag, ...recent.filter((item) => item !== tag)].slice(0, 6);
+    setRecent(next);
+    queryClient.setQueryDefaults(recentKey, { gcTime: Infinity });
+    queryClient.setQueryData(recentKey, next);
     setDraft("");
   }
 
-  // A tag still sitting in the input counts.
-  const pending = draft.trim();
+  const pending =
+    known.find((item) => fold(item) === fold(draft.trim())) ?? draft.trim();
   const effective =
     pending === "" || tags.includes(pending) ? tags : [...tags, pending];
 
   const apply = useMutation({
     mutationFn: () => tagQuestions(questionIds, effective),
     onSuccess: async () => {
+      const next = [...new Set([...effective, ...recent])].slice(0, 6);
+      setRecent(next);
+      queryClient.setQueryDefaults(recentKey, { gcTime: Infinity });
+      queryClient.setQueryData(recentKey, next);
       await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
       onApplied();
       close();
@@ -75,7 +92,9 @@ export function BulkTagDialog({
       setError(cause instanceof ApiError ? cause.message : t("bank.tagFailed")),
   });
 
-  const unused = suggestions.filter((s) => !tags.includes(s));
+  const unused = known
+    .filter((tag) => !tags.includes(tag) && fold(tag).includes(fold(draft.trim())))
+    .slice(0, 6);
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
@@ -104,6 +123,7 @@ export function BulkTagDialog({
                 </Badge>
               ))}
               <Input
+                list={suggestionId}
                 id="bulk-tag"
                 className="h-6 min-w-32 flex-1 border-0 p-0 shadow-none focus-visible:ring-0"
                 placeholder={t("bank.tagPlaceholder")}
@@ -119,6 +139,11 @@ export function BulkTagDialog({
             </div>
           </div>
 
+          <datalist id={suggestionId}>
+            {unused.map((tag) => (
+              <option key={tag} value={tag} />
+            ))}
+          </datalist>
           {unused.length === 0 ? null : (
             <div className="flex flex-wrap gap-1.5">
               {unused.map((tag) => (

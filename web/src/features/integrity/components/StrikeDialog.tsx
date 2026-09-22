@@ -65,6 +65,18 @@ export function StrikeDialog({
 function Consequence({ state }: Readonly<{ state: StrikeState }>) {
   const { t } = useTranslation();
   const flag = state.consequence === "flag";
+  if (state.consequence === "auto_submit" && state.limit !== null) {
+    return (
+      <>
+        {t(
+          state.remaining === 0
+            ? "integrity.spentAutoSubmit"
+            : "integrity.remainingAutoSubmit",
+          { count: state.remaining },
+        )}
+      </>
+    );
+  }
 
   if (state.limit === null) return <>{t("integrity.unlimited")}</>;
   if (state.exceeded) {

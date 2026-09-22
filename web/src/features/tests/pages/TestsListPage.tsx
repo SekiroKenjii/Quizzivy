@@ -1,3 +1,7 @@
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActions } from "@/components/shared/BulkActions";
+import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
+import { DeleteItemButton } from "@/components/shared/DeleteItemButton";
 import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  deleteTest,
   archiveTest,
   restoreTest,
   createTest,
@@ -71,6 +76,7 @@ const PAGE_SIZE = 20;
 export default function TestsListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const bulk = useBulkSelection<Test>();
   const queryClient = useQueryClient();
 
   const { params, setParams, setFilter } = useListFilters();
@@ -248,6 +254,25 @@ export default function TestsListPage() {
         </p>
       )}
 
+      <BulkActions
+        selected={[...bulk.selected.values()]}
+        name={(item) => item.title}
+        actions={[
+          {
+            label: t("common.archiveSelected"),
+            description: t("common.archiveSelectedBody"),
+            run: archiveTest,
+          },
+          {
+            label: t("common.deletePermanently"),
+            description: t("common.deleteInactiveBody"),
+            run: (item) => deleteTest(item.id),
+          },
+        ]}
+        onRemoved={bulk.remove}
+        onClear={bulk.clear}
+        onSettled={invalidate}
+      />
       <QueryStates
         query={tests}
         skeleton={<ListSkeleton />}
@@ -276,6 +301,9 @@ export default function TestsListPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <BulkSelectAll items={items} selection={bulk} />
+                      </TableHead>
                       <TableHead className="w-[40%]">{t("tests.title")}</TableHead>
                       <TableHead>{t("tests.status")}</TableHead>
                       <TableHead className="text-right">
@@ -292,6 +320,13 @@ export default function TestsListPage() {
                   <TableBody>
                     {items.map((test) => (
                       <TableRow key={test.id}>
+                        <TableCell>
+                          <BulkSelectRow
+                            item={test}
+                            name={test.title}
+                            selection={bulk}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {/* A-03: a draft opens the builder, anything else the read-only detail. */}
@@ -349,6 +384,13 @@ export default function TestsListPage() {
                             >
                               <Copy aria-hidden="true" />
                             </Button>
+                            {test.status === "archived" ? (
+                              <DeleteItemButton
+                                name={test.title}
+                                onDelete={() => deleteTest(test.id)}
+                                onDeleted={invalidate}
+                              />
+                            ) : null}
                             <RowActions
                               test={test}
                               onEdit={() =>

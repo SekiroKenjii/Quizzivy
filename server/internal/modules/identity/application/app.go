@@ -30,6 +30,7 @@ func (a *Application) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnrol
 }
 
 type Commands struct {
+	DeleteStudent        cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
 	ChangePassword       cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
 	CreateStudent        cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
 	GoogleSignIn         cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
@@ -56,6 +57,7 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 	students := support.NewStudents(repo, stats)
 	return &Application{
 		Commands: Commands{
+			DeleteStudent:        command.DeleteStudentHandler{Students: students},
 			ChangePassword:       command.ChangePasswordHandler{Service: service},
 			CreateStudent:        command.CreateStudentHandler{Students: students},
 			GoogleSignIn:         command.GoogleSignInHandler{Service: service},

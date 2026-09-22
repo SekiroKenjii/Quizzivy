@@ -245,10 +245,15 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     try {
       await Promise.all([outline.flush(), flushQuestion.current?.()]);
       await publishTest(test.id);
-      await queryClient.invalidateQueries({
-        queryKey: ["admin-test", test.id],
-        refetchType: "all",
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["admin-test", test.id],
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({ queryKey: ["admin-test-versions", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-test-preview", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-tests"] }),
+      ]);
       await navigate(`/admin/tests/${test.id}`);
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "PUBLISH_VALIDATION_FAILED") {

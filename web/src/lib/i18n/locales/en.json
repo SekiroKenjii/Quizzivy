@@ -36,7 +36,28 @@
     "hidePassword": "Hide password",
     "justDuplicated": "Just duplicated",
     "duplicateNamed": "Duplicate {{name}}",
-    "updated": "Updated"
+    "updated": "Updated",
+    "actionFailed": "The action failed. Please try again.",
+    "refreshFailed": "The action completed, but the list could not be refreshed.",
+    "bulkCompleted": "Processed {{count}} items.",
+    "selectedCount": "{{count}} items selected",
+    "clearSelection": "Clear selection",
+    "retryFailed": "Retry {{count}} failed items",
+    "confirmSelected": "Confirm {{count}} items",
+    "bulkProgress": "Processing {{completed}}/{{total}} items",
+    "selectPage": "Select all items on this page",
+    "selectNamed": "Select {{name}}",
+    "deleteNamed": "Permanently delete {{name}}",
+    "deleted": "Deleted.",
+    "deletePermanently": "Delete permanently",
+    "permanentDeleteBody": "This cannot be undone. Items referenced by assignments, attempts or retained history will be kept.",
+    "bulkDelete": "Delete selected items",
+    "archiveSelected": "Archive selected items",
+    "archiveSelectedBody": "Selected items will move to the archive. You can restore them later.",
+    "disableSelected": "Disable selected accounts",
+    "disableSelectedBody": "Selected students will no longer be able to sign in. Their learning history is retained.",
+    "deleteInactiveBody": "Only archived or disabled items without retained references can be deleted. Ineligible items will be kept.",
+    "deleteAssignmentsBody": "Only draft or closed assignments without attempts can be deleted. This cannot be undone."
   },
   "error": {
     "title": "Something went wrong",
@@ -324,7 +345,9 @@
     "assignmentsSummary": "{{count}} assignments · {{open}} open",
     "assignmentsEmpty": "Nothing has been assigned to this class yet.",
     "assignmentsFailed": "Could not load the class's assignments.",
-    "viewAllAssignments": "View all"
+    "viewAllAssignments": "View all",
+    "removeSelected": "Remove selected members",
+    "removeSelectedBody": "Only class membership is removed. Student accounts and attempts are retained."
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -656,6 +679,12 @@
     "summarySoFar": "{{count}} questions loaded",
     "usedIn": "Used in",
     "usedInCount": "{{count}} tests",
+    "usageTitle": "Tests using question: {{prompt}}",
+    "usageHint": "Editing this question updates the outlines below. Published versions remain unchanged.",
+    "usageFailed": "Could not load the tests using this question.",
+    "usageEmpty": "This question is no longer attached to any outline.",
+    "usageLocation": "Used in",
+    "currentOutline": "Current outline",
     "audioOnly": "Audio questions only",
     "selectedCount": "{{count}} selected",
     "clearSelection": "Clear",
@@ -736,7 +765,19 @@
     "restoreHint": "Restoring returns the test as a draft.",
     "restored": "Test restored",
     "restoreFailed": "Could not restore the test.",
-    "archiveTab": "Archived"
+    "archiveTab": "Archived",
+    "defaultVersion": "Default",
+    "versionActionSaved": "Version updated.",
+    "versionActions": {
+      "draft": "Edit from this version",
+      "current": "Set as default",
+      "delete": "Delete version"
+    },
+    "versionActionBodies": {
+      "draft": "This snapshot will be copied into the current draft, replacing unpublished edits. Assigned versions and attempts are preserved.",
+      "current": "Only future assignments use this default. Existing assignments remain unchanged.",
+      "delete": "Only versions without assignment or attempt references can be deleted. This cannot be undone."
+    }
   },
   "preview": {
     "questionNumber": "Question {{n}}",
@@ -883,7 +924,7 @@
       "focusLoss": {
         "warn": "If you leave the test page more than {{count}} times, you will be warned. The test does not stop and no marks are deducted automatically.",
         "flag": "If you leave the test page more than {{count}} times, your attempt is marked for your teacher to review. The test does not stop and no marks are deducted automatically.",
-        "auto_submit": "Leaving the page more than {{count}} times submits your attempt."
+        "auto_submit": "Up to {{count}} page departures are allowed. Exceeding the limit submits immediately, keeps your answers and records the violation."
       },
       "score": "your score",
       "correctAnswers": "the correct answers",
@@ -981,7 +1022,7 @@
       "focusLimit": {
         "warn": "{{count}} times allowed, then a reminder",
         "flag": "{{count}} times allowed, then flagged for review",
-        "auto_submit": "{{count}} times allowed, then auto-submitted"
+        "auto_submit": "Up to {{count}} departures; submit immediately and record a violation when exceeded."
       },
       "shuffleQuestions": "Shuffle questions",
       "shuffleOptions": "Shuffle options",
@@ -1026,7 +1067,12 @@
     "rosterFailed": "Could not count the roster. Select to retry.",
     "customDuration": "Custom duration",
     "customMinutes": "Custom duration (minutes)",
-    "minuteUnit": "minutes"
+    "minuteUnit": "minutes",
+    "focusNotAllowed": "Not allowed",
+    "customFocusLimit": "Custom allowed count",
+    "actionAutoSubmit": "Submit immediately and record violation",
+    "defaultVersion": "Default version: v{{version}}",
+    "invalidNumbers": "Enter whole numbers: 1–600 minutes, at least one attempt, and at least one departure for a custom limit."
   },
   "students": {
     "summary": "{{count}} students · {{active}} active in the last 7 days",
@@ -1175,7 +1221,7 @@
     "submittedTitle_auto_submit": "The test was submitted because you left the page again.",
     "submittedBody_manual": "Your test went in with the questions you answered. Everything saved stays as it was.",
     "submittedBody_timer_expired": "The time for this test ended, so it went in with the questions you answered. Everything saved stays as it was.",
-    "submittedBody_auto_submit": "You left the page after the last allowed time, so the test went in with the questions you answered. Everything saved stays as it was.",
+    "submittedBody_auto_submit": "Your attempt was submitted after exceeding the page-departure limit. Answers are retained for grading and the violation was recorded.",
     "submittedMeta": "Submitted at {{time}} · {{date}} · {{answered}}/{{total}} questions answered",
     "backHome": "Back to home",
     "sectionNote": "{{title}} — {{text}}",
@@ -1214,7 +1260,13 @@
     "overLimit": "Over the times-away limit",
     "fullscreenExited": "You left fullscreen.",
     "fullscreenUnsupported": "This browser has no fullscreen mode. You can carry on as normal.",
-    "fullscreenReturn": "Return to fullscreen"
+    "fullscreenReturn": "Return to fullscreen",
+    "spentAutoSubmit": "You have no departures left. One more departure will submit your attempt immediately.",
+    "remainingAutoSubmit": "{{count}} departures remain. Exceeding the limit submits immediately and preserves your answers.",
+    "autoSubmitTitle": "Your attempt must be submitted",
+    "autoSubmitBody": "You exceeded the page-departure limit. Your answers are being submitted for grading and the violation is recorded for your teacher.",
+    "autoSubmitSending": "Saving answers and submitting…",
+    "autoSubmitRetry": "Submission is not yet confirmed. Your answers remain on this device and will be retried automatically. Please keep this page open."
   },
   "pagination": {
     "label": "Pagination",
@@ -1423,7 +1475,8 @@
       "session_takeover": "Resumed from another device",
       "page_hide": "Closed the page",
       "tab_visible": "Returned to the tab",
-      "window_focus": "Returned to the window"
+      "window_focus": "Returned to the window",
+      "auto_submit": "Submitted after exceeding the focus-loss limit"
     },
     "ongoing": "— ongoing",
     "stillOpen": "· still open",

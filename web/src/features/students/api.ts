@@ -59,3 +59,7 @@ export function scorePercent(stats: StudentStats): number | null {
   if (!score || score.total <= 0) return null;
   return Math.round((score.earned / score.total) * 100);
 }
+
+export function deleteStudent(id: string) {
+  return api("delete", "/admin/students/{id}", { path: { id } });
+}
