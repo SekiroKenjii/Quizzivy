@@ -15,8 +15,8 @@ describe("the one set of formatters", () => {
   it("renders every moment in the app's zone", () => {
     expect(formatTime(instant)).toBe("08:00");
     expect(shortDate(instant)).toBe("07/09");
-    expect(weekdayDate(instant)).toBe("Thứ Hai, 07/09");
-    expect(formatMoment(instant)).toBe("08:00 · Thứ Hai, 07/09");
+    expect(weekdayDate(instant)).toBe("Thứ hai, 07/09");
+    expect(formatMoment(instant)).toBe("08:00 · Thứ hai, 07/09");
     expect(sameAppDay(instant, "2026-09-06T17:30:00Z")).toBe(true);
     expect(sameAppDay(instant, "2026-09-06T16:30:00Z")).toBe(false);
   });

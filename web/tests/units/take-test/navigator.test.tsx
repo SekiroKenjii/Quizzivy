@@ -49,6 +49,7 @@ function renderPage() {
     [
       { path: "/app/attempts/:attemptId", element: <TakeTestPage /> },
       { path: "/app", element: <p>home</p> },
+      { path: "/app/attempts/:attemptId/result", element: <p>result page</p> },
     ],
     { initialEntries: ["/app/attempts/att-1"] },
   );
@@ -161,51 +162,57 @@ describe("shortcuts", () => {
 });
 
 describe("review and submit", () => {
-  it("counts what is empty, jumps back to it, and says the number before submitting", async () => {
-    const user = userEvent.setup();
-    const router = renderPage();
-    await user.click(await screen.findByRole("radio", { name: /Beta/ }));
-    await user.click(screen.getByRole("button", { name: "Danh sách câu" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Xem lại & nộp",
-      }),
-    );
+  it.each([
+    { button: "Về trang chủ", path: "/app" },
+    { button: "Xem bài đã nộp", path: "/app/attempts/att-1/result" },
+  ])(
+    "counts unanswered questions, confirms submission and follows $button",
+    async ({ button, path }) => {
+      const user = userEvent.setup();
+      const router = renderPage();
+      await user.click(await screen.findByRole("radio", { name: /Beta/ }));
+      await user.click(screen.getByRole("button", { name: "Danh sách câu" }));
+      await user.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Xem lại & nộp",
+        }),
+      );
 
-    expect(
-      await screen.findByRole("heading", { name: "Xem lại trước khi nộp" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Bạn đã trả lời 1 / 3 câu.")).toBeInTheDocument();
-    expect(screen.getByText("2 câu chưa trả lời")).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "Xem lại trước khi nộp" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Bạn đã trả lời 1 / 3 câu.")).toBeInTheDocument();
+      expect(screen.getByText("2 câu chưa trả lời")).toBeInTheDocument();
 
-    // A dot is a way back to the question it names.
-    await user.click(screen.getByRole("button", { name: "Câu 3" }));
-    expect(counter()).toHaveTextContent("Câu 3/3");
-    await user.click(footer().getByRole("button", { name: "Xem lại & nộp" }));
+      // A dot is a way back to the question it names.
+      await user.click(screen.getByRole("button", { name: "Câu 3" }));
+      expect(counter()).toHaveTextContent("Câu 3/3");
+      await user.click(footer().getByRole("button", { name: "Xem lại & nộp" }));
 
-    await user.click(await screen.findByRole("button", { name: "Nộp bài" }));
-    const confirm = await screen.findByRole("dialog");
-    expect(confirm).toHaveTextContent(
-      "Còn 2 câu bạn chưa trả lời. Sau khi nộp, bạn không sửa được nữa.",
-    );
+      await user.click(await screen.findByRole("button", { name: "Nộp bài" }));
+      const confirm = await screen.findByRole("dialog");
+      expect(confirm).toHaveTextContent(
+        "Còn 2 câu bạn chưa trả lời. Sau khi nộp, bạn không sửa được nữa.",
+      );
 
-    await user.click(within(confirm).getByRole("button", { name: "Nộp bài" }));
-    await waitFor(() =>
-      expect(submitAttempt).toHaveBeenCalledWith("att-1", { reason: "manual" }),
-    );
+      await user.click(within(confirm).getByRole("button", { name: "Nộp bài" }));
+      await waitFor(() =>
+        expect(submitAttempt).toHaveBeenCalledWith("att-1", { reason: "manual" }),
+      );
 
-    expect(
-      await screen.findByRole("heading", { name: "Bài đã được nộp." }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/^Nộp lúc \d{2}:\d{2} · \d{2}\/\d{2} · 1\/3 câu đã trả lời$/),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Thoát" })).not.toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/app/attempts/att-1");
+      expect(
+        await screen.findByRole("heading", { name: "Bài đã được nộp." }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/^Nộp lúc \d{2}:\d{2} · \d{2}\/\d{2} · 1\/3 câu đã trả lời$/),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Thoát" })).not.toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/app/attempts/att-1");
 
-    await user.click(screen.getByRole("button", { name: "Về trang chủ" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/app"));
-  });
+      await user.click(screen.getByRole("button", { name: button }));
+      await waitFor(() => expect(router.state.location.pathname).toBe(path));
+    },
+  );
 
   it("lets the student back out at both steps", async () => {
     const user = userEvent.setup();
@@ -339,4 +346,13 @@ describe("from 1024px (S-08, S-15)", () => {
     );
     expect(screen.getByRole("button", { name: "Nộp bài" })).not.toHaveClass("w-full");
   });
+});
+
+it("distinguishes restored server answers from a new empty attempt", async () => {
+  vi.mocked(getAttempt).mockResolvedValue(
+    paper({ answers: { q1: { type: "choice", optionIds: ["o1"] } } }),
+  );
+  renderPage();
+  expect(await screen.findByText("Đã tải bài đã lưu")).toBeInTheDocument();
+  expect(screen.queryByText("Chưa có gì để lưu")).toBeNull();
 });

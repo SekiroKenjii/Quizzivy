@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { clearAnswerDrafts } from "@/features/take-test/draft";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { fetchCurrentUser, logout as logoutRequest } from "./api";
@@ -42,6 +43,7 @@ export function useLogout() {
     }
     await navigate("/login", { replace: true });
     clearSession();
+    clearAnswerDrafts();
     queryClient.clear();
   };
 }

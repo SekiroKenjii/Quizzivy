@@ -25,6 +25,7 @@ type Users interface {
 
 // Students is the teacher's roster of student accounts.
 type Students interface {
+	Delete(ctx context.Context, req WriteRequest, id string, now time.Time) error
 	List(ctx context.Context, q StudentQuery) ([]Student, paging.Page, error)
 	Get(ctx context.Context, id string) (Student, error)
 	Facets(ctx context.Context, q StudentQuery) (StudentFacets, error)

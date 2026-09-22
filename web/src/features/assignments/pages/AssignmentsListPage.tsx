@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActions } from "@/components/shared/BulkActions";
+import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
+import { DeleteItemButton } from "@/components/shared/DeleteItemButton";
+import type { ReactNode } from "react";
+import { useListFilters } from "@/hooks/useListFilters";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router";
+import { keepPreviousData, useQueryClient, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Flag, GraduationCap, Pencil, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  deleteAssignment,
   listAssignments,
   type Assignment,
   type AssignmentStatus,
@@ -53,11 +59,17 @@ const PAGE_SIZE = 20;
 export default function AssignmentsListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<AssignmentStatus | "all">("all");
+  const bulk = useBulkSelection<Assignment>();
+  const queryClient = useQueryClient();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
+  const { params, setParams, setFilter } = useListFilters();
+  const tab = TABS.find((value) => value === params.get("status")) ?? "all";
+  const setTab = (value: AssignmentStatus | "all") =>
+    setFilter("status", value === "all" ? null : value);
   const locale = useLocale();
   const now = new Date();
   // G-12: arriving from a class narrows the list, and the chip is the way out.
-  const [params, setParams] = useSearchParams();
   const classId = params.get("classId") ?? undefined;
   const klass = useQuery({
     queryKey: ["admin-class", classId],
@@ -148,6 +160,20 @@ export default function AssignmentsListPage() {
         )}
       </div>
 
+      <BulkActions
+        selected={[...bulk.selected.values()]}
+        name={(item) => item.testTitle}
+        actions={[
+          {
+            label: t("common.bulkDelete"),
+            description: t("common.deleteAssignmentsBody"),
+            run: (item) => deleteAssignment(item.id),
+          },
+        ]}
+        onRemoved={bulk.remove}
+        onClear={bulk.clear}
+        onSettled={invalidate}
+      />
       <QueryStates
         query={assignments}
         skeleton={<ListSkeleton />}
@@ -173,6 +199,9 @@ export default function AssignmentsListPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <BulkSelectAll items={items} selection={bulk} />
+                      </TableHead>
                       <TableHead className="w-[34%]">{t("assignments.test")}</TableHead>
                       <TableHead>{t("assignments.targets")}</TableHead>
                       <TableHead>{t("assignments.window")}</TableHead>
@@ -193,6 +222,22 @@ export default function AssignmentsListPage() {
                       <Row
                         key={assignment.id}
                         assignment={assignment}
+                        selection={
+                          <BulkSelectRow
+                            item={assignment}
+                            name={assignment.testTitle}
+                            selection={bulk}
+                          />
+                        }
+                        deleteAction={
+                          ["draft", "closed"].includes(statusAt(assignment, now)) ? (
+                            <DeleteItemButton
+                              name={assignment.testTitle}
+                              onDelete={() => deleteAssignment(assignment.id)}
+                              onDeleted={invalidate}
+                            />
+                          ) : null
+                        }
                         locale={locale}
                         now={now}
                       />
@@ -213,10 +258,14 @@ export default function AssignmentsListPage() {
 }
 
 function Row({
+  selection,
+  deleteAction,
   assignment,
   locale,
   now,
 }: Readonly<{
+  selection: ReactNode;
+  deleteAction: ReactNode;
   assignment: Assignment;
   locale: Locale;
   now: Date;
@@ -230,6 +279,7 @@ function Row({
 
   return (
     <TableRow>
+      <TableCell>{selection}</TableCell>
       <TableCell>
         <Link to={href} className="truncate font-medium hover:underline">
           {assignment.testTitle}
@@ -267,22 +317,25 @@ function Row({
         )}
       </TableCell>
       <TableCell className="text-right">
-        <RowMenu>
-          <DropdownMenuItem asChild>
-            <Link to={href}>
-              <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
-              {t("assignments.rowOpen")}
-            </Link>
-          </DropdownMenuItem>
-          {status === "draft" || status === "scheduled" ? (
+        <div className="flex items-center justify-end gap-1">
+          {deleteAction}
+          <RowMenu>
             <DropdownMenuItem asChild>
-              <Link to={`${href}/edit`}>
-                <Pencil className="text-muted-foreground" aria-hidden="true" />
-                {t("assignments.detail.edit")}
+              <Link to={href}>
+                <ArrowUpRight className="text-muted-foreground" aria-hidden="true" />
+                {t("assignments.rowOpen")}
               </Link>
             </DropdownMenuItem>
-          ) : null}
-        </RowMenu>
+            {status === "draft" || status === "scheduled" ? (
+              <DropdownMenuItem asChild>
+                <Link to={`${href}/edit`}>
+                  <Pencil className="text-muted-foreground" aria-hidden="true" />
+                  {t("assignments.detail.edit")}
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+          </RowMenu>
+        </div>
       </TableCell>
     </TableRow>
   );

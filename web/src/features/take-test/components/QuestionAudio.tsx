@@ -23,19 +23,27 @@ export function QuestionAudio({
   const maxPlays = question.audio?.maxPlays ?? null;
 
   return (
-    <AudioPlayer
-      src={question.media.url}
-      label={t("takeTest.audioLabel")}
-      durationMs={question.media.durationMs}
-      allowSeek={question.audio?.allowSeek ?? false}
-      preload="metadata"
-      hint={playsHint(t, played, maxPlays)}
-      onPlay={() => {
-        notePlay(question.id);
-        if (attemptId !== null) recordAudioEvent(attemptId, "audio_play", question.id);
-      }}
-      onRetry={onExpired}
-    />
+    <div className="space-y-2">
+      <AudioPlayer
+        src={question.media.url}
+        label={t("takeTest.audioLabel")}
+        durationMs={question.media.durationMs}
+        allowSeek={question.audio?.allowSeek ?? false}
+        preload="metadata"
+        hint={playsHint(t, played, maxPlays)}
+        onPlay={() => {
+          notePlay(question.id);
+          if (attemptId !== null)
+            recordAudioEvent(attemptId, "audio_play", question.id);
+        }}
+        onRetry={onExpired}
+      />
+      {maxPlays !== null && played >= maxPlays && (
+        <p role="status" className="text-muted-foreground text-xs leading-relaxed">
+          {t("takeTest.extraPlaysRecorded")}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -52,5 +60,6 @@ function playsHint(
   maxPlays: number | null,
 ): string | undefined {
   if (maxPlays === null) return undefined;
-  return t("takeTest.playsLeft", { count: Math.max(0, maxPlays - played) });
+  if (played >= maxPlays) return t("takeTest.playsUsed", { played, limit: maxPlays });
+  return t("takeTest.playsLeft", { count: maxPlays - played });
 }

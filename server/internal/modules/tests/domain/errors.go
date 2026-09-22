@@ -18,3 +18,9 @@ var (
 	// ErrNoContent is a test with no sections at all.
 	ErrNoContent = errors.New("publish: test has no sections")
 )
+
+var (
+	ErrReferenced     = errors.New("tests: assigned content cannot be deleted")
+	ErrNotArchived    = errors.New("tests: archive before deleting")
+	ErrCurrentVersion = errors.New("tests: select another default before deleting this version")
+)

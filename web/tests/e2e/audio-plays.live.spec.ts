@@ -76,7 +76,7 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     await signInAsStudent(page);
     const card = page.locator("[data-slot='card']").filter({ hasText: title });
     await expect(card).toBeVisible({ timeout: 30_000 });
-    await card.getByRole("link", { name: "Bắt đầu làm bài" }).click();
+    await card.getByRole("link", { name: "Xem chi tiết" }).click();
     await page.getByRole("button", { name: "Bắt đầu làm bài" }).click();
     await expect(page).toHaveURL(/\/app\/attempts\/[0-9a-f-]+$/);
 
@@ -88,12 +88,12 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     await page.getByRole("button", { name: "Tạm dừng" }).click();
 
     await play.click();
-    await expect(page.getByText("Còn 0 lượt nghe")).toBeVisible();
+    await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible();
 
     // The whole point. The tab's own count goes with the reload, so a "Còn 0"
     // that comes back was read from attempt_audio_plays.
     await page.reload();
-    await expect(page.getByText("Còn 0 lượt nghe")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible({ timeout: 30_000 });
   } finally {
     await teacher.close();
     await student.close();

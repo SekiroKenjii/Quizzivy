@@ -11,14 +11,12 @@ import {
   RefreshCw,
   ScrollText,
 } from "lucide-react";
+import { EmptyState } from "@/components/shared/ListState";
 import { BackLink } from "@/components/shared/BackLink";
 import { Markdown } from "@/components/shared/Markdown";
-import { PageAside } from "@/components/shared/PageAside";
-import { PanelLabel, PanelRow } from "@/components/shared/PanelLabel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { DOT, OPTION, optionKey } from "@/features/attempts/components/answerStyles";
@@ -38,12 +36,7 @@ import type { Locale } from "@/lib/i18n";
 
 type Chip = "all" | "wrong" | "pending";
 
-/**
- * S-09: the score if allowed, then every question with exactly what the
- * policy released. A withheld block is a muted sentence, never a gap. From
- * 1024px it is S-16: the paper in the middle at 720px, the score and the
- * counts in F-11's panel.
- */
+/** ResultPage keeps the result summary and policy-aware answers in one reading flow. */
 export default function ResultPage() {
   const { t } = useTranslation();
   const { attemptId = "" } = useParams<{ attemptId: string }>();
@@ -84,17 +77,16 @@ export default function ResultPage() {
   const data = result.data;
   const { attempt, review, questions } = data;
   const wrong = questions.filter((q) => verdict(q, review) === "wrong").length;
-  const correct = questions.filter((q) => verdict(q, review) === "correct").length;
   const pending = questions.filter((q) => q.pendingManual === true).length;
+  const activeChip = chip === "wrong" && !review.showScore ? "all" : chip;
   const shown = questions.filter((q) => {
-    if (chip === "wrong") return verdict(q, review) === "wrong";
-    if (chip === "pending") return q.pendingManual === true;
+    if (activeChip === "wrong") return verdict(q, review) === "wrong";
+    if (activeChip === "pending") return q.pendingManual === true;
     return true;
   });
-  const hasAudio = questions.some((q) => q.media?.kind === "audio");
 
   const scoreBlock = review.showScore ? (
-    <ScoreTile data={data} pending={pending} compact={wide} />
+    <ScoreTile data={data} pending={pending} />
   ) : (
     <Card>
       <CardContent className="text-center">
@@ -117,26 +109,25 @@ export default function ResultPage() {
   );
 
   return (
-    <div className={cn("space-y-4", wide && "mx-auto max-w-[720px]")}>
-      {wide && (
-        <div>
-          <BackLink to="/app">{t("student.myAssignments")}</BackLink>
-          <h1 className="mt-3 text-xl leading-snug font-semibold tracking-tight">
-            {data.testTitle}
-          </h1>
-          {attempt.submittedAt && (
-            <p className="text-muted-foreground mt-1 text-xs">
-              {t("result.submittedMeta", {
-                time: formatTime(attempt.submittedAt),
-                date: shortDate(attempt.submittedAt),
-                n: attempt.attemptNo,
-                total: data.maxAttempts,
-              })}
-            </p>
-          )}
-        </div>
-      )}
+    <div className="mx-auto w-full max-w-[720px] space-y-5">
+      <div>
+        {wide && <BackLink to="/app">{t("student.myAssignments")}</BackLink>}
+        <h1 className="mt-3 text-xl leading-snug font-semibold tracking-tight">
+          {data.testTitle}
+        </h1>
+        {attempt.submittedAt && (
+          <p className="text-muted-foreground mt-1 text-xs">
+            {t("result.submittedMeta", {
+              time: formatTime(attempt.submittedAt),
+              date: shortDate(attempt.submittedAt),
+              n: attempt.attemptNo,
+              total: data.maxAttempts,
+            })}
+          </p>
+        )}
+      </div>
 
+      {scoreBlock}
       {pending > 0 && review.showScore && (
         <div className="bg-muted/40 flex items-start gap-2.5 rounded-md px-3 py-2.5">
           <Pencil
@@ -152,7 +143,6 @@ export default function ResultPage() {
         </div>
       )}
 
-      {!wide && scoreBlock}
       {!review.showScore && (
         <Card>
           <CardContent className="space-y-2">
@@ -173,17 +163,20 @@ export default function ResultPage() {
       )}
 
       <div
-        className="flex items-center gap-1.5"
+        className="flex flex-wrap items-center gap-1.5"
         role="group"
         aria-label={t("result.filter")}
       >
-        {(["all", "wrong", "pending"] as Chip[]).map((value) => (
+        {(review.showScore
+          ? (["all", "wrong", "pending"] as Chip[])
+          : (["all", "pending"] as Chip[])
+        ).map((value) => (
           <Button
             key={value}
             size="xs"
-            variant={chip === value ? "secondary" : "ghost"}
-            className={cn(chip !== value && "text-muted-foreground")}
-            aria-pressed={chip === value}
+            variant={activeChip === value ? "secondary" : "ghost"}
+            className={cn(activeChip !== value && "text-muted-foreground")}
+            aria-pressed={activeChip === value}
             onClick={() => setChip(value)}
           >
             {t(`result.chips.${value}`, {
@@ -193,7 +186,18 @@ export default function ResultPage() {
         ))}
       </div>
 
-      {!wide && noKey}
+      {noKey}
+      {shown.length === 0 && (
+        <EmptyState
+          action={
+            <Button variant="outline" onClick={() => setChip("all")}>
+              {t("result.showAll")}
+            </Button>
+          }
+        >
+          {t(`result.empty.${activeChip}`)}
+        </EmptyState>
+      )}
 
       {shown.map((question) => (
         <QuestionCard
@@ -204,70 +208,19 @@ export default function ResultPage() {
         />
       ))}
 
-      {!review.showExplanations && hasAny(questions) && (
+      {!review.showExplanations && shown.length > 0 && (
         <p className="text-muted-foreground text-center text-xs leading-relaxed">
           {t("result.noExplanations")}
         </p>
-      )}
-      {hasAudio && null}
-
-      {wide && (
-        <PageAside label={t("result.panel")}>
-          <div>
-            <PanelLabel>{t("result.panel")}</PanelLabel>
-            {scoreBlock}
-          </div>
-          <div className="space-y-2">
-            {review.showScore && (
-              <>
-                <PanelRow label={t("result.rows.correct")}>
-                  <span className="tabular-nums">{correct}</span>
-                </PanelRow>
-                <PanelRow label={t("result.rows.wrong")}>
-                  <span className="tabular-nums">{wrong}</span>
-                </PanelRow>
-              </>
-            )}
-            <PanelRow label={t("result.rows.pending")}>
-              <span className="tabular-nums">{pending}</span>
-            </PanelRow>
-            {attempt.submittedAt && (
-              <PanelRow label={t("result.rows.submittedAt")}>
-                {t("result.rows.moment", {
-                  time: formatTime(attempt.submittedAt),
-                  date: shortDate(attempt.submittedAt),
-                })}
-              </PanelRow>
-            )}
-            <PanelRow label={t("result.rows.attempt")}>
-              {t("result.rows.attemptOf", {
-                n: attempt.attemptNo,
-                total: data.maxAttempts,
-              })}
-            </PanelRow>
-          </div>
-          {noKey && (
-            <>
-              <Separator />
-              {noKey}
-            </>
-          )}
-        </PageAside>
       )}
     </div>
   );
 }
 
-function hasAny(questions: ResultQuestion[]): boolean {
-  return questions.length > 0;
-}
-
-/** S-09's tile; `compact` is S-16's, whose "Nộp lúc" line the panel says in a row. */
 function ScoreTile({
   data,
   pending,
-  compact = false,
-}: Readonly<{ data: AttemptResult; pending: number; compact?: boolean }>) {
+}: Readonly<{ data: AttemptResult; pending: number }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const { attempt } = data;
@@ -307,16 +260,19 @@ function ScoreTile({
             style={{ width: `${percent}%` }}
           />
         </span>
-        {attempt.submittedAt && !compact && (
-          <p className="text-muted-foreground mt-3 text-xs">
-            {t("result.submittedMeta", {
-              time: formatTime(attempt.submittedAt),
-              date: shortDate(attempt.submittedAt),
-              n: attempt.attemptNo,
-              total: data.maxAttempts,
-            })}
-          </p>
-        )}
+        <dl className="mt-4 grid grid-cols-3 gap-3 border-t pt-4 text-sm">
+          {(["correct", "wrong", "pending"] as const).map((state) => (
+            <div key={state}>
+              <dt className="text-muted-foreground">{t(`result.rows.${state}`)}</dt>
+              <dd className="mt-1 font-medium tabular-nums">
+                {state === "pending"
+                  ? pending
+                  : data.questions.filter((q) => verdict(q, data.review) === state)
+                      .length}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </CardContent>
     </Card>
   );

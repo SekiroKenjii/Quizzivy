@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
 /** F-13: the four side-column roles, each with one remembered width. */
-export type ColumnRole = "sidebar" | "rail" | "panel" | "outline";
+export type ColumnRole = "sidebar" | "rail" | "panel" | "outline" | "studentNavigator";
 
 export interface ColumnLimits {
   /** Pixels; the deck's defaults are F-11's 14rem / 20rem, the shell's 15rem, A-04's 18rem. */
@@ -15,6 +15,7 @@ export const COLUMN_LIMITS: Record<ColumnRole, ColumnLimits> = {
   rail: { fallback: 224, min: 192, max: 320 },
   panel: { fallback: 320, min: 256, max: 512 },
   outline: { fallback: 288, min: 224, max: 384 },
+  studentNavigator: { fallback: 256, min: 224, max: 384 },
 };
 
 /** The middle column never drops under this, whatever the sides are dragged to (F-12). */

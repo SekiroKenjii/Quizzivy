@@ -19,3 +19,8 @@ var ErrClassNotFound = errors.New("join: class not found")
 // ErrNoTeacher means the install has no active admin, so no class can name one.
 // An operational fault, not a bad request.
 var ErrNoTeacher = errors.New("join: no active teacher account")
+
+var (
+	ErrReferenced  = errors.New("class: retained history or assignments reference this resource")
+	ErrNotArchived = errors.New("class: deactivate or close before deleting")
+)

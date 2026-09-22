@@ -21,7 +21,7 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
 
   await page.goto("/login");
   await page.getByLabel("Email").fill("hocvien@example.com");
-  await page.getByLabel("Mật khẩu").fill("quizzivy-dev");
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("quizzivy-dev");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page).toHaveURL(/\/app$/);
   // Their own app: greeted by name, and -- in no class yet -- offered the way in.
@@ -32,20 +32,20 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
   );
 });
 
-test("E2E 2a: the student settings screen renders the four cards both boards draw", async ({
+test("E2E 2a: student settings groups profile, security and preferences", async ({
   page,
 }) => {
   await stubApi(page, sessionAs(studentUser));
   await page.goto("/app/settings");
-
-  // S-17's grid, in its order: Hồ sơ, Mật khẩu, Tài khoản Google, Ngôn ngữ.
-  for (const heading of ["Hồ sơ", "Mật khẩu", "Tài khoản Google", "Ngôn ngữ"]) {
-    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-  }
-  // The name is the one thing the account may change about itself; the email is
-  // the login and only an admin moves it.
+  await expect(page.getByRole("heading", { name: "Hồ sơ" })).toBeVisible();
   await expect(page.getByLabel("Họ và tên")).toBeEditable();
   await expect(page.getByLabel("Email")).toBeDisabled();
+  const navigation = page.getByRole("navigation", { name: "Mục cài đặt" });
+  await navigation.getByRole("link", { name: "Bảo mật" }).click();
+  await expect(page.getByRole("heading", { name: "Mật khẩu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tài khoản Google" })).toBeVisible();
+  await navigation.getByRole("link", { name: "Tuỳ chọn" }).click();
+  await expect(page.getByRole("heading", { name: "Ngôn ngữ" })).toBeVisible();
 });
 
 test("unlinking is disabled, with a reason, when Google is the only way in", async ({
@@ -55,7 +55,7 @@ test("unlinking is disabled, with a reason, when Google is the only way in", asy
     page,
     sessionAs({ ...studentUser, hasPassword: false, linkedProviders: ["google"] }),
   );
-  await page.goto("/app/settings");
+  await page.goto("/app/settings/security");
 
   // aria-disabled, not disabled: S-10 keeps the control focusable so the reason
   // beside it is announced instead of skipped.

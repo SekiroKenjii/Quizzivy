@@ -1,7 +1,7 @@
 import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, FileAudio, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadMedia, type MediaAsset } from "@/features/media/api";
 import {
@@ -113,7 +113,13 @@ export function UploadPanel({ ref, onUploaded }: Readonly<UploadPanelProps>) {
 
       {state.status === "uploading" ? (
         <div className="space-y-2 rounded-lg border p-3">
-          <p className="truncate text-sm font-medium">{state.name}</p>
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <FileAudio
+              className="text-muted-foreground size-4 shrink-0"
+              aria-hidden="true"
+            />
+            <span className="truncate">{state.name}</span>
+          </p>
           <div className="flex items-center gap-3">
             <progress
               className="h-2 flex-1"
@@ -122,14 +128,15 @@ export function UploadPanel({ ref, onUploaded }: Readonly<UploadPanelProps>) {
               aria-label={t("media.uploading")}
             />
             <span className="text-muted-foreground text-xs tabular-nums">
-              {formatPercent(i18n.language, state.fraction)}
+              {t("media.uploading")} · {formatPercent(i18n.language, state.fraction)}
             </span>
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("media.cancel")}
               onClick={() => abortRef.current?.abort()}
             >
-              {t("media.cancel")}
+              <X aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -151,7 +158,7 @@ export function UploadPanel({ ref, onUploaded }: Readonly<UploadPanelProps>) {
             </p>
             <Button
               variant="outline"
-              size="sm"
+              size="xs"
               className="mt-2.5"
               onClick={() => inputRef.current?.click()}
             >

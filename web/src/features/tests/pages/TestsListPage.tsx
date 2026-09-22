@@ -1,3 +1,8 @@
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActions } from "@/components/shared/BulkActions";
+import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
+import { DeleteItemButton } from "@/components/shared/DeleteItemButton";
+import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
@@ -40,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  deleteTest,
   archiveTest,
   restoreTest,
   createTest,
@@ -70,11 +76,24 @@ const PAGE_SIZE = 20;
 export default function TestsListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const bulk = useBulkSelection<Test>();
   const queryClient = useQueryClient();
 
-  const [tab, setTab] = useState<TestStatus | "all">("all");
-  const [query, setQuery] = useState("");
-  const [tags, setTags] = useState<readonly string[]>([]);
+  const { params, setParams, setFilter } = useListFilters();
+  const requested = params.get("status");
+  const tab = TABS.find((value) => value === requested) ?? "all";
+  const setTab = (value: TestStatus | "all") =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value === "all") next.delete("status");
+      else next.set("status", value);
+      next.delete("page");
+      return next;
+    });
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
+  const tags = params.getAll("tag");
+  const setTags = (value: readonly string[]) => setFilter("tag", value);
   const [error, setError] = useState<string | null>(null);
   const search = useDebounced(query, 300);
   const locale = useLocale();
@@ -109,11 +128,13 @@ export default function TestsListPage() {
     onError: (cause) => setError(message(cause, t("tests.createFailed"))),
   });
 
+  const [duplicated, setDuplicated] = useState<ReadonlySet<string>>(new Set());
   const duplicate = useMutation({
     mutationFn: (id: string) => duplicateTest(id),
-    onSuccess: async (test) => {
+    onSuccess: async (test, sourceId) => {
+      setDuplicated((current) => new Set([...current, sourceId, test.id]));
       await invalidate();
-      void navigate(`/admin/tests/${test.id}/edit`);
+      toast(t("common.justDuplicated"));
     },
     onError: (cause) => setError(message(cause, t("tests.duplicateFailed"))),
   });
@@ -181,7 +202,7 @@ export default function TestsListPage() {
           <TabsList aria-label={t("tests.statusFilter")}>
             {TABS.map((value) => (
               <TabsTrigger key={value} value={value}>
-                {value === "all" ? t("tests.all") : t(`status.test.${value}`)}
+                {t(tabLabel(value))}
                 {facets ? (
                   <span className="text-muted-foreground ml-1 tabular-nums">
                     {facets[value]}
@@ -233,6 +254,25 @@ export default function TestsListPage() {
         </p>
       )}
 
+      <BulkActions
+        selected={[...bulk.selected.values()]}
+        name={(item) => item.title}
+        actions={[
+          {
+            label: t("common.archiveSelected"),
+            description: t("common.archiveSelectedBody"),
+            run: archiveTest,
+          },
+          {
+            label: t("common.deletePermanently"),
+            description: t("common.deleteInactiveBody"),
+            run: (item) => deleteTest(item.id),
+          },
+        ]}
+        onRemoved={bulk.remove}
+        onClear={bulk.clear}
+        onSettled={invalidate}
+      />
       <QueryStates
         query={tests}
         skeleton={<ListSkeleton />}
@@ -261,6 +301,9 @@ export default function TestsListPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <BulkSelectAll items={items} selection={bulk} />
+                      </TableHead>
                       <TableHead className="w-[40%]">{t("tests.title")}</TableHead>
                       <TableHead>{t("tests.status")}</TableHead>
                       <TableHead className="text-right">
@@ -278,6 +321,13 @@ export default function TestsListPage() {
                     {items.map((test) => (
                       <TableRow key={test.id}>
                         <TableCell>
+                          <BulkSelectRow
+                            item={test}
+                            name={test.title}
+                            selection={bulk}
+                          />
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-2">
                             {/* A-03: a draft opens the builder, anything else the read-only detail. */}
                             <Link
@@ -286,6 +336,11 @@ export default function TestsListPage() {
                             >
                               {test.title}
                             </Link>
+                            {duplicated.has(test.id) ? (
+                              <Badge variant="outline">
+                                {t("common.justDuplicated")}
+                              </Badge>
+                            ) : null}
                             {test.audioCount > 0 ? (
                               <Badge
                                 variant="outline"
@@ -317,13 +372,35 @@ export default function TestsListPage() {
                           {formatRelative(test.updatedAt, locale)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <RowActions
-                            test={test}
-                            onEdit={() => void navigate(`/admin/tests/${test.id}/edit`)}
-                            onDuplicate={() => duplicate.mutate(test.id)}
-                            onArchive={() => setArchiving(test)}
-                            onRestore={() => restore.mutate(test)}
-                          />
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={t("common.duplicateNamed", {
+                                name: test.title,
+                              })}
+                              disabled={duplicate.isPending}
+                              onClick={() => duplicate.mutate(test.id)}
+                            >
+                              <Copy aria-hidden="true" />
+                            </Button>
+                            {test.status === "archived" ? (
+                              <DeleteItemButton
+                                name={test.title}
+                                onDelete={() => deleteTest(test.id)}
+                                onDeleted={invalidate}
+                              />
+                            ) : null}
+                            <RowActions
+                              test={test}
+                              onEdit={() =>
+                                void navigate(`/admin/tests/${test.id}/edit`)
+                              }
+                              onDuplicate={() => duplicate.mutate(test.id)}
+                              onArchive={() => setArchiving(test)}
+                              onRestore={() => restore.mutate(test)}
+                            />
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -448,4 +525,10 @@ function openHref(test: Test): string {
 
 function message(cause: unknown, fallback: string): string {
   return cause instanceof ApiError ? cause.message : fallback;
+}
+
+function tabLabel(value: TestStatus | "all"): string {
+  if (value === "all") return "tests.all";
+  if (value === "archived") return "tests.archiveTab";
+  return `status.test.${value}`;
 }

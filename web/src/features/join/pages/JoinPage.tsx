@@ -17,7 +17,8 @@ export default function JoinPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { code: codeParam } = useParams();
-  const isSignedIn = useAuthStore((s) => s.user !== null);
+  const user = useAuthStore((s) => s.user);
+  const isSignedIn = user !== null;
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
 
   const [error, setError] = useState<string | null>(null);
@@ -66,12 +67,31 @@ export default function JoinPage() {
         </div>
       </Card>
 
-      <p className="text-muted-foreground mt-5 text-center text-xs leading-relaxed">
-        {t("join.haveAccount")}{" "}
-        <Link to="/login" className="underline">
-          {t("join.signIn")}
-        </Link>
-      </p>
+      <div className="text-muted-foreground mt-5 text-center text-sm leading-relaxed">
+        {user ? (
+          <>
+            <p className="break-words">
+              {t("join.signedInAs", { name: user.fullName })}
+            </p>
+            <Link
+              to={user.role === "student" ? "/app/classes" : "/admin/classes"}
+              className="focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm underline focus-visible:ring-2"
+            >
+              {t("join.backToClasses")}
+            </Link>
+          </>
+        ) : (
+          <p>
+            {t("join.haveAccount")}{" "}
+            <Link
+              to="/login"
+              className="focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm underline focus-visible:ring-2"
+            >
+              {t("join.signIn")}
+            </Link>
+          </p>
+        )}
+      </div>
     </>
   );
 }

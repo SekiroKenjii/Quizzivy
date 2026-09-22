@@ -9,6 +9,24 @@ const BASE = "http://localhost:8080";
  * override per-case with `server.use(...)`.
  */
 export const handlers = [
+  http.get(`${BASE}/admin/questions`, () =>
+    contractJson("/admin/questions", "get", 200, {
+      items: [],
+      tags: [],
+      bankTotal: 0,
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      facets: {
+        all: 0,
+        single_choice: 0,
+        multiple_choice: 0,
+        true_false: 0,
+        fill_blank: 0,
+        short_answer: 0,
+      },
+    }),
+  ),
   http.get(`${BASE}/auth/me`, () => contractJson("/auth/me", "get", 200, studentUser)),
 
   http.post(`${BASE}/auth/login`, () =>

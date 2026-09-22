@@ -4,22 +4,21 @@ import { Button } from "@/components/ui/button";
 import type { SubmitReason } from "../store";
 import { formatTime, shortDate } from "@/lib/i18n/datetime";
 
-/**
- * S-06's closed state: the engine chrome is gone, the cause is said once in
- * the title, and "Về trang chủ" is the only control.
- */
+/** SubmittedScreen confirms the submission and offers the submitted paper or home. */
 export function SubmittedScreen({
   reason,
   submittedAt,
   answered,
   total,
   onHome,
+  onResult,
 }: Readonly<{
   reason: SubmitReason;
   submittedAt: string;
   answered: number;
   total: number;
   onHome: () => void;
+  onResult: () => void;
 }>) {
   const { t } = useTranslation();
   return (
@@ -42,9 +41,14 @@ export function SubmittedScreen({
           total,
         })}
       </p>
-      <Button className="mt-5" onClick={onHome}>
-        {t("takeTest.backHome")}
-      </Button>
+      <div className="mt-5 flex flex-col items-stretch gap-2 sm:flex-row sm:justify-center">
+        <Button size="lg" onClick={onResult}>
+          {t("takeTest.viewSubmitted")}
+        </Button>
+        <Button size="lg" variant="outline" onClick={onHome}>
+          {t("takeTest.backHome")}
+        </Button>
+      </div>
     </main>
   );
 }

@@ -91,12 +91,14 @@ describe("what the intro states, per policy", () => {
 
   it("auto_submit says the paper is submitted", async () => {
     show({ integrity: { ...POLICY, maxFocusLoss: 1, onLimitExceeded: "auto_submit" } });
-    expect(await rules()).toContain("được nộp tự động");
+    expect(await rules()).toContain("tự nộp ngay, giữ câu trả lời và ghi nhận vi phạm");
   });
 
   it("states the listening cap when the paper has audio, and not otherwise", async () => {
     show({ hasAudio: true, audioMaxPlays: 2 });
-    expect(await rules()).toContain("Mỗi câu nghe được phát tối đa 2 lần");
+    expect(await rules()).toContain(
+      "Giáo viên quy định 2 lượt nghe cho mỗi câu. Lượt nghe thêm được ghi lại.",
+    );
   });
 
   it("says replays are unlimited when they are", async () => {

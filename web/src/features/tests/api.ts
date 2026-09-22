@@ -107,3 +107,27 @@ export function toOutlineDraft(test: Test): Omit<OutlineDraft, "expectedUpdatedA
     })),
   };
 }
+
+export function deleteTest(id: string) {
+  return api("delete", "/admin/tests/{id}", { path: { id } });
+}
+
+export function deleteTestVersion(id: string, version: number) {
+  return api("delete", "/admin/tests/{id}/versions/{version}", {
+    path: { id, version },
+  });
+}
+
+export function setCurrentTestVersion(test: Test, version: number) {
+  return api("post", "/admin/tests/{id}/versions/{version}/current", {
+    path: { id: test.id, version },
+    body: { expectedUpdatedAt: test.updatedAt },
+  });
+}
+
+export function createDraftFromTestVersion(test: Test, version: number) {
+  return api("post", "/admin/tests/{id}/versions/{version}/draft", {
+    path: { id: test.id, version },
+    body: { expectedUpdatedAt: test.updatedAt },
+  });
+}

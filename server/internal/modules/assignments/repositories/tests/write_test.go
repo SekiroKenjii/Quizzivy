@@ -421,7 +421,7 @@ func TestClosingEarlyIsRecordedAndDoesNotReopen(t *testing.T) {
 	}
 }
 
-func TestAutoSubmitIsRefusedUntilItExists(t *testing.T) {
+func TestAutoSubmitPolicyIsPersisted(t *testing.T) {
 	pool := newPool(t)
 	store := repositories.NewPostgres(db.NewContext(pool))
 	w := seedWorld(t, pool, "published")
@@ -429,9 +429,13 @@ func TestAutoSubmitIsRefusedUntilItExists(t *testing.T) {
 	in := legalInput(w)
 	in.Integrity.OnLimitExceeded = "auto_submit"
 
-	_, err := store.Create(context.Background(), request(w), in)
-	if _, ok := fieldsOf(t, err)["integrity.onLimitExceeded"]; !ok {
-		t.Errorf("want an onLimitExceeded error, got %v", err)
+	in.Integrity.MaxFocusLoss = -1
+	created, err := store.Create(context.Background(), request(w), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Integrity.OnLimitExceeded != "auto_submit" || created.Integrity.MaxFocusLoss != -1 {
+		t.Fatalf("policy not preserved: %+v", created.Integrity)
 	}
 }
 

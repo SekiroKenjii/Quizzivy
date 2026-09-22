@@ -87,3 +87,23 @@ describe("a side column (F-13)", () => {
     expect(screen.getByLabelText("Dàn ý")).toHaveStyle({ width: "384px" });
   });
 });
+
+it("keeps student navigator width separate from the teacher panel preference", async () => {
+  localStorage.setItem("quizzivy.column.panel", "512");
+  const user = userEvent.setup();
+  render(
+    <Layout>
+      <SideColumn column="studentNavigator" side="right" aria-label="Danh sách câu">
+        <p>questions</p>
+      </SideColumn>
+    </Layout>,
+  );
+  const column = screen.getByRole("complementary", { name: "Danh sách câu" });
+  expect(column).toHaveStyle({ width: "256px" });
+  const handle = screen.getByRole("separator", { name: "Độ rộng danh sách câu" });
+  handle.focus();
+  await user.keyboard("{ArrowLeft}");
+  expect(column).toHaveStyle({ width: "272px" });
+  expect(localStorage.getItem("quizzivy.column.studentNavigator")).toBe("272");
+  expect(localStorage.getItem("quizzivy.column.panel")).toBe("512");
+});

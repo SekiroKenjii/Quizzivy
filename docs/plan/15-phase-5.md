@@ -21,21 +21,18 @@ T-5.1 is the one feature task, deferred out of Phase 3.
 **Touches:** `web/src/features/integrity/`, `server/internal/attempts/`
 **Size:** M
 **Done when:**
-- [ ] `onLimitExceeded: 'auto_submit'` shows a 10-second countdown with a
-      "Tôi vẫn đang làm bài" cancel that **grants one final strike**, then
-      submits (§10.2)
-- [ ] The countdown does not pause the timer
-- [ ] Cancelling twice submits — the "one final strike" is one, not unlimited
-- [ ] The submit goes through the same idempotent path as a manual submit, so a
-      race between auto-submit and a manual tap yields one submission
-- [ ] An `auto_submit` event is recorded so the timeline shows why (§10.4)
-- [ ] The student is told plainly what happened; no shame copy (§12)
-- [ ] Test: `integrity/auto-submit.test.tsx` — countdown, cancel, second
-      violation submits
-- [ ] Test: `attempts/submit_test.go` — concurrent auto and manual submit produce
-      one graded attempt
-- [ ] Both locales; keyboard-operable — the cancel button must be focusable and
-      reachable without a mouse (§14)
+- [ ] `onLimitExceeded: 'auto_submit'` immediately submits after the allowed
+      focus-loss count is exceeded (spec v0.6). No countdown or extra strike.
+- [ ] The final answers and events are saved before grading and closure; the
+      existing idempotent submit path handles a racing manual request.
+- [ ] `-1` means no counted departure, `0` remains unlimited, positive values
+      preserve their existing meaning. Episodes below `minAwayMs` do not count.
+- [ ] Offline submission retains pending answers, prevents further editing and
+      retries with a plain visible notice. It never reports success prematurely.
+- [ ] A server-written `auto_submit` event and a flag record the violation.
+- [ ] Tests cover preserved final answers, no automatic zero/void, threshold
+      boundaries, offline retry and retained assignment/version references.
+- [ ] Both locales; keyboard-operable retry and clear confirmation after success.
 
 ---
 

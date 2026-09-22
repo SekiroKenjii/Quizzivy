@@ -14,6 +14,7 @@ interface BarProps {
   meta?: ReactNode;
   actions?: ReactNode;
   backTo?: string;
+  backLabel?: string;
 }
 
 interface TitleProps {
@@ -29,7 +30,7 @@ export function PageHeader(props: BarProps | TitleProps) {
   return <Bar {...props} />;
 }
 
-function Bar({ title, leading, meta, actions, backTo }: BarProps) {
+function Bar({ title, leading, meta, actions, backTo, backLabel }: BarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const slot = useContext(PageBarSlot);
@@ -41,7 +42,7 @@ function Bar({ title, leading, meta, actions, backTo }: BarProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={t("common.back")}
+            aria-label={backLabel ?? t("common.back")}
             onClick={() => void navigate(backTo)}
           >
             <ArrowLeft aria-hidden="true" />

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, RouterProvider, useNavigate } from "react-router";
 import { Pager } from "@/components/shared/Pager";
 import { usePage } from "@/hooks/usePage";
 import "@/lib/i18n";
@@ -76,6 +77,49 @@ describe("Pager", () => {
 });
 
 describe("usePage", () => {
+  it("does not cancel a pending child navigation when a filter settles on page one", async () => {
+    let finish!: () => void;
+    const loaded = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    function ListWithPendingFilter() {
+      const [filter, setFilter] = useState("old");
+      usePage(filter);
+      const navigate = useNavigate();
+      return (
+        <button
+          onClick={() => {
+            setFilter("new");
+            void navigate("/child");
+          }}
+        >
+          Open child
+        </button>
+      );
+    }
+    const router = createMemoryRouter(
+      [
+        { path: "/list", element: <ListWithPendingFilter /> },
+        {
+          path: "/child",
+          loader: async () => {
+            await loaded;
+            return null;
+          },
+          element: <h1>Child</h1>,
+        },
+      ],
+      { initialEntries: ["/list"] },
+    );
+    render(<RouterProvider router={router} />);
+    await userEvent.setup().click(screen.getByText("Open child"));
+    await act(async () => {
+      finish();
+      await loaded;
+    });
+    expect(await screen.findByRole("heading", { name: "Child" })).toBeInTheDocument();
+  });
+
   it("opens on the page a shared link names", () => {
     renderAt("/admin/tests?page=4");
     expect(screen.getByText("trang 4")).toBeInTheDocument();

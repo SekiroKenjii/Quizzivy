@@ -1264,8 +1264,16 @@ the file it adds.
 | `00019_create_assignment_targets.sql` | `assignment_classes`, `assignment_students` | 3 |
 | `00020_create_attempts.sql` | `attempts` | 3 |
 | `00021_create_attempt_answers.sql` | `attempt_answers` | 3 |
-| `00022_create_attempt_audio_plays.sql` | `attempt_audio_plays` | 3 |
+| `00022_add_assignment_draft_state.sql` | assignment publication state | 3 |
 | `00023_create_attempt_events.sql` | `attempt_events` | 3 |
+| `00024_create_attempt_audio_plays.sql` | `attempt_audio_plays` | 3 |
+| `00025_widen_grading_queue_to_timed_out.sql` | grading queue index | 4 |
+| `00026_add_classes_archived_at.sql` | class archive state | 4 |
+| `00027_let_a_draft_be_archived.sql` | archive unpublished tests | 4 |
+| `00028_add_attempts_teacher_note.sql` | attempt review notes | 4 |
+| `00029_index_integrity_retention.sql` | integrity retention index | 5 |
+| `00030_test_version_sequence.sql` | monotonic publication counter | Admin change request |
+| `00031_allow_no_focus_loss.sql` | no-departure integrity policy | Admin change request |
 
 Notes on migration mechanics (§13.7):
 
@@ -1314,3 +1322,39 @@ Notes on migration mechanics (§13.7):
   that stay selective as data grows, not to force index scans today.
   `15-phase-5.md` measures latency at seeded volume rather than asserting plan
   shapes.
+
+## 15. Approved retention maintenance (2026-09-22)
+
+`00029_index_integrity_retention.sql` adds `(received_at, id)` concurrently to
+support bounded owner-role deletion strictly before the UTC thirteen-month
+cutoff, with assignment closure also older than that cutoff. Down drops the index concurrently. No application privileges change.
+`audit_log` remains append-only and retained. Manual anonymization keeps user
+IDs and historical relationships while removing structured identity and login
+credentials. See `../setup/operations.md` for execution and privacy limits.
+
+
+## 14. Approved admin lifecycle changes (spec v0.6)
+
+`00030_test_version_sequence.sql` adds `tests.last_published_version`. Existing
+rows are backfilled from both the default and the greatest historical version.
+A before-insert/update trigger keeps the counter at least the default and never
+allows it to decrease; `tests_version_sequence_check` pins that relationship.
+Publication increments this counter; choosing an older default or deleting an
+unused version never reuses its number. Down removes the trigger, function and
+column without deleting snapshots.
+
+`00031_allow_no_focus_loss.sql` expands the assignment CHECK to accept `-1`
+(no departures allowed), preserving `0` as unlimited and positive counts.
+Down maps `-1` to one allowed departure because the old schema cannot express
+none, then reinstates the original constraint. This rollback changes that policy
+and must be coordinated with the old application.
+
+Permanent deletion locks the parent and relies on real foreign keys to serialize
+against new references. Archived tests may remove only unused versions; archived
+classes may remove owned membership/join-code rows but not referenced assignments.
+Draft/closed assignments require no attempts. Disabled student accounts require
+no assigned work, attempts or audit actor references. Audit entries are appended
+in the same transaction; existing audit and attempt events are never updated or
+deleted by the application. Restoring a version creates independent bank rows,
+including frozen grading keys, and takes the draft-use question locks before
+inserting the replacement outline.

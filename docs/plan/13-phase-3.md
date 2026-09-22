@@ -8,12 +8,10 @@ The riskiest phase. `features/take-test/`, `features/integrity/` and
 `features/media/` are the high-risk areas AGENTS.md names — run their unit tests
 before and after every change, and do not refactor them opportunistically.
 
-**One scope change:** `onLimitExceeded: 'auto_submit'` (§10.2) is deferred to
-Phase 5 (T-5.1). `warn` and `flag` ship here. The 10-second countdown with a
-cancel that grants "one final strike" is the most intricate state machine in the
-product, and §10.3 defaults the policy to `flag`, so nothing in the default
-experience depends on it. Shipping the engine without it lowers the risk on the
-phase that carries the most.
+**Scope history:** `auto_submit` was deferred to T-5.1 when Phase 3 shipped.
+The approved admin change request (spec v0.6, 2026-09-22) now requires immediate
+submission with retained answers and recorded violations, superseding the old
+countdown/cancellation proposal.
 
 ---
 
@@ -358,9 +356,9 @@ phase that carries the most.
       strikes remaining and what happens at zero. **The timer keeps running**
       (§10.2)
 - [ ] A small persistent indicator shows remaining strikes when
-      `maxFocusLoss > 0` (§10.2)
+      `maxFocusLoss != 0` (§10.2; -1 means no departures allowed)
 - [ ] `warn` = dialog only; `flag` = attempt marked and the student told.
-      `auto_submit` is deferred to T-5.1 and its UI is not built here
+      `auto_submit` follows the revised immediate-submission contract in T-5.1
 - [ ] Fullscreen: entering happens on the "Bắt đầu" click, because browsers
       require a gesture (§10.2). Exit shows a "Quay lại toàn màn hình" button
 - [ ] **Never trap the student**: `Esc` always works, and there is always a

@@ -14,7 +14,7 @@ const AUDIO = fileURLToPath(new URL("./fixtures/unit5-listening.mp3", import.met
 async function signIn(page: Page) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(ADMIN.email);
-  await page.getByLabel("Mật khẩu").fill(ADMIN.password);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page).toHaveURL(/\/admin$/);
 }
@@ -36,8 +36,14 @@ async function setOptions(page: Page, texts: string[]) {
 /** Adds one question of `type` to the open builder and fills in its answer. */
 async function addQuestion(page: Page, type: string, prompt: string) {
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
-  await expect(page.getByRole("tab", { name: type })).toBeVisible();
+  await expect(page.getByLabel("Nội dung câu hỏi")).toHaveValue(
+    "Câu hỏi mới — nhập nội dung ở đây",
+  );
   await page.getByRole("tab", { name: type }).click();
+  await expect(page.getByRole("tab", { name: type })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 
   await page.getByLabel("Nội dung câu hỏi").click();
   await page.getByLabel("Nội dung câu hỏi").fill(prompt);
@@ -126,7 +132,7 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.getByText("Người phụ nữ đề nghị làm gì?")).toBeVisible();
 
   // And the version history records it: six questions, six points, by name.
-  const history = page.getByRole("region", { name: "Lịch sử phiên bản" });
+  const history = page.getByRole("complementary", { name: "Lịch sử phiên bản" });
   await expect(history.getByText("v1", { exact: true })).toBeVisible();
   await expect(history.getByText("6 · 6")).toBeVisible();
   await expect(history.getByText(/Thuong/)).toBeVisible();

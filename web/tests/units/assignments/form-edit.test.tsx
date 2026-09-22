@@ -135,7 +135,10 @@ describe("editing an assignment", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("combobox", { name: "Thời lượng làm bài" }),
-    ).toHaveTextContent("90 phút");
+    ).toHaveTextContent("Nhập thời lượng khác");
+    expect(
+      screen.getByRole("spinbutton", { name: "Thời lượng tự nhập (phút)" }),
+    ).toHaveValue(90);
     expect(screen.queryByRole("button", { name: "Lưu nháp" })).toBeNull();
 
     await user.click(screen.getByRole("combobox", { name: "Thời lượng làm bài" }));

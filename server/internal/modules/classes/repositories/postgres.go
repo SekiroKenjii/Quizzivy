@@ -331,7 +331,7 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Cl
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &in.ActorUserID,
 		Action:      "class.created",
-		Entity:      "class",
+		Entity:      entityClass,
 		EntityID:    &id,
 		OccurredAt:  in.Now,
 		IP:          in.IP,
@@ -374,7 +374,7 @@ func (s *Postgres) Archive(ctx context.Context, in domain.ArchiveInput) (domain.
 		if err := audit.Write(ctx, tx, audit.Entry{
 			ActorUserID: &in.ActorUserID,
 			Action:      action,
-			Entity:      "class",
+			Entity:      entityClass,
 			EntityID:    &in.ClassID,
 			OccurredAt:  in.Now,
 			IP:          in.IP,

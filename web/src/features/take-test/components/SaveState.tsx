@@ -9,7 +9,7 @@ export function SaveState() {
   const { t } = useTranslation();
   const inFlight = useTakeTestStore((s) => s.flushInFlight);
   const dirty = useTakeTestStore((s) => s.dirty.size);
-  // The moment the SERVER confirmed, not the moment this rendered.
+  const restored = useTakeTestStore((s) => Object.keys(s.answers).length > 0);
   const lastSavedAt = useTakeTestStore((s) => s.lastSavedAt);
 
   if (inFlight) {
@@ -21,11 +21,12 @@ export function SaveState() {
     );
   }
   if (dirty > 0) return <>{t("takeTest.unsaved")}</>;
+  const initialState = restored ? "takeTest.restoredSaved" : "takeTest.savedNothingYet";
   return (
     <>
       <Check className="size-3.5" aria-hidden="true" />
       {lastSavedAt === null
-        ? t("takeTest.savedNothingYet")
+        ? t(initialState)
         : t("takeTest.saved", { time: formatTime(lastSavedAt) })}
     </>
   );

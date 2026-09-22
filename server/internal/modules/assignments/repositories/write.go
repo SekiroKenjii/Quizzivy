@@ -58,7 +58,7 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
 		Action:      "assignment.created",
-		Entity:      "assignment",
+		Entity:      entityAssignment,
 		EntityID:    &id,
 		OccurredAt:  in.Now,
 		IP:          opt.String(req.IP),
@@ -153,7 +153,7 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &req.ActorID,
 		Action:      updateAction(in, current),
-		Entity:      "assignment",
+		Entity:      entityAssignment,
 		EntityID:    &req.ID,
 		OccurredAt:  in.Now,
 		IP:          opt.String(req.IP),

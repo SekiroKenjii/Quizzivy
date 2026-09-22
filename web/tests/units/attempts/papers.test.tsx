@@ -166,7 +166,7 @@ describe("the papers of one assignment (G-11)", () => {
 
     const vy = within(table).getByRole("row", { name: /Lê Khánh Vy/ });
     expect(within(vy).getByText("1/2")).toBeInTheDocument();
-    expect(within(vy).getByText("08:38, 04/09/2026")).toBeInTheDocument();
+    expect(within(vy).getByText("08:38 · 04/09")).toBeInTheDocument();
     expect(within(vy).getByText("38 phút")).toBeInTheDocument();
     expect(within(vy).getByText("29/30")).toBeInTheDocument();
 

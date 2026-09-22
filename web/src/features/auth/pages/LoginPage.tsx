@@ -1,8 +1,9 @@
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
@@ -49,7 +50,19 @@ export default function LoginPage() {
   });
 
   return (
-    <AuthLayout footer={t("login.noSignup")}>
+    <AuthLayout
+      footer={
+        <>
+          <p>{t("login.noSignup")}</p>
+          <Link
+            to="/join"
+            className="focus-visible:ring-ring mt-2 inline-flex min-h-11 items-center rounded-sm underline focus-visible:ring-2"
+          >
+            {t("student.joinClass")}
+          </Link>
+        </>
+      }
+    >
       <h1 className="text-xl font-semibold tracking-tight">{t("login.title")}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm">{t("login.subtitle")}</p>
       <form onSubmit={(e) => void onSubmit(e)} className="mt-5 space-y-3" noValidate>
@@ -76,9 +89,9 @@ export default function LoginPage() {
 
         <div className="space-y-1.5">
           <Label htmlFor="password">{t("login.password")}</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
+
             className="h-11"
             autoComplete="current-password"
             aria-invalid={form.formState.errors.password ? true : undefined}
