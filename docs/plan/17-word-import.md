@@ -126,8 +126,9 @@ JSON and rejects duplicate keys and malformed encodings before validation.
 [The content contract](19-content-contract.md) names ownership, recovery,
 integration and rollback requirements. No question write, schema migration,
 asset delivery or durable browser storage is enabled yet. D-02 and the recovery
-policy within D-04 are approved; final editor acceptance, D-03 audio/deal
-semantics and the complete graph/revision API remain open.
+policy within D-04 are approved. Thuong also approved D-03 group ordering and
+shared recording allowances. Final editor acceptance, the complete graph/revision
+API and implementation of these approved policies remain open.
 
 ## 2. Current code and the actual gaps
 
@@ -247,15 +248,17 @@ Proposed semantics for contract review:
 
 `dealVersion`/equivalent distinguishes legacy and group-aware delivery. Old
 attempts retain the existing algorithm, seeds, question IDs and answer binding.
-Shuffle compatible groups as units within a section; preserve ordered cloze
-members. Mark questions with semantic option-label references as non-shufflable
+Approved D-03: when question shuffling is enabled, shuffle groups and standalone
+questions as units within a section; always preserve authored member order inside
+shared-context groups. Keep authored unit order when shuffling is disabled. Mark questions with semantic option-label references as non-shufflable
 unless references are represented structurally. Reject incompatible assignment
 configurations with a named group/question, rather than silently weakening them.
 
-Playback counts belong to an explicit versioned playback scope, e.g. a shared
-group-audio binding, not merely the underlying asset ID. Different groups may use
-the same file independently. Existing per-question behavior remains readable;
-shared scopes do not grant new plays on child navigation. Preserve synchronous
+Approved D-03: a shared recording's play allowance belongs to an explicit
+versioned group-audio binding, not merely the underlying asset ID. All children
+share that allowance; different groups may use the same file independently.
+Existing per-question behavior remains readable; shared scopes do not grant new
+plays on child navigation, reload or takeover of the same attempt. Preserve synchronous
 user-gesture `.play()`, optimistic accounting and post-limit reporting. Do not
 silently change audio policy into hard network authorization before playback.
 
@@ -530,7 +533,7 @@ deploy and verify backup/restore before enabling production writes.
 | --- | --- | --- | --- |
 | D-01 | Content/editor | Application-owned versioned AST, lightweight student renderer, evaluated editor adapter | Engineering + Thuong; W-02/03 before W-05 |
 | D-02 | Group/material ownership and bank reuse | **Approved by Thuong:** independent copies; full context copied into bank/other tests; source deletion cannot affect copies | Engineering; reference/DDL review remains before W-07 |
-| D-03 | Audio/deal semantics | Explicit playback scope, grouped ordering and legacy deal version | Thuong + engineering; before W-08/09 |
+| D-03 | Audio/deal semantics | **Approved by Thuong:** shuffle groups as units within a section, keep child order; a shared recording has one allowance per group/attempt, preserved on navigation/reload/takeover, independent across groups using the same file | Engineering; snapshot/API/ledger integration and legacy regressions before W-08/09 |
 | D-04 | Access and unsent recovery | **Recovery approved by Thuong:** per-account local drafts, at most seven days, logout clearing, explicit local/server save states. Existing admin authorization still applies | Engineering; recovery and access implementation/tests pending |
 | D-05 | Converter/extractor dependencies | Benchmark structured OOXML extraction and isolated LibreOffice normalization; Mammoth is a comparison candidate only | Engineering; W-03 before dependency addition |
 | D-06 | Cloud/private model and data policy | Evaluate both, no silent provider fallback or external upload | Thuong + engineering; before real external benchmark/assisted processing |

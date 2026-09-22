@@ -9,6 +9,8 @@
   Existing question writes, stored Markdown and published versions are unchanged.
 - Thuong approved independent copies of groups/materials and per-account local
   recovery for unsent edits, with seven-day expiry and logout clearing (§16).
+- New grouped exams will shuffle whole groups within their section, retain member
+  order, and share a recording's play allowance across its group (§7.2, §11.5).
 
 **Changes since v0.7**
 
@@ -385,6 +387,21 @@ before new-format production writes. The renderer never resolves an asset ID
 without an authorized media binding. Existing question payloads above remain the
 active contract until that integration explicitly changes them.
 
+### 7.2 Word milestone group ordering (approved, not yet enabled)
+
+For the new group-aware delivery version, `shuffleQuestions` shuffles complete
+question groups and standalone questions as units within each section. Sections
+retain their authored order. Members of a shared passage/listening/cloze group
+retain their authored order even when the groups move. With shuffle disabled,
+all units retain authored order. These rules were approved by Thuong as D-03.
+
+Snapshot group membership and member order at publication. Persist the delivery
+algorithm version with the assigned snapshot/attempt so reload, takeover and
+restoration cannot choose a new deal; preserve stable answer IDs. Historical
+versions/attempts continue using their existing section-scoped algorithm and
+seeds. Option-label references must be validated against option shuffling before
+assignment; their exact reference representation remains part of the group API.
+
 ---
 
 ## 8. Screens & routes — admin (`/admin/*`)
@@ -549,6 +566,23 @@ The obvious client-side counter resets on reload, which makes the limit meaningl
 - Client renders remaining plays from the server value, optimistically decrements on play, and reconciles on the next fetch.
 - Playback is **optimistic**: a failed event POST does not block the audio. A student who goes offline to farm replays will show a gap in the event log, which is exactly what the integrity timeline is for. Blocking playback on a network round-trip would punish bad wifi far more often than it would catch anyone.
 - On submit, the server rejects nothing based on play count. Over-limit plays are reported to the teacher, not enforced retroactively.
+
+### 11.5 Word milestone shared recordings (approved, not yet enabled)
+
+D-03 extends the existing audio contract to a recording shared by a group. All
+child questions consume the same configured play allowance. Navigating between
+children, reloading or resuming the same attempt on another device never grants
+a fresh allowance. Two groups may reference the same immutable file and still
+have independent counters. The counter identity therefore includes the versioned
+group recording binding; the asset ID alone is insufficient.
+
+Freeze that binding and its audio policy in the published version, and keep its
+counter scoped to the attempt. Preserve synchronous gesture playback, optimistic
+accounting, retry deduplication, teacher reporting and transcript visibility rules
+from §11.3–11.4. The future shared player must use this scope consistently in
+navigation, event writes and state reconciliation. Its API, relational references,
+concurrency tests and student-payload tests must precede enabling shared audio.
+Existing per-question audio remains a separately supported historical contract.
 
 ---
 

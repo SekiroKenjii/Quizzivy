@@ -110,5 +110,29 @@ publication/restore, attempts/results and answer-leak tests. Preserve the comple
 historical snapshot/deal/audio behavior. Do not backfill or rewrite old published
 versions as part of adding readers. After new-format writes begin, rollback must
 retain a binary capable of reading them; a flag disables new writes, not readers.
-Old snapshots can remain read-only through that rollback floor. D-03 shared audio
-and group-deal contracts and final D-01 editor acceptance are still open.
+Old snapshots can remain read-only through that rollback floor. Final D-01 editor
+acceptance and the complete group/revision endpoint contracts remain open.
+
+## Approved delivery policy — D-03
+
+When question shuffling is enabled, groups and standalone questions move as units
+within their section. Sections and members within a group keep authored order;
+with shuffling disabled, all units keep authored order. Group membership, order
+and delivery version are frozen in the snapshot and retained for attempt reload
+and takeover. Historical snapshots continue using the existing algorithm/seeds.
+Option-label dependencies must be checked against option shuffling separately.
+
+A recording shared by a group has one configured play allowance across its
+children for that attempt. Child navigation, reload and takeover cannot reset it;
+another group using the same file has a separate allowance. Thus an explicit
+versioned group-recording binding identifies the playback scope, not the asset
+alone. Publication freezes the binding/policy; restoration/copy creates an
+independent draft binding. Preserve synchronous user-gesture playback, optimistic
+accounting, replay deduplication, reporting and transcript visibility policies.
+
+Required integration evidence: grouped/standalone deal ordering with shuffling
+on/off; fixed child/cloze order; stable answers after reload/takeover; counts
+shared across children but separate across two groups using the same asset;
+idempotent playback retries and session handover; immutable published bindings;
+and unchanged legacy deal/audio/leak canaries. This is an approved product policy,
+not an enabled player, new ledger schema or implemented group endpoint.
