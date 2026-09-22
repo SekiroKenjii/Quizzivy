@@ -153,7 +153,9 @@ it("keeps the edited question open when its final save fails", async () => {
   const user = await mount();
   await user.type(screen.getByDisplayValue(question.prompt), " Unsaved");
   await user.click(screen.getByRole("button", { name: "Second question" }));
-  await screen.findByText("Save failed");
+  expect(
+    await screen.findByText("Save failed", { selector: '[role="alert"]' }),
+  ).toBeVisible();
   expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(
     `${question.prompt} Unsaved`,
   );
