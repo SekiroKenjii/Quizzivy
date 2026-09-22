@@ -1459,6 +1459,136 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * @description Versioned learner content, independent of editor JSON. This additive contract
+         *     is not yet accepted by question writes. Validate with the content domain
+         *     validator as well as JSON Schema: unique gaps, rectangular non-overlapping
+         *     table spans, no nested tables, list-leading paragraphs, unordered start=1,
+         *     no simultaneous super/subscript, consistent asset kinds, Unicode scalar strings
+         *     without NUL, and aggregate budgets. Unknown fields are errors, never silently stripped.
+         *     Asset IDs are references only; authorization, existence, kind and deletion
+         *     locks belong to the enclosing write. This schema grants no asset access.
+         */
+        ContentDocument: components["schemas"]["LegacyMarkdownContent"] | components["schemas"]["SemanticContent"];
+        LegacyMarkdownContent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            format: "legacy_markdown_v1";
+            markdown: string;
+        };
+        SemanticContent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            format: "semantic_v1";
+            blocks: components["schemas"]["ContentBlocks"];
+        };
+        ContentBlocks: components["schemas"]["ContentBlock"][];
+        ContentBlock: components["schemas"]["ContentParagraph"] | components["schemas"]["ContentHeading"] | components["schemas"]["ContentList"] | components["schemas"]["ContentTable"] | components["schemas"]["ContentImage"] | components["schemas"]["ContentAudio"];
+        ContentInlines: components["schemas"]["ContentInline"][];
+        ContentInline: components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"] | components["schemas"]["ContentGap"] | components["schemas"]["ContentLink"];
+        /** @enum {string} */
+        ContentMark: "bold" | "italic" | "underline" | "strike" | "superscript" | "subscript";
+        ContentText: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "text";
+            text: string;
+            marks: components["schemas"]["ContentMark"][];
+        };
+        ContentBreak: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "break";
+        };
+        ContentGap: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "gap";
+            id: string;
+            label: string;
+        };
+        ContentLink: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "link";
+            /** @description Explicit HTTPS navigation with ASCII DNS-style host labels and optional port 1–65535. International hosts must be punycoded; IPv6 literals are not supported in this version. No credentials, whitespace, controls, backslashes or malformed percent escapes. Never fetched during parsing or rendering. */
+            href: string;
+            content: components["schemas"]["ContentText"][];
+        };
+        ContentParagraph: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "paragraph";
+            content: components["schemas"]["ContentInlines"];
+        };
+        ContentHeading: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "heading";
+            /** @enum {integer} */
+            level: 1 | 2 | 3;
+            content: components["schemas"]["ContentInlines"];
+        };
+        ContentList: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "list";
+            ordered: boolean;
+            start: number;
+            items: components["schemas"]["ContentBlocks"][];
+        };
+        ContentTable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "table";
+            rows: components["schemas"]["ContentCell"][][];
+        };
+        ContentCell: {
+            header: boolean;
+            rowSpan: number;
+            colSpan: number;
+            content: components["schemas"]["ContentBlocks"];
+        };
+        ContentImage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "image";
+            /** Format: uuid */
+            assetId: string;
+            alt: string;
+        };
+        ContentAudio: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "audio";
+            /** Format: uuid */
+            assetId: string;
+            label: string;
+        };
+        /**
          * Format: uuid
          * @description uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
          * @example 019535d9-3df7-79fb-b466-fa907fa17f9e

@@ -147,6 +147,198 @@ components:
       description: Success, no body.
 
   schemas:
+    ContentDocument:
+      description: |
+        Versioned learner content, independent of editor JSON. This additive contract
+        is not yet accepted by question writes. Validate with the content domain
+        validator as well as JSON Schema: unique gaps, rectangular non-overlapping
+        table spans, no nested tables, list-leading paragraphs, unordered start=1,
+        no simultaneous super/subscript, consistent asset kinds, Unicode scalar strings
+        without NUL, and aggregate budgets. Unknown fields are errors, never silently stripped.
+        Asset IDs are references only; authorization, existence, kind and deletion
+        locks belong to the enclosing write. This schema grants no asset access.
+      x-content-limits:
+        bytes: 1048576
+        nodes: 2048
+        depth: 16
+        values: 24576
+        strings: 200000
+        text: 100000
+        url: 2000
+        rows: 50
+        columns: 12
+      oneOf:
+        - $ref: '#/components/schemas/LegacyMarkdownContent'
+        - $ref: '#/components/schemas/SemanticContent'
+      discriminator:
+        propertyName: format
+        mapping:
+          legacy_markdown_v1: '#/components/schemas/LegacyMarkdownContent'
+          semantic_v1: '#/components/schemas/SemanticContent'
+    LegacyMarkdownContent:
+      type: object
+      additionalProperties: false
+      required: [format, markdown]
+      properties:
+        format: { type: string, enum: [legacy_markdown_v1] }
+        markdown: { type: string, maxLength: 100000 }
+    SemanticContent:
+      type: object
+      additionalProperties: false
+      required: [format, blocks]
+      properties:
+        format: { type: string, enum: [semantic_v1] }
+        blocks: { $ref: '#/components/schemas/ContentBlocks' }
+    ContentBlocks:
+      type: array
+      minItems: 1
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/ContentBlock' }
+    ContentBlock:
+      oneOf:
+        - $ref: '#/components/schemas/ContentParagraph'
+        - $ref: '#/components/schemas/ContentHeading'
+        - $ref: '#/components/schemas/ContentList'
+        - $ref: '#/components/schemas/ContentTable'
+        - $ref: '#/components/schemas/ContentImage'
+        - $ref: '#/components/schemas/ContentAudio'
+      discriminator:
+        propertyName: type
+        mapping:
+          paragraph: '#/components/schemas/ContentParagraph'
+          heading: '#/components/schemas/ContentHeading'
+          list: '#/components/schemas/ContentList'
+          table: '#/components/schemas/ContentTable'
+          image: '#/components/schemas/ContentImage'
+          audio: '#/components/schemas/ContentAudio'
+    ContentInlines:
+      type: array
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/ContentInline' }
+    ContentInline:
+      oneOf:
+        - $ref: '#/components/schemas/ContentText'
+        - $ref: '#/components/schemas/ContentBreak'
+        - $ref: '#/components/schemas/ContentGap'
+        - $ref: '#/components/schemas/ContentLink'
+      discriminator:
+        propertyName: type
+        mapping:
+          text: '#/components/schemas/ContentText'
+          break: '#/components/schemas/ContentBreak'
+          gap: '#/components/schemas/ContentGap'
+          link: '#/components/schemas/ContentLink'
+    ContentMark:
+      type: string
+      enum: [bold, italic, underline, strike, superscript, subscript]
+    ContentText:
+      type: object
+      additionalProperties: false
+      required: [type, text, marks]
+      properties:
+        type: { type: string, enum: [text] }
+        text: { type: string, minLength: 1, maxLength: 100000 }
+        marks:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/ContentMark' }
+    ContentBreak:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string, enum: [break] }
+    ContentGap:
+      type: object
+      additionalProperties: false
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [gap] }
+        id: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        label: { type: string, minLength: 1, maxLength: 32 }
+    ContentLink:
+      type: object
+      additionalProperties: false
+      required: [type, href, content]
+      properties:
+        type: { type: string, enum: [link] }
+        href:
+          type: string
+          maxLength: 2000
+          description: Explicit HTTPS navigation with ASCII DNS-style host labels and optional port 1–65535. International hosts must be punycoded; IPv6 literals are not supported in this version. No credentials, whitespace, controls, backslashes or malformed percent escapes. Never fetched during parsing or rendering.
+        content:
+          type: array
+          minItems: 1
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/ContentText' }
+    ContentParagraph:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, enum: [paragraph] }
+        content: { $ref: '#/components/schemas/ContentInlines' }
+    ContentHeading:
+      type: object
+      additionalProperties: false
+      required: [type, level, content]
+      properties:
+        type: { type: string, enum: [heading] }
+        level: { type: integer, enum: [1, 2, 3] }
+        content: { $ref: '#/components/schemas/ContentInlines' }
+    ContentList:
+      type: object
+      additionalProperties: false
+      required: [type, ordered, start, items]
+      properties:
+        type: { type: string, enum: [list] }
+        ordered: { type: boolean }
+        start: { type: integer, minimum: 1, maximum: 9999 }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/ContentBlocks' }
+    ContentTable:
+      type: object
+      additionalProperties: false
+      required: [type, rows]
+      properties:
+        type: { type: string, enum: [table] }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: array
+            maxItems: 12
+            items: { $ref: '#/components/schemas/ContentCell' }
+    ContentCell:
+      type: object
+      additionalProperties: false
+      required: [header, rowSpan, colSpan, content]
+      properties:
+        header: { type: boolean }
+        rowSpan: { type: integer, minimum: 1, maximum: 50 }
+        colSpan: { type: integer, minimum: 1, maximum: 12 }
+        content: { $ref: '#/components/schemas/ContentBlocks' }
+    ContentImage:
+      type: object
+      additionalProperties: false
+      required: [type, assetId, alt]
+      properties:
+        type: { type: string, enum: [image] }
+        assetId: { type: string, format: uuid }
+        alt: { type: string, minLength: 1, maxLength: 1000 }
+    ContentAudio:
+      type: object
+      additionalProperties: false
+      required: [type, assetId, label]
+      properties:
+        type: { type: string, enum: [audio] }
+        assetId: { type: string, format: uuid }
+        label: { type: string, minLength: 1, maxLength: 200 }
 
     # ------------------------------------------------------------------ core
 

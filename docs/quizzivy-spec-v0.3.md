@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.8 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.9 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.8**
+
+- The Word foundation defines an additive `ContentDocument` contract (§7.1).
+  Existing question writes, stored Markdown and published versions are unchanged.
+- Thuong approved independent copies of groups/materials and per-account local
+  recovery for unsent edits, with seven-day expiry and logout clearing (§16).
 
 **Changes since v0.7**
 
@@ -357,6 +364,26 @@ type Answer =
 ```
 
 **Invariant:** an attempt references `testVersionId`. Editing a published test creates a new version; in-flight attempts keep rendering the version they started with. In the student flow, test content is fetched **only** via `GET /app/attempts/:id`.
+
+---
+
+### 7.1 Word milestone content contract (foundation)
+
+`ContentDocument` is an application-owned discriminated union: `legacy_markdown_v1`
+retains the exact historical Markdown string; `semantic_v1` contains typed
+paragraphs, three heading levels, lists, tables, asset references and inline
+text/marks, safe links, line breaks and stable gaps. Its normative structural
+schema is in `api/openapi.yaml`; aggregate and cross-node rules are described in
+[the content contract](plan/19-content-contract.md) and enforced by both domain
+validators. Unknown fields, answer metadata, raw HTML nodes and editor-specific
+JSON are refused. Text is not rewritten or Unicode-normalized during validation.
+
+The standalone components and value object are foundation work, not enabled
+question writes or migrated snapshots. Rich question fields, media bindings,
+group schema, publication, restoration, delivery and grading must be integrated
+before new-format production writes. The renderer never resolves an asset ID
+without an authorized media binding. Existing question payloads above remain the
+active contract until that integration explicitly changes them.
 
 ---
 
@@ -956,6 +983,20 @@ Imported and manually authored exams must share rendering, publication and
 grading contracts. Missing answers remain unknown; PDF input, OCR, answer
 generation and automatic publication are excluded. Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
+
+Thuong approved two ownership/recovery policies for this milestone:
+
+- Groups and shared materials belong to independent editable copies. Saving a
+  dependent group to the bank or copying it into another test carries every
+  required member/material and remaps identities; subsequent source edits or
+  deletion cannot affect the copy. Relational asset references protect reused
+  immutable files from deletion; reuse of bytes is not shared editable content.
+- Unsent edits may be stored locally, isolated by account, for at most seven days
+  from the unsent revision's creation, and cleared on logout. Recovery is explicit
+  and revision-aware; local-only changes never display as server-saved. Local
+  storage failure or quota exhaustion must remain visible and cannot silently
+  discard unsent changes. Source/answer files are not stored in this recovery
+  outbox. This is approved policy, not an implemented durability guarantee yet.
 
 ---
 

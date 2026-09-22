@@ -116,6 +116,19 @@ This does not complete W-05 or authorize storing editor JSON: the domain/API
 contracts, server validation, real asset bindings and integration with immutable
 versions must precede production use. No teacher document was sent to a service.
 
+### 1.3 Implementation checkpoint — content contract foundation
+
+W-02 now has additive OpenAPI components, generated Go/TypeScript types and an
+editor-independent Go content value object. Shared synthetic conformance cases
+pin structure, Unicode, projection, table/gap rules and unsafe-data rejection
+against the frontend validator and JSON Schema. The Go parser also bounds raw
+JSON and rejects duplicate keys and malformed encodings before validation.
+[The content contract](19-content-contract.md) names ownership, recovery,
+integration and rollback requirements. No question write, schema migration,
+asset delivery or durable browser storage is enabled yet. D-02 and the recovery
+policy within D-04 are approved; final editor acceptance, D-03 audio/deal
+semantics and the complete graph/revision API remain open.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -183,7 +196,8 @@ not a requirement to run a model on the developer laptop.
 
 ### 4.2 Versioned content
 
-Propose an application-owned `ContentDocument` discriminated union:
+The W-02 foundation defines an application-owned `ContentDocument` discriminated union
+([contract details](19-content-contract.md)):
 
 - `legacy_markdown_v1`: preserve the original string and existing rendering.
 - `semantic_v1`: typed blocks/runs, paragraphs, ordered/bullet lists, safe links,
@@ -218,9 +232,10 @@ Proposed semantics for contract review:
   bindings. Standalone questions remain possible without synthetic visible groups.
 - A **stimulus** is a passage, table, image, audio or composite content. Stable IDs
   link cloze gaps and question/blank targets, independently of printed numbering.
-- Recommend test-owned editable groups/materials initially. Copying into another
-  test creates an independent graph by default; never silently share editable
-  passages across tests. This ownership decision requires approval before DDL.
+- Approved by Thuong: test-owned editable groups/materials. Copying into another
+  test or the bank creates an independent graph with all required members and
+  materials. Source edits/deletion cannot change the copy. Immutable asset bytes
+  may be reused through separately protected relational bindings.
 - Context-dependent bank questions must expose their required group/materials.
   The picker offers **copy with context**, copying all required members and
   remapping gaps/assets; a lone child cannot be inserted without its dependencies.
@@ -288,9 +303,12 @@ Review saves use a single-flight queue plus expected revision. A `409` never
 auto-overwrites another tab's changes. A draft-level coordinator flushes before
 changing questions/routes, reprocessing, preview and commit. Saved means server
 acknowledged. For crashes with unsent edits, design a bounded per-user IndexedDB
-outbox with visible recovery/conflict handling, expiry and logout clearing;
-validate this privacy choice before enabling it. Browser unload requests alone
-are not durability. Server-acknowledged edits must survive all browser failures.
+outbox with visible recovery/conflict handling. Thuong approved account-isolated
+local recovery with a maximum seven-day lifetime from unsent revision creation
+and clearing on logout; source/answer files are excluded. Enforce expiry before
+any read/replay, surface quota/storage failures, and never report local-only
+changes as server-saved. Implementation and recovery tests remain pending.
+Browser unload requests alone are not durability. Server-acknowledged edits must survive all browser failures.
 
 Prepare immutable validated media before commit. Commit runs complete domain
 validation against the approved revision/digest, then creates bank content, test,
@@ -511,9 +529,9 @@ deploy and verify backup/restore before enabling production writes.
 | ID | Decision | Proposed direction | Owner / deadline |
 | --- | --- | --- | --- |
 | D-01 | Content/editor | Application-owned versioned AST, lightweight student renderer, evaluated editor adapter | Engineering + Thuong; W-02/03 before W-05 |
-| D-02 | Group/material ownership and bank reuse | Independent copies by default; context-dependent selection carries dependencies | Thuong + engineering; before W-07 DDL |
+| D-02 | Group/material ownership and bank reuse | **Approved by Thuong:** independent copies; full context copied into bank/other tests; source deletion cannot affect copies | Engineering; reference/DDL review remains before W-07 |
 | D-03 | Audio/deal semantics | Explicit playback scope, grouped ordering and legacy deal version | Thuong + engineering; before W-08/09 |
-| D-04 | Access and unsent recovery | Current single-organization admin scope; bounded recoverable local outbox with visible state | Thuong + engineering; before upload/review contracts freeze |
+| D-04 | Access and unsent recovery | **Recovery approved by Thuong:** per-account local drafts, at most seven days, logout clearing, explicit local/server save states. Existing admin authorization still applies | Engineering; recovery and access implementation/tests pending |
 | D-05 | Converter/extractor dependencies | Benchmark structured OOXML extraction and isolated LibreOffice normalization; Mammoth is a comparison candidate only | Engineering; W-03 before dependency addition |
 | D-06 | Cloud/private model and data policy | Evaluate both, no silent provider fallback or external upload | Thuong + engineering; before real external benchmark/assisted processing |
 | D-07 | Limits/SLOs/cost | Measure §9.2 hypotheses and approve supported envelope and spending cap | Thuong + engineering; W-21 before release |
