@@ -19,12 +19,11 @@ import {
 import { statusAt } from "@/features/assignments/status";
 import {
   getDashboard,
-  listAssignments,
+  listDashboardAssignments,
   type Assignment,
 } from "@/features/dashboard/api";
-import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDateTime, formatRelative } from "@/lib/i18n/datetime";
+import { compactMoment, weekdayDate, formatRelative } from "@/lib/i18n/datetime";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -57,7 +56,7 @@ export default function AdminDashboardPage() {
       },
       {
         queryKey: ["admin-assignments", "open"],
-        queryFn: ({ signal }: Q) => listAssignments({ limit: 10 }, signal),
+        queryFn: ({ signal }: Q) => listDashboardAssignments(signal),
       },
     ],
   });
@@ -67,7 +66,7 @@ export default function AdminDashboardPage() {
       <PageHeader
         variant="title"
         title={t("nav.dashboard")}
-        subtitle={formatDateTime(new Date(), locale)}
+        subtitle={weekdayDate(new Date(), locale, true)}
         actions={
           <>
             <Button
@@ -118,7 +117,14 @@ export default function AdminDashboardPage() {
               <QueueCard
                 count={data.awaitingGrading}
                 label={t("dashboard.awaitingGrading")}
-                hint={t("dashboard.awaitingGradingHint")}
+                hint={
+                  data.oldestWaitingAt
+                    ? t("dashboard.waitingContext", {
+                        count: data.waitingStudents ?? 0,
+                        age: formatRelative(data.oldestWaitingAt, locale),
+                      })
+                    : t("dashboard.noWaiting")
+                }
                 action={t("dashboard.grade")}
                 to="/admin/grading"
               />
@@ -130,11 +136,24 @@ export default function AdminDashboardPage() {
                 to="/admin/grading?tab=flagged"
               />
               <QueueCard
-                count={data.openAssignments}
-                label={t("dashboard.openAssignments")}
-                hint={t("dashboard.openAssignmentsHint")}
+                count={data.closingSoon ?? 0}
+                label={t("dashboard.closingSoon")}
+                hint={
+                  data.nextClosing
+                    ? t("dashboard.closingContext", {
+                        title: data.nextClosing.title,
+                        when: formatRelative(data.nextClosing.closesAt, locale),
+                        submitted: data.nextClosing.submittedCount,
+                        total: data.nextClosing.targetCount,
+                      })
+                    : t("dashboard.noClosingSoon")
+                }
                 action={t("dashboard.monitor")}
-                to="/admin/assignments"
+                to={
+                  data.nextClosing
+                    ? `/admin/assignments/${data.nextClosing.id}`
+                    : "/admin/assignments"
+                }
               />
             </div>
           )}
@@ -187,11 +206,7 @@ export default function AdminDashboardPage() {
                     </TableHeader>
                     <TableBody>
                       {data.items.map((assignment) => (
-                        <AssignmentRow
-                          key={assignment.id}
-                          assignment={assignment}
-                          locale={locale}
-                        />
+                        <AssignmentRow key={assignment.id} assignment={assignment} />
                       ))}
                     </TableBody>
                   </Table>
@@ -241,7 +256,9 @@ export default function AdminDashboardPage() {
                   <span className="text-muted-foreground">
                     {t("dashboard.activeStudents")}
                   </span>
-                  <span className="tabular-nums">{summary.data.activeStudents}</span>
+                  <span className="tabular-nums">
+                    {summary.data.activeStudents} / {summary.data.totalStudents ?? "—"}
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -292,16 +309,15 @@ function QueueCard({
 
 function AssignmentRow({
   assignment,
-  locale,
 }: Readonly<{
   assignment: Assignment;
-  locale: Locale;
 }>) {
   const { t } = useTranslation();
   const status = statusAt(assignment, new Date());
   const submitted = assignment.submittedCount ?? 0;
   const target = assignment.targetCount ?? 0;
-  const percent = target === 0 ? 0 : Math.round((submitted / target) * 100);
+  const percent =
+    target === 0 ? 0 : Math.min(100, Math.round((submitted / target) * 100));
 
   return (
     <TableRow>
@@ -311,24 +327,30 @@ function AssignmentRow({
           t("dashboard.byStudent")}
       </TableCell>
       <TableCell className="text-muted-foreground whitespace-nowrap">
-        {formatDateTime(assignment.window.closesAt, locale)}
+        {compactMoment(assignment.window.closesAt)}
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-2">
-          <span
-            className="bg-secondary h-1.5 flex-1 overflow-hidden rounded-full"
-            role="img"
-            aria-label={t("dashboard.progressOf", { submitted, target })}
-          >
+        {status === "scheduled" ? (
+          <span className="text-muted-foreground text-xs">
+            {t("dashboard.notOpenYet")}
+          </span>
+        ) : (
+          <div className="flex items-center gap-2">
             <span
-              className="bg-foreground block h-full rounded-full"
-              style={{ width: `${percent}%` }}
-            />
-          </span>
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {submitted}/{target}
-          </span>
-        </div>
+              className="bg-secondary h-1.5 flex-1 overflow-hidden rounded-full"
+              role="img"
+              aria-label={t("dashboard.progressOf", { submitted, target })}
+            >
+              <span
+                className="bg-foreground block h-full rounded-full"
+                style={{ width: `${percent}%` }}
+              />
+            </span>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {submitted}/{target}
+            </span>
+          </div>
+        )}
       </TableCell>
       {/* Its own right-aligned column, as A-01 draws it. */}
       <TableCell className="text-right">

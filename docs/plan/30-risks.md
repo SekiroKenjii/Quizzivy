@@ -44,9 +44,12 @@ newer than the server's `updated_at` win, never the reverse — plus
 buffer locally and a failed flush retries with backoff rather than discarding.
 E2E 2 exercises the reload path end to end.
 
-**Residual.** A device dying between the last flush and the next loses at most
-one debounce window. Accepted; the alternative is a synchronous write per
-keystroke.
+**Residual.** Unconfirmed answers are now cached per student, attempt and session
+in localStorage, with expiry checked against server time on recovery. This closes
+the ordinary reload/debounce gap. Storage denial, device loss or an expired or
+superseded session can still prevent recovery. Explicit logout clears drafts;
+only the server confirms a save. Submission waits for in-flight saves and refuses
+to discard an unconfirmed edit after a network failure.
 
 ---
 

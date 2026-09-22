@@ -31,6 +31,7 @@ type Assignment struct {
 	TargetCount         int
 	FlaggedCount        int
 	PendingGradingCount int
+	PendingManualCount  int
 }
 
 type Status string

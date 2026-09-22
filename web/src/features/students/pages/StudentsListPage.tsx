@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
@@ -40,7 +41,15 @@ const PAGE_SIZE = 20;
 export default function StudentsListPage() {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get("studentId");
+  const setSelectedId = (id: string | null) =>
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (id === null) next.delete("studentId");
+      else next.set("studentId", id);
+      return next;
+    });
   const [showDisabled, setShowDisabled] = useState(false);
   const [creating, setCreating] = useState(false);
   const search = useDebounced(query, 300).trim();

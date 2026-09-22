@@ -1,19 +1,22 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, History, List, Plus, Repeat, Timer } from "lucide-react";
+import { Clock, History, List, Repeat, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
-import { PageAside } from "@/components/shared/PageAside";
-import { PanelLabel } from "@/components/shared/PanelLabel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { fetchMyClasses, type MyClass } from "@/features/classes/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { fetchMyClasses } from "@/features/classes/api";
 import { startOrResumeAttempt } from "@/features/take-test/api";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -27,17 +30,17 @@ import type { Locale } from "@/lib/i18n";
 import { listMyAssignments, type StudentAssignmentCard } from "../api";
 import { closesLine, givenName, scoreText, timeLeft } from "../studentTime";
 
-/**
- * S-03: what to do next, in the order it matters. From 1024px it is S-13: the
- * next action and the history in the middle, "Sắp tới" and the student's
- * classes in F-11's panel.
- */
+/** StudentHomePage groups every assignment by its next action and supports shareable filters. */
 export default function StudentHomePage() {
   const { t, i18n } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const locale = i18n.language as Locale;
-  const wide = useMediaQuery("(min-width: 1024px)");
-
+  const [params, setParams] = useSearchParams();
+  const classId = params.get("classId") ?? "all";
+  const requested = params.get("view") ?? "all";
+  const view = ["open", "upcoming", "completed"].includes(requested)
+    ? requested
+    : "all";
   const assignments = useQuery({
     queryKey: ["my-assignments"],
     queryFn: ({ signal }) => listMyAssignments(signal),
@@ -46,15 +49,32 @@ export default function StudentHomePage() {
     queryKey: ["my-classes"],
     queryFn: ({ signal }) => fetchMyClasses(signal),
   });
-
   const name = givenName(user?.fullName ?? "");
+  const heading = (
+    <h1 className="text-xl font-semibold tracking-tight">
+      {t("student.greetingPlain", { name })}
+    </h1>
+  );
+  const filter = (key: string, value: string) => {
+    setParams((old) => {
+      const next = new URLSearchParams(old);
+      if (value === "all") next.delete(key);
+      else next.set(key, value);
+      return next;
+    });
+  };
+  const clear = () =>
+    setParams((old) => {
+      const next = new URLSearchParams(old);
+      next.delete("classId");
+      next.delete("view");
+      return next;
+    });
 
-  if (!assignments.isSuccess) {
+  if (!assignments.isSuccess)
     return (
       <div className="space-y-5">
-        <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
-          {t("student.greetingPlain", { name })}
-        </h1>
+        {heading}
         {assignments.isPending ? (
           <ListSkeleton rows={3} />
         ) : (
@@ -67,120 +87,181 @@ export default function StudentHomePage() {
         )}
       </div>
     );
-  }
 
-  const { dueNow, upcoming, completed } = assignments.data;
-  const live = dueNow.find((c) => c.hasLiveAttempt === true);
-  const due = dueNow.filter((c) => c.hasLiveAttempt !== true);
-  const nothing = dueNow.length + upcoming.length + completed.length === 0;
-  const now = new Date();
-  const dueToday = due.filter((c) => sameAppDay(c.closesAt, now)).length;
-  const myClasses = classes.data?.items ?? [];
-
-  const upcomingSection = upcoming.length > 0 && (
-    <Section title={t("student.upcoming", { count: upcoming.length })}>
-      {upcoming.map((card) => (
-        <Card
-          key={card.id}
-          className="flex-row items-center gap-3 p-3.5 lg:flex-col lg:items-stretch lg:gap-1"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{card.testTitle}</p>
-            <p className="text-muted-foreground text-xs">
-              {t("student.opensAt", {
-                time: formatTime(card.opensAt),
-                date: weekdayDate(card.opensAt, locale),
-              })}
-            </p>
-          </div>
-          <div className="lg:mt-1">
-            <StatusBadge kind="assignment" status="scheduled" />
-          </div>
-        </Card>
-      ))}
-    </Section>
-  );
-
-  // S-13: a panel with nothing in it is not drawn.
-  const panel = wide && (upcomingSection || myClasses.length > 0) && (
-    <PageAside label={t("student.homePanel")}>
-      {upcomingSection}
-      {upcomingSection && myClasses.length > 0 && <Separator />}
-      {myClasses.length > 0 && <ClassesBlock classes={myClasses} />}
-    </PageAside>
-  );
-
-  if (nothing) {
-    return (
-      <div>
-        <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
-          {t("student.greetingPlain", { name })}
-        </h1>
-        <div className="mt-6">
-          <EmptyState hint={t("student.noAssignmentsHint")}>
-            {t("student.noAssignments")}
-          </EmptyState>
-        </div>
-        {classes.data !== undefined && myClasses.length === 0 && (
-          <div className="mt-3">
-            <EmptyState
-              action={
-                <Button asChild size="sm">
-                  <Link to="/join">{t("student.joinClass")}</Link>
-                </Button>
-              }
-            >
-              {t("student.noClasses")}
-            </EmptyState>
-          </div>
-        )}
-        {panel}
-      </div>
+  const data = assignments.data;
+  const all = [...data.dueNow, ...data.upcoming, ...data.completed];
+  const classNames = assignmentClasses(classes.data?.items ?? [], all);
+  const matches = (card: StudentAssignmentCard) =>
+    classId === "all" || card.classId === classId;
+  const dueNow = data.dueNow.filter(matches);
+  const live = dueNow
+    .filter((c) => c.hasLiveAttempt)
+    .sort(
+      (a, b) =>
+        (a.liveDeadlineAt ?? a.closesAt).localeCompare(
+          b.liveDeadlineAt ?? b.closesAt,
+        ) || a.id.localeCompare(b.id),
     );
-  }
+  const due = dueNow
+    .filter((c) => !c.hasLiveAttempt)
+    .sort((a, b) => a.closesAt.localeCompare(b.closesAt) || a.id.localeCompare(b.id));
+  const upcoming = data.upcoming.filter(matches);
+  const completed = data.completed.filter(matches);
+  const now = new Date();
+  const dueToday = dueNow.filter((c) => sameAppDay(c.closesAt, now)).length;
+  const showOpen = view === "all" || view === "open";
+  const showUpcoming = view === "all" || view === "upcoming";
+  const showCompleted = view === "all" || view === "completed";
+  const visible =
+    (showOpen ? dueNow.length : 0) +
+    (showUpcoming ? upcoming.length : 0) +
+    (showCompleted ? completed.length : 0);
 
   return (
-    <div className="space-y-5 lg:space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
-          {t(live ? "student.greetingPlain" : "student.greeting", { name })}
-        </h1>
-        {due.length > 0 && (
-          <p className="text-muted-foreground text-sm lg:mt-1">
+        {heading}
+        {dueNow.length > 0 && (
+          <p className="text-muted-foreground mt-1 text-sm">
             {dueToday > 0
               ? t("student.dueToday", { count: dueToday })
-              : t("student.dueOpen", { count: due.length })}
+              : t("student.dueOpen", { count: dueNow.length })}
           </p>
         )}
       </div>
-
-      {live && <ResumeCard card={live} />}
-
-      {due.map((card) => (
-        <DueCard key={card.id} card={card} now={now} wide={wide} />
-      ))}
-
-      {!wide && upcomingSection}
-
-      {completed.length > 0 && (
+      {all.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
+            <label htmlFor="student-class-filter" className="text-sm">
+              {t("student.filterClass")}
+            </label>
+            <Select value={classId} onValueChange={(v) => filter("classId", v)}>
+              <SelectTrigger id="student-class-filter" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="student-surface">
+                <SelectItem value="all">{t("student.allClasses")}</SelectItem>
+                {[...classNames].map(([id, name]) => (
+                  <SelectItem key={id} value={id}>
+                    {name}
+                  </SelectItem>
+                ))}
+                {classId !== "all" && !classNames.has(classId) && (
+                  <SelectItem value={classId}>{t("student.unknownClass")}</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
+            <label htmlFor="student-status-filter" className="text-sm">
+              {t("student.filterStatus")}
+            </label>
+            <Select value={view} onValueChange={(v) => filter("view", v)}>
+              <SelectTrigger id="student-status-filter" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="student-surface">
+                {["all", "open", "upcoming", "completed"].map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`student.views.${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {(classId !== "all" || view !== "all") && (
+            <Button variant="ghost" onClick={clear}>
+              {t("student.clearFilters")}
+            </Button>
+          )}
+        </div>
+      )}
+      {visible === 0 && (
+        <EmptyState
+          {...(all.length === 0 ? { hint: t("student.noAssignmentsHint") } : {})}
+          action={
+            all.length > 0 ? (
+              <Button variant="outline" onClick={clear}>
+                {t("student.clearFilters")}
+              </Button>
+            ) : undefined
+          }
+        >
+          {t(
+            all.length === 0
+              ? "student.noAssignments"
+              : "student.noMatchingAssignments",
+          )}
+        </EmptyState>
+      )}
+      {all.length === 0 && classes.data?.items.length === 0 && (
+        <EmptyState
+          action={
+            <Button asChild>
+              <Link to="/join">{t("student.joinClass")}</Link>
+            </Button>
+          }
+        >
+          {t("student.noClasses")}
+        </EmptyState>
+      )}
+      {showOpen && live.length > 0 && (
+        <Section title={t("student.inProgress", { count: live.length })}>
+          {live.map((card) => (
+            <ResumeCard key={card.id} card={card} />
+          ))}
+        </Section>
+      )}
+      {showOpen && due.length > 0 && (
+        <Section title={t("student.readyToStart", { count: due.length })}>
+          {due.map((card) => (
+            <DueCard key={card.id} card={card} now={now} />
+          ))}
+        </Section>
+      )}
+      {showUpcoming && upcoming.length > 0 && (
+        <Section title={t("student.upcoming", { count: upcoming.length })}>
+          {upcoming.map((card) => (
+            <Card key={card.id} className="min-w-0 gap-2 p-5">
+              <p className="text-base font-semibold break-words">{card.testTitle}</p>
+              {card.className && (
+                <p className="text-muted-foreground text-xs">{card.className}</p>
+              )}
+              <p className="text-muted-foreground text-sm">
+                {t("student.opensAt", {
+                  time: formatTime(card.opensAt),
+                  date: weekdayDate(card.opensAt, locale),
+                })}
+              </p>
+              <div>
+                <StatusBadge kind="assignment" status="scheduled" />
+              </div>
+              <Button asChild variant="outline" className="mt-2">
+                <Link to={`/app/assignments/${card.id}`}>
+                  {t("student.viewAssignment")}
+                </Link>
+              </Button>
+            </Card>
+          ))}
+        </Section>
+      )}
+      {showCompleted && completed.length > 0 && (
         <Section title={t("student.completed", { count: completed.length })}>
           {completed.map((card) => (
-            <Card key={card.id} className="flex-row items-center gap-3 p-3.5">
+            <Card key={card.id} className="min-w-0 flex-row items-center gap-3 p-4">
               <div className="min-w-0 flex-1">
-                {/* To S-09, when there is a paper to show. */}
                 {card.lastAttemptId ? (
                   <Link
                     to={`/app/attempts/${card.lastAttemptId}/result`}
-                    className="block truncate text-sm font-medium hover:underline"
+                    className="focus-visible:ring-ring flex min-h-11 items-center rounded-sm text-sm font-medium hover:underline focus-visible:ring-2"
                   >
                     {card.testTitle}
                   </Link>
                 ) : (
-                  <p className="truncate text-sm font-medium">{card.testTitle}</p>
+                  <p className="text-sm font-medium">{card.testTitle}</p>
                 )}
                 <p className="text-muted-foreground text-xs">
-                  {/* S-13: with room, the row names the class as well. */}
-                  {wide && card.className != null && `${card.className} · `}
+                  {card.className != null && `${card.className} · `}
                   {card.lastSubmittedAt == null
                     ? t("student.attempt", {
                         n: card.attemptsUsed,
@@ -196,8 +277,6 @@ export default function StudentHomePage() {
           ))}
         </Section>
       )}
-
-      {panel}
     </div>
   );
 }
@@ -205,58 +284,28 @@ export default function StudentHomePage() {
 function Section({
   title,
   children,
-}: Readonly<{ title: string; children: React.ReactNode }>) {
+}: Readonly<{ title: string; children: ReactNode }>) {
   return (
     <section>
-      <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase lg:mb-3">
-        {title}
-      </h2>
-      <div className="space-y-2">{children}</div>
+      <h2 className="mb-3 text-base font-semibold">{title}</h2>
+      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{children}</div>
     </section>
   );
 }
 
-/** S-13's "Lớp của tôi": the names, who teaches them, and the way into another. */
-function ClassesBlock({ classes }: Readonly<{ classes: MyClass[] }>) {
+function DueCard({ card, now }: Readonly<{ card: StudentAssignmentCard; now: Date }>) {
   const { t } = useTranslation();
   return (
-    <section>
-      <PanelLabel>{t("student.myClasses")}</PanelLabel>
-      <div className="space-y-3">
-        {classes.map((c) => (
-          <div key={c.id}>
-            <p className="text-sm font-medium">{c.name}</p>
-            {c.teacherName !== null && (
-              <p className="text-muted-foreground mt-0.5 text-xs">{c.teacherName}</p>
-            )}
-          </div>
-        ))}
-      </div>
-      <Button asChild variant="outline" size="sm" className="mt-4">
-        <Link to="/join">
-          <Plus aria-hidden="true" />
-          {t("student.joinClass")}
-        </Link>
-      </Button>
-    </section>
-  );
-}
-
-/**
- * The deck's due card: the one with a button, because it is the one to act on.
- * From 1024px it turns sideways, the button at its own width on the right (S-13).
- */
-function DueCard({
-  card,
-  now,
-  wide,
-}: Readonly<{ card: StudentAssignmentCard; now: Date; wide: boolean }>) {
-  const { t } = useTranslation();
-  return (
-    <Card className="border-foreground/20 gap-0 p-5 shadow-sm lg:flex-row lg:items-center lg:gap-6">
+    <Card className="min-w-0 gap-0 p-5">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <Badge variant="warning">
+        <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center">
+          <Badge
+            variant={
+              new Date(card.closesAt).getTime() - now.getTime() <= 86_400_000
+                ? "warning"
+                : "outline"
+            }
+          >
             <Clock aria-hidden="true" />
             {timeLeft(card.closesAt, now, t)}
           </Badge>
@@ -283,17 +332,14 @@ function DueCard({
               total: card.maxAttempts,
             })}
           </span>
-          {wide && <span>{closesLine(card.closesAt, now, t)}</span>}
         </div>
-        {!wide && (
-          <p className="text-muted-foreground mt-2 text-xs">
-            {closesLine(card.closesAt, now, t)}
-          </p>
-        )}
+        <p className="text-muted-foreground mt-2 text-xs">
+          {closesLine(card.closesAt, now, t)}
+        </p>
       </div>
       {/* To the intro, not the paper: the rules are read before the clock starts (S-04). */}
-      <Button asChild size="lg" className="mt-4 w-full lg:mt-0 lg:w-auto lg:shrink-0">
-        <Link to={`/app/assignments/${card.id}`}>{t("student.start")}</Link>
+      <Button asChild variant="outline" className="mt-5 w-full">
+        <Link to={`/app/assignments/${card.id}`}>{t("student.viewAssignment")}</Link>
       </Button>
     </Card>
   );
@@ -324,7 +370,7 @@ function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   };
 
   return (
-    <Card className="border-warning/30 bg-warning/8 gap-0 p-5 lg:flex-row lg:items-center lg:gap-6">
+    <Card className="border-foreground/20 min-w-0 gap-0 p-5">
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-3">
           <History
@@ -344,7 +390,7 @@ function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
       </div>
       <Button
         size="lg"
-        className="mt-4 w-full lg:mt-0 lg:w-auto lg:shrink-0"
+        className="mt-4 w-full"
         disabled={busy}
         onClick={() => void resume()}
       >
@@ -393,4 +439,15 @@ function Outcome({
       {scoreText(score.earned, score.total, locale, t)}
     </span>
   );
+}
+
+function assignmentClasses(
+  classes: { id: string; name: string }[],
+  assignments: StudentAssignmentCard[],
+) {
+  const names = new Map(classes.map((c) => [c.id, c.name]));
+  for (const card of assignments) {
+    if (card.classId && card.className) names.set(card.classId, card.className);
+  }
+  return names;
 }

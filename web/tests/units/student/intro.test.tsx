@@ -96,7 +96,9 @@ describe("what the intro states, per policy", () => {
 
   it("states the listening cap when the paper has audio, and not otherwise", async () => {
     show({ hasAudio: true, audioMaxPlays: 2 });
-    expect(await rules()).toContain("Mỗi câu nghe được phát tối đa 2 lần");
+    expect(await rules()).toContain(
+      "Giáo viên quy định 2 lượt nghe cho mỗi câu. Lượt nghe thêm được ghi lại.",
+    );
   });
 
   it("says replays are unlimited when they are", async () => {

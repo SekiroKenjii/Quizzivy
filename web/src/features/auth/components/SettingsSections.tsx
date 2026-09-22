@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -87,11 +88,7 @@ export function ProfileSection() {
 
   return (
     <Section title={t("settings.profile")} labelledBy="settings-profile">
-      <form
-        onSubmit={(e) => void onSubmit(e)}
-        className="max-w-md space-y-3"
-        noValidate
-      >
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-3" noValidate>
         <div className="space-y-1.5">
           <Label htmlFor="settings-name">{t("settings.fullName")}</Label>
           <Input
@@ -173,16 +170,12 @@ export function PasswordSection() {
 
   return (
     <Section title={t("settings.password")} labelledBy="settings-password">
-      <form
-        onSubmit={(e) => void onSubmit(e)}
-        className="max-w-md space-y-3"
-        noValidate
-      >
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-3" noValidate>
         <div className="space-y-1.5">
           <Label htmlFor="settings-current">{t("changePassword.current")}</Label>
-          <Input
+          <PasswordInput
             id="settings-current"
-            type="password"
+
             className="h-11"
             autoComplete="current-password"
             {...form.register("currentPassword")}
@@ -190,9 +183,9 @@ export function PasswordSection() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="settings-new">{t("changePassword.new")}</Label>
-          <Input
+          <PasswordInput
             id="settings-new"
-            type="password"
+
             className="h-11"
             autoComplete="new-password"
             aria-invalid={newPasswordError ? true : undefined}
@@ -330,7 +323,7 @@ export function LanguageSection() {
       />
       {/* S-17 writes this under the switch; S-10's phone card is the tabs and
           nothing else, so the sentence arrives with the room for it. */}
-      <p className="text-muted-foreground mt-3 hidden text-xs leading-relaxed lg:block">
+      <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
         {t("settings.languageExplainer")}
       </p>
     </Section>

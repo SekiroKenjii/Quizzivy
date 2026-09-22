@@ -1314,3 +1314,12 @@ Notes on migration mechanics (§13.7):
   that stay selective as data grows, not to force index scans today.
   `15-phase-5.md` measures latency at seeded volume rather than asserting plan
   shapes.
+
+## 15. Approved retention maintenance (2026-09-22)
+
+`00029_index_integrity_retention.sql` adds `(received_at, id)` concurrently to
+support bounded owner-role deletion strictly before the UTC thirteen-month
+cutoff, with assignment closure also older than that cutoff. Down drops the index concurrently. No application privileges change.
+`audit_log` remains append-only and retained. Manual anonymization keeps user
+IDs and historical relationships while removing structured identity and login
+credentials. See `../setup/operations.md` for execution and privacy limits.

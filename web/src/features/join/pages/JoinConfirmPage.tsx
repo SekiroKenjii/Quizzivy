@@ -79,6 +79,11 @@ export default function JoinConfirmPage() {
 
   return (
     <>
+      {user && (
+        <p className="text-muted-foreground mb-3 text-center text-sm">
+          {t("join.signedInAs", { name: user.fullName })}
+        </p>
+      )}
       <Card className="gap-0 p-5 text-center">
         <p className="text-muted-foreground text-xs tracking-wide uppercase">
           {t("join.youAreJoining")}

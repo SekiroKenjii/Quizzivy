@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   keepPreviousData,
   useMutation,
@@ -72,7 +72,17 @@ export default function TestsListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [tab, setTab] = useState<TestStatus | "all">("all");
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("status");
+  const tab = TABS.find((value) => value === requested) ?? "all";
+  const setTab = (value: TestStatus | "all") =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value === "all") next.delete("status");
+      else next.set("status", value);
+      next.delete("page");
+      return next;
+    });
   const [query, setQuery] = useState("");
   const [tags, setTags] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +191,7 @@ export default function TestsListPage() {
           <TabsList aria-label={t("tests.statusFilter")}>
             {TABS.map((value) => (
               <TabsTrigger key={value} value={value}>
-                {value === "all" ? t("tests.all") : t(`status.test.${value}`)}
+                {t(tabLabel(value))}
                 {facets ? (
                   <span className="text-muted-foreground ml-1 tabular-nums">
                     {facets[value]}
@@ -448,4 +458,10 @@ function openHref(test: Test): string {
 
 function message(cause: unknown, fallback: string): string {
   return cause instanceof ApiError ? cause.message : fallback;
+}
+
+function tabLabel(value: TestStatus | "all"): string {
+  if (value === "all") return "tests.all";
+  if (value === "archived") return "tests.archiveTab";
+  return `status.test.${value}`;
 }

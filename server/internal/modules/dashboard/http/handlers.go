@@ -31,7 +31,14 @@ func (h Dashboard) GetDashboard(ctx context.Context, _ openapi.GetDashboardReque
 	for i, r := range summary.Recent {
 		recent[i] = toAPIAttemptListRow(r)
 	}
+	var next *openapi.ClosingAssignment
+	if summary.NextClosing != nil {
+		row := summary.NextClosing
+		next = &openapi.ClosingAssignment{Id: httpapi.ParseUUID(row.ID), Title: row.Title, ClosesAt: row.ClosesAt, SubmittedCount: row.SubmittedCount, TargetCount: row.TargetCount}
+	}
 	return openapi.GetDashboard200JSONResponse{
+		ClosingSoon: &summary.ClosingSoon, WaitingStudents: &summary.WaitingStudents,
+		OldestWaitingAt: summary.OldestWaitingAt, TotalStudents: &summary.TotalStudents, NextClosing: next,
 		OpenAssignments: summary.OpenAssignments,
 		AwaitingGrading: summary.AwaitingGrading,
 		ActiveStudents:  summary.ActiveStudents,

@@ -12,6 +12,7 @@ import (
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/platform/db"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -230,24 +231,36 @@ func TestDisabledCostsTheSameTimeAsAWrongPassword(t *testing.T) {
 	_, activeEmail := makeUser(t, pool)
 	_, disabledEmail := makeUser(t, pool, disabled)
 
-	median := func(in command.Login) time.Duration {
-		const runs = 5
-		var samples []time.Duration
-		for i := 0; i < runs; i++ {
-			start := time.Now()
-			_, _ = svc.Commands.Login.Handle(ctx, in)
-			samples = append(samples, time.Since(start))
+	inputs := [2]command.Login{
+		{Email: activeEmail, Password: "sai"},
+		{Email: disabledEmail, Password: testPassword},
+	}
+	measure := func(in command.Login) time.Duration {
+		start := time.Now()
+		_, err := svc.Commands.Login.Handle(ctx, in)
+		elapsed := time.Since(start)
+		if !errors.Is(err, domain.ErrInvalidCredentials) {
+			t.Fatalf("login returned %v, want ErrInvalidCredentials", err)
 		}
-		for i := 1; i < len(samples); i++ {
-			for j := i; j > 0 && samples[j] < samples[j-1]; j-- {
-				samples[j], samples[j-1] = samples[j-1], samples[j]
-			}
-		}
-		return samples[runs/2]
+		return elapsed
+	}
+	for _, in := range inputs {
+		measure(in)
 	}
 
-	wrong := median(command.Login{Email: activeEmail, Password: "sai"})
-	disabledTime := median(command.Login{Email: disabledEmail, Password: testPassword})
+	const runs = 9
+	var samples [2][]time.Duration
+	for run := 0; run < runs; run++ {
+		for offset := 0; offset < len(inputs); offset++ {
+			index := (run + offset) % len(inputs)
+			samples[index] = append(samples[index], measure(inputs[index]))
+		}
+	}
+	for _, group := range samples {
+		slices.Sort(group)
+	}
+	wrong := samples[0][runs/2]
+	disabledTime := samples[1][runs/2]
 
 	ratio := float64(disabledTime) / float64(wrong)
 	if ratio < 0.5 || ratio > 2.0 {

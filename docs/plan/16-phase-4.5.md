@@ -1,5 +1,10 @@
 # Phase 4.5 — The student at a desk
 
+**Historical phase record.** On 2026-09-22 the user approved the independent
+student UX review. Spec v0.5 and `92-student-ux.md` supersede the ordinary-page
+right panels, mockup-only acceptance and phone width constraints below. Section
+payloads, shuffle rules, auth and integrity contracts remain applicable.
+
 **Deliverable:** every `/app/*` screen designed and built for 1024px and up,
 and the take-test engine brought to parity with the deck at every width
 (S-05, S-06, S-08, S-12, and the new S-15), including the section dimension

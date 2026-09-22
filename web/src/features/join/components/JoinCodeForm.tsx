@@ -42,7 +42,7 @@ export function JoinCodeForm({
         id={id}
         className={cn(
           "mt-1.5 h-11 font-mono tracking-wide",
-          size === "lg" && "text-lg",
+          size === "lg" && "text-lg lg:text-lg",
         )}
         value={code}
         onChange={(e) => {

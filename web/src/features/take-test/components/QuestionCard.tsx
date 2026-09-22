@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
 import { Note } from "./Note";
@@ -17,10 +18,12 @@ import type { StudentQuestion } from "../api";
 export function QuestionCard({
   question,
   onAudioExpired,
+  action,
 }: Readonly<{
   question: StudentQuestion;
   /** Refetches the attempt when a signed URL has expired (§11.2). */
   onAudioExpired: () => void;
+  action?: ReactNode;
 }>) {
   const { t } = useTranslation();
   const answer = useTakeTestStore((s) => s.answers[question.id]);
@@ -35,6 +38,7 @@ export function QuestionCard({
         answer={answer}
         onAnswer={(next) => setAnswer(question.id, next)}
         disabled={locked}
+        action={action}
       />
       {question.type !== "short_answer" && (
         <p className="text-muted-foreground text-xs lg:hidden">{worth(question, t)}</p>

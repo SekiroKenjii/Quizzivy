@@ -7,7 +7,7 @@ import { Outlet } from "react-router";
 export default function FocusLayout() {
   // The column and nothing else.
   return (
-    <div className="bg-background flex h-svh flex-col leading-relaxed">
+    <div className="student-surface bg-background flex h-svh flex-col leading-relaxed">
       <Outlet />
     </div>
   );

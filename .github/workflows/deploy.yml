@@ -308,6 +308,9 @@ jobs:
             exit 1; }
           echo "bundle targets $API_ORIGIN"
 
+      - name: Assert security headers are included
+        run: cmp web/public/_headers web/dist/_headers
+
       # A pinned direct call, with no installer between us and the deploy tool.
       # wrangler-action installed wrangler into web/ at deploy time with
       # whatever package manager it found there -- an unpinned `pnpm add` into

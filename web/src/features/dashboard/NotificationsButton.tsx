@@ -40,7 +40,7 @@ export function NotificationsButton() {
           <Bell aria-hidden="true" />
           {total > 0 ? (
             <span
-              className="bg-destructive absolute top-1 right-1 size-1.5 rounded-full"
+              className="bg-foreground absolute top-1 right-1 size-1.5 rounded-full"
               aria-hidden="true"
             />
           ) : null}

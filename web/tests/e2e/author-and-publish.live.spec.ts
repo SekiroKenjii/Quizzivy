@@ -14,7 +14,7 @@ const AUDIO = fileURLToPath(new URL("./fixtures/unit5-listening.mp3", import.met
 async function signIn(page: Page) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(ADMIN.email);
-  await page.getByLabel("Mật khẩu").fill(ADMIN.password);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page).toHaveURL(/\/admin$/);
 }

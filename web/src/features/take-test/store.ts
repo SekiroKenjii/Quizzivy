@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { clearDraft, readDraft, writeDraft } from "./draft";
 import {
   drain as drainEvents,
   pending as pendingEvents,
@@ -31,6 +32,7 @@ export type SubmitReason = "manual" | "timer_expired" | "auto_submit";
 
 interface TakeTestState {
   attemptId: string | null;
+  studentId: string | null;
   sessionId: string | null;
   // Append-only event access for the pagehide beacon (D-03).
   beaconToken: string;
@@ -39,6 +41,7 @@ interface TakeTestState {
   /** In test order; questions never interleave two of them (S-08's rail). */
   sections: StudentSection[];
   testTitle: string;
+  remainingAttempts: number;
   answers: Record<string, Answer>;
   /** Question ids edited since the server last confirmed them. */
   dirty: Set<string>;
@@ -69,26 +72,30 @@ interface TakeTestState {
   setAnswer: (questionId: string, answer: Answer) => void;
   toggleFlag: (questionId: string) => void;
   notePlay: (questionId: string) => void;
-  flush: () => Promise<void>;
+  flush: () => Promise<boolean>;
   submit: (reason?: SubmitReason) => Promise<void>;
   lockNow: (reason: LockReason) => void;
-  reset: () => void;
+  reset: (options?: { keepDraft?: boolean }) => void;
 }
 
 /** The first retry delay, doubling to RETRY_CEILING_MS. */
 const RETRY_BASE_MS = 1_000;
 const RETRY_CEILING_MS = 30_000;
+let activeFlush: Promise<boolean> | null = null;
+let generation = 0;
 
 /** §3's builder debounce, and the same reasoning: fast enough to feel saved. */
 export const FLUSH_DEBOUNCE_MS = 1_500;
 
 const initial = {
   attemptId: null,
+  studentId: null,
   sessionId: null,
   beaconToken: "",
   questions: [] as StudentQuestion[],
   sections: [] as StudentSection[],
   testTitle: "",
+  remainingAttempts: 0,
   answers: {} as Record<string, Answer>,
   dirty: new Set<string>(),
   touchedAt: {} as Record<string, number>,
@@ -111,20 +118,44 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
   ...initial,
 
   // Applies a payload from start, resume or refetch.
-  hydrate: (session) =>
+  hydrate: (session) => {
+    const current = get();
+    if (
+      current.attemptId !== null &&
+      (current.attemptId !== session.attempt.id ||
+        current.sessionId !== session.sessionId)
+    ) {
+      current.reset({ keepDraft: true });
+    }
     set((state) => {
-      const answers = { ...session.answers };
-      for (const questionId of state.dirty) {
+      const sameAttempt = state.attemptId === session.attempt.id;
+      const recovered =
+        session.attempt.status === "in_progress"
+          ? readDraft(
+              session.attempt.id,
+              session.attempt.studentId,
+              session.sessionId,
+              Date.parse(session.serverTime),
+            )
+          : {};
+      const dirty = sameAttempt
+        ? new Set(state.dirty)
+        : new Set(Object.keys(recovered));
+      const answers = { ...session.answers, ...recovered };
+      for (const questionId of sameAttempt ? state.dirty : []) {
         const local = state.answers[questionId];
         if (local !== undefined) answers[questionId] = local;
       }
       return {
         attemptId: session.attempt.id,
+        studentId: session.attempt.studentId,
+        dirty,
         sessionId: session.sessionId,
         beaconToken: session.beaconToken,
         questions: session.questions,
         sections: session.sections,
         testTitle: session.testTitle,
+        remainingAttempts: session.remainingAttempts ?? 0,
         answers,
         audioPlays: session.audioPlays,
         integrity: session.integrity,
@@ -140,7 +171,8 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         offsetMs: Date.parse(session.serverTime) - Date.now(),
         lock: lockFor(session),
       };
-    }),
+    });
+  },
 
   toggleFlag: (questionId) => {
     const { attemptId, flags } = get();
@@ -152,7 +184,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
   },
 
   setAnswer: (questionId, answer) => {
-    if (get().lock !== null) return;
+    if (get().lock !== null || get().submitState !== "idle") return;
     set((state) => {
       const dirty = new Set(state.dirty);
       dirty.add(questionId);
@@ -173,78 +205,103 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     set({
       audioPlays: { ...audioPlays, [questionId]: (audioPlays[questionId] ?? 0) + 1 },
     });
+    const epoch = generation;
     recordAudioPlay(attemptId, questionId)
-      .then((counted) =>
+      .then((counted) => {
+        if (generation !== epoch) return;
         set((state) => ({
           audioPlays: { ...state.audioPlays, [questionId]: counted.plays },
-        })),
-      )
+        }));
+      })
       .catch(() => {
         // The count is the server's, and it will be right on the next fetch.
       });
   },
 
-  // Sends everything dirty, and clears only what is still unchanged when the reply arrives.
   flush: async () => {
+    if (activeFlush !== null) return activeFlush;
     const state = get();
     const { attemptId, sessionId } = state;
-    if (attemptId === null || sessionId === null) return;
-    if (state.lock !== null || state.flushInFlight) return;
-    if (state.dirty.size === 0 && pendingEvents().length === 0) return;
-
+    if (attemptId === null || sessionId === null || state.lock !== null) return false;
+    if (state.dirty.size === 0 && pendingEvents().length === 0) return true;
+    cancelScheduledFlush();
+    const epoch = generation;
     const events = drainEvents(attemptId);
-    const sending = [...state.dirty];
-    const sentAt = Date.now();
     const answers: Record<string, Answer> = {};
-    for (const questionId of sending) {
+    for (const questionId of state.dirty) {
       const answer = state.answers[questionId];
       if (answer !== undefined) answers[questionId] = answer;
     }
-
     set({ flushInFlight: true });
-    try {
-      const saved = await saveAnswers(attemptId, {
-        sessionId,
-        answers,
-        ...(events.length === 0 ? {} : { events }),
-      });
-      set((current) => {
-        const dirty = new Set(current.dirty);
-        for (const questionId of sending) {
-          if ((current.touchedAt[questionId] ?? 0) <= sentAt) dirty.delete(questionId);
-        }
-        return {
-          dirty,
+    const request = (async () => {
+      try {
+        const saved = await saveAnswers(attemptId, {
+          sessionId,
+          answers,
+          ...(events.length === 0 ? {} : { events }),
+        });
+        if (generation !== epoch) return false;
+        set((current) => {
+          const dirty = new Set(current.dirty);
+          for (const [id, answer] of Object.entries(answers)) {
+            if (current.answers[id] === answer) dirty.delete(id);
+          }
+          return {
+            dirty,
+            flushInFlight: false,
+            retryDelayMs: RETRY_BASE_MS,
+            offsetMs: Date.parse(saved.serverTime) - Date.now(),
+            lastSavedAt: saved.savedAt,
+          };
+        });
+        if (get().dirty.size > 0) scheduleFlush();
+        return true;
+      } catch (error) {
+        if (generation !== epoch) return false;
+        restoreEvents(attemptId, events);
+        set((current) => ({
           flushInFlight: false,
-          retryDelayMs: RETRY_BASE_MS,
-          offsetMs: Date.parse(saved.serverTime) - Date.now(),
-          lastSavedAt: saved.savedAt,
-        };
-      });
-    } catch (error) {
-      // Back in the buffer for the next attempt.
-      restoreEvents(attemptId, events);
-
-      set((current) => ({
-        flushInFlight: false,
-        lock: lockForError(error) ?? current.lock,
-        retryDelayMs: Math.min(current.retryDelayMs * 2, RETRY_CEILING_MS),
-      }));
-      // Retry on the backoff, not on the debounce.
-      if (get().lock === null) scheduleFlush(get().retryDelayMs);
+          lock: lockForError(error) ?? current.lock,
+          retryDelayMs: Math.min(current.retryDelayMs * 2, RETRY_CEILING_MS),
+        }));
+        if (get().lock === null) scheduleFlush(get().retryDelayMs);
+        return false;
+      }
+    })();
+    activeFlush = request;
+    try {
+      return await request;
+    } finally {
+      if (activeFlush === request) activeFlush = null;
     }
   },
 
   submit: async (reason = "manual") => {
     const state = get();
     const { attemptId } = state;
-    if (attemptId === null || state.submitState !== "idle") return;
+    if (
+      attemptId === null ||
+      state.submitState !== "idle" ||
+      state.lock === "superseded"
+    )
+      return;
+    const epoch = generation;
 
-    set({ submitState: "inFlight" });
+    set({ submitState: "inFlight", submitReason: reason });
     try {
-      // Everything typed goes with it.
-      await get().flush();
+      let saved = await get().flush();
+      if (generation !== epoch) return;
+      if (saved && get().dirty.size > 0) saved = await get().flush();
+      if (generation !== epoch) return;
+      if (
+        get().lock === "superseded" ||
+        (!saved && get().dirty.size > 0 && get().lock === null)
+      ) {
+        set({ submitState: "idle" });
+        return;
+      }
       const attempt = await submitAttempt(attemptId, { reason });
+      if (generation !== epoch) return;
       set({
         submitState: "done",
         lock: "closed",
@@ -252,6 +309,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         submittedAt: attempt.submittedAt ?? serverNow(state),
       });
     } catch (error) {
+      if (generation !== epoch) return;
       const lock = lockForError(error);
       if (lock === "closed") {
         set({
@@ -272,7 +330,11 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     set({ lock: reason });
   },
 
-  reset: () => {
+  reset: (options) => {
+    if (options?.keepDraft !== true && get().attemptId !== null)
+      clearDraft(get().attemptId!);
+    generation += 1;
+    activeFlush = null;
     cancelScheduledFlush();
     cancelDeadline();
     set({ ...initial, dirty: new Set<string>(), flags: new Set<string>() });
@@ -289,12 +351,22 @@ let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
 export function armDeadline() {
   cancelDeadline();
   const state = useTakeTestStore.getState();
-  if (state.attemptId === null || state.lock !== null || state.submitState !== "idle")
+  if (
+    state.attemptId === null ||
+    (state.lock !== null && state.lock !== "deadline") ||
+    state.submitState !== "idle"
+  )
     return;
-  deadlineTimer = setTimeout(() => {
-    deadlineTimer = undefined;
-    void useTakeTestStore.getState().submit("timer_expired");
-  }, remainingMs(state));
+  deadlineTimer = setTimeout(
+    () => {
+      deadlineTimer = undefined;
+      void useTakeTestStore.getState().submit("timer_expired");
+    },
+    Math.max(
+      remainingMs(state),
+      state.submitReason === "timer_expired" ? state.retryDelayMs : 0,
+    ),
+  );
 }
 
 export function cancelDeadline() {
@@ -306,8 +378,19 @@ export function cancelDeadline() {
 
 useTakeTestStore.subscribe((state, previous) => {
   if (
+    state.attemptId !== null &&
+    state.studentId !== null &&
+    (state.answers !== previous.answers ||
+      state.dirty !== previous.dirty ||
+      state.lock !== previous.lock)
+  ) {
+    persistPending(state);
+    if (state.attemptId !== previous.attemptId && state.dirty.size > 0) scheduleFlush();
+  }
+  if (
     state.deadlineAt !== previous.deadlineAt ||
-    state.offsetMs !== previous.offsetMs
+    state.offsetMs !== previous.offsetMs ||
+    (state.submitState === "idle" && previous.submitState === "inFlight")
   ) {
     armDeadline();
   }
@@ -393,3 +476,22 @@ export const takeTestStore = {
 };
 
 export { getAttempt };
+
+function persistPending(state: TakeTestState) {
+  if (state.attemptId === null || state.studentId === null || state.sessionId === null)
+    return;
+  const pending: Record<string, Answer> = {};
+  if (state.lock !== "closed" && state.lock !== "superseded") {
+    for (const id of state.dirty) {
+      const answer = state.answers[id];
+      if (answer !== undefined) pending[id] = answer;
+    }
+  }
+  writeDraft(
+    state.attemptId,
+    state.studentId,
+    state.sessionId,
+    state.deadlineAt,
+    pending,
+  );
+}

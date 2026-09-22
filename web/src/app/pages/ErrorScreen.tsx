@@ -36,5 +36,9 @@ export function ErrorScreen({
  * being visible.
  */
 export function ErrorActions({ children }: Readonly<{ children: ReactNode }>) {
-  return <div className="mt-5 space-y-2 *:h-11 *:w-full lg:*:h-9">{children}</div>;
+  return (
+    <div className="mt-5 space-y-2 *:h-11 *:w-full *:px-6 *:text-[0.9375rem] lg:*:h-9 lg:*:px-4 lg:*:text-sm">
+      {children}
+    </div>
+  );
 }

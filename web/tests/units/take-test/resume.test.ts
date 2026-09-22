@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FLUSH_DEBOUNCE_MS, useTakeTestStore } from "@/features/take-test/store";
 import { saveAnswers } from "@/features/take-test/api";
+import { clearAnswerDrafts } from "@/features/take-test/draft";
 import { ApiError } from "@/lib/api/errors";
 import { session, text } from "./support";
 
@@ -16,6 +17,7 @@ const now = "2026-09-01T08:00:00.000Z";
 const deadline = "2026-09-01T09:00:00.000Z";
 
 beforeEach(() => {
+  clearAnswerDrafts();
   saved.mockReset();
   saved.mockResolvedValue({ serverTime: now, savedAt: now });
   useTakeTestStore.getState().reset();
@@ -30,6 +32,30 @@ afterEach(() => useTakeTestStore.getState().reset());
  * exactly that failure wearing a different hat.
  */
 describe("the resume merge", () => {
+  it("restores an unsaved answer after the store is discarded by a reload", () => {
+    useTakeTestStore
+      .getState()
+      .hydrate(session({ serverTime: now, deadlineAt: deadline }));
+    useTakeTestStore.getState().setAnswer("q1", text("before the debounce"));
+    useTakeTestStore.getState().reset({ keepDraft: true });
+    useTakeTestStore
+      .getState()
+      .hydrate(session({ serverTime: now, deadlineAt: deadline }));
+    expect(useTakeTestStore.getState().answers.q1).toEqual(text("before the debounce"));
+    expect(useTakeTestStore.getState().dirty.has("q1")).toBe(true);
+  });
+
+  it("does not merge another attempt's unconfirmed answers", () => {
+    useTakeTestStore
+      .getState()
+      .hydrate(session({ serverTime: now, deadlineAt: deadline }));
+    useTakeTestStore.getState().setAnswer("q1", text("belongs to the previous paper"));
+    const next = session({ serverTime: now, deadlineAt: deadline });
+    next.attempt.id = "another-paper";
+    useTakeTestStore.getState().hydrate(next);
+    expect(useTakeTestStore.getState().answers).toEqual({});
+    expect(useTakeTestStore.getState().dirty.size).toBe(0);
+  });
   it("keeps a local answer the server has not seen", async () => {
     const store = useTakeTestStore.getState();
     store.hydrate(session({ serverTime: now, deadlineAt: deadline }));
@@ -114,6 +140,28 @@ describe("the resume merge", () => {
  * a single flag.
  */
 describe("an answer edited while its flush is in the air", () => {
+  it("ignores an old response after moving to another attempt", async () => {
+    let release!: () => void;
+    saved.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ serverTime: now, savedAt: now });
+        }),
+    );
+    useTakeTestStore
+      .getState()
+      .hydrate(session({ serverTime: now, deadlineAt: deadline }));
+    useTakeTestStore.getState().setAnswer("q1", text("old"));
+    const pending = useTakeTestStore.getState().flush();
+    const next = session({ serverTime: now, deadlineAt: deadline });
+    next.attempt.id = "att-2";
+    useTakeTestStore.getState().hydrate(next);
+    useTakeTestStore.getState().setAnswer("q1", text("new"));
+    release();
+    await pending;
+    expect(useTakeTestStore.getState().dirty.has("q1")).toBe(true);
+    expect(useTakeTestStore.getState().lastSavedAt).toBeNull();
+  });
   it("stays dirty rather than being marked saved", async () => {
     let release: (() => void) | undefined;
     saved.mockImplementation(

@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/shared/Tooltip";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -204,7 +205,7 @@ export function OutlineTree({
             const key = keyFor(section, sectionIndex);
             const open = !collapsed.has(key);
             return (
-              <div key={key}>
+              <div key={key} data-outline-section={section.id ?? undefined}>
                 <SectionHeader
                   title={section.title}
                   summary={
@@ -607,21 +608,24 @@ function OutlineRow({
         >
           <ChevronDown aria-hidden="true" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          data-drop=""
-          aria-label={t("builder.dropFromTest", { number })}
-          onClick={(event) => {
-            const row = event.currentTarget.closest("[data-outline-row]");
-            const neighbour = row?.nextElementSibling ?? row?.previousElementSibling;
-            const target = neighbour?.querySelector<HTMLElement>("[data-drop]") ?? null;
-            onDrop();
-            requestAnimationFrame(() => target?.focus());
-          }}
-        >
-          <X aria-hidden="true" />
-        </Button>
+        <Tooltip label={t("builder.dropFromTest", { number })}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            data-drop=""
+            aria-label={t("builder.dropFromTest", { number })}
+            onClick={(event) => {
+              const row = event.currentTarget.closest("[data-outline-row]");
+              const neighbour = row?.nextElementSibling ?? row?.previousElementSibling;
+              const target =
+                neighbour?.querySelector<HTMLElement>("[data-drop]") ?? null;
+              onDrop();
+              requestAnimationFrame(() => target?.focus());
+            }}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </Tooltip>
       </span>
     </div>
   );

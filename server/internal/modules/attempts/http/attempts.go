@@ -104,15 +104,16 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 	}
 
 	return openapi.AttemptSession{
-		Attempt:     toAPIAttempt(in.Attempt),
-		TestTitle:   in.TestTitle,
-		Sections:    sections,
-		Questions:   questions,
-		SessionId:   httpapi.ParseUUID(in.SessionID),
-		BeaconToken: in.BeaconToken,
-		ServerTime:  in.ServerTime,
-		AudioPlays:  in.AudioPlays,
-		Answers:     answers,
+		RemainingAttempts: &in.RemainingAttempts,
+		Attempt:           toAPIAttempt(in.Attempt),
+		TestTitle:         in.TestTitle,
+		Sections:          sections,
+		Questions:         questions,
+		SessionId:         httpapi.ParseUUID(in.SessionID),
+		BeaconToken:       in.BeaconToken,
+		ServerTime:        in.ServerTime,
+		AudioPlays:        in.AudioPlays,
+		Answers:           answers,
 		Integrity: openapi.IntegrityPolicy{
 			RequireFullscreen: in.Integrity.RequireFullscreen,
 			BlockCopyPaste:    in.Integrity.BlockCopyPaste,

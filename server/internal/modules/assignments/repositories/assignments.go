@@ -46,11 +46,14 @@ const selectAssignment = `
 		         WHERE at.assignment_id = a.id
 		           AND at.status IN ('submitted','timed_out')
 		           AND aa.requires_manual AND aa.manual_score IS NULL),
+             (SELECT count(*) FROM app.attempt_answers aa JOIN app.attempts at ON at.id = aa.attempt_id
+               WHERE at.assignment_id = a.id AND at.status IN ('submitted','timed_out')
+                 AND aa.requires_manual AND aa.manual_score IS NULL),
 		       -- Both sides of submitted/total range over the SAME set: students
 		       -- who are expected to do the work. A disabled account is not, so
 		       -- leaving it in the denominator pinned every assignment at
 		       -- "12/13" with nothing able to close the gap.
-		       (SELECT count(*) FROM app.attempts at
+		       (SELECT count(DISTINCT at.student_id) FROM app.attempts at
 		          JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
 		         -- timed_out counts as handed in: the student is done, whatever
 		         -- ended it, and 12/13 must not read 11/13 because one ran out
@@ -86,7 +89,7 @@ func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
 		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
-		&a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount,
+		&a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount, &a.PendingManualCount,
 		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
 	return a, err
 }

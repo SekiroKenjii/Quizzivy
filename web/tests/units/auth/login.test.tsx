@@ -92,6 +92,9 @@ describe("/login", () => {
     const google = screen.getByRole("button", { name: "Tiếp tục với Google" });
     screen.getByLabelText("Mật khẩu").focus();
     await user.tab();
+    expect(screen.getByRole("button", { name: "Hiện mật khẩu" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Đăng nhập" })).toHaveFocus();
     await user.tab();
     expect(google).toHaveFocus();
   });

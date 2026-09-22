@@ -1,7 +1,26 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.3 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.5 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.4**
+
+- The approved independent UX review replaces the student mockup's sparse right
+  panels with fluid discovery pages and centred reading/form pages (§9, §12).
+- All live attempts remain discoverable; class/status filters, result empties,
+  explicit selection/audio/save states and direct submitted-paper navigation are
+  part of the student flow. Responsive changes preserve local form/filter state.
+- Phone actions use 44px touch targets, including navigation and dialog controls;
+  the final-question footer must fit at 320px in Vietnamese and English.
+
+**Changes since v0.3**
+
+- Pending student answers survive a failed save/reload within the same session;
+  manual submission waits for the final save. Keyboard editing/navigation rules
+  are explicit in §9.
+- §12 pins the mockup type scale and phone input/touch exceptions.
+- Approved O-23 defines thirteen-month integrity retention, retained audit logs
+  and manual structured-identity anonymization in §13.3.
 
 **Changes since v0.2**
 - **OQ-2 answered: yes** — students self-join with a class code. New §6, new `/join` flow, join-code lifecycle in the schema. This adds a public, unauthenticated surface that did not exist before; read §6.5 on the security consequences.
@@ -338,22 +357,37 @@ type Answer =
 
 ## 9. Screens & routes — student and public
 
-`StudentLayout`: minimal top bar, no sidebar, mobile-first, safe-area padding. `PublicLayout`: logo + content, nothing else.
+`StudentLayout`: minimal top bar, no sidebar, mobile-first, safe-area padding.
+Navigation branches at 1024px; the route outlet stays mounted across that
+breakpoint. Home and classes fill the available width with adaptive card grids.
+Intro, results and settings are centred at a maximum 720px reading width, with
+facts and primary actions in the same flow. The focus engine retains a separate
+resizable question navigator (256px default, 224–384px), with a preference
+independent of the teacher panel. `PublicLayout`: logo + centred content.
 
 | Route | Layout | Key behaviour |
 |---|---|---|
 | `/join`, `/join/:code`, `/join/:code/confirm` | Public | §6.2. Invalid/expired/exhausted code → distinct, plain messages, no hints about which classes exist. |
 | `/login` | Public | Password form + "Tiếp tục với Google". |
-| `/app` | Student | **Đến hạn** / **Sắp tới** / **Đã hoàn thành** (score if allowed). Empty state per section. |
-| `/app/assignments/:id` | Student | Intro: title, instructions, duration, attempts used/allowed, review policy, **integrity rules stated plainly**, audio rules if any ("Mỗi câu nghe được phát tối đa 2 lần"). Start / Resume. |
+| `/app` | Student | All in-progress attempts ordered by deadline, then available / upcoming / completed (score if allowed). Class and status filters in the URL, clear-filter empty state. Available cards say "Xem chi tiết"; only the intro starts the clock. |
+| `/app/assignments/:id` | Student | Intro: title, instructions, duration, attempts used/allowed, review policy, **integrity rules stated plainly**, audio rules if any (the allowed plays and that additional plays are recorded, per §11.4). Start / Resume. |
 | `/app/attempts/:id` | Focus | The engine. §10, §11.3. |
-| `/app/attempts/:id/result` | Student | Score (if allowed), per-question review honoring `review.*`, transcript if `showTranscriptAfterSubmit`. "Pending grading" banner when `pendingManual > 0`. |
-| `/app/classes` | Student | Classes joined; "Tham gia lớp mới" → `/join`. |
-| `/app/settings` | Student | Password, link/unlink Google, language. |
+| `/app/attempts/:id/result` | Student | Score (if allowed), per-question review honoring `review.*`, transcript if `showTranscriptAfterSubmit`. "Pending grading" notice when the score is published and `pendingManual > 0`. Summary above answers, full paper title on phones. Wrong-answer filters exist only when scores are published; empty filters explain why and offer all questions. |
+| `/app/classes` | Student | Classes joined with assignment counts and links to `/app?classId=…`; one join action → `/join`. |
+| `/app/settings` | Student | Account summary, profile, password, link/unlink Google, language, sign-out in one stable form flow. |
 
 Shared: `/change-password`, `/403`, `/404`, global error boundary with reload + copyable error ID.
 
 ---
+
+Student answers awaiting server confirmation are cached locally per student,
+attempt and session until saved or closed. They may be restored before the
+server deadline after a reload; a superseded session must not overwrite a newer
+session's answers. Explicit sign-out clears the local cache. Manual submission
+waits for pending saves and stays open if the final answer cannot be saved.
+Keyboard A–D and F work after selecting an option; arrows navigate questions
+except inside text editors or other controls that own those keys. The last
+right-arrow opens review. Dialogs suspend shortcuts.
 
 ## 10. Integrity monitoring (proctoring-lite)
 
@@ -461,9 +495,11 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Primary action: dark charcoal (`zinc-900`) buttons, white text.** Not blue, not purple, not indigo.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, oversized radii (max `rounded-md` controls, `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** system UI stack or Inter. One display size for page titles, otherwise `text-sm` / `text-base`. `leading-relaxed` in the test view.
+- **Typography:** system UI stack or Inter. Match the mockup scale: xs 12px, sm 13px, base 14px, lg 17px, xl 20px, with proportional line heights. Phone text inputs stay at 16px to avoid input zoom; student phone buttons, icon controls and question navigation cells are at least 44px in both dimensions; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
-- **Density:** admin tables dense (~40px rows). Student test view spacious, one question centered at max-width ~720px.
+- **Density:** admin tables dense (~40px rows). Student discovery grids use one column on phones, two from 768px, three from 1536px. Reading and form pages are centred at 720px; no sparse side panels. Student test view stays spacious, one question centred at max-width ~720px beside the navigator. This approved review supersedes S-13–S-17's placement of ordinary page content in a right panel.
+- **Action hierarchy:** resume is primary; opening assignment details and entering a class are secondary. Deadline badges turn amber only within 24 hours. The 320px test footer has previous, an icon-only question-list control and a flexible next/review action. Review submission remains outside the scrolling summary. Submission confirmation offers the submitted paper directly.
+- **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. Restored answers say they were loaded; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
 - **Motion:** 150ms ease-out on state change; no entrance animations. Respect `prefers-reduced-motion`.
 - **Audio player:** monochrome. A filled `zinc-900` play button, a thin `zinc-200` track with a `zinc-900` fill. No waveform visualisation, no equaliser animation, no colored accents.
 - **Join screens:** single centered card, class name large, one primary button. This is the first thing a new student sees — it should look calm and legitimate, not like a marketing page.
@@ -719,7 +755,7 @@ CREATE INDEX ON app.attempt_events (attempt_id, occurred_at);
 
 `final_score` uses PG18 **virtual generated columns** — computed on read, no storage, never stale (the default for generated columns in 18). Grading precedence is a pure function of two columns and must never drift.
 
-`attempt_events` uses `bigint IDENTITY` rather than a UUID: a high-volume append-only log read only by `attempt_id` is better served by a narrow sequential key. No `UPDATE` or `DELETE` is ever issued against it.
+`attempt_events` uses `bigint IDENTITY` rather than a UUID: a high-volume append-only log read only by `attempt_id` is better served by a narrow sequential key. The application never updates or deletes it. An explicit privileged retention operation may delete events only after both assignment closure and server receipt are more than thirteen calendar months old, using server `received_at` and a UTC cutoff; each batch is audited. The audit log remains retained. Disabled accounts are not automatically erased. Manual requested student anonymization removes structured identity and credentials while preserving historical IDs and records; free text, old audit entries and backups require separate review (see `docs/setup/operations.md`).
 
 ### 13.4 Audit log
 

@@ -19,11 +19,13 @@ export function useIntegrityMonitor({
   sessionId,
   beaconToken,
   policy,
+  questionId = null,
 }: {
   attemptId: string | null;
   sessionId: string | null;
   beaconToken: string;
   policy: IntegrityPolicy | null;
+  questionId?: string | null;
 }): IntegrityStatus {
   const [episodes, setEpisodes] = useState<
     Pick<IntegrityStatus, "strikes" | "lastAwayMs">
@@ -33,9 +35,9 @@ export function useIntegrityMonitor({
   });
   const [fullscreen, setFullscreen] = useState(isFullscreen);
 
-  const latest = useRef({ attemptId, sessionId, beaconToken, policy });
+  const latest = useRef({ attemptId, sessionId, beaconToken, policy, questionId });
   useEffect(() => {
-    latest.current = { attemptId, sessionId, beaconToken, policy };
+    latest.current = { attemptId, sessionId, beaconToken, policy, questionId };
   });
 
   useEffect(() => {
@@ -46,7 +48,12 @@ export function useIntegrityMonitor({
     let awaySince: number | null = null;
 
     const note = (kind: string, meta?: Record<string, unknown>) =>
-      record(attemptId, kind, meta === undefined ? {} : { meta });
+      record(attemptId, kind, {
+        ...(latest.current.questionId === null
+          ? {}
+          : { questionId: latest.current.questionId }),
+        ...(meta === undefined ? {} : { meta }),
+      });
 
     const leave = (kind: string) => {
       note(kind);

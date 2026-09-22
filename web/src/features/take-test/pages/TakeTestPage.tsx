@@ -1,10 +1,19 @@
-import { useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router";
+import { useBlocker, useNavigate, useParams } from "react-router";
 import { ChevronLeft, ChevronRight, Flag, List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { LoadError } from "@/components/shared/ListState";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
@@ -67,12 +76,35 @@ export default function TakeTestPage() {
   const setAnswer = useTakeTestStore((s) => s.setAnswer);
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const reset = useTakeTestStore((s) => s.reset);
+  const flush = useTakeTestStore((s) => s.flush);
+  const dirty = useTakeTestStore((s) => s.dirty.size);
+  const flushing = useTakeTestStore((s) => s.flushInFlight);
+  const blocker = useBlocker(dirty > 0 && lock === null);
+  const blocked = blocker.state === "blocked";
+  const proceed = blocked ? blocker.proceed : undefined;
+  useEffect(() => {
+    if (proceed === undefined) return;
+    let active = true;
+    void flush().then((saved) => {
+      if (active && saved && useTakeTestStore.getState().dirty.size === 0) proceed();
+    });
+    return () => {
+      active = false;
+    };
+  }, [proceed, flush]);
+  useEffect(() => {
+    if (dirty === 0) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [dirty]);
 
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
   const groups = useMemo(
     () => groupBySection(sections, questions),
     [sections, questions],
   );
+  const question = questions[Math.min(index, questions.length - 1)];
 
   // Every §10 listener, in one place.
   const { strikes, lastAwayMs, fullscreen } = useIntegrityMonitor({
@@ -80,6 +112,7 @@ export default function TakeTestPage() {
     sessionId,
     beaconToken,
     policy: integrity,
+    questionId: view === "question" ? (question?.id ?? null) : null,
   });
 
   useEffect(() => {
@@ -87,6 +120,7 @@ export default function TakeTestPage() {
     const abort = new AbortController();
     getAttempt(attemptId, abort.signal)
       .then((session) => {
+        if (abort.signal.aborted) return;
         hydrate(session);
         setStatus("ready");
       })
@@ -97,40 +131,68 @@ export default function TakeTestPage() {
       });
     return () => {
       abort.abort();
-      clearSession(attemptId);
-      reset();
     };
-  }, [attemptId, reloads, hydrate, reset]);
+  }, [attemptId, reloads, hydrate]);
+  useEffect(
+    () => () => {
+      if (attemptId !== undefined) clearSession(attemptId);
+      reset({ keepDraft: true });
+    },
+    [attemptId, reset],
+  );
 
-  // S-08's shortcuts.
-  const question = questions[Math.min(index, questions.length - 1)];
-  useEffect(() => {
-    if (view !== "question" || navOpen || lock !== null || question === undefined)
+  const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (
+      view !== "question" ||
+      navOpen ||
+      lock !== null ||
+      submitState !== "idle" ||
+      question === undefined
+    )
       return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || typingIn(event.target))
+    if (
+      event.defaultPrevented ||
+      event.isComposing ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      typingIn(event.target)
+    )
+      return;
+    if (
+      document.querySelector(
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+      )
+    )
+      return;
+    switch (event.key) {
+      case "ArrowRight":
+        event.preventDefault();
+        if (index === questions.length - 1) setView("review");
+        else setIndex(index + 1);
         return;
-      switch (event.key) {
-        case "ArrowRight":
-          setIndex((i) => Math.min(questions.length - 1, i + 1));
-          return;
-        case "ArrowLeft":
-          setIndex((i) => Math.max(0, i - 1));
-          return;
-        case "f":
-        case "F":
-          toggleFlag(question.id);
-          return;
-      }
-      const pick = "abcd".indexOf(event.key.toLowerCase());
-      const option = question.options?.[pick];
-      if (pick >= 0 && option !== undefined) {
-        setAnswer(question.id, chooseOption(question, answers[question.id], option.id));
-      }
-    };
+      case "ArrowLeft":
+        event.preventDefault();
+        setIndex(Math.max(0, index - 1));
+        return;
+      case "f":
+      case "F":
+        event.preventDefault();
+        if (!event.repeat) toggleFlag(question.id);
+        return;
+    }
+    const pick = "abcd".indexOf(event.key.toLowerCase());
+    const option = question.options?.[pick];
+    if (pick >= 0 && option !== undefined && !event.repeat) {
+      event.preventDefault();
+      setAnswer(question.id, chooseOption(question, answers[question.id], option.id));
+    }
+  });
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => handleShortcut(event);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [view, navOpen, lock, question, questions.length, answers, toggleFlag, setAnswer]);
+  }, []);
 
   if (status === "loading") {
     return <Notice>{t("takeTest.loading")}</Notice>;
@@ -172,6 +234,9 @@ export default function TakeTestPage() {
           answered={dots.filter((d) => d.answered).length}
           total={dots.length}
           onHome={() => void navigate("/app", { replace: true })}
+          onResult={() =>
+            void navigate(`/app/attempts/${attemptId}/result`, { replace: true })
+          }
         />
       </div>
     );
@@ -188,6 +253,26 @@ export default function TakeTestPage() {
   const strikeIndicator =
     strikeStatus === null ? null : <StrikeIndicator state={strikeStatus} />;
 
+  const leaveDialog = (
+    <ConfirmDialog
+      className="student-surface"
+      open={blocked}
+      onOpenChange={(open) => {
+        if (!open && blocked) blocker.reset();
+      }}
+      title={t("takeTest.leaveUnsavedTitle")}
+      description={t("takeTest.leaveUnsavedDescription")}
+      confirmLabel={t("takeTest.retrySave")}
+      cancelLabel={t("takeTest.keepWorking")}
+      pending={flushing}
+      onConfirm={() => {
+        void flush().then((saved) => {
+          if (saved && useTakeTestStore.getState().dirty.size === 0) proceed?.();
+        });
+      }}
+    />
+  );
+
   if (view === "review") {
     return (
       <>
@@ -200,6 +285,7 @@ export default function TakeTestPage() {
           onJump={jump}
         />
         {strikeDialog}
+        {leaveDialog}
       </>
     );
   }
@@ -226,6 +312,7 @@ export default function TakeTestPage() {
         onReload={reload}
       />
       {strikeDialog}
+      {leaveDialog}
     </>
   );
 }
@@ -274,14 +361,19 @@ function Paper({
   const lock = useTakeTestStore((s) => s.lock);
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const last = index >= total - 1;
-  const choice =
-    question.type === "single_choice" || question.type === "multiple_choice";
+  const choice = (question.options?.length ?? 0) > 0;
+  const paper = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (paper.current === null) return;
+    paper.current.scrollTop = 0;
+    paper.current.focus({ preventScroll: true });
+  }, [question.id]);
 
   const flag = (
     <Button
       variant="ghost"
       size={wide ? "sm" : "icon-sm"}
-      className="text-muted-foreground shrink-0"
+      className="text-muted-foreground min-h-11 min-w-11 shrink-0 lg:min-h-0 lg:min-w-0"
       aria-pressed={flagged}
       aria-label={t(flagged ? "takeTest.unflagThis" : "takeTest.flagThis")}
       disabled={lock !== null}
@@ -295,6 +387,7 @@ function Paper({
     <Button
       variant="outline"
       size={wide ? "default" : "icon"}
+      className={wide ? undefined : "size-11"}
       aria-label={wide ? undefined : t("takeTest.previous")}
       disabled={index === 0}
       onClick={() => onMove(Math.max(0, index - 1))}
@@ -304,11 +397,17 @@ function Paper({
     </Button>
   );
   const next = last ? (
-    <Button className={wide ? undefined : "flex-1"} onClick={onReview}>
+    <Button
+      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
+      onClick={onReview}
+    >
       {t("takeTest.reviewAndSubmit")}
     </Button>
   ) : (
-    <Button className={wide ? undefined : "flex-1"} onClick={() => onMove(index + 1)}>
+    <Button
+      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
+      onClick={() => onMove(index + 1)}
+    >
       {t("takeTest.next")}
       <ChevronRight aria-hidden="true" />
     </Button>
@@ -325,7 +424,7 @@ function Paper({
           <Button
             variant="ghost"
             size="xs"
-            className="text-muted-foreground px-1"
+            className="text-muted-foreground h-11 px-1 lg:h-7"
             onClick={onExit}
           >
             <X aria-hidden="true" />
@@ -338,8 +437,14 @@ function Paper({
 
       <div data-columns className="flex min-h-0 flex-1">
         <main
+          ref={paper}
+          tabIndex={-1}
+          aria-label={t("takeTest.dotLabel", { n: index + 1 })}
           data-resize-middle
-          className={cn("min-w-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-5")}
+          className={cn(
+            "min-w-0 flex-1 overflow-y-auto outline-none",
+            wide ? "p-8" : "p-4",
+          )}
         >
           <div className="mx-auto w-full max-w-[720px] space-y-5">
             {wide && (
@@ -356,12 +461,11 @@ function Paper({
                 audio={question.media?.kind === "audio"}
               />
             )}
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <QuestionCard question={question} onAudioExpired={onReload} />
-              </div>
-              {!wide && flag}
-            </div>
+            <QuestionCard
+              question={question}
+              onAudioExpired={onReload}
+              action={wide ? undefined : flag}
+            />
             {wide && (
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 {previous}
@@ -401,9 +505,14 @@ function Paper({
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
           {previous}
-          <Button variant="outline" className="flex-1" onClick={() => onNavOpen(true)}>
+          <Button
+            variant="outline"
+            className="size-11 shrink-0"
+            size="icon"
+            aria-label={t("takeTest.questionList")}
+            onClick={() => onNavOpen(true)}
+          >
             <List aria-hidden="true" />
-            {t("takeTest.questionList")}
           </Button>
           {next}
         </footer>
@@ -460,9 +569,14 @@ function typingIn(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return (
     target.isContentEditable ||
-    target.tagName === "INPUT" ||
+    (target instanceof HTMLInputElement &&
+      target.type !== "radio" &&
+      target.type !== "checkbox") ||
     target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT"
+    target.tagName === "SELECT" ||
+    target.closest(
+      '[role="slider"], [role="menu"], [role="listbox"], [role="combobox"]',
+    ) !== null
   );
 }
 

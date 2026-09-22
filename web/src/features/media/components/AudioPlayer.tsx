@@ -145,7 +145,10 @@ export function AudioPlayer({
       </button>
 
       <div className="min-w-0 flex-1">
-        <div className="relative flex h-3 items-center">
+        <div
+          data-seek={allowSeek}
+          className="relative flex h-3 items-center data-[seek=true]:h-11 lg:data-[seek=true]:h-3"
+        >
           <div className="bg-secondary h-1 w-full overflow-hidden rounded-full">
             <div
               className="bg-primary h-full"
