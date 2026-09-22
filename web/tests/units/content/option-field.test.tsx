@@ -24,7 +24,7 @@ test("answer selection and option text have distinct accessible names", () => {
     "radio",
   );
   expect(
-    screen.getByRole("textbox", { name: "Nội dung lựa chọn 1", exact: true }),
+    screen.getByRole("textbox", { name: "Nội dung lựa chọn 1" }),
   ).toHaveValue("think");
 });
 
