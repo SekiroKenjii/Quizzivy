@@ -21,7 +21,7 @@ func setup(t *testing.T) (context.Context, pgx.Tx, string, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	tx, err := pool.Begin(ctx)
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		t.Fatal(err)
 	}
