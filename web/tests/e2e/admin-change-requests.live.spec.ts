@@ -12,6 +12,7 @@ test.use({ actionTimeout: 10_000 });
 async function addQuestion(page: Page, prompt: string) {
   await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
   const input = page.getByLabel("Nội dung câu hỏi", { exact: true });
+  await expect(input).toHaveValue("Câu hỏi mới — nhập nội dung ở đây");
   await input.click();
   await expect(input).toHaveValue("");
   await input.fill(prompt);
