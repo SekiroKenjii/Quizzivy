@@ -31,7 +31,9 @@
       "minutes": "Minutes"
     },
     "pickTime": "Pick a time",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "error": {
     "title": "Something went wrong",
@@ -79,7 +81,7 @@
     "myAssignments": "My assignments",
     "myClasses": "My classes",
     "assignmentDetail": "Assignment",
-    "greeting": "Hi {{name}} 👋",
+    "greeting": "Hi {{name}}",
     "greetingPlain": "Hi {{name}}",
     "dueToday_one": "You have {{count}} assignment due today.",
     "dueToday_other": "You have {{count}} assignments due today.",
@@ -151,7 +153,24 @@
     "classOpenNone": "No open papers",
     "classSubmitted_one": "{{count}} paper submitted",
     "classSubmitted_other": "{{count}} papers submitted",
-    "classesNav": "Classes"
+    "classesNav": "Classes",
+    "viewAssignment": "View details",
+    "filterClass": "Class",
+    "allClasses": "All classes",
+    "unknownClass": "Selected class",
+    "filterStatus": "Status",
+    "views": {
+      "all": "All assignments",
+      "open": "Open",
+      "upcoming": "Upcoming",
+      "completed": "Completed"
+    },
+    "clearFilters": "Clear filters",
+    "noMatchingAssignments": "No assignments match these filters.",
+    "inProgress": "In progress · {{count}}",
+    "readyToStart": "Not started · {{count}}",
+    "viewClassAssignments": "View class assignments",
+    "assignmentCountsFailed": "Assignment counts could not be loaded. You can still open the assignments."
   },
   "changePassword": {
     "title": "Change your password",
@@ -207,7 +226,9 @@
     "haveAccount": "Already have an account?",
     "signIn": "Sign in",
     "anotherCode": "Enter a different code",
-    "panelNote": "You will see the class and its teacher before you confirm."
+    "panelNote": "You will see the class and its teacher before you confirm.",
+    "signedInAs": "You are signed in as {{name}}.",
+    "backToClasses": "Back to my classes"
   },
   "classDetail": {
     "joinCode": "Class join code",
@@ -863,8 +884,8 @@
       "afterSubmit": "After submitting: you can see {{shown}}{{hidden}}.",
       "butNot": ", but not {{hidden}}",
       "afterSubmitNothing": "After submitting: the test does not reopen for review.",
-      "audioLimited_one": "Each listening clip plays at most {{count}} time.",
-      "audioLimited_other": "Each listening clip plays at most {{count}} times.",
+      "audioLimited_one": "Your teacher allows {{count}} plays per clip. Additional plays are recorded.",
+      "audioLimited_other": "Your teacher allows {{count}} plays per clip. Additional plays are recorded.",
       "audioUnlimited": "The test has listening questions; you may replay them without limit.",
       "autosave": "Your answers are saved automatically. A short loss of connection does not lose your work."
     },
@@ -1155,7 +1176,13 @@
     "leaveUnsavedTitle": "Your answers have not been saved",
     "leaveUnsavedDescription": "The connection is unstable. Try saving again before leaving. The timer is still running.",
     "retrySave": "Try saving again",
-    "retakeNote": "You have {{count}} further attempts while the assignment is open."
+    "retakeNote": "You have {{count}} further attempts while the assignment is open.",
+    "chooseMultiple": "Select the answers you believe are correct. You can choose more than one.",
+    "chooseSingle": "Choose one answer.",
+    "restoredSaved": "Saved answers restored",
+    "extraPlaysRecorded": "You can keep listening. Additional plays are recorded for your teacher to review.",
+    "playsUsed": "Played {{played}}/{{limit}} times",
+    "viewSubmitted": "View submitted paper"
   },
   "integrity": {
     "leftTitle": "You left the test page",
@@ -1457,6 +1484,12 @@
       "moment": "{{time}} · {{date}}",
       "attempt": "Attempt",
       "attemptOf": "{{n}} / {{total}}"
+    },
+    "showAll": "View all questions",
+    "empty": {
+      "all": "No questions to show yet.",
+      "wrong": "There are no incorrect answers in this paper.",
+      "pending": "No questions are awaiting grading."
     }
   },
   "queue": {
@@ -1537,7 +1570,8 @@
       "sidebar": "Menu width",
       "rail": "Filter column width",
       "panel": "Side panel width",
-      "outline": "Outline width"
+      "outline": "Outline width",
+      "studentNavigator": "Question list width"
     }
   }
 }

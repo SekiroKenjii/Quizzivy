@@ -21,7 +21,7 @@ export function AuthLayout({
   const { t } = useTranslation();
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
+    <div className="student-surface grid min-h-svh lg:grid-cols-2">
       <aside className="bg-primary text-primary-foreground hidden flex-col justify-between p-10 lg:flex">
         <BrandLockup height={44} onDark />
         {art === undefined ? null : (

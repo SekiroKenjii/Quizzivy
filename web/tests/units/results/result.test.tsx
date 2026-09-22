@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import ResultPage from "@/features/results/pages/ResultPage";
 import type { components } from "@/lib/api/schema";
@@ -139,9 +140,8 @@ describe("the result page", () => {
       expect(screen.queryByText("Giáo viên chưa công bố điểm") !== null).toBe(
         !showScore,
       );
-      expect(screen.queryByText("Nộp lúc 20:14 · 26/08 · Lượt 1/2") !== null).toBe(
-        showScore,
-      );
+      expect(screen.getByText("Nộp lúc 20:14 · 26/08 · Lượt 1/2")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Sai/ }) !== null).toBe(showScore);
 
       // the key
       expect(screen.queryAllByText("đáp án đúng").length > 0).toBe(showCorrectAnswers);
@@ -204,7 +204,7 @@ describe("the result page", () => {
 describe("from 1024px (S-16)", () => {
   beforeEach(() => viewport("desktop"));
 
-  it("puts the score and the counts in the panel, and the paper's title over the paper", async () => {
+  it("keeps the title, score and counts above the paper", async () => {
     serve(
       result(
         { showScore: true, showCorrectAnswers: false, showExplanations: true },
@@ -214,11 +214,11 @@ describe("from 1024px (S-16)", () => {
     renderResult();
     await screen.findByText("The letter ____ yesterday.");
 
-    const panel = within(screen.getByRole("complementary", { name: "Kết quả" }));
+    const panel = screen;
+    expect(screen.queryByRole("complementary")).toBeNull();
     expect(panel.getByText("Điểm của bạn")).toBeInTheDocument();
     expect(panel.getByText("Đúng").nextElementSibling).toHaveTextContent("1");
     expect(panel.getByText("Sai").nextElementSibling).toHaveTextContent("1");
-    expect(panel.getByText("Lượt").nextElementSibling).toHaveTextContent("1 / 2");
     expect(
       panel.getByText("Giáo viên không hiển thị đáp án đúng cho bài này."),
     ).toBeInTheDocument();
@@ -229,4 +229,20 @@ describe("from 1024px (S-16)", () => {
       "/app",
     );
   });
+});
+
+it("explains an empty result filter and lets the student return to all questions", async () => {
+  const user = userEvent.setup();
+  serve(
+    result(
+      { showScore: true, showCorrectAnswers: false, showExplanations: false },
+      false,
+    ),
+  );
+  renderResult();
+  await user.click(await screen.findByRole("button", { name: /Chờ chấm/ }));
+  expect(screen.getByText("Không còn câu nào đang chờ chấm.")).toBeInTheDocument();
+  expect(screen.queryByText("The letter ____ yesterday.")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Xem tất cả câu" }));
+  expect(screen.getByText("The letter ____ yesterday.")).toBeInTheDocument();
 });

@@ -9,8 +9,9 @@ claims are recorded in `../audits/2026-09-22-open-issues.md`.
 - Use the mockup type scale throughout the application (#96). Keep text-entry
   controls at 16px on phones to avoid Safari's automatic input zoom, and make
   primary student touch targets at least 44px high.
-- Keep the existing student layouts. Fix interaction and hierarchy before
-  introducing another visual design. The flag belongs beside the prompt; it
+- The initial pass preserved the student layouts. The user subsequently approved
+  the independent redesign in `92-student-ux.md`, which supersedes that choice.
+  The flag belongs beside the prompt; it
   must not narrow the answer options. Keyboard navigation starts each question
   at the top and works after clicking an answer. Text-entry controls retain
   their normal editing keys. The final next-arrow opens the submission review.

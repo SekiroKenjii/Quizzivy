@@ -49,6 +49,7 @@ function renderPage() {
     [
       { path: "/app/attempts/:attemptId", element: <TakeTestPage /> },
       { path: "/app", element: <p>home</p> },
+      { path: "/app/attempts/:attemptId/result", element: <p>result page</p> },
     ],
     { initialEntries: ["/app/attempts/att-1"] },
   );
@@ -339,4 +340,13 @@ describe("from 1024px (S-08, S-15)", () => {
     );
     expect(screen.getByRole("button", { name: "Nộp bài" })).not.toHaveClass("w-full");
   });
+});
+
+it("distinguishes restored server answers from a new empty attempt", async () => {
+  vi.mocked(getAttempt).mockResolvedValue(
+    paper({ answers: { q1: { type: "choice", optionIds: ["o1"] } } }),
+  );
+  renderPage();
+  expect(await screen.findByText("Đã tải bài đã lưu")).toBeInTheDocument();
+  expect(screen.queryByText("Chưa có gì để lưu")).toBeNull();
 });

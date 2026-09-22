@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { NavLink, Outlet, useMatches, useNavigate } from "react-router";
 import { ArrowLeft, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,21 +8,13 @@ import { AccountMenu } from "@/features/auth/AccountMenu";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import type { DetailShell } from "@/layouts/detailShell";
-import { PageAsideSlot } from "@/layouts/slots";
 
 interface StudentHandle {
-  /** S-04/S-10's detail chrome below 1024px: a back arrow and the screen's name. */
   detail?: boolean;
   titleKey?: string;
 }
 
-/**
- * §9's student shell: "minimal top bar, no sidebar, mobile-first, safe-area
- * padding". Below 1024px that is S-03's bar, or S-04's back arrow on a detail
- * screen. From 1024px it is S-13: the bar with the student's name and menu,
- * and under it the admin's two columns -- a scrolling middle and F-11's panel,
- * which a screen fills through PageAside exactly as the teacher's screens do.
- */
+/** StudentLayout keeps the route mounted while adapting navigation at 1024px. */
 export default function StudentLayout() {
   const { t } = useTranslation();
   const wide = useMediaQuery("(min-width: 1024px)");
@@ -30,58 +22,21 @@ export default function StudentLayout() {
   const handle = [...matches].reverse().find((m) => isStudentHandle(m.handle))
     ?.handle as StudentHandle | undefined;
   const [own, setTitle] = useState<string | null>(null);
-  const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
-  const context = { setTitle } satisfies DetailShell;
-
-  if (wide) {
-    return (
-      <div className="flex h-svh flex-col">
-        <header className="bg-background shrink-0 border-b">
-          <div className="flex h-14 items-center gap-3 px-6">
-            <BrandLockup height={28} />
-            <nav
-              aria-label={t("nav.mainNavigation")}
-              className="ml-4 flex items-center gap-1"
-            >
-              <NavLink to="/app" end className={link}>
-                {t("student.myAssignments")}
-              </NavLink>
-              <NavLink to="/app/classes" className={link}>
-                {t("student.classesNav")}
-              </NavLink>
-            </nav>
-            <div className="ml-auto">
-              <AccountMenu settingsTo="/app/settings" named />
-            </div>
-          </div>
-        </header>
-        <div data-columns className="flex min-h-0 flex-1">
-          <main data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-8">
-            <div className="w-full max-w-4xl">
-              <PageAsideSlot.Provider value={asideSlot}>
-                <Outlet context={context} />
-              </PageAsideSlot.Provider>
-            </div>
-          </main>
-          <div ref={setAsideSlot} className="contents" />
-        </div>
-      </div>
-    );
-  }
+  const context = useMemo(() => ({ setTitle }) satisfies DetailShell, []);
 
   return (
-    <div className="flex min-h-svh flex-col">
-      {handle?.detail ? (
-        <DetailBar
-          title={own ?? (handle.titleKey ? t(handle.titleKey) : t("app.name"))}
-        />
-      ) : (
-        <header className="border-b">
-          <div className="mx-auto flex h-14 max-w-[40rem] items-center justify-between gap-4 px-4">
-            <BrandMark height={24} />
+    <div className="student-surface flex min-h-svh flex-col">
+      <header className="bg-background border-b">
+        {!wide && handle?.detail ? (
+          <DetailBar
+            title={own ?? (handle.titleKey ? t(handle.titleKey) : t("app.name"))}
+          />
+        ) : (
+          <div className="flex min-h-14 items-center gap-3 px-4 lg:px-8">
+            {wide ? <BrandLockup height={28} /> : <BrandMark height={24} />}
             <nav
               aria-label={t("nav.mainNavigation")}
-              className="flex items-center gap-1"
+              className="ml-auto flex items-center gap-1 lg:ml-4"
             >
               <NavLink to="/app" end className={link}>
                 {t("student.myAssignments")}
@@ -89,20 +44,27 @@ export default function StudentLayout() {
               <NavLink to="/app/classes" className={link}>
                 {t("student.classesNav")}
               </NavLink>
-              <NavLink
-                to="/app/settings"
-                className="text-muted-foreground hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors"
-                aria-label={t("nav.settings")}
-              >
-                <User className="size-4" aria-hidden="true" />
-              </NavLink>
+              {!wide && (
+                <NavLink
+                  to="/app/settings"
+                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-11 items-center justify-center rounded-md focus-visible:ring-2"
+                  aria-label={t("nav.settings")}
+                >
+                  <User className="size-5" aria-hidden="true" />
+                </NavLink>
+              )}
             </nav>
+            {wide && (
+              <div className="ml-auto">
+                <AccountMenu settingsTo="/app/settings" named />
+              </div>
+            )}
           </div>
-        </header>
-      )}
+        )}
+      </header>
       <main
-        className="mx-auto w-full max-w-[40rem] flex-1 p-4"
-        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        className="w-full min-w-0 flex-1 p-4 lg:p-8"
+        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
       >
         <Outlet context={context} />
       </main>
@@ -112,34 +74,30 @@ export default function StudentLayout() {
 
 const link = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "inline-flex h-8 items-center rounded-md px-3 text-sm transition-colors",
+    "focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md px-3 text-sm transition-colors focus-visible:ring-2 lg:min-h-8",
     isActive
       ? "bg-secondary text-secondary-foreground"
       : "text-muted-foreground hover:text-foreground",
   );
 
-/** The deck's S-10 detail shell: a back arrow and the screen's name, in place of the nav bar. */
 function DetailBar({ title }: Readonly<{ title: string }>) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   return (
-    <header className="border-b">
-      <div className="mx-auto flex h-14 w-full max-w-[40rem] items-center gap-2 px-4">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("common.back")}
-          onClick={() => void (cameFromInside() ? navigate(-1) : navigate("/app"))}
-        >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <h1 className="truncate text-sm font-medium">{title}</h1>
-      </div>
-    </header>
+    <div className="flex min-h-14 w-full items-center gap-2 px-4">
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={t("common.back")}
+        onClick={() => void (cameFromInside() ? navigate(-1) : navigate("/app"))}
+      >
+        <ArrowLeft aria-hidden="true" />
+      </Button>
+      <p className="min-w-0 truncate text-sm font-medium">{title}</p>
+    </div>
   );
 }
 
-// A deep link has no in-app history to go back to, so the arrow goes home.
 function cameFromInside(): boolean {
   const state = window.history.state as { idx?: number } | null;
   return typeof state?.idx === "number" && state.idx > 0;

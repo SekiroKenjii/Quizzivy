@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useId,
   useMemo,
   type ComponentProps,
   type ReactNode,
@@ -96,6 +97,7 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
   const { t } = useTranslation();
   const options = question.options ?? [];
   const multiple = question.type === "multiple_choice";
+  const instructionId = useId();
   const chosen = new Set(
     answer !== undefined && "optionIds" in answer ? answer.optionIds : [],
   );
@@ -114,11 +116,14 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
   return (
     <div className="space-y-4">
       <Prompt action={action}>{question.prompt}</Prompt>
-
+      <p id={instructionId} className="text-muted-foreground text-sm">
+        {t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle")}
+      </p>
       <div
         className="space-y-2.5"
         role={multiple ? "group" : "radiogroup"}
         aria-label={t("takeTest.answerOptions")}
+        aria-describedby={instructionId}
       >
         {options.map((option, index) => {
           const selected = chosen.has(option.id);
@@ -145,7 +150,8 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
               <span
                 aria-hidden="true"
                 className={cn(
-                  "grid size-6 shrink-0 place-content-center rounded-sm border text-xs font-semibold",
+                  "grid size-6 shrink-0 place-content-center border text-xs font-semibold",
+                  multiple ? "rounded-sm" : "rounded-full",
                   selected
                     ? "bg-primary text-primary-foreground border-transparent"
                     : "text-muted-foreground",

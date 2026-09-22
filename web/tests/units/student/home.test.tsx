@@ -21,6 +21,7 @@ const SAMPLE_CLASS = {
 function home(
   sections: { dueNow?: unknown[]; upcoming?: unknown[]; completed?: unknown[] },
   classes: unknown[] = [SAMPLE_CLASS],
+  path = "/app",
 ) {
   server.use(
     http.get(`${BASE}/app/assignments`, () =>
@@ -34,7 +35,7 @@ function home(
       contractJson("/app/classes", "get", 200, { items: classes }),
     ),
   );
-  return renderAt("/app", [
+  return renderAt(path, [
     { path: "/app", element: <StudentHomePage /> },
     { path: "/app/assignments/:id", element: <p>intro page</p> },
   ]);
@@ -55,9 +56,9 @@ describe("the three sections", () => {
   it("greets by given name and counts what is due today", async () => {
     home({ dueNow: [card()] });
     expect(
-      await screen.findByRole("heading", { name: "Chào An 👋" }),
+      await screen.findByText("Bạn có 1 bài đến hạn hôm nay."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Bạn có 1 bài đến hạn hôm nay.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Chào An" })).toBeInTheDocument();
   });
 
   it("draws the due card with time left, the clock, the attempt and the close", async () => {
@@ -72,7 +73,7 @@ describe("the three sections", () => {
   it("sends the start button to the intro", async () => {
     const user = userEvent.setup();
     const router = home({ dueNow: [card()] });
-    await user.click(await screen.findByRole("link", { name: "Bắt đầu làm bài" }));
+    await user.click(await screen.findByRole("link", { name: "Xem chi tiết" }));
     expect(router.state.location.pathname).toBe("/app/assignments/" + card().id);
   });
 
@@ -302,5 +303,52 @@ describe("the completed card", () => {
     expect(
       screen.queryByRole("link", { name: "Never started" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("assignment discovery", () => {
+  it("shows every live attempt in deadline order and includes all in the due count", async () => {
+    home({
+      dueNow: [
+        card({
+          testTitle: "Later",
+          hasLiveAttempt: true,
+          liveDeadlineAt: "2026-08-29T10:45:00Z",
+        }),
+        card({
+          id: "018f0000-0000-7000-8000-0000000000d2",
+          testTitle: "Sooner",
+          hasLiveAttempt: true,
+          liveDeadlineAt: "2026-08-29T10:15:00Z",
+        }),
+        card({ id: "018f0000-0000-7000-8000-0000000000d3", testTitle: "Not started" }),
+      ],
+    });
+    expect(
+      await screen.findAllByRole("button", { name: "Tiếp tục làm bài" }),
+    ).toHaveLength(2);
+    expect(screen.getByText("Bạn có 3 bài đến hạn hôm nay.")).toBeInTheDocument();
+    expect(
+      screen
+        .getByText(/Sooner. Đồng hồ/)
+        .compareDocumentPosition(screen.getByText(/Later. Đồng hồ/)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Xem chi tiết" })).toBeInTheDocument();
+  });
+
+  it("opens the selected class from its URL and resets an empty status filter", async () => {
+    const user = userEvent.setup();
+    const router = home(
+      { dueNow: [card({ classId: SAMPLE_CLASS.id, className: SAMPLE_CLASS.name })] },
+      [SAMPLE_CLASS],
+      `/app?classId=${SAMPLE_CLASS.id}&view=completed`,
+    );
+    expect(
+      await screen.findByText("Không có bài phù hợp với bộ lọc."),
+    ).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "Xóa bộ lọc" })[0]!);
+    expect(await screen.findByText("Unit 5 — Present perfect")).toBeInTheDocument();
+    expect(router.state.location.search).toBe("");
   });
 });

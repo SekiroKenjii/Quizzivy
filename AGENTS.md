@@ -302,16 +302,16 @@ not in v1 but must remain addable without touching components.
 Integrity UI is calm: plain dialogs, plain text, no alarm iconography, no red
 banners, no shame. The teacher judges; the app reports.
 
-The student's screens branch at 1024px in code, not only in CSS
-(`useMediaQuery("(min-width: 1024px)")`): below it the phone boards
-(S-01–S-12) apply, above it the desk boards (S-13–S-17). One `StudentLayout`
-serves both; a detail route declares `handle.detail` for the phone's back
-arrow. From 1024px the shell exposes the same `PageAsideSlot` the admin shell
-does, and a page's right column is `PageAside` — F-11's panel with F-13's
-handle, never a grid column. The take-test engine keeps `FocusLayout` and
-S-08's chrome from 1024px. Unit tests of a phone board pin
-`viewport("phone")` (`tests/support/viewport.ts`); jsdom answers "wide" by
-default.
+The student's navigation branches at 1024px in code
+(`useMediaQuery("(min-width: 1024px)")`), with one stable `StudentLayout`
+outlet so forms and filters survive resizing. A detail route declares
+`handle.detail` for the phone's back arrow. Home and classes use fluid grids;
+intro, results and settings are centred at 720px without a right panel.
+The approved independent review (`docs/plan/92-student-ux.md`) supersedes
+S-13–S-17's ordinary-page panels. The take-test engine keeps `FocusLayout`
+and its `PageAside` navigator, with the separate `studentNavigator` width
+preference. Unit tests of a phone board pin `viewport("phone")`
+(`tests/support/viewport.ts`); jsdom answers "wide" by default.
 
 A paper's questions are dealt inside their section: `DealManager.Present`
 keeps section order and shuffles within each, so the navigator can group by

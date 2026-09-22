@@ -31,7 +31,9 @@
       "minutes": "Phút"
     },
     "pickTime": "Chọn giờ",
-    "saveChanges": "Lưu thay đổi"
+    "saveChanges": "Lưu thay đổi",
+    "showPassword": "Hiện mật khẩu",
+    "hidePassword": "Ẩn mật khẩu"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -79,7 +81,7 @@
     "myAssignments": "Bài của tôi",
     "myClasses": "Lớp của tôi",
     "assignmentDetail": "Chi tiết bài",
-    "greeting": "Chào {{name}} 👋",
+    "greeting": "Chào {{name}}",
     "greetingPlain": "Chào {{name}}",
     "dueToday_one": "Bạn có {{count}} bài đến hạn hôm nay.",
     "dueToday_other": "Bạn có {{count}} bài đến hạn hôm nay.",
@@ -151,7 +153,24 @@
     "classOpenNone": "Không có bài đang mở",
     "classSubmitted_one": "{{count}} bài đã nộp",
     "classSubmitted_other": "{{count}} bài đã nộp",
-    "classesNav": "Lớp"
+    "classesNav": "Lớp",
+    "viewAssignment": "Xem chi tiết",
+    "filterClass": "Lớp học",
+    "allClasses": "Tất cả lớp",
+    "unknownClass": "Lớp đã chọn",
+    "filterStatus": "Trạng thái",
+    "views": {
+      "all": "Tất cả bài",
+      "open": "Đang mở",
+      "upcoming": "Sắp tới",
+      "completed": "Đã hoàn thành"
+    },
+    "clearFilters": "Xóa bộ lọc",
+    "noMatchingAssignments": "Không có bài phù hợp với bộ lọc.",
+    "inProgress": "Đang làm · {{count}}",
+    "readyToStart": "Chưa bắt đầu · {{count}}",
+    "viewClassAssignments": "Xem bài của lớp",
+    "assignmentCountsFailed": "Chưa tải được số bài của các lớp. Bạn vẫn có thể mở danh sách bài."
   },
   "changePassword": {
     "title": "Đổi mật khẩu",
@@ -207,7 +226,9 @@
     "haveAccount": "Đã có tài khoản?",
     "signIn": "Đăng nhập",
     "anotherCode": "Nhập mã khác",
-    "panelNote": "Bạn sẽ thấy tên lớp và giáo viên trước khi xác nhận tham gia."
+    "panelNote": "Bạn sẽ thấy tên lớp và giáo viên trước khi xác nhận tham gia.",
+    "signedInAs": "Bạn đang đăng nhập với tên {{name}}.",
+    "backToClasses": "Quay lại lớp của tôi"
   },
   "classDetail": {
     "joinCode": "Mã tham gia lớp",
@@ -863,8 +884,8 @@
       "afterSubmit": "Sau khi nộp: xem {{shown}}{{hidden}}.",
       "butNot": ", không xem {{hidden}}",
       "afterSubmitNothing": "Sau khi nộp: bài không mở lại để xem.",
-      "audioLimited_one": "Mỗi câu nghe được phát tối đa {{count}} lần.",
-      "audioLimited_other": "Mỗi câu nghe được phát tối đa {{count}} lần.",
+      "audioLimited_one": "Giáo viên quy định {{count}} lượt nghe cho mỗi câu. Lượt nghe thêm được ghi lại.",
+      "audioLimited_other": "Giáo viên quy định {{count}} lượt nghe cho mỗi câu. Lượt nghe thêm được ghi lại.",
       "audioUnlimited": "Bài có câu nghe; bạn nghe lại được không giới hạn.",
       "autosave": "Câu trả lời được lưu tự động. Mất mạng một lúc cũng không mất bài."
     },
@@ -1155,7 +1176,13 @@
     "leaveUnsavedTitle": "Câu trả lời chưa được lưu",
     "leaveUnsavedDescription": "Kết nối chưa ổn định. Hãy thử lưu lại trước khi rời bài. Đồng hồ vẫn tiếp tục chạy.",
     "retrySave": "Thử lưu lại",
-    "retakeNote": "Bạn còn {{count}} lượt làm khác trong thời gian bài mở."
+    "retakeNote": "Bạn còn {{count}} lượt làm khác trong thời gian bài mở.",
+    "chooseMultiple": "Chọn các đáp án bạn cho là đúng. Bạn có thể chọn nhiều đáp án.",
+    "chooseSingle": "Chọn một đáp án.",
+    "restoredSaved": "Đã tải bài đã lưu",
+    "extraPlaysRecorded": "Bạn vẫn có thể nghe tiếp. Lượt nghe thêm được ghi lại để giáo viên xem.",
+    "playsUsed": "Đã nghe {{played}}/{{limit}} lượt",
+    "viewSubmitted": "Xem bài đã nộp"
   },
   "integrity": {
     "leftTitle": "Bạn vừa rời khỏi trang làm bài",
@@ -1457,6 +1484,12 @@
       "moment": "{{time}} · {{date}}",
       "attempt": "Lượt",
       "attemptOf": "{{n}} / {{total}}"
+    },
+    "showAll": "Xem tất cả câu",
+    "empty": {
+      "all": "Chưa có câu hỏi để hiển thị.",
+      "wrong": "Không có câu sai trong bài này.",
+      "pending": "Không còn câu nào đang chờ chấm."
     }
   },
   "queue": {
@@ -1537,7 +1570,8 @@
       "sidebar": "Độ rộng menu",
       "rail": "Độ rộng cột lọc",
       "panel": "Độ rộng bảng bên",
-      "outline": "Độ rộng dàn ý"
+      "outline": "Độ rộng dàn ý",
+      "studentNavigator": "Độ rộng danh sách câu"
     }
   }
 }

@@ -94,7 +94,7 @@ describe("the shell (S-13)", () => {
 });
 
 describe("home (S-13)", () => {
-  it("keeps the next action in the middle and moves upcoming and the classes to the panel", async () => {
+  it("keeps all assignment groups in the main reading flow", async () => {
     serveStudent({
       dueNow: [card({ className: "IELTS Foundation" })],
       upcoming: [
@@ -119,23 +119,12 @@ describe("home (S-13)", () => {
     shell("/app", <StudentHomePage />);
     await screen.findByText("Unit 5 — Present perfect");
 
-    const panel = within(
-      screen.getByRole("complementary", { name: "Sắp tới và lớp của tôi" }),
-    );
-    expect(panel.getByRole("heading", { name: "Sắp tới · 1" })).toBeInTheDocument();
-    expect(panel.getByText("Listening practice 03")).toBeInTheDocument();
-    expect(panel.getByText("IELTS Foundation")).toBeInTheDocument();
-    expect(panel.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
-      "href",
-      "/join",
-    );
-
     const main = within(screen.getByRole("main"));
-    expect(main.getByRole("link", { name: "Bắt đầu làm bài" })).toHaveClass(
-      "lg:w-auto",
-    );
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(main.getByRole("heading", { name: "Sắp tới · 1" })).toBeInTheDocument();
+    expect(main.getByText("Listening practice 03")).toBeInTheDocument();
+    expect(main.getAllByRole("link", { name: "Xem chi tiết" })).toHaveLength(2);
     expect(main.getByText("IELTS Foundation · Nộp 26/08")).toBeInTheDocument();
-    expect(main.queryByRole("heading", { name: "Sắp tới · 1" })).toBeNull();
   });
 
   it("draws no panel when there is nothing to put in it", async () => {
@@ -147,7 +136,7 @@ describe("home (S-13)", () => {
 });
 
 describe("the intro (S-14)", () => {
-  it("summarises the paper in the panel with the start button, and links back", async () => {
+  it("keeps the facts and start action together, with a way back", async () => {
     server.use(
       http.get(`${BASE}/app/assignments/${ASSIGNMENT}`, () =>
         contractJson("/app/assignments/{id}", "get", 200, detail()),
@@ -161,7 +150,8 @@ describe("the intro (S-14)", () => {
     );
     await screen.findByRole("heading", { level: 1, name: "Unit 5 — Present perfect" });
 
-    const panel = within(screen.getByRole("complementary", { name: "Tóm tắt" }));
+    const panel = within(screen.getByRole("main"));
+    expect(screen.queryByRole("complementary")).toBeNull();
     expect(panel.getByText("Thời lượng").nextElementSibling).toHaveTextContent(
       "45 phút",
     );
@@ -174,7 +164,7 @@ describe("the intro (S-14)", () => {
 });
 
 describe("classes (S-17)", () => {
-  it("lays the classes out as cards with their counts, and puts the code field in the panel", async () => {
+  it("links each class to its assignments and exposes one join action", async () => {
     serveStudent({
       dueNow: [card({ classId: CLASS.id, className: CLASS.name })],
       completed: [
@@ -193,31 +183,31 @@ describe("classes (S-17)", () => {
     expect(await screen.findByText("1 bài đang mở")).toBeInTheDocument();
     expect(screen.getByText("1 bài đã nộp")).toBeInTheDocument();
 
-    const panel = within(screen.getByRole("complementary", { name: "Tham gia lớp" }));
-    expect(panel.getByLabelText("Mã lớp")).toBeInTheDocument();
-    expect(panel.getByRole("button", { name: "Tiếp tục" })).toBeDisabled();
-    expect(screen.queryByRole("link", { name: "Tham gia lớp" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Tham gia lớp" })).toHaveAttribute(
+      "href",
+      "/join",
+    );
+    expect(screen.getByRole("link", { name: "Xem bài của lớp" })).toHaveAttribute(
+      "href",
+      `/app?classId=${CLASS.id}`,
+    );
+    expect(screen.queryByRole("complementary")).toBeNull();
   });
 });
 
 describe("settings (S-17)", () => {
-  it("puts the account in the panel with the way out", async () => {
+  it("keeps the account, editable forms and sign-out in one flow", async () => {
     serveStudent({});
     shell("/app/settings", <StudentSettingsPage />, {
       detail: true,
       titleKey: "nav.settings",
     });
-    const panel = within(
-      await screen.findByRole("complementary", { name: "Tài khoản" }),
-    );
+    const panel = within(screen.getByRole("main"));
     expect(panel.getByText("Nguyễn Văn An")).toBeInTheDocument();
     expect(panel.getByText("an@example.com")).toBeInTheDocument();
-    expect(panel.getByText("Vai trò").nextElementSibling).toHaveTextContent("Học viên");
-    expect(panel.getByText("Đăng nhập").nextElementSibling).toHaveTextContent(
-      "Mật khẩu",
-    );
-    expect(await panel.findByText("Lớp")).toBeInTheDocument();
+    expect(panel.getByText(/Học viên ·/)).toBeInTheDocument();
     expect(panel.getByRole("button", { name: "Đăng xuất" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary")).toBeNull();
     expect(
       screen.getByRole("heading", { level: 1, name: "Cài đặt" }),
     ).toBeInTheDocument();

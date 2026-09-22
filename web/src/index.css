@@ -129,3 +129,12 @@
     }
   }
 }
+
+@layer components {
+  @media (width < 64rem) {
+    .student-surface :where(button, [data-slot="button"], [data-slot="select-item"]) {
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+    }
+  }
+}

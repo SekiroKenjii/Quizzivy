@@ -234,6 +234,9 @@ export default function TakeTestPage() {
           answered={dots.filter((d) => d.answered).length}
           total={dots.length}
           onHome={() => void navigate("/app", { replace: true })}
+          onResult={() =>
+            void navigate(`/app/attempts/${attemptId}/result`, { replace: true })
+          }
         />
       </div>
     );
@@ -252,6 +255,7 @@ export default function TakeTestPage() {
 
   const leaveDialog = (
     <ConfirmDialog
+      className="student-surface"
       open={blocked}
       onOpenChange={(open) => {
         if (!open && blocked) blocker.reset();
@@ -393,12 +397,15 @@ function Paper({
     </Button>
   );
   const next = last ? (
-    <Button className={wide ? undefined : "h-11 flex-1"} onClick={onReview}>
+    <Button
+      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
+      onClick={onReview}
+    >
       {t("takeTest.reviewAndSubmit")}
     </Button>
   ) : (
     <Button
-      className={wide ? undefined : "h-11 flex-1"}
+      className={wide ? undefined : "h-11 min-w-0 flex-1 px-3 whitespace-normal"}
       onClick={() => onMove(index + 1)}
     >
       {t("takeTest.next")}
@@ -500,11 +507,12 @@ function Paper({
           {previous}
           <Button
             variant="outline"
-            className="h-11 flex-1"
+            className="size-11 shrink-0"
+            size="icon"
+            aria-label={t("takeTest.questionList")}
             onClick={() => onNavOpen(true)}
           >
             <List aria-hidden="true" />
-            {t("takeTest.questionList")}
           </Button>
           {next}
         </footer>

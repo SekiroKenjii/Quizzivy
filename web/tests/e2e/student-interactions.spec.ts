@@ -75,7 +75,7 @@ async function start(page: Page) {
   await expect(page.getByRole("radio", { name: "Đáp án A" })).toBeVisible();
 }
 
-for (const width of [360, 1024, 1440]) {
+for (const width of [320, 360, 1024, 1440]) {
   test(`student keyboard and fill-blank at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 850 });
     await start(page);
@@ -102,6 +102,15 @@ for (const width of [360, 1024, 1440]) {
     await page
       .getByRole("textbox", { name: "Bài làm của bạn" })
       .pressSequentially("A full sentence.");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
+    const next = page
+      .getByRole("button", { name: "Xem lại & nộp", exact: true })
+      .last();
+    const bounds = await next.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
     await page
       .getByRole("button", { name: "Xem lại & nộp", exact: true })
       .first()
@@ -109,7 +118,9 @@ for (const width of [360, 1024, 1440]) {
     await expect(
       page.getByRole("heading", { name: "Xem lại trước khi nộp" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Nộp bài", exact: true }).first().click();
+    const submit = page.getByRole("button", { name: "Nộp bài", exact: true }).first();
+    await expect(submit).toBeInViewport();
+    await submit.click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("ArrowLeft");
     await expect(page.getByRole("dialog")).toBeVisible();

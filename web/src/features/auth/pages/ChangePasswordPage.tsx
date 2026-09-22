@@ -1,3 +1,4 @@
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -5,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changePassword, fetchCurrentUser } from "@/features/auth/api";
 import {
@@ -43,7 +43,7 @@ export default function ChangePasswordPage() {
   });
 
   return (
-    <main className="min-h-svh p-4 pt-14">
+    <main className="student-surface min-h-svh p-4 pt-14">
       <Card className="mx-auto w-full max-w-sm gap-0 p-5">
         <h1 className="text-xl font-semibold tracking-tight">
           {t("changePassword.title")}
@@ -57,9 +57,8 @@ export default function ChangePasswordPage() {
             {/* Not required, and that is the point. */}
             <div className="space-y-1.5">
               <Label htmlFor="current-password">{t("changePassword.current")}</Label>
-              <Input
+              <PasswordInput
                 id="current-password"
-                type="password"
                 className="h-11"
                 autoComplete="current-password"
                 aria-describedby="current-password-hint"
@@ -69,12 +68,11 @@ export default function ChangePasswordPage() {
                 {t("changePassword.currentHint")}
               </p>
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="new-password">{t("changePassword.new")}</Label>
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
-                className="mt-1.5 h-11"
+                className="h-11"
                 autoComplete="new-password"
                 aria-invalid={newPasswordError ? true : undefined}
                 aria-describedby={

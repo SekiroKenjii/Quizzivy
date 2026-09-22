@@ -29,6 +29,9 @@ describe("single_choice", () => {
   it("offers one radio per option, keyed A B C", () => {
     renderQuestion(question({ type: "single_choice", options }));
     expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getByRole("radiogroup")).toHaveAccessibleDescription(
+      "Chọn một đáp án.",
+    );
     for (const key of ["A", "B", "C"]) {
       expect(screen.getByText(key)).toBeInTheDocument();
     }
@@ -62,6 +65,9 @@ describe("multiple_choice", () => {
   it("uses checkboxes, because more than one may be right", () => {
     renderQuestion(question({ type: "multiple_choice", options }));
     expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    expect(screen.getByRole("group")).toHaveAccessibleDescription(
+      "Chọn các đáp án bạn cho là đúng. Bạn có thể chọn nhiều đáp án.",
+    );
   });
 
   it("adds to the selection rather than replacing it", async () => {

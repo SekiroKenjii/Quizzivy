@@ -11,6 +11,13 @@ import "@/lib/i18n";
 
 function classes(items: unknown[]) {
   server.use(
+    http.get(`${BASE}/app/assignments`, () =>
+      contractJson("/app/assignments", "get", 200, {
+        dueNow: [],
+        upcoming: [],
+        completed: [],
+      }),
+    ),
     http.get(`${BASE}/app/classes`, () =>
       contractJson("/app/classes", "get", 200, { items }),
     ),
@@ -52,6 +59,6 @@ describe("/app/classes", () => {
   it("says when there are none", async () => {
     classes([]);
     expect(await screen.findByText("Bạn chưa tham gia lớp nào.")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Tham gia lớp" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Tham gia lớp" })).toHaveLength(1);
   });
 });

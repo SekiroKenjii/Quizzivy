@@ -83,101 +83,112 @@ export function ReviewScreen({
 
       <SaveStrip wide={wide} indicator={status} />
       <div data-columns className="flex min-h-0 flex-1">
-        <main
-          data-resize-middle
-          className={cn("min-w-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-4")}
-        >
-          <div className="mx-auto w-full max-w-[720px] space-y-4">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
-                {t("takeTest.reviewTitle")}
-              </h1>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {t("takeTest.reviewAnswered", { answered, total: dots.length })}
-              </p>
-            </div>
-
-            <Card className="gap-0 p-4">
-              <div className="space-y-3">
-                {unanswered.length === 0 ? (
-                  <div className="flex items-center gap-2">
-                    <CircleCheck className="text-success size-4" aria-hidden="true" />
-                    <p className="text-sm font-medium">{t("takeTest.allAnswered")}</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <CircleHelp
-                        className="text-muted-foreground size-4"
-                        aria-hidden="true"
-                      />
-                      <p className="text-sm font-medium">
-                        {t("takeTest.unanswered", { count: unanswered.length })}
-                      </p>
-                    </div>
-                    <Dots items={unanswered} onJump={onJump} />
-                  </>
-                )}
-                {flagged.length > 0 && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center gap-2">
-                      <Flag
-                        className="text-muted-foreground size-4"
-                        aria-hidden="true"
-                      />
-                      <p className="text-sm font-medium">
-                        {t("takeTest.flagged", { count: flagged.length })}
-                      </p>
-                    </div>
-                    <Dots items={flagged} onJump={onJump} />
-                  </>
-                )}
+        <div data-resize-middle className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <main
+            className={cn("min-h-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-4")}
+          >
+            <div className="mx-auto w-full max-w-[720px] space-y-4">
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
+                  {t("takeTest.reviewTitle")}
+                </h1>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {t("takeTest.reviewAnswered", { answered, total: dots.length })}
+                </p>
               </div>
-            </Card>
 
-            {failed && (
-              <p role="alert" className="text-sm">
-                {t("takeTest.submitFailed")}
-              </p>
-            )}
-            <div className={wide ? "flex items-center gap-2" : "space-y-2"}>
-              <Button
-                variant="outline"
-                size="lg"
-                className={wide ? undefined : "w-full"}
-                onClick={onBack}
-              >
-                {t("takeTest.keepWorking")}
-              </Button>
-              <Button
-                size="lg"
-                className={wide ? undefined : "w-full"}
-                disabled={busy || lock === "superseded" || lock === "closed"}
-                onClick={() => setConfirming(true)}
-              >
-                {busy ? t("takeTest.submitting") : t("takeTest.submit")}
-              </Button>
-            </div>
-            <p
-              className={cn(
-                "text-muted-foreground text-xs leading-relaxed",
-                !wide && "text-center",
+              <Card className="gap-0 p-4">
+                <div className="space-y-3">
+                  {unanswered.length === 0 ? (
+                    <div className="flex items-center gap-2">
+                      <CircleCheck className="text-success size-4" aria-hidden="true" />
+                      <p className="text-sm font-medium">{t("takeTest.allAnswered")}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <CircleHelp
+                          className="text-muted-foreground size-4"
+                          aria-hidden="true"
+                        />
+                        <p className="text-sm font-medium">
+                          {t("takeTest.unanswered", { count: unanswered.length })}
+                        </p>
+                      </div>
+                      <Dots items={unanswered} onJump={onJump} />
+                    </>
+                  )}
+                  {flagged.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="flex items-center gap-2">
+                        <Flag
+                          className="text-muted-foreground size-4"
+                          aria-hidden="true"
+                        />
+                        <p className="text-sm font-medium">
+                          {t("takeTest.flagged", { count: flagged.length })}
+                        </p>
+                      </div>
+                      <Dots items={flagged} onJump={onJump} />
+                    </>
+                  )}
+                </div>
+              </Card>
+
+              {failed && (
+                <p role="alert" className="text-sm">
+                  {t("takeTest.submitFailed")}
+                </p>
               )}
-            >
-              {t("takeTest.submitNote")}{" "}
-              {remainingAttempts > 0 &&
-                t("takeTest.retakeNote", { count: remainingAttempts })}
-            </p>
-          </div>
-        </main>
+            </div>
+          </main>
+          <footer
+            className="shrink-0 border-t px-4 py-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <div className="mx-auto max-w-[720px] space-y-3">
+              <div className={wide ? "flex items-center gap-2" : "space-y-2"}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className={wide ? undefined : "w-full"}
+                  onClick={onBack}
+                >
+                  {t("takeTest.keepWorking")}
+                </Button>
+                <Button
+                  size="lg"
+                  className={wide ? undefined : "w-full"}
+                  disabled={busy || lock === "superseded" || lock === "closed"}
+                  onClick={() => setConfirming(true)}
+                >
+                  {busy ? t("takeTest.submitting") : t("takeTest.submit")}
+                </Button>
+              </div>
+              <p
+                className={cn(
+                  "text-muted-foreground text-xs leading-relaxed",
+                  !wide && "text-center",
+                )}
+              >
+                {t("takeTest.submitNote")}{" "}
+                {remainingAttempts > 0 &&
+                  t("takeTest.retakeNote", { count: remainingAttempts })}
+              </p>
+            </div>
+          </footer>
+        </div>
         {wide && (
           <NavigatorRail dots={dots} current={null} groups={groups} onJump={onJump} />
         )}
       </div>
 
       <Dialog open={confirming} onOpenChange={setConfirming}>
-        <DialogContent className="gap-0 p-5 sm:max-w-md" showCloseButton={false}>
+        <DialogContent
+          className="student-surface gap-0 p-5 sm:max-w-md"
+          showCloseButton={false}
+        >
           <DialogTitle className="text-base leading-normal">
             {t("takeTest.confirmTitle")}
           </DialogTitle>

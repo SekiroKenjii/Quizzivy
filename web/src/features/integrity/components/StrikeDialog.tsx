@@ -35,7 +35,7 @@ export function StrikeDialog({
       }}
     >
       <DialogContent
-        className="gap-0 p-5 sm:max-w-md"
+        className="student-surface gap-0 p-5 sm:max-w-md"
         showCloseButton={false}
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
