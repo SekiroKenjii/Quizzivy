@@ -59,8 +59,15 @@ The W-03 source spike is `server/internal/platform/word`, with a local-only
 table properties, relationships and unresolved object evidence; bounds ZIP/XML
 and locator growth; and does not infer questions or answers. See its README for
 limits and reproducible checks. It uses no additional dependency and is not
-wired into the API or student application. Full style/numbering resolution,
-asset decoding, semantic recognition and the W-12 coverage gate remain open.
+wired into the API or student application. A separate bounded resolver now
+derives supported inherited semantic marks and automatic list labels, retaining
+property provenance and explicit findings for unsupported or ambiguous cases.
+It handles main-body list instances, nested levels, starts/overrides/restarts,
+style associations and common number formats without rewriting source text.
+Conditional table styles, ambiguous toggles, non-Latin marks, numbering style
+links, custom/symbol numbering and revision-dependent counters remain unresolved.
+Full style/numbering fidelity, asset decoding, semantic recognition and the W-12
+coverage gate remain open; the package README defines the supported subset.
 
 All eight supplied DOCX files pass inventory with unresolved findings retained.
 One sequential local measurement with two Go scheduler threads took 12–130 ms

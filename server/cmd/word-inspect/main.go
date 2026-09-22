@@ -48,14 +48,38 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	report := struct {
-		Parts      int            `json:"parts"`
-		Paragraphs int            `json:"paragraphs"`
-		Runs       int            `json:"runs"`
-		Assets     int            `json:"assets"`
-		Findings   map[string]int `json:"findings"`
-		ElapsedMS  int64          `json:"elapsedMs"`
-	}{Parts: len(inspection.Parts), Assets: len(inspection.Assets), Findings: map[string]int{}, ElapsedMS: time.Since(started).Milliseconds()}
+	resolution, err := word.Resolve(ctx, inspection)
+	if err != nil {
+		return err
+	}
+	if *output != "" {
+		if err := writeEvidence(*output, evidence{Inspection: inspection, Resolution: resolution}); err != nil {
+			return err
+		}
+	}
+	return json.NewEncoder(os.Stdout).Encode(summarize(inspection, resolution, time.Since(started).Milliseconds()))
+}
+
+type evidence struct {
+	word.Inspection
+	Resolution word.Resolution `json:"resolution"`
+}
+
+type summary struct {
+	Parts              int            `json:"parts"`
+	Paragraphs         int            `json:"paragraphs"`
+	Runs               int            `json:"runs"`
+	Assets             int            `json:"assets"`
+	Findings           map[string]int `json:"findings"`
+	ResolvedLabels     int            `json:"resolvedLabels"`
+	UnresolvedLabels   int            `json:"unresolvedLabels"`
+	ResolvedMarks      int            `json:"resolvedMarks"`
+	ResolutionFindings map[string]int `json:"resolutionFindings"`
+	ElapsedMS          int64          `json:"elapsedMs"`
+}
+
+func summarize(inspection word.Inspection, resolution word.Resolution, elapsed int64) summary {
+	report := summary{Parts: len(inspection.Parts), Assets: len(inspection.Assets), Findings: map[string]int{}, ResolutionFindings: map[string]int{}, ElapsedMS: elapsed}
 	for _, part := range inspection.Parts {
 		report.Paragraphs += len(part.Paragraphs)
 		for _, p := range part.Paragraphs {
@@ -65,15 +89,33 @@ func run() error {
 	for _, finding := range inspection.Findings {
 		report.Findings[finding.Code]++
 	}
-	if *output != "" {
-		if err := writeEvidence(*output, inspection); err != nil {
-			return err
-		}
+	for _, finding := range resolution.Findings {
+		report.ResolutionFindings[finding.Code]++
 	}
-	return json.NewEncoder(os.Stdout).Encode(report)
+	for _, paragraph := range resolution.Paragraphs {
+		report.addParagraph(paragraph)
+	}
+	return report
 }
 
-func writeEvidence(name string, inspection word.Inspection) error {
+func (s *summary) addParagraph(p word.ResolvedParagraph) {
+	if p.Numbering != nil {
+		if p.Numbering.Resolved {
+			s.ResolvedLabels++
+		} else {
+			s.UnresolvedLabels++
+		}
+	}
+	for _, run := range p.Runs {
+		for _, mark := range run.Marks {
+			if mark.Resolved {
+				s.ResolvedMarks++
+			}
+		}
+	}
+}
+
+func writeEvidence(name string, inspection evidence) error {
 	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err

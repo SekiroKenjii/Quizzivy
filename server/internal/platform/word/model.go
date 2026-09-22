@@ -66,6 +66,7 @@ type Run struct {
 
 // Property retains a namespaced property and its attributes for the semantic resolver.
 type Property struct {
+	Path       string            `json:"path,omitempty"`
 	Name       string            `json:"name"`
 	Text       string            `json:"text,omitempty"`
 	Attributes map[string]string `json:"attributes,omitempty"`

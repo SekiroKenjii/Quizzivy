@@ -165,7 +165,7 @@ func sourceText(n *element) (string, bool) {
 	switch n.name.Local {
 	case "t", "delText", "instrText":
 		return n.text.String(), true
-	case "tab":
+	case elementTab:
 		return "\t", true
 	case "br", "cr":
 		return "\n", true
@@ -215,7 +215,7 @@ func isUnresolvedObject(n *element) bool {
 }
 
 func isContainer(n *element) bool {
-	for _, name := range []string{"tbl", "tr", "tc", "ins", "del", "moveFrom", "moveTo", "txbxContent", "footnote", "endnote", "comment", "hyperlink", "sdt", "fldSimple", elementDrawing, elementPicture} {
+	for _, name := range []string{"tbl", "tr", "tc", "ins", "del", "moveFrom", "moveTo", elementTextBox, "footnote", "endnote", "comment", "hyperlink", "sdt", "fldSimple", elementDrawing, elementPicture} {
 		if n.word(name) {
 			return true
 		}
@@ -261,7 +261,7 @@ func properties(n *element) []Property {
 }
 
 func property(n *element) Property {
-	return Property{Name: "{" + n.name.Space + "}" + n.name.Local, Text: n.text.String(), Attributes: attributes(n), Children: properties(n)}
+	return Property{Path: n.path, Name: "{" + n.name.Space + "}" + n.name.Local, Text: n.text.String(), Attributes: attributes(n), Children: properties(n)}
 }
 
 func attributes(n *element) map[string]string {
