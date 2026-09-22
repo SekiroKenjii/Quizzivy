@@ -97,7 +97,7 @@ export function SideColumn({
         tabIndex={0}
         className={cn(
           "group focus-visible:ring-ring absolute inset-y-0 z-10 w-1.5 cursor-col-resize touch-none outline-none focus-visible:ring-2",
-          side === "left" ? "-right-0.75" : "-left-0.75",
+          side === "left" ? "right-0" : "left-0",
         )}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

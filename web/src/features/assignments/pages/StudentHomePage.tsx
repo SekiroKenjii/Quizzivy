@@ -51,7 +51,7 @@ export default function StudentHomePage() {
   });
   const name = givenName(user?.fullName ?? "");
   const heading = (
-    <h1 className="text-xl font-semibold tracking-tight">
+    <h1 className="text-2xl font-semibold tracking-tight">
       {t("student.greetingPlain", { name })}
     </h1>
   );
@@ -130,50 +130,63 @@ export default function StudentHomePage() {
         )}
       </div>
       {all.length > 0 && (
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
-            <label htmlFor="student-class-filter" className="text-sm">
-              {t("student.filterClass")}
-            </label>
-            <Select value={classId} onValueChange={(v) => filter("classId", v)}>
-              <SelectTrigger id="student-class-filter" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="student-surface">
-                <SelectItem value="all">{t("student.allClasses")}</SelectItem>
-                {[...classNames].map(([id, name]) => (
-                  <SelectItem key={id} value={id}>
-                    {name}
-                  </SelectItem>
-                ))}
-                {classId !== "all" && !classNames.has(classId) && (
-                  <SelectItem value={classId}>{t("student.unknownClass")}</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-wrap items-end gap-3 lg:flex-1">
+            <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
+              <label htmlFor="student-class-filter" className="text-sm">
+                {t("student.filterClass")}
+              </label>
+              <Select value={classId} onValueChange={(v) => filter("classId", v)}>
+                <SelectTrigger id="student-class-filter" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="student-surface">
+                  <SelectItem value="all">{t("student.allClasses")}</SelectItem>
+                  {[...classNames].map(([id, name]) => (
+                    <SelectItem key={id} value={id}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                  {classId !== "all" && !classNames.has(classId) && (
+                    <SelectItem value={classId}>{t("student.unknownClass")}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            {(classId !== "all" || view !== "all") && (
+              <Button variant="ghost" onClick={clear}>
+                {t("student.clearFilters")}
+              </Button>
+            )}
           </div>
-          <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
-            <label htmlFor="student-status-filter" className="text-sm">
-              {t("student.filterStatus")}
-            </label>
-            <Select value={view} onValueChange={(v) => filter("view", v)}>
-              <SelectTrigger id="student-status-filter" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="student-surface">
-                {["all", "open", "upcoming", "completed"].map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`student.views.${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div
+            role="group"
+            aria-label={t("student.filterStatus")}
+            className="bg-muted/40 grid grid-cols-2 gap-1 rounded-lg border p-1 shadow-xs sm:inline-flex"
+          >
+            {[
+              {
+                value: "all",
+                count: dueNow.length + upcoming.length + completed.length,
+              },
+              { value: "open", count: dueNow.length },
+              { value: "upcoming", count: upcoming.length },
+              { value: "completed", count: completed.length },
+            ].map(({ value, count }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={view === value}
+                onClick={() => filter("view", value)}
+                className={`focus-visible:ring-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:ring-2 motion-reduce:transition-none ${view === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}
+              >
+                {t(`student.views.${value}`)}
+                <span className="bg-muted min-w-5 rounded px-1.5 text-xs tabular-nums">
+                  {count}
+                </span>
+              </button>
+            ))}
           </div>
-          {(classId !== "all" || view !== "all") && (
-            <Button variant="ghost" onClick={clear}>
-              {t("student.clearFilters")}
-            </Button>
-          )}
         </div>
       )}
       {visible === 0 && (
@@ -222,7 +235,7 @@ export default function StudentHomePage() {
       {showUpcoming && upcoming.length > 0 && (
         <Section title={t("student.upcoming", { count: upcoming.length })}>
           {upcoming.map((card) => (
-            <Card key={card.id} className="min-w-0 gap-2 p-5">
+            <Card key={card.id} className="surface-lift min-w-0 gap-2 p-5 shadow-sm">
               <p className="text-base font-semibold break-words">{card.testTitle}</p>
               {card.className && (
                 <p className="text-muted-foreground text-xs">{card.className}</p>
@@ -248,7 +261,10 @@ export default function StudentHomePage() {
       {showCompleted && completed.length > 0 && (
         <Section title={t("student.completed", { count: completed.length })}>
           {completed.map((card) => (
-            <Card key={card.id} className="min-w-0 flex-row items-center gap-3 p-4">
+            <Card
+              key={card.id}
+              className="surface-lift min-w-0 flex-row items-center gap-3 p-4 shadow-xs"
+            >
               <div className="min-w-0 flex-1">
                 {card.lastAttemptId ? (
                   <Link
@@ -296,7 +312,7 @@ function Section({
 function DueCard({ card, now }: Readonly<{ card: StudentAssignmentCard; now: Date }>) {
   const { t } = useTranslation();
   return (
-    <Card className="min-w-0 gap-0 p-5">
+    <Card className="surface-lift min-w-0 gap-0 p-5 shadow-sm">
       <div className="min-w-0 flex-1">
         <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center">
           <Badge
@@ -370,7 +386,7 @@ function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
   };
 
   return (
-    <Card className="border-foreground/20 min-w-0 gap-0 p-5">
+    <Card className="surface-lift border-foreground/20 bg-muted/30 min-w-0 gap-0 p-5 shadow-sm">
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-3">
           <History
@@ -378,7 +394,10 @@ function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
             aria-hidden="true"
           />
           <div className="min-w-0">
-            <p className="text-sm font-semibold">{t("student.resumeTitle")}</p>
+            <p className="text-base font-semibold">{t("student.resumeTitle")}</p>
+            {card.className && (
+              <p className="text-muted-foreground mt-1 text-xs">{card.className}</p>
+            )}
             <ResumeBody card={card} />
           </div>
         </div>

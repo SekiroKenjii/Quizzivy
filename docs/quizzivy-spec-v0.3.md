@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.6 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.7 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.6**
+
+- Dashboard work cards lead into a full-width assignment table and compact activity below.
+- Student discovery has counted status filters and prominent resume cards.
+- Teacher and student settings share Profile, Security and Preferences routes,
+  persistent forms, section navigation and separated form rows.
+- Subtle shadows, hover feedback and 150ms section transitions respect reduced motion.
 
 **Changes since v0.5**
 
@@ -362,7 +370,7 @@ type Answer =
 | `/admin/attempts/:id` | Review & grading | Per question; auto-graded shown; `short_answer` gets points input + comment + **sample answer panel**. Audio questions show plays used vs allowed. **Integrity timeline tab** (§10.4). "Finish grading" → `graded`. |
 | `/admin/students` | Students | Table + create/edit. Linked providers, `joined_via`. Reset password. CSV import (P1). |
 | `/admin/classes`, `/admin/classes/:id` | Classes | CRUD, members, **join-code panel** (§6.4). |
-| `/admin/settings` | Settings | Profile, password, link/unlink Google, language. |
+| `/admin/settings/:section?` | Settings | Profile (default), security (password and Google) and preferences (language), with desktop section navigation and a mobile select. |
 
 Admin list behaviour (approved change request, 2026-09-22):
 
@@ -380,7 +388,7 @@ Admin list behaviour (approved change request, 2026-09-22):
 `StudentLayout`: minimal top bar, no sidebar, mobile-first, safe-area padding.
 Navigation branches at 1024px; the route outlet stays mounted across that
 breakpoint. Home and classes fill the available width with adaptive card grids.
-Intro, results and settings are centred at a maximum 720px reading width, with
+Intro and results are centred at a maximum 720px reading width, with
 facts and primary actions in the same flow. The focus engine retains a separate
 resizable question navigator (256px default, 224–384px), with a preference
 independent of the teacher panel. `PublicLayout`: logo + centred content.
@@ -394,7 +402,7 @@ independent of the teacher panel. `PublicLayout`: logo + centred content.
 | `/app/attempts/:id` | Focus | The engine. §10, §11.3. |
 | `/app/attempts/:id/result` | Student | Score (if allowed), per-question review honoring `review.*`, transcript if `showTranscriptAfterSubmit`. "Pending grading" notice when the score is published and `pendingManual > 0`. Summary above answers, full paper title on phones. Wrong-answer filters exist only when scores are published; empty filters explain why and offer all questions. |
 | `/app/classes` | Student | Classes joined with assignment counts and links to `/app?classId=…`; one join action → `/join`. |
-| `/app/settings` | Student | Account summary, profile, password, link/unlink Google, language, sign-out in one stable form flow. |
+| `/app/settings/:section?` | Student | Profile (default), security and preferences share section navigation with teacher settings. Forms remain mounted while changing section or viewport; mobile uses a section select. |
 
 Shared: `/change-password`, `/403`, `/404`, global error boundary with reload + copyable error ID.
 
@@ -519,10 +527,10 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, oversized radii (max `rounded-md` controls, `rounded-lg` cards), emoji in UI chrome.
 - **Typography:** system UI stack or Inter. Match the mockup scale: xs 12px, sm 13px, base 14px, lg 17px, xl 20px, with proportional line heights. Phone text inputs stay at 16px to avoid input zoom; student phone buttons, icon controls and question navigation cells are at least 44px in both dimensions; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
-- **Density:** admin tables dense (~40px rows). Student discovery grids use one column on phones, two from 768px, three from 1536px. Reading and form pages are centred at 720px; no sparse side panels. Student test view stays spacious, one question centred at max-width ~720px beside the navigator. This approved review supersedes S-13–S-17's placement of ordinary page content in a right panel.
+- **Density:** admin tables dense (~40px rows). Student discovery grids use one column on phones, two from 768px, three from 1536px. Reading pages are centred at 720px; settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows. Student test view stays spacious, one question centred at max-width ~720px beside the navigator. This approved review supersedes S-13–S-17's placement of ordinary page content in a right panel.
 - **Action hierarchy:** resume is primary; opening assignment details and entering a class are secondary. Deadline badges turn amber only within 24 hours. The 320px test footer has previous, an icon-only question-list control and a flexible next/review action. Review submission remains outside the scrolling summary. Submission confirmation offers the submitted paper directly.
 - **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. Restored answers say they were loaded; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
-- **Motion:** 150ms ease-out on state change; no entrance animations. Respect `prefers-reduced-motion`.
+- **Motion:** 150ms ease-out for control feedback and settings section changes. Cards use subtle shadows and a 2px hover lift on pointer devices. Disable these transitions under `prefers-reduced-motion`; exam inputs remain stationary.
 - **Audio player:** monochrome. A filled `zinc-900` play button, a thin `zinc-200` track with a `zinc-900` fill. No waveform visualisation, no equaliser animation, no colored accents.
 - **Join screens:** single centered card, class name large, one primary button. This is the first thing a new student sees — it should look calm and legitimate, not like a marketing page.
 - **Dark mode:** not in v1, but theme via CSS variables / Tailwind tokens so it can be added without touching components.

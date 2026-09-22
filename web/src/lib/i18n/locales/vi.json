@@ -441,6 +441,14 @@
     "errors": {
       "nameRequired": "Họ và tên không được để trống.",
       "nameTooLong": "Họ và tên tối đa 200 ký tự."
+    },
+    "description": "Quản lý hồ sơ, bảo mật và tuỳ chọn tài khoản của bạn.",
+    "navigation": "Mục cài đặt",
+    "roleTeacher": "Giáo viên",
+    "sections": {
+      "profile": "Hồ sơ",
+      "security": "Bảo mật",
+      "preferences": "Tuỳ chọn"
     }
   },
   "media": {
@@ -837,7 +845,9 @@
     "closingSoon": "Bài sắp đóng",
     "closingContext": "{{title}} · {{when}} · {{submitted}}/{{total}} đã nộp",
     "noClosingSoon": "Không có bài đóng trong 24 giờ tới",
-    "notOpenYet": "chưa mở"
+    "notOpenYet": "chưa mở",
+    "overviewHint": "Theo dõi bài giao và những việc cần xử lý hôm nay.",
+    "activeAssignmentsHint": "Tối đa 10 bài đang mở hoặc sắp mở, theo hạn nộp gần nhất."
   },
   "assignments": {
     "summary": "{{count}} bài giao · {{open}} đang mở",

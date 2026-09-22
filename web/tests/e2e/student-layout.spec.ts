@@ -100,6 +100,8 @@ test("unsaved settings survive crossing the desktop breakpoint and password visi
   await page.setViewportSize({ width: 320, height: 900 });
   await expect(name).toHaveValue("Tên đang chỉnh sửa");
   await fits(page);
+  await page.getByRole("combobox", { name: "Mục cài đặt" }).selectOption("security");
+  await expect(page).toHaveURL(/settings\/security$/);
   const password = page.getByLabel("Mật khẩu mới", { exact: true });
   await password.fill("Test-only-password");
   await page.getByRole("button", { name: "Hiện mật khẩu" }).last().click();
@@ -107,7 +109,10 @@ test("unsaved settings survive crossing the desktop breakpoint and password visi
   await page.getByRole("button", { name: "Ẩn mật khẩu" }).click();
   await expect(password).toHaveAttribute("type", "password");
   await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(password).toHaveValue("Test-only-password");
+  await page.getByRole("link", { name: "Hồ sơ", exact: true }).click();
   await expect(name).toHaveValue("Tên đang chỉnh sửa");
+  await page.getByRole("link", { name: "Bảo mật", exact: true }).click();
   await expect(password).toHaveValue("Test-only-password");
   await page.screenshot({ path: info.outputPath("settings-1440.png"), fullPage: true });
 });
@@ -170,4 +175,26 @@ test("English student controls fit a 320px phone", async ({ page }) => {
   await page.goto("/app/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await fits(page);
+});
+
+test("status filters expose counts and retain their selection through browser back", async ({
+  page,
+}) => {
+  await student(page);
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.goto("/app");
+  const filters = page.getByRole("group", { name: "Trạng thái" });
+  await expect(filters.getByRole("button", { name: "Tất cả bài 3" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await filters.getByRole("button", { name: "Đã hoàn thành 0" }).click();
+  await expect(page).toHaveURL(/view=completed/);
+  await expect(page.getByText("Không có bài phù hợp với bộ lọc.")).toBeVisible();
+  await page.goBack();
+  await expect(filters.getByRole("button", { name: "Tất cả bài 3" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByRole("button", { name: "Tiếp tục làm bài" })).toHaveCount(2);
 });

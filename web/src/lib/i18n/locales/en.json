@@ -441,6 +441,14 @@
     "errors": {
       "nameRequired": "Enter your name.",
       "nameTooLong": "A name is at most 200 characters."
+    },
+    "description": "Manage your profile, security and account preferences.",
+    "navigation": "Settings section",
+    "roleTeacher": "Teacher",
+    "sections": {
+      "profile": "Profile",
+      "security": "Security",
+      "preferences": "Preferences"
     }
   },
   "media": {
@@ -837,7 +845,9 @@
     "closingSoon": "Closing soon",
     "closingContext": "{{title}} · {{when}} · {{submitted}}/{{total}} submitted",
     "noClosingSoon": "No assignments close in the next 24 hours",
-    "notOpenYet": "not open yet"
+    "notOpenYet": "not open yet",
+    "overviewHint": "Keep track of assignments and work that needs your attention.",
+    "activeAssignmentsHint": "Up to 10 open or upcoming assignments, ordered by deadline."
   },
   "assignments": {
     "summary": "{{count}} assignments · {{open}} open",

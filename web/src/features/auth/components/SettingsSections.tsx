@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/sonner";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
@@ -36,19 +35,14 @@ function Section({
   children: ReactNode;
 }>) {
   return (
-    <Card asChild className="gap-0 py-0">
-      <section aria-labelledby={labelledBy}>
-        <div className="px-5 pt-4 pb-3">
-          <h2
-            id={labelledBy}
-            className="text-[0.9375rem] font-semibold tracking-[-0.01em]"
-          >
-            {title}
-          </h2>
-        </div>
-        <div className="px-5 pb-4">{children}</div>
-      </section>
-    </Card>
+    <section aria-labelledby={labelledBy} className="space-y-5">
+      <div className="space-y-1 border-b pb-4">
+        <h2 id={labelledBy} className="text-lg font-semibold tracking-tight">
+          {title}
+        </h2>
+      </div>
+      <div>{children}</div>
+    </section>
   );
 }
 
@@ -88,8 +82,8 @@ export function ProfileSection() {
 
   return (
     <Section title={t("settings.profile")} labelledBy="settings-profile">
-      <form onSubmit={(e) => void onSubmit(e)} className="space-y-3" noValidate>
-        <div className="space-y-1.5">
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-5" noValidate>
+        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
           <Label htmlFor="settings-name">{t("settings.fullName")}</Label>
           <Input
             id="settings-name"
@@ -105,7 +99,7 @@ export function ProfileSection() {
             </p>
           ) : null}
         </div>
-        <div className="space-y-1.5">
+        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
           <Label htmlFor="settings-email">{t("settings.email")}</Label>
           <Input
             id="settings-email"
@@ -170,8 +164,8 @@ export function PasswordSection() {
 
   return (
     <Section title={t("settings.password")} labelledBy="settings-password">
-      <form onSubmit={(e) => void onSubmit(e)} className="space-y-3" noValidate>
-        <div className="space-y-1.5">
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-5" noValidate>
+        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
           <Label htmlFor="settings-current">{t("changePassword.current")}</Label>
           <PasswordInput
             id="settings-current"
@@ -181,7 +175,7 @@ export function PasswordSection() {
             {...form.register("currentPassword")}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="grid gap-2 border-b pb-5 sm:grid-cols-[minmax(9rem,1fr)_minmax(0,2fr)] sm:gap-x-6 [&>label]:sm:pt-3 [&>p]:sm:col-start-2">
           <Label htmlFor="settings-new">{t("changePassword.new")}</Label>
           <PasswordInput
             id="settings-new"

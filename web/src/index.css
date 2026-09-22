@@ -138,3 +138,40 @@
     }
   }
 }
+
+@keyframes settings-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-panel:not([hidden]) {
+  animation: settings-enter 150ms ease-out;
+}
+
+.surface-lift {
+  transition:
+    box-shadow 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .surface-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-panel:not([hidden]) {
+    animation: none;
+  }
+  .surface-lift {
+    transition: none;
+  }
+}

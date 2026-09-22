@@ -1,11 +1,11 @@
 # Student layouts and interaction rules
 
-This plan implements the student design contract in spec v0.5, §9 and §12.
+This plan implements the student design contract in spec v0.7, §9 and §12.
 
 ## Layout and navigation
 
 Home and classes use the full available width with adaptive grids. Assignment
-intro, results and settings use a centred 720px reading column. These pages no
+intro and results use a centred 720px reading column. These pages no
 longer reserve a sparse right panel. The exam retains its navigator at 256px by
 default with a 224–384px range and a storage key separate from teacher panels.
 The student outlet and settings forms keep their identity across 1024px.
@@ -30,7 +30,12 @@ that extra plays are recorded. Wrong-result filters are absent when score review
 is disabled, and empty filters explain their state. The full title and summary
 appear above result questions on both phone and desktop.
 
-Settings has account context and editable sections in one reading flow. Password
+Settings shares the teacher layout: Profile, Security and Preferences URLs, a
+192px desktop navigation column and a mobile section select. Forms remain mounted
+across section changes. Divided rows keep labels separate from controls; the form
+column is capped at 768px. Home status filters show counts beside their labels.
+Cards use subtle shadows and pointer hover feedback; section transitions last
+150ms and respect reduced motion. Password
 fields support reversible visibility. Login links to class joining; signed-in
 join pages identify the current account and offer return navigation.
 
