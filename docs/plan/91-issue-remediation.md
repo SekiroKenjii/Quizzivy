@@ -35,8 +35,9 @@ claims are recorded in `../audits/2026-09-22-open-issues.md`.
 - [x] #82 maintenance tooling and retention documentation.
 - [x] #79 local restore drill/tooling and #81 opt-in monitor. Neon production
       PITR and delivered notifications remain pending external setup.
-- [ ] Final full lint/CI and contract drift on the committed tree. Local test,
-      build and issue evidence is recorded in `../audits/2026-09-22-remediation.md`.
+- [x] Full local tests, build, lint and generated contract verification; PR #98
+      repeats the full checks in CI. Evidence and remaining production acceptance
+      are recorded in `../audits/2026-09-22-remediation.md`.
 
 ## Newly reproduced defects
 

@@ -118,7 +118,14 @@ Row numbers refer to the baseline audit, which preserves the original claims.
   Observed execution times were 0.039–1.016ms on the small local dataset;
   these are review evidence, not the deferred volume/p95 benchmark.
 
-Final lint/CI results are recorded below when complete.
+- Final local lint passed: ESLint over all 366 files in bounded batches;
+  Go vet, staticcheck and golangci-lint reported zero issues. The final focused
+  student/integrity/publish regression run passed 166/166 tests in 24 files.
+- [PR #98](https://github.com/SekiroKenjii/Quizzivy/pull/98) carries the complete
+  diff and current CI checks. Contract CI independently checks regeneration
+  drift; Server CI repeats the migration round trip on a clean PG18 database.
+  The repository runs Sonar only on pushes to develop, so PR runs skip it by
+  existing policy.
 
 ## Resource discipline
 
@@ -126,7 +133,9 @@ After the desktop crash, checks ran sequentially with one web/browser worker,
 Go concurrency limited to two CPUs and one package build, and Node heap capped
 at 1 GiB. A local process-group guard refuses a heavy run below 2.5 GiB available
 RAM and stops its own task below 2 GiB; unrelated applications are untouched.
-The guard stopped one redundant E2E rebuild when host memory dipped. The
+The guard stopped redundant build/lint runs when host memory dipped. Isolated
+ESLint attempts also reached their heap cap; splitting the same complete set
+into 20-file batches passed without weakening any lint rule. The
 remaining browser check reused the finished build and passed. Playwright starts
 its web server in a separate process group, so the guard was extended to track
 owned descendants as well; the leftover preview was explicitly cleaned up.

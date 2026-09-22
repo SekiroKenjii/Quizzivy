@@ -3,6 +3,15 @@
 **Version:** 0.4 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes since v0.3**
+
+- Pending student answers survive a failed save/reload within the same session;
+  manual submission waits for the final save. Keyboard editing/navigation rules
+  are explicit in §9.
+- §12 pins the mockup type scale and phone input/touch exceptions.
+- Approved O-23 defines thirteen-month integrity retention, retained audit logs
+  and manual structured-identity anonymization in §13.3.
+
 **Changes since v0.2**
 - **OQ-2 answered: yes** — students self-join with a class code. New §6, new `/join` flow, join-code lifecycle in the schema. This adds a public, unauthenticated surface that did not exist before; read §6.5 on the security consequences.
 - **OQ-3 answered: yes** — audio (listening) questions ship in v1, with upload and a custom player. New §11, new `media_assets` table, object storage added to the stack.
