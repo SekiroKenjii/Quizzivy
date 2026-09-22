@@ -23,9 +23,9 @@ test("answer selection and option text have distinct accessible names", () => {
     "type",
     "radio",
   );
-  expect(
-    screen.getByRole("textbox", { name: "Nội dung lựa chọn 1" }),
-  ).toHaveValue("think");
+  expect(screen.getByRole("textbox", { name: "Nội dung lựa chọn 1" })).toHaveValue(
+    "think",
+  );
 });
 
 test("the pilot flag gates new formatting while existing content remains editable", () => {
