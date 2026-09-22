@@ -36,8 +36,14 @@ async function setOptions(page: Page, texts: string[]) {
 /** Adds one question of `type` to the open builder and fills in its answer. */
 async function addQuestion(page: Page, type: string, prompt: string) {
   await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
-  await expect(page.getByRole("tab", { name: type })).toBeVisible();
+  await expect(page.getByLabel("Nội dung câu hỏi")).toHaveValue(
+    "Câu hỏi mới — nhập nội dung ở đây",
+  );
   await page.getByRole("tab", { name: type }).click();
+  await expect(page.getByRole("tab", { name: type })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 
   await page.getByLabel("Nội dung câu hỏi").click();
   await page.getByLabel("Nội dung câu hỏi").fill(prompt);
