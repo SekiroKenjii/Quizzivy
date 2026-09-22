@@ -65,56 +65,96 @@ const question = {
   updatedAt: "2026-01-01T00:00:00Z",
 };
 
-
 const SECOND = "018f0000-0000-7000-8000-0000000000b2";
 let savedPrompt = question.prompt;
 
 beforeEach(() => {
   savedPrompt = question.prompt;
   server.use(
-    http.get(`${BASE}/admin/tests/:id`, () => contractJson("/admin/tests/{id}", "get", 200, {
-      ...test, questionCount: 2, totalPoints: 2,
-      sections: [{ ...test.sections[0], questionIds: [QUESTION_ID, SECOND] }],
-    })),
-    http.get(`${BASE}/admin/questions/:id`, ({ params }) => contractJson("/admin/questions/{id}", "get", 200, {
-      ...question, id: String(params.id), prompt: params.id === SECOND ? "Second question" : savedPrompt,
-    })),
+    http.get(`${BASE}/admin/tests/:id`, () =>
+      contractJson("/admin/tests/{id}", "get", 200, {
+        ...test,
+        questionCount: 2,
+        totalPoints: 2,
+        sections: [{ ...test.sections[0], questionIds: [QUESTION_ID, SECOND] }],
+      }),
+    ),
+    http.get(`${BASE}/admin/questions/:id`, ({ params }) =>
+      contractJson("/admin/questions/{id}", "get", 200, {
+        ...question,
+        id: String(params.id),
+        prompt: params.id === SECOND ? "Second question" : savedPrompt,
+      }),
+    ),
   );
 });
 
 async function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter([{ path: "/admin/tests/:id/edit", element: <TestBuilderPage /> }], { initialEntries: [`/admin/tests/${TEST_ID}/edit`] });
-  render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>);
+  const router = createMemoryRouter(
+    [{ path: "/admin/tests/:id/edit", element: <TestBuilderPage /> }],
+    { initialEntries: [`/admin/tests/${TEST_ID}/edit`] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
   await screen.findByDisplayValue(question.prompt);
-  await screen.findByRole("button", { name: "Second question", exact: true });
+  await screen.findByRole("button", { name: "Second question" });
   return userEvent.setup();
 }
 
 it("waits for the latest save before switching and shows that edit on the first return", async () => {
   let finish: (() => void) | undefined;
-  server.use(http.patch(`${BASE}/admin/questions/:id`, async ({ request }) => {
-    const body = await request.json() as { prompt: string };
-    await new Promise<void>((resolve) => { finish = resolve; });
-    savedPrompt = body.prompt;
-    return contractJson("/admin/questions/{id}", "patch", 200, { ...question, prompt: savedPrompt });
-  }));
+  server.use(
+    http.patch(`${BASE}/admin/questions/:id`, async ({ request }) => {
+      const body = (await request.json()) as { prompt: string };
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      savedPrompt = body.prompt;
+      return contractJson("/admin/questions/{id}", "patch", 200, {
+        ...question,
+        prompt: savedPrompt,
+      });
+    }),
+  );
   const user = await mount();
   await user.type(screen.getByDisplayValue(question.prompt), " Updated");
-  await user.click(screen.getByRole("button", { name: "Second question", exact: true }));
+  await user.click(screen.getByRole("button", { name: "Second question" }));
   await waitFor(() => expect(finish).toBeDefined());
-  expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(`${question.prompt} Updated`);
-  await act(async () => { finish?.(); });
+  expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(
+    `${question.prompt} Updated`,
+  );
+  await act(async () => {
+    finish?.();
+  });
   await screen.findByDisplayValue("Second question");
-  await user.click(await screen.findByRole("button", { name: `${question.prompt} Updated`, exact: true }));
-  await waitFor(() => expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(`${question.prompt} Updated`));
+  await user.click(
+    await screen.findByRole("button", { name: `${question.prompt} Updated` }),
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(
+      `${question.prompt} Updated`,
+    ),
+  );
 });
 
 it("keeps the edited question open when its final save fails", async () => {
-  server.use(http.patch(`${BASE}/admin/questions/:id`, () => HttpResponse.json({ error: { code: "INTERNAL_ERROR", message: "Save failed" } }, { status: 500 })));
+  server.use(
+    http.patch(`${BASE}/admin/questions/:id`, () =>
+      HttpResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Save failed" } },
+        { status: 500 },
+      ),
+    ),
+  );
   const user = await mount();
   await user.type(screen.getByDisplayValue(question.prompt), " Unsaved");
-  await user.click(screen.getByRole("button", { name: "Second question", exact: true }));
+  await user.click(screen.getByRole("button", { name: "Second question" }));
   await screen.findByText("Save failed");
-  expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(`${question.prompt} Unsaved`);
+  expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(
+    `${question.prompt} Unsaved`,
+  );
 });
