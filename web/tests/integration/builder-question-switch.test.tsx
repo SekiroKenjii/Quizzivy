@@ -101,6 +101,9 @@ async function mount() {
     </QueryClientProvider>,
   );
   await screen.findByDisplayValue(question.prompt);
+  await act(async () => {
+    await import("@/features/tests/components/OutlineTree");
+  });
   await screen.findByRole("button", { name: "Second question" });
   return userEvent.setup();
 }
