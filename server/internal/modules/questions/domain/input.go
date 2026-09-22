@@ -115,12 +115,7 @@ func validateOptions(in Input, add func(string, string)) {
 	}
 	correct := 0
 	for i, o := range in.Options {
-		if err := o.ValidateContent(); err != nil {
-			add(fmt.Sprintf("options[%d].content", i), "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.")
-		}
-		if strings.TrimSpace(o.Text) == "" {
-			add(fmt.Sprintf("options[%d].text", i), "Nội dung phương án không được để trống.")
-		}
+		validateOptionText(i, o, add)
 		if o.IsCorrect {
 			correct++
 		}
@@ -228,4 +223,13 @@ func (o OptionInput) ValidateContent() error {
 		return content.ErrInvalidDocument
 	}
 	return nil
+}
+
+func validateOptionText(index int, option OptionInput, add func(string, string)) {
+	if err := option.ValidateContent(); err != nil {
+		add(fmt.Sprintf("options[%d].content", index), "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.")
+	}
+	if strings.TrimSpace(option.Text) == "" {
+		add(fmt.Sprintf("options[%d].text", index), "Nội dung phương án không được để trống.")
+	}
 }

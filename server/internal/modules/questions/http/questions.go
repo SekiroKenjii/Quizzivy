@@ -287,10 +287,7 @@ func toQuestionInput(body openapi.QuestionInput) domain.Input {
 	if body.Options != nil {
 		for _, o := range *body.Options {
 			option := domain.OptionInput{Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect}
-			if o.Id != nil {
-				id := o.Id.String()
-				option.ID = &id
-			}
+			option.ID = optionID(o.Id)
 			in.Options = append(in.Options, option)
 		}
 	}
@@ -391,4 +388,12 @@ func (h Questions) TagQuestions(ctx context.Context, request openapi.TagQuestion
 		return nil, err
 	}
 	return openapi.TagQuestions200JSONResponse{Updated: updated}, nil
+}
+
+func optionID(id *openapi.Uuid) *string {
+	if id == nil {
+		return nil
+	}
+	value := id.String()
+	return &value
 }

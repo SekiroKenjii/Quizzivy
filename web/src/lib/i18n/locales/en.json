@@ -589,7 +589,8 @@
     "formatOption": "Format option {{n}}",
     "editFormattedOption": "Edit formatted option {{n}}",
     "removeFormatting": "Remove formatting",
-    "doneFormatting": "Done"
+    "doneFormatting": "Done",
+    "optionTextLabel": "Option {{n}} text"
   },
   "builder": {
     "outline": "Structure",

@@ -32,7 +32,7 @@ export function OptionField({
 }>) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const label = t("questionEditor.optionPlaceholder", { n: index + 1 });
+  const label = t("questionEditor.optionTextLabel", { n: index + 1 });
   const canFormat =
     content != null || import.meta.env.VITE_RICH_OPTION_EDITOR === "true";
   return (
@@ -84,7 +84,7 @@ export function OptionField({
           {content == null ? (
             <Input
               value={text}
-              placeholder={label}
+              placeholder={t("questionEditor.optionPlaceholder", { n: index + 1 })}
               aria-label={label}
               onChange={(event) => onChange(event.target.value, null)}
             />

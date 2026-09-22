@@ -111,7 +111,10 @@ test("builder flushes rich edits before switching questions and previews the sav
   });
   await page.goto(`/admin/tests/${testID}/edit`);
   await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
-  const editor = page.getByRole("textbox", { name: "Lựa chọn 1", exact: true });
+  const editor = page.getByRole("textbox", {
+    name: "Nội dung lựa chọn 1",
+    exact: true,
+  });
   await editor.click();
   await page.keyboard.press("Control+a");
   await page.getByRole("button", { name: "Gạch chân", exact: true }).click();
@@ -214,7 +217,10 @@ test("bank formatting survives save and reload without changing the answer key",
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto(`/admin/question-bank/${QUESTION_ID}`);
   await page.getByRole("button", { name: "Sửa định dạng phương án 1" }).click();
-  const editor = page.getByRole("textbox", { name: "Lựa chọn 1", exact: true });
+  const editor = page.getByRole("textbox", {
+    name: "Nội dung lựa chọn 1",
+    exact: true,
+  });
   await expect(editor.locator("u")).toHaveText("th");
   await editor.click();
   await page.keyboard.press("Control+End");
@@ -239,7 +245,10 @@ test("bank formatting survives save and reload without changing the answer key",
   });
   await page.getByRole("button", { name: "Xong", exact: true }).click();
   await page.getByRole("button", { name: "Định dạng phương án 2" }).click();
-  const second = page.getByRole("textbox", { name: "Lựa chọn 2", exact: true });
+  const second = page.getByRole("textbox", {
+    name: "Nội dung lựa chọn 2",
+    exact: true,
+  });
   await second.click();
   await page.keyboard.press("Control+a");
   await second.evaluate((element) => {

@@ -392,7 +392,8 @@ JSON are refused. Text is not rewritten or Unicode-normalized during validation.
 The general content components and value object remain a foundation for rich
 prompts and grouped material. Each new profile needs matching persistence,
 publication, restoration and delivery before enabling its writes. The inline
-option profile below is the first such slice; media/group integration is pending. The renderer never resolves an asset ID
+option profile below is the first such slice; media/group integration is pending.
+The renderer never resolves an asset ID
 without an authorized media binding. Existing question payloads above remain the
 active contract except for the additive inline option rollout below.
 

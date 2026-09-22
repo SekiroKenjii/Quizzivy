@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/validation"
 
 	"github.com/jackc/pgx/v5"
@@ -42,13 +43,9 @@ func preserveOptionContent(ctx context.Context, tx pgx.Tx, questionID string, op
 		if next.Content != nil {
 			continue
 		}
-		old := byOrdinal[i]
-		matched := false
-		if next.ID != nil {
-			if found, ok := byID[*next.ID]; ok {
-				old = found
-				matched = true
-			}
+		old, matched := byID[opt.Deref(next.ID)]
+		if !matched {
+			old = byOrdinal[i]
 		}
 		if old.Content == nil {
 			continue

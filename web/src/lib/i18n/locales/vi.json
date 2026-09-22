@@ -589,7 +589,8 @@
     "formatOption": "Định dạng phương án {{n}}",
     "editFormattedOption": "Sửa định dạng phương án {{n}}",
     "removeFormatting": "Bỏ định dạng",
-    "doneFormatting": "Xong"
+    "doneFormatting": "Xong",
+    "optionTextLabel": "Nội dung lựa chọn {{n}}"
   },
   "builder": {
     "outline": "Cấu trúc",
