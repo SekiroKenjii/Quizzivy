@@ -51,7 +51,7 @@ export default function StudentLayout() {
               {!wide && (
                 <NavLink
                   to="/app/settings"
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-11 items-center justify-center rounded-md focus-visible:ring-2"
+                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-2"
                   aria-label={t("nav.settings")}
                 >
                   <User className="size-5" aria-hidden="true" />
@@ -78,7 +78,7 @@ export default function StudentLayout() {
 
 const link = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md px-3 text-sm whitespace-nowrap transition-colors focus-visible:ring-2 lg:min-h-8",
+    "focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm whitespace-nowrap transition-colors focus-visible:ring-2 lg:min-h-8 lg:px-3",
     isActive
       ? "bg-secondary text-secondary-foreground"
       : "text-muted-foreground hover:text-foreground",
