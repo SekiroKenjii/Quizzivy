@@ -4,10 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { SubmitReason } from "../store";
 import { formatTime, shortDate } from "@/lib/i18n/datetime";
 
-/**
- * S-06's closed state: the engine chrome is gone, the cause is said once in
- * the title, and "Về trang chủ" is the only control.
- */
+/** SubmittedScreen confirms the submission and offers the submitted paper or home. */
 export function SubmittedScreen({
   reason,
   submittedAt,

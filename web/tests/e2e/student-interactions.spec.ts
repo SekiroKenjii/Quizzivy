@@ -61,8 +61,7 @@ function paper(): Session {
     },
   };
 }
-async function start(page: Page) {
-  const data = paper();
+async function start(page: Page, data: Session = paper()) {
   await stubApi(page, {
     ...sessionAs(studentUser),
     "GET /app/attempts/paper": { body: data },
@@ -126,3 +125,30 @@ for (const width of [320, 360, 1024, 1440]) {
     await expect(page.getByRole("dialog")).toBeVisible();
   });
 }
+
+test("a long paper keeps review actions reachable on a 320px phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  const data = paper();
+  data.questions = Array.from({ length: 80 }, (_, index) => ({
+    ...data.questions[0]!,
+    id: `question-${index}`,
+  }));
+  await start(page, data);
+  await page.getByRole("button", { name: "Danh sách câu", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Xem lại & nộp", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Xem lại trước khi nộp" }),
+  ).toBeVisible();
+  const submit = page.getByRole("button", { name: "Nộp bài", exact: true });
+  await expect(submit).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Quay lại làm tiếp", exact: true }),
+  ).toBeInViewport();
+  await submit.click();
+  await expect(page.getByRole("dialog")).toContainText("Còn 80 câu bạn chưa trả lời");
+});

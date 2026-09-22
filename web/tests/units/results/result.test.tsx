@@ -217,8 +217,12 @@ describe("from 1024px (S-16)", () => {
     const panel = screen;
     expect(screen.queryByRole("complementary")).toBeNull();
     expect(panel.getByText("Điểm của bạn")).toBeInTheDocument();
-    expect(panel.getByText("Đúng").nextElementSibling).toHaveTextContent("1");
-    expect(panel.getByText("Sai").nextElementSibling).toHaveTextContent("1");
+    expect(
+      panel.getByText("Đúng", { selector: "dt" }).nextElementSibling,
+    ).toHaveTextContent("1");
+    expect(
+      panel.getByText("Sai", { selector: "dt" }).nextElementSibling,
+    ).toHaveTextContent("1");
     expect(
       panel.getByText("Giáo viên không hiển thị đáp án đúng cho bài này."),
     ).toBeInTheDocument();
