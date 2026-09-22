@@ -281,3 +281,12 @@ The first prototype demonstrates contradictory keys, score-default confirmation,
 source/result switching and the commit gate. Upload/reprocessing/audio/split-merge
 and genuine persistence require the later implementation and acceptance tests;
 do not infer their completion from the prototype.
+
+The supplied corpus adds four concrete walkthrough cases: missing source
+underlines (offer correction without guessing), a 31-label exam with 35 answer
+targets (show the five-child group explicitly), a companion key containing
+several exams (confirm the matching exam and show unmatched entries), and an
+annotated homework containing learner answers plus teacher corrections (classify
+the evidence before accepting a key). Treat source defects separately from
+recognition defects in both wording and measurements. These are acceptance
+requirements, not functionality implemented by the initial source inspector.

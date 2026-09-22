@@ -34,6 +34,63 @@ On 2026-09-22 Thuong requested consideration of **both cloud API and privately
 hosted AI**. No vendor, model, external data transfer or infrastructure purchase
 has been approved. Compare both using the same evaluation protocol (§8).
 
+### 1.1 Implementation checkpoint — source evidence
+
+W-01 now has an authorized local corpus supplied by Thuong: eight DOCX files
+(five related exams, two companion-key documents and one annotated homework),
+49 two-page exam PDFs and one reference/advertising PDF. The five new exams have
+31 top-level labels and 35 answer targets each, including a five-child cloze
+group. The matching key document contains all 175 target labels. This is a
+structural correspondence check, not independent verification of answer truth.
+The PDF family has keys for 50 tests but only 49 exam files; the missing exam is
+excluded from coverage calculations. Private sources, extracted text, answer
+data, hashes and detailed local reports are not committed.
+
+PDFs are authorized **layout/semantic evaluation references**, not Word parser
+fixtures or a change to the supported upload formats. A conversion from PDF
+cannot validate original OOXML style/numbering behavior. The corpus is clustered
+in a few English-exam families; it does not yet establish broad format coverage,
+legacy `.doc` compatibility, listening coverage or a teacher-effort baseline.
+All files are inventory data until expected semantic outputs are reviewed. Any
+tuning/holdout split must account for related templates and shared key files.
+
+The W-03 source spike is `server/internal/platform/word`, with a local-only
+`cmd/word-inspect` command. It retains paragraph/run locations, explicit marks,
+table properties, relationships and unresolved object evidence; bounds ZIP/XML
+and locator growth; and does not infer questions or answers. See its README for
+limits and reproducible checks. It uses no additional dependency and is not
+wired into the API or student application. Full style/numbering resolution,
+asset decoding, semantic recognition and the W-12 coverage gate remain open.
+
+All eight supplied DOCX files pass inventory with unresolved findings retained.
+One sequential local measurement with two Go scheduler threads took 12–130 ms
+per file and 13–133 MB peak process RSS, including optional JSON output; these
+are source-inventory measurements, not end-to-end import SLOs. A synthetic
+50-question inventory benchmark took about 0.6 ms/iteration and 0.53 MB allocated
+per iteration on the development machine. A local LibreOffice rendition of one
+exam completed with a sampled process-group peak near 204 MiB. Production
+converter isolation and capacity are still unproven; this local render is not
+the W-13 security gate.
+
+Corpus-driven cases to carry into semantic validation and review:
+
+- Instructions refer to underlines missing from the five new DOCX documents
+  and their style definitions. A rendered sample confirms the missing marks.
+  Missing evidence must ask for a teacher correction, never a guessed underline.
+- Compact keys may concatenate question labels without spaces; decimal labels
+  such as `23.1` are identities, not decimal numbers. Some child keys omit the
+  `Question` prefix. Bind within the selected test, not across the whole key file.
+- Annotated homework interleaves original questions, learner responses and
+  teacher corrections. These must not be treated as interchangeable answer keys.
+- PDF references include semantic underlines, shared passages, page continuations,
+  option-label references, and three-way true/false/not-given exercises. Preserve
+  meaning or surface an explicit unsupported/mapping decision; never reduce
+  three choices to a binary true/false interaction.
+
+W-01–04 are still in progress: the editor comparison, remaining domain/API
+contracts, reviewed expected outputs, converter isolation, cloud/private model
+evaluation and teacher walkthrough are not satisfied by this extraction spike.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
