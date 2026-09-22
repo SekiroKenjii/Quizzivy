@@ -17,10 +17,14 @@ type Application struct {
 }
 
 type Commands struct {
-	Create    cqrs.CommandHandler[command.Create, domain.Test]
-	Duplicate cqrs.CommandHandler[command.Duplicate, domain.Test]
-	Publish   cqrs.CommandHandler[command.Publish, domain.PublishedVersion]
-	Update    cqrs.CommandHandler[command.Update, domain.Test]
+	CreateDraftFromVersion cqrs.CommandHandler[command.CreateDraftFromVersion, domain.Test]
+	SetCurrentVersion      cqrs.CommandHandler[command.SetCurrentVersion, domain.Test]
+	DeleteVersion          cqrs.CommandHandler[command.DeleteVersion, cqrs.Nothing]
+	Delete                 cqrs.CommandHandler[command.Delete, cqrs.Nothing]
+	Create                 cqrs.CommandHandler[command.Create, domain.Test]
+	Duplicate              cqrs.CommandHandler[command.Duplicate, domain.Test]
+	Publish                cqrs.CommandHandler[command.Publish, domain.PublishedVersion]
+	Update                 cqrs.CommandHandler[command.Update, domain.Test]
 }
 
 type Queries struct {
@@ -37,10 +41,14 @@ func New(repo domain.Repository) *Application {
 	service := support.NewService(repo)
 	return &Application{
 		Commands: Commands{
-			Create:    command.CreateHandler{Service: service},
-			Duplicate: command.DuplicateHandler{Service: service},
-			Publish:   command.PublishHandler{Publisher: publisher},
-			Update:    command.UpdateHandler{Service: service},
+			CreateDraftFromVersion: command.CreateDraftFromVersionHandler{Service: service},
+			SetCurrentVersion:      command.SetCurrentVersionHandler{Service: service},
+			DeleteVersion:          command.DeleteVersionHandler{Service: service},
+			Delete:                 command.DeleteHandler{Service: service},
+			Create:                 command.CreateHandler{Service: service},
+			Duplicate:              command.DuplicateHandler{Service: service},
+			Publish:                command.PublishHandler{Publisher: publisher},
+			Update:                 command.UpdateHandler{Service: service},
 		},
 		Queries: Queries{
 			Facets:       query.FacetsHandler{Service: service},

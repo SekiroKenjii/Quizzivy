@@ -18,3 +18,18 @@ export function listAssignments(
   if (params.limit) query["limit"] = params.limit;
   return api("get", "/admin/assignments", signal ? { query, signal } : { query });
 }
+
+/** listDashboardAssignments filters each status on the server before pagination. */
+export async function listDashboardAssignments(signal?: AbortSignal) {
+  const pages = await Promise.all(
+    ["open", "scheduled"].map((status) =>
+      listAssignments({ status: status as AssignmentStatus, limit: 10 }, signal),
+    ),
+  );
+  return {
+    items: pages
+      .flatMap((page) => page.items)
+      .sort((a, b) => a.window.closesAt.localeCompare(b.window.closesAt))
+      .slice(0, 10),
+  };
+}

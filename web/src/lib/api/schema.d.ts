@@ -250,7 +250,8 @@ export interface paths {
         get: operations["getTest"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Permanently deletes an archived test and its unused versions. Assignments or attempts referencing the test block deletion. */
+        delete: operations["deleteTest"];
         options?: never;
         head?: never;
         /**
@@ -331,6 +332,66 @@ export interface paths {
         get: operations["listTestVersions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tests/{id}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Deletes an unused, non-current version. Existing assignments and attempts prevent deletion. */
+        delete: operations["deleteTestVersion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tests/{id}/versions/{version}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Selects the default published version for future assignments. Existing assignments and snapshots are unchanged. */
+        post: operations["setCurrentTestVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tests/{id}/versions/{version}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Replaces the draft outline with independent bank-question copies of this snapshot. Published content and existing assignments are unchanged. The caller confirms replacement of any existing draft. */
+        post: operations["createDraftFromTestVersion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -536,7 +597,8 @@ export interface paths {
         get: operations["getAssignment"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Permanently deletes a draft or closed assignment with no attempts. Open or scheduled assignments and any historical attempts block deletion. */
+        delete: operations["deleteAssignment"];
         options?: never;
         head?: never;
         /**
@@ -912,7 +974,8 @@ export interface paths {
         get: operations["getStudent"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Permanently deletes a disabled student account only when no assignment, attempt, or retained audit record references it. Historical identities use the approved manual anonymization process instead. */
+        delete: operations["deleteStudent"];
         options?: never;
         head?: never;
         /** @description Edits profile fields, or disables the account. Disabling blocks login without deleting any attempt history. */
@@ -977,7 +1040,8 @@ export interface paths {
         get: operations["getClass"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Permanently deletes an archived class and its owned memberships/join codes. Assignment references block deletion; student accounts and papers are retained. */
+        delete: operations["deleteClass"];
         options?: never;
         head?: never;
         /** @description Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that. */
@@ -1425,7 +1489,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -1871,6 +1935,8 @@ export interface components {
              *     and a bank edit cannot reach them (§7).
              */
             usedInTests?: number;
+            /** @description Current test outlines using the question, sorted by title. Included on individual question responses; loaded on demand for the bank's nested usage table. Published snapshots are excluded. */
+            usedIn?: components["schemas"]["ReferencingTest"][];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
         };
@@ -2056,12 +2122,12 @@ export interface components {
             /** @default true */
             blockCopyPaste: boolean;
             /**
-             * @description 0 = unlimited.
+             * @description -1 = no away episodes allowed; 0 = unlimited; positive values = allowed counted episodes.
              * @default 0
              */
             maxFocusLoss: number;
             /**
-             * @description `auto_submit` ships in Phase 5 (T-5.1); `warn` and `flag` in Phase 3.
+             * @description `auto_submit` immediately submits after the allowed number of counted away episodes is exceeded, preserving answers and recording the violation.
              * @default flag
              * @enum {string}
              */
@@ -2119,9 +2185,12 @@ export interface components {
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
             status: components["schemas"]["AssignmentStatus"];
+            /** @description Distinct enabled students with at least one handed-in non-voided attempt. */
             submittedCount?: number;
             targetCount?: number;
             flaggedCount?: number;
+            /** @description Outstanding manual answers across handed-in attempts, including partially graded papers. */
+            pendingManualCount?: number;
             /** @description Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm"). */
             pendingGradingCount?: number;
         };
@@ -2194,6 +2263,8 @@ export interface components {
          *     needs to run authoritatively.
          */
         AttemptSession: {
+            /** @description Additional attempts available after this one */
+            remainingAttempts?: number;
             attempt: components["schemas"]["Attempt"];
             /** @description The engine's header names the paper from 1024px up (S-08). */
             testTitle: string;
@@ -2332,11 +2403,30 @@ export interface components {
          *     round trip, not five.
          */
         Dashboard: {
+            /** @description Open assignments closing within the next 24 hours. */
+            closingSoon?: number;
+            /** @description Distinct students with unmarked manual answers in handed-in papers. */
+            waitingStudents?: number;
+            /** Format: date-time */
+            oldestWaitingAt?: string | null;
+            /** @description Enabled student accounts. */
+            totalStudents?: number;
+            nextClosing?: components["schemas"]["ClosingAssignment"] | null;
             openAssignments: number;
             awaitingGrading: number;
             activeStudents: number;
             flaggedAttempts: number;
             recentAttempts: components["schemas"]["AttemptListRow"][];
+        };
+        ClosingAssignment: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /** Format: date-time */
+            closesAt: string;
+            /** @description Distinct enabled students who have handed in at least one non-voided attempt. */
+            submittedCount: number;
+            /** @description Enabled students in the union of class and individual targets. */
+            targetCount: number;
         };
         StudentAssignmentCard: {
             id: components["schemas"]["Uuid"];
@@ -3109,6 +3199,36 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    deleteTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The resource is still referenced or has not reached its required inactive state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     updateTest: {
         parameters: {
             query?: never;
@@ -3240,6 +3360,115 @@ export interface operations {
                     "application/json": {
                         items: components["schemas"]["TestVersion"][];
                     };
+                };
+            };
+        };
+    };
+    deleteTestVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setCurrentTestVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    expectedUpdatedAt: components["schemas"]["Timestamp"];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated test. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Test"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createDraftFromTestVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    expectedUpdatedAt: components["schemas"]["Timestamp"];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated test. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Test"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3736,6 +3965,36 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The resource is still referenced or has not reached its required inactive state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     updateAssignment: {
@@ -4396,6 +4655,36 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    deleteStudent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The resource is still referenced or has not reached its required inactive state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     updateStudent: {
         parameters: {
             query?: never;
@@ -4554,6 +4843,36 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    deleteClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The resource is still referenced or has not reached its required inactive state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     updateClass: {

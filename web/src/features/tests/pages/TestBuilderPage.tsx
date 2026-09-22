@@ -1,3 +1,4 @@
+import { publishProblem } from "../publishProblem";
 import {
   lazy,
   Suspense,
@@ -103,6 +104,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
+  const selectionRequest = useRef(0);
+  const [starterIds, setStarterIds] = useState<ReadonlySet<string>>(new Set());
   const flushQuestion = useRef<(() => Promise<void>) | null>(null);
   const retryQuestion = useRef<(() => void) | null>(null);
   const latestOutline = useRef<OutlineSection[]>(sections);
@@ -151,11 +154,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         prompt: result.data.prompt,
         points: result.data.points,
         hasAudio: result.data.media?.kind === "audio",
-        problem: problemFor(violations, questionId),
+        problem: publishProblem(result.data, t) ?? problemFor(violations, questionId),
       });
     }
     return map;
-  }, [loaded, questionIds, violations]);
+  }, [loaded, questionIds, violations, t]);
 
   useEffect(() => {
     latestOutline.current = sections;
@@ -181,6 +184,18 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     outline.schedule({ title: next, sections: latestOutline.current });
   }
 
+  async function selectQuestion(questionId: string) {
+    const request = ++selectionRequest.current;
+    try {
+      await flushQuestion.current?.();
+      if (selectionRequest.current === request) setSelectedId(questionId);
+    } catch (cause) {
+      setPublishError(
+        cause instanceof ApiError ? cause.message : t("builder.saveBeforeSwitchFailed"),
+      );
+    }
+  }
+
   function appendQuestion(questionId: string) {
     const current = latestOutline.current;
     const last = current.length - 1;
@@ -191,7 +206,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           : section,
       ),
     );
-    setSelectedId(questionId);
+    void selectQuestion(questionId);
   }
 
   async function onCreateQuestion() {
@@ -199,6 +214,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     setCreating(true);
     try {
       const created = await createQuestion(starterQuestion(t));
+      queryClient.setQueryData(["admin-question", created.id], created);
+      setStarterIds((current) => new Set([...current, created.id]));
       appendQuestion(created.id);
     } catch (cause) {
       setPublishError(
@@ -228,14 +245,19 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     try {
       await Promise.all([outline.flush(), flushQuestion.current?.()]);
       await publishTest(test.id);
-      await queryClient.invalidateQueries({
-        queryKey: ["admin-test", test.id],
-        refetchType: "all",
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["admin-test", test.id],
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({ queryKey: ["admin-test-versions", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-test-preview", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-tests"] }),
+      ]);
       await navigate(`/admin/tests/${test.id}`);
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "PUBLISH_VALIDATION_FAILED") {
-        setViolations(readViolations(cause));
+        setViolations(cause.violations);
         return;
       }
       setPublishError(
@@ -372,7 +394,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             questions={byId}
             selectedId={selectedId}
             creating={creating}
-            onSelect={setSelectedId}
+            onSelect={(questionId) => void selectQuestion(questionId)}
             onChange={updateOutline}
             onCreateQuestion={() => void onCreateQuestion()}
             onPickFromBank={() => setPicking(true)}
@@ -394,6 +416,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                 onSettingsOpenChange={setSettingsOpen}
                 key={selectedId}
                 questionId={selectedId}
+                clearStarterPrompt={starterIds.has(selectedId)}
                 flushRef={flushQuestion}
                 retryRef={retryQuestion}
                 onStatus={setQuestionStatus}
@@ -415,9 +438,39 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
       <PublishDialog
         violations={violations}
+        warnings={loaded.flatMap((result, index) =>
+          result.data && !result.data.explanation?.trim()
+            ? [
+                {
+                  questionId: result.data.id,
+                  message: t("builder.missingExplanation", { number: index + 1 }),
+                },
+              ]
+            : [],
+        )}
+        location={(violation) =>
+          violation.questionId
+            ? describePosition(sections, violation.questionId, t)
+            : (sections.find((section) => section.id === violation.sectionId)?.title ??
+              null)
+        }
+        onGoToSection={(sectionId) => {
+          setViolations(null);
+          requestAnimationFrame(() => {
+            const section = document.querySelector(
+              `[data-outline-section="${CSS.escape(sectionId)}"]`,
+            );
+            const control = section?.querySelector<HTMLButtonElement>(
+              "button[aria-expanded]",
+            );
+            if (control?.getAttribute("aria-expanded") === "false") control.click();
+            control?.focus();
+            control?.scrollIntoView({ block: "nearest" });
+          });
+        }}
         onClose={() => setViolations(null)}
         onGoTo={(questionId) => {
-          setSelectedId(questionId);
+          void selectQuestion(questionId);
           setViolations(null);
         }}
       />
@@ -449,6 +502,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
  */
 function QuestionPane({
   questionId,
+  clearStarterPrompt,
   flushRef,
   retryRef,
   onStatus,
@@ -457,6 +511,7 @@ function QuestionPane({
   onSettingsOpenChange,
 }: Readonly<{
   questionId: string;
+  clearStarterPrompt: boolean;
   flushRef: RefObject<(() => Promise<void>) | null>;
   retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
@@ -488,6 +543,7 @@ function QuestionPane({
   return (
     <QuestionForm
       questionId={questionId}
+      clearStarterPrompt={clearStarterPrompt}
       initial={question.data}
       flushRef={flushRef}
       retryRef={retryRef}
@@ -501,6 +557,7 @@ function QuestionPane({
 
 function QuestionForm({
   questionId,
+  clearStarterPrompt,
   initial,
   flushRef,
   retryRef,
@@ -510,6 +567,7 @@ function QuestionForm({
   onSettingsOpenChange,
 }: Readonly<{
   questionId: string;
+  clearStarterPrompt: boolean;
   initial: Parameters<typeof toFormValues>[0];
   flushRef: RefObject<(() => Promise<void>) | null>;
   retryRef: RefObject<(() => void) | null>;
@@ -518,12 +576,16 @@ function QuestionForm({
   settingsOpen: boolean;
   onSettingsOpenChange: (open: boolean) => void;
 }>) {
+  const queryClient = useQueryClient();
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
 
   const autosave = useAutosave<QuestionValues>({
     save: async (next) => {
-      await updateQuestion(questionId, next);
+      await queryClient.cancelQueries({ queryKey: ["admin-question", questionId] });
+      const saved = await updateQuestion(questionId, next);
+      queryClient.setQueryData(["admin-question", questionId], saved);
+      void queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
     },
   });
 
@@ -545,6 +607,7 @@ function QuestionForm({
     <div>
       <QuestionEditor
         value={values}
+        clearPromptOnFocus={clearStarterPrompt}
         asset={asset}
         contextLabel={contextLabel}
         settings={{
@@ -605,9 +668,4 @@ function problemFor(
   questionId: string,
 ): string | null {
   return violations?.find((v) => v.questionId === questionId)?.message ?? null;
-}
-
-function readViolations(error: ApiError): PublishViolation[] {
-  const raw = (error.details as { violations?: unknown } | undefined)?.violations;
-  return Array.isArray(raw) ? (raw as PublishViolation[]) : [];
 }

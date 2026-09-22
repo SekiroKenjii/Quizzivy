@@ -1,3 +1,12 @@
+import {
+  createContext,
+  useContext,
+  useId,
+  useMemo,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+import type { ExtraProps } from "react-markdown";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,12 +21,14 @@ export function QuestionBody({
   answer,
   onAnswer,
   disabled = false,
+  action,
 }: Readonly<{
   question: StudentQuestion;
   answer: Answer | undefined;
   onAnswer: (answer: Answer) => void;
   /** Read-only once the paper is locked; the answers stay legible. */
   disabled?: boolean;
+  action?: ReactNode;
 }>) {
   switch (question.type) {
     case "fill_blank":
@@ -27,6 +38,7 @@ export function QuestionBody({
           answer={answer}
           onAnswer={onAnswer}
           disabled={disabled}
+          action={action}
         />
       );
     case "short_answer":
@@ -36,6 +48,7 @@ export function QuestionBody({
           answer={answer}
           onAnswer={onAnswer}
           disabled={disabled}
+          action={action}
         />
       );
     default:
@@ -45,6 +58,7 @@ export function QuestionBody({
           answer={answer}
           onAnswer={onAnswer}
           disabled={disabled}
+          action={action}
         />
       );
   }
@@ -55,6 +69,7 @@ type Props = {
   answer: Answer | undefined;
   onAnswer: (answer: Answer) => void;
   disabled: boolean;
+  action?: ReactNode;
 };
 
 /** A, B, C … the label the student and the teacher both refer to out loud. */
@@ -62,18 +77,27 @@ function optionKey(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
-function Prompt({ children }: Readonly<{ children: string }>) {
-  return <Markdown className="text-base">{children}</Markdown>;
+function Prompt({
+  children,
+  action,
+}: Readonly<{ children: string; action?: ReactNode }>) {
+  return (
+    <div className="flex items-start gap-3">
+      <Markdown className="min-w-0 flex-1 text-base">{children}</Markdown>
+      {action}
+    </div>
+  );
 }
 
 /**
  * single_choice, multiple_choice and true_false, which differ only in how many
  * may be chosen.
  */
-function Choice({ question, answer, onAnswer, disabled }: Readonly<Props>) {
+function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props>) {
   const { t } = useTranslation();
   const options = question.options ?? [];
   const multiple = question.type === "multiple_choice";
+  const instructionId = useId();
   const chosen = new Set(
     answer !== undefined && "optionIds" in answer ? answer.optionIds : [],
   );
@@ -91,12 +115,15 @@ function Choice({ question, answer, onAnswer, disabled }: Readonly<Props>) {
 
   return (
     <div className="space-y-4">
-      <Prompt>{question.prompt}</Prompt>
-
+      <Prompt action={action}>{question.prompt}</Prompt>
+      <p id={instructionId} className="text-muted-foreground text-sm">
+        {t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle")}
+      </p>
       <div
         className="space-y-2.5"
         role={multiple ? "group" : "radiogroup"}
         aria-label={t("takeTest.answerOptions")}
+        aria-describedby={instructionId}
       >
         {options.map((option, index) => {
           const selected = chosen.has(option.id);
@@ -123,7 +150,8 @@ function Choice({ question, answer, onAnswer, disabled }: Readonly<Props>) {
               <span
                 aria-hidden="true"
                 className={cn(
-                  "grid size-6 shrink-0 place-content-center rounded-sm border text-xs font-semibold",
+                  "grid size-6 shrink-0 place-content-center border text-xs font-semibold",
+                  multiple ? "rounded-sm" : "rounded-full",
                   selected
                     ? "bg-primary text-primary-foreground border-transparent"
                     : "text-muted-foreground",
@@ -145,48 +173,71 @@ function Choice({ question, answer, onAnswer, disabled }: Readonly<Props>) {
  * the sentence reads as a sentence rather than as a prompt followed by a list
  * of boxes.
  */
-function FillBlank({ question, answer, onAnswer, disabled }: Readonly<Props>) {
-  const { t } = useTranslation();
+function FillBlank({ question, answer, onAnswer, disabled, action }: Readonly<Props>) {
   const values = answer !== undefined && "values" in answer ? answer.values : {};
-  const blanks = question.blanks ?? [];
+  const blanks = useMemo(
+    () => new Map(question.blanks?.map((blank) => [String(blank.ordinal), blank])),
+    [question.blanks],
+  );
 
   const write = (blankId: string, value: string) =>
     onAnswer({ type: "fill_blank", values: { ...values, [blankId]: value } });
 
   return (
-    <div className="space-y-4">
-      <Markdown
-        className="text-base"
-        plugins={[blankInputs]}
-        components={{
-          span: (props) => {
-            const ordinal = props.node?.properties?.["data-blank"];
-            if (ordinal === undefined || ordinal === null) return <span {...props} />;
-            const blank = blanks.find((b) => String(b.ordinal) === String(ordinal));
-            if (blank === undefined) {
-              // A placeholder with no blank behind it.
-              const orphan = `{{${String(ordinal)}}}`;
-              return <span>{orphan}</span>;
-            }
-            return (
-              <input
-                className="border-input focus-visible:ring-ring mx-1 inline-block h-9 w-28 rounded-md border px-3 text-center align-middle text-sm focus-visible:ring-2 focus-visible:outline-none"
-                aria-label={t("takeTest.blankLabel", { n: blank.ordinal })}
-                value={values[blank.id] ?? ""}
-                disabled={disabled}
-                onChange={(event) => write(blank.id, event.target.value)}
-              />
-            );
-          },
-        }}
-      >
-        {question.prompt}
-      </Markdown>
-    </div>
+    <BlankContext value={{ blanks, values, disabled, write }}>
+      <div className="flex items-start gap-3">
+        <Markdown
+          className="min-w-0 flex-1 text-base"
+          plugins={[blankInputs]}
+          components={blankComponents}
+        >
+          {question.prompt}
+        </Markdown>
+        {action}
+      </div>
+    </BlankContext>
   );
 }
 
-function ShortAnswer({ question, answer, onAnswer, disabled }: Readonly<Props>) {
+type BlankState = {
+  blanks: Map<string, NonNullable<StudentQuestion["blanks"]>[number]>;
+  values: Record<string, string>;
+  disabled: boolean;
+  write: (id: string, value: string) => void;
+};
+
+const BlankContext = createContext<BlankState | null>(null);
+
+function BlankSlot({ node, ...props }: ComponentProps<"span"> & ExtraProps) {
+  const { t } = useTranslation();
+  const state = useContext(BlankContext);
+  const ordinal = node?.properties["data-blank"];
+  if (ordinal === undefined || ordinal === null || state === null)
+    return <span {...props} />;
+  const blank = state.blanks.get(String(ordinal));
+  const token = `{{${String(ordinal)}}}`;
+  if (blank === undefined) return <span>{token}</span>;
+  return (
+    <input
+      className="border-input focus-visible:ring-ring mx-1 my-1 inline-block h-11 w-32 max-w-full rounded-md border px-3 text-center align-middle text-[length:var(--text-input)] focus-visible:ring-2 focus-visible:outline-none lg:h-9 lg:text-sm"
+      aria-label={t("takeTest.blankLabel", { n: blank.ordinal })}
+      value={state.values[blank.id] ?? ""}
+      disabled={state.disabled}
+      autoComplete="off"
+      onChange={(event) => state.write(blank.id, event.target.value)}
+    />
+  );
+}
+
+const blankComponents = { span: BlankSlot };
+
+function ShortAnswer({
+  question,
+  answer,
+  onAnswer,
+  disabled,
+  action,
+}: Readonly<Props>) {
   const { t } = useTranslation();
   const value = answer !== undefined && "value" in answer ? String(answer.value) : "";
   // Whitespace-separated, which is what "18 từ" means to a student writing English.
@@ -194,7 +245,7 @@ function ShortAnswer({ question, answer, onAnswer, disabled }: Readonly<Props>) 
 
   return (
     <div className="space-y-4">
-      <Prompt>{question.prompt}</Prompt>
+      <Prompt action={action}>{question.prompt}</Prompt>
       <Textarea
         className="min-h-36 leading-relaxed"
         value={value}

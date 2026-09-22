@@ -25,6 +25,7 @@ type Question struct {
 	Tags           []string
 	// Draft outlines referencing this question.
 	UsedInTests int
+	UsedIn      []TestRef
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

@@ -41,9 +41,18 @@ describe("strikeState", () => {
     );
   });
 
-  it("reads auto_submit as flag until T-5.1 builds the countdown", () => {
+  it("preserves the immediate auto-submit consequence", () => {
     expect(
       strikeState({ ...policy, onLimitExceeded: "auto_submit" }, 0).consequence,
-    ).toBe("flag");
+    ).toBe("auto_submit");
   });
+});
+
+it("allows no focus loss when the policy is -1", () => {
+  expect(strikeState({ ...policy, maxFocusLoss: -1 }, 0)).toMatchObject({
+    limit: 0,
+    remaining: 0,
+    exceeded: false,
+  });
+  expect(strikeState({ ...policy, maxFocusLoss: -1 }, 1).exceeded).toBe(true);
 });

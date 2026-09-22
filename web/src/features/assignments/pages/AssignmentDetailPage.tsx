@@ -404,7 +404,6 @@ function Note({ icon, children }: Readonly<{ icon: ReactNode; children: ReactNod
 
 function ResultsStrip({
   a,
-  version,
   panelOpen,
   onTogglePanel,
 }: Readonly<{
@@ -450,9 +449,9 @@ function ResultsStrip({
           label={t("assignments.detail.pending")}
           value={a.pendingGradingCount ?? 0}
           hint={
-            version === undefined
+            a.pendingManualCount === undefined
               ? null
-              : t("assignments.detail.pendingHint", { count: version.manualCount })
+              : t("assignments.detail.pendingHint", { count: a.pendingManualCount })
           }
         />
         <div className="bg-border h-10 w-px" />
@@ -460,8 +459,10 @@ function ResultsStrip({
           label={t("assignments.detail.flagged")}
           value={a.flaggedCount ?? 0}
           hint={
-            a.integrity.maxFocusLoss > 0
-              ? t("assignments.detail.flaggedHint", { count: a.integrity.maxFocusLoss })
+            a.integrity.maxFocusLoss !== 0
+              ? t("assignments.detail.flaggedHint", {
+                  count: Math.max(0, a.integrity.maxFocusLoss),
+                })
               : t("assignments.detail.flaggedHintNone")
           }
         />
@@ -680,7 +681,7 @@ function RulesCard({ a }: Readonly<{ a: Assignment }>) {
             integrity.maxFocusLoss === 0
               ? t("assignments.detail.focusUnlimited")
               : t(`assignments.detail.focusLimit.${integrity.onLimitExceeded}`, {
-                  count: integrity.maxFocusLoss,
+                  count: Math.max(0, integrity.maxFocusLoss),
                 })
           }
         />
@@ -706,6 +707,10 @@ function RulesCard({ a }: Readonly<{ a: Assignment }>) {
 function ReviewCard({ a }: Readonly<{ a: Assignment }>) {
   const { t } = useTranslation();
   const { review } = a;
+  let hint = "assignments.detail.reuseHint";
+  if (review.showCorrectAnswers) hint = "assignments.detail.reviewWhileOpen";
+  if (statusAt(a, new Date()) === "closed")
+    hint = "assignments.detail.reviewAfterClose";
   return (
     <Card>
       <CardHeader>
@@ -717,11 +722,7 @@ function ReviewCard({ a }: Readonly<{ a: Assignment }>) {
           {t("assignments.showCorrectAnswers")}
         </Flag>
         <Flag on={review.showExplanations}>{t("assignments.showExplanations")}</Flag>
-        {review.showCorrectAnswers ? null : (
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            {t("assignments.detail.reuseHint")}
-          </p>
-        )}
+        <p className="text-muted-foreground text-xs leading-relaxed">{t(hint)}</p>
       </CardContent>
     </Card>
   );

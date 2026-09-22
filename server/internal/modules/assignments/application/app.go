@@ -16,6 +16,7 @@ type Application struct {
 }
 
 type Commands struct {
+	Delete cqrs.CommandHandler[command.Delete, cqrs.Nothing]
 	Create cqrs.CommandHandler[command.Create, domain.Assignment]
 	Reopen cqrs.CommandHandler[command.Reopen, domain.Assignment]
 	Update cqrs.CommandHandler[command.Update, domain.Assignment]
@@ -33,6 +34,7 @@ func New(repo domain.Repository) *Application {
 	service := support.NewService(repo)
 	return &Application{
 		Commands: Commands{
+			Delete: command.DeleteHandler{Service: service},
 			Create: command.CreateHandler{Service: service},
 			Reopen: command.ReopenHandler{Service: service},
 			Update: command.UpdateHandler{Service: service},

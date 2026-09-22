@@ -57,3 +57,16 @@ func LockForDraftUse(ctx context.Context, q db.Querier, questionID string) error
 func (s *Postgres) LockForDraftUse(ctx context.Context, tx pgx.Tx, questionID string) error {
 	return LockForDraftUse(ctx, tx, questionID)
 }
+
+func (s *Postgres) questionUses(ctx context.Context, questionID string) ([]domain.TestRef, error) {
+	rows, err := s.Query(ctx, `SELECT DISTINCT t.id::text, t.title
+ FROM app.test_section_questions sq
+ JOIN app.test_sections section ON section.id = sq.test_section_id
+ JOIN app.tests t ON t.id = section.test_id
+ WHERE sq.question_id = $1 AND t.deleted_at IS NULL
+ ORDER BY t.title, t.id::text`, questionID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[domain.TestRef])
+}

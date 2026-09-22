@@ -1,5 +1,6 @@
+import { useListFilters } from "@/hooks/useListFilters";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Flag } from "lucide-react";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
@@ -34,7 +35,7 @@ const PAGE_SIZE = 20;
  */
 export default function GradingQueuePage() {
   const { t } = useTranslation();
-  const [params, setParams] = useSearchParams();
+  const { params, setParams } = useListFilters();
   const tab: Tab = params.get("tab") === "flagged" ? "flagged" : "pending";
   const locale = useLocale();
 

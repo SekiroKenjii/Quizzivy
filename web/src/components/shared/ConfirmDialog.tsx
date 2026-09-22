@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
  */
 export function ConfirmDialog({
   open,
+  className,
   onOpenChange,
   title,
   description,
@@ -30,6 +32,7 @@ export function ConfirmDialog({
   onConfirm,
 }: Readonly<{
   open: boolean;
+  className?: string;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: ReactNode;
@@ -45,7 +48,7 @@ export function ConfirmDialog({
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className={cn("gap-4 p-5 sm:max-w-md", className)}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description === undefined ? null : (

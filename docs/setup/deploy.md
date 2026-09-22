@@ -136,3 +136,10 @@ Both need dashboard access the project's tokens do not have. See `dns.md`:
    `fly certs check api.quizzivy.com`, then switch to proxied.
 2. `app` — Pages project → Custom domains → add `app.quizzivy.com`. Cloudflare
    creates the record itself; making it by hand returns 522.
+
+## Backups and operational verification
+
+See [operations](operations.md) for the recovery rehearsal, retention commands,
+post-deploy header check and proposed GitHub uptime probe. Neon history settings,
+a production PITR drill and a delivered owner alert remain unverified as of
+2026-09-22 because no Neon/monitor access was configured for this task.

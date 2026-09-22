@@ -28,7 +28,11 @@ export function formatMoment(utc: string | Date, locale: AppLocale = "vi") {
   const text = formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm · EEEE, dd/MM", {
     locale: dateFnsLocale[locale],
   });
-  return text.replace(/· (\p{L})/u, (_, first: string) => `· ${first.toUpperCase()}`);
+  const sentence = locale === "vi" ? text.toLocaleLowerCase("vi") : text;
+  return sentence.replace(
+    /· (\p{L})/u,
+    (_, first: string) => `· ${first.toUpperCase()}`,
+  );
 }
 
 /** "26/08" */
@@ -44,11 +48,21 @@ export function sameAppDay(a: string | Date, b: string | Date): boolean {
 }
 
 /** "Thứ hai, 01/09" -- the weekday the deck writes on upcoming rows. */
-export function weekdayDate(utc: string | Date, locale: AppLocale = "vi") {
-  const text = formatInTimeZone(utc, APP_TIME_ZONE, "EEEE, dd/MM", {
-    locale: dateFnsLocale[locale],
-  });
-  return text.charAt(0).toUpperCase() + text.slice(1);
+export function weekdayDate(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  year = false,
+) {
+  const text = formatInTimeZone(
+    utc,
+    APP_TIME_ZONE,
+    year ? "EEEE, dd/MM/yyyy" : "EEEE, dd/MM",
+    {
+      locale: dateFnsLocale[locale],
+    },
+  );
+  const sentence = locale === "vi" ? text.toLocaleLowerCase("vi") : text;
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
 /** An audio length as m:ss ("1:50"), the shape read off a player; "—" when unknown. */
@@ -85,7 +99,8 @@ export function formatRelative(utc: string | Date, locale: AppLocale = "vi") {
 
   const hours = Math.round(minutes / 60);
   if (Math.abs(hours) < 24) return relative.format(hours, "hour");
-  return relative.format(days, "day");
+  const result = relative.format(days, "day");
+  return locale === "vi" ? result.toLocaleLowerCase("vi") : result;
 }
 
 /** The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE. */
@@ -114,4 +129,9 @@ export function countdown(ms: number): string {
   const s = total % 60;
   const pad = (n: number) => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+/** compactMoment formats a table timestamp without repeating the current year. */
+export function compactMoment(utc: string | Date) {
+  return formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm · dd/MM");
 }

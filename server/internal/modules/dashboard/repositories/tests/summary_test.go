@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	assignmentrepo "quizzivy/internal/modules/assignments/repositories"
 	"quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/modules/dashboard/repositories"
 )
@@ -258,5 +259,58 @@ func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 	}
 	if got := stale.ActiveStudents - before.ActiveStudents; got != 0 {
 		t.Errorf("after ageing out: want +0, got +%d", got)
+	}
+}
+
+func TestCountsDeduplicateRetakesAndCountPartiallyGradedQuestions(t *testing.T) {
+	pool := newPool(t)
+	tx := isolated(t, pool)
+	ctx := context.Background()
+	store := repositories.NewPostgres(db.NewContext(tx))
+	before, err := store.Summary(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
+	_, err = tx.Exec(ctx, `UPDATE app.attempt_answers SET manual_score=1,graded_at=now() WHERE attempt_id=$1`, f.attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec(ctx, `
+ WITH question AS (
+  INSERT INTO app.test_version_questions(test_version_section_id,ordinal,type,prompt,points)
+  SELECT test_version_section_id,1,'short_answer','Another answer',1 FROM app.test_version_questions
+  WHERE id=(SELECT question_id FROM app.attempt_answers WHERE attempt_id=$1 LIMIT 1) RETURNING id
+ ) INSERT INTO app.attempt_answers(attempt_id,question_id,payload,requires_manual)
+ SELECT $1,id,'{}'::jsonb,true FROM question`, f.attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec(ctx, `
+ WITH attempt AS (
+  INSERT INTO app.attempts(assignment_id,test_version_id,student_id,attempt_no,status,session_id,shuffle_seed,beacon_token_hash,deadline_at,submitted_at)
+  SELECT assignment_id,test_version_id,student_id,2,'submitted',uuidv7(),1,beacon_token_hash,deadline_at,now() FROM app.attempts WHERE id=$1 RETURNING id
+ ) INSERT INTO app.attempt_answers(attempt_id,question_id,payload,requires_manual)
+ SELECT attempt.id,answer.question_id,'{}'::jsonb,true FROM attempt CROSS JOIN app.attempt_answers answer
+ WHERE answer.attempt_id=$1 AND answer.manual_score IS NULL`, f.attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Summary(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.ClosingSoon != before.ClosingSoon+1 || after.WaitingStudents != before.WaitingStudents+1 || after.AwaitingGrading != before.AwaitingGrading+2 || after.TotalStudents != before.TotalStudents+1 {
+		t.Fatalf("unexpected counts before=%+v after=%+v", before, after)
+	}
+	assignment, err := assignmentrepo.NewPostgres(db.NewContext(tx)).Get(ctx, f.assignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if assignment.SubmittedCount != 1 || assignment.PendingManualCount != 2 {
+		t.Fatalf("retakes/partial grading = %+v", assignment)
+	}
+	if after.OldestWaitingAt == nil || after.NextClosing == nil {
+		t.Fatal("missing waiting/closing context")
 	}
 }

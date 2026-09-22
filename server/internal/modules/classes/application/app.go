@@ -23,6 +23,7 @@ func (a *Application) SetClock(now func() time.Time) {
 }
 
 type Commands struct {
+	Delete         cqrs.CommandHandler[command.Delete, cqrs.Nothing]
 	AddMember      cqrs.CommandHandler[command.AddMember, domain.Member]
 	Archive        cqrs.CommandHandler[command.Archive, domain.Class]
 	Create         cqrs.CommandHandler[command.Create, domain.Class]
@@ -49,6 +50,7 @@ func New(repo domain.Repository, stats stats.Source) *Application {
 	service := support.NewService(repo, stats)
 	return &Application{
 		Commands: Commands{
+			Delete:         command.DeleteHandler{Service: service},
 			AddMember:      command.AddMemberHandler{Service: service},
 			Archive:        command.ArchiveHandler{Service: service},
 			Create:         command.CreateHandler{Service: service},

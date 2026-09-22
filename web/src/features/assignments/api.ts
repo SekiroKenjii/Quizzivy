@@ -67,3 +67,7 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
+
+export function deleteAssignment(id: string) {
+  return api("delete", "/admin/assignments/{id}", { path: { id } });
+}

@@ -116,3 +116,10 @@ type (
 	FieldError      = validation.Field
 	ValidationError = validation.Error
 )
+
+// VersionRequest identifies a snapshot and the test revision observed by the teacher.
+type VersionRequest struct {
+	Request
+	Version           int
+	ExpectedUpdatedAt time.Time
+}

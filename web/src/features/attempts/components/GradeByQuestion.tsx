@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Check, Eye, EyeOff, Minus, Plus } from "lucide-react";
+import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { Markdown } from "@/components/shared/Markdown";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -187,27 +187,16 @@ export function GradeByQuestion({
                     )}
                   </div>
                 )}
-                <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-                  <p className="text-muted-foreground text-xs leading-relaxed">
-                    {t("byQuestion.namesHidden")}
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    className="shrink-0"
+                <p className="text-muted-foreground rounded-md border p-3 text-xs leading-relaxed">
+                  {t("byQuestion.namesHidden")}{" "}
+                  <button
+                    type="button"
+                    className="text-foreground focus-visible:outline-ring rounded-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
                     aria-pressed={showNames}
                     onClick={() => setShowNames((value) => !value)}
                   >
-                    {showNames ? (
-                      <EyeOff aria-hidden="true" />
-                    ) : (
-                      <Eye aria-hidden="true" />
-                    )}
                     {showNames ? t("byQuestion.hideNames") : t("byQuestion.showNames")}
-                  </Button>
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  {t("byQuestion.keys", { max: data.question.points })}
+                  </button>
                 </p>
               </div>
 
@@ -242,6 +231,9 @@ export function GradeByQuestion({
                     />
                   ))
                 )}
+                <p className="text-muted-foreground text-xs">
+                  {t("byQuestion.keys", { max: data.question.points })}
+                </p>
               </div>
             </div>
           )

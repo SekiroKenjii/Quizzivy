@@ -38,6 +38,18 @@ test("E2E 2: an answer survives a reload, and the result shows what was earned",
   await page.getByRole("button", { name: "Câu sau" }).click();
   await expect(page.getByRole("textbox", { name: "Bài làm của bạn" })).toHaveValue("");
 
+  await page.route("**/app/attempts/*/answers", (route) => route.abort());
+  const draft = "A complete answer before the debounce saves it.";
+  await page.getByRole("textbox", { name: "Bài làm của bạn" }).fill(draft);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.reload();
+  await page.getByRole("button", { name: "Câu sau" }).click();
+  await expect(page.getByRole("textbox", { name: "Bài làm của bạn" })).toHaveValue(
+    draft,
+  );
+  await page.unroute("**/app/attempts/*/answers");
+  await expect(page.getByText(/^Đã lưu /)).toBeVisible({ timeout: 30_000 });
+
   // ---------------------------------------------------------------- submit
   await submitAttempt(page);
 
@@ -45,7 +57,10 @@ test("E2E 2: an answer survives a reload, and the result shows what was earned",
   // By URL: the fixture allows fifty attempts, so after one the home still
   // offers the assignment as due rather than filing it under completed.
   await page.goto(`/app/attempts/${attemptId}/result`);
-  await expect(page.getByText("Điểm của bạn")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Điểm tạm tính")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Còn 1 câu giáo viên đang chấm")).toBeVisible();
+  await expect(page.getByText("2/4", { exact: true })).toBeVisible();
+  await expect(page.getByText(draft, { exact: true })).toBeVisible();
   await expect(page.getByText(/Lượt \d+\/50/)).toBeVisible();
   // The choice given before the reload is marked as the student's own.
   await expect(page.getByText("bạn chọn").first()).toBeVisible();

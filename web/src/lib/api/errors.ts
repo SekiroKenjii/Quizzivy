@@ -14,6 +14,7 @@ export class ApiError extends Error {
   readonly requestId: string | undefined;
   readonly details: Record<string, unknown> | undefined;
   readonly retryAfterSeconds: number | undefined;
+  readonly violations: components["schemas"]["PublishValidationError"][];
 
   constructor(init: {
     status: number;
@@ -22,6 +23,7 @@ export class ApiError extends Error {
     requestId?: string | undefined;
     details?: Record<string, unknown> | undefined;
     retryAfterSeconds?: number | undefined;
+    violations?: components["schemas"]["PublishValidationError"][];
   }) {
     super(init.message);
     this.name = "ApiError";
@@ -30,6 +32,7 @@ export class ApiError extends Error {
     this.requestId = init.requestId;
     this.details = init.details;
     this.retryAfterSeconds = init.retryAfterSeconds;
+    this.violations = init.violations ?? [];
   }
 
   get isRateLimited() {
@@ -102,6 +105,18 @@ export async function toApiError(response: Response): Promise<ApiError> {
       message: e.message,
       requestId: e.requestId,
       details: e.details as Record<string, unknown> | undefined,
+      violations:
+        e.code === "PUBLISH_VALIDATION_FAILED" &&
+        "violations" in body &&
+        Array.isArray(body.violations)
+          ? body.violations.filter(
+              (value): value is components["schemas"]["PublishValidationError"] =>
+                typeof value === "object" &&
+                value !== null &&
+                typeof value.rule === "string" &&
+                typeof value.message === "string",
+            )
+          : [],
       retryAfterSeconds: Number.isFinite(retryAfterSeconds)
         ? retryAfterSeconds
         : undefined,

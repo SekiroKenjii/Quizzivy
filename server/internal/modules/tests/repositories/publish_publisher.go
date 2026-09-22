@@ -45,7 +45,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 	}
 
 	if _, err := tx.Exec(ctx,
-		`UPDATE app.tests SET status = 'published', current_version = $2 WHERE id = $1`,
+		`UPDATE app.tests SET status = 'published', current_version = $2, last_published_version = $2 WHERE id = $1`,
 		req.TestID, current+1); err != nil {
 		return domain.PublishedVersion{}, fmt.Errorf("publish: bump current_version: %w", err)
 	}
@@ -76,7 +76,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 func lockTest(ctx context.Context, tx pgx.Tx, testID string) (int, error) {
 	var current int
 	err := tx.QueryRow(ctx,
-		`SELECT current_version FROM app.tests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+		`SELECT last_published_version FROM app.tests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
 		testID).Scan(&current)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, domain.ErrDraftNotFound

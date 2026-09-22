@@ -276,3 +276,15 @@ For the record, so a later session does not reopen them:
 | **O-02** Google OAuth client | **Done and verified** — `make verify-google` passes | T-0.2 |
 | **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |
 | **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages | `docs/setup/dns.md` |
+
+### O-23 — Retention and requested anonymization · resolved 2026-09-22
+
+Thuong approved thirteen-month integrity retention, retained audit logs, manual
+student anonymization and no automatic erasure of disabled accounts. Retention
+requires both assignment closure and server receipt to be older than the UTC
+cutoff; client event timestamps never authorize deletion. Structured identity is
+removed while stable IDs preserve historical records. Free text, prior audit
+entries and backups remain subject to separate review. Implementation:
+`cmd/maintenance`, migration `00029_index_integrity_retention.sql`, and
+`docs/setup/operations.md`. No public erase endpoint or API-role deletion grant
+is introduced; production execution remains explicit.

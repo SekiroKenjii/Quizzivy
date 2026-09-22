@@ -68,7 +68,7 @@ export function QuestionDots({
 
 function Grid({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1.5">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))] gap-1.5 lg:grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))]">
       {children}
     </div>
   );
@@ -98,7 +98,7 @@ function Dot({
       aria-label={[t("takeTest.dotLabel", { n: index + 1 }), ...states].join(", ")}
       onClick={() => onJump(index)}
       className={cn(
-        "bg-background grid h-9 place-content-center rounded-md border text-xs tabular-nums",
+        "bg-background text-muted-foreground grid h-11 place-content-center rounded-md border text-xs tabular-nums lg:h-9",
         dot.answered && "bg-secondary text-foreground font-medium",
         dot.flagged && "border-warning/55",
         index === current &&
@@ -159,7 +159,7 @@ export function NavigatorSheet({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="top-auto right-0 bottom-0 left-0 max-h-[85svh] max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-t-lg rounded-b-none border-t p-4 sm:max-w-none"
+        className="student-surface top-auto right-0 bottom-0 left-0 max-h-[85svh] max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-t-lg rounded-b-none border-t p-4 sm:max-w-none"
         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between">
@@ -210,7 +210,11 @@ export function NavigatorRail({
   const answered = dots.filter((d) => d.answered).length;
   const flagged = dots.filter((d) => d.flagged).length;
   return (
-    <PageAside label={t("takeTest.navTitle")} hideBelow="lg">
+    <PageAside
+      label={t("takeTest.navTitle")}
+      widthKey="studentNavigator"
+      hideBelow="lg"
+    >
       <QuestionDots dots={dots} current={current} onJump={onJump} groups={groups} />
       <Separator />
       <div className="text-muted-foreground space-y-1.5 text-xs">

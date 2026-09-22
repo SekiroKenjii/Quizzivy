@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { SaveStrip } from "./SaveState";
 import { EngineHeader } from "./EngineHeader";
 import { NavigatorRail, QuestionDots, type DotState } from "./Navigator";
 import { useTakeTestStore } from "../store";
@@ -49,6 +50,8 @@ export function ReviewScreen({
     .filter((d) => !d.answered);
   const flagged = dots.map((d, i) => ({ ...d, index: i })).filter((d) => d.flagged);
   const busy = submitState === "inFlight";
+  const lock = useTakeTestStore((s) => s.lock);
+  const remainingAttempts = useTakeTestStore((s) => s.remainingAttempts);
 
   const confirm = async () => {
     setFailed(false);
@@ -69,7 +72,7 @@ export function ReviewScreen({
           <Button
             variant="ghost"
             size="xs"
-            className="text-muted-foreground px-1"
+            className="text-muted-foreground h-11 px-1 lg:h-7"
             onClick={onBack}
           >
             <ChevronLeft aria-hidden="true" />
@@ -78,99 +81,114 @@ export function ReviewScreen({
         }
       />
 
+      <SaveStrip wide={wide} indicator={status} />
       <div data-columns className="flex min-h-0 flex-1">
-        <main
-          className={cn("min-w-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-4")}
-        >
-          <div className="mx-auto w-full max-w-[720px] space-y-4">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
-                {t("takeTest.reviewTitle")}
-              </h1>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {t("takeTest.reviewAnswered", { answered, total: dots.length })}
-              </p>
-            </div>
-
-            <Card className="gap-0 p-4">
-              <div className="space-y-3">
-                {unanswered.length === 0 ? (
-                  <div className="flex items-center gap-2">
-                    <CircleCheck className="text-success size-4" aria-hidden="true" />
-                    <p className="text-sm font-medium">{t("takeTest.allAnswered")}</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <CircleHelp
-                        className="text-muted-foreground size-4"
-                        aria-hidden="true"
-                      />
-                      <p className="text-sm font-medium">
-                        {t("takeTest.unanswered", { count: unanswered.length })}
-                      </p>
-                    </div>
-                    <Dots items={unanswered} onJump={onJump} />
-                  </>
-                )}
-                {flagged.length > 0 && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center gap-2">
-                      <Flag
-                        className="text-muted-foreground size-4"
-                        aria-hidden="true"
-                      />
-                      <p className="text-sm font-medium">
-                        {t("takeTest.flagged", { count: flagged.length })}
-                      </p>
-                    </div>
-                    <Dots items={flagged} onJump={onJump} />
-                  </>
-                )}
+        <div data-resize-middle className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <main
+            className={cn("min-h-0 flex-1 overflow-y-auto", wide ? "p-8" : "px-4 py-4")}
+          >
+            <div className="mx-auto w-full max-w-[720px] space-y-4">
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight lg:text-xl">
+                  {t("takeTest.reviewTitle")}
+                </h1>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {t("takeTest.reviewAnswered", { answered, total: dots.length })}
+                </p>
               </div>
-            </Card>
 
-            {failed && (
-              <p role="alert" className="text-sm">
-                {t("takeTest.submitFailed")}
-              </p>
-            )}
-            <div className={wide ? "flex items-center gap-2" : "space-y-2"}>
-              <Button
-                variant="outline"
-                size="lg"
-                className={wide ? undefined : "w-full"}
-                onClick={onBack}
-              >
-                {t("takeTest.keepWorking")}
-              </Button>
-              <Button
-                size="lg"
-                className={wide ? undefined : "w-full"}
-                disabled={busy}
-                onClick={() => setConfirming(true)}
-              >
-                {busy ? t("takeTest.submitting") : t("takeTest.submit")}
-              </Button>
-            </div>
-            <p
-              className={cn(
-                "text-muted-foreground text-xs leading-relaxed",
-                !wide && "text-center",
+              <Card className="gap-0 p-4">
+                <div className="space-y-3">
+                  {unanswered.length === 0 ? (
+                    <div className="flex items-center gap-2">
+                      <CircleCheck className="text-success size-4" aria-hidden="true" />
+                      <p className="text-sm font-medium">{t("takeTest.allAnswered")}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <CircleHelp
+                          className="text-muted-foreground size-4"
+                          aria-hidden="true"
+                        />
+                        <p className="text-sm font-medium">
+                          {t("takeTest.unanswered", { count: unanswered.length })}
+                        </p>
+                      </div>
+                      <Dots items={unanswered} onJump={onJump} />
+                    </>
+                  )}
+                  {flagged.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="flex items-center gap-2">
+                        <Flag
+                          className="text-muted-foreground size-4"
+                          aria-hidden="true"
+                        />
+                        <p className="text-sm font-medium">
+                          {t("takeTest.flagged", { count: flagged.length })}
+                        </p>
+                      </div>
+                      <Dots items={flagged} onJump={onJump} />
+                    </>
+                  )}
+                </div>
+              </Card>
+
+              {failed && (
+                <p role="alert" className="text-sm">
+                  {t("takeTest.submitFailed")}
+                </p>
               )}
-            >
-              {t("takeTest.submitNote")}
-            </p>
-          </div>
-        </main>
+            </div>
+          </main>
+          <footer
+            className="shrink-0 border-t px-4 py-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <div className="mx-auto max-w-[720px] space-y-3">
+              <div className={wide ? "flex items-center gap-2" : "space-y-2"}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className={wide ? undefined : "w-full"}
+                  onClick={onBack}
+                >
+                  {t("takeTest.keepWorking")}
+                </Button>
+                <Button
+                  size="lg"
+                  className={wide ? undefined : "w-full"}
+                  disabled={busy || lock === "superseded" || lock === "closed"}
+                  onClick={() => setConfirming(true)}
+                >
+                  {busy ? t("takeTest.submitting") : t("takeTest.submit")}
+                </Button>
+              </div>
+              <p
+                className={cn(
+                  "text-muted-foreground text-xs leading-relaxed",
+                  !wide && "text-center",
+                )}
+              >
+                {t("takeTest.submitNote")}{" "}
+                {remainingAttempts > 0 &&
+                  t("takeTest.retakeNote", { count: remainingAttempts })}
+              </p>
+            </div>
+          </footer>
+        </div>
         {wide && (
           <NavigatorRail dots={dots} current={null} groups={groups} onJump={onJump} />
         )}
       </div>
 
       <Dialog open={confirming} onOpenChange={setConfirming}>
-        <DialogContent className="gap-0 p-5 sm:max-w-md" showCloseButton={false}>
+        <DialogContent
+          className="student-surface gap-0 p-5 sm:max-w-md"
+          showCloseButton={false}
+        >
           <DialogTitle className="text-base leading-normal">
             {t("takeTest.confirmTitle")}
           </DialogTitle>
@@ -187,7 +205,11 @@ export function ReviewScreen({
             >
               {t("takeTest.confirmBack")}
             </Button>
-            <Button className="flex-1" disabled={busy} onClick={() => void confirm()}>
+            <Button
+              className="flex-1"
+              disabled={busy || lock === "superseded" || lock === "closed"}
+              onClick={() => void confirm()}
+            >
               {t("takeTest.submit")}
             </Button>
           </div>
@@ -214,7 +236,7 @@ function Dots({
           type="button"
           aria-label={t("takeTest.dotLabel", { n: d.index + 1 })}
           onClick={() => onJump(d.index)}
-          className="bg-background grid h-9 w-9 place-content-center rounded-md border text-xs tabular-nums"
+          className="bg-background text-muted-foreground grid h-11 w-11 place-content-center rounded-md border text-xs tabular-nums lg:h-9 lg:w-9"
         >
           {d.index + 1}
         </button>

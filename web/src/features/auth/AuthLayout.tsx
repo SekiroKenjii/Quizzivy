@@ -21,7 +21,7 @@ export function AuthLayout({
   const { t } = useTranslation();
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
+    <div className="student-surface grid min-h-svh lg:grid-cols-2">
       <aside className="bg-primary text-primary-foreground hidden flex-col justify-between p-10 lg:flex">
         <BrandLockup height={44} onDark />
         {art === undefined ? null : (
@@ -39,7 +39,7 @@ export function AuthLayout({
           <div className="mb-6 flex justify-center lg:hidden">
             <BrandLockup height={35} />
           </div>
-          <Card className="gap-0 p-5">{children}</Card>
+          <Card className="gap-0 p-5 lg:p-6">{children}</Card>
           {footer === undefined ? null : (
             <div className="text-muted-foreground mt-5 px-2 text-center text-xs leading-relaxed">
               {footer}

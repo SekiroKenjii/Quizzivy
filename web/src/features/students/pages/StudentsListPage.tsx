@@ -1,6 +1,12 @@
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActions } from "@/components/shared/BulkActions";
+import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
+import { DeleteItemButton } from "@/components/shared/DeleteItemButton";
+import type { ReactNode } from "react";
+import { useListFilters } from "@/hooks/useListFilters";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueryClient, useQuery } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +25,8 @@ import { NewStudentDialog } from "@/features/students/components/NewStudentDialo
 import { StudentDrawer } from "@/features/students/components/StudentDrawer";
 import {
   getStudent,
+  deleteStudent,
+  updateStudent,
   listStudents,
   scorePercent,
   type Student,
@@ -39,9 +47,38 @@ const PAGE_SIZE = 20;
 /** §8's students table, as the deck's G-07. */
 export default function StudentsListPage() {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showDisabled, setShowDisabled] = useState(false);
+  const bulk = useBulkSelection<Student>();
+  const queryClient = useQueryClient();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["admin-students"] });
+  const {
+    params: searchParams,
+    setParams: setSearchParams,
+    setFilter,
+  } = useListFilters();
+  const query = searchParams.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
+  const selectedId = searchParams.get("studentId");
+  const setSelectedId = (id: string | null) =>
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (id === null) next.delete("studentId");
+      else next.set("studentId", id);
+      return next;
+    });
+  const showDisabled = searchParams.get("status") === "disabled";
+  const setShowDisabled = (value: boolean) =>
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.delete("studentId");
+        next.delete("page");
+        if (value) next.set("status", "disabled");
+        else next.delete("status");
+        return next;
+      },
+      { replace: true },
+    );
   const [creating, setCreating] = useState(false);
   const search = useDebounced(query, 300).trim();
   const locale = useLocale();
@@ -104,15 +141,31 @@ export default function StudentsListPage() {
         <label className="flex items-center gap-2.5 text-sm">
           <Checkbox
             checked={showDisabled}
-            onChange={(event) => {
-              setShowDisabled(event.target.checked);
-              setSelectedId(null);
-            }}
+            onChange={(event) => setShowDisabled(event.target.checked)}
           />
           {t("students.showDisabled")}
         </label>
       </div>
 
+      <BulkActions
+        selected={[...bulk.selected.values()]}
+        name={(item) => item.fullName}
+        actions={[
+          {
+            label: t("common.disableSelected"),
+            description: t("common.disableSelectedBody"),
+            run: (item) => updateStudent(item.id, { disabled: true }),
+          },
+          {
+            label: t("common.deletePermanently"),
+            description: t("common.deleteInactiveBody"),
+            run: (item) => deleteStudent(item.id),
+          },
+        ]}
+        onRemoved={bulk.remove}
+        onClear={bulk.clear}
+        onSettled={invalidate}
+      />
       <QueryStates
         query={students}
         skeleton={<ListSkeleton />}
@@ -136,6 +189,19 @@ export default function StudentsListPage() {
             <>
               <StudentTable
                 items={items}
+                selectAll={<BulkSelectAll items={items} selection={bulk} />}
+                selectRow={(item) => (
+                  <BulkSelectRow item={item} name={item.fullName} selection={bulk} />
+                )}
+                deleteRow={(item) =>
+                  item.disabledAt ? (
+                    <DeleteItemButton
+                      name={item.fullName}
+                      onDelete={() => deleteStudent(item.id)}
+                      onDeleted={invalidate}
+                    />
+                  ) : null
+                }
                 locale={locale}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
@@ -163,11 +229,17 @@ export default function StudentsListPage() {
 }
 
 function StudentTable({
+  selectAll,
+  selectRow,
+  deleteRow,
   items,
   locale,
   selectedId,
   onSelect,
 }: Readonly<{
+  selectAll: ReactNode;
+  selectRow: (item: Student) => ReactNode;
+  deleteRow: (item: Student) => ReactNode;
   items: Student[];
   locale: Locale;
   selectedId: string | null;
@@ -179,12 +251,16 @@ function StudentTable({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-10">{selectAll}</TableHead>
             <TableHead className="w-[26%]">{t("students.student")}</TableHead>
             <TableHead>{t("students.classes")}</TableHead>
             <TableHead>{t("students.signInWith")}</TableHead>
             <TableHead className="text-right">{t("students.submitted")}</TableHead>
             <TableHead className="text-right">{t("students.average")}</TableHead>
             <TableHead>{t("students.activity")}</TableHead>
+            <TableHead className="w-10">
+              <span className="sr-only">{t("common.actions")}</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -192,6 +268,8 @@ function StudentTable({
             <Row
               key={student.id}
               student={student}
+              selection={selectRow(student)}
+              deleteAction={deleteRow(student)}
               locale={locale}
               expanded={student.id === selectedId}
               onToggle={() => onSelect(student.id === selectedId ? null : student.id)}
@@ -209,11 +287,15 @@ function emptyMessage(showDisabled: boolean, search: string): string {
 }
 
 function Row({
+  selection,
+  deleteAction,
   student,
   locale,
   expanded,
   onToggle,
 }: Readonly<{
+  selection: ReactNode;
+  deleteAction: ReactNode;
   student: Student;
   locale: Locale;
   expanded: boolean;
@@ -224,6 +306,7 @@ function Row({
 
   return (
     <TableRow>
+      <TableCell>{selection}</TableCell>
       <TableCell>
         <button
           type="button"
@@ -270,6 +353,7 @@ function Row({
           lastSeenText(student.stats.activity.lastAttemptAt, locale)
         )}
       </TableCell>
+      <TableCell>{deleteAction}</TableCell>
     </TableRow>
   );
 }

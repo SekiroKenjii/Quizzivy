@@ -19,3 +19,8 @@ var (
 // ErrForbidden covers not targeted, not published and not found alike. Which
 // assignments exist is not a student's to enumerate.
 var ErrForbidden = errors.New("assignments: not this student's")
+
+var (
+	ErrReferenced  = errors.New("assignment: retained history or assignments reference this resource")
+	ErrNotArchived = errors.New("assignment: deactivate or close before deleting")
+)

@@ -73,11 +73,11 @@ export function duringRules(draft: RulesDraft, t: TFunction): Rule[] {
   if (draft.integrity.blockCopyPaste) {
     rules.push({ kind: "copy", text: t("assignments.rules.noCopyPaste") });
   }
-  if (draft.integrity.maxFocusLoss > 0) {
+  if (draft.integrity.maxFocusLoss !== 0) {
     rules.push({
       kind: "focusLoss",
       text: t(`assignments.rules.focusLoss.${draft.integrity.onLimitExceeded}`, {
-        count: draft.integrity.maxFocusLoss,
+        count: Math.max(0, draft.integrity.maxFocusLoss),
       }),
     });
     rules.push({ kind: "honest", text: t("integrity.honestLimits") });

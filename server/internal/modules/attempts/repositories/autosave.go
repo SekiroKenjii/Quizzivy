@@ -32,6 +32,9 @@ func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time)
 		return domain.SaveResult{}, err
 	}
 
+	if _, err := closeForFocusLimit(ctx, tx, in.AttemptID, now); err != nil {
+		return domain.SaveResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.SaveResult{}, fmt.Errorf("attempts: commit save: %w", err)
 	}
@@ -173,8 +176,8 @@ func deriveFocusLoss(ctx context.Context, q db.Querier, attemptID string) error 
 		UPDATE app.attempts at
 		   SET focus_loss_count = counted.n,
 		       flagged = at.flagged
-		         OR (a.integrity_max_focus_loss > 0
-		             AND counted.n > a.integrity_max_focus_loss
+		         OR (a.integrity_max_focus_loss <> 0
+		             AND counted.n > greatest(0, a.integrity_max_focus_loss)
 		             AND a.integrity_on_limit_exceeded IN ('flag', 'auto_submit'))
 		  FROM app.assignments a,
 		       LATERAL (

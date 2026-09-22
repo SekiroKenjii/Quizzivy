@@ -3,12 +3,14 @@ import { createPortal } from "react-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { SideColumn } from "@/components/shared/SideColumn";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import type { ColumnRole } from "@/hooks/useColumnWidth";
 import { cn } from "@/lib/utils";
 import { PageAsideSlot, PageRailSlot } from "@/layouts/slots";
 
 interface PageAsideProps {
   /** Names the landmark; a screen with more than one needs them distinct. */
   label: string;
+  widthKey?: ColumnRole;
   /** A right panel details the content; a left rail filters it (F-11). */
   side?: "right" | "left";
   /** S-08: below 1024px the navigator is a sheet, so the rail is not drawn. */
@@ -29,6 +31,7 @@ export function PageAside({
   label,
   side = "right",
   hideBelow,
+  widthKey,
   sheet,
   children,
 }: Readonly<PageAsideProps>) {
@@ -39,7 +42,7 @@ export function PageAside({
 
   const aside = (
     <SideColumn
-      column={side === "left" ? "rail" : "panel"}
+      column={widthKey ?? (side === "left" ? "rail" : "panel")}
       side={side}
       aria-label={label}
       className={cn(
@@ -58,7 +61,13 @@ export function PageAside({
   if (wide) return column;
   return (
     <Dialog open={sheet.open} onOpenChange={sheet.onOpenChange}>
-      <DialogContent className="max-h-[80svh] space-y-5 overflow-y-auto">
+      <DialogContent
+        className={cn(
+          "inset-y-0 right-0 left-auto h-svh max-h-svh w-[min(90vw,24rem)] max-w-none translate-x-0 translate-y-0 space-y-5 overflow-y-auto rounded-none border-y-0 border-r-0 p-5 pt-12 sm:max-w-none",
+          side === "left" && "right-auto left-0 border-r border-l-0",
+        )}
+        aria-describedby={undefined}
+      >
         <DialogTitle className="sr-only">{label}</DialogTitle>
         {children}
       </DialogContent>

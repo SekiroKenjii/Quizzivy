@@ -8,6 +8,11 @@ import (
 
 // Summary is the admin home in one reading: the four counts and the latest attempts.
 type Summary struct {
+	ClosingSoon     int
+	WaitingStudents int
+	OldestWaitingAt *time.Time
+	TotalStudents   int
+	NextClosing     *ClosingAssignment
 	OpenAssignments int
 	AwaitingGrading int
 	ActiveStudents  int
@@ -26,4 +31,13 @@ type Recent struct {
 	SubmittedAt   *time.Time
 	PendingManual int
 	Flagged       bool
+}
+
+// ClosingAssignment is the nearest open assignment due within 24 hours.
+type ClosingAssignment struct {
+	ID             string
+	Title          string
+	ClosesAt       time.Time
+	SubmittedCount int
+	TargetCount    int
 }

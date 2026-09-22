@@ -17,7 +17,7 @@ export const ASSIGNMENT = {
 export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(who.email);
-  await page.getByLabel("Mật khẩu").fill(who.password);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(who.password);
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page).toHaveURL(landing);
 }

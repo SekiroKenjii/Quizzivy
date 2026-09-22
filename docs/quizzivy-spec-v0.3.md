@@ -1,7 +1,43 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.3 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.7 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.6**
+
+- Dashboard work cards lead into a full-width assignment table and compact activity below.
+- Student discovery has counted status filters and prominent resume cards.
+- Teacher and student settings share Profile, Security and Preferences routes,
+  persistent forms, section navigation and separated form rows.
+- Subtle shadows, hover feedback and 150ms section transitions respect reduced motion.
+
+**Changes since v0.5**
+
+- Admin lists retain filters, support bulk removal and duplicate in place. The
+  question bank exposes attached outlines in a nested table (§8).
+- Version history supports safe draft restoration, default selection and unused
+  version deletion without changing assigned snapshots or reusing version numbers.
+- Assignment limits support custom durations, attempt counts and immediate
+  integrity submission with retained answers and recorded violations (§10).
+
+**Changes since v0.4**
+
+- The approved independent UX review replaces the student mockup's sparse right
+  panels with fluid discovery pages and centred reading/form pages (§9, §12).
+- All live attempts remain discoverable; class/status filters, result empties,
+  explicit selection/audio/save states and direct submitted-paper navigation are
+  part of the student flow. Responsive changes preserve local form/filter state.
+- Phone actions use 44px touch targets, including navigation and dialog controls;
+  the final-question footer must fit at 320px in Vietnamese and English.
+
+**Changes since v0.3**
+
+- Pending student answers survive a failed save/reload within the same session;
+  manual submission waits for the final save. Keyboard editing/navigation rules
+  are explicit in §9.
+- §12 pins the mockup type scale and phone input/touch exceptions.
+- Approved O-23 defines thirteen-month integrity retention, retained audit logs
+  and manual structured-identity anonymization in §13.3.
 
 **Changes since v0.2**
 - **OQ-2 answered: yes** — students self-join with a class code. New §6, new `/join` flow, join-code lifecycle in the schema. This adds a public, unauthenticated surface that did not exist before; read §6.5 on the security consequences.
@@ -277,7 +313,7 @@ interface Test {
 interface IntegrityPolicy {
   requireFullscreen: boolean;
   blockCopyPaste: boolean;
-  maxFocusLoss: number;                 // 0 = unlimited
+  maxFocusLoss: number;                 // -1 = none allowed; 0 = unlimited
   onLimitExceeded: 'warn' | 'flag' | 'auto_submit';
 }
 
@@ -323,9 +359,9 @@ type Answer =
 | Route | Screen | Key behaviour |
 |---|---|---|
 | `/admin` | Dashboard | Open assignments, attempts awaiting grading, active students, flagged attempts, recent attempts. |
-| `/admin/tests` | Tests list | Title, status, #questions, total points, updated. Filter by status. Create / duplicate / archive. |
+| `/admin/tests` | Tests list | Title, status, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. |
 | `/admin/tests/new`, `/admin/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **audio attach** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. |
-| `/admin/tests/:id` | Test detail | Read-only student-eye preview + version history. |
+| `/admin/tests/:id` | Test detail | Student-eye preview of any version, with history in the shared right sidebar. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
 | `/admin/question-bank` | Question bank | Type/tag filters + full-text search. CRUD. Audio badge + inline preview. CSV import (P1). |
 | `/admin/media` | Media library | Uploaded audio/images: filename, duration, size, where used. Delete blocked if referenced by any published version. |
 | `/admin/assignments` | Assignments list | Test, targets, window, status, `submitted/total`, flagged count. |
@@ -334,26 +370,52 @@ type Answer =
 | `/admin/attempts/:id` | Review & grading | Per question; auto-graded shown; `short_answer` gets points input + comment + **sample answer panel**. Audio questions show plays used vs allowed. **Integrity timeline tab** (§10.4). "Finish grading" → `graded`. |
 | `/admin/students` | Students | Table + create/edit. Linked providers, `joined_via`. Reset password. CSV import (P1). |
 | `/admin/classes`, `/admin/classes/:id` | Classes | CRUD, members, **join-code panel** (§6.4). |
-| `/admin/settings` | Settings | Profile, password, link/unlink Google, language. |
+| `/admin/settings/:section?` | Settings | Profile (default), security (password and Google) and preferences (language), with desktop section navigation and a mobile select. |
+
+Admin list behaviour (approved change request, 2026-09-22):
+
+- Tests, questions, media, classes, students and assignments support explicit multi-selection and confirmed bulk removal. Class rosters support bulk membership removal. Failed items remain selected with an individual explanation; successful items are not retried. Attempt history, grading records and integrity/audit events remain retained.
+- Tests and questions expose duplication beside the row menu and inside it. A duplicate leaves the teacher on the list and marks the source and newly created row until navigation.
+- List search, filters and pagination survive navigation to a child and back for the signed-in session. Explicit shared URLs take precedence. The question bank shows updated time and orders newest-created questions first.
+- The question bank's usage count expands a nested table of currently attached test outlines, fetched on demand, with links to their builders. Frozen published snapshots are excluded from this count and remain unaffected by bank edits.
+- Archive tests/classes or disable student accounts before permanent deletion. Assignment deletion requires a draft or closed assignment without attempts. Foreign-key references to assigned work block deletion. Student actor references in retained audit history also block deletion; the existing manual anonymization policy remains separate.
+- Published snapshots are never edited in place. Editing an old version copies its frozen content into new bank questions and replaces the editable draft after confirmation. Existing assignments retain their version. Switching the default does not reset the monotonically increasing publication counter. Only unused, non-default versions can be deleted.
+- Empty builder groups accept question drops; double-clicking a group title opens rename. Switching questions flushes the current editor and uses the returned saved record. Fresh starter text disappears on focus without scheduling an invalid empty save. Tags suggest recent and matching existing names.
+- Assignment duration offers 30, 45 and 60 minutes plus a custom minute input. Attempt count is a number input defaulting to 1. Focus loss offers unlimited, none allowed, or a custom positive count.
 
 ## 9. Screens & routes — student and public
 
-`StudentLayout`: minimal top bar, no sidebar, mobile-first, safe-area padding. `PublicLayout`: logo + content, nothing else.
+`StudentLayout`: minimal top bar, no sidebar, mobile-first, safe-area padding.
+Navigation branches at 1024px; the route outlet stays mounted across that
+breakpoint. Home and classes fill the available width with adaptive card grids.
+Intro and results are centred at a maximum 720px reading width, with
+facts and primary actions in the same flow. The focus engine retains a separate
+resizable question navigator (256px default, 224–384px), with a preference
+independent of the teacher panel. `PublicLayout`: logo + centred content.
 
 | Route | Layout | Key behaviour |
 |---|---|---|
 | `/join`, `/join/:code`, `/join/:code/confirm` | Public | §6.2. Invalid/expired/exhausted code → distinct, plain messages, no hints about which classes exist. |
 | `/login` | Public | Password form + "Tiếp tục với Google". |
-| `/app` | Student | **Đến hạn** / **Sắp tới** / **Đã hoàn thành** (score if allowed). Empty state per section. |
-| `/app/assignments/:id` | Student | Intro: title, instructions, duration, attempts used/allowed, review policy, **integrity rules stated plainly**, audio rules if any ("Mỗi câu nghe được phát tối đa 2 lần"). Start / Resume. |
+| `/app` | Student | All in-progress attempts ordered by deadline, then available / upcoming / completed (score if allowed). Class and status filters in the URL, clear-filter empty state. Available cards say "Xem chi tiết"; only the intro starts the clock. |
+| `/app/assignments/:id` | Student | Intro: title, instructions, duration, attempts used/allowed, review policy, **integrity rules stated plainly**, audio rules if any (the allowed plays and that additional plays are recorded, per §11.4). Start / Resume. |
 | `/app/attempts/:id` | Focus | The engine. §10, §11.3. |
-| `/app/attempts/:id/result` | Student | Score (if allowed), per-question review honoring `review.*`, transcript if `showTranscriptAfterSubmit`. "Pending grading" banner when `pendingManual > 0`. |
-| `/app/classes` | Student | Classes joined; "Tham gia lớp mới" → `/join`. |
-| `/app/settings` | Student | Password, link/unlink Google, language. |
+| `/app/attempts/:id/result` | Student | Score (if allowed), per-question review honoring `review.*`, transcript if `showTranscriptAfterSubmit`. "Pending grading" notice when the score is published and `pendingManual > 0`. Summary above answers, full paper title on phones. Wrong-answer filters exist only when scores are published; empty filters explain why and offer all questions. |
+| `/app/classes` | Student | Classes joined with assignment counts and links to `/app?classId=…`; one join action → `/join`. |
+| `/app/settings/:section?` | Student | Profile (default), security and preferences share section navigation with teacher settings. Forms remain mounted while changing section or viewport; mobile uses a section select. |
 
 Shared: `/change-password`, `/403`, `/404`, global error boundary with reload + copyable error ID.
 
 ---
+
+Student answers awaiting server confirmation are cached locally per student,
+attempt and session until saved or closed. They may be restored before the
+server deadline after a reload; a superseded session must not overwrite a newer
+session's answers. Explicit sign-out clears the local cache. Manual submission
+waits for pending saves and stays open if the final answer cannot be saved.
+Keyboard A–D and F work after selecting an option; arrows navigate questions
+except inside text editors or other controls that own those keys. The last
+right-arrow opens review. Dialogs suspend shortcuts.
 
 ## 10. Integrity monitoring (proctoring-lite)
 
@@ -386,8 +448,8 @@ Announced, visible, never silent.
 
 - The intro page states the active rules in plain Vietnamese before starting. If `requireFullscreen` is on, the "Bắt đầu" click is what enters fullscreen (browsers require a gesture).
 - First violation: a non-dismissible dialog — what happened, strikes remaining, what happens at zero. The timer keeps running.
-- A small persistent indicator shows remaining strikes when `maxFocusLoss > 0`.
-- `onLimitExceeded`: `warn` = dialog only; `flag` = attempt marked for the admin, student told; `auto_submit` = 10s countdown with a "Tôi vẫn đang làm bài" cancel granting one final strike, then submit.
+- A small persistent indicator shows remaining strikes when a limit is set. `maxFocusLoss = 0` retains the unlimited default; `-1` permits no counted departure; positive values permit that many departures.
+- `onLimitExceeded`: `warn` = dialog only; `flag` = attempt marked for the admin, student told; `auto_submit` = immediate submission on exceeding the count, retaining answers for grading and recording the violation. There is no cancellation or extra strike. The final answer/event batch is saved before the server grades and closes. While offline, the attempt is locked locally, pending answers are retained and submission is retried with a visible notice.
 - Fullscreen exit shows a "Quay lại toàn màn hình" button. Never trap the student: `Esc` always works and there is always a visible way to leave and submit.
 
 ### 10.3 Policy defaults (per assignment)
@@ -407,8 +469,10 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - One `useIntegrityMonitor(attemptId, policy)` hook owns all listeners, registered and torn down in a single `useEffect`. No scattered listeners.
 - Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`.
 - `clientSeq` is monotonic so the server can order events despite clock skew.
-- Fire-and-forget: a failed event flush never blocks answering or submitting.
-- Never block input on an integrity failure. Integrity is observational; the timer and the answers are the contract.
+- Failed background event flushes do not block answering or manual submission.
+  The immediate `auto_submit` policy retries its final answer/event batch before
+  confirming submission so the violation is retained with the answers.
+- An event transport failure alone does not block input. The explicit `auto_submit` policy locks further answering once exceeded, while preserving and retrying the pending answers.
 
 ---
 
@@ -461,10 +525,12 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Primary action: dark charcoal (`zinc-900`) buttons, white text.** Not blue, not purple, not indigo.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, oversized radii (max `rounded-md` controls, `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** system UI stack or Inter. One display size for page titles, otherwise `text-sm` / `text-base`. `leading-relaxed` in the test view.
+- **Typography:** system UI stack or Inter. Match the mockup scale: xs 12px, sm 13px, base 14px, lg 17px, xl 20px, with proportional line heights. Phone text inputs stay at 16px to avoid input zoom; student phone buttons, icon controls and question navigation cells are at least 44px in both dimensions; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
-- **Density:** admin tables dense (~40px rows). Student test view spacious, one question centered at max-width ~720px.
-- **Motion:** 150ms ease-out on state change; no entrance animations. Respect `prefers-reduced-motion`.
+- **Density:** admin tables dense (~40px rows). Student discovery grids use one column on phones, two from 768px, three from 1536px. Reading pages are centred at 720px; settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows. Student test view stays spacious, one question centred at max-width ~720px beside the navigator. This approved review supersedes S-13–S-17's placement of ordinary page content in a right panel.
+- **Action hierarchy:** resume is primary; opening assignment details and entering a class are secondary. Deadline badges turn amber only within 24 hours. The 320px test footer has previous, an icon-only question-list control and a flexible next/review action. Review submission remains outside the scrolling summary. Submission confirmation offers the submitted paper directly.
+- **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. Restored answers say they were loaded; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
+- **Motion:** 150ms ease-out for control feedback and settings section changes. Cards use subtle shadows and a 2px hover lift on pointer devices. Disable these transitions under `prefers-reduced-motion`; exam inputs remain stationary.
 - **Audio player:** monochrome. A filled `zinc-900` play button, a thin `zinc-200` track with a `zinc-900` fill. No waveform visualisation, no equaliser animation, no colored accents.
 - **Join screens:** single centered card, class name large, one primary button. This is the first thing a new student sees — it should look calm and legitimate, not like a marketing page.
 - **Dark mode:** not in v1, but theme via CSS variables / Tailwind tokens so it can be added without touching components.
@@ -644,7 +710,7 @@ CREATE TABLE app.question_options (
 **Tests and versioning** — the load-bearing decision. On publish, snapshot resolved content into version tables so editing a test can never mutate an in-flight or historical attempt:
 
 ```
-tests(id, title, description, status, current_version, ...)
+tests(id, title, description, status, current_version, last_published_version, ...)
 test_versions(id, test_id, version, published_at, total_points, UNIQUE(test_id, version))
 test_version_sections(id, test_version_id, ordinal, title, instructions)
 test_version_questions(id, test_version_section_id, ordinal, source_question_id,
@@ -719,7 +785,7 @@ CREATE INDEX ON app.attempt_events (attempt_id, occurred_at);
 
 `final_score` uses PG18 **virtual generated columns** — computed on read, no storage, never stale (the default for generated columns in 18). Grading precedence is a pure function of two columns and must never drift.
 
-`attempt_events` uses `bigint IDENTITY` rather than a UUID: a high-volume append-only log read only by `attempt_id` is better served by a narrow sequential key. No `UPDATE` or `DELETE` is ever issued against it.
+`attempt_events` uses `bigint IDENTITY` rather than a UUID: a high-volume append-only log read only by `attempt_id` is better served by a narrow sequential key. The application never updates or deletes it. An explicit privileged retention operation may delete events only after both assignment closure and server receipt are more than thirteen calendar months old, using server `received_at` and a UTC cutoff; each batch is audited. The audit log remains retained. Disabled accounts are not automatically erased. Manual requested student anonymization removes structured identity and credentials while preserving historical IDs and records; free text, old audit entries and backups require separate review (see `docs/setup/operations.md`).
 
 ### 13.4 Audit log
 

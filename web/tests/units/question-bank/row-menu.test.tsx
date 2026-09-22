@@ -47,10 +47,10 @@ beforeEach(() => {
         },
         tags: ["passive"],
         bankTotal: 1,
-        items: [question(ID)],
+        items: duplicates === 0 ? [question(ID)] : [question(COPY), question(ID)],
         page: 1,
         pageSize: 50,
-        total: 1,
+        total: duplicates === 0 ? 1 : 2,
       }),
     ),
     http.post(`${BASE}/admin/questions/${ID}/duplicate`, () => {
@@ -101,7 +101,7 @@ describe("a bank row (A-06a)", () => {
     ).toEqual(["Mở", "Thêm vào đề thi", "Nhân bản", "Xoá"]);
   });
 
-  it("duplicates into a new row and opens the copy", async () => {
+  it("duplicates into a marked row while keeping the bank open", async () => {
     const user = renderBank();
     await screen.findByRole("link", {
       name: "The letter ___ yesterday by the manager.",
@@ -111,6 +111,15 @@ describe("a bank row (A-06a)", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Nhân bản" }));
 
     await waitFor(() => expect(duplicates).toBe(1));
-    expect(await screen.findByText("editor")).toBeInTheDocument();
+    const links = await screen.findAllByRole("link", {
+      name: "The letter ___ yesterday by the manager.",
+    });
+    expect(links).toHaveLength(2);
+    const copy = links.find(
+      (link) => link.getAttribute("href") === `/admin/question-bank/${COPY}`,
+    );
+    expect(copy).toBeInTheDocument();
+    expect(within(copy!.closest("tr")!).getByText("Vừa nhân bản")).toBeInTheDocument();
+    expect(screen.queryByText("editor")).not.toBeInTheDocument();
   });
 });
