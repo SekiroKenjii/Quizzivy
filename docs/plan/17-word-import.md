@@ -497,10 +497,11 @@ deploy and verify backup/restore before enabling production writes.
 
 First checkpoint deliverables are W-01–04: source family/coverage inventory,
 proposed contracts with concrete examples, extraction/editor/provider comparisons,
-and a tested teacher review flow. Real exam documents are not present in this
-planning input; synthetic data can establish harnesses but cannot close W-01 or
-the teacher-quality gate. Request representative authorized Word files and
-confirmed answers before making quality or release-time claims.
+and a tested teacher review flow. The initial planning input had no real exam
+documents; the subsequently supplied local corpus is inventoried in §1.1.
+Synthetic tests and successful source inventory do not close W-01 or the
+teacher-quality gate. Review expected outputs and confirm answer truth before
+making recognition-quality or release-time claims.
 
 ## 11. Primary technical references checked during planning
 
