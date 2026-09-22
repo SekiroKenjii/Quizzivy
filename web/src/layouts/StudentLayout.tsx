@@ -33,7 +33,11 @@ export default function StudentLayout() {
           />
         ) : (
           <div className="flex min-h-14 items-center gap-3 px-4 lg:px-8">
-            {wide ? <BrandLockup height={28} /> : <BrandMark height={24} />}
+            {wide ? (
+              <BrandLockup height={28} />
+            ) : (
+              <BrandMark height={24} label={false} />
+            )}
             <nav
               aria-label={t("nav.mainNavigation")}
               className="ml-auto flex items-center gap-1 lg:ml-4"
@@ -74,7 +78,7 @@ export default function StudentLayout() {
 
 const link = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md px-3 text-sm transition-colors focus-visible:ring-2 lg:min-h-8",
+    "focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md px-3 text-sm whitespace-nowrap transition-colors focus-visible:ring-2 lg:min-h-8",
     isActive
       ? "bg-secondary text-secondary-foreground"
       : "text-muted-foreground hover:text-foreground",

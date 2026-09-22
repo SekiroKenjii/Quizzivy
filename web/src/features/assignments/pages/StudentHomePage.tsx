@@ -90,9 +90,7 @@ export default function StudentHomePage() {
 
   const data = assignments.data;
   const all = [...data.dueNow, ...data.upcoming, ...data.completed];
-  const classNames = new Map(classes.data?.items.map((c) => [c.id, c.name]));
-  for (const card of all)
-    if (card.classId && card.className) classNames.set(card.classId, card.className);
+  const classNames = assignmentClasses(classes.data?.items ?? [], all);
   const matches = (card: StudentAssignmentCard) =>
     classId === "all" || card.classId === classId;
   const dueNow = data.dueNow.filter(matches);
@@ -133,7 +131,7 @@ export default function StudentHomePage() {
       </div>
       {all.length > 0 && (
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-0 flex-1 space-y-1.5 sm:max-w-xs">
+          <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
             <label htmlFor="student-class-filter" className="text-sm">
               {t("student.filterClass")}
             </label>
@@ -154,7 +152,7 @@ export default function StudentHomePage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="min-w-0 flex-1 space-y-1.5 sm:max-w-xs">
+          <div className="w-full min-w-0 space-y-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
             <label htmlFor="student-status-filter" className="text-sm">
               {t("student.filterStatus")}
             </label>
@@ -441,4 +439,15 @@ function Outcome({
       {scoreText(score.earned, score.total, locale, t)}
     </span>
   );
+}
+
+function assignmentClasses(
+  classes: { id: string; name: string }[],
+  assignments: StudentAssignmentCard[],
+) {
+  const names = new Map(classes.map((c) => [c.id, c.name]));
+  for (const card of assignments) {
+    if (card.classId && card.className) names.set(card.classId, card.className);
+  }
+  return names;
 }

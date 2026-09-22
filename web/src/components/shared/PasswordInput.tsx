@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export function PasswordInput({
   className,
   ...props
-}: Omit<ComponentProps<typeof Input>, "type">) {
+}: Readonly<Omit<ComponentProps<typeof Input>, "type">>) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   return (

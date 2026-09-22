@@ -146,10 +146,8 @@ export function AudioPlayer({
 
       <div className="min-w-0 flex-1">
         <div
-          className={cn(
-            "relative flex items-center",
-            allowSeek ? "h-11 lg:h-3" : "h-3",
-          )}
+          data-seek={allowSeek}
+          className="relative flex h-3 items-center data-[seek=true]:h-11 lg:data-[seek=true]:h-3"
         >
           <div className="bg-secondary h-1 w-full overflow-hidden rounded-full">
             <div

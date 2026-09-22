@@ -21,7 +21,7 @@ test("E2E 2a: a student signs in with a password and reaches their own app", asy
 
   await page.goto("/login");
   await page.getByLabel("Email").fill("hocvien@example.com");
-  await page.getByLabel("Mật khẩu").fill("quizzivy-dev");
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("quizzivy-dev");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page).toHaveURL(/\/app$/);
   // Their own app: greeted by name, and -- in no class yet -- offered the way in.

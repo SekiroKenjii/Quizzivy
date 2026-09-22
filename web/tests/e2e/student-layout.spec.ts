@@ -46,9 +46,9 @@ async function student(page: Page) {
   });
 }
 async function fits(page: Page) {
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-  ).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
 }
 
 for (const width of [320, 360, 1024, 1440, 1920]) {
