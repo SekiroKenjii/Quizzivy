@@ -2,7 +2,7 @@
 
 The user requested remediation of every open issue and a browser review of the
 released student experience against the mockups. The baseline and individual
-claims are recorded in `../audits/2026-09-22-open-issues.md`.
+claims are summarized in [PR #98](https://github.com/SekiroKenjii/Quizzivy/pull/98).
 
 ## Decisions
 
@@ -38,7 +38,8 @@ claims are recorded in `../audits/2026-09-22-open-issues.md`.
       PITR and delivered notifications remain pending external setup.
 - [x] Full local tests, build, lint and generated contract verification; PR #98
       repeats the full checks in CI. Evidence and remaining production acceptance
-      are recorded in `../audits/2026-09-22-remediation.md`.
+      are recorded in [PR #98](https://github.com/SekiroKenjii/Quizzivy/pull/98)
+      and `../setup/operations.md`.
 
 ## Newly reproduced defects
 

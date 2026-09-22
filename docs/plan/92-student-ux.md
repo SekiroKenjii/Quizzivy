@@ -1,8 +1,6 @@
-# Approved student UX redesign
+# Student layouts and interaction rules
 
-The user approved the proposals in `../audits/2026-09-22-student-ux-review.md`
-on 2026-09-22. Spec v0.5 records the new design contract. PR #98 remains a draft;
-merge and deployment are on hold.
+This plan implements the student design contract in spec v0.5, §9 and §12.
 
 ## Layout and navigation
 
@@ -20,6 +18,7 @@ empty filters provide a reset. Completed cards retain class and submission date.
 ## Controls and feedback
 
 Phone buttons, question cells, select items and dialog actions have 44px targets.
+On phones, assignment cards put the class name below the deadline badge.
 The 320px exam footer keeps previous and question-list icons beside a flexible
 next/review button. Review submission stays outside the scrolling question list.
 The success screen links directly to the submitted paper.
@@ -42,6 +41,3 @@ policy-aware result filtering, restored-save copy, selection instructions,
 independent navigator width, 320px footer bounds, and state persistence across
 1024px. Browser checks use 320, 360, 1024, 1440 and 1920px and both languages.
 Existing grading, audio, auth, integrity and autosave tests remain in force.
-Run one worker and one resource-intensive command at a time on this machine;
-stop owned test processes before available memory drops below 2 GiB. Record
-actual results in the audit rather than treating interrupted checks as passes.

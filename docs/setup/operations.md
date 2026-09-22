@@ -81,7 +81,7 @@ Local rehearsal on 2026-09-22: PG18 custom-format dump restored into a new
 empty database, verifier matched the checkpoint before and after migration
 00029 down/up, and the temporary database was removed. The non-application
 `zz_review` scratch schema was excluded. See the
-[remediation evidence](../audits/2026-09-22-remediation.md) for scope and counts.
+[PR #98 verification](https://github.com/SekiroKenjii/Quizzivy/pull/98) for scope and counts.
 This does not change the pending production evidence below.
 
 ## Retention and manual anonymization
