@@ -2,7 +2,7 @@
 
 Date: 2026-09-22. Reviewed revision: `85d4e5c` on `work/issue-remediation`.
 Status: the user approved the proposals after this review. The implementation
-is tracked in `../plan/92-student-ux.md`; validation is in progress. PR #98 remains
+is tracked in `../plan/92-student-ux.md`; verification is recorded below. PR #98 remains
 a draft, with no merge or deployment. The observations below describe the
 reviewed revision before those changes.
 
@@ -284,3 +284,61 @@ During this pass, F toggled a flag, the final right arrow opened review, and arr
 keys on the panel separator resized the panel without navigating questions.
 The resize was reversed and the flag cleared. Earlier automated shortcut and
 autosave results remain useful but do not cover all the UX findings above.
+
+## Approved implementation and verification
+
+The user approved this proposal. Spec v0.5, the working rules and
+`../plan/92-student-ux.md` now describe the implemented layout, rather than
+requiring the former right panels on ordinary student pages.
+
+| Finding | Implemented behaviour | Regression evidence |
+| --- | --- | --- |
+| UX-01 | Every active attempt is listed in deadline order and included in counts | Home unit tests; browser discovery tests |
+| UX-02 | Fluid home/classes grids; centred 720px intro/results/settings; independent 256px exam navigator | Five viewport browser tests; panel preference isolation test |
+| UX-03 | Icon question-list control beside a flexible next/review action | Final-question bounds at 320/360/1024/1440px |
+| UX-04 | 44px phone actions, dialog controls, select options and question cells; larger seek hit area | Measured browser controls; touch-size assertions |
+| UX-05 | Stable outlet and settings forms across 1024px | Unsaved name/password and result-filter resize scenarios |
+| UX-06 | Class cards link to class-filtered assignments; counts and one join action | Class-to-home navigation at all five widths |
+| UX-07 | Visible single/multiple selection instructions and distinct option shapes | Accessible descriptions and existing answer selection tests |
+| UX-08 | Summary above questions; full phone title; policy-aware filters and contextual empty states | All eight review-policy combinations, empty-filter/reset and resize tests |
+| UX-09 | Details label before the clock starts; submitted-paper action after submission | Intro navigation and both post-submit destinations |
+| UX-10 | Current identity and return-to-classes link on signed-in join; login exposes joining | Direct browser inspection and existing join/auth suites |
+| UX-11 | Restored-save copy; used/allowed audio count and explicit extra-play recording | Save-state regression; live audio count/reload test |
+| UX-12 | Neutral deadlines beyond 24 hours; resume primary and details secondary | Source review and wide/phone browser inspection |
+
+The production bundle built locally after the final frontend changes. At
+`ae46e07`, CI passed 663 unit tests, 10 integration tests, 29 Chromium browser
+scenarios and 7 live-API scenarios, as well as frontend lint, strict typechecking,
+formatting, build, contract and deck checks:
+<https://github.com/SekiroKenjii/Quizzivy/actions/runs/35690525710>.
+The 80-question review scenario verifies that submission remains in the viewport.
+
+Direct local-browser inspection covered home, classes, class/status filtering,
+intro, results, settings and signed-in join. Home measured three 603px columns
+inside a 1920px viewport (15px scrollbar); results measured a centred 720px
+column. The unsaved name survived both 1023px and 1024px. At 320px, the revised
+class filters each measured 273px wide and 44px high, including 44px dropdown
+options; a long class name stayed readable. English settings and Vietnamese join
+had no horizontal overflow. The language was restored to Vietnamese. No profile,
+password, Google link or enrolment was submitted during direct browser review.
+
+The machine has 14.5 GiB RAM and no swap, with substantial concurrent application
+load. Local test/typecheck processes were stopped or refused by the memory guard;
+a 384 MiB TypeScript heap also exhausted its own limit. These are not recorded as
+passes. The full suite above ran on CI, while local builds and browser inspection
+were kept small. No unrelated application was stopped and no test was skipped.
+
+Two CI runs also exposed the existing login timing test's sequential sampling:
+wrong-password medians of 141ms/135ms preceded disabled-account medians of
+57ms/57ms. Both code paths run Argon2 verification before returning the same
+invalid-credentials error. The regression test now warms both paths, measures
+nine interleaved pairs with alternating order, and checks each error. Its
+0.5–2.0 ratio gate is unchanged; no authentication code or hash policy changed.
+Full final checks, including that test, are attached to draft PR #98.
+
+The user subsequently requested a separate class-name line below the deadline
+badge on phones. Assignment cards now stack those elements below 1024px and
+keep them in one row on desktop.
+
+Physical mobile keyboard, mobile Safari and screen-reader testing remain outside
+this pass. No merge or deployment has been performed.

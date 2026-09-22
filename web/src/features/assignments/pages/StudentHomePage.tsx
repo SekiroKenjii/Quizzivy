@@ -298,7 +298,7 @@ function DueCard({ card, now }: Readonly<{ card: StudentAssignmentCard; now: Dat
   return (
     <Card className="min-w-0 gap-0 p-5">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center">
           <Badge
             variant={
               new Date(card.closesAt).getTime() - now.getTime() <= 86_400_000
