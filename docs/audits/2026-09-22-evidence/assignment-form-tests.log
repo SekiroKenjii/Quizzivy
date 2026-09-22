@@ -1,0 +1,9 @@
+
+ RUN  v4.1.11 /home/thuongvo/Developer/src/remote/github/Quizzivy/web
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  09:22:38
+   Duration  10.24s (transform 647ms, setup 902ms, import 5.41s, tests 2.69s, environment 961ms)
+

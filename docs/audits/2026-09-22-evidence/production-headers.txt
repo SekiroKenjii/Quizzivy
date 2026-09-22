@@ -1,0 +1,9 @@
+api
+HTTP/2 200 
+server: Fly/454af3fb (2026-09-21)
+app
+HTTP/2 200 
+x-content-type-options: nosniff
+cache-control: public, max-age=0, must-revalidate
+referrer-policy: strict-origin-when-cross-origin
+server: cloudflare

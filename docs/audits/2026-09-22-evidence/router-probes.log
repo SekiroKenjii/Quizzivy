@@ -1,0 +1,11 @@
+=== RUN   TestIssueAuditOversizedJSON
+    issue_audit_test.go:16: 2097214 bytes reached the unconfigured login handler: status 501
+--- PASS: TestIssueAuditOversizedJSON (0.06s)
+=== RUN   TestIssueAuditHeaders
+    issue_audit_test.go:26: Strict-Transport-Security: ""
+    issue_audit_test.go:26: X-Content-Type-Options: ""
+    issue_audit_test.go:26: Referrer-Policy: ""
+    issue_audit_test.go:26: Content-Security-Policy: ""
+--- PASS: TestIssueAuditHeaders (0.04s)
+PASS
+ok  	quizzivy/internal/core/router/tests	0.342s

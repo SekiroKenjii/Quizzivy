@@ -1,6 +1,6 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.3 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.4 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
 **Changes since v0.2**
@@ -355,6 +355,15 @@ Shared: `/change-password`, `/403`, `/404`, global error boundary with reload + 
 
 ---
 
+Student answers awaiting server confirmation are cached locally per student,
+attempt and session until saved or closed. They may be restored before the
+server deadline after a reload; a superseded session must not overwrite a newer
+session's answers. Explicit sign-out clears the local cache. Manual submission
+waits for pending saves and stays open if the final answer cannot be saved.
+Keyboard A–D and F work after selecting an option; arrows navigate questions
+except inside text editors or other controls that own those keys. The last
+right-arrow opens review. Dialogs suspend shortcuts.
+
 ## 10. Integrity monitoring (proctoring-lite)
 
 First-class requirement. Lives in `src/features/integrity/`, consumed by `take-test` (capture) and `attempts` (review).
@@ -461,7 +470,7 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Primary action: dark charcoal (`zinc-900`) buttons, white text.** Not blue, not purple, not indigo.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, oversized radii (max `rounded-md` controls, `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** system UI stack or Inter. One display size for page titles, otherwise `text-sm` / `text-base`. `leading-relaxed` in the test view.
+- **Typography:** system UI stack or Inter. Match the mockup scale: xs 12px, sm 13px, base 14px, lg 17px, xl 20px, with proportional line heights. Phone text inputs stay at 16px to avoid input zoom; primary student touch controls are at least 44px high. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student test view spacious, one question centered at max-width ~720px.
 - **Motion:** 150ms ease-out on state change; no entrance animations. Respect `prefers-reduced-motion`.
@@ -719,7 +728,7 @@ CREATE INDEX ON app.attempt_events (attempt_id, occurred_at);
 
 `final_score` uses PG18 **virtual generated columns** — computed on read, no storage, never stale (the default for generated columns in 18). Grading precedence is a pure function of two columns and must never drift.
 
-`attempt_events` uses `bigint IDENTITY` rather than a UUID: a high-volume append-only log read only by `attempt_id` is better served by a narrow sequential key. No `UPDATE` or `DELETE` is ever issued against it.
+`attempt_events` uses `bigint IDENTITY` rather than a UUID: a high-volume append-only log read only by `attempt_id` is better served by a narrow sequential key. The application never updates or deletes it. An explicit privileged retention operation may delete events only after both assignment closure and server receipt are more than thirteen calendar months old, using server `received_at` and a UTC cutoff; each batch is audited. The audit log remains retained. Disabled accounts are not automatically erased. Manual requested student anonymization removes structured identity and credentials while preserving historical IDs and records; free text, old audit entries and backups require separate review (see `docs/setup/operations.md`).
 
 ### 13.4 Audit log
 

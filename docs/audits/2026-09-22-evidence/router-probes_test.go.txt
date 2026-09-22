@@ -1,0 +1,31 @@
+package router_test
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestIssueAuditOversizedJSON(t *testing.T) {
+	body := strings.Repeat(" ", 2*1024*1024) + `{"email":"audit@example.com","password":"not-a-real-password"}`
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	newTestRouter(t, fakeDB{}).ServeHTTP(rec, req)
+	t.Logf("%d bytes reached the unconfigured login handler: status %d", len(body), rec.Code)
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("observed status = %d, want 501 from the unconfigured handler", rec.Code)
+	}
+}
+
+func TestIssueAuditHeaders(t *testing.T) {
+	rec := httptest.NewRecorder()
+	newTestRouter(t, fakeDB{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	for _, name := range []string{"Strict-Transport-Security", "X-Content-Type-Options", "Referrer-Policy", "Content-Security-Policy"} {
+		t.Logf("%s: %q", name, rec.Header().Get(name))
+		if rec.Header().Get(name) != "" {
+			t.Errorf("%s is now present; revise the issue assessment", name)
+		}
+	}
+}

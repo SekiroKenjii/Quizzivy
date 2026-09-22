@@ -1,0 +1,38 @@
+import { act, render, renderHook, screen } from "@testing-library/react";
+import { expect, it } from "vitest";
+import { Switch } from "@/components/ui/switch";
+import { toApiError } from "@/lib/api/errors";
+import { formatMoment, formatRelative } from "@/lib/i18n/datetime";
+import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
+import { clearSession, pending } from "@/features/integrity/buffer";
+
+it("#85: a real-shaped PublishConflict loses top-level violations", async () => {
+  const error = await toApiError(new Response(JSON.stringify({
+    error: { code: "PUBLISH_VALIDATION_FAILED", message: "blocked" },
+    violations: [{ rule: "empty_test", message: "missing sections" }],
+  }), { status: 409, headers: { "Content-Type": "application/json" } }));
+  expect(error.code).toBe("PUBLISH_VALIDATION_FAILED");
+  expect(error.details?.violations).toBeUndefined();
+});
+
+it("#89: the assignment Toggle markup gives the Radix switch its implicit label", () => {
+  render(<label>Trộn thứ tự câu hỏi trong từng phần<Switch checked={false} onCheckedChange={() => {}} /></label>);
+  expect(screen.getByRole("switch", { name: "Trộn thứ tự câu hỏi trong từng phần" })).toHaveAccessibleName("Trộn thứ tự câu hỏi trong từng phần");
+});
+
+it("#92: non-audio events have no current-question context", () => {
+  clearSession("audit-attempt");
+  renderHook(() => useIntegrityMonitor({
+    attemptId: "audit-attempt", sessionId: "audit-session", beaconToken: "audit-token",
+    policy: { requireFullscreen: false, blockCopyPaste: true, maxFocusLoss: 0, onLimitExceeded: "flag", minAwayMs: 3000 },
+  }));
+  act(() => window.dispatchEvent(new Event("offline")));
+  expect(pending()).toEqual([expect.objectContaining({ kind: "network_offline" })]);
+  expect(pending()[0]?.questionId).toBeUndefined();
+  clearSession("audit-attempt");
+});
+
+it("#95: verify current runtime's relative and weekday casing", () => {
+  expect(formatRelative(new Date(Date.now() - 86400000), "vi")).toBe("hôm qua");
+  expect(formatMoment("2026-09-22T01:00:00Z", "vi")).toBe("08:00 · Thứ Ba, 22/09");
+});

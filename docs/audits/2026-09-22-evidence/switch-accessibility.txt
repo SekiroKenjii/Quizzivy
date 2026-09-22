@@ -1,0 +1,8 @@
+- switch "Trộn thứ tự câu hỏi trong từng phần"
+- switch "Trộn thứ tự lựa chọn" [checked]
+- switch "Xem điểm" [checked]
+- switch "Xem đáp án đúng"
+- switch "Xem giải thích"
+- switch "Bắt buộc toàn màn hình"
+- switch "Chặn sao chép / dán" [checked]
+Chromium 151.0.7922.34
