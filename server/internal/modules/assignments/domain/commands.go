@@ -50,13 +50,6 @@ func (in WriteInput) Validate() error {
 		fields = append(fields, FieldError{Field: "targets", Message: "Chọn ít nhất một lớp hoặc một học viên."})
 	}
 
-	if in.Integrity.OnLimitExceeded == "auto_submit" {
-		fields = append(fields, FieldError{
-			Field:   "integrity.onLimitExceeded",
-			Message: "Chế độ tự động nộp bài chưa khả dụng.",
-		})
-	}
-
 	if len(fields) > 0 {
 		return &ValidationError{Fields: fields}
 	}

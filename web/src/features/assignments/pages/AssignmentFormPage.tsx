@@ -11,6 +11,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Info, SquarePen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import {
   Card,
@@ -53,11 +54,8 @@ import { fetchClass } from "@/features/classes/api";
 import { getTest, listVersions, type TestVersion } from "@/features/tests/api";
 import { fromDateTimeInput, toDateTimeInput } from "@/lib/i18n/datetime";
 import { failureMessage, fieldMessages } from "@/lib/api/errors";
-import type { TFunction } from "i18next";
 
-const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
-const ATTEMPTS = [1, 2, 3];
-const FOCUS_LIMITS = [0, 1, 2, 3, 5];
+const DURATIONS = [30, 45, 60];
 
 interface Draft {
   picked: PickedVersion | null;
@@ -78,7 +76,7 @@ interface Draft {
     requireFullscreen: boolean;
     blockCopyPaste: boolean;
     maxFocusLoss: number;
-    onLimitExceeded: "warn" | "flag";
+    onLimitExceeded: "warn" | "flag" | "auto_submit";
     minAwayMs: number;
   };
 }
@@ -109,6 +107,23 @@ function emptyDraft(): Draft {
       minAwayMs: 3000,
     },
   };
+}
+
+function assignmentReadiness(draft: Draft) {
+  const hasTargets = draft.classes.length > 0 || draft.students.length > 0;
+  const validNumbers =
+    Number.isInteger(draft.durationMinutes) &&
+    draft.durationMinutes >= 1 &&
+    draft.durationMinutes <= 600 &&
+    Number.isInteger(draft.maxAttempts) &&
+    draft.maxAttempts >= 1 &&
+    draft.maxAttempts <= 32767 &&
+    Number.isInteger(draft.integrity.maxFocusLoss) &&
+    draft.integrity.maxFocusLoss >= -1 &&
+    draft.integrity.maxFocusLoss <= 2147483647;
+  const ready = draft.picked !== null && hasTargets && validNumbers;
+  const savable = draft.picked !== null && validNumbers;
+  return { ready, savable, validNumbers };
 }
 
 /** The deck's G-01. One scrolling form with a rail that shows the consequences. */
@@ -151,9 +166,7 @@ export default function AssignmentFormPage() {
     draft.students.map((item) => item.id),
   );
 
-  const hasTargets = draft.classes.length > 0 || draft.students.length > 0;
-  const ready = draft.picked !== null && hasTargets;
-  const savable = draft.picked !== null;
+  const { ready, savable, validNumbers } = assignmentReadiness(draft);
 
   if (editing && !hydrated)
     return <EditLoadState existing={existing} versions={versions} />;
@@ -166,6 +179,11 @@ export default function AssignmentFormPage() {
       />
 
       <div className="space-y-6">
+        {!validNumbers ? (
+          <p role="alert" className="text-destructive text-sm">
+            {t("assignments.invalidNumbers")}
+          </p>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>{t("assignments.step1")}</CardTitle>
@@ -282,23 +300,13 @@ export default function AssignmentFormPage() {
                 hint={t("assignments.durationHint")}
               >
                 {(id) => (
-                  <Select
-                    value={String(draft.durationMinutes)}
-                    onValueChange={(next) =>
-                      setDraft((d) => ({ ...d, durationMinutes: Number(next) }))
+                  <DurationInput
+                    id={id}
+                    value={draft.durationMinutes}
+                    onChange={(durationMinutes) =>
+                      setDraft((d) => ({ ...d, durationMinutes }))
                     }
-                  >
-                    <SelectTrigger id={id} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATIONS.map((minutes) => (
-                        <SelectItem key={minutes} value={String(minutes)}>
-                          {t("assignments.minutes", { count: minutes })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 )}
               </Field>
               <Field
@@ -308,23 +316,21 @@ export default function AssignmentFormPage() {
                   : {})}
               >
                 {(id) => (
-                  <Select
-                    value={String(draft.maxAttempts)}
-                    onValueChange={(next) =>
-                      setDraft((d) => ({ ...d, maxAttempts: Number(next) }))
+                  <Input
+                    id={id}
+                    type="number"
+                    min={1}
+                    max={32767}
+                    step={1}
+                    required
+                    value={Number.isFinite(draft.maxAttempts) ? draft.maxAttempts : ""}
+                    onChange={(event) =>
+                      setDraft((d) => ({
+                        ...d,
+                        maxAttempts: event.target.valueAsNumber,
+                      }))
                     }
-                  >
-                    <SelectTrigger id={id} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ATTEMPTS.map((count) => (
-                        <SelectItem key={count} value={String(count)}>
-                          {t("assignments.attemptCount", { count })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 )}
               </Field>
             </div>
@@ -416,26 +422,16 @@ export default function AssignmentFormPage() {
             <div className="grid grid-cols-1 gap-3 pt-1 lg:grid-cols-2">
               <Field label={t("assignments.maxFocusLoss")}>
                 {(id) => (
-                  <Select
-                    value={String(draft.integrity.maxFocusLoss)}
-                    onValueChange={(next) =>
+                  <FocusLimitInput
+                    id={id}
+                    value={draft.integrity.maxFocusLoss}
+                    onChange={(value) =>
                       setDraft((d) => ({
                         ...d,
-                        integrity: { ...d.integrity, maxFocusLoss: Number(next) },
+                        integrity: { ...d.integrity, maxFocusLoss: value },
                       }))
                     }
-                  >
-                    <SelectTrigger id={id} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FOCUS_LIMITS.map((count) => (
-                        <SelectItem key={count} value={String(count)}>
-                          {focusLimitLabel(count, t)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 )}
               </Field>
               <Field label={t("assignments.onLimitExceeded")}>
@@ -448,7 +444,7 @@ export default function AssignmentFormPage() {
                         ...d,
                         integrity: {
                           ...d.integrity,
-                          onLimitExceeded: next as "warn" | "flag",
+                          onLimitExceeded: next as "warn" | "flag" | "auto_submit",
                         },
                       }))
                     }
@@ -462,6 +458,9 @@ export default function AssignmentFormPage() {
                       </SelectItem>
                       <SelectItem value="flag">
                         {t("assignments.actionFlag")}
+                      </SelectItem>
+                      <SelectItem value="auto_submit">
+                        {t("assignments.actionAutoSubmit")}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -580,7 +579,7 @@ function fromAssignment(a: Assignment, versions: TestVersion[]): Draft {
     review: a.review,
     integrity: {
       ...a.integrity,
-      onLimitExceeded: a.integrity.onLimitExceeded === "warn" ? "warn" : "flag",
+      onLimitExceeded: a.integrity.onLimitExceeded,
     },
   };
 }
@@ -702,7 +701,7 @@ function submitKey(published: boolean): string {
 
 type SetDraft = Dispatch<SetStateAction<Draft>>;
 
-/** A-03's "Giao cho lớp" arrives with the test chosen; its latest version is the pick. */
+/** A-03's "Giao cho lớp" arrives with the test chosen; its current default is the pick. */
 function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
   const test = useQuery({
     queryKey: ["admin-test", testId],
@@ -714,7 +713,9 @@ function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
     queryFn: ({ signal }) => listVersions(testId ?? "", signal),
     enabled: testId !== null,
   });
-  const latest = latestOf(versions.data?.items ?? []);
+  const latest = versions.data?.items.find(
+    (version) => version.version === test.data?.currentVersion,
+  );
   const [pickedFor, setPickedFor] = useState<string | null>(null);
   if (test.data && latest && pickedFor !== test.data.id) {
     setPickedFor(test.data.id);
@@ -725,13 +726,6 @@ function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
     };
     setDraft((current) => (current.picked === null ? { ...current, picked } : current));
   }
-}
-
-function latestOf(items: readonly TestVersion[]): TestVersion | null {
-  return items.reduce<TestVersion | null>(
-    (best, v) => (best === null || v.version > best.version ? v : best),
-    null,
-  );
 }
 
 /** G-06's "Giao bài" arrives with the class chosen; it joins the targets once. */
@@ -805,10 +799,49 @@ function EditLoadState({
   );
 }
 
-function focusLimitLabel(count: number, t: TFunction): string {
-  return count === 0
-    ? t("assignments.unlimited")
-    : t("assignments.timesAway", { count });
+function focusLimitMode(value: number) {
+  if (value === 0) return "unlimited";
+  return value === -1 ? "none" : "custom";
+}
+
+function focusLimitValue(mode: string) {
+  if (mode === "unlimited") return 0;
+  return mode === "none" ? -1 : 1;
+}
+
+function FocusLimitInput({
+  id,
+  value,
+  onChange,
+}: Readonly<{ id: string; value: number; onChange: (value: number) => void }>) {
+  const { t } = useTranslation();
+  const mode = focusLimitMode(value);
+  return (
+    <div className="space-y-2">
+      <Select value={mode} onValueChange={(next) => onChange(focusLimitValue(next))}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="unlimited">{t("assignments.unlimited")}</SelectItem>
+          <SelectItem value="none">{t("assignments.focusNotAllowed")}</SelectItem>
+          <SelectItem value="custom">{t("assignments.customFocusLimit")}</SelectItem>
+        </SelectContent>
+      </Select>
+      {mode === "custom" ? (
+        <Input
+          aria-label={t("assignments.customFocusLimit")}
+          type="number"
+          min={1}
+          max={2147483647}
+          step={1}
+          required
+          value={Number.isNaN(value) ? "" : value}
+          onChange={(event) => onChange(event.target.valueAsNumber)}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 function RosterSummary({
@@ -837,6 +870,56 @@ function RosterSummary({
           {t("assignments.rosterOverlap", { names: roster.data.overlaps.join(", ") })}
         </p>
       )}
+    </div>
+  );
+}
+
+function DurationInput({
+  id,
+  value,
+  onChange,
+}: Readonly<{ id: string; value: number; onChange: (minutes: number) => void }>) {
+  const { t } = useTranslation();
+  const [custom, setCustom] = useState(!DURATIONS.includes(value));
+  const manual = custom || !DURATIONS.includes(value);
+  return (
+    <div className="space-y-2">
+      <Select
+        value={manual ? "custom" : String(value)}
+        onValueChange={(next) => {
+          setCustom(next === "custom");
+          if (next !== "custom") onChange(Number(next));
+        }}
+      >
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {DURATIONS.map((minutes) => (
+            <SelectItem key={minutes} value={String(minutes)}>
+              {t("assignments.minutes", { count: minutes })}
+            </SelectItem>
+          ))}
+          <SelectItem value="custom">{t("assignments.customDuration")}</SelectItem>
+        </SelectContent>
+      </Select>
+      {manual ? (
+        <div className="flex items-center gap-2">
+          <Input
+            aria-label={t("assignments.customMinutes")}
+            type="number"
+            min={1}
+            max={600}
+            step={1}
+            required
+            value={Number.isFinite(value) ? value : ""}
+            onChange={(event) => onChange(event.target.valueAsNumber)}
+          />
+          <span className="text-muted-foreground shrink-0 text-sm">
+            {t("assignments.minuteUnit")}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

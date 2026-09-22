@@ -91,7 +91,7 @@ describe("what the intro states, per policy", () => {
 
   it("auto_submit says the paper is submitted", async () => {
     show({ integrity: { ...POLICY, maxFocusLoss: 1, onLimitExceeded: "auto_submit" } });
-    expect(await rules()).toContain("được nộp tự động");
+    expect(await rules()).toContain("tự nộp ngay, giữ câu trả lời và ghi nhận vi phạm");
   });
 
   it("states the listening cap when the paper has audio, and not otherwise", async () => {

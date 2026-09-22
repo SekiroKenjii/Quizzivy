@@ -302,3 +302,16 @@ describe("the section menu", () => {
     expect(screen.getByText("Câu một")).toBeInTheDocument();
   });
 });
+
+it("renames a section after a double click on its title", async () => {
+  const { user, onChange } = renderTree();
+  await user.dblClick(screen.getByText("Nghe", { exact: true }));
+  const field = await screen.findByLabelText("Tên phần");
+  await user.clear(field);
+  await user.type(field, "Listening{Enter}");
+  expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
+    "Ngữ pháp",
+    "Listening",
+    "Viết",
+  ]);
+});

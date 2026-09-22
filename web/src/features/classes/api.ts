@@ -110,3 +110,7 @@ export function addMember(classId: string, userId: string) {
 export function fetchMyClasses(signal?: AbortSignal) {
   return api("get", "/app/classes", signal ? { signal } : {});
 }
+
+export function deleteClass(id: string) {
+  return api("delete", "/admin/classes/{id}", { path: { id } });
+}

@@ -1,3 +1,7 @@
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActions } from "@/components/shared/BulkActions";
+import { BulkSelectAll, BulkSelectRow } from "@/components/shared/BulkSelection";
+import { useListFilters } from "@/hooks/useListFilters";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import {
   EmptyState,
@@ -54,13 +58,16 @@ export default function ClassDetailPage() {
   const navigate = useNavigate();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
+  const bulk = useBulkSelection<{ id: string; name: string }>();
   const locale = useLocale();
 
   const klass = useQuery({
     queryKey: ["admin-class", id],
     queryFn: ({ signal }) => fetchClass(id, signal),
   });
-  const [query, setQuery] = useState("");
+  const { params, setFilter } = useListFilters();
+  const query = params.get("q") ?? "";
+  const setQuery = (value: string) => setFilter("q", value);
   const search = useDebounced(query, 300).trim();
   const [page] = usePage(search);
   const members = useQuery({
@@ -109,6 +116,7 @@ export default function ClassDetailPage() {
   }
 
   const items = members.data?.items ?? [];
+  const selectionItems = items.map((m) => ({ id: m.userId, name: m.fullName }));
 
   return (
     <>
@@ -158,6 +166,20 @@ export default function ClassDetailPage() {
                 />
               </div>
 
+              <BulkActions
+                selected={[...bulk.selected.values()]}
+                name={(item) => item.name}
+                actions={[
+                  {
+                    label: t("classDetail.removeSelected"),
+                    description: t("classDetail.removeSelectedBody"),
+                    run: (item) => removeMember(id, item.id),
+                  },
+                ]}
+                onRemoved={bulk.remove}
+                onClear={bulk.clear}
+                onSettled={() => invalidateClassMembership(queryClient, id)}
+              />
               <QueryStates
                 query={members}
                 skeleton={<ListSkeleton rows={4} />}
@@ -190,6 +212,9 @@ export default function ClassDetailPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            <BulkSelectAll items={selectionItems} selection={bulk} />
+                          </TableHead>
                           <TableHead>{t("classDetail.name")}</TableHead>
                           <TableHead>{t("classDetail.joinedVia")}</TableHead>
                           <TableHead>{t("classDetail.joinedAt")}</TableHead>
@@ -207,6 +232,13 @@ export default function ClassDetailPage() {
                       <TableBody>
                         {items.map((m) => (
                           <TableRow key={m.userId}>
+                            <TableCell>
+                              <BulkSelectRow
+                                item={{ id: m.userId, name: m.fullName }}
+                                name={m.fullName}
+                                selection={bulk}
+                              />
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Avatar name={m.fullName} size="sm" />

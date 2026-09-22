@@ -306,7 +306,8 @@ The student's navigation branches at 1024px in code
 (`useMediaQuery("(min-width: 1024px)")`), with one stable `StudentLayout`
 outlet so forms and filters survive resizing. A detail route declares
 `handle.detail` for the phone's back arrow. Home and classes use fluid grids;
-intro, results and settings are centred at 720px without a right panel.
+intro and results are centred at 720px without a right panel. Settings shares
+the teacher section navigation and preserves forms across section routes.
 The approved independent review (`docs/plan/92-student-ux.md`) supersedes
 S-13–S-17's ordinary-page panels. The take-test engine keeps `FocusLayout`
 and its `PageAside` navigator, with the separate `studentNavigator` width

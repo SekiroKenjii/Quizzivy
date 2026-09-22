@@ -61,3 +61,8 @@ var (
 	ErrStudentNotFound = errors.New("students: not found")
 	ErrEmailTaken      = errors.New("students: email already in use")
 )
+
+var (
+	ErrReferenced  = errors.New("student: retained history or assignments reference this resource")
+	ErrNotArchived = errors.New("student: deactivate or close before deleting")
+)

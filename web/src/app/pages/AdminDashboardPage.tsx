@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
-import { Plus, Send } from "lucide-react";
+import { ArrowUpRight, Plus, Send } from "lucide-react";
 import { ListSkeleton, QueryStates } from "@/components/shared/ListState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createTest } from "@/features/tests/api";
@@ -62,11 +62,11 @@ export default function AdminDashboardPage() {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <PageHeader
         variant="title"
         title={t("nav.dashboard")}
-        subtitle={weekdayDate(new Date(), locale, true)}
+        subtitle={`${weekdayDate(new Date(), locale, true)} · ${t("dashboard.overviewHint")}`}
         actions={
           <>
             <Button
@@ -160,8 +160,8 @@ export default function AdminDashboardPage() {
         </QueryStates>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card asChild className="gap-0 py-0 lg:col-span-2">
+      <div className="space-y-6">
+        <Card asChild className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
           <section aria-labelledby="open-heading">
             <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
               <h2
@@ -178,6 +178,9 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
 
+            <p className="text-muted-foreground px-5 pb-4 text-xs">
+              {t("dashboard.activeAssignmentsHint")}
+            </p>
             <QueryStates
               query={open}
               skeleton={<ListSkeleton rows={3} />}
@@ -196,7 +199,7 @@ export default function AdminDashboardPage() {
                         <TableHead>{t("dashboard.assignment")}</TableHead>
                         <TableHead>{t("assignments.classes")}</TableHead>
                         <TableHead>{t("dashboard.closesAt")}</TableHead>
-                        <TableHead className="w-[180px]">
+                        <TableHead className="w-40">
                           {t("dashboard.progress")}
                         </TableHead>
                         <TableHead className="w-24">
@@ -216,7 +219,7 @@ export default function AdminDashboardPage() {
           </section>
         </Card>
 
-        <Card asChild className="gap-0 py-0">
+        <Card asChild className="gap-0 py-0 shadow-sm">
           <section aria-labelledby="activity-heading" className="self-start">
             <div className="px-5 pt-4 pb-3">
               <h2
@@ -226,14 +229,17 @@ export default function AdminDashboardPage() {
                 {t("dashboard.recent")}
               </h2>
             </div>
-            <div className="space-y-3 px-5 pb-4">
+            <div className="grid gap-4 px-5 pb-5 md:grid-cols-2 xl:grid-cols-3">
               {summary.data?.recentAttempts.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   {t("dashboard.noActivity")}
                 </p>
               ) : (
                 (summary.data?.recentAttempts ?? []).map((attempt) => (
-                  <div key={attempt.id} className="flex items-start gap-2.5">
+                  <div
+                    key={attempt.id}
+                    className="flex min-w-0 items-start gap-3 rounded-md border p-3"
+                  >
                     <Avatar name={attempt.studentName} size="sm" className="mt-0.5" />
                     <div className="min-w-0">
                       <p className="truncate text-sm">
@@ -252,7 +258,7 @@ export default function AdminDashboardPage() {
               )}
 
               {summary.data ? (
-                <div className="flex items-center justify-between border-t pt-3 text-sm">
+                <div className="flex items-center justify-between border-t pt-4 text-sm md:col-span-2 xl:col-span-3">
                   <span className="text-muted-foreground">
                     {t("dashboard.activeStudents")}
                   </span>
@@ -287,19 +293,24 @@ function QueueCard({
   to: string;
 }>) {
   return (
-    <Card className="flex-row items-center gap-4 p-4">
-      <span className="text-2xl font-semibold tabular-nums">{count}</span>
-      <div className="min-w-0 flex-1">
+    <Card className="surface-lift min-w-0 gap-4 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-3xl font-semibold tracking-tight tabular-nums">
+          {count}
+        </span>
+        <ArrowUpRight className="text-muted-foreground size-4" aria-hidden="true" />
+      </div>
+      <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm font-medium">{label}</p>
         <p className="text-muted-foreground text-xs leading-relaxed">{hint}</p>
       </div>
       {/* A link cannot be disabled, so an empty queue gets a button that is. */}
       {count === 0 ? (
-        <Button variant="outline" size="sm" disabled>
+        <Button variant="outline" size="sm" className="self-start" disabled>
           {action}
         </Button>
       ) : (
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="self-start">
           <Link to={to}>{action}</Link>
         </Button>
       )}
@@ -321,8 +332,16 @@ function AssignmentRow({
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{assignment.testTitle}</TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="min-w-48 font-medium whitespace-normal">
+        <Link
+          to={`/admin/assignments/${assignment.id}`}
+          className="focus-visible:ring-ring inline-flex items-center gap-2 rounded-sm hover:underline focus-visible:ring-2"
+        >
+          {assignment.testTitle}
+          <ArrowUpRight className="size-3.5 shrink-0" aria-hidden="true" />
+        </Link>
+      </TableCell>
+      <TableCell className="text-muted-foreground max-w-64 whitespace-normal">
         {assignment.targets.classes.map((klass) => klass.name).join(", ") ||
           t("dashboard.byStudent")}
       </TableCell>

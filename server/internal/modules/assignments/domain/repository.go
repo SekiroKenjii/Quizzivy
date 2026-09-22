@@ -8,6 +8,7 @@ import (
 
 // Repository persists assignments and answers the student-side views of them.
 type Repository interface {
+	Delete(ctx context.Context, req Request, now time.Time) error
 	List(ctx context.Context, in ListInput) ([]Assignment, paging.Page, error)
 	Facets(ctx context.Context, in ListInput) (Facets, error)
 	Get(ctx context.Context, id string) (Assignment, error)

@@ -126,7 +126,7 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.getByText("Người phụ nữ đề nghị làm gì?")).toBeVisible();
 
   // And the version history records it: six questions, six points, by name.
-  const history = page.getByRole("region", { name: "Lịch sử phiên bản" });
+  const history = page.getByRole("complementary", { name: "Lịch sử phiên bản" });
   await expect(history.getByText("v1", { exact: true })).toBeVisible();
   await expect(history.getByText("6 · 6")).toBeVisible();
   await expect(history.getByText(/Thuong/)).toBeVisible();

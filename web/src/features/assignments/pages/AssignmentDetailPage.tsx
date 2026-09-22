@@ -459,8 +459,10 @@ function ResultsStrip({
           label={t("assignments.detail.flagged")}
           value={a.flaggedCount ?? 0}
           hint={
-            a.integrity.maxFocusLoss > 0
-              ? t("assignments.detail.flaggedHint", { count: a.integrity.maxFocusLoss })
+            a.integrity.maxFocusLoss !== 0
+              ? t("assignments.detail.flaggedHint", {
+                  count: Math.max(0, a.integrity.maxFocusLoss),
+                })
               : t("assignments.detail.flaggedHintNone")
           }
         />
@@ -679,7 +681,7 @@ function RulesCard({ a }: Readonly<{ a: Assignment }>) {
             integrity.maxFocusLoss === 0
               ? t("assignments.detail.focusUnlimited")
               : t(`assignments.detail.focusLimit.${integrity.onLimitExceeded}`, {
-                  count: integrity.maxFocusLoss,
+                  count: Math.max(0, integrity.maxFocusLoss),
                 })
           }
         />

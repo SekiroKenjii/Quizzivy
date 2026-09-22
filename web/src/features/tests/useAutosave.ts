@@ -51,22 +51,33 @@ export function useAutosave<T>({
   const inFlight = useRef<Promise<void> | null>(null);
   const latestSave = useRef(save);
   const stale = useRef(false);
+  const failure = useRef<unknown>(null);
 
   useEffect(() => {
     latestSave.current = save;
   }, [save]);
 
-  const run = useCallback(async () => {
+  const run = useCallback(async function drain(): Promise<void> {
+    if (inFlight.current !== null) {
+      await inFlight.current;
+      return drain();
+    }
     const value = pending.current;
     pending.current = null;
     if (value === null || stale.current) return;
 
+    failure.current = null;
     setStatus({ kind: "saving" });
     const attempt = (async () => {
       try {
         await latestSave.current(value);
-        setStatus({ kind: "saved", at: new Date() });
+        setStatus(
+          pending.current === null
+            ? { kind: "saved", at: new Date() }
+            : { kind: "dirty" },
+        );
       } catch (cause) {
+        failure.current = cause;
         if (cause instanceof ApiError && cause.code === "STALE_WRITE") {
           stale.current = true;
           setStatus({ kind: "stale" });
@@ -99,25 +110,19 @@ export function useAutosave<T>({
     [delay, run],
   );
 
-  // Resolves once nothing is left to save -- used before publishing.
   const flush = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
-    if (pending.current !== null) {
-      await run();
-      return;
-    }
-    await inFlight.current;
+    await run();
+    while (pending.current !== null && !stale.current) await run();
+    if (failure.current !== null) throw failure.current;
   }, [run]);
 
-  // Unmounting must not drop an edit made inside the debounce window.
   useEffect(() => {
     return () => {
       if (timer.current) clearTimeout(timer.current);
-      const value = pending.current;
-      pending.current = null;
-      if (value !== null && !stale.current) void latestSave.current(value);
+      void run();
     };
-  }, []);
+  }, [run]);
 
   const retry = useCallback(() => {
     if (lastValue.current === null || stale.current) return;

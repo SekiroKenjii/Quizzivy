@@ -1,3 +1,5 @@
+import { useIntegrityAutoSubmit } from "@/features/integrity/useIntegrityAutoSubmit";
+import { AutoSubmitNotice } from "@/features/integrity/components/AutoSubmitNotice";
 import {
   useEffect,
   useEffectEvent,
@@ -114,6 +116,8 @@ export default function TakeTestPage() {
     policy: integrity,
     questionId: view === "question" ? (question?.id ?? null) : null,
   });
+
+  const autoSubmitting = useIntegrityAutoSubmit(focusLossCount + strikes);
 
   useEffect(() => {
     if (attemptId === undefined) return;
@@ -241,6 +245,8 @@ export default function TakeTestPage() {
       </div>
     );
   }
+
+  if (autoSubmitting) return <AutoSubmitNotice />;
 
   // The server's count from before this sitting plus what this tab has seen since.
   const watching = integrity !== null && lock === null;

@@ -326,6 +326,13 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	if out.Tags == nil {
 		out.Tags = []string{}
 	}
+	if q.UsedIn != nil {
+		refs := make([]openapi.ReferencingTest, len(q.UsedIn))
+		for i, ref := range q.UsedIn {
+			refs[i] = openapi.ReferencingTest{Id: httpapi.ParseUUID(ref.ID), Title: ref.Title}
+		}
+		out.UsedIn = &refs
+	}
 	if q.Audio != nil {
 		out.Audio = &openapi.AudioPolicy{
 			MaxPlays:                  q.Audio.MaxPlays,

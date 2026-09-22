@@ -14,16 +14,16 @@ export interface StrikeState {
   remaining: number | null;
   exceeded: boolean;
   // What exceeding does.
-  consequence: "warn" | "flag";
+  consequence: IntegrityPolicy["onLimitExceeded"];
 }
 
 export function strikeState(policy: IntegrityPolicy, count: number): StrikeState {
-  const limit = policy.maxFocusLoss > 0 ? policy.maxFocusLoss : null;
+  const limit = policy.maxFocusLoss === 0 ? null : Math.max(0, policy.maxFocusLoss);
   return {
     count,
     limit,
     remaining: limit === null ? null : Math.max(0, limit - count),
     exceeded: limit !== null && count > limit,
-    consequence: policy.onLimitExceeded === "warn" ? "warn" : "flag",
+    consequence: policy.onLimitExceeded,
   };
 }

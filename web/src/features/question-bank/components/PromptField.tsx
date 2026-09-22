@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bold, Italic, Link2, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface PromptFieldProps {
   value: string;
+  clearOnFocus?: boolean;
   onChange: (value: string) => void;
   id: string;
 }
@@ -13,19 +15,27 @@ interface PromptFieldProps {
  * The deck's A-04 prompt field: a bordered box with a small toolbar and a
  * "Markdown" hint, over a plain textarea.
  */
-export function PromptField({ value, onChange, id }: Readonly<PromptFieldProps>) {
+export function PromptField({
+  value,
+  onChange,
+  id,
+  clearOnFocus = false,
+}: Readonly<PromptFieldProps>) {
   const { t } = useTranslation();
+  const untouched = useRef(clearOnFocus && value === t("builder.starterPrompt"));
+  const [cleared, setCleared] = useState(false);
+  const displayed = cleared && value === t("builder.starterPrompt") ? "" : value;
 
   function wrap(marker: string) {
     const field = document.getElementById(id);
     if (!(field instanceof HTMLTextAreaElement)) return;
     const { selectionStart: start, selectionEnd: end } = field;
     onChange(
-      value.slice(0, start) +
+      displayed.slice(0, start) +
         marker +
-        value.slice(start, end) +
+        displayed.slice(start, end) +
         marker +
-        value.slice(end),
+        displayed.slice(end),
     );
   }
 
@@ -33,15 +43,15 @@ export function PromptField({ value, onChange, id }: Readonly<PromptFieldProps>)
     const field = document.getElementById(id);
     if (!(field instanceof HTMLTextAreaElement)) return;
     const { selectionStart: start, selectionEnd: end } = field;
-    const text = value.slice(start, end);
-    onChange(`${value.slice(0, start)}[${text}](url)${value.slice(end)}`);
+    const text = displayed.slice(start, end);
+    onChange(`${displayed.slice(0, start)}[${text}](url)${displayed.slice(end)}`);
   }
 
   function prefixLine(marker: string) {
     const field = document.getElementById(id);
     if (!(field instanceof HTMLTextAreaElement)) return;
-    const lineStart = value.lastIndexOf("\n", field.selectionStart - 1) + 1;
-    onChange(value.slice(0, lineStart) + marker + value.slice(lineStart));
+    const lineStart = displayed.lastIndexOf("\n", field.selectionStart - 1) + 1;
+    onChange(displayed.slice(0, lineStart) + marker + displayed.slice(lineStart));
   }
 
   return (
@@ -89,8 +99,18 @@ export function PromptField({ value, onChange, id }: Readonly<PromptFieldProps>)
       </div>
       <Textarea
         id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
+        value={displayed}
+        onFocus={() => {
+          if (untouched.current) {
+            untouched.current = false;
+            setCleared(true);
+          }
+        }}
+        onChange={(event) => {
+          untouched.current = false;
+          setCleared(false);
+          onChange(event.target.value);
+        }}
         className="min-h-18 rounded-none border-0 shadow-none focus-visible:ring-0"
       />
     </div>

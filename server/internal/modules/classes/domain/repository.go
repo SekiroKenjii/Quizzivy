@@ -2,11 +2,14 @@ package domain
 
 import (
 	"context"
+	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/paging"
+	"time"
 )
 
 // Repository persists classes, their roster and their join codes.
 type Repository interface {
+	Delete(ctx context.Context, classID string, by actor.Actor, now time.Time) error
 	Get(ctx context.Context, classID string) (Class, error)
 	List(ctx context.Context, in ListInput) ([]Class, paging.Page, error)
 	ListMine(ctx context.Context, userID string) ([]MyClass, error)
