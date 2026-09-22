@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.7 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.8 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.7**
+
+- The Word exam import milestone is accepted for implementation (§16). Its full
+  scope includes semantic content, shared materials and groups, durable review,
+  safe publication/delivery and operational release gates. It is not yet released.
+- Both cloud and private AI processing remain candidates for measured evaluation;
+  provider selection and external exam-data processing are not enabled by default.
 
 **Changes since v0.6**
 
@@ -937,6 +945,17 @@ Each phase ends deployable. Do not start the next with the current one red.
 | **5 — Hardening** | Perf budgets, a11y pass, empty/error audit, mobile QA at 360px, rate-limit verification, `EXPLAIN` review of hot queries | Lighthouse a11y ≥ 95; budgets met; no seq scans on hot paths |
 
 P1 after v1: presigned direct-to-R2 upload, CSV import (students, questions), password self-signup with email verification, dark mode, per-student time accommodations, per-question analytics.
+
+The next accepted milestone is [production Word exam import](quizzivy-word-import-spec.md),
+implemented through [the six-stage delivery plan](plan/17-word-import.md) and
+[teacher workflow](plan/18-word-import-ux.md). The supplied document defines the
+target rather than current availability. Existing free-form `.docx` and `.doc`
+documents, explicit answer evidence, shared context, semantic formatting,
+recoverable review and atomic draft creation are required before general release.
+Imported and manually authored exams must share rendering, publication and
+grading contracts. Missing answers remain unknown; PDF input, OCR, answer
+generation and automatic publication are excluded. Each accepted detailed
+contract updates the relevant sections above and OpenAPI before implementation.
 
 ---
 
