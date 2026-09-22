@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+const (
+	partUnknownXML          = "unknown_xml"
+	elementPicture          = "pict"
+	partStyles              = "styles"
+	elementDrawing          = "drawing"
+	styleResolutionRequired = "STYLE_RESOLUTION_REQUIRED"
+)
+
 // Inspect inventories a DOCX without executing objects or resolving external
 // relationships. Its output retains teacher-only source content and requires
 // semantic extraction, asset validation and review before assessment use.
@@ -52,40 +60,48 @@ func (a *archive) inspectParts(ctx context.Context, main string, types map[strin
 		if name == "[Content_Types].xml" || strings.HasSuffix(name, ".rels") || strings.HasSuffix(name, "/") {
 			continue
 		}
-		kind := partKind(types[name])
-		if kind == "asset" {
-			out.Assets = append(out.Assets, Asset{Part: name, MediaType: types[name], Bytes: a.files[name].UncompressedSize64})
-			continue
-		}
-		n, err := a.readXML(ctx, name, budget)
-		if err != nil {
+		if err := a.inspectPart(ctx, name, main, types[name], budget, out); err != nil {
 			return err
 		}
-		if name == main && (!n.word("document") || n.child("body") == nil) {
-			return fmt.Errorf("%w: Word document body absent", ErrInvalidPackage)
-		}
-		part := Part{Name: name, Kind: kind, Paragraphs: []Paragraph{}, Structures: []Structure{}}
-		if kind == "styles" || kind == "numbering" || kind == "metadata" || kind == "settings" || kind == "unknown_xml" {
-			part.Properties = []Property{property(n)}
-		}
-		if kind == "styles" {
-			out.Findings = append(out.Findings, Finding{Code: "STYLE_RESOLUTION_REQUIRED", Locator: Locator{Part: name, Path: n.path}})
-		}
-		walkPart(n, walkState{paragraph: -1, run: -1}, &part, &out.Findings)
-		finishRunText(&part)
-		if kind == "unknown_xml" {
-			out.Findings = append(out.Findings, Finding{Code: "UNSUPPORTED_SOURCE_PART", Locator: Locator{Part: name, Path: n.path}})
-		}
-		if name == main && !hasText(part) {
-			out.Findings = append(out.Findings, Finding{Code: "NO_EXTRACTABLE_TEXT", Locator: Locator{Part: name, Path: n.path}})
-		}
-		out.Parts = append(out.Parts, part)
 	}
 	return nil
 }
 
+func (a *archive) inspectPart(ctx context.Context, name, main, mediaType string, budget *xmlBudget, out *Inspection) error {
+	kind := partKind(mediaType)
+	if kind == "asset" {
+		out.Assets = append(out.Assets, Asset{Part: name, MediaType: mediaType, Bytes: a.files[name].UncompressedSize64})
+		return nil
+	}
+	n, err := a.readXML(ctx, name, budget)
+	if err != nil {
+		return err
+	}
+	if name == main && (!n.word("document") || n.child("body") == nil) {
+		return fmt.Errorf("%w: Word document body absent", ErrInvalidPackage)
+	}
+	part := Part{Name: name, Kind: kind, Paragraphs: []Paragraph{}, Structures: []Structure{}}
+	switch kind {
+	case partStyles, "numbering", "metadata", "settings", partUnknownXML:
+		part.Properties = []Property{property(n)}
+	}
+	if kind == partStyles {
+		out.Findings = append(out.Findings, Finding{Code: styleResolutionRequired, Locator: Locator{Part: name, Path: n.path}})
+	}
+	walkPart(n, walkState{paragraph: -1, run: -1}, &part, &out.Findings)
+	finishRunText(&part)
+	if kind == partUnknownXML {
+		out.Findings = append(out.Findings, Finding{Code: "UNSUPPORTED_SOURCE_PART", Locator: Locator{Part: name, Path: n.path}})
+	}
+	if name == main && !hasText(part) {
+		out.Findings = append(out.Findings, Finding{Code: "NO_EXTRACTABLE_TEXT", Locator: Locator{Part: name, Path: n.path}})
+	}
+	out.Parts = append(out.Parts, part)
+	return nil
+}
+
 func partKind(mediaType string) string {
-	for _, kind := range []string{"document.main", "header", "footer", "footnotes", "endnotes", "comments", "styles", "numbering", "settings"} {
+	for _, kind := range []string{"document.main", "header", "footer", "footnotes", "endnotes", "comments", partStyles, "numbering", "settings"} {
 		if mediaType == "application/vnd.openxmlformats-officedocument.wordprocessingml."+kind+"+xml" {
 			return strings.TrimSuffix(kind, ".main")
 		}
@@ -94,7 +110,7 @@ func partKind(mediaType string) string {
 		return "metadata"
 	}
 	if strings.HasSuffix(mediaType, "+xml") || mediaType == "application/xml" || mediaType == "text/xml" {
-		return "unknown_xml"
+		return partUnknownXML
 	}
 	return "asset"
 }
@@ -190,7 +206,7 @@ func isUnresolvedObject(n *element) bool {
 	if n.name.Space == "http://schemas.openxmlformats.org/officeDocument/2006/math" || n.name.Space == "http://purl.oclc.org/ooxml/officeDocument/math" || n.name.Space == "http://schemas.openxmlformats.org/markup-compatibility/2006" {
 		return true
 	}
-	for _, local := range []string{"drawing", "pict", "object", "altChunk", "sym", "sectPr", "br", "fldChar", "footnoteReference", "endnoteReference", "commentReference", "commentRangeStart", "commentRangeEnd", "bookmarkStart", "bookmarkEnd"} {
+	for _, local := range []string{elementDrawing, elementPicture, "object", "altChunk", "sym", "sectPr", "br", "fldChar", "footnoteReference", "endnoteReference", "commentReference", "commentRangeStart", "commentRangeEnd", "bookmarkStart", "bookmarkEnd"} {
 		if n.word(local) {
 			return true
 		}
@@ -199,7 +215,7 @@ func isUnresolvedObject(n *element) bool {
 }
 
 func isContainer(n *element) bool {
-	for _, name := range []string{"tbl", "tr", "tc", "ins", "del", "moveFrom", "moveTo", "txbxContent", "footnote", "endnote", "comment", "hyperlink", "sdt", "fldSimple", "drawing", "pict"} {
+	for _, name := range []string{"tbl", "tr", "tc", "ins", "del", "moveFrom", "moveTo", "txbxContent", "footnote", "endnote", "comment", "hyperlink", "sdt", "fldSimple", elementDrawing, elementPicture} {
 		if n.word(name) {
 			return true
 		}
@@ -226,11 +242,11 @@ func findingCode(n *element) string {
 }
 
 var sourceFindings = map[string]string{
-	"pStyle": "STYLE_RESOLUTION_REQUIRED", "rStyle": "STYLE_RESOLUTION_REQUIRED", "numPr": "NUMBERING_RESOLUTION_REQUIRED",
+	"pStyle": styleResolutionRequired, "rStyle": styleResolutionRequired, "numPr": "NUMBERING_RESOLUTION_REQUIRED",
 	"vanish": "HIDDEN_TEXT_REQUIRES_REVIEW", "webHidden": "HIDDEN_TEXT_REQUIRES_REVIEW", "txbxContent": "TEXTBOX_ORDER_REQUIRES_REVIEW",
 	"fldSimple": "FIELD_REQUIRES_REVIEW", "instrText": "FIELD_REQUIRES_REVIEW", "altChunk": "UNSUPPORTED_DOCUMENT_OBJECT",
-	"sym": "SYMBOL_FONT_REQUIRES_REVIEW", "cols": "COLUMN_ORDER_REQUIRES_REVIEW", "drawing": "DRAWING_REQUIRES_RESOLUTION",
-	"pict": "DRAWING_REQUIRES_RESOLUTION", "object": "UNSUPPORTED_DOCUMENT_OBJECT",
+	"sym": "SYMBOL_FONT_REQUIRES_REVIEW", "cols": "COLUMN_ORDER_REQUIRES_REVIEW", elementDrawing: "DRAWING_REQUIRES_RESOLUTION",
+	elementPicture: "DRAWING_REQUIRES_RESOLUTION", "object": "UNSUPPORTED_DOCUMENT_OBJECT",
 }
 
 func properties(n *element) []Property {

@@ -33,10 +33,16 @@ type xmlBudget struct {
 	locators  int64
 }
 
+type xmlParser struct {
+	root       *element
+	stack      []*element
+	budget     *xmlBudget
+	depthLimit int
+}
+
 func parseXML(ctx context.Context, data []byte, budget *xmlBudget, depthLimit int) (*element, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
-	var root *element
-	var stack []*element
+	parser := xmlParser{budget: budget, depthLimit: depthLimit}
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -48,42 +54,54 @@ func parseXML(ctx context.Context, data []byte, budget *xmlBudget, depthLimit in
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid XML", ErrInvalidPackage)
 		}
-		switch token := token.(type) {
-		case xml.StartElement:
-			n, err := pushElement(token, stack, budget, depthLimit)
-			if err != nil {
-				return nil, err
-			}
-			if len(stack) == 0 {
-				if root != nil {
-					return nil, fmt.Errorf("%w: multiple XML roots", ErrInvalidPackage)
-				}
-				root = n
-			}
-			stack = append(stack, n)
-		case xml.EndElement:
-			if len(stack) == 0 {
-				return nil, fmt.Errorf("%w: XML nesting", ErrInvalidPackage)
-			}
-			stack = stack[:len(stack)-1]
-		case xml.CharData:
-			if len(stack) > 0 {
-				stack[len(stack)-1].text.Write(token)
-			} else if strings.TrimSpace(string(token)) != "" {
-				return nil, fmt.Errorf("%w: text outside XML root", ErrInvalidPackage)
-			}
-		case xml.Directive:
-			return nil, fmt.Errorf("%w: XML directives are not permitted", ErrInvalidPackage)
-		case xml.ProcInst:
-			if token.Target != "xml" || root != nil {
-				return nil, fmt.Errorf("%w: XML processing instruction", ErrInvalidPackage)
-			}
+		if err := parser.consume(token); err != nil {
+			return nil, err
 		}
 	}
-	if root == nil || len(stack) != 0 {
+	if parser.root == nil || len(parser.stack) != 0 {
 		return nil, fmt.Errorf("%w: incomplete XML", ErrInvalidPackage)
 	}
-	return root, nil
+	return parser.root, nil
+}
+
+func (p *xmlParser) consume(token xml.Token) error {
+	switch token := token.(type) {
+	case xml.StartElement:
+		return p.start(token)
+	case xml.EndElement:
+		if len(p.stack) == 0 {
+			return fmt.Errorf("%w: XML nesting", ErrInvalidPackage)
+		}
+		p.stack = p.stack[:len(p.stack)-1]
+	case xml.CharData:
+		if len(p.stack) > 0 {
+			p.stack[len(p.stack)-1].text.Write(token)
+		} else if strings.TrimSpace(string(token)) != "" {
+			return fmt.Errorf("%w: text outside XML root", ErrInvalidPackage)
+		}
+	case xml.Directive:
+		return fmt.Errorf("%w: XML directives are not permitted", ErrInvalidPackage)
+	case xml.ProcInst:
+		if token.Target != "xml" || p.root != nil {
+			return fmt.Errorf("%w: XML processing instruction", ErrInvalidPackage)
+		}
+	}
+	return nil
+}
+
+func (p *xmlParser) start(token xml.StartElement) error {
+	n, err := pushElement(token, p.stack, p.budget, p.depthLimit)
+	if err != nil {
+		return err
+	}
+	if len(p.stack) == 0 {
+		if p.root != nil {
+			return fmt.Errorf("%w: multiple XML roots", ErrInvalidPackage)
+		}
+		p.root = n
+	}
+	p.stack = append(p.stack, n)
+	return nil
 }
 
 func pushElement(token xml.StartElement, stack []*element, budget *xmlBudget, depthLimit int) (*element, error) {

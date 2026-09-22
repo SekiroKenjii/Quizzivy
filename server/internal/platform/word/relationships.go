@@ -92,28 +92,38 @@ func (a *archive) relationships(ctx context.Context, budget *xmlBudget) ([]Relat
 		if !strings.HasSuffix(name, ".rels") {
 			continue
 		}
-		source, err := relationshipSource(name)
+		items, err := a.relationshipPart(ctx, name, budget)
 		if err != nil {
 			return nil, err
 		}
-		if source != "" && a.files[source] == nil {
-			return nil, fmt.Errorf("%w: relationship owner absent", ErrInvalidPackage)
-		}
-		root, err := a.readXML(ctx, name, budget)
+		out = append(out, items...)
+	}
+	return out, nil
+}
+
+func (a *archive) relationshipPart(ctx context.Context, name string, budget *xmlBudget) ([]Relationship, error) {
+	source, err := relationshipSource(name)
+	if err != nil {
+		return nil, err
+	}
+	if source != "" && a.files[source] == nil {
+		return nil, fmt.Errorf("%w: relationship owner absent", ErrInvalidPackage)
+	}
+	root, err := a.readXML(ctx, name, budget)
+	if err != nil {
+		return nil, err
+	}
+	if root.name.Space != relationNamespace || root.name.Local != "Relationships" {
+		return nil, fmt.Errorf("%w: relationships manifest", ErrInvalidPackage)
+	}
+	seen := map[string]bool{}
+	out := make([]Relationship, 0, len(root.children))
+	for _, n := range root.children {
+		rel, err := a.readRelationship(n, source, seen)
 		if err != nil {
 			return nil, err
 		}
-		if root.name.Space != relationNamespace || root.name.Local != "Relationships" {
-			return nil, fmt.Errorf("%w: relationships manifest", ErrInvalidPackage)
-		}
-		seen := map[string]bool{}
-		for _, n := range root.children {
-			rel, err := a.readRelationship(n, source, seen)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, rel)
-		}
+		out = append(out, rel)
 	}
 	return out, nil
 }

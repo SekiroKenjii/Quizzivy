@@ -134,7 +134,7 @@ func TestNonZipAndLegacyInputsNeverUseALossyFallback(t *testing.T) {
 func FuzzInspectionNeverPanicsOrReadsOutsideThePackage(f *testing.F) {
 	f.Add(pack(f, baseEntries(`<w:p><w:r><w:t>Seed</w:t></w:r></w:p>`)))
 	f.Add([]byte("not a ZIP"))
-	f.Fuzz(func(t *testing.T, data []byte) {
+	f.Fuzz(func(_ *testing.T, data []byte) {
 		limits := word.DefaultLimits()
 		limits.CompressedBytes, limits.ExpandedBytes, limits.XMLBytes = 1<<16, 1<<18, 1<<16
 		limits.XMLNodes, limits.XMLDepth, limits.Entries = 2000, 24, 32
