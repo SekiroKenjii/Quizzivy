@@ -152,11 +152,17 @@ jobs:
         working-directory: web
         run: pnpm e2e
 
+      - name: Run content editor prototype
+        working-directory: web
+        run: pnpm e2e:content
+
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
-          path: web/playwright-report/
+          path: |
+            web/playwright-report/
+            web/test-results/
           retention-days: 7
 
   # --------------------------------------------------------------- e2e-live

@@ -94,9 +94,27 @@ Corpus-driven cases to carry into semantic validation and review:
   meaning or surface an explicit unsupported/mapping decision; never reduce
   three choices to a binary true/false interaction.
 
-W-01–04 are still in progress: the editor comparison, remaining domain/API
+W-01–04 are still in progress: the complete editor evaluation, remaining domain/API
 contracts, reviewed expected outputs, converter isolation, cloud/private model
 evaluation and teacher walkthrough are not satisfied by this extraction spike.
+
+### 1.2 Implementation checkpoint — content editor experiment
+
+W-03 now includes a candidate application-owned semantic AST, bounded strict
+validation, plain-text projection, a read-only renderer and a Tiptap adapter.
+The synthetic [editor harness](../../web/tests/support/content-editor/README.md)
+exercises editing, undo, document switching, stable gaps, merged tables, rejected
+rich paste and a 320 px layout without changing production routes or storage.
+Its browser checks run in CI; a real-build test separates editor code from the
+reader and enforces transfer budgets. Changes exist only in the harness session.
+
+Tiptap 3.31.3 and Lexical 0.51.0 both preserved the tested model semantics on the
+same synthetic fixtures. Tiptap is the current interactive candidate, not a final
+selection based on teacher or native-IME acceptance. The comparison procedure,
+dependency rationale and remaining limitations are documented with the harness.
+This does not complete W-05 or authorize storing editor JSON: the domain/API
+contracts, server validation, real asset bindings and integration with immutable
+versions must precede production use. No teacher document was sent to a service.
 
 ## 2. Current code and the actual gaps
 

@@ -1,0 +1,111 @@
+.semantic-content {
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+}
+
+.semantic-content p {
+  min-height: 1.5em;
+}
+.semantic-content > * + *,
+.semantic-content li > * + * {
+  margin-top: 0.75rem;
+}
+.semantic-content h2,
+.semantic-content h3,
+.semantic-content h4 {
+  font-weight: 600;
+  line-height: 1.4;
+}
+.semantic-content h2 {
+  font-size: 1.25rem;
+}
+.semantic-content h3 {
+  font-size: 1.125rem;
+}
+.semantic-content h4 {
+  font-size: 1rem;
+}
+.semantic-content ol {
+  list-style: decimal;
+  padding-inline-start: 1.75rem;
+}
+.semantic-content ul {
+  list-style: disc;
+  padding-inline-start: 1.75rem;
+}
+.semantic-content li + li {
+  margin-top: 0.35rem;
+}
+.semantic-content a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.semantic-content u {
+  text-underline-offset: 0.18em;
+}
+.semantic-content sup {
+  vertical-align: super;
+  font-size: 0.75em;
+}
+.semantic-content sub {
+  vertical-align: sub;
+  font-size: 0.75em;
+}
+.content-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.semantic-content table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.semantic-content th,
+.semantic-content td {
+  border: 1px solid var(--border);
+  padding: 0.625rem;
+  vertical-align: top;
+  min-width: 4rem;
+}
+.semantic-content th {
+  background: var(--muted);
+  font-weight: 600;
+  text-align: start;
+}
+.content-gap {
+  display: inline-flex;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid currentColor;
+  font-variant-numeric: tabular-nums;
+}
+.content-asset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.semantic-content :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.content-editor .semantic-content h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.content-editor .semantic-content h2 {
+  font-size: 1.125rem;
+}
+.content-editor .semantic-content h3 {
+  font-size: 1rem;
+}
+.content-editor .selectedCell {
+  background: var(--accent);
+}
+.content-editor .ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
