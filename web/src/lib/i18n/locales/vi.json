@@ -1202,6 +1202,12 @@
     },
     "submittedShort": "Đã nộp"
   },
+  "sharedReview": {
+    "playbackHint": "Nghe tại đây không tính thêm lượt làm bài.",
+    "count": "Đã nghe {{used}} lượt · Quy định {{limit}} lượt cho cả nhóm",
+    "unlimitedCount": "Đã nghe {{used}} lượt · Không giới hạn",
+    "transcript": "Nội dung bài nghe"
+  },
   "takeTest": {
     "hideMaterial": "Thu gọn ngữ liệu",
     "showMaterial": "Mở ngữ liệu",

@@ -23,6 +23,7 @@ type Repository interface {
 	Answers(ctx context.Context, attemptID string) (map[string][]byte, error)
 	AudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
 	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
+	ReleasedGroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	RecordGroupPlay(ctx context.Context, in GroupPlayInput, now time.Time) (GroupPlays, error)
 	RecordPlay(ctx context.Context, attemptID, studentID, questionID string, now time.Time) (Plays, error)
 	Save(ctx context.Context, in SaveInput, now time.Time) (SaveResult, error)
@@ -41,6 +42,8 @@ type Repository interface {
 // ReviewRepository is the teacher's side of a paper: reading it with the
 // grading key, marking it, and noting it.
 type ReviewRepository interface {
+	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
+	GroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	Get(ctx context.Context, attemptID string) (Review, error)
 	Grade(ctx context.Context, attemptID, graderID string, items []GradeItem) (Score, error)
 	Finish(ctx context.Context, attemptID string) (Attempt, error)

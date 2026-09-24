@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.25 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.26 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.25**
+
+- W-09f supplies frozen shared context in learner results and both teacher
+  grading modes. Transcript release follows each recording's policy independently
+  of score/key/explanation flags. Review playback does not add attempt plays.
 
 **Changes since v0.24**
 
@@ -631,8 +637,17 @@ uses the preview renderer: side-by-side with answers when space permits, above
 answers on phones with remembered collapse state. Shared audio controls remain
 available while material text is collapsed. Stable gap targets navigate to the
 question or blank input without losing pending answers. Group players stay mounted
-across child navigation. Result/review context remains a prerequisite for enabling
-group writes.
+across child navigation.
+
+Learner results retain the frozen material when filtering questions and expose
+only transcripts released by each recording's `showTranscriptAfterSubmit` flag.
+The score, answer-key and explanation flags do not override that release policy.
+Teacher paper review includes the complete shared transcript and that attempt's
+recording counts. Grading by question includes only the selected question's
+group, without an aggregate playback count across students. Material links focus
+the matching question where navigation is available. Review playback is unlimited
+and does not append attempt playback events or change recorded counts. Legacy
+flat results/reviews keep their existing payload and require no group reader.
 
 
 ---
@@ -834,8 +849,8 @@ not consume a second allowance on retry; late responses cannot mutate another
 session. Counts remain monotonic during refetch. Submission attempts a bounded
 three-second telemetry flush but remains available during network accounting
 failure. Closed/expired attempts reject late telemetry; offline closure cannot
-guarantee complete listening evidence. Result/review context still needs to ship
-before group authoring is enabled.
+guarantee complete listening evidence. Results and teacher paper review report
+the confirmed counts without creating new playback receipts.
 
 ---
 

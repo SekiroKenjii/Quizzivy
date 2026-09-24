@@ -21,6 +21,7 @@ type Application struct {
 // WithGroupContexts supplies the frozen shared-context reader before serving attempts.
 func (a *Application) WithGroupContexts(groups ports.GroupContexts) *Application {
 	a.service.Groups = groups
+	a.review.Groups = groups
 	return a
 }
 

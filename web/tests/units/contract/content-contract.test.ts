@@ -51,6 +51,7 @@ test("content vocabulary carries no answer keys or provenance", () => {
     "acceptedAnswers",
     "sampleAnswer",
     "transcript",
+    "transcripts",
     "sourcePath",
     "teacherNote",
   ])

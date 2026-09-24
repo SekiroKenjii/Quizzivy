@@ -479,6 +479,34 @@ play whose response was lost. Screenshot review confirms local table wrapping
 and side-by-side desktop layout. Native Safari/mobile QA and full result/review
 context remain required before group authoring is enabled.
 
+### 1.21 Implementation checkpoint — shared review context (W-09f)
+
+Submitted learner results and teacher paper/question review read frozen shared
+materials through the existing tests port after authorization. Learner transcript
+queries select only recordings explicitly released after submission; score, key
+and explanation flags never override this decision. Teacher paper review includes
+all shared transcripts and the attempt's confirmed counters. Cross-attempt question
+grading includes only the selected group and omits misleading aggregate counters.
+Signed asset delivery uses the existing ownership checks. A missing group reader
+fails closed; flat historical papers keep the existing path and payload.
+
+One shared review renderer serves results and both grading modes. Filters retain
+material for visible members; gap navigation restores all results and focuses the
+correct child. Teacher member navigation retains the player. Transcripts use a
+keyboard-operable disclosure, and review playback does not record new gestures.
+The learner bundle still excludes admin code. No schema migration or dependency
+is added.
+
+Validation covers all eight score/key/explanation combinations, released/private
+transcripts, outsider access, active-attempt refusal, authorized asset resolution,
+independent recording totals and question-scoped review. Contract leak guards now
+also reject plural transcript maps on active learner payloads. Production Chromium
+checks cover results at 320/1440px and both grading modes at 768/1440px, including
+keyboard gap focus, real audio playback without new accounting calls, filters and
+horizontal overflow. Screenshots were reviewed. Group authoring/draft summaries,
+assignment listening summaries, native mobile QA and the import workflow remain
+open; this checkpoint does not enable group authoring or establish pilot quality.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

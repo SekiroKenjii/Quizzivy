@@ -1444,9 +1444,10 @@ export interface paths {
          * @description Honours the assignment's review policy. Suppressed fields are **absent**,
          *     not nulled-and-hidden, so no client fallback can surface them.
          *
-         *     `transcript` appears here and only here, gated on the question's
+         *     Question `transcript` and shared-context transcripts appear here only
+         *     after submission, gated by each question/recording's own
          *     `showTranscriptAfterSubmit` (§11.3, §13.5). `sampleAnswer` never appears
-         *     at all.
+         *     at all. Material and shared play counts do not depend on score/key flags.
          */
         get: operations["getAttemptResult"];
         put?: never;
@@ -2324,6 +2325,23 @@ export interface components {
             id: components["schemas"]["Uuid"];
             assetId: components["schemas"]["Uuid"];
             policy: components["schemas"]["AudioPolicy"];
+        };
+        /**
+         * @description Frozen material for completed-attempt results and teacher grading.
+         *     Learner transcripts contain only recordings whose own policy releases
+         *     them after submission; teacher grading includes all available transcripts.
+         *     No grading key is added to groups. Listening here never consumes a play.
+         */
+        SharedReviewContext: {
+            groups: components["schemas"]["StudentGroup"][];
+            /** @description Released transcript text keyed by frozen recording ID; suppressed entries are absent. */
+            transcripts: {
+                [key: string]: string;
+            };
+            /** @description Used plays by recording for a single attempt; omitted when grading across attempts. */
+            audioPlays?: {
+                [key: string]: number;
+            };
         };
         /**
          * @description The post-submission view. Every revealing field is gated by the
@@ -4504,6 +4522,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         question: components["schemas"]["AdminQuestion"];
+                        sharedContext?: components["schemas"]["SharedReviewContext"];
                         /** @description 1-based position on the paper. */
                         questionNumber: number;
                         questionCount: number;
@@ -4656,6 +4675,7 @@ export interface operations {
                         /** @description For "lượt 1/2" in the header (G-03). */
                         maxAttempts: number;
                         questions: components["schemas"]["AdminQuestion"][];
+                        sharedContext?: components["schemas"]["SharedReviewContext"];
                         answers: {
                             [key: string]: {
                                 answer: components["schemas"]["Answer"] | null;
@@ -5893,6 +5913,7 @@ export interface operations {
                         /** @description For "Lượt 1/2" under the score (S-09). */
                         maxAttempts: number;
                         questions: components["schemas"]["ResultQuestion"][];
+                        sharedContext?: components["schemas"]["SharedReviewContext"];
                     };
                 };
             };

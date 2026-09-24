@@ -1202,6 +1202,12 @@
     },
     "submittedShort": "Submitted"
   },
+  "sharedReview": {
+    "playbackHint": "Playback here does not add to the attempt’s play count.",
+    "count": "Played {{used}} times · Group allowance: {{limit}}",
+    "unlimitedCount": "Played {{used}} times · Unlimited",
+    "transcript": "Recording transcript"
+  },
   "takeTest": {
     "hideMaterial": "Collapse material",
     "showMaterial": "Expand material",

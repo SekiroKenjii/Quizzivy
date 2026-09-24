@@ -227,6 +227,14 @@ Check long passages, wide tables, picture captions, underlined option fragments,
 ordered cloze gaps and results with hidden answers. Student presentation must not
 expose source filenames/key documents, provenance, teacher notes or answer markings.
 
+Results keep the group's material above its first visible child when filters
+change; following a material gap restores all questions and focuses its target.
+Teacher paper review keeps context while navigating members. Grading by question
+shows that question's complete material without combining different students'
+listening counts. Transcript disclosure is explicit and keyboard-operable;
+learners receive only released transcripts. Review playback never changes an
+attempt's counters.
+
 ## 10. Responsive, keyboard, motion and performance rules
 
 - At ≥1280px: two full comparison panes, optional outline; avoid fixed empty space.

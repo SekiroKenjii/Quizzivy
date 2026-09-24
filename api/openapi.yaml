@@ -1423,6 +1423,26 @@ components:
         assetId: { $ref: '#/components/schemas/Uuid' }
         policy: { $ref: '#/components/schemas/AudioPolicy' }
 
+    SharedReviewContext:
+      type: object
+      required: [groups, transcripts]
+      additionalProperties: false
+      description: |
+        Frozen material for completed-attempt results and teacher grading.
+        Learner transcripts contain only recordings whose own policy releases
+        them after submission; teacher grading includes all available transcripts.
+        No grading key is added to groups. Listening here never consumes a play.
+      properties:
+        groups: { type: array, items: { $ref: '#/components/schemas/StudentGroup' } }
+        transcripts:
+          type: object
+          additionalProperties: { type: string }
+          description: Released transcript text keyed by frozen recording ID; suppressed entries are absent.
+        audioPlays:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+          description: Used plays by recording for a single attempt; omitted when grading across attempts.
+
     ResultQuestion:
       type: object
       description: |
@@ -3586,6 +3606,7 @@ paths:
                 additionalProperties: false
                 properties:
                   question: { $ref: '#/components/schemas/AdminQuestion' }
+                  sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
                   questionNumber: { type: integer, minimum: 1, description: 1-based position on the paper. }
                   questionCount: { type: integer, minimum: 1 }
                   manualQuestionIds:
@@ -3730,6 +3751,7 @@ paths:
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "lượt 1/2" in the header (G-03). }
                   questions: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
+                  sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
                   answers:
                     type: object
                     additionalProperties:
@@ -4821,9 +4843,10 @@ paths:
         Honours the assignment's review policy. Suppressed fields are **absent**,
         not nulled-and-hidden, so no client fallback can surface them.
 
-        `transcript` appears here and only here, gated on the question's
+        Question `transcript` and shared-context transcripts appear here only
+        after submission, gated by each question/recording's own
         `showTranscriptAfterSubmit` (§11.3, §13.5). `sampleAnswer` never appears
-        at all.
+        at all. Material and shared play counts do not depend on score/key flags.
       responses:
         '200':
           description: OK
@@ -4839,6 +4862,7 @@ paths:
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "Lượt 1/2" under the score (S-09). }
                   questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
+                  sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: '`ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show.'
