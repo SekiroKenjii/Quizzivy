@@ -12,7 +12,7 @@ import (
 )
 
 func tests(dbx db.Context, questions *questionsrepo.Postgres, media *mediarepo.Postgres) *testsapp.Application {
-	return testsapp.New(testsrepo.NewPostgres(dbx, questions, media))
+	return testsapp.New(testsrepo.NewPostgres(dbx, questions, media).WithGroupQuestions(adapters.GroupQuestions{}))
 }
 
 func testsTransport(app *testsapp.Application, media *mediaapp.Application) testshttp.Tests {

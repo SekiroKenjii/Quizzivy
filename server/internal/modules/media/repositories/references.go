@@ -25,13 +25,21 @@ func References(ctx context.Context, q db.Querier, assetID string) ([]domain.Tes
 // trip per row.
 func ReferencesFor(ctx context.Context, q db.Querier, assetIDs []string) (map[string][]domain.TestRef, error) {
 	rows, err := q.Query(ctx, `
-		SELECT DISTINCT tvq.media_asset_id::text, t.id::text, t.title, tv.version
-		  FROM app.test_version_questions tvq
-		  JOIN app.test_version_sections tvs ON tvs.id = tvq.test_version_section_id
-		  JOIN app.test_versions tv ON tv.id = tvs.test_version_id
-		  JOIN app.tests t ON t.id = tv.test_id
-		 WHERE tvq.media_asset_id = ANY($1::uuid[])
-		 ORDER BY tvq.media_asset_id::text, t.title, tv.version, t.id::text`, assetIDs)
+		WITH version_assets AS (
+		 SELECT media_asset_id,test_version_section_id FROM app.test_version_questions WHERE media_asset_id=ANY($1::uuid[])
+		 UNION
+		 SELECT a.media_asset_id,g.test_version_section_id FROM app.test_version_group_assets a
+		 JOIN app.test_version_groups g ON g.id=a.group_id WHERE a.media_asset_id=ANY($1::uuid[])
+		 UNION
+		 SELECT r.media_asset_id,g.test_version_section_id FROM app.test_version_group_recordings r
+		 JOIN app.test_version_groups g ON g.id=r.group_id WHERE r.media_asset_id=ANY($1::uuid[])
+		)
+		SELECT DISTINCT a.media_asset_id::text,t.id::text,t.title,tv.version
+		FROM version_assets a
+		JOIN app.test_version_sections tvs ON tvs.id=a.test_version_section_id
+		JOIN app.test_versions tv ON tv.id=tvs.test_version_id
+		JOIN app.tests t ON t.id=tv.test_id
+		ORDER BY a.media_asset_id::text,t.title,tv.version,t.id::text`, assetIDs)
 	if err != nil {
 		return nil, fmt.Errorf("media: references: %w", err)
 	}

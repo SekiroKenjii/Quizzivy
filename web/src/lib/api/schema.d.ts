@@ -2420,7 +2420,7 @@ export interface components {
             version: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
-            /** @description Listening questions, shown when picking a version to assign (G-01). */
+            /** @description Questions with their own audio or a shared group recording, counted once per question; shown when picking a version to assign (G-01). */
             audioCount: number;
             /**
              * @description Questions needing manual grading. G-01 multiplies it by the roster to
@@ -2438,12 +2438,14 @@ export interface components {
          */
         PublishValidationError: {
             /** @enum {string} */
-            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "question_content_valid" | "question_valid" | "total_points_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
+            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "question_content_valid" | "question_valid" | "group_valid" | "total_points_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
             message: string;
             /** Format: uuid */
             sectionId?: string | null;
             /** Format: uuid */
             questionId?: string | null;
+            /** Format: uuid */
+            groupId?: string | null;
         };
         /**
          * @description **Derived**, never stored (D-18). A pure function of `publishedAt`,

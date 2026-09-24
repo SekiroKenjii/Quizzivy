@@ -1630,7 +1630,7 @@ components:
         audioCount:
           type: integer
           minimum: 0
-          description: Listening questions, shown when picking a version to assign (G-01).
+          description: Questions with their own audio or a shared group recording, counted once per question; shown when picking a version to assign (G-01).
         manualCount:
           type: integer
           minimum: 0
@@ -1657,6 +1657,7 @@ components:
             - option_content_valid
             - question_content_valid
             - question_valid
+            - group_valid
             - total_points_valid
             - blank_has_accepted_answer
             - blank_placeholders_match
@@ -1665,6 +1666,7 @@ components:
         message: { type: string }
         sectionId: { type: [string, 'null'], format: uuid }
         questionId: { type: [string, 'null'], format: uuid }
+        groupId: { type: [string, 'null'], format: uuid }
 
     # ------------------------------------------------------------- assignments
 

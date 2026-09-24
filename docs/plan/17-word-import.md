@@ -294,6 +294,30 @@ concurrent edits and released media references. No endpoint is exposed yet:
 full draft readers, bank/builder UI and W-08/09 snapshots and delivery remain
 required. This checkpoint adds no migration, dependency or learner payload.
 
+### 1.13 Implementation checkpoint — full-group publication (W-08a)
+
+Migrations 38–39 add independent frozen groups, ordered units, membership,
+materials, stable gap bindings, explicit recordings and relational asset mirrors.
+No historical rows are backfilled. Composite keys keep frozen targets within
+the same section/group; the app role cannot update these new snapshot tables.
+Guarded rollback refuses stored graph data and preserves the concurrent index
+when returning to the intermediate migration.
+
+Publication resolves ordered draft units, locks all context roots and referenced
+questions before reading their content/keys, validates nonempty complete groups
+and freezes the entire graph in one transaction. All question and group assets
+are locked together in stable order. Empty groups report an anchored publish
+violation even when their section contains valid standalone questions. Media
+reference queries protect frozen group files after the draft source is removed.
+Version listening counts include each member covered by a shared recording once.
+
+PostgreSQL checks verify immutable content/keys/bindings/policy after source edits
+and removal, distinct recording identities for two groups using the same file,
+aggregate totals, media protection, privileges and migration round trips. New
+group authoring is still unavailable: group-aware preview/restore/duplicate,
+complete draft/UI readers, and W-09 delivery/shared-playback remain required.
+This is the publication foundation, not completion of W-08 or a release gate.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

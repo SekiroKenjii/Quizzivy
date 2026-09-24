@@ -30,12 +30,19 @@ type MediaLocks interface {
 
 type Postgres struct {
 	db.Repository
-	questions QuestionLocks
-	media     MediaLocks
+	questions      QuestionLocks
+	media          MediaLocks
+	groupQuestions GroupQuestionStore
 }
 
 func NewPostgres(dbx db.Context, questions QuestionLocks, media MediaLocks) *Postgres {
 	return &Postgres{Repository: db.NewRepository(dbx), questions: questions, media: media}
+}
+
+// WithGroupQuestions supplies transaction-bound owned-member reads for complete group snapshots.
+func (s *Postgres) WithGroupQuestions(questions GroupQuestionStore) *Postgres {
+	s.groupQuestions = questions
+	return s
 }
 
 const testColumns = `

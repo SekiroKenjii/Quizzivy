@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.18 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.19 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.18**
+
+- W-08 defines independent frozen group membership, materials, gap targets and
+  recording policies alongside existing version questions. Historical snapshots
+  are not backfilled; group authoring stays unavailable until readers are ready.
 
 **Changes since v0.17**
 
@@ -551,6 +557,14 @@ Removing a section-owned group deletes its complete draft graph and compacts uni
 order. Copy materialization checks an observed source revision and creates new
 editable identities. Complete draft readers, snapshots, delivery and UI integration
 remain required before enabling group authoring.
+
+Publication freezes the entire group into version-owned rows, including ordered
+units, member order, materials, stable gap targets and explicit recording policy.
+Frozen context points only to frozen question/blank identities and immutable media;
+editing or deleting a source group cannot alter it. The app role cannot update
+these new snapshot graph rows. Deleting an unreferenced version removes its owned
+graph together. Existing version questions and historical attempts are unchanged.
+
 
 ---
 

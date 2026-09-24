@@ -1280,6 +1280,8 @@ the file it adds.
 | `00035_add_question_group_ownership.sql` | Independent bank/test group ownership and ordered member columns | Word W-07 |
 | `00036_index_question_group_members.sql` | Concurrent group-member identity and ordinal indexes | Word W-07 |
 | `00037_create_question_group_graph.sql` | Ordered units, materials, cloze targets, protected media/recording bindings | Word W-07 |
+| `00038_index_version_question_sections.sql` | Concurrent section identity index for frozen questions | Word W-08 |
+| `00039_create_version_group_graph.sql` | Independent immutable group/unit/material/recording snapshots | Word W-08 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1525,3 +1527,62 @@ before the root; audit rows remain. Section removal instead requires both curren
 revisions, removes its unit and compacts remaining unit ordinals under their
 deferrable constraint. Copies resolve one coherent source revision, remap all
 editable identities and create a new graph; no editable source FK is retained.
+
+
+## 20. Frozen group graph (W-08)
+
+Migrations 38–39 add snapshot-owned group context without altering historical
+question content or assigning old versions a group interpretation. The existing
+frozen question table retains grading keys, response identities and section-wide
+ordinals. A separate membership table binds those frozen questions to a group,
+with member order and option-order policy. This avoids nullable group ownership
+columns on the populated snapshot table and keeps the legacy read path intact.
+
+Migration 38 builds `(id,test_version_section_id)` uniquely and concurrently on
+`test_version_questions`. Migration 39 attaches that index and creates the graph.
+Composite foreign keys require every group member and ordered unit to belong to
+the same frozen section; material gap targets must be members of the same frozen
+group. Stable blank-gap targets reference the existing frozen blank identity pair.
+Question-type compatibility, complete unit/member coverage and AST binding
+bijections remain domain/repository invariants checked before freezing.
+
+| Table | Contract and reverse-reference access |
+| --- | --- |
+| `test_version_groups` | Snapshot section owns the root; title and semantic instructions; section index; no live source-group FK |
+| `test_version_group_members` | Same-section group/question links; unique question membership and ordered members; option-order policy |
+| `test_version_units` | Ordered standalone/group union; same-section links; unique unit position, question and group |
+| `test_version_group_stimuli` | Immutable ordered material content; group identity pair for scoped child links |
+| `test_version_group_gap_bindings` | Scoped stable gaps, same-group question targets and frozen blank-gap targets; unique response targets and reverse question index |
+| `test_version_group_recordings` | Independent recording identity, immutable policy/transcript and protected audio kind; reverse asset index |
+| `test_version_group_assets` | AST reference mirror, same-group recording and asset linkage; reverse media and recording indexes |
+
+Deleting an unused version cascades through its owned graph. Frozen blank targets
+use deferred NO ACTION to permit that whole-version cleanup while rejecting
+partial dangling targets. Physical media deletion is restricted by frozen graph
+references; soft deletion and the media library must include them under the same
+asset locks as publication. New snapshot graph tables revoke UPDATE from the app
+role; correcting published content creates another version. Audit and attempt
+event grants remain untouched.
+
+Down is for disposable/pre-enablement data only and refuses any frozen group or
+ordered-unit rows. The graph Down restores the index owned by migration 38 so
+an intermediate down/up has identical schema. Once group snapshots exist, keep
+these migrations and compatible readers even when authoring is disabled. No old
+version, attempt or shuffle seed is backfilled.
+
+Publication holds the parent test lock, then shared locks on all context roots
+and referenced question rows in stable ID order before loading prompts and child
+keys. This prevents a concurrent bank edit from mixing parent text from one
+revision with options/blanks from another. Group writes already require that
+parent lock. After validation, every member/material asset is locked once in
+stable ID order across the full test; section-local lock ordering is insufficient
+when tests share assets in different authored orders.
+
+The flattened frozen question ordinals remain the response/grading order, while
+`test_version_units` preserves grouping and `test_version_group_members` preserves
+member policy/order. Material and recording rows receive fresh UUIDv7 identities;
+gap targets are remapped to the frozen questions, with their stable prompt gap IDs
+retained. Version listening counts count each question once if it has own audio
+or any shared recording in its group. Frozen group references participate in
+media soft deletion and batched library usage lookups. Student reachability and
+presentation are not broadened until the W-09 reader is integrated.
