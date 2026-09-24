@@ -200,13 +200,15 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       audio_max_plays = $6, audio_allow_seek = $7,
 			       audio_show_transcript_after = $8, transcript = $9,
 			       points = $10::numeric, explanation = $11, sample_answer = $12,
-			       tags = $13, prompt_content = $14, explanation_content = $15
+			       tags = $13, prompt_content = $14, explanation_content = $15,
+			       context_ordinal = coalesce($16, context_ordinal),
+			       context_option_order = coalesce($17, context_option_order)
 			 WHERE id = $1 AND deleted_at IS NULL
 			 RETURNING id::text`,
 			id, string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent)).Scan(&id)
+			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder).Scan(&id)
 	} else {
 		var createID *string
 		if ownership != nil {

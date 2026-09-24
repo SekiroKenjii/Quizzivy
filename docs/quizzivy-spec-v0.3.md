@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.17 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.18 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.17**
+
+- W-07d adds revision-checked full-group editing, independent copy materialization,
+  bank archive/restore/delete and section removal. These remain internal operations
+  until complete draft, snapshot and learner readers are available.
 
 **Changes since v0.16**
 
@@ -537,9 +543,14 @@ foreign keys require explicit whole-graph cleanup; existing section deletion
 cannot leave questions detached from their context. Internal graph creation and
 copy materialization are atomic with their audits. Legacy question operations
 hide or refuse owned children; active and archived groups protect referenced
-media under the same asset lock used by deletion. Revision-safe editing, complete
-lifecycle commands, snapshots and delivery remain required before enabling group
-authoring.
+media under the same asset lock used by deletion. Full-group editing checks an
+aggregate revision; section groups also check the enclosing test revision. Edits
+replace content and member order atomically. Bank archive/restore/delete checks
+the same revision; permanent deletion requires archival and keeps audit history.
+Removing a section-owned group deletes its complete draft graph and compacts unit
+order. Copy materialization checks an observed source revision and creates new
+editable identities. Complete draft readers, snapshots, delivery and UI integration
+remain required before enabling group authoring.
 
 ---
 

@@ -1509,3 +1509,19 @@ including archived bank groups, under the existing asset row lock. The race test
 observe actual PostgreSQL blocking and exercise both winner orders. These internal
 operations remain unexposed until complete draft/snapshot readers and lifecycle
 commands are present; new-unit readers must not fall back to legacy flat membership.
+
+W-07d extends the internal repository with revision-checked updates and lifecycle
+operations. Update locks the enclosing test first, the group FOR UPDATE, then
+owned questions by ID and incoming media by ID. It clears old material bindings,
+replaces members under deferred ordinal uniqueness, reconstructs validated
+bindings and increments the group revision in the same audited transaction.
+Question type and fixed/shuffle policy change in one statement so neither
+intermediate state violates the compatibility CHECK. Readback revalidates the
+complete graph before commit; any failure rolls everything back.
+
+Bank archival/restoration advances the same revision. Permanent deletion requires
+an archived bank group and removes materials, recordings and owned questions
+before the root; audit rows remain. Section removal instead requires both current
+revisions, removes its unit and compacts remaining unit ordinals under their
+deferrable constraint. Copies resolve one coherent source revision, remap all
+editable identities and create a new graph; no editable source FK is retained.

@@ -273,6 +273,27 @@ editing, bank/lifecycle commands, media usage UI, full draft readers and W-08/09
 snapshot/delivery support are still required before enabling group authoring.
 No new migration or dependency is introduced beyond W-07b migrations 35–37.
 
+### 1.12 Implementation checkpoint — revision-safe group lifecycle (W-07d)
+
+Internal full-group edits now check the aggregate revision and enclosing test
+revision before changing any graph rows. The lock order is parent test, group,
+owned members by ID, then incoming media by ID. Two writers of the same revision
+produce one successful edit; the stale writer changes neither content nor audit.
+Member reordering and question-type/option-policy changes are atomic, including
+replacement of stable blank targets and material bindings.
+
+Bank archive, restore and permanent deletion are revision checked; deletion
+requires archival and preserves audit history. Test-owned groups cannot use the
+bank lifecycle. Explicit section removal deletes the complete owned graph and
+compacts ordered units. Copy reads a coherent source revision and materializes
+fresh editable identities under the destination's revision and media locks.
+Source edits, archival and deletion cannot alter these independent copies.
+
+Docker checks cover these operations, late-failure rollback, parent archival,
+concurrent edits and released media references. No endpoint is exposed yet:
+full draft readers, bank/builder UI and W-08/09 snapshots and delivery remain
+required. This checkpoint adds no migration, dependency or learner payload.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

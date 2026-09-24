@@ -15,6 +15,7 @@ import (
 type GroupQuestionStore interface {
 	QuestionLocks
 	CreateGroupMember(context.Context, pgx.Tx, questions.WriteInput, questions.GroupOwnership) (questions.Question, error)
+	UpdateGroupMember(context.Context, pgx.Tx, questions.WriteInput, questions.GroupOwnership) (questions.Question, error)
 	GroupMembers(context.Context, pgx.Tx, string) ([]questions.OwnedQuestion, error)
 }
 
@@ -50,9 +51,13 @@ func (s *GroupsPostgres) Get(ctx context.Context, id string) (domain.StoredGroup
 }
 
 func readGroup(ctx context.Context, tx pgx.Tx, id string) (domain.StoredGroup, error) {
+	return readLockedGroup(ctx, tx, id, "FOR SHARE")
+}
+
+func readLockedGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.StoredGroup, error) {
 	var stored domain.StoredGroup
 	err := tx.QueryRow(ctx, `SELECT id::text, title, instructions, owner_section_id::text,
-		revision, archived_at, created_at, updated_at FROM app.question_groups WHERE id=$1 FOR SHARE`, id).
+		revision, archived_at, created_at, updated_at FROM app.question_groups WHERE id=$1 `+lock, id).
 		Scan(&stored.Bundle.Group.ID, &stored.Bundle.Group.Title, &stored.Bundle.Group.Instructions,
 			&stored.OwnerSectionID, &stored.Revision, &stored.ArchivedAt, &stored.CreatedAt, &stored.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {

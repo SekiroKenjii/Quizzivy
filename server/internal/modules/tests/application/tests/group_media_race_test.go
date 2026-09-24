@@ -152,3 +152,55 @@ func TestGroupMediaLockRejectsAssetDeletedBeforeCreate(t *testing.T) {
 		t.Fatalf("failed create left a group: %d, %v", count, err)
 	}
 }
+
+func TestGroupConcurrentEditsHaveOneRevisionWinner(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	asset := committedGroupAsset(t, pool, author)
+	bundle := storedGroupFixture(t, asset)
+	cleanupStoredGroup(t, pool, bundle.Group.ID)
+	media := mediarepo.NewPostgres(db.NewContext(pool))
+	store := repositories.NewGroupsPostgres(db.NewContext(pool), adapters.GroupQuestions{}, media)
+	stored, err := store.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := make(chan struct{})
+	locked := make(chan int, 1)
+	paused := repositories.NewGroupsPostgres(db.NewContext(pool), adapters.GroupQuestions{}, pausedGroupMedia{locked: locked, release: release})
+	winner, loser := make(chan error, 1), make(chan error, 1)
+	first, second := stored.Bundle, stored.Bundle
+	first.Group.Title, second.Group.Title = "First edit", "Stale overwrite"
+	go func() {
+		_, err := paused.Update(ctx, domain.UpdateGroupInput{GroupMutation: groupMutation(stored, author), Bundle: first})
+		winner <- err
+	}()
+	select {
+	case <-locked:
+	case err := <-winner:
+		t.Fatalf("writer ended before aggregate/media locks: %v", err)
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	go func() {
+		_, err := store.Update(ctx, domain.UpdateGroupInput{GroupMutation: groupMutation(stored, author), Bundle: second})
+		loser <- err
+	}()
+	close(release)
+	if err := <-winner; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-loser; !errors.Is(err, domain.ErrStaleWrite) {
+		t.Fatalf("concurrent stale overwrite: %v", err)
+	}
+	loaded, err := store.Get(ctx, bundle.Group.ID)
+	if err != nil || loaded.Revision != 2 || loaded.Bundle.Group.Title != "First edit" {
+		t.Fatalf("lost winner: %+v, %v", loaded, err)
+	}
+	var events int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM app.audit_log WHERE entity_id=$1 AND action='question_group.updated'`, bundle.Group.ID).Scan(&events); err != nil || events != 1 {
+		t.Fatalf("failed edit leaked audit: %d, %v", events, err)
+	}
+}

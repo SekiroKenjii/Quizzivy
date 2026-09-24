@@ -23,3 +23,7 @@ func (GroupQuestions) CreateGroupMember(ctx context.Context, tx pgx.Tx, in domai
 func (GroupQuestions) GroupMembers(ctx context.Context, tx pgx.Tx, groupID string) ([]domain.OwnedQuestion, error) {
 	return repositories.NewPostgres(db.NewContext(tx)).GroupQuestions(ctx, groupID)
 }
+
+func (GroupQuestions) UpdateGroupMember(ctx context.Context, tx pgx.Tx, in domain.WriteInput, ownership domain.GroupOwnership) (domain.Question, error) {
+	return repositories.NewPostgres(db.NewContext(tx)).UpdateOwned(ctx, in, ownership)
+}

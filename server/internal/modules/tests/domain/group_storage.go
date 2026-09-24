@@ -22,3 +22,32 @@ type CreateGroupInput struct {
 	IP                    string
 	UserAgent             string
 }
+
+// GroupMutation identifies the aggregate revision a writer observed; section groups also require the enclosing test revision.
+type GroupMutation struct {
+	ID                    string
+	ExpectedRevision      int64
+	ExpectedTestUpdatedAt time.Time
+	ActorID               string
+	Now                   time.Time
+	IP                    string
+	UserAgent             string
+}
+
+// UpdateGroupInput replaces the complete editable graph without changing its owner.
+type UpdateGroupInput struct {
+	GroupMutation
+	Bundle GroupBundle
+}
+
+// CopyGroupInput copies one observed source revision into an independent bank or section graph.
+type CopyGroupInput struct {
+	SourceID               string
+	ExpectedSourceRevision int64
+	OwnerSectionID         *string
+	ExpectedTestUpdatedAt  time.Time
+	ActorID                string
+	Now                    time.Time
+	IP                     string
+	UserAgent              string
+}
