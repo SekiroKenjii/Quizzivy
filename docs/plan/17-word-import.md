@@ -801,6 +801,37 @@ responses and staged-read tampering. Public source browsing, concrete processing
 recognition, review and commit remain subsequent work.
 
 
+### 1.32 Conservative source-linked recognition (W-14a)
+
+The private candidate schema separates printed labels, stable local question/option
+IDs, answer states, provenance, findings and exact source coverage. The local rules
+recognizer handles manual/automatic numbering, labeled choices on separate or shared
+lines, Unicode/nonbreaking Word spaces, inferred continuation paragraphs, explicit
+inline/final keys and unambiguous horizontal/vertical key-table pairs. Paper and
+section scopes prevent restarted numbers from silently selecting another answer.
+Contradictions and dangling labels remain blocking findings. Teacher-confirmed whole
+option bold/underline conventions are explicit inputs; unspecified formatting is
+never evidence of correctness. Key-only marks stay out of candidate learner prose.
+
+A bounded adapter retains raw extraction separately, projects supported semantic
+marks and flags private/revised/field/layout-dependent branches. Every meaningful
+block receives a coverage entry; partial text assignment cannot count as full
+coverage. Rules use bounded source/candidate sizes, question/option counts and
+indexed answer lookup. No source text is deduplicated. The CLI defaults to counts;
+optional candidate output is a new private 0600 file, with no external services.
+
+Synthetic tests cover Vietnamese offsets, explicit conflicts, repeated labels,
+collected papers, nonbreaking spaces, private text, generated labels and ambiguous
+table geometry. Fuzzing exercises bounded recognition and source-range invariants.
+The eight local DOCX files expose additional non-choice/group cases; running them
+is a compatibility exercise, not a reviewed accuracy or pilot result. Files and
+candidate outputs remain outside Git.
+
+W-14 remains open for grouped cloze/material attachment, typed/written key mapping,
+saved profile persistence and corpus-reviewed reconciliation. W-15 provider policy,
+W-16 full validation, durable processing and review/commit integration remain open.
+
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

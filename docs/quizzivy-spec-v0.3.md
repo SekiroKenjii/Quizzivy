@@ -1,6 +1,6 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.36 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.37 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
 **Changes since v0.34**
@@ -1480,6 +1480,22 @@ heartbeats serialize capacity accounting across worker processes. Live leases
 expire after a configured 1 second–5 minutes; every state/result write checks the
 worker identity, fencing token, lease and source revision. Exhausted crashes become
 failed runs. Retrying a failed import creates a new immutable run identity.
+
+The offline deterministic recognizer produces `word-candidate-v1` proposals from
+source-linked text, never bank questions. It distinguishes unknown, known and
+conflicting choice keys; explicit option IDs survive reordering. Numbering,
+sections/papers, same-line options, continuation paragraphs and explicit inline,
+final or companion choice keys retain Unicode source ranges. Restarted labels and
+ambiguous table associations do not authorize a guessed match. Bold/underline only
+become answer evidence under an explicitly teacher-confirmed convention; key-only
+marks are removed from the proposed learner prose.
+
+Every meaningful block remains in the coverage ledger. Unassigned ranges, private
+branches, uncertain structure, default points and unresolved fidelity are findings.
+Source comments, hidden/revised text and fields are never automatically copied into
+learner prose. This initial recognizer handles labeled choice structures; grouped
+cloze, typed/written keys, saved profiles and assisted free-form recognition remain
+open. A proposal is not a reviewed draft or approval to commit an assessment.
 
 An internal runner stops cooperating processors on timeout, lease loss or shutdown.
 Processing runs outside transactions. Only a current claim can store a bounded
