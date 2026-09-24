@@ -55,14 +55,6 @@ type DraftBlank struct {
 	AcceptedAnswers []string
 }
 
-func isChoice(questionType string) bool {
-	switch questionType {
-	case "single_choice", "multiple_choice", "true_false":
-		return true
-	}
-	return false
-}
-
 // PreviewQuestion is one question as a student receives it.
 type PreviewQuestion struct {
 	PromptContent json.RawMessage

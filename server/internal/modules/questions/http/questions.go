@@ -264,7 +264,7 @@ func toQuestionInput(body openapi.QuestionInput) domain.Input {
 		Prompt:             body.Prompt,
 		PromptContent:      body.PromptContent,
 		Transcript:         body.Transcript,
-		Points:             strconv.FormatFloat(float64(body.Points), 'f', 2, 64),
+		Points:             strconv.FormatFloat(float64(body.Points), 'f', -1, 64),
 		Explanation:        body.Explanation,
 		ExplanationContent: body.ExplanationContent,
 		SampleAnswer:       body.SampleAnswer,

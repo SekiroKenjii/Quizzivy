@@ -3,6 +3,7 @@ import { optionContentSchema } from "@/components/shared/content/optionContent";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import { z } from "zod";
 import type { components } from "@/lib/api/schema";
+import { comparePlaceholders, hasMismatch } from "./placeholders";
 
 /** Form input validation for §7's question editor. */
 const audioPolicySchema = z.object({
@@ -14,7 +15,9 @@ const audioPolicySchema = z.object({
 const optionSchema = z
   .object({
     id: z.uuid().nullable(),
-    text: z.string().min(1, "questionEditor.errors.optionRequired"),
+    text: z
+      .string()
+      .refine((text) => text.trim().length > 0, "questionEditor.errors.optionRequired"),
     isCorrect: z.boolean(),
     content: optionContentSchema.nullable().optional(),
   })
@@ -31,7 +34,16 @@ const optionSchema = z
 const blankSchema = z.object({
   id: z.uuid().nullable(),
   ordinal: z.number().int().min(1),
-  acceptedAnswers: z.array(z.string().min(1)).min(1),
+  acceptedAnswers: z
+    .array(
+      z
+        .string()
+        .refine(
+          (text) => text.trim().length > 0,
+          "questionEditor.errors.answerRequired",
+        ),
+    )
+    .min(1, "questionEditor.errors.answerRequired"),
   caseSensitive: z.boolean(),
 });
 
@@ -46,18 +58,25 @@ export const questionSchema = z
     ]),
     promptContent: questionContentSchema.nullable().optional(),
     explanationContent: questionContentSchema.nullable().optional(),
-    prompt: z.string().min(1, "questionEditor.errors.promptRequired"),
+    prompt: z
+      .string()
+      .refine((text) => text.trim().length > 0, "questionEditor.errors.promptRequired"),
     mediaAssetId: z.uuid().nullable(),
     audio: audioPolicySchema.nullable(),
     transcript: z.string().nullable(),
     options: z.array(optionSchema),
     blanks: z.array(blankSchema),
-    points: z.number().gt(0, "questionEditor.pointsError").max(999999.99),
+    points: z
+      .number()
+      .gt(0, "questionEditor.pointsError")
+      .max(999999.99)
+      .multipleOf(0.01, "questionEditor.errors.pointPrecision"),
     explanation: z.string().nullable(),
     sampleAnswer: z.string().nullable(),
     tags: z.array(z.string().min(1)),
   })
   .superRefine((value, context) => {
+    validateStructure(value, context);
     for (const [field, text] of [
       ["promptContent", value.prompt],
       ["explanationContent", value.explanation],
@@ -85,6 +104,45 @@ export const questionSchema = z
 export type QuestionValues = z.infer<typeof questionSchema>;
 
 export type QuestionType = QuestionValues["type"];
+
+function validateStructure(
+  value: Pick<QuestionValues, "type" | "options" | "blanks" | "prompt">,
+  context: z.RefinementCtx,
+) {
+  const issue = (path: string, key: string) =>
+    context.addIssue({
+      code: "custom",
+      path: [path],
+      message: `questionEditor.errors.${key}`,
+    });
+  const choice = ["single_choice", "multiple_choice", "true_false"].includes(
+    value.type,
+  );
+  if (choice) {
+    validateChoice(value, issue);
+  } else if (value.options.length) issue("options", "unexpectedOptions");
+  if (value.type !== "fill_blank") {
+    if (value.blanks.length) issue("blanks", "unexpectedBlanks");
+    return;
+  }
+  if (!value.blanks.length) issue("blanks", "blankRequired");
+  const ordinals = value.blanks.map((blank) => blank.ordinal);
+  if (new Set(ordinals).size !== ordinals.length) issue("blanks", "duplicateBlank");
+  if (hasMismatch(comparePlaceholders(value.prompt, ordinals)))
+    issue("blanks", "placeholderMismatch");
+}
+
+function validateChoice(
+  value: Pick<QuestionValues, "type" | "options">,
+  issue: (path: string, key: string) => void,
+) {
+  const correct = value.options.filter((option) => option.isCorrect).length;
+  if (value.options.length < 2) issue("options", "twoOptions");
+  if (value.type === "true_false" && value.options.length !== 2)
+    issue("options", "trueFalseCount");
+  if (correct === 0) issue("options", "correctRequired");
+  if (value.type !== "multiple_choice" && correct > 1) issue("options", "oneCorrect");
+}
 
 /** A blank single-choice question -- what /admin/question-bank/new starts from. */
 export function emptyQuestion(): QuestionValues {

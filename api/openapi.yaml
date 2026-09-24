@@ -1428,6 +1428,8 @@ components:
             - choice_has_correct_option
             - option_content_valid
             - question_content_valid
+            - question_valid
+            - total_points_valid
             - blank_has_accepted_answer
             - blank_placeholders_match
             - audio_question_has_asset
@@ -1891,7 +1893,8 @@ components:
       type: object
       description: |
         Create/update body for a bank question. Cross-field rules that a single
-        schema cannot express — a choice question needs at least one correct
+        schema cannot express — single_choice and true_false need exactly one correct
+        option (true_false has exactly two options), multiple_choice needs at least one correct
         option, a `fill_blank` needs its `{{n}}` placeholders to match its blank
         ordinals, an audio policy requires an audio asset — are validated by the
         server and again at publish (§8). Failing them returns
@@ -1944,7 +1947,10 @@ components:
                 minItems: 1
                 items: { type: string, minLength: 1 }
               caseSensitive: { type: boolean, default: false }
-        points: { $ref: '#/components/schemas/Points' }
+        points:
+          allOf: [{ $ref: '#/components/schemas/Points' }]
+          exclusiveMinimum: 0
+          multipleOf: 0.01
         explanationContent:
           oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
           x-go-type: json.RawMessage

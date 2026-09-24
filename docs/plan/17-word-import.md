@@ -171,12 +171,26 @@ acceptance are not implied by these integrations. The two new direct dependencie
 reader; declaring them directly lets the conversion reuse the same parser instead
 of approximating Markdown with regular expressions.
 
+### 1.6 Implementation checkpoint — shared question validation (W-06a)
+
+Bank/manual/internal writes and publication now share `questions.Input.Validate`.
+Publication adapts resolved draft questions to that input and keeps violations
+anchored to the affected question/section. This closes true/false key cardinality,
+empty option/blank answers, unsupported types, blank correspondence and invalid
+content gaps between the write and snapshot paths. Question points use exact
+hundredths without silent rounding; publication rejects empty exams and total
+overflow before creating a snapshot. Frontend form checks mirror the interaction
+rules. Historical published versions are not rewritten.
+
+This is the validation portion of W-06. Rich blank bindings, structured paste,
+asset authoring and group/revision integration remain separate work.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
 | --- | --- | --- |
 | Questions | `questions/domain/question.go` stores legacy Markdown plus additive semantic prose/options and five supported types | Versioned semantic content for prompts, options, explanations and materials; keep historical text readers |
-| Validation | `questions/domain/input.go` expects HTTP shape checks; its true/false check enforces two options but not exactly one key. `tests/domain/publish.go` checks fewer invariants than create/update | A common complete domain validation path for manual writes, imported writes and publication; regression tests before changing validation |
+| Validation | Shared question validation covers manual/internal writes and publication, including true/false cardinality and exact points | Extend the same path to rich gap/group/asset graph invariants and import findings |
 | Draft outline | `tests/domain/test.go` has sections with question IDs; the UI currently calls these groups | Separate section and actual shared-context group without reinterpreting old sections |
 | Shared materials | Instructions are a small text note in `SectionInstructions.tsx` | First-class rich passage/table/image/audio material and group editing/delivery |
 | Rendering | `Markdown.tsx` sanitizes Markdown; `QuestionBody.tsx` and `StudentPreview.tsx` render options as text | One allowlisted content renderer used by builder, preview, engine, review and results |

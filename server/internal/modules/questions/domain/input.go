@@ -70,9 +70,7 @@ type ListInput struct {
 	Limit    int
 }
 
-// Validate enforces the cross-field rules a schema cannot express. The request
-// validator has already checked types, lengths and enums. Publish re-runs these
-// against the snapshot, because the bank stays editable afterwards.
+// Validate enforces question invariants for HTTP, internal writes and publication.
 func (in Input) Validate(assetKind *string) error {
 	var errs []FieldError
 	add := func(field, msg string) { errs = append(errs, FieldError{Field: field, Message: msg}) }
@@ -83,6 +81,9 @@ func (in Input) Validate(assetKind *string) error {
 	}
 	if strings.TrimSpace(in.Prompt) == "" {
 		add("prompt", "Nội dung câu hỏi không được để trống.")
+	}
+	if _, valid := PointUnits(in.Points); !valid {
+		add("points", "Điểm phải lớn hơn 0, không quá 999999,99 và có tối đa hai chữ số thập phân.")
 	}
 
 	if err := in.ValidateContent(); err != nil {
@@ -128,8 +129,8 @@ func validateOptions(in Input, add func(string, string)) {
 	if correct == 0 {
 		add("options", "Cần ít nhất một phương án đúng.")
 	}
-	if in.Type == SingleChoice && correct > 1 {
-		add("options", "Câu hỏi một đáp án chỉ được có một phương án đúng.")
+	if (in.Type == SingleChoice || in.Type == TrueFalse) && correct > 1 {
+		add("options", "Câu hỏi một đáp án hoặc đúng/sai chỉ được có một phương án đúng.")
 	}
 	if in.Type == TrueFalse && len(in.Options) != 2 {
 		add("options", "Câu đúng/sai phải có đúng hai phương án.")

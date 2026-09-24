@@ -577,7 +577,13 @@
       "answerRequired": "Còn chỗ trống chưa có đáp án.",
       "placeholderMismatch": "Ký hiệu chỗ trống chưa khớp.",
       "optionContent": "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.",
-      "questionContent": "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản."
+      "questionContent": "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản.",
+      "pointPrecision": "Điểm chỉ được có tối đa hai chữ số thập phân.",
+      "trueFalseCount": "Câu đúng/sai phải có đúng hai phương án.",
+      "oneCorrect": "Câu một đáp án hoặc đúng/sai phải có đúng một phương án đúng.",
+      "unexpectedOptions": "Loại câu hỏi này không có phương án chọn.",
+      "unexpectedBlanks": "Loại câu hỏi này không có chỗ trống.",
+      "duplicateBlank": "Số thứ tự chỗ trống bị trùng."
     },
     "preview": "Học viên sẽ thấy",
     "removeOptionN": "Xoá lựa chọn {{n}}",

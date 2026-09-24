@@ -577,7 +577,13 @@
       "answerRequired": "A blank still has no accepted answer.",
       "placeholderMismatch": "The blank markers do not match.",
       "optionContent": "Option formatting is invalid or does not match its text.",
-      "questionContent": "Rich content is invalid or does not match its text."
+      "questionContent": "Rich content is invalid or does not match its text.",
+      "pointPrecision": "Points can have at most two decimal places.",
+      "trueFalseCount": "True/false requires exactly two options.",
+      "oneCorrect": "Single-choice and true/false require exactly one correct option.",
+      "unexpectedOptions": "This question type has no choice options.",
+      "unexpectedBlanks": "This question type has no blanks.",
+      "duplicateBlank": "Blank ordinals must be unique."
     },
     "preview": "What the student sees",
     "removeOptionN": "Remove option {{n}}",

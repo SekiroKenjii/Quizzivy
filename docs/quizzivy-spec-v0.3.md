@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.11 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.12 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.11**
+
+- Manual/internal question writes and publication share interaction validation.
+  Single-choice and true/false require one key; true/false requires two options.
+  Question points are positive exact hundredths within numeric(8,2); publication
+  sums exact hundredths and rejects empty exams or an overflowing total.
 
 **Changes since v0.10**
 
@@ -386,6 +393,15 @@ type Answer =
 ---
 
 ### 7.1 Word milestone content contract (foundation)
+
+Every question write and publication uses the same interaction invariants:
+nonempty prompt and option text, supported type, choice/key cardinality,
+nonempty accepted blank answers, unique blank ordinals matching the prompt,
+media/audio consistency and content projection validity. Single-choice and
+true/false require exactly one correct option; true/false has exactly two options.
+Points must be greater than zero, no greater than 999999.99 and have no more than
+two decimal places. Do not silently round source or teacher-entered points.
+Publication requires a nonempty exam and an exact total within numeric(8,2).
 
 `ContentDocument` is an application-owned discriminated union: `legacy_markdown_v1`
 retains the exact historical Markdown string; `semantic_v1` contains typed

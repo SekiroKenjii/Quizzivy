@@ -2300,7 +2300,7 @@ export interface components {
          */
         PublishValidationError: {
             /** @enum {string} */
-            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "question_content_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
+            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "question_content_valid" | "question_valid" | "total_points_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
             message: string;
             /** Format: uuid */
             sectionId?: string | null;
@@ -2683,7 +2683,8 @@ export interface components {
         };
         /**
          * @description Create/update body for a bank question. Cross-field rules that a single
-         *     schema cannot express — a choice question needs at least one correct
+         *     schema cannot express — single_choice and true_false need exactly one correct
+         *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs its `{{n}}` placeholders to match its blank
          *     ordinals, an audio policy requires an audio asset — are validated by the
          *     server and again at publish (§8). Failing them returns
