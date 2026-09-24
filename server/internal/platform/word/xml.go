@@ -19,6 +19,7 @@ const (
 )
 
 type element struct {
+	SourceRange
 	name     xml.Name
 	attrs    []xml.Attr
 	text     strings.Builder
@@ -34,6 +35,7 @@ type xmlBudget struct {
 }
 
 type xmlParser struct {
+	ordinal    int
 	root       *element
 	stack      []*element
 	budget     *xmlBudget
@@ -72,6 +74,7 @@ func (p *xmlParser) consume(token xml.Token) error {
 		if len(p.stack) == 0 {
 			return fmt.Errorf("%w: XML nesting", ErrInvalidPackage)
 		}
+		p.stack[len(p.stack)-1].End = p.ordinal
 		p.stack = p.stack[:len(p.stack)-1]
 	case xml.CharData:
 		if len(p.stack) > 0 {
@@ -94,6 +97,8 @@ func (p *xmlParser) start(token xml.StartElement) error {
 	if err != nil {
 		return err
 	}
+	p.ordinal++
+	n.Order = p.ordinal
 	if len(p.stack) == 0 {
 		if p.root != nil {
 			return fmt.Errorf("%w: multiple XML roots", ErrInvalidPackage)

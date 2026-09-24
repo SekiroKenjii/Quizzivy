@@ -719,6 +719,36 @@ exposure alongside W-12–16. No enqueue endpoint or teacher processing screen i
 exposed before there is a real processor. No external provider or retention policy
 is enabled by this checkpoint.
 
+### 1.29 Ordered source extraction (W-12a)
+
+The native extractor now emits versioned, source-bound blocks in actual XML order,
+with structural ancestry, per-fragment Unicode offsets, original numbering and
+supported inherited mark evidence. Raw fields, hidden/revised text, alternate
+branches, equations and objects remain inspectable and require review; none is
+implicitly accepted as learner content. Nested table grids have independent cell
+coordinates and supported vertical merge origins. Ambiguous/duplicate/overflowing
+properties remain unresolved rather than being guessed.
+
+Embedded static PNG/JPEG can be decoded with input/pixel/dimension/output limits
+and re-encoded without private metadata. Animated or EXIF-bearing images and
+unsupported formats require a later explicit normalization decision. Assets stay
+private until a reviewed learner placement and authorized media binding exist.
+The `word-extract` CLI produces counts by default and optional new `0600` evidence
+files. It neither contacts a provider nor writes assessment records.
+
+Synthetic coverage includes mixed table/paragraph order, nested/merged cells,
+numbering, Unicode spans, source replacement identity, fields across paragraphs,
+inline revisions, alternate branches and safe raster handling. A bounded fuzz run
+checks block identity and ancestry. An independent local XML walk matched every
+one of 13,489 fragments in the eight authorized DOCX files. Text coverage is not
+semantic accuracy; reviewed question/key outputs and wider source families are
+still needed. Private evidence can be much larger than candidate JSON and belongs
+in separately stored/paged source artifacts, not the run result envelope.
+
+This checkpoint implements extraction building blocks, not the complete W-12
+quality gate. Conditional styles, source rendition, durable artifact integration,
+recognition/reconciliation, review and atomic commit remain subsequent work.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

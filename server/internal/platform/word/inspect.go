@@ -126,10 +126,10 @@ func walkPart(n *element, state walkState, part *Part, findings *[]Finding) {
 	loc := Locator{Part: part.Name, Path: n.path}
 	if isContainer(n) {
 		state.containers = append(slices.Clone(state.containers), loc)
-		part.Structures = append(part.Structures, Structure{Locator: loc, Kind: n.name.Local, Attributes: attributes(n), Properties: containerProperties(n)})
+		part.Structures = append(part.Structures, Structure{Locator: loc, SourceRange: n.SourceRange, Kind: n.name.Local, Attributes: attributes(n), Properties: containerProperties(n)})
 	}
 	if !state.inObject && isUnresolvedObject(n) {
-		part.Objects = append(part.Objects, Object{Locator: loc, Content: property(n)})
+		part.Objects = append(part.Objects, Object{Locator: loc, SourceRange: n.SourceRange, Content: property(n)})
 		state.inObject = true
 	}
 	if code := findingCode(n); code != "" {
@@ -137,7 +137,7 @@ func walkPart(n *element, state walkState, part *Part, findings *[]Finding) {
 	}
 	if n.word("p") {
 		state.paragraph, state.run = len(part.Paragraphs), -1
-		part.Paragraphs = append(part.Paragraphs, Paragraph{Locator: loc, Containers: slices.Clone(state.containers), Properties: properties(n.child("pPr")), Runs: []Run{}})
+		part.Paragraphs = append(part.Paragraphs, Paragraph{Locator: loc, SourceRange: n.SourceRange, Containers: slices.Clone(state.containers), Properties: properties(n.child("pPr")), Runs: []Run{}})
 	}
 	if n.word("r") && state.paragraph >= 0 {
 		p := &part.Paragraphs[state.paragraph]
@@ -147,9 +147,9 @@ func walkPart(n *element, state walkState, part *Part, findings *[]Finding) {
 	if text, present := sourceText(n); present {
 		if state.paragraph >= 0 && state.run >= 0 {
 			r := &part.Paragraphs[state.paragraph].Runs[state.run]
-			r.Fragments = append(r.Fragments, Fragment{Locator: loc, Kind: n.name.Local, Text: text})
+			r.Fragments = append(r.Fragments, Fragment{Locator: loc, SourceRange: n.SourceRange, Kind: n.name.Local, Text: text})
 		} else if strings.TrimSpace(text) != "" {
-			part.Unassigned = append(part.Unassigned, Fragment{Locator: loc, Kind: n.name.Local, Text: text})
+			part.Unassigned = append(part.Unassigned, Fragment{Locator: loc, SourceRange: n.SourceRange, Kind: n.name.Local, Text: text})
 			*findings = append(*findings, Finding{Code: "UNASSIGNED_SOURCE_TEXT", Locator: loc})
 		}
 	}
@@ -163,7 +163,7 @@ func sourceText(n *element) (string, bool) {
 		return "", false
 	}
 	switch n.name.Local {
-	case "t", "delText", "instrText":
+	case "t", "delText", elementInstruction:
 		return n.text.String(), true
 	case elementTab:
 		return "\t", true
@@ -206,7 +206,7 @@ func isUnresolvedObject(n *element) bool {
 	if n.name.Space == "http://schemas.openxmlformats.org/officeDocument/2006/math" || n.name.Space == "http://purl.oclc.org/ooxml/officeDocument/math" || n.name.Space == "http://schemas.openxmlformats.org/markup-compatibility/2006" {
 		return true
 	}
-	for _, local := range []string{elementDrawing, elementPicture, "object", "altChunk", "sym", "sectPr", "br", "fldChar", "footnoteReference", "endnoteReference", "commentReference", "commentRangeStart", "commentRangeEnd", "bookmarkStart", "bookmarkEnd"} {
+	for _, local := range []string{elementDrawing, elementPicture, elementObject, "altChunk", "sym", "sectPr", "br", "fldChar", "footnoteReference", "endnoteReference", "commentReference", "commentRangeStart", "commentRangeEnd", "bookmarkStart", "bookmarkEnd"} {
 		if n.word(local) {
 			return true
 		}
@@ -215,7 +215,7 @@ func isUnresolvedObject(n *element) bool {
 }
 
 func isContainer(n *element) bool {
-	for _, name := range []string{"tbl", "tr", "tc", "ins", "del", "moveFrom", "moveTo", elementTextBox, "footnote", "endnote", "comment", "hyperlink", "sdt", "fldSimple", elementDrawing, elementPicture} {
+	for _, name := range []string{elementTable, "tr", "tc", elementInsertion, elementDeletion, elementMoveFrom, elementMoveTo, elementTextBox, "footnote", "endnote", "comment", "hyperlink", "sdt", elementField, elementDrawing, elementPicture} {
 		if n.word(name) {
 			return true
 		}
@@ -230,7 +230,7 @@ func findingCode(n *element) string {
 	if (n.name.Local == "oMath" || n.name.Local == "oMathPara") && isUnresolvedObject(n) {
 		return "EQUATION_REQUIRES_RESOLUTION"
 	}
-	for _, local := range []string{"ins", "del", "moveFrom", "moveTo", "pPrChange", "rPrChange", "numPrChange"} {
+	for _, local := range []string{elementInsertion, elementDeletion, elementMoveFrom, elementMoveTo, "pPrChange", "rPrChange", "numPrChange"} {
 		if n.word(local) {
 			return "TRACKED_CHANGE_REQUIRES_REVIEW"
 		}
@@ -243,10 +243,10 @@ func findingCode(n *element) string {
 
 var sourceFindings = map[string]string{
 	"pStyle": styleResolutionRequired, "rStyle": styleResolutionRequired, "numPr": "NUMBERING_RESOLUTION_REQUIRED",
-	"vanish": "HIDDEN_TEXT_REQUIRES_REVIEW", "webHidden": "HIDDEN_TEXT_REQUIRES_REVIEW", "txbxContent": "TEXTBOX_ORDER_REQUIRES_REVIEW",
-	"fldSimple": "FIELD_REQUIRES_REVIEW", "instrText": "FIELD_REQUIRES_REVIEW", "altChunk": "UNSUPPORTED_DOCUMENT_OBJECT",
+	propertyHidden: "HIDDEN_TEXT_REQUIRES_REVIEW", propertyWebHidden: "HIDDEN_TEXT_REQUIRES_REVIEW", "txbxContent": "TEXTBOX_ORDER_REQUIRES_REVIEW",
+	elementField: "FIELD_REQUIRES_REVIEW", elementInstruction: "FIELD_REQUIRES_REVIEW", "altChunk": "UNSUPPORTED_DOCUMENT_OBJECT",
 	"sym": "SYMBOL_FONT_REQUIRES_REVIEW", "cols": "COLUMN_ORDER_REQUIRES_REVIEW", elementDrawing: "DRAWING_REQUIRES_RESOLUTION",
-	elementPicture: "DRAWING_REQUIRES_RESOLUTION", "object": "UNSUPPORTED_DOCUMENT_OBJECT",
+	elementPicture: "DRAWING_REQUIRES_RESOLUTION", elementObject: "UNSUPPORTED_DOCUMENT_OBJECT",
 }
 
 func properties(n *element) []Property {

@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.33 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.34 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.33**
+
+- W-12a adds ordered, source-bound extraction with Unicode fragment locations,
+  nested/merged table evidence and explicit review reasons for private/ambiguous
+  content. Bounded raster normalization retains images privately. These internal
+  tools do not yet enable recognition, review or draft creation; original evidence
+  is never a learner payload.
 
 **Changes since v0.32**
 
@@ -1426,6 +1434,16 @@ is held during upload or inspection. The API admits one expanded inspection per
 process. Interrupted reservations remain observable; automatic retention is not yet
 implemented or authorized. Only completed sources can receive a 60-second download
 URL, forced to attachment/octet-stream. Source identifiers are never media asset IDs.
+
+Native extraction retains XML order and source-bound identities for paragraph,
+container, object and unassigned-content blocks. Source fragment offsets use
+Unicode code points and exclude generated labels. Hidden/revised text, fields,
+ancillary parts and unsupported objects remain review evidence. No formatting is
+interpreted as correctness without a confirmed convention. Nested table coordinates
+retain merge evidence; ambiguous grids are flagged. Selected PNG/JPEG assets may
+be normalized under bounded decoding limits, but remain private until explicitly
+reviewed and bound to learner content. Source blocks are separate from machine
+candidate JSON and must not be exposed on student endpoints.
 
 Processing requests retain their source-set revision, pipeline version and replay
 identity. One queued/running request per import is permitted, with at most 50

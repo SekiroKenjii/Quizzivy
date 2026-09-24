@@ -133,7 +133,7 @@ func mergeNumProps(base, next []Property) []Property {
 	return out
 }
 
-var semanticMarkNames = []string{"b", "i", "u", "strike", "dstrike", propertyVertical, "vanish", "webHidden", "caps", "smallCaps"}
+var semanticMarkNames = []string{"b", "i", "u", "strike", "dstrike", propertyVertical, propertyHidden, propertyWebHidden, "caps", "smallCaps"}
 
 func (r *resolver) resolveRun(p Paragraph, run Run, paragraphStyle styleResult, structures map[Locator]Structure) (ResolvedRun, error) {
 	character, err := r.style(val(run.Properties, "rStyle"), styleCharacter)
@@ -277,7 +277,7 @@ func markValue(name string, p Property) (string, bool) {
 func (r *resolver) unsupportedRunContext(p Paragraph, run Run, structures map[Locator]Structure) bool {
 	unsupported := false
 	for _, loc := range p.Containers {
-		if structures[loc].Kind == "tbl" {
+		if structures[loc].Kind == elementTable {
 			r.finding("TABLE_STYLE_REQUIRES_REVIEW", run.Locator)
 			unsupported = true
 			break
