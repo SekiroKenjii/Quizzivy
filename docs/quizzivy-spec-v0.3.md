@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.26 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.27 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.26**
+
+- Draft totals/tag filters include group members. Legacy question-only outline
+  writes refuse grouped drafts atomically. Archived tests must be restored before
+  draft restoration/default-version changes. Assignment introductions include
+  shared recording policies from the assigned version and explain their scope.
 
 **Changes since v0.25**
 
@@ -607,6 +614,14 @@ order. Copy materialization checks an observed source revision and creates new
 editable identities. Complete draft readers, snapshots, delivery and UI integration
 remain required before enabling group authoring.
 
+Draft totals and tag filters include owned members alongside standalone questions.
+Listening counts count each question once when it has its own audio or a shared
+group recording. Independent bank groups are not part of a test's totals. The
+legacy question-only whole-outline writer refuses a draft containing groups with
+`GROUP_OUTLINE_REQUIRED` before changing metadata or structure; metadata-only
+updates remain supported. Group-aware outline editing must ship before enabling
+group authoring.
+
 Publication freezes the entire group into version-owned rows, including ordered
 units, member order, materials, stable gap targets and explicit recording policy.
 Frozen context points only to frozen question/blank identities and immutable media;
@@ -625,6 +640,11 @@ appears before its first member, and material gaps link to the corresponding
 question. Teacher playback consumes no student allowance. Desktop and 320px phone
 preview modes run inside the existing admin shell (minimum supported width 768px).
 Existing version questions and historical attempts are unchanged.
+
+Archived tests must be restored before creating a draft from a version or changing
+their default version. Both flat and grouped tests return `TEST_ARCHIVED` without
+rewriting content. An unused, non-current version may still be deleted while its
+parent is archived; existing reference checks continue protecting assigned history.
 
 Start, resume and read-attempt responses include the same safe frozen group
 projection. Membership comes from the attempt's version, regardless of the test's
@@ -851,6 +871,13 @@ three-second telemetry flush but remains available during network accounting
 failure. Closed/expired attempts reject late telemetry; offline closure cannot
 guarantee complete listening evidence. Results and teacher paper review report
 the confirmed counts without creating new playback receipts.
+
+The assignment introduction derives listening presence, transcript permission and
+the strictest finite allowance from both question audio and shared recordings on
+the assigned version. A newer default does not change these facts. The displayed
+minimum is not presented as every recording's allowance; individual players show
+their own limits. A shared-audio notice explains that member navigation and reload
+do not grant a new allowance.
 
 ---
 

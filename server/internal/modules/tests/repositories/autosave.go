@@ -26,6 +26,9 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 	}
 
 	if in.Input.SetSections {
+		if err := requireLegacyOutline(ctx, tx, in.ID); err != nil {
+			return domain.Test{}, err
+		}
 		if err := s.lockQuestions(ctx, tx, in.Input.Sections); err != nil {
 			return domain.Test{}, err
 		}
@@ -60,6 +63,18 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 		return domain.Test{}, fmt.Errorf("tests: commit update: %w", err)
 	}
 	return saved, nil
+}
+
+func requireLegacyOutline(ctx context.Context, tx pgx.Tx, testID string) error {
+	var grouped bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.question_groups g
+		JOIN app.test_sections s ON s.id=g.owner_section_id WHERE s.test_id=$1)`, testID).Scan(&grouped); err != nil {
+		return err
+	}
+	if grouped {
+		return domain.ErrGroupOutlineRequired
+	}
+	return nil
 }
 
 func checkVersion(ctx context.Context, tx pgx.Tx, id string, expected time.Time) error {

@@ -126,6 +126,9 @@ func (h Tests) UpdateTest(ctx context.Context, request openapi.UpdateTestRequest
 	t, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req, Input: toUpdateInput(*request.Body)})
 	switch {
 	case err == nil:
+	case errors.Is(err, domain.ErrGroupOutlineRequired):
+		return openapi.UpdateTest409JSONResponse(httpapi.Error(ctx, openapi.GROUPOUTLINEREQUIRED,
+			"Đề có nhóm ngữ liệu chung. Cần trình soạn đề hỗ trợ nhóm để thay đổi cấu trúc.")), nil
 	case errors.Is(err, domain.ErrStaleWrite):
 		return openapi.UpdateTest409JSONResponse(httpapi.Error(ctx, openapi.STALEWRITE,
 			"Đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi lưu.")), nil

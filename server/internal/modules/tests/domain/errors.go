@@ -20,7 +20,9 @@ var (
 )
 
 var (
-	ErrReferenced     = errors.New("tests: assigned content cannot be deleted")
-	ErrNotArchived    = errors.New("tests: archive before deleting")
-	ErrCurrentVersion = errors.New("tests: select another default before deleting this version")
+	ErrReferenced           = errors.New("tests: assigned content cannot be deleted")
+	ErrNotArchived          = errors.New("tests: archive before deleting")
+	ErrCurrentVersion       = errors.New("tests: select another default before deleting this version")
+	ErrArchived             = errors.New("tests: restore archived test before changing its versions")
+	ErrGroupOutlineRequired = errors.New("tests: grouped drafts require a group-aware outline writer")
 )

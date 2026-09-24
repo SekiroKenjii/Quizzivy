@@ -47,20 +47,11 @@ func (s *Postgres) WithGroupQuestions(questions GroupQuestionStore) *Postgres {
 
 const testColumns = `
 	       t.id::text, t.title, t.description, t.status::text, t.current_version,
-	       coalesce((SELECT sum(q.points)
-	                   FROM app.test_sections s
-	                   JOIN app.test_section_questions sq ON sq.test_section_id = s.id
-	                   JOIN app.questions q ON q.id = sq.question_id
-	                  WHERE s.test_id = t.id), 0)::text,
-	       (SELECT count(*)
-	          FROM app.test_sections s
-	          JOIN app.test_section_questions sq ON sq.test_section_id = s.id
-	         WHERE s.test_id = t.id),
-	       (SELECT count(*)
-	          FROM app.test_sections s
-	          JOIN app.test_section_questions sq ON sq.test_section_id = s.id
-	          JOIN app.questions q ON q.id = sq.question_id
-	         WHERE s.test_id = t.id AND q.media_asset_kind = 'audio'),
+	       coalesce((SELECT sum(q.points) FROM (` + draftQuestionRows + `) q), 0)::text,
+	       (SELECT count(*) FROM (` + draftQuestionRows + `) q),
+	       (SELECT count(*) FROM (` + draftQuestionRows + `) q
+	         WHERE q.media_asset_kind = 'audio' OR EXISTS (
+	           SELECT 1 FROM app.group_recordings r WHERE r.group_id=q.context_group_id)),
 	       t.created_at, t.updated_at, t.deleted_at`
 
 func scanTest(row pgx.Row) (domain.Test, error) {

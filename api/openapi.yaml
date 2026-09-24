@@ -400,6 +400,8 @@ components:
         - RESOURCE_NOT_ARCHIVED
         - VERSION_IS_CURRENT
         - TEST_NOT_PUBLISHED
+        - TEST_ARCHIVED
+        - GROUP_OUTLINE_REQUIRED
         - PUBLISH_VALIDATION_FAILED
         - STALE_WRITE
         - PLAY_ID_CONFLICT
@@ -647,13 +649,18 @@ components:
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
-        hasAudio: { type: boolean }
+        hasAudio:
+          type: boolean
+          description: Any question audio or shared recording on the assigned frozen version.
+        hasSharedAudio:
+          type: boolean
+          description: A shared recording has one allowance across its group's questions; absent means false for legacy readers.
         showsTranscript:
           type: boolean
-          description: True when any listening question releases its transcript after submitting.
+          description: True when any question audio or shared recording releases its transcript after submitting.
         audioMaxPlays:
           type: [integer, 'null']
-          description: The strictest `maxPlays` across the test, for the intro copy.
+          description: The strictest finite `maxPlays` across question audio and shared recordings on the assigned version; null when all are unlimited. Individual recordings can have higher limits.
 
     StudentClass:
       type: object
@@ -1657,7 +1664,7 @@ components:
         audioCount:
           type: integer
           minimum: 0
-          description: Questions carrying an audio asset. Backs A-03's headphone badge.
+          description: Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge.
         sections:
           type: array
           items: { $ref: '#/components/schemas/TestSection' }
@@ -2941,7 +2948,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`.'
+          description: '`STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`; `GROUP_OUTLINE_REQUIRED` — a legacy question-only outline cannot replace a draft containing shared groups. Metadata-only updates remain supported.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -3027,7 +3034,7 @@ paths:
         '204': { description: Deleted. }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: The version is referenced/current, the test is archived, or the expected update time is stale.
+          description: The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

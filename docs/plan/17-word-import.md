@@ -507,6 +507,29 @@ horizontal overflow. Screenshots were reviewed. Group authoring/draft summaries,
 assignment listening summaries, native mobile QA and the import workflow remain
 open; this checkpoint does not enable group authoring or establish pilot quality.
 
+### 1.22 Implementation checkpoint — group summary/lifecycle readiness
+
+Draft list/detail totals and tag queries now include owned group questions and
+exclude independent bank groups. Listening counts use one count per member with
+its own or shared recording, matching published version summaries. The legacy
+question-only outline writer refuses grouped drafts before any metadata/structure
+change, preserving empty as well as populated groups. Metadata updates still work.
+The complete group-aware draft reader/editor remains required before public writes.
+
+Archived test restoration/default-version changes now return an explicit conflict
+before touching the draft for both legacy and grouped versions. The history UI
+explains the need to restore the parent and disables those actions. Unused,
+non-current version deletion remains available while archived. Tests pin rejection
+atomicity and successful whole-group restoration after unarchiving.
+
+Learner introductions include shared audio and transcript policies from the
+assigned version, with the minimum finite cap across shared and individual scopes.
+The copy states that each recording has its own limit and that shared questions
+share one allowance. Newer default versions do not change existing assignments.
+Docker tests cover mixed/independent groups, filtering, summary parity, immutable
+version selection and archived lifecycle; HTTP tests assert actionable conflict
+codes. No migration or dependency is added.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
