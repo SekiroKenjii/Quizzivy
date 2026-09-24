@@ -402,6 +402,7 @@ components:
         - TEST_NOT_PUBLISHED
         - TEST_ARCHIVED
         - GROUP_OUTLINE_REQUIRED
+        - GROUP_CONFLICT
         - PUBLISH_VALIDATION_FAILED
         - STALE_WRITE
         - PLAY_ID_CONFLICT
@@ -1524,7 +1525,7 @@ components:
     QuestionGroup:
       type: object
       description: |
-        Independent shared-context draft graph; not yet accepted by test writes.
+        Independent shared-context draft graph, written through the group endpoints.
         Array order defines member/material order. Empty draft groups are allowed;
         publication requires a member. Members belong to one group in one section.
         Copy with context creates fresh group, member, material, gap and recording
@@ -1635,6 +1636,110 @@ components:
         policy: { $ref: '#/components/schemas/AudioPolicy' }
         transcript: { type: [string, 'null'], maxLength: 100000 }
 
+    QuestionGroupBundle:
+      type: object
+      additionalProperties: false
+      required: [group, questions]
+      properties:
+        group: { $ref: '#/components/schemas/QuestionGroup' }
+        questions:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GroupQuestionInput' }
+
+    GroupQuestionInput:
+      type: object
+      additionalProperties: false
+      required: [id, input]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        input: { $ref: '#/components/schemas/QuestionInput' }
+
+    StoredQuestionGroup:
+      type: object
+      additionalProperties: false
+      required: [bundle, ownerSectionId, revision, archivedAt, createdAt, updatedAt, assets, unavailableAssetIds]
+      properties:
+        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        ownerSectionId: { type: [string, 'null'], format: uuid }
+        revision: { type: integer, format: int64, minimum: 1 }
+        testUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Enclosing test revision for section-owned groups; absent for bank groups.
+        archivedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        assets:
+          type: array
+          items: { $ref: '#/components/schemas/MediaAsset' }
+          description: Authorized media referenced by members or shared materials.
+        unavailableAssetIds:
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: Bound assets whose metadata or signed link could not be loaded. A media outage does not turn a committed edit into an ambiguous save failure; clients show a retryable material state.
+
+    QuestionGroupSummary:
+      type: object
+      additionalProperties: false
+      required: [id, title, revision, questionCount, recordingCount, totalPoints, tags, archivedAt, updatedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        revision: { type: integer, format: int64, minimum: 1 }
+        questionCount: { type: integer, minimum: 0 }
+        recordingCount: { type: integer, minimum: 0 }
+        totalPoints: { $ref: '#/components/schemas/Points' }
+        tags: { type: array, items: { type: string } }
+        archivedAt: { type: [string, 'null'], format: date-time }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    GroupCreateInput:
+      type: object
+      additionalProperties: false
+      required: [bundle]
+      properties:
+        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        ownerSectionId: { type: [string, 'null'], format: uuid }
+        expectedTestUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Required when ownerSectionId identifies a section; no ownerSectionId means an independent bank group.
+
+    GroupUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [bundle, expectedRevision]
+      properties:
+        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        expectedTestUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Required for a section-owned group; owner cannot change through this operation.
+
+    GroupCopyInput:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision]
+      properties:
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        ownerSectionId: { type: [string, 'null'], format: uuid }
+        expectedTestUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Required when copying into a section; omitted destination creates an independent bank group.
+
+    DraftSectionUnit:
+      type: object
+      additionalProperties: false
+      required: [kind, id]
+      properties:
+        kind: { type: string, enum: [question, group] }
+        id:
+          $ref: '#/components/schemas/Uuid'
+          description: Standalone question ID or owned group ID, according to kind.
+
     TestSection:
       type: object
       required: [id, ordinal, title, questionIds]
@@ -1644,7 +1749,14 @@ components:
         ordinal: { type: integer, minimum: 0 }
         title: { type: string, minLength: 1 }
         instructions: { type: [string, 'null'] }
-        questionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        questionIds:
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: Legacy standalone references; group members belong to their group and are excluded here.
+        units:
+          type: array
+          items: { $ref: '#/components/schemas/DraftSectionUnit' }
+          description: Complete mixed order when the section has shared groups; absent on historical standalone outlines.
 
     Test:
       type: object
@@ -2801,6 +2913,190 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   # =============================================================== admin/tests
+
+  /admin/question-groups:
+    get:
+      operationId: listQuestionGroups
+      tags: [admin-tests]
+      summary: Independent groups in the question bank
+      description: Lists bank-owned groups only, without member keys or transcripts. Search matches group titles and member prompts without accents.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Query'
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [active, archived, all], default: active } }
+        - { name: tag, in: query, schema: { type: string, maxLength: 200 } }
+      responses:
+        '200':
+          description: Newest updated groups first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/QuestionGroupSummary' } }
+    post:
+      operationId: createQuestionGroup
+      tags: [admin-tests]
+      x-max-body-bytes: 4194304
+      summary: Create a complete independent draft group
+      description: Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupCreateInput' }
+      responses:
+        '201':
+          description: Created, with canonical member option/blank identities and media bindings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision, archived owner or duplicate graph identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: Input exceeds the 4 MiB group transport budget.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: Group content, binding or media validation failed; no partial graph was created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/question-groups/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getQuestionGroup
+      tags: [admin-tests]
+      summary: Read a complete editable group including answer keys
+      description: Reads one coherent independent graph and its revisions. Teacher-only; asset links never grant access to an unrelated source document.
+      responses:
+        '200':
+          description: One coherent group revision, including archived groups.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: updateQuestionGroup
+      tags: [admin-tests]
+      x-max-body-bytes: 4194304
+      description: Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupUpdateInput' }
+      responses:
+        '200':
+          description: Saved complete graph and current revisions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision, archived group/test or identity conflict.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: Input exceeds the 4 MiB group transport budget.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: Group content, binding or media validation failed; no partial edit was saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      operationId: deleteQuestionGroup
+      tags: [admin-tests]
+      description: Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision.
+      parameters:
+        - { name: expectedRevision, in: query, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: expectedTestUpdatedAt, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision, archived enclosing test, or bank group not archived.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/question-groups/{id}/copy:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: copyQuestionGroup
+      tags: [admin-tests]
+      description: Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupCopyInput' }
+      responses:
+        '201':
+          description: Independent copy; source edits/deletion cannot affect it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale source/destination revision or archived enclosing test.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+        '422':
+          description: A copied media binding is no longer available; no destination graph was created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/question-groups/{id}/archive:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: archiveQuestionGroup
+      tags: [admin-tests]
+      description: Archives/restores an independent bank group; section-owned groups follow the test lifecycle.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [archived, expectedRevision]
+              properties:
+                archived: { type: boolean }
+                expectedRevision: { type: integer, format: int64, minimum: 1 }
+      responses:
+        '200':
+          description: Current graph and archive state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision or a section-owned group that follows its test lifecycle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/tests:
     get:

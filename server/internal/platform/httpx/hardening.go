@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -25,21 +26,23 @@ func SecurityHeaders(next http.Handler) http.Handler {
 }
 
 // LimitRequestBody bounds non-streaming requests before the contract validator buffers them.
-func LimitRequestBody(streaming map[string]struct{}, limit int64) func(http.Handler) http.Handler {
+func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if _, exempt := streaming[r.Pattern]; exempt || r.Body == nil {
 				next.ServeHTTP(w, r)
 				return
 			}
+			limit := requestBodyLimit(r.Pattern, defaultLimit, routeLimits)
+			message := fmt.Sprintf("Dữ liệu gửi lên vượt quá giới hạn %g MiB.", float64(limit)/(1<<20))
 			if r.ContentLength > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, "Dữ liệu gửi lên vượt quá giới hạn 1 MiB.")
+				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, message)
 				return
 			}
 			body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
 			_ = r.Body.Close()
 			if int64(len(body)) > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, "Dữ liệu gửi lên vượt quá giới hạn 1 MiB.")
+				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, message)
 				return
 			}
 			if err != nil {
@@ -50,4 +53,11 @@ func LimitRequestBody(streaming map[string]struct{}, limit int64) func(http.Hand
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func requestBodyLimit(pattern string, fallback int64, limits map[string]int64) int64 {
+	if configured := limits[pattern]; configured > 0 {
+		return configured
+	}
+	return fallback
 }

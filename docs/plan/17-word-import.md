@@ -530,6 +530,36 @@ Docker tests cover mixed/independent groups, filtering, summary parity, immutabl
 version selection and archived lifecycle; HTTP tests assert actionable conflict
 codes. No migration or dependency is added.
 
+### 1.23 Implementation checkpoint — group authoring API (W-07e)
+
+Seven teacher-only operations expose complete independent group graphs, bank
+summaries, copy, archive/restore and deletion. Client-generated identities cannot
+replace existing content; duplicates return a conflict. Group changes check the
+observed aggregate revision; section-owned writes also require the enclosing test
+revision. Bank list search is accent-insensitive and escapes literal wildcards;
+section-owned copies never appear as independent bank entries.
+
+Draft sections now expose optional ordered `units` containing standalone questions
+and owned groups; `questionIds` remains the legacy standalone projection. Group and
+test detail reads lock the enclosing test before its group, matching writer order
+and returning coherent revision/outline data. Legacy question-only outline writes
+continue to refuse grouped drafts. Full mixed-outline writing and the builder/bank
+editing UI must ship before this stacked milestone is released.
+
+The transport accepts at most 4 MiB for complete-group creation/replacement, before
+JSON buffering/validation, with the existing 1 MiB default elsewhere. Schema and
+aggregate limits remain cumulative. Authorized assets are resolved only from the
+saved graph; temporarily unavailable metadata/signed URLs are returned as explicit
+`unavailableAssetIds`, so a successful committed edit is not reported as a failed
+save. No source-document links are exposed. Typed web clients use the generated
+contract. No migration, dependency, external processing or infrastructure is added.
+
+Docker checks cover complete-copy independence, lifecycle, stale revisions,
+accent/literal search, mixed draft reads, media protection and rollback. HTTP and
+contract checks cover teacher-only routes, known-length/chunked body budgets,
+recording policy/key round trips and saved-content acknowledgement during media
+outage. This is an authoring foundation, not import or pilot acceptance.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

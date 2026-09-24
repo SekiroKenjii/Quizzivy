@@ -22,11 +22,12 @@ func TestEveryPageSizeMatchesItsContract(t *testing.T) {
 	}
 
 	want := map[string]int{
-		"ListTests":       testsrepo.DefaultLimit,
-		"ListQuestions":   questionsrepo.DefaultLimit,
-		"ListMedia":       mediarepo.DefaultLimit,
-		"ListAssignments": assignmentsrepo.DefaultLimit,
-		"ListStudents":    identityrepo.DefaultLimit,
+		"ListTests":          testsrepo.DefaultLimit,
+		"ListQuestionGroups": testsrepo.DefaultLimit,
+		"ListQuestions":      questionsrepo.DefaultLimit,
+		"ListMedia":          mediarepo.DefaultLimit,
+		"ListAssignments":    assignmentsrepo.DefaultLimit,
+		"ListStudents":       identityrepo.DefaultLimit,
 	}
 
 	seen := map[string]bool{}

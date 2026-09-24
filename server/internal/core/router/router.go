@@ -64,7 +64,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			identityhttp.WithRefreshCookie,
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 			httpx.RequireRole,
-			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20),
+			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, httpx.RequestBodyLimits(spec)),
 			validate,
 		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {

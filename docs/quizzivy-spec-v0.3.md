@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.27 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.28 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.27**
+
+- W-07e exposes teacher-only complete-group read/write/copy/archive operations,
+  bounded bank summaries and ordered draft units. Writes check aggregate and
+  enclosing-test revisions. Media-link outages return a retryable asset state
+  without obscuring committed content. Builder integration remains a release gate.
 
 **Changes since v0.26**
 

@@ -35,7 +35,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
-	testsApp := tests(dbx, questionsRepo, mediaRepo)
+	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
 	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts)
 
 	return Assembly{

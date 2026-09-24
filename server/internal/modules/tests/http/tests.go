@@ -265,6 +265,13 @@ func toAPITest(t domain.Test) (openapi.Test, error) {
 			Instructions: sec.Instructions,
 			QuestionIds:  ids,
 		}
+		if sec.Units != nil {
+			units := make([]openapi.DraftSectionUnit, len(sec.Units))
+			for j, unit := range sec.Units {
+				units[j] = openapi.DraftSectionUnit{Kind: openapi.DraftSectionUnitKind(unit.Kind), Id: httpapi.ParseUUID(unit.ID)}
+			}
+			out.Sections[i].Units = &units
+		}
 	}
 	return out, nil
 }

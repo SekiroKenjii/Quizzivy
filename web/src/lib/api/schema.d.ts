@@ -219,6 +219,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/question-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Independent groups in the question bank
+         * @description Lists bank-owned groups only, without member keys or transcripts. Search matches group titles and member prompts without accents.
+         */
+        get: operations["listQuestionGroups"];
+        put?: never;
+        /**
+         * Create a complete independent draft group
+         * @description Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination.
+         */
+        post: operations["createQuestionGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/question-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a complete editable group including answer keys
+         * @description Reads one coherent independent graph and its revisions. Teacher-only; asset links never grant access to an unrelated source document.
+         */
+        get: operations["getQuestionGroup"];
+        /** @description Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first. */
+        put: operations["updateQuestionGroup"];
+        post?: never;
+        /** @description Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision. */
+        delete: operations["deleteQuestionGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/question-groups/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section. */
+        post: operations["copyQuestionGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/question-groups/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Archives/restores an independent bank group; section-owned groups follow the test lifecycle. */
+        patch: operations["archiveQuestionGroup"];
+        trace?: never;
+    };
     "/admin/tests": {
         parameters: {
             query?: never;
@@ -1651,7 +1737,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2395,7 +2481,7 @@ export interface components {
         /** @enum {string} */
         TestStatus: "draft" | "published" | "archived";
         /**
-         * @description Independent shared-context draft graph; not yet accepted by test writes.
+         * @description Independent shared-context draft graph, written through the group endpoints.
          *     Array order defines member/material order. Empty draft groups are allowed;
          *     publication requires a member. Members belong to one group in one section.
          *     Copy with context creates fresh group, member, material, gap and recording
@@ -2462,12 +2548,93 @@ export interface components {
             policy: components["schemas"]["AudioPolicy"];
             transcript?: string | null;
         };
+        QuestionGroupBundle: {
+            group: components["schemas"]["QuestionGroup"];
+            questions: components["schemas"]["GroupQuestionInput"][];
+        };
+        GroupQuestionInput: {
+            id: components["schemas"]["Uuid"];
+            input: components["schemas"]["QuestionInput"];
+        };
+        StoredQuestionGroup: {
+            bundle: components["schemas"]["QuestionGroupBundle"];
+            /** Format: uuid */
+            ownerSectionId: string | null;
+            /** Format: int64 */
+            revision: number;
+            /**
+             * Format: date-time
+             * @description Enclosing test revision for section-owned groups; absent for bank groups.
+             */
+            testUpdatedAt?: string | null;
+            /** Format: date-time */
+            archivedAt: string | null;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            /** @description Authorized media referenced by members or shared materials. */
+            assets: components["schemas"]["MediaAsset"][];
+            /** @description Bound assets whose metadata or signed link could not be loaded. A media outage does not turn a committed edit into an ambiguous save failure; clients show a retryable material state. */
+            unavailableAssetIds: components["schemas"]["Uuid"][];
+        };
+        QuestionGroupSummary: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /** Format: int64 */
+            revision: number;
+            questionCount: number;
+            recordingCount: number;
+            totalPoints: components["schemas"]["Points"];
+            tags: string[];
+            /** Format: date-time */
+            archivedAt: string | null;
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        GroupCreateInput: {
+            bundle: components["schemas"]["QuestionGroupBundle"];
+            /** Format: uuid */
+            ownerSectionId?: string | null;
+            /**
+             * Format: date-time
+             * @description Required when ownerSectionId identifies a section; no ownerSectionId means an independent bank group.
+             */
+            expectedTestUpdatedAt?: string | null;
+        };
+        GroupUpdateInput: {
+            bundle: components["schemas"]["QuestionGroupBundle"];
+            /** Format: int64 */
+            expectedRevision: number;
+            /**
+             * Format: date-time
+             * @description Required for a section-owned group; owner cannot change through this operation.
+             */
+            expectedTestUpdatedAt?: string | null;
+        };
+        GroupCopyInput: {
+            /** Format: int64 */
+            expectedRevision: number;
+            /** Format: uuid */
+            ownerSectionId?: string | null;
+            /**
+             * Format: date-time
+             * @description Required when copying into a section; omitted destination creates an independent bank group.
+             */
+            expectedTestUpdatedAt?: string | null;
+        };
+        DraftSectionUnit: {
+            /** @enum {string} */
+            kind: "question" | "group";
+            /** @description Standalone question ID or owned group ID, according to kind. */
+            id: components["schemas"]["Uuid"];
+        };
         TestSection: {
             id: components["schemas"]["Uuid"];
             ordinal: number;
             title: string;
             instructions?: string | null;
+            /** @description Legacy standalone references; group members belong to their group and are excluded here. */
             questionIds: components["schemas"]["Uuid"][];
+            /** @description Complete mixed order when the section has shared groups; absent on historical standalone outlines. */
+            units?: components["schemas"]["DraftSectionUnit"][];
         };
         Test: {
             id: components["schemas"]["Uuid"];
@@ -3553,6 +3720,298 @@ export interface operations {
             204: components["responses"]["NoContent"];
             401: components["responses"]["Unauthorized"];
             /** @description `LAST_LOGIN_METHOD` — the account has no password to fall back to. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listQuestionGroups: {
+        parameters: {
+            query?: {
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                limit?: number;
+                status?: "active" | "archived" | "all";
+                tag?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest updated groups first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["QuestionGroupSummary"][];
+                    };
+                };
+            };
+        };
+    };
+    createQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created, with canonical member option/blank identities and media bindings. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision, archived owner or duplicate graph identity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Input exceeds the 4 MiB group transport budget. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Group content, binding or media validation failed; no partial graph was created. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One coherent group revision, including archived groups. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Saved complete graph and current revisions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision, archived group/test or identity conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Input exceeds the 4 MiB group transport budget. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Group content, binding or media validation failed; no partial edit was saved. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteQuestionGroup: {
+        parameters: {
+            query: {
+                expectedRevision: number;
+                expectedTestUpdatedAt?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision, archived enclosing test, or bank group not archived. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    copyQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupCopyInput"];
+            };
+        };
+        responses: {
+            /** @description Independent copy; source edits/deletion cannot affect it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale source/destination revision or archived enclosing test. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A copied media binding is no longer available; no destination graph was created. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archiveQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    archived: boolean;
+                    /** Format: int64 */
+                    expectedRevision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Current graph and archive state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision or a section-owned group that follows its test lifecycle. */
             409: {
                 headers: {
                     [name: string]: unknown;

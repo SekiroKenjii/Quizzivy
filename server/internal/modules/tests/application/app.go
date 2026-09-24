@@ -3,9 +3,11 @@ package application
 import (
 	"quizzivy/internal/modules/tests/application/command"
 	"quizzivy/internal/modules/tests/application/internal/support"
+	"quizzivy/internal/modules/tests/application/ports"
 	"quizzivy/internal/modules/tests/application/query"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/shared/cqrs"
+	"time"
 )
 
 // Application is every use case of the module: commands change it, queries read it.
@@ -14,9 +16,15 @@ type Application struct {
 	Queries   Queries
 	publisher *support.Publisher
 	service   *support.Service
+	groups    *support.Groups
 }
 
 type Commands struct {
+	CreateGroup            cqrs.CommandHandler[command.CreateGroup, domain.StoredGroup]
+	UpdateGroup            cqrs.CommandHandler[command.UpdateGroup, domain.StoredGroup]
+	CopyGroup              cqrs.CommandHandler[command.CopyGroup, domain.StoredGroup]
+	ArchiveGroup           cqrs.CommandHandler[command.ArchiveGroup, domain.StoredGroup]
+	DeleteGroup            cqrs.CommandHandler[command.DeleteGroup, cqrs.Nothing]
 	CreateDraftFromVersion cqrs.CommandHandler[command.CreateDraftFromVersion, domain.Test]
 	SetCurrentVersion      cqrs.CommandHandler[command.SetCurrentVersion, domain.Test]
 	DeleteVersion          cqrs.CommandHandler[command.DeleteVersion, cqrs.Nothing]
@@ -28,6 +36,8 @@ type Commands struct {
 }
 
 type Queries struct {
+	Group         cqrs.QueryHandler[query.Group, domain.StoredGroup]
+	Groups        cqrs.QueryHandler[query.Groups, query.GroupsResult]
 	GroupContexts cqrs.QueryHandler[query.GroupContexts, []domain.PreviewGroup]
 	Facets        cqrs.QueryHandler[query.Facets, domain.StatusFacets]
 	Get           cqrs.QueryHandler[query.Get, domain.Test]
@@ -40,8 +50,14 @@ type Queries struct {
 func New(repo domain.Repository) *Application {
 	publisher := support.NewPublisher(repo)
 	service := support.NewService(repo)
+	groups := &support.Groups{Now: time.Now}
 	return &Application{
 		Commands: Commands{
+			CreateGroup:            command.CreateGroupHandler{Groups: groups},
+			UpdateGroup:            command.UpdateGroupHandler{Groups: groups},
+			CopyGroup:              command.CopyGroupHandler{Groups: groups},
+			ArchiveGroup:           command.ArchiveGroupHandler{Groups: groups},
+			DeleteGroup:            command.DeleteGroupHandler{Groups: groups},
 			CreateDraftFromVersion: command.CreateDraftFromVersionHandler{Service: service},
 			SetCurrentVersion:      command.SetCurrentVersionHandler{Service: service},
 			DeleteVersion:          command.DeleteVersionHandler{Service: service},
@@ -52,6 +68,8 @@ func New(repo domain.Repository) *Application {
 			Update:                 command.UpdateHandler{Service: service},
 		},
 		Queries: Queries{
+			Group:         query.GroupHandler{Groups: groups},
+			Groups:        query.GroupsHandler{Groups: groups},
 			GroupContexts: query.GroupContextsHandler{Service: service},
 			Facets:        query.FacetsHandler{Service: service},
 			Get:           query.GetHandler{Service: service},
@@ -62,5 +80,13 @@ func New(repo domain.Repository) *Application {
 		},
 		publisher: publisher,
 		service:   service,
+		groups:    groups,
 	}
+}
+
+// WithGroups configures complete-context authoring; absent dependencies leave these operations unavailable.
+func (a *Application) WithGroups(repo domain.GroupRepository, media ports.GroupMediaKinds) *Application {
+	a.groups.Repo = repo
+	a.groups.Media = media
+	return a
 }
