@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.34 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.35 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.34**
+
+- W-13a adds an internal isolated legacy Word converter and private source-page
+  rendition. One physical container slot, offline safe document loading, resource
+  limits, cancellation and independent timeout protect processing capacity. Outputs
+  retain conversion lineage and require review. Public legacy intake and durable
+  processing integration remain disabled pending the complete pipeline.
 
 **Changes since v0.33**
 
@@ -1444,6 +1452,15 @@ retain merge evidence; ambiguous grids are flagged. Selected PNG/JPEG assets may
 be normalized under bounded decoding limits, but remain private until explicitly
 reviewed and bound to learner content. Source blocks are separate from machine
 candidate JSON and must not be exposed on student endpoints.
+
+An internal offline converter can normalize binary DOC and render private source
+pages under fixed development resource limits. Native originals remain unchanged;
+converted DOCX and raster output are revalidated. Source, renderer, immutable image
+and artifact identities accompany the rendition. Layout and legacy conversion
+require explicit review; visual source pages do not imply a question-coordinate map.
+A single Docker slot prevents orphan/retry overlap, and the container's independent
+deadline remains active after worker failure. This tool is not yet public legacy
+intake, durable artifact storage or production activation.
 
 Processing requests retain their source-set revision, pipeline version and replay
 identity. One queued/running request per import is permitted, with at most 50

@@ -749,6 +749,36 @@ This checkpoint implements extraction building blocks, not the complete W-12
 quality gate. Conditional styles, source rendition, durable artifact integration,
 recognition/reconciliation, review and atomic commit remain subsequent work.
 
+### 1.30 Isolated normalization and rendition (W-13a)
+
+A separately built LibreOffice/Python UNO/Poppler image converts binary DOC into
+native DOCX and renders private PDF/PNG source pages. The Go adapter supplies an
+immutable local image ID, fixed safe load policy, isolated disk directories,
+network/capability restrictions and CPU/memory/process/file limits. It admits one
+physical conversion container per Docker host, including containers surviving a
+worker crash; a second worker cannot kill the first worker's slot. Completed owned
+slots can be reclaimed. Host cancellation and an independent container deadline
+bound work. A disk watchdog stops oversized jobs without using host tmpfs.
+
+Source originals are never modified. Converted DOCX passes native inspection;
+page images and output paths are checked before artifact access. The manifest
+records source/image/renderer identities and checksums. Layout review is always
+required; legacy conversion adds an explicit normalization-review finding. This
+is not a promise that desktop rendering or every legacy object is equivalent.
+
+Docker tests exercise actual DOC round-trip with text/underline preservation,
+password-protected failure, native rendition, cancellation/timeout, per-process
+and global physical slots, orphan completion/reclaim, disk limits and runtime
+network/mount/cgroup restrictions. A local real DOCX produced 33 private source
+pages; sampled pages retain teacher annotations in the source view. That is not
+recognition or learner-content acceptance. Sources and renderings remain outside Git.
+
+The image/tool/adapter are internal building blocks, with no new public route,
+provider transfer or production activation. Durable artifact storage, processing
+wiring, detailed loss reconciliation, real legacy-family goldens and W-21 operator
+cleanup/capacity gates remain open. Dependency reasons and the boundary are in the
+[converter runtime instructions](../../docker/word-converter/README.md).
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
