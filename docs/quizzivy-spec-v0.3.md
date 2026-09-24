@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.21 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.22 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.21**
+
+- W-09b adds learner-safe shared context to start/resume/read attempt responses.
+  Frozen media bindings require an attempt owned by the learner. Shared playback,
+  result/review context and group authoring remain gated.
 
 **Changes since v0.20**
 
@@ -551,8 +557,8 @@ kind, existence, authorization and deletion locks remain required at persistence
 
 Copying remaps group, question, material, answer, gap and recording identities,
 preserving all grading data, labels, order and content. Immutable media IDs are
-reused through new protected bindings. This contract adds no group endpoint or
-learner payload. Relational ownership uses a nullable section owner for each group
+reused through new protected bindings. Group authoring endpoints remain gated;
+the safe preview and attempt readers below are additive. Relational ownership uses a nullable section owner for each group
 (null means an independent bank group) and explicit ownership/order on its member questions.
 Section units distinguish standalone questions from groups. Material gaps and
 media references have relational bindings; cross-group response/playback links
@@ -588,6 +594,15 @@ appears before its first member, and material gaps link to the corresponding
 question. Teacher playback consumes no student allowance. Desktop and 320px phone
 preview modes run inside the existing admin shell (minimum supported width 768px).
 Existing version questions and historical attempts are unchanged.
+
+Start, resume and read-attempt responses include the same safe frozen group
+projection. Membership comes from the attempt's version, regardless of the test's
+current default. The tests module owns the reader, invoked through an application
+port after attempt authorization. Shared media is reachable only through protected
+relational bindings on a version the learner has an attempt on; assignment
+targeting alone grants no media access. A missing context reader fails explicitly
+instead of serving grouped questions without their materials. Shared playback,
+learner UI and result/review context remain prerequisites for enabling group writes.
 
 
 ---

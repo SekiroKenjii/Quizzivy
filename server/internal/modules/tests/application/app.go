@@ -28,12 +28,13 @@ type Commands struct {
 }
 
 type Queries struct {
-	Facets       cqrs.QueryHandler[query.Facets, domain.StatusFacets]
-	Get          cqrs.QueryHandler[query.Get, domain.Test]
-	List         cqrs.QueryHandler[query.List, query.ListResult]
-	ListVersions cqrs.QueryHandler[query.ListVersions, []domain.Version]
-	Preview      cqrs.QueryHandler[query.Preview, query.PreviewResult]
-	Tags         cqrs.QueryHandler[query.Tags, []string]
+	GroupContexts cqrs.QueryHandler[query.GroupContexts, []domain.PreviewGroup]
+	Facets        cqrs.QueryHandler[query.Facets, domain.StatusFacets]
+	Get           cqrs.QueryHandler[query.Get, domain.Test]
+	List          cqrs.QueryHandler[query.List, query.ListResult]
+	ListVersions  cqrs.QueryHandler[query.ListVersions, []domain.Version]
+	Preview       cqrs.QueryHandler[query.Preview, query.PreviewResult]
+	Tags          cqrs.QueryHandler[query.Tags, []string]
 }
 
 func New(repo domain.Repository) *Application {
@@ -51,12 +52,13 @@ func New(repo domain.Repository) *Application {
 			Update:                 command.UpdateHandler{Service: service},
 		},
 		Queries: Queries{
-			Facets:       query.FacetsHandler{Service: service},
-			Get:          query.GetHandler{Service: service},
-			List:         query.ListHandler{Service: service},
-			ListVersions: query.ListVersionsHandler{Service: service},
-			Preview:      query.PreviewHandler{Service: service},
-			Tags:         query.TagsHandler{Service: service},
+			GroupContexts: query.GroupContextsHandler{Service: service},
+			Facets:        query.FacetsHandler{Service: service},
+			Get:           query.GetHandler{Service: service},
+			List:          query.ListHandler{Service: service},
+			ListVersions:  query.ListVersionsHandler{Service: service},
+			Preview:       query.PreviewHandler{Service: service},
+			Tags:          query.TagsHandler{Service: service},
 		},
 		publisher: publisher,
 		service:   service,

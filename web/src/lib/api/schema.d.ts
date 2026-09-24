@@ -2654,6 +2654,14 @@ export interface components {
              */
             questions: components["schemas"]["StudentQuestion"][];
             /**
+             * @description Frozen shared context for this attempt's version. Member IDs name
+             *     questions in this session; presentation order comes from questions.
+             *     No answer keys or recording transcripts. Only version-bound assets
+             *     reachable through this student's own attempt receive signed URLs.
+             *     Empty for historical standalone papers; optional for compatibility.
+             */
+            groups?: components["schemas"]["StudentGroup"][];
+            /**
              * @description Identifies this device/tab. Every write carries it; a superseded
              *     session gets `SESSION_SUPERSEDED`, which is how the first tab learns
              *     it lost (§10.1, E2E 7).

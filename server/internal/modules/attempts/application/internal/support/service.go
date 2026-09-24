@@ -3,7 +3,11 @@ package support
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/attempts/application/ports"
 	"quizzivy/internal/modules/attempts/domain"
+	testsquery "quizzivy/internal/modules/tests/application/query"
+	testsdomain "quizzivy/internal/modules/tests/domain"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +16,7 @@ import (
 // Service carries what the service handlers share: their ports and the helpers they call.
 type Service struct {
 	Store        domain.Repository
+	Groups       ports.GroupContexts
 	Now          func() time.Time
 	NewSessionID func() string
 	NewSeed      func() (int64, error)
@@ -161,6 +166,16 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	if err != nil {
 		return domain.Session{}, err
 	}
+	groups := []testsdomain.PreviewGroup{}
+	if slices.ContainsFunc(questions, func(q domain.Question) bool { return q.GroupID != "" }) {
+		if s.Groups == nil {
+			return domain.Session{}, domain.ErrGroupContextUnavailable
+		}
+		groups, err = s.Groups.Handle(ctx, testsquery.GroupContexts{VersionID: a.TestVersionID})
+		if err != nil {
+			return domain.Session{}, err
+		}
+	}
 	answers, err := s.Store.Answers(ctx, a.ID)
 	if err != nil {
 		return domain.Session{}, err
@@ -179,6 +194,7 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 		TestTitle:         r.TestTitle,
 		Sections:          sections,
 		Questions:         domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions),
+		Groups:            groups,
 		SessionID:         a.SessionID,
 		BeaconToken:       beacon,
 		ServerTime:        s.Now(),

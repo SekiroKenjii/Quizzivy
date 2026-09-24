@@ -36,7 +36,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
 	testsApp := tests(dbx, questionsRepo, mediaRepo)
-	attemptsApp := attempts(dbx)
+	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts)
 
 	return Assembly{
 		Modules: router.Modules{

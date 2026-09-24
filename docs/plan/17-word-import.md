@@ -384,6 +384,30 @@ metadata reads and create/update rollback, including version-specific validation
 Attempt/result/group payloads, shared playback counters and learner/context UI remain
 W-09 work; this checkpoint does not enable group authoring or shared audio.
 
+### 1.17 Implementation checkpoint — safe attempt context (W-09b)
+
+Start/resume/read attempt payloads now include optional additive `groups` using the
+existing safe preview projection. The tests module reads one frozen version under
+a share lock; the attempts application invokes that query only after authorizing
+the attempt. Frozen question membership detects when the context reader is required,
+and an unconfigured dependency reports 501 instead of dropping the materials.
+Historical standalone papers continue without the new dependency.
+
+The shared transport projection retains stable question/gap/recording identities
+and omits grading data and transcripts. Every asset is authorized for the current
+student before metadata and a signed URL are returned. Media reachability includes
+relational group bindings only on versions the student has an attempt on, retaining
+the existing legacy-question path. Assignment targeting and unrelated versions
+grant no access.
+
+Docker tests cover start, reload, takeover, preserved membership/material/policy,
+secret omission, missing dependencies/versions and cross-student/version media
+denial. Public transport tests cover both session endpoints and ensure authorization
+failure returns no partial payload. Existing recursive schema checks cover the new
+response branch. No migration or dependency is added. Shared recording accounting,
+learner/result/review UI, explicit delivery versioning and group authoring remain
+gated pending subsequent slices.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

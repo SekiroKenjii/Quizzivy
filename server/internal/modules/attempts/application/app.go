@@ -3,6 +3,7 @@ package application
 import (
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/internal/support"
+	"quizzivy/internal/modules/attempts/application/ports"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/cqrs"
@@ -15,6 +16,12 @@ type Application struct {
 	integrity *support.Integrity
 	review    *support.Review
 	service   *support.Service
+}
+
+// WithGroupContexts supplies the frozen shared-context reader before serving attempts.
+func (a *Application) WithGroupContexts(groups ports.GroupContexts) *Application {
+	a.service.Groups = groups
+	return a
 }
 
 type Commands struct {

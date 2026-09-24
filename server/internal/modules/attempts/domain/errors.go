@@ -24,6 +24,8 @@ var (
 // exactly what they wanted.
 var ErrRaceLost = errors.New("attempts: concurrent create won")
 
+var ErrGroupContextUnavailable = errors.New("attempts: group context reader unavailable")
+
 var ErrAttemptInProgress = errors.New("attempts: attempt is still in progress")
 
 var (

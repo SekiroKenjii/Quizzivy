@@ -8,9 +8,16 @@ import (
 )
 
 func (h Tests) toStudentGroups(ctx context.Context, groups []domain.PreviewGroup) ([]openapi.StudentGroup, error) {
+	return StudentGroups(ctx, groups, func(ctx context.Context, id string) (*openapi.MediaAsset, error) {
+		return h.previewAsset(ctx, &id)
+	})
+}
+
+// StudentGroups projects safe shared context; resolve must authorize and sign each bound asset for its caller.
+func StudentGroups(ctx context.Context, groups []domain.PreviewGroup, resolve func(context.Context, string) (*openapi.MediaAsset, error)) ([]openapi.StudentGroup, error) {
 	out := make([]openapi.StudentGroup, len(groups))
 	for i, group := range groups {
-		item, err := h.toStudentGroup(ctx, group)
+		item, err := studentGroup(ctx, group, resolve)
 		if err != nil {
 			return nil, err
 		}
@@ -19,7 +26,7 @@ func (h Tests) toStudentGroups(ctx context.Context, groups []domain.PreviewGroup
 	return out, nil
 }
 
-func (h Tests) toStudentGroup(ctx context.Context, group domain.PreviewGroup) (openapi.StudentGroup, error) {
+func studentGroup(ctx context.Context, group domain.PreviewGroup, resolve func(context.Context, string) (*openapi.MediaAsset, error)) (openapi.StudentGroup, error) {
 	item := openapi.StudentGroup{
 		Id: httpapi.ParseUUID(group.ID), SectionId: httpapi.ParseUUID(group.SectionID), Title: group.Title,
 		Instructions: group.Instructions, QuestionIds: make([]openapi.Uuid, len(group.QuestionIDs)),
@@ -43,7 +50,7 @@ func (h Tests) toStudentGroup(ctx context.Context, group domain.PreviewGroup) (o
 		}
 	}
 	for _, id := range group.AssetIDs {
-		asset, err := h.previewAsset(ctx, &id)
+		asset, err := resolve(ctx, id)
 		if err != nil {
 			return openapi.StudentGroup{}, err
 		}

@@ -6,6 +6,7 @@
 package domain
 
 import (
+	testsdomain "quizzivy/internal/modules/tests/domain"
 	"time"
 )
 
@@ -42,6 +43,7 @@ type Session struct {
 	TestTitle         string
 	Sections          []Section
 	Questions         []Question
+	Groups            []testsdomain.PreviewGroup
 	SessionID         string
 	BeaconToken       string
 	ServerTime        time.Time

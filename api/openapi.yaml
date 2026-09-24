@@ -1941,6 +1941,15 @@ components:
             Already in presentation order, shuffled server-side and stable
             across reloads (D-02). Shuffling happens inside each section, so
             the order of sections is the order of `sections`.
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/StudentGroup' }
+          description: |
+            Frozen shared context for this attempt's version. Member IDs name
+            questions in this session; presentation order comes from questions.
+            No answer keys or recording transcripts. Only version-bound assets
+            reachable through this student's own attempt receive signed URLs.
+            Empty for historical standalone papers; optional for compatibility.
         sessionId:
           $ref: '#/components/schemas/Uuid'
           description: |

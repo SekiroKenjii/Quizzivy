@@ -2,11 +2,33 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
 
 	"github.com/jackc/pgx/v5"
 )
+
+// GroupContexts reads one coherent frozen context without loading keys or transcripts.
+func (s *Postgres) GroupContexts(ctx context.Context, versionID string) ([]domain.PreviewGroup, error) {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var id string
+	if err := tx.QueryRow(ctx, `SELECT id::text FROM app.test_versions WHERE id=$1 FOR SHARE`, versionID).Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	groups, err := previewGroups(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	return groups, tx.Commit(ctx)
+}
 
 func previewGroups(ctx context.Context, tx pgx.Tx, versionID string) ([]domain.PreviewGroup, error) {
 	groups, err := db.QueryMany(ctx, tx, `SELECT g.id::text,g.test_version_section_id::text,g.title,g.instructions
