@@ -6,9 +6,19 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/modules/imports/domain"
+	"quizzivy/internal/platform/db"
 )
 
 const awaitingSources = "awaiting_sources"
+
+func (s *Postgres) Sources(ctx context.Context, importID string, revision int64) ([]domain.Source, error) {
+	sources, err := db.QueryMany(ctx, s, `SELECT `+sourceColumns+` FROM app.word_import_sources WHERE import_id=$1 AND id IN
+ (SELECT source_id FROM app.word_import_source_set_items WHERE import_id=$1 AND revision=$2) ORDER BY role`, []any{importID, revision}, func(row pgx.Rows) (domain.Source, error) { return scanSource(row) })
+	if err == nil && len(sources) == 0 {
+		return nil, domain.ErrNotFound
+	}
+	return sources, err
+}
 
 func (s *Postgres) Reserve(ctx context.Context, in domain.Reserve, quotas domain.Quotas) (domain.Source, error) {
 	var out domain.Source

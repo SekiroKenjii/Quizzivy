@@ -15,6 +15,8 @@ type Processor interface {
 	Process(context.Context, domain.Run, func(string) error) (json.RawMessage, error)
 }
 
+const processorOutputInvalid = "PROCESSOR_OUTPUT_INVALID"
+
 const processingFailed = "PROCESSING_FAILED"
 const processingTimeout = "PROCESSING_TIMEOUT"
 
@@ -104,7 +106,7 @@ func (r Runner) execute(ctx context.Context, run domain.Run) (json.RawMessage, e
 		return nil, Failure{Code: processingTimeout, Retryable: true}
 	}
 	if err == nil && domain.ValidateRunResult(result) != nil {
-		return nil, Failure{Code: "PROCESSOR_OUTPUT_INVALID", Retryable: false}
+		return nil, Failure{Code: processorOutputInvalid, Retryable: false}
 	}
 	return result, err
 }
@@ -190,7 +192,7 @@ func (r Runner) emit(run domain.Run, kind, code string, duration time.Duration) 
 }
 
 func safeFailure(f Failure) Failure {
-	if !slices.Contains([]string{processingFailed, "PROCESSOR_OUTPUT_INVALID", "SOURCE_INVALID", "SOURCE_TOO_LARGE", "SOURCE_UNSUPPORTED", "STORAGE_UNAVAILABLE", "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED", "PROVIDER_OUTPUT_INVALID", "CONVERSION_FAILED", "CONVERSION_TIMEOUT", processingTimeout, "WORKER_INTERRUPTED", "WORKER_LEASE_LOST"}, f.Code) {
+	if !slices.Contains([]string{processingFailed, processorOutputInvalid, "SOURCE_INVALID", "SOURCE_TOO_LARGE", "SOURCE_UNSUPPORTED", "STORAGE_UNAVAILABLE", "STORAGE_QUOTA_EXCEEDED", "STORAGE_INTEGRITY_FAILED", "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED", "PROVIDER_OUTPUT_INVALID", "CONVERSION_FAILED", "CONVERSION_TIMEOUT", "CONVERSION_BUSY", "CONVERSION_CLEANUP_FAILED", processingTimeout, "WORKER_INTERRUPTED", "WORKER_LEASE_LOST"}, f.Code) {
 		f.Code = processingFailed
 	}
 	return f

@@ -4,6 +4,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
+.PHONY: import-worker
+import-worker: ## Run the separately configured private Word worker
+	cd server && GOMAXPROCS=2 go run ./cmd/import-worker
+
 # Loaded from .env if present; every value has a dev default in docker-compose.
 -include .env
 export

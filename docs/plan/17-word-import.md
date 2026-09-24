@@ -832,6 +832,38 @@ saved profile persistence and corpus-reviewed reconciliation. W-15 provider poli
 W-16 full validation, durable processing and review/commit integration remain open.
 
 
+### 1.33 Durable processing assembly (W-11b)
+
+A standalone `cmd/import-worker` now joins immutable source sets, private object
+verification, Docker rendition, native OOXML extraction and the deterministic
+recognizer. It uses the application database role and private storage credentials;
+API signing/Google credentials are not required. The API never starts Docker.
+The worker polls serially, obeys database actor/global lease limits, heartbeats,
+job deadlines and cancellation, and records safe IDs/codes/timing only.
+
+Completed normalization and extraction sets are reusable after a retry. Version
+identities include the converter image or extractor projection and normalized
+source identity; candidate lineage includes every contributing source stage.
+Original DOCX coordinates remain original; a normalized legacy source would use
+its immutable artifact identity. Private reads verify recorded length and SHA-256
+before parsing. An integrity mismatch is a terminal error, not an outage retry.
+
+Raw evidence is split into contiguous files of at most 100 blocks, with a separate
+inventory and recognition projection. Candidate JSON is a private artifact;
+`word-run-result-v1` contains only source lineage and artifact-set IDs. Completion
+still requires teacher review and never writes questions or assessments.
+
+Validation: all backend unit tests and lint pass. PostgreSQL/MinIO with the real
+Docker converter exercise an exam/key pair, interrupted extraction, reuse of both
+completed renditions and successful review handoff. Adapter tests reconstruct the
+complete raw block sequence and verify every artifact checksum. Worker config,
+serial draining, cancellation and safe error logging are covered. No new dependency
+or migration is introduced. See [worker operation](../setup/word-import-worker.md).
+
+Public queue/progress controls, full W-16 validation, review, commit, retention and
+production capacity/rollout gates remain open. This internal worker does not enable
+public legacy intake, external AI processing or production activation.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
