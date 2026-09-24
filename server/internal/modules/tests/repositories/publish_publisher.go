@@ -26,7 +26,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 		return domain.PublishedVersion{}, err
 	}
 
-	draft, err := s.loadDraft(ctx, tx, req.TestID)
+	draft, err := s.loadDraft(ctx, tx, req.TestID, false)
 	if err != nil {
 		return domain.PublishedVersion{}, err
 	}

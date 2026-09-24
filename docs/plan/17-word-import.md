@@ -318,6 +318,29 @@ group authoring is still unavailable: group-aware preview/restore/duplicate,
 complete draft/UI readers, and W-09 delivery/shared-playback remain required.
 This is the publication foundation, not completion of W-08 or a release gate.
 
+### 1.14 Implementation checkpoint — complete graph restoration/copy (W-08b)
+
+The immutable group reader resolves teacher-only keys, frozen materials, stable
+gap targets and recording policy under its parent version lock, then validates
+the complete graph. It is an internal authoring reader, never a learner response.
+Restoration copies frozen groups into independent draft groups, remaps both ends
+of cloze links, preserves mixed unit order and replaces all previous owned context.
+A failed restore rolls back cleanup and new rows together; repeated restoration
+does not strand old owned questions. The restored graph can publish again with
+the same totals and grading content.
+
+Draft duplication locks the source and its question references, independently
+copies every group and retains existing standalone bank-reference semantics.
+Assets needed by copied groups are locked together before materialization.
+Permanent deletion of an unreferenced archived test clears its owned draft graph
+without altering independent copies or append-only audit history.
+
+Docker checks cover frozen reads, failed and repeated restore, fresh identities,
+cloze remapping, mixed-order duplication, source-test deletion and republication.
+No migration, dependency or API shape is added in this checkpoint. Grouped preview,
+complete draft summaries/outline/UI readers and W-09 delivery remain prerequisites
+before new group authoring becomes available.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

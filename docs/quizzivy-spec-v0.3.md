@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.19 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.20 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.19**
+
+- W-08b restores and duplicates complete independent context graphs, preserves
+  mixed unit order and removes owned draft graphs when an unreferenced archived
+  test is deleted. Grouped preview/draft UI and delivery remain gated.
 
 **Changes since v0.18**
 
@@ -563,7 +569,12 @@ units, member order, materials, stable gap targets and explicit recording policy
 Frozen context points only to frozen question/blank identities and immutable media;
 editing or deleting a source group cannot alter it. The app role cannot update
 these new snapshot graph rows. Deleting an unreferenced version removes its owned
-graph together. Existing version questions and historical attempts are unchanged.
+graph together. Restoring a version replaces the current owned draft graph with
+fresh editable copies and remaps both ends of material/blank gap links. Duplicating
+a draft preserves mixed unit order and independently copies every group; standalone
+bank references retain their existing duplication semantics. Permanent test deletion
+removes its owned draft groups after the assigned-version reference checks pass.
+Existing version questions and historical attempts are unchanged.
 
 
 ---

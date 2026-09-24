@@ -95,6 +95,17 @@ func TestPublishedGroupGraphSurvivesDraftEditsRemovalAndMediaDeletion(t *testing
 	if err != nil || len(versions) != 1 || versions[0].AudioCount != 4 || versions[0].ManualCount != 1 {
 		t.Fatalf("group listening counts: %+v, %v", versions, err)
 	}
+	var frozenID string
+	if err := tx.QueryRow(ctx, `SELECT g.id::text FROM app.test_version_groups g JOIN app.test_version_sections s ON s.id=g.test_version_section_id WHERE s.test_version_id=$1 ORDER BY g.id LIMIT 1`, published.ID).Scan(&frozenID); err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := groups.Frozen(ctx, frozenID)
+	if err != nil || len(frozen.Questions) != 2 || len(frozen.Group.Stimuli) != 2 || len(frozen.Group.Recordings) != 1 {
+		t.Fatalf("incomplete frozen graph reader: %+v, %v", frozen, err)
+	}
+	if frozen.Questions[1].Input.Blanks[0].AcceptedAnswers[0] != "chính xác" || *frozen.Group.Recordings[0].Policy.MaxPlays != 2 {
+		t.Fatal("frozen graph reader changed grading keys or recording policy")
+	}
 	before := frozenGroupDigest(t, tx, published.ID)
 	var groupCount, scopes int
 	if err := tx.QueryRow(ctx, `SELECT count(*),count(DISTINCT r.id) FROM app.test_version_group_recordings r

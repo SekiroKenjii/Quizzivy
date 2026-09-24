@@ -46,14 +46,27 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 	if err != nil {
 		return domain.Test{}, err
 	}
-	sections, err := s.copyVersionDraft(ctx, tx, versionID, req.ActorID)
+	if err := clearTestGroups(ctx, tx, req.ID); err != nil {
+		return domain.Test{}, err
+	}
+	if err := s.lockVersionAssets(ctx, tx, versionID); err != nil {
+		return domain.Test{}, err
+	}
+	copies, err := s.copyVersionDraft(ctx, tx, versionID, req.ActorID)
 	if err != nil {
 		return domain.Test{}, err
+	}
+	sections := make([]domain.SectionInput, len(copies))
+	for i, section := range copies {
+		sections[i] = section.Input
 	}
 	if err := s.lockQuestions(ctx, tx, sections); err != nil {
 		return domain.Test{}, err
 	}
 	if err := replaceOutline(ctx, tx, req.ID, sections); err != nil {
+		return domain.Test{}, err
+	}
+	if err := s.restoreSnapshotGroups(ctx, tx, req, now, copies); err != nil {
 		return domain.Test{}, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE app.tests SET updated_at = now() WHERE id = $1`, req.ID); err != nil {

@@ -41,7 +41,7 @@ func freezeUnits(ctx context.Context, tx pgx.Tx, sectionID string, units []domai
 		} else {
 			id, exists := groups[strings.ToLower(unit.GroupID)]
 			if !exists {
-				return &domain.GroupError{Rule: "group_membership"}
+				return &domain.GroupError{Rule: groupMembershipRule}
 			}
 			group = &id
 		}

@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const groupMembershipRule = "group_membership"
+
 // GroupQuestionStore persists owned interactions inside the aggregate transaction, without exposing them as standalone bank rows.
 type GroupQuestionStore interface {
 	QuestionLocks
@@ -78,18 +80,18 @@ func (s *GroupsPostgres) readGraph(ctx context.Context, tx pgx.Tx, stored *domai
 	stored.Bundle.Questions = make([]domain.GroupQuestion, len(members))
 	for i, member := range members {
 		if member.Ordinal != i {
-			return &domain.GroupError{Rule: "group_membership", QuestionID: member.Question.ID}
+			return &domain.GroupError{Rule: groupMembershipRule, QuestionID: member.Question.ID}
 		}
 		stored.Bundle.Group.Members[i] = domain.GroupMember{QuestionID: member.Question.ID, OptionOrder: member.OptionOrder}
 		stored.Bundle.Questions[i] = domain.GroupQuestion{ID: member.Question.ID, Input: groupQuestionInput(member.Question), MediaAssetKind: member.Question.MediaAssetKind}
 	}
-	if err := readGroupMaterials(ctx, tx, &stored.Bundle.Group); err != nil {
+	if err := readGroupMaterials(ctx, tx, &stored.Bundle.Group, draftGraphTables); err != nil {
 		return err
 	}
-	if err := readGroupRecordings(ctx, tx, &stored.Bundle.Group); err != nil {
+	if err := readGroupRecordings(ctx, tx, &stored.Bundle.Group, draftGraphTables); err != nil {
 		return err
 	}
-	if err := checkGroupAssetBindings(ctx, tx, stored.Bundle.Group); err != nil {
+	if err := checkGroupAssetBindings(ctx, tx, stored.Bundle.Group, draftGraphTables); err != nil {
 		return err
 	}
 	return stored.Bundle.Validate()

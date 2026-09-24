@@ -1586,3 +1586,22 @@ retained. Version listening counts count each question once if it has own audio
 or any shared recording in its group. Frozen group references participate in
 media soft deletion and batched library usage lookups. Student reachability and
 presentation are not broadened until the W-09 reader is integrated.
+
+W-08b reads the frozen graph under its parent version lock and validates content,
+member ordering, grading inputs and AST/relational asset mirrors. Restoration
+locks the target test/version, clears its old owned draft graph, locks all snapshot
+assets in stable order and creates independent copies in one transaction. New
+gap identities are remapped through material and question documents together.
+Standalone snapshot questions remain ordinary independent bank copies, matching
+the previous restore behavior. Repeated restores delete replaced owned children;
+failed restores roll back that cleanup as well as every new row.
+
+Duplication holds the source test lock and takes referenced question locks in
+stable order before copying; it invokes the existing draft-use guard before every
+standalone reference insertion. These locks are exclusive from the start to avoid
+shared-to-exclusive lock upgrades between concurrent copies. All copied group
+assets are locked together before insertion. Source group graphs receive new
+editable IDs; standalone bank references keep their original duplication meaning.
+Whole-test deletion clears owned context only after version reference checks,
+with audit history preserved. Grouped draft/preview and learner read paths must
+still be integrated before authoring is enabled.
