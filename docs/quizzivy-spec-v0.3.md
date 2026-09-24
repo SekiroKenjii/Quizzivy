@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.30 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.31 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.30**
+
+- W-07h integrates section → group → question authoring into the test builder.
+  Outline and group writes share a serialized enclosing-test revision; acknowledged
+  moves update only the editor's own revision baseline. Whole-group bank insertion,
+  independent bank copies, complete learner preview and local recovery are available.
+  The import pipeline and pilot acceptance remain release gates.
 
 **Changes since v0.29**
 
@@ -618,8 +626,8 @@ kind, existence, authorization and deletion locks remain required at persistence
 Copying remaps group, question, material, answer, gap and recording identities,
 preserving all grading data, labels, order and content. Immutable media IDs are
 reused through new protected bindings. The teacher-only group API and independent
-bank editor are available on the milestone branch; release still requires the
-mixed builder and import acceptance gates. Relational ownership uses a nullable section owner for each group
+bank editor and mixed builder are available on the milestone branch; release
+still requires import and pilot acceptance gates. Relational ownership uses a nullable section owner for each group
 (null means an independent bank group) and explicit ownership/order on its member questions.
 Section units distinguish standalone questions from groups. Material gaps and
 media references have relational bindings; cross-group response/playback links
@@ -635,7 +643,8 @@ the same revision; permanent deletion requires archival and keeps audit history.
 Removing a section-owned group deletes its complete draft graph and compacts unit
 order. Copy materialization checks an observed source revision and creates new
 editable identities. Draft/snapshot/delivery readers preserve the complete graph.
-Mixed builder editing and context-aware insertion remain required before release.
+The builder inserts bank groups as complete independent copies into an explicitly
+chosen section, and can save the current group graph as an independent bank copy.
 
 Draft totals and tag filters include owned members alongside standalone questions.
 Listening counts count each question once when it has its own audio or a shared
@@ -643,7 +652,14 @@ group recording. Independent bank groups are not part of a test's totals. The
 legacy question-only whole-outline writer refuses a draft containing groups with
 `GROUP_OUTLINE_REQUIRED` before changing metadata or structure; metadata-only
 updates remain supported. The group-aware writer accepts complete mixed units and
-moves whole groups transactionally; its builder UI remains required before release.
+moves whole groups transactionally. The builder keeps new section client identities
+until server IDs arrive, preserving edits and order during acknowledgement. The
+outline distinguishes group and standalone IDs, moves empty groups as units and
+keeps continuous learner numbering across member questions. Group and outline
+writes share a serialized enclosing-test revision. Only acknowledged own moves
+advance the active group's revision baseline; external conflicts remain visible.
+Preview and publication flush pending content and outline writes. Group findings
+open the owning group editor instead of the standalone question endpoint.
 
 The independent group bank supports search, remembered URL filters, newest-first
 updates, inline/menu duplication and bulk archive/restore/permanent deletion.
@@ -1388,6 +1404,9 @@ Thuong approved two ownership/recovery policies for this milestone:
   before recovery, explicit restore/discard and a global logout fence that rejects
   older writers in other tabs. Opening a newer editor of the same item fences the
   previous local writer; it cannot overwrite or clear the newer editor's outbox.
+  Section-owned group editing uses the same recovery gate and outbox. An explicit
+  route exit first confirms local persistence; save-and-leave flushes both content
+  and outline. Test title/outline and standalone questions are not stored locally.
   Import review and standalone authoring recovery still require integration.
 
 ---

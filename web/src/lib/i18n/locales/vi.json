@@ -63,7 +63,9 @@
     "archived": "Đã lưu trữ",
     "restore": "Khôi phục",
     "updatedAt": "Cập nhật",
-    "confirm": "Xác nhận"
+    "confirm": "Xác nhận",
+    "view": "Xem",
+    "delete": "Xoá"
   },
   "error": {
     "title": "Đã xảy ra lỗi",
@@ -700,7 +702,21 @@
     "blankMismatch": "Chỗ trống chưa khớp với đề bài.",
     "audioRequired": "Câu nghe chưa có tệp âm thanh.",
     "saveBeforeSwitchFailed": "Chưa lưu được câu hỏi. Thử lưu lại trước khi chuyển câu.",
-    "sectionDropHint": "Kéo câu hỏi vào đây hoặc thêm câu hỏi mới."
+    "sectionDropHint": "Kéo câu hỏi vào đây hoặc thêm câu hỏi mới.",
+    "addSharedGroup": "Thêm nhóm câu dùng chung",
+    "reorderGroup": "Kéo nhóm {{title}}",
+    "moveGroupUp": "Đưa nhóm {{title}} lên",
+    "moveGroupDown": "Đưa nhóm {{title}} xuống",
+    "removeGroup": "Xoá nhóm {{title}}",
+    "emptySharedGroup": "Nhóm chưa có câu hỏi. Chọn nhóm để thêm ngữ liệu và câu hỏi.",
+    "saveGroupToBank": "Lưu bản sao vào ngân hàng",
+    "groupSavedToBank": "Đã lưu bản sao độc lập vào ngân hàng.",
+    "chooseWholeGroup": "Chọn cả nhóm câu hỏi",
+    "groupCopyHint": "Sao chép đầy đủ câu hỏi, bài đọc, ảnh, bản ghi âm và liên kết chỗ trống. Thay đổi ở đề này không ảnh hưởng nhóm gốc.",
+    "destinationSection": "Chèn vào phần",
+    "removeGroupTitle": "Xoá nội dung khỏi bản nháp?",
+    "removeGroupBody": "Nhóm câu và ngữ liệu trong bản nháp sẽ được xoá cùng nhau. Các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
+    "addStandaloneQuestion": "Thêm câu hỏi riêng lẻ"
   },
   "bank": {
     "filters": "Bộ lọc",

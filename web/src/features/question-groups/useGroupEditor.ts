@@ -17,6 +17,7 @@ interface EditorOptions {
   recovered: GroupRecovery | null;
   createdAt?: number;
   scope: DraftScope | null;
+  coordinate?: (operation: () => Promise<void>) => Promise<void>;
   save: (
     bundle: GroupBundle,
     revision: number,
@@ -31,6 +32,7 @@ export function useGroupEditor({
   createdAt,
   scope,
   save,
+  coordinate,
 }: EditorOptions) {
   const { t } = useTranslation();
   const [bundle, setBundle] = useState(recovered?.bundle ?? stored.bundle);
@@ -94,17 +96,23 @@ export function useGroupEditor({
       const issue = groupIssue(value);
       if (issue)
         throw new ApiError({ code: "UNKNOWN", status: 422, message: t(issue) });
-      const result = await save(
-        value,
-        base.current.revision,
-        base.current.testUpdatedAt,
-      );
-      base.current = { revision: result.revision, testUpdatedAt: result.testUpdatedAt };
-      if (pending.current?.bundle === value) {
-        pending.current = null;
-        setDirty(false);
-      }
-      void persist();
+      const operation = async () => {
+        const result = await save(
+          value,
+          base.current.revision,
+          base.current.testUpdatedAt,
+        );
+        base.current = {
+          revision: result.revision,
+          testUpdatedAt: result.testUpdatedAt,
+        };
+        if (pending.current?.bundle === value) {
+          pending.current = null;
+          setDirty(false);
+        }
+        void persist();
+      };
+      await (coordinate ? coordinate(operation) : operation());
     },
   });
   const { schedule, status, flush } = autosave;
@@ -139,6 +147,17 @@ export function useGroupEditor({
     return persist();
   }, [persist]);
 
+  const advanceOwner = useCallback(
+    (moved: boolean, testUpdatedAt: string) => {
+      base.current = {
+        revision: base.current.revision + (moved ? 1 : 0),
+        testUpdatedAt,
+      };
+      if (pending.current) void persist();
+    },
+    [persist],
+  );
+
   useEffect(
     () => () => {
       if (localTimer.current) clearTimeout(localTimer.current);
@@ -157,5 +176,6 @@ export function useGroupEditor({
     saveNow,
     copyRequired,
     status,
+    advanceOwner,
   };
 }

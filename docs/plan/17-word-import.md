@@ -615,6 +615,37 @@ utility imports. No dependency or migration is added. Mixed builder integration,
 context-aware bank insertion, import processing/review/commit and pilot gates
 remain outstanding; this checkpoint does not claim general import availability.
 
+### 1.26 Implementation checkpoint — mixed builder authoring (W-07h)
+
+The regular test builder displays section → group → member structure alongside
+standalone questions. Both pointer and keyboard movement treat the complete group
+as one unit, including an empty group and an empty destination section. Member
+ordering, bindings and shared media remain inside the complete-group composer.
+Client section identities survive acknowledgement, so a new section can be renamed,
+reordered and used as a group destination without being recreated on every save.
+
+Group content and outline operations share a serial write queue and the latest
+acknowledged enclosing-test revision. Own section moves advance the active group's
+revision without replacing its newer local content; external writes still conflict.
+Cached group reads are cancelled before writes to avoid overwriting acknowledgements.
+The independent-bank recovery gate/outbox is shared with section-owned editing.
+Explicit route exit confirms local group persistence; save-and-leave, preview and
+publication flush content and outline. Standalone/title/outline local recovery is
+not included in this checkpoint. Group publication findings open the owned member.
+
+The bank picker copies the complete selected group into a chosen persisted section.
+Saving a bank copy retains the builder and shows a confirmation/link. Group removal
+uses the explicit whole-graph operation; removing a section processes its groups
+before removing the section, reflecting completed removals if a later step fails.
+Learner preview projects all mixed units in order without teacher-only keys or
+transcripts. The embedded composer uses a compact content selector when its actual
+available width is narrow; desktop retains the material/member navigation.
+
+No migration, API contract change or dependency is added. Docker/browser checks
+cover new section identity, concurrent editing/movement, complete material preview,
+bank copy/insertion, independent deletion and publication. The processing queue,
+import extraction/review/commit and acceptance gates remain subsequent work.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

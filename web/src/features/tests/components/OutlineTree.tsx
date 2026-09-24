@@ -27,6 +27,7 @@ import {
   GripVertical,
   Headphones,
   Library,
+  Layers,
   Pencil,
   Plus,
   ScrollText,
@@ -47,14 +48,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { SideColumn } from "@/components/shared/SideColumn";
 import { cn } from "@/lib/utils";
+import { moveSection, type OutlineSection } from "@/features/tests/outline";
 import {
-  findQuestion,
-  moveQuestion,
-  removeQuestion,
-  moveSection,
-  stepQuestion,
-  type OutlineSection,
-} from "@/features/tests/outline";
+  findUnit,
+  moveUnit,
+  removeUnit,
+  stepUnit,
+  unitKey,
+  unitsOf,
+} from "../outlineUnits";
+import type { GroupBundle } from "@/features/question-groups/api";
+import { OutlineGroupRow } from "./OutlineGroupRow";
 import type { TFunction } from "i18next";
 
 export interface OutlineQuestion {
@@ -76,6 +80,12 @@ interface OutlineTreeProps {
   onCreateQuestion: () => void;
   onPickFromBank: () => void;
   onAddSection: () => void;
+  groups?: Map<string, GroupBundle>;
+  selectedGroupId?: string | null;
+  onSelectGroup?: (id: string, questionId?: string) => void;
+  onCreateGroup?: () => void;
+  onRemoveGroup?: (id: string) => void;
+  onRemoveSection?: (index: number) => void;
 }
 
 /**
@@ -95,6 +105,12 @@ export function OutlineTree({
   onCreateQuestion,
   onPickFromBank,
   onAddSection,
+  groups = new Map(),
+  selectedGroupId,
+  onSelectGroup,
+  onCreateGroup,
+  onRemoveGroup,
+  onRemoveSection,
 }: Readonly<OutlineTreeProps>) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -108,7 +124,7 @@ export function OutlineTree({
     ]);
   }
   const keyFor = (section: OutlineSection, index: number): string =>
-    section.id ?? clientKeys[index] ?? `new-${index}`;
+    section.clientId ?? section.id ?? clientKeys[index] ?? `new-${index}`;
   const [renaming, setRenaming] = useState<number | null>(null);
   const [instructing, setInstructing] = useState<number | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
@@ -122,27 +138,26 @@ export function OutlineTree({
     const overId = event.over ? String(event.over.id) : null;
     if (overId === null || overId === activeId) return;
 
-    const from = findQuestion(sections, activeId);
+    const from = findUnit(sections, activeId);
     const emptySection = event.over?.data.current?.["sectionIndex"];
     const to =
       typeof emptySection === "number"
         ? { sectionIndex: emptySection, index: 0 }
-        : findQuestion(sections, overId);
+        : findUnit(sections, overId);
     if (!from || !to) return;
-    onChange(moveQuestion(sections, from, to));
+    onChange(moveUnit(sections, from, to));
   }
 
   function drop(questionId: string) {
-    const at = findQuestion(sections, questionId);
-    if (at !== null) onChange(removeQuestion(sections, at));
+    onChange(removeUnit(sections, questionId));
   }
 
   function step(questionId: string, direction: -1 | 1) {
-    const from = findQuestion(sections, questionId);
+    const from = findUnit(sections, questionId);
     if (!from) return;
-    const to = stepQuestion(sections, from, direction);
+    const to = stepUnit(sections, from, direction);
     if (!to) return;
-    onChange(moveQuestion(sections, from, to));
+    onChange(moveUnit(sections, from, to));
   }
 
   function rename(index: number, title: string | null) {
@@ -164,7 +179,8 @@ export function OutlineTree({
   function remove(index: number) {
     setRemoving(null);
     setClientKeys(clientKeys.filter((_, i) => i !== index));
-    onChange(sections.filter((_, i) => i !== index));
+    if (onRemoveSection) onRemoveSection(index);
+    else onChange(sections.filter((_, i) => i !== index));
   }
 
   function move(index: number, direction: -1 | 1) {
@@ -172,9 +188,13 @@ export function OutlineTree({
     onChange(moveSection(sections, index, index + direction));
   }
 
-  const numbering = numberQuestions(sections);
+  const numbering = numberQuestions(sections, groups);
 
-  const settled = [...numbering.keys()].every((id) => questions.has(id));
+  const settled = sections.every((section) =>
+    unitsOf(section).every((unit) =>
+      unit.kind === "question" ? questions.has(unit.id) : groups.has(unit.id),
+    ),
+  );
 
   const editing = instructing === null ? null : (sections[instructing] ?? null);
   const doomed = removing === null ? null : (sections[removing] ?? null);
@@ -194,7 +214,7 @@ export function OutlineTree({
           {settled
             ? t("builder.outlineSummary", {
                 questions: numbering.size,
-                points: totalPoints(sections, questions),
+                points: totalPoints(sections, questions, groups),
               })
             : t("builder.outlineQuestionsOnly", { questions: numbering.size })}
         </p>
@@ -216,10 +236,10 @@ export function OutlineTree({
                   summary={
                     settled
                       ? t("builder.sectionSummary", {
-                          questions: section.questionIds.length,
-                          points: sectionPoints(section, questions),
+                          questions: sectionQuestionIds(section, groups).length,
+                          points: sectionPoints(section, questions, groups),
                         })
-                      : String(section.questionIds.length)
+                      : String(sectionQuestionIds(section, groups).length)
                   }
                   open={open}
                   renaming={renaming === sectionIndex}
@@ -230,32 +250,48 @@ export function OutlineTree({
                   onRenamed={(next) => rename(sectionIndex, next)}
                   onInstructions={() => setInstructing(sectionIndex)}
                   onMove={(direction) => move(sectionIndex, direction)}
-                  onRemove={() =>
-                    section.questionIds.length === 0
-                      ? remove(sectionIndex)
-                      : setRemoving(sectionIndex)
-                  }
+                  onRemove={() => {
+                    if (onRemoveSection) onRemoveSection(sectionIndex);
+                    else if (unitsOf(section).length === 0) remove(sectionIndex);
+                    else setRemoving(sectionIndex);
+                  }}
                 />
 
                 {open ? (
                   <SortableContext
-                    items={section.questionIds}
+                    items={unitsOf(section).map(unitKey)}
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="space-y-0.5 pl-1">
-                      {section.questionIds.map((questionId) => (
-                        <OutlineRow
-                          key={questionId}
-                          number={numbering.get(questionId) ?? 0}
-                          question={questions.get(questionId)}
-                          questionId={questionId}
-                          selected={questionId === selectedId}
-                          onSelect={() => onSelect(questionId)}
-                          onStep={(direction) => step(questionId, direction)}
-                          onDrop={() => drop(questionId)}
-                        />
-                      ))}
-                      {section.questionIds.length === 0 ? (
+                      {unitsOf(section).map((unit) =>
+                        unit.kind === "group" ? (
+                          <OutlineGroupRow
+                            key={unitKey(unit)}
+                            id={unit.id}
+                            group={groups.get(unit.id)}
+                            numbering={numbering}
+                            selected={selectedGroupId === unit.id}
+                            selectedQuestionId={selectedId}
+                            onSelect={(questionId) =>
+                              onSelectGroup?.(unit.id, questionId)
+                            }
+                            onStep={(direction) => step(unitKey(unit), direction)}
+                            onRemove={() => onRemoveGroup?.(unit.id)}
+                          />
+                        ) : (
+                          <OutlineRow
+                            key={unitKey(unit)}
+                            number={numbering.get(unit.id) ?? 0}
+                            question={questions.get(unit.id)}
+                            questionId={unit.id}
+                            selected={!selectedGroupId && unit.id === selectedId}
+                            onSelect={() => onSelect(unit.id)}
+                            onStep={(direction) => step(unitKey(unit), direction)}
+                            onDrop={() => drop(unitKey(unit))}
+                          />
+                        ),
+                      )}
+                      {unitsOf(section).length === 0 ? (
                         <EmptySectionDrop
                           id={`section-${key}`}
                           sectionIndex={sectionIndex}
@@ -279,8 +315,20 @@ export function OutlineTree({
           onClick={onCreateQuestion}
         >
           <Plus aria-hidden="true" />
-          {t("builder.addQuestion")}
+          {t(selectedGroupId ? "builder.addStandaloneQuestion" : "builder.addQuestion")}
         </Button>
+        {onCreateGroup ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start"
+            disabled={creating || sections.length === 0}
+            onClick={onCreateGroup}
+          >
+            <Layers aria-hidden="true" />
+            {t("builder.addSharedGroup")}
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           size="sm"
@@ -317,7 +365,7 @@ export function OutlineTree({
         onOpenChange={(open) => !open && setRemoving(null)}
         title={t("builder.removeSectionTitle", { title: doomed?.title ?? "" })}
         description={t("builder.removeSectionBody", {
-          count: doomed?.questionIds.length ?? 0,
+          count: doomed ? sectionQuestionIds(doomed, groups).length : 0,
         })}
         confirmLabel={t("builder.removeSection")}
         destructive
@@ -564,7 +612,7 @@ function OutlineRow({
 }>) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: questionId });
+    useSortable({ id: `question:${questionId}` });
 
   const loading = question === undefined;
   const label = question?.prompt.trim() ?? "";
@@ -658,11 +706,14 @@ function OutlineRow({
 }
 
 /** Numbering runs across sections, which is how a student counts them. */
-function numberQuestions(sections: OutlineSection[]): Map<string, number> {
+function numberQuestions(
+  sections: OutlineSection[],
+  groups: Map<string, GroupBundle>,
+): Map<string, number> {
   const numbers = new Map<string, number>();
   let n = 0;
   for (const section of sections) {
-    for (const id of section.questionIds) {
+    for (const id of sectionQuestionIds(section, groups)) {
       n += 1;
       numbers.set(id, n);
     }
@@ -673,9 +724,19 @@ function numberQuestions(sections: OutlineSection[]): Map<string, number> {
 function sectionPoints(
   section: OutlineSection,
   questions: Map<string, OutlineQuestion>,
+  groups: Map<string, GroupBundle>,
 ): number {
-  return section.questionIds.reduce(
-    (sum, id) => sum + (questions.get(id)?.points ?? 0),
+  return unitsOf(section).reduce(
+    (sum, unit) =>
+      sum +
+      (unit.kind === "question"
+        ? (questions.get(unit.id)?.points ?? 0)
+        : (groups
+            .get(unit.id)
+            ?.questions.reduce(
+              (points, question) => points + question.input.points,
+              0,
+            ) ?? 0)),
     0,
   );
 }
@@ -683,8 +744,12 @@ function sectionPoints(
 function totalPoints(
   sections: OutlineSection[],
   questions: Map<string, OutlineQuestion>,
+  groups: Map<string, GroupBundle>,
 ): number {
-  return sections.reduce((sum, section) => sum + sectionPoints(section, questions), 0);
+  return sections.reduce(
+    (sum, section) => sum + sectionPoints(section, questions, groups),
+    0,
+  );
 }
 
 function clientKey(): string {
@@ -699,4 +764,15 @@ function toggle(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
 
 function titleOf(label: string, t: TFunction): string {
   return label === "" ? t("builder.untitledQuestion") : label;
+}
+
+function sectionQuestionIds(
+  section: OutlineSection,
+  groups: Map<string, GroupBundle>,
+): string[] {
+  return unitsOf(section).flatMap((unit) =>
+    unit.kind === "question"
+      ? [unit.id]
+      : (groups.get(unit.id)?.group.members.map((member) => member.questionId) ?? []),
+  );
 }

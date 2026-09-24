@@ -63,7 +63,9 @@
     "archived": "Archived",
     "restore": "Restore",
     "updatedAt": "Updated",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "view": "View",
+    "delete": "Delete"
   },
   "error": {
     "title": "Something went wrong",
@@ -700,7 +702,21 @@
     "blankMismatch": "The blanks do not match the prompt.",
     "audioRequired": "The listening question has no audio file.",
     "saveBeforeSwitchFailed": "The question could not be saved. Retry saving before switching questions.",
-    "sectionDropHint": "Drop a question here or add a new question."
+    "sectionDropHint": "Drop a question here or add a new question.",
+    "addSharedGroup": "Add shared-context group",
+    "reorderGroup": "Drag group {{title}}",
+    "moveGroupUp": "Move group {{title}} up",
+    "moveGroupDown": "Move group {{title}} down",
+    "removeGroup": "Delete group {{title}}",
+    "emptySharedGroup": "No questions yet. Select this group to add materials and questions.",
+    "saveGroupToBank": "Save a copy to the bank",
+    "groupSavedToBank": "Independent copy saved to the bank.",
+    "chooseWholeGroup": "Choose a complete question group",
+    "groupCopyHint": "Copy all questions, passages, images, recordings and gap links. Changes in this test do not affect the source group.",
+    "destinationSection": "Insert into section",
+    "removeGroupTitle": "Delete content from this draft?",
+    "removeGroupBody": "The draft groups and their materials will be deleted together. Published versions and independent bank copies are preserved.",
+    "addStandaloneQuestion": "Add standalone question"
   },
   "bank": {
     "filters": "Filters",
