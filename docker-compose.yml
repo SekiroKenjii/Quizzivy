@@ -33,11 +33,12 @@ services:
   # only the endpoint differs. This is what keeps Phases 0-2 unblocked while
   # the real R2 credentials are outstanding (T-0.3).
   #
-  # From quay.io and pinned: Docker Hub's minio/minio and minio/mc are gone, and
-  # MinIO stopped moving `latest` in September 2025. minio-init and
-  # scripts/verify-r2.sh use the mc tag below; change them together.
+  # Official binary registries are unavailable. Build the same release sources
+  # at pinned commits; see docker/minio/README.md.
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: quizzivy-minio:development
+    pull_policy: never
+    build: ./docker/minio
     container_name: quizzivy-minio
     command: server /data --console-address ":9001"
     environment:
@@ -49,14 +50,16 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/minio/health/ready"]
       interval: 3s
       timeout: 3s
       retries: 20
 
   # Creates the bucket and asserts it is private. Runs once and exits.
   minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: quizzivy-minio:development
+    pull_policy: never
+    build: ./docker/minio
     container_name: quizzivy-minio-init
     depends_on:
       minio:

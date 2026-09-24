@@ -47,7 +47,7 @@ verify-r2: ## T-0.3 -- check the R2 bucket, credentials and privacy
 	@./scripts/verify-r2.sh
 
 up: ## Start postgres:18 + MinIO
-	docker compose up -d --wait db minio
+	docker compose up -d --build --wait db minio
 	docker compose up minio-init
 
 down: ## Stop the stack (keeps volumes)
