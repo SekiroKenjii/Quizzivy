@@ -1203,6 +1203,12 @@
     "submittedShort": "Submitted"
   },
   "takeTest": {
+    "hideMaterial": "Collapse material",
+    "showMaterial": "Expand material",
+    "sharedAudioLabel": "Recording {{n}}",
+    "sharedAudioUnlimited": "Unlimited plays",
+    "sharedAudioScope": "These questions share this recording’s play allowance.",
+    "sharedAudioPending": "Listening activity is waiting to sync.",
     "answerOptions": "Answer options",
     "blankLabel": "Blank {{n}}",
     "yourAnswer": "Your answer",

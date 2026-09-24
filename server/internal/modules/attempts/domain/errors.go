@@ -26,6 +26,8 @@ var ErrRaceLost = errors.New("attempts: concurrent create won")
 
 var ErrGroupContextUnavailable = errors.New("attempts: group context reader unavailable")
 
+var ErrUnsupportedDeliveryVersion = errors.New("attempts: unsupported delivery version")
+
 var ErrPlayIDConflict = errors.New("attempts: play ID already belongs to another recording")
 
 var ErrAttemptInProgress = errors.New("attempts: attempt is still in progress")

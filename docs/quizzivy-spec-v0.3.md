@@ -1,7 +1,21 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.23 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.25 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.24**
+
+- W-09e renders shared learner materials beside the question on wide screens and
+  above it on phones with remembered collapse state. Stable recording players and
+  idempotent gesture recovery preserve shared counts across member navigation,
+  reload and takeover. Result/review context and authoring remain gated.
+
+**Changes since v0.23**
+
+- W-09d freezes the delivery algorithm on each published version. Historical
+  standalone papers keep `section_v1`; group-aware snapshots use `group_v1`.
+  Attempt reload, takeover and results select the frozen marker, never the
+  current test default. Unsupported formats fail closed.
 
 **Changes since v0.22**
 
@@ -540,7 +554,12 @@ Snapshot group membership and member order at publication. Persist the delivery
 algorithm version with the assigned snapshot/attempt so reload, takeover and
 restoration cannot choose a new deal; preserve stable answer IDs. Historical
 versions/attempts continue using their existing section-scoped algorithm and
-seeds. A choice member with semantic references to its option labels declares
+seeds. `test_versions.delivery_version` stores this marker: existing standalone
+versions default to `section_v1`; prerelease group snapshots are classified as
+`group_v1` without changing their content or identities. New publications
+explicitly write `group_v1`, whose standalone ordering matches `section_v1`.
+Rollback refuses to remove the marker while group-aware snapshots exist.
+A choice member with semantic references to its option labels declares
 `optionOrder: fixed`; assignment with option shuffling is rejected for that member.
 Other members use `shuffle`; this never changes the member order inside a group.
 
@@ -607,8 +626,13 @@ current default. The tests module owns the reader, invoked through an applicatio
 port after attempt authorization. Shared media is reachable only through protected
 relational bindings on a version the learner has an attempt on; assignment
 targeting alone grants no media access. A missing context reader fails explicitly
-instead of serving grouped questions without their materials. Shared playback,
-learner UI and result/review context remain prerequisites for enabling group writes.
+instead of serving grouped questions without their materials. Learner material
+uses the preview renderer: side-by-side with answers when space permits, above
+answers on phones with remembered collapse state. Shared audio controls remain
+available while material text is collapsed. Stable gap targets navigate to the
+question or blank input without losing pending answers. Group players stay mounted
+across child navigation. Result/review context remains a prerequisite for enabling
+group writes.
 
 
 ---
@@ -802,8 +826,16 @@ append-only receipt and server `audio_play` event commit together. Counts surviv
 reload/takeover and are returned as `groupAudioPlays`, keyed by recording ID.
 Teacher monitor and timeline excess-play totals include this ledger. New attempts
 start with their own allowance. Network acknowledgements and `maxPlays` never gate
-the actual browser play call. Shared player/retry-queue and result/review context
-integration remain required before group authoring is enabled.
+the actual browser play call. The browser persists unconfirmed gesture IDs per
+learner/attempt until the attempt deadline, clears them on logout and serializes
+bounded retries. Confirmed extensions update the recovery deadline. A pending
+sync label is distinct from answer save state. A response lost after commit does
+not consume a second allowance on retry; late responses cannot mutate another
+session. Counts remain monotonic during refetch. Submission attempts a bounded
+three-second telemetry flush but remains available during network accounting
+failure. Closed/expired attempts reject late telemetry; offline closure cannot
+guarantee complete listening evidence. Result/review context still needs to ship
+before group authoring is enabled.
 
 ---
 

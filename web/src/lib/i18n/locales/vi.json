@@ -1203,6 +1203,12 @@
     "submittedShort": "Đã nộp"
   },
   "takeTest": {
+    "hideMaterial": "Thu gọn ngữ liệu",
+    "showMaterial": "Mở ngữ liệu",
+    "sharedAudioLabel": "Bài nghe {{n}}",
+    "sharedAudioUnlimited": "Không giới hạn lượt nghe",
+    "sharedAudioScope": "Lượt nghe dùng chung cho các câu trong nhóm này.",
+    "sharedAudioPending": "Lượt nghe đang chờ đồng bộ.",
     "answerOptions": "Các phương án",
     "blankLabel": "Chỗ trống {{n}}",
     "yourAnswer": "Bài làm của bạn",

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	testsdomain "quizzivy/internal/modules/tests/domain"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type Repository interface {
 	ByID(ctx context.Context, attemptID, studentID string) (AttemptRecord, error)
 	Rebeacon(ctx context.Context, attemptID string, hash []byte) error
 	Sections(ctx context.Context, testVersionID string) ([]Section, error)
+	DeliveryVersion(ctx context.Context, testVersionID string) (testsdomain.DeliveryVersion, error)
 	Questions(ctx context.Context, testVersionID string) ([]Question, error)
 	Answers(ctx context.Context, attemptID string) (map[string][]byte, error)
 	AudioPlays(ctx context.Context, attemptID string) (map[string]int, error)

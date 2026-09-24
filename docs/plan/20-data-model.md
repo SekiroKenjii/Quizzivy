@@ -1283,6 +1283,7 @@ the file it adds.
 | `00038_index_version_question_sections.sql` | Concurrent section identity index for frozen questions | Word W-08 |
 | `00039_create_version_group_graph.sql` | Independent immutable group/unit/material/recording snapshots | Word W-08 |
 | `00040_create_group_audio_plays.sql` | Shared recording counters and append-only gesture receipts | Word W-09 |
+| `00041_version_test_delivery.sql` | Immutable delivery algorithm marker | Word W-09d |
 
 Notes on migration mechanics (§13.7):
 
@@ -1637,3 +1638,20 @@ any of its three writes fails. Counters may exceed the frozen policy; monitoring
 reports that excess and never changes grading. No historical ledger is backfilled.
 Down restores the prior schema only while the new ledger is empty; populated
 listening evidence must survive disabling the feature.
+
+## 22. Frozen delivery algorithm (W-09d)
+
+`00041_version_test_delivery.sql` adds `test_versions.delivery_version`: non-null
+text defaulting to `section_v1`, checked against `section_v1` and `group_v1`.
+An enum would make future algorithm expansion/rollback harder; no index is needed
+because readers resolve by the existing version primary key. Legacy snapshots
+keep their marker, IDs and seeds. Prerelease snapshots with frozen group rows are
+classified by an indexed section/group existence join. This is metadata only;
+no questions, content, options, attempts or answers are rewritten.
+
+The publisher explicitly writes `group_v1` for new versions. Its standalone
+ordering is identical to the historical section algorithm. Attempt and result
+readers use `attempts.test_version_id`, never the test's selected default. The
+marker remains immutable through the same API boundary as all snapshot fields.
+Down refuses while any group-aware snapshot exists; otherwise it drops only the
+new column. Tests exercise both reversible empty schema and refusal with data.

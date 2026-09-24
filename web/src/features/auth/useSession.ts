@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { clearGroupPlayDrafts } from "@/features/take-test/groupPlaybackDraft";
 import { clearAnswerDrafts } from "@/features/take-test/draft";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
@@ -44,6 +45,7 @@ export function useLogout() {
     await navigate("/login", { replace: true });
     clearSession();
     clearAnswerDrafts();
+    clearGroupPlayDrafts();
     queryClient.clear();
   };
 }

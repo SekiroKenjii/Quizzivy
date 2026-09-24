@@ -32,6 +32,8 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, "Bài chưa được nộp.")), nil
 	case errors.Is(err, domain.ErrAttemptVoided):
 		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+	case errors.Is(err, domain.ErrUnsupportedDeliveryVersion):
+		return nil, httpx.ErrNotImplemented
 	case err != nil:
 		return nil, err
 	}

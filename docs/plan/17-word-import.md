@@ -430,6 +430,55 @@ append-only privileges and refusal to drop a populated ledger. The shared browse
 player/retry queue, result/review context and explicit delivery-version marker
 remain pending; group authoring is not enabled by this server slice.
 
+### 1.19 Implementation checkpoint — frozen delivery algorithm (W-09d)
+
+Migration `00041_version_test_delivery.sql` adds a constrained marker on the
+immutable version root. Historical standalone rows retain `section_v1`; only
+existing prerelease grouped snapshots are classified `group_v1`. New publisher
+writes explicitly use `group_v1`. The old per-section question/options order
+is preserved for every standalone paper. Attempts and result readers use the
+attempt's frozen version ID, independently of the current test default.
+Unsupported markers and grouped metadata under the legacy algorithm fail closed.
+
+Docker tests cover empty up/down/up, metadata classification, refusal to discard
+a used group marker, new publication, reload/takeover/result order, and 100 seeds
+with all shuffle-switch combinations. No API shape or learner rollout changes.
+Shared player/retry queue and result/review context remain in progress.
+
+### 1.20 Implementation checkpoint — learner shared reader (W-09e)
+
+The attempt engine reuses the learner-safe material renderer from preview.
+Wide content areas show material and answer columns; phones offer remembered
+collapse state while keeping audio controls available. One recording player
+survives navigation between children. Gap buttons target the displayed question
+or its stable rich-blank input; navigation preserves pending answers. Group
+rendering is memoized so typing an answer does not revalidate the whole passage.
+
+Each play gesture has a UUID persisted separately with learner/attempt identity
+and the attempt deadline. The single-flight retry queue keeps that UUID after
+network loss, reload or takeover. Optimistic counts use a minimum acknowledged
+position, rather than adding pending entries to a server total that may already
+include them. Independent recording IDs retain independent counts for the same
+asset. Stale responses cannot affect a new session; confirmed counts do not
+regress on a stale refetch. Logout clears local telemetry. Server-confirmed
+extensions update recovery's deadline. Invalid/expired entries are discarded.
+
+Playback remains synchronous with the click, including over-limit playback.
+Network accounting does not gate playback. Submission gives pending telemetry a
+bounded three-second flush and proceeds with answer submission if unavailable;
+closed/expired sessions cannot add late listening evidence. The queue is bounded
+recovery, not a promise to reconstruct all playback after an offline close.
+A pending-sync label and retry action remain separate from answer save status.
+
+Validation includes serialized gestures, ambiguous-response replay, session
+change, account isolation, expiry, stale totals, same-file independent scopes,
+non-blocking submission, synchronous playback, player recovery and stable blank
+focus. Production-build Chromium checks exercise 320px and desktop layouts,
+keyboard gap navigation, unchanged audio elements and reload after a committed
+play whose response was lost. Screenshot review confirms local table wrapping
+and side-by-side desktop layout. Native Safari/mobile QA and full result/review
+context remain required before group authoring is enabled.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

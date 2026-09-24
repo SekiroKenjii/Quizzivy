@@ -39,7 +39,7 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 	case errors.Is(err, domain.ErrLimitReached):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
 			openapi.ATTEMPTLIMITREACHED, "Bạn đã dùng hết số lượt làm bài.")), nil
-	case errors.Is(err, domain.ErrGroupContextUnavailable):
+	case (errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion)):
 		return nil, httpx.ErrNotImplemented
 	case err != nil:
 		return nil, err
@@ -71,7 +71,7 @@ func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequ
 				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem bài làm này.")),
 		}, nil
 	}
-	if errors.Is(err, domain.ErrGroupContextUnavailable) {
+	if errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion) {
 		return nil, httpx.ErrNotImplemented
 	}
 	if err != nil {
