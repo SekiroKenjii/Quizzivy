@@ -1449,6 +1449,120 @@ components:
       type: string
       enum: [draft, published, archived]
 
+    QuestionGroup:
+      type: object
+      description: |
+        Independent shared-context draft graph; not yet accepted by test writes.
+        Array order defines member/material order. Empty draft groups are allowed;
+        publication requires a member. Members belong to one group in one section.
+        Copy with context creates fresh group, member, material, gap and recording
+        identities. Immutable asset bytes may be reused through protected bindings.
+        Validate graph references and aggregate limits in addition to JSON Schema.
+        The byte budget includes resolved question content/keys; a transport must
+        also bound original input before decoding. This is an admin authoring
+        shape, never a learner payload or an asset access grant.
+      additionalProperties: false
+      required: [id, title, members, stimuli, recordings]
+      x-group-limits:
+        bytes: 4194304
+        members: 200
+        stimuli: 16
+        recordings: 16
+        title: 200
+        transcript: 100000
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        instructions:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        members:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GroupMember' }
+        stimuli:
+          type: array
+          maxItems: 16
+          items: { $ref: '#/components/schemas/GroupStimulus' }
+        recordings:
+          type: array
+          maxItems: 16
+          items: { $ref: '#/components/schemas/GroupRecording' }
+
+    GroupMember:
+      type: object
+      additionalProperties: false
+      required: [questionId, optionOrder]
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        optionOrder:
+          type: string
+          enum: [shuffle, fixed]
+          description: Fixed is for choice members whose text depends on authored option labels and forbids option shuffling; other members use shuffle. Neither changes member order.
+
+    GroupStimulus:
+      type: object
+      additionalProperties: false
+      required: [id, title, content, gaps]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content:
+          $ref: '#/components/schemas/ContentDocument'
+          x-go-type: json.RawMessage
+        gaps:
+          type: array
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/GroupGapBinding' }
+          description: Exactly one binding per material gap; targets must be distinct within the group and refer to its members.
+
+    GroupGapBinding:
+      oneOf:
+        - $ref: '#/components/schemas/GroupQuestionGap'
+        - $ref: '#/components/schemas/GroupBlankGap'
+      discriminator:
+        propertyName: kind
+        mapping:
+          question: '#/components/schemas/GroupQuestionGap'
+          blank: '#/components/schemas/GroupBlankGap'
+
+    GroupQuestionGap:
+      type: object
+      additionalProperties: false
+      required: [kind, gapId, questionId]
+      properties:
+        kind: { type: string, enum: [question] }
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+      description: A material gap targets a choice member; display labels never determine identity.
+
+    GroupBlankGap:
+      type: object
+      additionalProperties: false
+      required: [kind, gapId, questionId, blankGapId]
+      properties:
+        kind: { type: string, enum: [blank] }
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        blankGapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+      description: A material gap targets the stable prompt gap of a rich fill-blank member, never a mutable answer-row ID.
+
+    GroupRecording:
+      type: object
+      description: |
+        Admin-only authoring shape. One explicit playback binding per audio asset
+        used in the group's materials. All member questions share its allowance;
+        another group using the same asset has a different binding. Transcripts
+        require a separate policy-gated review projection, never a learner cast.
+      additionalProperties: false
+      required: [id, assetId, policy]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        assetId: { $ref: '#/components/schemas/Uuid' }
+        policy: { $ref: '#/components/schemas/AudioPolicy' }
+        transcript: { type: [string, 'null'], maxLength: 100000 }
+
     TestSection:
       type: object
       required: [id, ordinal, title, questionIds]

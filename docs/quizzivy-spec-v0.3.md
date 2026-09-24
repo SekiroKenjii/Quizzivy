@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.14 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.15 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.14**
+
+- W-07a defines the bounded, independent group graph: ordered members, rich
+  materials, explicit choice/blank gap targets and shared recording identities.
+  Validation and detached copying precede persistence and delivery; group writes
+  remain unavailable until snapshots, protected references and readers are ready.
 
 **Changes since v0.13**
 
@@ -486,8 +493,32 @@ Snapshot group membership and member order at publication. Persist the delivery
 algorithm version with the assigned snapshot/attempt so reload, takeover and
 restoration cannot choose a new deal; preserve stable answer IDs. Historical
 versions/attempts continue using their existing section-scoped algorithm and
-seeds. Option-label references must be validated against option shuffling before
-assignment; their exact reference representation remains part of the group API.
+seeds. A choice member with semantic references to its option labels declares
+`optionOrder: fixed`; assignment with option shuffling is rejected for that member.
+Other members use `shuffle`; this never changes the member order inside a group.
+
+### 7.3 Word milestone group graph (contract foundation, not yet enabled)
+
+`QuestionGroup` owns ordered members and materials, optional rich instructions,
+and explicit recording bindings. A material's gap targets either a choice member
+or the stable `blankGapId` of a rich fill-blank member. Printed labels and mutable
+answer-row IDs cannot bind responses. Each material gap has exactly one target;
+a response appears only once across that group's material gaps. Gap names are
+local to their material or question. Empty groups are valid drafts but cannot
+publish; existing sections are not reinterpreted as groups.
+
+The complete resolved context is bounded to 200 members, 16 materials, 16 shared
+recordings and 4 MiB, with per-document content limits still enforced. Materials
+may repeat an audio asset but resolve it to one recording binding in the group;
+the same asset cannot also grant a per-question allowance inside that group.
+Distinct member recordings can keep their existing per-question policy. Asset
+kind, existence, authorization and deletion locks remain required at persistence.
+
+Copying remaps group, question, material, answer, gap and recording identities,
+preserving all grading data, labels, order and content. Immutable media IDs are
+reused through new protected bindings. This contract adds no group endpoint or
+learner payload. Relational ownership, deletion races, snapshots and delivery
+must be integrated before enabling group authoring.
 
 ---
 

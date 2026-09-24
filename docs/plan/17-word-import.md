@@ -216,6 +216,27 @@ This is a bounded clipboard subset, not a claim of arbitrary Word conversion.
 Group/media authoring, revision-safe persistence, local recovery and native IME/
 teacher acceptance remain subsequent gates.
 
+### 1.9 Implementation checkpoint — group graph contract (W-07a)
+
+The additive `QuestionGroup` contract now distinguishes actual shared context
+from existing sections. Tests-domain validation resolves the complete member
+catalog, validates interactions, binds material gaps to choice questions or
+stable rich-blank identities, and checks recording coverage and option-order
+constraints. Limits cover the complete resolved context, not just one material.
+
+Detached copy remaps every editable identity and both ends of each gap binding,
+retains immutable media references and exact grading/text values, and rejects
+reused or invalid generated identities without mutating the source. Tests cover
+independent copies, repeated local gap names, changed catalog order, repeated
+audio nodes, separate member audio and mixed-scope rejection. The contract is
+structurally checked against generated types and shared content schemas.
+
+This is a domain foundation, not enabled group authoring. W-07 still requires
+relational ownership/bindings, lifecycle locks, context-aware bank operations
+and the builder. W-08/09 must supply immutable graph snapshots and versioned
+delivery before group writes become available. No learner payload or existing
+test/section semantics changes in this checkpoint.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -312,7 +333,7 @@ Vietnamese input, license and bundle budgets in the editor spike.
 
 ### 4.3 Section, group, stimulus and bank reuse
 
-Proposed semantics for contract review:
+Approved semantics with W-07a graph validation/copy foundations:
 
 - A **section** organizes the exam; old sections remain sections.
 - A **group** has ordered members, shared instructions and one or more stimulus

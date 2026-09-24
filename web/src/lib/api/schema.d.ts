@@ -2311,6 +2311,74 @@ export interface components {
         };
         /** @enum {string} */
         TestStatus: "draft" | "published" | "archived";
+        /**
+         * @description Independent shared-context draft graph; not yet accepted by test writes.
+         *     Array order defines member/material order. Empty draft groups are allowed;
+         *     publication requires a member. Members belong to one group in one section.
+         *     Copy with context creates fresh group, member, material, gap and recording
+         *     identities. Immutable asset bytes may be reused through protected bindings.
+         *     Validate graph references and aggregate limits in addition to JSON Schema.
+         *     The byte budget includes resolved question content/keys; a transport must
+         *     also bound original input before decoding. This is an admin authoring
+         *     shape, never a learner payload or an asset access grant.
+         */
+        QuestionGroup: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            instructions?: components["schemas"]["QuestionContent"] | null;
+            members: components["schemas"]["GroupMember"][];
+            stimuli: components["schemas"]["GroupStimulus"][];
+            recordings: components["schemas"]["GroupRecording"][];
+        };
+        GroupMember: {
+            questionId: components["schemas"]["Uuid"];
+            /**
+             * @description Fixed is for choice members whose text depends on authored option labels and forbids option shuffling; other members use shuffle. Neither changes member order.
+             * @enum {string}
+             */
+            optionOrder: "shuffle" | "fixed";
+        };
+        GroupStimulus: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            content: components["schemas"]["ContentDocument"];
+            /** @description Exactly one binding per material gap; targets must be distinct within the group and refer to its members. */
+            gaps: components["schemas"]["GroupGapBinding"][];
+        };
+        GroupGapBinding: components["schemas"]["GroupQuestionGap"] | components["schemas"]["GroupBlankGap"];
+        /** @description A material gap targets a choice member; display labels never determine identity. */
+        GroupQuestionGap: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "question";
+            gapId: string;
+            questionId: components["schemas"]["Uuid"];
+        };
+        /** @description A material gap targets the stable prompt gap of a rich fill-blank member, never a mutable answer-row ID. */
+        GroupBlankGap: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "blank";
+            gapId: string;
+            questionId: components["schemas"]["Uuid"];
+            blankGapId: string;
+        };
+        /**
+         * @description Admin-only authoring shape. One explicit playback binding per audio asset
+         *     used in the group's materials. All member questions share its allowance;
+         *     another group using the same asset has a different binding. Transcripts
+         *     require a separate policy-gated review projection, never a learner cast.
+         */
+        GroupRecording: {
+            id: components["schemas"]["Uuid"];
+            assetId: components["schemas"]["Uuid"];
+            policy: components["schemas"]["AudioPolicy"];
+            transcript?: string | null;
+        };
         TestSection: {
             id: components["schemas"]["Uuid"];
             ordinal: number;
