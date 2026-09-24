@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.12 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.13 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.12**
+
+- Rich fill-blank prompts bind stable gap identities to answer rows. Moving gaps
+  keeps answers attached; copies remap both ends; published versions preserve the
+  frozen graph. Legacy Markdown and answer payloads remain compatible.
 
 **Changes since v0.11**
 
@@ -436,12 +442,13 @@ editor acceptance. Grouped content and shared audio remain on their existing pat
 separate integration gates pass.
 
 **Question prose rollout (W-05b).** Optional `promptContent` and
-`explanationContent` use `QuestionContent`: semantic paragraphs, headings, lists
-and tables with text marks, breaks and safe links. Assets and gaps are rejected
-recursively until their binding lifecycle is implemented. `prompt`/`explanation`
+`explanationContent` support semantic paragraphs, headings, lists and tables with
+text marks, breaks and safe links. `QuestionContent` excludes assets and gaps;
+`QuestionPromptContent` additionally allows bound gaps for fill-blank questions. `prompt`/`explanation`
 are exact plain projections when their document exists; otherwise they retain
-legacy Markdown semantics. Rich prompts are refused for `fill_blank` while its
-existing `{{n}}` path remains active; rich explanations support all five types.
+legacy Markdown semantics. Rich fill-blank prompts require a bijection between gap node IDs and blank
+`gapId` values. Labels never bind answers. Legacy `{{n}}` prompts retain ordinal
+binding; rich explanations support all five types.
 Snapshots, restoration, bank duplication and all relevant readers preserve these
 fields. Active attempts and learner previews never contain explanations; results
 release both explanation fields only when `review.showExplanations` permits it.
@@ -815,8 +822,13 @@ formatting and is only a pre-rollout development operation.
 Migration `00033_add_question_content.sql` adds nullable `prompt_content jsonb`
 and `explanation_content jsonb` to `questions` and `test_version_questions`.
 These columns hold the bounded prose AST from §7.1; companion strings remain
-exact plain projections. Rich prompts exclude `fill_blank`. No legacy rows are
-rewritten, no grading keys move, and the same read-compatible rollback floor
+exact plain projections. Migration `00034_add_question_gap_bindings.sql` enables
+rich fill-blank prompts and adds nullable, question-scoped unique `gap_id` to
+`question_blanks` and `test_version_blanks`. Null identifies legacy Markdown.
+Bank copies and restored drafts remap gap identities and answer bindings together;
+snapshots freeze them. Answer submissions remain keyed by frozen blank UUID.
+Down refuses existing rich fill-blank rows instead of silently discarding bindings.
+No legacy rows are rewritten, no grading keys move, and the same read-compatible rollback floor
 applies after prose writes.
 
 ```sql

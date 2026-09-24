@@ -9,41 +9,40 @@ import {
   plainTextMarkdown,
 } from "@/components/shared/content/editor/markdown";
 import { contentPlainText } from "@/components/shared/content/plainText";
+import { isQuestionPromptContent } from "@/components/shared/content/questionContent";
 import {
-  isQuestionContent,
-  type QuestionPromptContent,
-  type QuestionContent,
-} from "@/components/shared/content/questionContent";
+  bindLegacyBlanks,
+  blankMarkdownProjection,
+  reconcileGapBlanks,
+  nextBlankOrdinal,
+} from "../blankContent";
+import type { QuestionValues } from "../questionSchema";
 
-/** RichProseEditor previews a bounded Markdown conversion before applying it to the existing save coordinator. */
-export function RichProseEditor({
-  text,
-  content,
-  id,
-  label,
+/** RichBlankEditor preserves answer bindings when formatting, moving, undoing or removing gap nodes. */
+export function RichBlankEditor({
+  value,
   onChange,
   onClose,
 }: Readonly<{
-  text: string;
-  content: QuestionPromptContent | null;
-  id: string;
-  label: string;
-  onChange: (text: string, content: QuestionContent | null) => void;
+  value: QuestionValues;
+  onChange: (value: QuestionValues) => void;
   onClose: () => void;
 }>) {
   const { t } = useTranslation();
   const [initial] = useState(() => {
-    if (content == null) return markdownToQuestionContent(text);
-    return isQuestionContent(content) ? content : null;
+    if (value.promptContent != null)
+      return { content: value.promptContent, blanks: value.blanks };
+    const document = markdownToQuestionContent(value.prompt);
+    return document ? bindLegacyBlanks(document, value.blanks) : null;
   });
-  const [previewing, setPreviewing] = useState(content == null);
+  const [previewing, setPreviewing] = useState(value.promptContent == null);
   const [removing, setRemoving] = useState(false);
   if (!initial)
     return (
       <div className="flex flex-col gap-3">
         <Alert>
           <AlertDescription>
-            {t("questionEditor.proseConversionBlocked")}
+            {t("questionEditor.blankConversionBlocked")}
           </AlertDescription>
         </Alert>
         <Button type="button" variant="outline" onClick={onClose}>
@@ -59,7 +58,7 @@ export function RichProseEditor({
             {t("questionEditor.proseConversionPreview")}
           </AlertDescription>
         </Alert>
-        <ContentView document={initial} className="rounded-md border p-4" />
+        <ContentView document={initial.content} className="rounded-md border p-4" />
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             {t("questionEditor.keepMarkdown")}
@@ -67,7 +66,12 @@ export function RichProseEditor({
           <Button
             type="button"
             onClick={() => {
-              onChange(contentPlainText(initial), initial);
+              onChange({
+                ...value,
+                prompt: contentPlainText(initial.content),
+                promptContent: initial.content,
+                blanks: initial.blanks,
+              });
               setPreviewing(false);
             }}
           >
@@ -78,14 +82,23 @@ export function RichProseEditor({
     );
   return (
     <div className="flex flex-col gap-3">
+      <p className="text-muted-foreground text-xs">
+        {t("questionEditor.richBlankHint")}
+      </p>
       <ContentEditor
-        initialContent={initial}
-        id={id}
-        label={label}
-        profile="question"
+        initialContent={initial.content}
+        id="question-prompt"
+        label={t("questionEditor.prompt")}
+        profile="prompt"
+        gapLabel={() => String(nextBlankOrdinal(value.blanks))}
         onChange={(document) => {
-          if (isQuestionContent(document))
-            onChange(contentPlainText(document), document);
+          if (isQuestionPromptContent(document))
+            onChange({
+              ...value,
+              prompt: contentPlainText(document),
+              promptContent: document,
+              blanks: reconcileGapBlanks(document, value.blanks),
+            });
         }}
       />
       {removing && (
@@ -103,7 +116,16 @@ export function RichProseEditor({
               <Button
                 type="button"
                 onClick={() => {
-                  onChange(plainTextMarkdown(text), null);
+                  const projected = blankMarkdownProjection(
+                    value.promptContent ?? initial.content,
+                    value.blanks,
+                  );
+                  onChange({
+                    ...value,
+                    prompt: plainTextMarkdown(contentPlainText(projected)),
+                    promptContent: null,
+                    blanks: value.blanks.map((blank) => ({ ...blank, gapId: null })),
+                  });
                   onClose();
                 }}
               >

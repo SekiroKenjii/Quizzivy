@@ -583,7 +583,9 @@
       "oneCorrect": "Single-choice and true/false require exactly one correct option.",
       "unexpectedOptions": "This question type has no choice options.",
       "unexpectedBlanks": "This question type has no blanks.",
-      "duplicateBlank": "Blank ordinals must be unique."
+      "duplicateBlank": "Blank ordinals must be unique.",
+      "blankOrdinal": "Blank numbers must be between 1 and 32767.",
+      "gapMismatch": "Each gap in the content must have exactly one matching answer group."
     },
     "preview": "What the student sees",
     "removeOptionN": "Remove option {{n}}",
@@ -607,8 +609,14 @@
     "returnToMarkdown": "Convert to Markdown",
     "formatProse": "Format: {{field}}",
     "editProse": "Edit: {{field}}",
-    "fillBlankMarkdown": "Fill-in-the-blank questions still use Markdown and numbered placeholders to keep answer positions correct.",
-    "fillBlankMarkdownSwitch": "To switch to fill-in-the-blank, edit the prompt and convert it to Markdown first."
+    "blankConversionBlocked": "Conversion requires each {{n}} marker to appear once with a matching answer. Check the blanks before converting.",
+    "richBlankHint": "Use Insert gap in the toolbar. Answers stay attached when moving a gap or undoing an edit.",
+    "richBlankSwitch": "Remove gaps from the content and resolve leftover answers before changing the question type.",
+    "richBlankAnswersHint": "Add or remove gaps in the content editor.",
+    "orphanedBlank": "This gap was removed from the content. Undo in the editor to restore it, or delete its answers before saving.",
+    "removeOrphanTitle": "Delete answers for the removed gap?",
+    "removeOrphanDescription": "The accepted answers for this gap will be removed from the draft.",
+    "removeOrphanConfirm": "Delete answers"
   },
   "builder": {
     "outline": "Structure",

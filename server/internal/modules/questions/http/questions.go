@@ -296,6 +296,7 @@ func toQuestionInput(body openapi.QuestionInput) domain.Input {
 	if body.Blanks != nil {
 		for _, b := range *body.Blanks {
 			blank := domain.BlankInput{
+				GapID:           b.GapId,
 				Ordinal:         b.Ordinal,
 				AcceptedAnswers: b.AcceptedAnswers,
 			}
@@ -358,7 +359,8 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
 		blanks[i] = openapi.AdminQuestionBlank{
-			Id: httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal,
+			GapId: b.GapID,
+			Id:    httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal,
 			AcceptedAnswers: b.AcceptedAnswers, CaseSensitive: b.CaseSensitive,
 		}
 	}

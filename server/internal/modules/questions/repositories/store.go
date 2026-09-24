@@ -134,18 +134,18 @@ func (s *Postgres) loadBlanksFor(ctx context.Context, q db.Querier, questionIDs 
 		return map[string][]domain.Blank{}, nil
 	}
 	byQuestion, err := db.GroupBy(ctx, q,
-		`SELECT b.question_id::text, b.id::text, b.ordinal, b.case_sensitive,
+		`SELECT b.question_id::text, b.id::text, b.ordinal, b.gap_id, b.case_sensitive,
 		        coalesce(array_agg(a.answer ORDER BY a.answer)
 		                 FILTER (WHERE a.answer IS NOT NULL), '{}')
 		   FROM app.question_blanks b
 		   LEFT JOIN app.question_blank_answers a ON a.blank_id = b.id
 		  WHERE b.question_id = ANY($1::uuid[])
-		  GROUP BY b.question_id, b.id, b.ordinal, b.case_sensitive
+		  GROUP BY b.question_id, b.id, b.ordinal, b.gap_id, b.case_sensitive
 		  ORDER BY b.question_id, b.ordinal`, []any{questionIDs},
 		func(rows pgx.Rows) (string, domain.Blank, error) {
 			var questionID string
 			var b domain.Blank
-			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.AcceptedAnswers)
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.GapID, &b.CaseSensitive, &b.AcceptedAnswers)
 			return questionID, b, err
 		})
 	if err != nil {
@@ -296,9 +296,9 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in domain.
 	for _, b := range in.Blanks {
 		var blankID string
 		if err := tx.QueryRow(ctx,
-			`INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive)
-			 VALUES ($1, $2, $3) RETURNING id::text`,
-			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
+			`INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive, gap_id)
+			 VALUES ($1, $2, $3, $4) RETURNING id::text`,
+			questionID, b.Ordinal, b.CaseSensitive, b.GapID).Scan(&blankID); err != nil {
 			return fmt.Errorf("questions: write blank: %w", err)
 		}
 		seen := map[string]bool{}

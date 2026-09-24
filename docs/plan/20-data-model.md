@@ -1276,6 +1276,7 @@ the file it adds.
 | `00031_allow_no_focus_loss.sql` | no-departure integrity policy | Admin change request |
 | `00032_add_option_content.sql` | bounded inline documents on normalized bank/snapshot options | Word W-05a |
 | `00033_add_question_content.sql` | bounded prompt/explanation documents on bank/snapshot questions | Word W-05b |
+| `00034_add_question_gap_bindings.sql` | stable gap bindings on bank/snapshot blanks | Word W-06b |
 
 Notes on migration mechanics (§13.7):
 
@@ -1411,3 +1412,21 @@ content inside the same review-policy CASE as explanation text.
 Down removes the four columns and loses formatting; use it only for disposable
 or pre-rollout data. After rich writes, retain this migration and capable readers
 when disabling new authoring. No historical snapshots are backfilled.
+
+
+## 18. Stable gap bindings (W-06b, spec v0.13)
+
+`00034_add_question_gap_bindings.sql` adds nullable `gap_id text` on
+`app.question_blanks` and `app.test_version_blanks`. Each CHECK uses the content
+identity alphabet (ASCII alphanumeric then alphanumeric/underscore/hyphen, 1–64).
+UNIQUE `(question_id, gap_id)` and `(test_version_question_id, gap_id)` protect
+non-null bindings while permitting existing null legacy rows. The leading parent
+key also supports per-question graph reads; no global gap lookup/index is needed.
+The parent prompt CHECK retains object/semantic format validation and permits
+fill-blank; exact AST/metadata bijections are checked by the shared domain validator.
+
+No new grants, roles, background job or historical backfill. The parent question
+lock still serializes updates; snapshot writes and graph copies are transactional.
+Copies allocate fresh gap IDs and remap AST and blank metadata together. Down
+restores the old parent restriction before dropping the columns, so rich fill-blank
+rows block rollback atomically. After these writes, keep readers and migration 34.

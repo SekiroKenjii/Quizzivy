@@ -185,6 +185,19 @@ rules. Historical published versions are not rewritten.
 This is the validation portion of W-06. Rich blank bindings, structured paste,
 asset authoring and group/revision integration remain separate work.
 
+### 1.7 Implementation checkpoint — stable blank bindings (W-06b)
+
+Rich fill-blank prompts now bind gaps to answer metadata independently of node
+order or labels, including table cells and nested lists. Migration 00034 preserves
+these bindings through bank writes, duplication, immutable publication, restored
+drafts, learner attempts, results and teacher review. Copies remap both ends of
+the relation. Answer submissions keep their frozen blank UUIDs and existing grading.
+
+The opt-in authoring flow previews legacy conversion, preserves orphaned answers
+for undo, requires explicit discard and blocks incomplete bindings before save.
+Legacy Markdown is unchanged. This advances W-06; structured paste, asset bindings,
+groups, revision recovery, import processing/review and teacher acceptance remain.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -576,7 +589,10 @@ alert/PITR verification work remains a prerequisite where this milestone relies
 on it; do not mark those dependencies done without operational proof.
 
 Expand-contract deployment: ship readers first, then new writes behind flags,
-then pilot, then general availability. Keep a release capable of reading all new
+then pilot, then general availability. W-21 must exercise stale cached browser
+bundles and enforce a reader capability/reload boundary before enabling interactive
+new-format writes; deployment of a new HTML entry alone is not that proof.
+Keep a release capable of reading all new
 content as the rollback floor; an old binary that cannot read `semantic_v1` is not
 a safe rollback after new-format publication. Disable new imports/provider calls
 without removing revisions or breaking existing attempts. Drain/fence workers on

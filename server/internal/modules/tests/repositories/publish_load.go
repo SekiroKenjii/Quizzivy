@@ -138,18 +138,18 @@ func loadBlanks(ctx context.Context, tx pgx.Tx, questionIDs []string) (map[strin
 		return map[string][]domain.DraftBlank{}, nil
 	}
 	byQuestion, err := db.GroupBy(ctx, tx,
-		`SELECT b.question_id::text, b.ordinal, b.case_sensitive,
+		`SELECT b.question_id::text, b.ordinal, b.gap_id, b.case_sensitive,
 		        coalesce(array_agg(a.answer ORDER BY a.answer)
 		                 FILTER (WHERE a.answer IS NOT NULL), '{}')
 		   FROM app.question_blanks b
 		   LEFT JOIN app.question_blank_answers a ON a.blank_id = b.id
 		  WHERE b.question_id = ANY($1::uuid[])
-		  GROUP BY b.question_id, b.id, b.ordinal, b.case_sensitive
+		  GROUP BY b.question_id, b.id, b.ordinal, b.gap_id, b.case_sensitive
 		  ORDER BY b.question_id, b.ordinal`, []any{questionIDs},
 		func(rows pgx.Rows) (string, domain.DraftBlank, error) {
 			var questionID string
 			var b domain.DraftBlank
-			err := rows.Scan(&questionID, &b.Ordinal, &b.CaseSensitive, &b.AcceptedAnswers)
+			err := rows.Scan(&questionID, &b.Ordinal, &b.GapID, &b.CaseSensitive, &b.AcceptedAnswers)
 			return questionID, b, err
 		})
 	if err != nil {

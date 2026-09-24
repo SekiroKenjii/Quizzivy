@@ -25,7 +25,7 @@ func TestQuestionProseValidationAppliesToDirectInputs(t *testing.T) {
 	in.Explanation = &text
 	in.Type = domain.FillBlank
 	if in.ValidateContent() == nil {
-		t.Fatal("enabled rich fill-blank before gap binding")
+		t.Fatal("accepted rich fill-blank without gap bindings")
 	}
 	in.PromptContent = json.RawMessage(`null`)
 	if err := in.ValidateContent(); err != nil {

@@ -2,8 +2,11 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/content"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -71,13 +74,52 @@ func copySnapshotQuestion(ctx context.Context, tx pgx.Tx, sourceID, actorID stri
 	if err := copySnapshotBlanks(ctx, tx, sourceID, id); err != nil {
 		return "", err
 	}
+	if err := rebindCopiedGaps(ctx, tx, id); err != nil {
+		return "", err
+	}
 	return id, nil
+}
+
+func rebindCopiedGaps(ctx context.Context, tx pgx.Tx, questionID string) error {
+	var raw json.RawMessage
+	if err := tx.QueryRow(ctx, `SELECT prompt_content FROM app.questions WHERE id = $1`, questionID).Scan(&raw); err != nil {
+		return err
+	}
+	if len(raw) == 0 {
+		return nil
+	}
+	document, err := content.ParseQuestionPrompt(raw)
+	if err != nil || len(document.GapIDs()) == 0 {
+		return err
+	}
+	oldIDs := document.GapIDs()
+	newIDs := make([]string, len(oldIDs))
+	ids := make(map[string]string, len(oldIDs))
+	for i, id := range oldIDs {
+		newIDs[i] = uuid.NewString()
+		ids[id] = newIDs[i]
+	}
+	copied, err := document.WithGapIDs(ids)
+	if err != nil {
+		return err
+	}
+	encoded, err := copied.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE app.question_blanks b SET gap_id = m.new_id
+      FROM unnest($2::text[], $3::text[]) AS m(old_id, new_id)
+      WHERE b.question_id = $1 AND b.gap_id = m.old_id`, questionID, oldIDs, newIDs); err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `UPDATE app.questions SET prompt_content = $2 WHERE id = $1`, questionID, encoded)
+	return err
 }
 
 func copySnapshotBlanks(ctx context.Context, tx pgx.Tx, sourceID, questionID string) error {
 	_, err := tx.Exec(ctx, `WITH copied AS (
-  INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive)
-  SELECT $2, ordinal, case_sensitive FROM app.test_version_blanks WHERE test_version_question_id = $1
+  INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive, gap_id)
+  SELECT $2, ordinal, case_sensitive, gap_id FROM app.test_version_blanks WHERE test_version_question_id = $1
   RETURNING id, ordinal
  )
  INSERT INTO app.question_blank_answers (blank_id, answer)

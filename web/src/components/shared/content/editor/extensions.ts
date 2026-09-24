@@ -1,5 +1,6 @@
 import { Extension, Node } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
+import { closeHistory } from "@tiptap/pm/history";
 import { Slice } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
@@ -7,7 +8,7 @@ import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 import { fromEditorJSON, toEditorJSON } from "./adapter";
 import { isOptionContent, plainOptionContent } from "../optionContent";
-import { isQuestionContent } from "../questionContent";
+import { isQuestionContent, isQuestionPromptContent } from "../questionContent";
 import { safeContentURL } from "../validation";
 
 const Gap = Node.create({
@@ -43,7 +44,7 @@ export type EditorNotice = "pasteBlocked" | "editBlocked";
 /** contentExtensions limits the editor to the W03 candidate content vocabulary. */
 export function contentExtensions(
   notify: (notice: EditorNotice) => void = () => undefined,
-  profile: "document" | "option" | "question" = "document",
+  profile: "document" | "option" | "question" | "prompt" = "document",
 ) {
   return [
     StarterKit.configure({
@@ -70,17 +71,15 @@ export function contentExtensions(
       name: "contentBoundary",
       addProseMirrorPlugins: () => [
         new Plugin({
+          appendTransaction(transactions, _previous, current) {
+            return transactions.some((transaction) => transaction.getMeta("blur"))
+              ? closeHistory(current.tr)
+              : null;
+          },
           filterTransaction(transaction) {
             if (!transaction.docChanged) return true;
             const parsed = fromEditorJSON(transaction.doc.toJSON());
-            if (
-              parsed.ok &&
-              (profile === "document" ||
-                (profile === "option"
-                  ? isOptionContent(parsed.value)
-                  : isQuestionContent(parsed.value)))
-            )
-              return true;
+            if (parsed.ok && validProfile(parsed.value, profile)) return true;
             queueMicrotask(() => notify("editBlocked"));
             return false;
           },
@@ -132,4 +131,14 @@ export function contentExtensions(
       ],
     }),
   ];
+}
+
+function validProfile(
+  value: unknown,
+  profile: "document" | "option" | "question" | "prompt",
+): boolean {
+  if (profile === "document") return true;
+  if (profile === "option") return isOptionContent(value);
+  if (profile === "prompt") return isQuestionPromptContent(value);
+  return isQuestionContent(value);
 }

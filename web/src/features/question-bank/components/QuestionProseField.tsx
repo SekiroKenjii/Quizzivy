@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
-import type { QuestionContent } from "@/components/shared/content/questionContent";
+import type {
+  QuestionPromptContent,
+  QuestionContent,
+} from "@/components/shared/content/questionContent";
 import { PromptField } from "./PromptField";
 
 const RichProseEditor = lazy(() =>
@@ -19,16 +22,14 @@ export function QuestionProseField({
   label,
   prompt = false,
   clearOnFocus = false,
-  canFormat = true,
   onChange,
 }: Readonly<{
   text: string;
-  content?: QuestionContent | null | undefined;
+  content?: QuestionPromptContent | null | undefined;
   id: string;
   label: string;
   prompt?: boolean;
   clearOnFocus?: boolean;
-  canFormat?: boolean;
   onChange: (text: string, content: QuestionContent | null) => void;
 }>) {
   const { t } = useTranslation();
@@ -78,8 +79,7 @@ export function QuestionProseField({
           className="rounded-md border p-4"
         />
       )}
-      {(content != null ||
-        (canFormat && import.meta.env.VITE_RICH_QUESTION_EDITOR === "true")) && (
+      {(content != null || import.meta.env.VITE_RICH_QUESTION_EDITOR === "true") && (
         <Button
           type="button"
           variant="outline"
@@ -92,11 +92,6 @@ export function QuestionProseField({
             { field: label },
           )}
         </Button>
-      )}
-      {!canFormat && import.meta.env.VITE_RICH_QUESTION_EDITOR === "true" && (
-        <p className="text-muted-foreground text-xs">
-          {t("questionEditor.fillBlankMarkdown")}
-        </p>
       )}
     </div>
   );

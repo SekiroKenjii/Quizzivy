@@ -583,7 +583,9 @@
       "oneCorrect": "Câu một đáp án hoặc đúng/sai phải có đúng một phương án đúng.",
       "unexpectedOptions": "Loại câu hỏi này không có phương án chọn.",
       "unexpectedBlanks": "Loại câu hỏi này không có chỗ trống.",
-      "duplicateBlank": "Số thứ tự chỗ trống bị trùng."
+      "duplicateBlank": "Số thứ tự chỗ trống bị trùng.",
+      "blankOrdinal": "Số thứ tự chỗ trống phải từ 1 đến 32767.",
+      "gapMismatch": "Mỗi chỗ trống trong nội dung phải có đúng một nhóm đáp án tương ứng."
     },
     "preview": "Học viên sẽ thấy",
     "removeOptionN": "Xoá lựa chọn {{n}}",
@@ -607,8 +609,14 @@
     "returnToMarkdown": "Chuyển về Markdown",
     "formatProse": "Định dạng: {{field}}",
     "editProse": "Chỉnh sửa: {{field}}",
-    "fillBlankMarkdown": "Câu điền từ vẫn dùng Markdown và ký hiệu chỗ trống đánh số để giữ đúng vị trí đáp án.",
-    "fillBlankMarkdownSwitch": "Để đổi sang câu điền từ, mở chỉnh sửa nội dung và chuyển về Markdown trước."
+    "blankConversionBlocked": "Chỉ chuyển được khi mỗi ký hiệu {{n}} xuất hiện một lần và có đáp án tương ứng. Hãy kiểm tra các chỗ trống trước khi chuyển.",
+    "richBlankHint": "Dùng nút Thêm ô trống trên thanh công cụ. Đáp án giữ nguyên khi di chuyển ô hoặc hoàn tác.",
+    "richBlankSwitch": "Hãy bỏ các chỗ trống khỏi nội dung và xử lý đáp án còn dư trước khi đổi loại câu hỏi.",
+    "richBlankAnswersHint": "Thêm hoặc bỏ ô trong trình soạn nội dung.",
+    "orphanedBlank": "Ô này đã được bỏ khỏi nội dung. Hoàn tác trong trình soạn thảo để khôi phục, hoặc xoá đáp án bên dưới trước khi lưu.",
+    "removeOrphanTitle": "Xoá đáp án của ô đã bỏ?",
+    "removeOrphanDescription": "Các đáp án được chấp nhận của ô này sẽ bị xoá khỏi bản nháp.",
+    "removeOrphanConfirm": "Xoá đáp án"
   },
   "builder": {
     "outline": "Cấu trúc",

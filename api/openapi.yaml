@@ -950,8 +950,7 @@ components:
         lists and tables with marked text, breaks and safe links. No media, gaps,
         source metadata or answer-key properties. ContentDocument aggregate budgets
         and cross-node validation apply to original raw JSON. The companion string
-        must equal the exact plain projection. Rich prompts are not yet supported
-        for fill_blank; its legacy Markdown placeholders remain unchanged.
+        must equal the exact plain projection. Explanations never contain gaps.
         On question updates, omitting a rich field preserves its stored document
         only if the companion string is unchanged; otherwise the whole write is
         rejected. Explicit null removes the document.
@@ -1039,6 +1038,99 @@ components:
         colSpan: { type: integer, minimum: 1, maximum: 12 }
         content: { $ref: '#/components/schemas/QuestionContentBlocks' }
 
+    QuestionPromptContent:
+      type: object
+      description: |
+        Bounded semantic question prompt without media or answer keys. Gaps are
+        supported only for fill_blank and must match blank gapId values exactly.
+        Gap identity is stable within this question; labels never select answers.
+        The companion prompt equals the exact plain projection. Omitted content
+        on update preserves the stored document only when prompt is unchanged.
+      x-go-type: json.RawMessage
+      additionalProperties: false
+      required: [format, blocks]
+      properties:
+        format: { type: string, const: semantic_v1 }
+        blocks: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+    QuestionPromptContentBlocks:
+      type: array
+      minItems: 1
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/QuestionPromptContentBlock' }
+    QuestionPromptContentBlock:
+      oneOf:
+        - $ref: '#/components/schemas/QuestionPromptContentParagraph'
+        - $ref: '#/components/schemas/QuestionPromptContentHeading'
+        - $ref: '#/components/schemas/QuestionPromptContentList'
+        - $ref: '#/components/schemas/QuestionPromptContentTable'
+      discriminator:
+        propertyName: type
+        mapping:
+          paragraph: '#/components/schemas/QuestionPromptContentParagraph'
+          heading: '#/components/schemas/QuestionPromptContentHeading'
+          list: '#/components/schemas/QuestionPromptContentList'
+          table: '#/components/schemas/QuestionPromptContentTable'
+    QuestionPromptContentInlines:
+      type: array
+      maxItems: 2048
+      items:
+        oneOf:
+          - { $ref: '#/components/schemas/ContentText' }
+          - { $ref: '#/components/schemas/ContentBreak' }
+          - { $ref: '#/components/schemas/ContentLink' }
+          - { $ref: '#/components/schemas/ContentGap' }
+    QuestionPromptContentParagraph:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, enum: [paragraph] }
+        content: { $ref: '#/components/schemas/QuestionPromptContentInlines' }
+    QuestionPromptContentHeading:
+      type: object
+      additionalProperties: false
+      required: [type, level, content]
+      properties:
+        type: { type: string, enum: [heading] }
+        level: { type: integer, enum: [1, 2, 3] }
+        content: { $ref: '#/components/schemas/QuestionPromptContentInlines' }
+    QuestionPromptContentList:
+      type: object
+      additionalProperties: false
+      required: [type, ordered, start, items]
+      properties:
+        type: { type: string, enum: [list] }
+        ordered: { type: boolean }
+        start: { type: integer, minimum: 1, maximum: 9999 }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+    QuestionPromptContentTable:
+      type: object
+      additionalProperties: false
+      required: [type, rows]
+      properties:
+        type: { type: string, enum: [table] }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: array
+            maxItems: 12
+            items: { $ref: '#/components/schemas/QuestionPromptContentCell' }
+    QuestionPromptContentCell:
+      type: object
+      additionalProperties: false
+      required: [header, rowSpan, colSpan, content]
+      properties:
+        header: { type: boolean }
+        rowSpan: { type: integer, minimum: 1, maximum: 50 }
+        colSpan: { type: integer, minimum: 1, maximum: 12 }
+        content: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+
     OptionContent:
       type: object
       description: |
@@ -1090,11 +1182,16 @@ components:
       required: [id, ordinal, acceptedAnswers, caseSensitive]
       additionalProperties: false
       properties:
+        gapId:
+          type: [string, 'null']
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'
+          description: Stable identity of the rich prompt gap; null for legacy Markdown.
         id: { $ref: '#/components/schemas/Uuid' }
         ordinal:
           type: integer
           minimum: 1
-          description: 1-indexed, matching the `{{1}}` placeholders in the prompt.
+          maximum: 32767
+          description: Stable 1-indexed answer label; matches `{{1}}` only for legacy Markdown.
         acceptedAnswers:
           type: array
           items: { type: string, minLength: 1 }
@@ -1153,7 +1250,7 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
         promptContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         prompt:
@@ -1225,8 +1322,12 @@ components:
       required: [id, ordinal, caseSensitive]
       additionalProperties: false
       properties:
+        gapId:
+          type: [string, 'null']
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'
+          description: Stable identity of the rich prompt gap; null for legacy Markdown.
         id: { $ref: '#/components/schemas/Uuid' }
-        ordinal: { type: integer, minimum: 1 }
+        ordinal: { type: integer, minimum: 1, maximum: 32767 }
         caseSensitive: { type: boolean }
 
     StudentSection:
@@ -1265,7 +1366,7 @@ components:
           description: The `AttemptSession.sections` entry this question belongs to.
         type: { $ref: '#/components/schemas/QuestionType' }
         promptContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         prompt: { type: string }
@@ -1289,7 +1390,7 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
         promptContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         prompt: { type: string }
@@ -1895,8 +1996,8 @@ components:
         Create/update body for a bank question. Cross-field rules that a single
         schema cannot express — single_choice and true_false need exactly one correct
         option (true_false has exactly two options), multiple_choice needs at least one correct
-        option, a `fill_blank` needs its `{{n}}` placeholders to match its blank
-        ordinals, an audio policy requires an audio asset — are validated by the
+        option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
         server and again at publish (§8). Failing them returns
         `VALIDATION_FAILED` with per-field `details`.
       required: [type, prompt, points]
@@ -1904,13 +2005,13 @@ components:
       properties:
         type: { $ref: '#/components/schemas/QuestionType' }
         promptContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         prompt:
           type: string
           minLength: 1
-          description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` retains Markdown `{{n}}` placeholders.
+          description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown.
         mediaAssetId: { type: [string, 'null'], format: uuid }
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
@@ -1941,7 +2042,8 @@ components:
             additionalProperties: false
             properties:
               id: { type: [string, 'null'], format: uuid }
-              ordinal: { type: integer, minimum: 1 }
+              gapId: { type: [string, 'null'], pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+              ordinal: { type: integer, minimum: 1, maximum: 32767 }
               acceptedAnswers:
                 type: array
                 minItems: 1

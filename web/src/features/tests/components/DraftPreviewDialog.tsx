@@ -67,6 +67,7 @@ function asStudent(sectionId: string, q: AdminQuestion): StudentQuestion {
     blanks: (q.blanks ?? []).map((b) => ({
       id: b.id,
       ordinal: b.ordinal,
+      gapId: b.gapId ?? null,
       caseSensitive: b.caseSensitive ?? false,
     })),
   };

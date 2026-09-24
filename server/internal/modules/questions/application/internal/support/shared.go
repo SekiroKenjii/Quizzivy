@@ -22,7 +22,7 @@ func InputOf(q domain.Question) domain.Input {
 		in.Options = append(in.Options, domain.OptionInput{Text: o.Text, IsCorrect: o.IsCorrect, Content: o.Content})
 	}
 	for _, b := range q.Blanks {
-		in.Blanks = append(in.Blanks, domain.BlankInput{
+		in.Blanks = append(in.Blanks, domain.BlankInput{GapID: b.GapID,
 			Ordinal: b.Ordinal, AcceptedAnswers: append([]string{}, b.AcceptedAnswers...), CaseSensitive: b.CaseSensitive,
 		})
 	}

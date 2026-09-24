@@ -1992,8 +1992,7 @@ export interface components {
          *     lists and tables with marked text, breaks and safe links. No media, gaps,
          *     source metadata or answer-key properties. ContentDocument aggregate budgets
          *     and cross-node validation apply to original raw JSON. The companion string
-         *     must equal the exact plain projection. Rich prompts are not yet supported
-         *     for fill_blank; its legacy Markdown placeholders remain unchanged.
+         *     must equal the exact plain projection. Explanations never contain gaps.
          *     On question updates, omitting a rich field preserves its stored document
          *     only if the companion string is unchanged; otherwise the whole write is
          *     rejected. Explicit null removes the document.
@@ -2049,6 +2048,63 @@ export interface components {
             content: components["schemas"]["QuestionContentBlocks"];
         };
         /**
+         * @description Bounded semantic question prompt without media or answer keys. Gaps are
+         *     supported only for fill_blank and must match blank gapId values exactly.
+         *     Gap identity is stable within this question; labels never select answers.
+         *     The companion prompt equals the exact plain projection. Omitted content
+         *     on update preserves the stored document only when prompt is unchanged.
+         */
+        QuestionPromptContent: {
+            /** @constant */
+            format: "semantic_v1";
+            blocks: components["schemas"]["QuestionPromptContentBlocks"];
+        };
+        QuestionPromptContentBlocks: components["schemas"]["QuestionPromptContentBlock"][];
+        QuestionPromptContentBlock: components["schemas"]["QuestionPromptContentParagraph"] | components["schemas"]["QuestionPromptContentHeading"] | components["schemas"]["QuestionPromptContentList"] | components["schemas"]["QuestionPromptContentTable"];
+        QuestionPromptContentInlines: (components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"] | components["schemas"]["ContentLink"] | components["schemas"]["ContentGap"])[];
+        QuestionPromptContentParagraph: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "paragraph";
+            content: components["schemas"]["QuestionPromptContentInlines"];
+        };
+        QuestionPromptContentHeading: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "heading";
+            /** @enum {integer} */
+            level: 1 | 2 | 3;
+            content: components["schemas"]["QuestionPromptContentInlines"];
+        };
+        QuestionPromptContentList: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "list";
+            ordered: boolean;
+            start: number;
+            items: components["schemas"]["QuestionPromptContentBlocks"][];
+        };
+        QuestionPromptContentTable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "table";
+            rows: components["schemas"]["QuestionPromptContentCell"][][];
+        };
+        QuestionPromptContentCell: {
+            header: boolean;
+            rowSpan: number;
+            colSpan: number;
+            content: components["schemas"]["QuestionPromptContentBlocks"];
+        };
+        /**
          * @description Versioned inline option text: one paragraph of marked text and line breaks.
          *     No links, gaps, media, tables, source metadata or answer keys. The server
          *     validates the original JSON and requires text to equal its plain projection.
@@ -2073,8 +2129,10 @@ export interface components {
             isCorrect: boolean;
         };
         AdminQuestionBlank: {
+            /** @description Stable identity of the rich prompt gap; null for legacy Markdown. */
+            gapId?: string | null;
             id: components["schemas"]["Uuid"];
-            /** @description 1-indexed, matching the `{{1}}` placeholders in the prompt. */
+            /** @description Stable 1-indexed answer label; matches `{{1}}` only for legacy Markdown. */
             ordinal: number;
             acceptedAnswers: string[];
             caseSensitive: boolean;
@@ -2117,7 +2175,7 @@ export interface components {
         AdminQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
-            promptContent?: components["schemas"]["QuestionContent"] | null;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             /**
              * @description Legacy Markdown, or exact plain projection when promptContent is present. Markdown is rendered with rehype-sanitize — never
              *     `dangerouslySetInnerHTML` (§2). For `fill_blank`, blanks are marked
@@ -2164,6 +2222,8 @@ export interface components {
          *     are graded on blind.
          */
         StudentBlank: {
+            /** @description Stable identity of the rich prompt gap; null for legacy Markdown. */
+            gapId?: string | null;
             id: components["schemas"]["Uuid"];
             ordinal: number;
             caseSensitive: boolean;
@@ -2195,7 +2255,7 @@ export interface components {
             /** @description The `AttemptSession.sections` entry this question belongs to. */
             sectionId: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
-            promptContent?: components["schemas"]["QuestionContent"] | null;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
@@ -2211,7 +2271,7 @@ export interface components {
         ResultQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
-            promptContent?: components["schemas"]["QuestionContent"] | null;
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
             options?: components["schemas"]["StudentOption"][];
@@ -2685,15 +2745,15 @@ export interface components {
          * @description Create/update body for a bank question. Cross-field rules that a single
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
-         *     option, a `fill_blank` needs its `{{n}}` placeholders to match its blank
-         *     ordinals, an audio policy requires an audio asset — are validated by the
+         *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
         QuestionInput: {
             type: components["schemas"]["QuestionType"];
-            promptContent?: components["schemas"]["QuestionContent"] | null;
-            /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` retains Markdown `{{n}}` placeholders. */
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
+            /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown. */
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
@@ -2715,6 +2775,7 @@ export interface components {
             blanks?: {
                 /** Format: uuid */
                 id?: string | null;
+                gapId?: string | null;
                 ordinal: number;
                 acceptedAnswers: string[];
                 /** @default false */

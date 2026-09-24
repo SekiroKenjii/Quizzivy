@@ -194,7 +194,7 @@ func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []doma
 
 func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.case_sensitive,
+		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.gap_id, b.case_sensitive,
 		       coalesce((SELECT array_agg(ba.answer ORDER BY ba.id)
 		                   FROM app.test_version_blank_answers ba
 		                  WHERE ba.test_version_blank_id = b.id), '{}')
@@ -206,7 +206,7 @@ func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domai
 		func(rows pgx.Rows) (string, domain.ReviewBlank, error) {
 			var questionID string
 			var b domain.ReviewBlank
-			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.Accepted)
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.GapID, &b.CaseSensitive, &b.Accepted)
 			return questionID, b, err
 		})
 	if err != nil {

@@ -285,7 +285,8 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
 		blanks[i] = openapi.AdminQuestionBlank{
-			Id: httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal, AcceptedAnswers: b.Accepted, CaseSensitive: b.CaseSensitive,
+			GapId: b.GapID,
+			Id:    httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal, AcceptedAnswers: b.Accepted, CaseSensitive: b.CaseSensitive,
 		}
 	}
 	out.Blanks = &blanks

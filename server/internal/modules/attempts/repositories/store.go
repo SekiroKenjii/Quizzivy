@@ -336,7 +336,7 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 
 func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT b.test_version_question_id, b.id, b.ordinal, b.case_sensitive
+		SELECT b.test_version_question_id, b.id, b.ordinal, b.gap_id, b.case_sensitive
 		  FROM app.test_version_blanks b
 		  JOIN app.test_version_questions q ON q.id = b.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -345,7 +345,7 @@ func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []doma
 		func(rows pgx.Rows) (string, domain.Blank, error) {
 			var questionID string
 			var b domain.Blank
-			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive)
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.GapID, &b.CaseSensitive)
 			return questionID, b, err
 		})
 	if err != nil {

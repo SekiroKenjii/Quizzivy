@@ -1,4 +1,9 @@
-import { questionContentSchema } from "@/components/shared/content/questionContent";
+import { questionGaps, gapBindingsMatch } from "@/components/shared/content/gaps";
+import {
+  questionContentSchema,
+  questionPromptContentSchema,
+  isQuestionPromptContent,
+} from "@/components/shared/content/questionContent";
 import { optionContentSchema } from "@/components/shared/content/optionContent";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import { z } from "zod";
@@ -31,21 +36,35 @@ const optionSchema = z
     ...(content === undefined ? {} : { content }),
   }));
 
-const blankSchema = z.object({
-  id: z.uuid().nullable(),
-  ordinal: z.number().int().min(1),
-  acceptedAnswers: z
-    .array(
-      z
-        .string()
-        .refine(
-          (text) => text.trim().length > 0,
-          "questionEditor.errors.answerRequired",
-        ),
-    )
-    .min(1, "questionEditor.errors.answerRequired"),
-  caseSensitive: z.boolean(),
-});
+const blankSchema = z
+  .object({
+    id: z.uuid().nullable(),
+    gapId: z
+      .string()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/, "questionEditor.errors.gapMismatch")
+      .nullable()
+      .optional(),
+    ordinal: z
+      .number()
+      .int()
+      .min(1, "questionEditor.errors.blankOrdinal")
+      .max(32767, "questionEditor.errors.blankOrdinal"),
+    acceptedAnswers: z
+      .array(
+        z
+          .string()
+          .refine(
+            (text) => text.trim().length > 0,
+            "questionEditor.errors.answerRequired",
+          ),
+      )
+      .min(1, "questionEditor.errors.answerRequired"),
+    caseSensitive: z.boolean(),
+  })
+  .transform(({ gapId, ...blank }) => ({
+    ...blank,
+    ...(gapId === undefined ? {} : { gapId }),
+  }));
 
 export const questionSchema = z
   .object({
@@ -56,7 +75,7 @@ export const questionSchema = z
       "fill_blank",
       "short_answer",
     ]),
-    promptContent: questionContentSchema.nullable().optional(),
+    promptContent: questionPromptContentSchema.nullable().optional(),
     explanationContent: questionContentSchema.nullable().optional(),
     prompt: z
       .string()
@@ -82,12 +101,7 @@ export const questionSchema = z
       ["explanationContent", value.explanation],
     ] as const) {
       const document = value[field];
-      if (
-        document != null &&
-        (text == null ||
-          contentPlainText(document) !== text ||
-          (field === "promptContent" && value.type === "fill_blank"))
-      )
+      if (document != null && (text == null || contentPlainText(document) !== text))
         context.addIssue({
           code: "custom",
           path: [field],
@@ -106,7 +120,9 @@ export type QuestionValues = z.infer<typeof questionSchema>;
 export type QuestionType = QuestionValues["type"];
 
 function validateStructure(
-  value: Pick<QuestionValues, "type" | "options" | "blanks" | "prompt">,
+  value: Pick<QuestionValues, "type" | "options" | "blanks" | "prompt"> & {
+    promptContent?: QuestionValues["promptContent"];
+  },
   context: z.RefinementCtx,
 ) {
   const issue = (path: string, key: string) =>
@@ -115,6 +131,8 @@ function validateStructure(
       path: [path],
       message: `questionEditor.errors.${key}`,
     });
+  if (value.promptContent != null && !isQuestionPromptContent(value.promptContent))
+    return;
   const choice = ["single_choice", "multiple_choice", "true_false"].includes(
     value.type,
   );
@@ -123,12 +141,29 @@ function validateStructure(
   } else if (value.options.length) issue("options", "unexpectedOptions");
   if (value.type !== "fill_blank") {
     if (value.blanks.length) issue("blanks", "unexpectedBlanks");
+    if (value.promptContent && questionGaps(value.promptContent).length)
+      issue("promptContent", "questionContent");
     return;
   }
+  validateBlankStructure(value, issue);
+}
+
+function validateBlankStructure(
+  value: Pick<QuestionValues, "blanks" | "prompt"> & {
+    promptContent?: QuestionValues["promptContent"];
+  },
+  issue: (path: string, key: string) => void,
+) {
   if (!value.blanks.length) issue("blanks", "blankRequired");
   const ordinals = value.blanks.map((blank) => blank.ordinal);
   if (new Set(ordinals).size !== ordinals.length) issue("blanks", "duplicateBlank");
-  if (hasMismatch(comparePlaceholders(value.prompt, ordinals)))
+  if (value.promptContent != null) {
+    if (!gapBindingsMatch(value.promptContent, value.blanks))
+      issue("blanks", "gapMismatch");
+  } else if (
+    value.blanks.some((blank) => blank.gapId != null) ||
+    hasMismatch(comparePlaceholders(value.prompt, ordinals))
+  )
     issue("blanks", "placeholderMismatch");
 }
 

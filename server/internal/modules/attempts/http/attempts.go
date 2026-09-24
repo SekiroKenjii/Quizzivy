@@ -164,6 +164,7 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
 		for i, b := range q.Blanks {
 			blanks[i] = openapi.StudentBlank{
+				GapId:         b.GapID,
 				Id:            httpapi.ParseUUID(b.ID),
 				Ordinal:       b.Ordinal,
 				CaseSensitive: b.CaseSensitive,

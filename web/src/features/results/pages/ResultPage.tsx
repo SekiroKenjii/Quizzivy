@@ -1,3 +1,4 @@
+import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
 import { useEffect, useState } from "react";
@@ -428,28 +429,42 @@ function Body({
       );
       return (
         <>
-          <Markdown
-            className="text-sm"
-            plugins={[blankInputs]}
-            components={{
-              span: (props) => {
-                const ordinal = props.node?.properties?.["data-blank"];
-                if (ordinal === undefined || ordinal === null)
-                  return <span {...props} />;
-                const blank = (question.blanks ?? []).find(
-                  (b) => String(b.ordinal) === String(ordinal),
-                );
-                const typed = blank === undefined ? "" : (values[blank.id] ?? "");
-                return (
-                  <span className="mx-0.5 inline-block rounded-sm border px-1.5 underline decoration-dotted">
-                    {typed === "" ? "…" : typed}
-                  </span>
-                );
-              },
-            }}
-          >
-            {question.prompt}
-          </Markdown>
+          {question.promptContent != null ? (
+            <RichBlankPrompt
+              text={question.prompt}
+              content={question.promptContent}
+              blanks={question.blanks ?? []}
+              className="text-sm"
+              renderBlank={(blank) => (
+                <span className="mx-0.5 inline-block rounded-sm border px-1.5 underline decoration-dotted">
+                  {values[blank.id] || "…"}
+                </span>
+              )}
+            />
+          ) : (
+            <Markdown
+              className="text-sm"
+              plugins={[blankInputs]}
+              components={{
+                span: (props) => {
+                  const ordinal = props.node?.properties?.["data-blank"];
+                  if (ordinal === undefined || ordinal === null)
+                    return <span {...props} />;
+                  const blank = (question.blanks ?? []).find(
+                    (b) => String(b.ordinal) === String(ordinal),
+                  );
+                  const typed = blank === undefined ? "" : (values[blank.id] ?? "");
+                  return (
+                    <span className="mx-0.5 inline-block rounded-sm border px-1.5 underline decoration-dotted">
+                      {typed === "" ? "…" : typed}
+                    </span>
+                  );
+                },
+              }}
+            >
+              {question.prompt}
+            </Markdown>
+          )}
           {review.showCorrectAnswers && key.size > 0 && (
             <p className="text-muted-foreground text-xs">
               {t("result.correctAnswerIs", {

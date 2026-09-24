@@ -2,7 +2,7 @@ import { useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import type { SemanticContent } from "../model";
-import { isQuestionContent } from "../questionContent";
+import { isQuestionContent, isQuestionPromptContent } from "../questionContent";
 import { isOptionContent } from "../optionContent";
 import { validateContent } from "../validation";
 import { fromEditorJSON, toEditorJSON } from "./adapter";
@@ -16,12 +16,14 @@ function ActiveEditor({
   label,
   id,
   profile = "document",
+  gapLabel,
 }: Readonly<{
   initialContent: SemanticContent;
   onChange: (content: SemanticContent) => void;
   label: string;
+  gapLabel?: (() => string) | undefined;
   id?: string;
-  profile?: "document" | "option" | "question";
+  profile?: "document" | "option" | "question" | "prompt";
 }>) {
   const { t } = useTranslation();
   const [notice, setNotice] = useState<EditorNotice>();
@@ -55,7 +57,7 @@ function ActiveEditor({
   if (!editor) return <p role="status">{t("contentEditor.loading")}</p>;
   return (
     <div className="content-editor bg-card focus-within:ring-ring/30 overflow-hidden rounded-lg border shadow-sm focus-within:ring-2">
-      <ContentToolbar editor={editor} profile={profile} />
+      <ContentToolbar editor={editor} profile={profile} gapLabel={gapLabel} />
       <EditorContent editor={editor} />
       {notice && (
         <p role="alert" className="border-t px-4 py-3 text-sm">
@@ -72,8 +74,9 @@ export function ContentEditor(
     initialContent: SemanticContent;
     onChange: (content: SemanticContent) => void;
     label: string;
+    gapLabel?: (() => string) | undefined;
     id?: string;
-    profile?: "document" | "option" | "question";
+    profile?: "document" | "option" | "question" | "prompt";
   }>,
 ) {
   const { t } = useTranslation();
@@ -81,7 +84,8 @@ export function ContentEditor(
   return initial.ok &&
     initial.value.format === "semantic_v1" &&
     (props.profile !== "option" || isOptionContent(initial.value)) &&
-    (props.profile !== "question" || isQuestionContent(initial.value)) ? (
+    (props.profile !== "question" || isQuestionContent(initial.value)) &&
+    (props.profile !== "prompt" || isQuestionPromptContent(initial.value)) ? (
     <ActiveEditor {...props} initialContent={initial.value} />
   ) : (
     <p role="alert">{t("contentEditor.invalidContent")}</p>

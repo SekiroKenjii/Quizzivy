@@ -1,7 +1,7 @@
 # Versioned content contract — W-02 foundation
 
 Status: content foundation plus W-05a options and W-05b question prose, with
-pilot authoring affordances. Groups, gap bindings and import endpoints remain pending.
+pilot authoring affordances and stable blank bindings. Groups and import endpoints remain pending.
 `api/openapi.yaml` is the structural authority. Go's `shared/content.Parse` and
 the frontend validator enforce the cross-node rules below. They share synthetic
 accept/reject fixtures; generated TS types are the frontend model. Go's domain
@@ -203,3 +203,35 @@ The lazy authoring affordance is controlled by `VITE_RICH_QUESTION_EDITOR`
 is explicit and refuses unsupported nodes rather than dropping them. Media,
 gap bindings, structured clipboard import, IME/teacher acceptance and full
 five-type rich prompt authoring remain later gates.
+
+
+## W-06b — stable question gap bindings
+
+`QuestionPromptContent` extends the prose profile with gaps inside paragraphs,
+headings, lists and table cells. `QuestionContent` remains gap-free for explanations.
+A rich fill-blank prompt needs at least one gap, and its gap IDs must match the
+non-null `gapId` set on blank metadata one-to-one. No inference from labels,
+ordinals or plain projection is permitted. Other interaction types reject gaps;
+legacy Markdown rejects non-null gap IDs. All document budgets remain unchanged.
+
+Migration 00034 stores nullable `gap_id` on bank and snapshot blanks, with format
+checks and uniqueness scoped to the parent question. Legacy rows stay null.
+A gap identity survives draft edits even though normalized answer-row UUIDs may
+be replaced. Publication freezes identities and answers together. Learner answers
+continue to use frozen blank UUIDs, and existing grading logic remains unchanged.
+Duplication and version restoration allocate fresh local gap IDs and replace both
+AST references and metadata in the same write transaction. Source edits do not
+mutate a copied graph or snapshot. Student payloads contain no new grading keys.
+
+Explicit Markdown conversion accepts only unique supported markers with matching
+answer rows and previews before applying. Repeated/unsupported markers block
+conversion. In rich authoring, newly inserted gaps receive empty answer rows;
+moving a node preserves its key. Removing a node retains orphaned answers for
+undo and blocks save until they are restored or explicitly discarded. Removing
+formatting restores ordinal markers before escaping the prose projection.
+New authoring uses the existing opt-in flag; stored rich blank prompts stay
+editable when disabled. This is not structured clipboard import or pilot acceptance.
+
+Migration Down first restores the old prompt restriction. It therefore refuses
+rich fill-blank rows without losing data. After such writes, retain the schema
+and these readers as the rollback floor and disable only new authoring.

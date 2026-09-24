@@ -1,3 +1,5 @@
+import { BlankPromptField } from "@/features/question-bank/components/BlankPromptField";
+import { emptyQuestion } from "@/features/question-bank/questionSchema";
 import { render, screen } from "@testing-library/react";
 import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
 import { plainOptionContent } from "@/components/shared/content/optionContent";
@@ -36,20 +38,21 @@ test("the question pilot flag gates conversion but retains access to stored rich
   expect(onChange).not.toHaveBeenCalled();
 });
 
-test("fill-blank prompts cannot opt into rich conversion before gap bindings exist", () => {
-  vi.stubEnv("VITE_RICH_QUESTION_EDITOR", "true");
-  render(
-    <QuestionProseField
-      text="Điền {{1}}"
-      id="prompt"
-      label="Nội dung câu hỏi"
-      prompt
-      canFormat={false}
-      onChange={vi.fn()}
-    />,
-  );
+test("rich blank conversion follows the pilot flag while legacy text remains editable", () => {
+  vi.stubEnv("VITE_RICH_QUESTION_EDITOR", "false");
+  const value = {
+    ...emptyQuestion(),
+    type: "fill_blank" as const,
+    options: [],
+    prompt: "Điền {{1}}",
+  };
+  const { rerender } = render(<BlankPromptField value={value} onChange={vi.fn()} />);
   expect(
     screen.queryByRole("button", { name: "Định dạng: Nội dung câu hỏi" }),
-  ).not.toBeInTheDocument();
-  expect(screen.getByText(/Câu điền từ vẫn dùng Markdown/)).toBeVisible();
+  ).toBeNull();
+  vi.stubEnv("VITE_RICH_QUESTION_EDITOR", "true");
+  rerender(<BlankPromptField value={value} onChange={vi.fn()} />);
+  expect(
+    screen.getByRole("button", { name: "Định dạng: Nội dung câu hỏi" }),
+  ).toBeEnabled();
 });

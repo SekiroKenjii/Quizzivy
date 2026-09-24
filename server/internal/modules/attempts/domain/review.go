@@ -56,6 +56,7 @@ type ReviewOption struct {
 }
 
 type ReviewBlank struct {
+	GapID         *string
 	ID            string
 	Ordinal       int
 	CaseSensitive bool

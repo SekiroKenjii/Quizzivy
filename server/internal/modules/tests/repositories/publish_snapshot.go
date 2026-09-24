@@ -108,9 +108,9 @@ func freezeBlanks(ctx context.Context, tx pgx.Tx, questionID string, blanks []do
 		var blankID string
 		if err := tx.QueryRow(ctx,
 			`INSERT INTO app.test_version_blanks
-			        (test_version_question_id, ordinal, case_sensitive)
-			 VALUES ($1, $2, $3) RETURNING id::text`,
-			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
+			        (test_version_question_id, ordinal, case_sensitive, gap_id)
+			 VALUES ($1, $2, $3, $4) RETURNING id::text`,
+			questionID, b.Ordinal, b.CaseSensitive, b.GapID).Scan(&blankID); err != nil {
 			return fmt.Errorf("publish: freeze blank: %w", err)
 		}
 		for _, answer := range b.AcceptedAnswers {

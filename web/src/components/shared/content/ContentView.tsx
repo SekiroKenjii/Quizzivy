@@ -5,16 +5,19 @@ import { cn } from "@/lib/utils";
 import type { ContentBlock } from "./model";
 import { validateContent } from "./validation";
 import "./content.css";
-import { ContentInlineView } from "./ContentInlineView";
+import { ContentInlineView, type GapRenderer } from "./ContentInlineView";
 
-function Block({ node }: Readonly<{ node: ContentBlock }>) {
+function Block({
+  node,
+  renderGap,
+}: Readonly<{ node: ContentBlock; renderGap?: GapRenderer | undefined }>) {
   const { t } = useTranslation();
   switch (node.type) {
     case "paragraph":
       return (
         <p>
           {node.content.map((inline, i) => (
-            <ContentInlineView key={i} node={inline} />
+            <ContentInlineView key={i} node={inline} renderGap={renderGap} />
           ))}
         </p>
       );
@@ -23,7 +26,7 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
       return (
         <Heading>
           {node.content.map((inline, i) => (
-            <ContentInlineView key={i} node={inline} />
+            <ContentInlineView key={i} node={inline} renderGap={renderGap} />
           ))}
         </Heading>
       );
@@ -35,7 +38,7 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
           {node.items.map((item, i) => (
             <li key={i}>
               {item.map((block, j) => (
-                <Block key={j} node={block} />
+                <Block key={j} node={block} renderGap={renderGap} />
               ))}
             </li>
           ))}
@@ -60,7 +63,7 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
                     return (
                       <Cell key={j} colSpan={cell.colSpan} rowSpan={cell.rowSpan}>
                         {cell.content.map((block, k) => (
-                          <Block key={k} node={block} />
+                          <Block key={k} node={block} renderGap={renderGap} />
                         ))}
                       </Cell>
                     );
@@ -88,7 +91,12 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
 export function ContentView({
   document,
   className,
-}: Readonly<{ document: unknown; className?: string }>) {
+  renderGap,
+}: Readonly<{
+  document: unknown;
+  className?: string;
+  renderGap?: GapRenderer | undefined;
+}>) {
   const { t } = useTranslation();
   const parsed = useMemo(() => validateContent(document), [document]);
   if (!parsed.ok)
@@ -104,7 +112,7 @@ export function ContentView({
   return (
     <div className={cn("semantic-content", className)}>
       {parsed.value.blocks.map((node, i) => (
-        <Block key={i} node={node} />
+        <Block key={i} node={node} renderGap={renderGap} />
       ))}
     </div>
   );

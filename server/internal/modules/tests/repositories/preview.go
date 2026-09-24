@@ -100,7 +100,7 @@ func (s *Postgres) attachPreviewBlanks(
 	ctx context.Context, versionID string, out []domain.PreviewQuestion, byID map[string]int,
 ) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.case_sensitive
+		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.gap_id, b.case_sensitive
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		  JOIN app.test_version_blanks b ON b.test_version_question_id = q.id
@@ -109,7 +109,7 @@ func (s *Postgres) attachPreviewBlanks(
 		func(rows pgx.Rows) (string, domain.PreviewBlank, error) {
 			var questionID string
 			var blank domain.PreviewBlank
-			err := rows.Scan(&questionID, &blank.ID, &blank.Ordinal, &blank.CaseSensitive)
+			err := rows.Scan(&questionID, &blank.ID, &blank.Ordinal, &blank.GapID, &blank.CaseSensitive)
 			return questionID, blank, err
 		})
 	if err != nil {

@@ -50,6 +50,7 @@ type DraftOption struct {
 
 // DraftBlank is a fill_blank slot with its accepted answers.
 type DraftBlank struct {
+	GapID           *string
 	Ordinal         int
 	CaseSensitive   bool
 	AcceptedAnswers []string
@@ -78,6 +79,7 @@ type PreviewOption struct {
 }
 
 type PreviewBlank struct {
+	GapID         *string
 	ID            string
 	Ordinal       int
 	CaseSensitive bool

@@ -33,7 +33,7 @@ export function StudentPreview({
             </div>
 
             <div className="mt-2 text-base leading-relaxed">
-              {question.type === "fill_blank" ? (
+              {question.type === "fill_blank" && question.promptContent == null ? (
                 <Markdown plugins={[blankSlots]}>{question.prompt}</Markdown>
               ) : (
                 <QuestionProse

@@ -372,6 +372,7 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
 		for j, b := range q.Blanks {
 			blanks[j] = openapi.StudentBlank{
+				GapId:         b.GapID,
 				Id:            httpapi.ParseUUID(b.ID),
 				Ordinal:       b.Ordinal,
 				CaseSensitive: b.CaseSensitive,

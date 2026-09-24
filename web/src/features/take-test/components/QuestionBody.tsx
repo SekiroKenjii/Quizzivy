@@ -1,3 +1,4 @@
+import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
 import {
@@ -201,13 +202,25 @@ function FillBlank({ question, answer, onAnswer, disabled, action }: Readonly<Pr
   return (
     <BlankContext value={{ blanks, values, disabled, write }}>
       <div className="flex items-start gap-3">
-        <Markdown
-          className="min-w-0 flex-1 text-base"
-          plugins={[blankInputs]}
-          components={blankComponents}
-        >
-          {question.prompt}
-        </Markdown>
+        {question.promptContent != null ? (
+          <RichBlankPrompt
+            text={question.prompt}
+            content={question.promptContent}
+            blanks={question.blanks ?? []}
+            className="min-w-0 flex-1 text-base"
+            renderBlank={(blank) => (
+              <BlankInput blank={blank} state={{ blanks, values, disabled, write }} />
+            )}
+          />
+        ) : (
+          <Markdown
+            className="min-w-0 flex-1 text-base"
+            plugins={[blankInputs]}
+            components={blankComponents}
+          >
+            {question.prompt}
+          </Markdown>
+        )}
         {action}
       </div>
     </BlankContext>
@@ -224,7 +237,6 @@ type BlankState = {
 const BlankContext = createContext<BlankState | null>(null);
 
 function BlankSlot({ node, ...props }: ComponentProps<"span"> & ExtraProps) {
-  const { t } = useTranslation();
   const state = useContext(BlankContext);
   const ordinal = node?.properties["data-blank"];
   if (ordinal === undefined || ordinal === null || state === null)
@@ -232,6 +244,17 @@ function BlankSlot({ node, ...props }: ComponentProps<"span"> & ExtraProps) {
   const blank = state.blanks.get(String(ordinal));
   const token = `{{${String(ordinal)}}}`;
   if (blank === undefined) return <span>{token}</span>;
+  return <BlankInput blank={blank} state={state} />;
+}
+
+function BlankInput({
+  blank,
+  state,
+}: Readonly<{
+  blank: NonNullable<StudentQuestion["blanks"]>[number];
+  state: BlankState;
+}>) {
+  const { t } = useTranslation();
   return (
     <input
       className="border-input focus-visible:ring-ring mx-1 my-1 inline-block h-11 w-32 max-w-full rounded-md border px-3 text-center align-middle text-[length:var(--text-input)] focus-visible:ring-2 focus-visible:outline-none lg:h-9 lg:text-sm"
