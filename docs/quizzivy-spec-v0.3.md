@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.15 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.16 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.15**
+
+- W-07b adds relational group ownership, ordered units, stable cloze targets and
+  protected material/recording bindings. Existing question ownership remains
+  null; new group authoring is still unavailable until lifecycle and readers ship.
 
 **Changes since v0.14**
 
@@ -517,8 +523,14 @@ kind, existence, authorization and deletion locks remain required at persistence
 Copying remaps group, question, material, answer, gap and recording identities,
 preserving all grading data, labels, order and content. Immutable media IDs are
 reused through new protected bindings. This contract adds no group endpoint or
-learner payload. Relational ownership, deletion races, snapshots and delivery
-must be integrated before enabling group authoring.
+learner payload. Relational ownership uses a nullable section owner for each group
+(null means an independent bank group) and explicit ownership/order on its member questions.
+Section units distinguish standalone questions from groups. Material gaps and
+media references have relational bindings; cross-group response/playback links
+are rejected. Owned children cannot be archived separately. Restrictive owner
+foreign keys require explicit whole-graph cleanup; existing section deletion
+cannot leave questions detached from their context. Lifecycle commands, deletion
+races, snapshots and delivery must be integrated before enabling group authoring.
 
 ---
 

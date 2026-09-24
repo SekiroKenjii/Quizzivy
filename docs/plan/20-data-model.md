@@ -1277,6 +1277,9 @@ the file it adds.
 | `00032_add_option_content.sql` | bounded inline documents on normalized bank/snapshot options | Word W-05a |
 | `00033_add_question_content.sql` | bounded prompt/explanation documents on bank/snapshot questions | Word W-05b |
 | `00034_add_question_gap_bindings.sql` | stable gap bindings on bank/snapshot blanks | Word W-06b |
+| `00035_add_question_group_ownership.sql` | Independent bank/test group ownership and ordered member columns | Word W-07 |
+| `00036_index_question_group_members.sql` | Concurrent group-member identity and ordinal indexes | Word W-07 |
+| `00037_create_question_group_graph.sql` | Ordered units, materials, cloze targets, protected media/recording bindings | Word W-07 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1430,3 +1433,65 @@ lock still serializes updates; snapshot writes and graph copies are transactiona
 Copies allocate fresh gap IDs and remap AST and blank metadata together. Down
 restores the old parent restriction before dropping the columns, so rich fill-blank
 rows block rollback atomically. After these writes, keep readers and migration 34.
+
+
+## 19. Independent group ownership and graph storage (W-07b)
+
+This additive storage foundation remains unavailable through application writes
+until group lifecycle commands and W-08/09 readers/snapshots are integrated.
+Existing sections and bank questions retain their interpretation; no backfill
+changes old versions or attempts.
+
+`00035_add_question_group_ownership.sql` introduces `question_groups`. A null
+`owner_section_id` identifies an independent bank group; otherwise the group
+belongs exclusively to that draft section. The section FK uses RESTRICT so old
+section deletion cannot strand its owned questions. Bank groups can be archived;
+test-owned groups follow their enclosing draft lifecycle. Revision and updated
+at are held on the aggregate. New nullable question columns carry group ownership,
+member ordinal and option order as one complete tuple; owned questions cannot be
+soft-deleted separately. The group FK is RESTRICT: lifecycle commands must remove
+the complete graph explicitly, never orphan children into the standalone bank.
+
+`00036_index_question_group_members.sql` builds two unique indexes CONCURRENTLY
+outside a transaction on the existing questions table. The identity pair supports
+same-group foreign keys; the ordinal index supports ordered group reads and later
+becomes a deferrable uniqueness constraint. Legacy null ownership is not unique.
+`00037_create_question_group_graph.sql` attaches these indexes as constraints and
+adds the owned graph. Failed concurrent index creation must be inspected for an
+invalid index and repaired before retry; migration re-runs must not silently
+accept an invalid existing index with IF NOT EXISTS. See PostgreSQL 18
+[CREATE INDEX](https://www.postgresql.org/docs/18/sql-createindex.html) and
+[ALTER TABLE](https://www.postgresql.org/docs/18/sql-altertable.html).
+
+| Table | Ownership, references and indexes |
+| --- | --- |
+| `question_groups` | Section RESTRICT; creator RESTRICT; section lookup and active bank recency indexes; `(id, owner_section_id)` prevents mounting bank/foreign groups into a section |
+| `test_section_units` | Ordered standalone-question/group union, exclusive via CHECK; section CASCADE; referenced question/group RESTRICT; deferrable section ordinal; unique group mounting and no repeated standalone question in a section |
+| `group_stimuli` | Group CASCADE; bounded ordered materials; JSONB content with explicit known format; `(id, group_id)` supports same-group links |
+| `group_gap_bindings` | Material CASCADE; member composite FK prevents cross-group targets; stable `(question_id, gap_id)` blank FK; choice/blank shape CHECK; scoped material-gap primary key; unique response targets; reverse question/blank index |
+| `group_recordings` | Group CASCADE; composite media kind FK RESTRICT; one audio asset binding per group; immutable binding identity and playback/transcript policy; reverse media index |
+| `group_stimulus_assets` | Material CASCADE; media kind FK RESTRICT; audio iff explicit recording; composite recording FK prevents using another group's allowance or another file; reverse media/recording indexes |
+
+Gap-to-member/blank and material-to-recording foreign keys are deferred NO ACTION:
+an atomic replacement may replace normalized answer rows while preserving stable
+gap identities, but commit cannot leave dangling bindings. AST/mirror equality,
+question interaction compatibility, complete member/material/recording coverage,
+aggregate budgets and media authorization still require the domain validator and
+repository checks; JSONB format checks alone do not validate semantic content.
+
+A group update must lock the containing test when present, then the group and
+owned questions, before its media reference locks; lists of question/media IDs
+are locked in stable order. Creation/copy/deletion and bank insertion must use the
+same locks on both sides. Existing bank and outline paths must explicitly reject
+or hide owned children until they can carry complete context. No partial group
+insert is allowed. Legacy flat section membership remains readable; new ordered
+units are enabled only with group-aware draft/snapshot readers.
+
+Down refuses to remove group storage after any group/unit write. With no such
+writes, the graph Down restores the pre-attachment indexes before returning to
+migration 36, so down-one/up works as well as a full reset. That rollback rebuild
+holds the ordinary DDL lock inside the transaction; it is a pre-enablement path,
+not a supported downgrade after group content exists. After enabling writes, keep
+a reader-capable binary and schema floor; disable new writes instead of dropping
+context. The guarded rollback and fresh up/down/up are tested in isolated Docker
+databases. No privilege changes touch append-only audit or attempt events.

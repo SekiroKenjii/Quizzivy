@@ -237,6 +237,22 @@ and the builder. W-08/09 must supply immutable graph snapshots and versioned
 delivery before group writes become available. No learner payload or existing
 test/section semantics changes in this checkpoint.
 
+### 1.10 Implementation checkpoint — relational group foundation (W-07b)
+
+Migrations 35–37 add independent bank/section group ownership, nullable ownership
+on existing questions, ordered section units, material/gap bindings and explicit
+recording scopes. Composite foreign keys prevent cross-group response and audio
+links. Stable blank targets survive transactional answer-row replacement; member
+ordinals support deferred reordering. Required reverse-reference indexes protect
+lifecycle query paths. Existing populated question indexes are built concurrently.
+
+PostgreSQL integration checks cover ownership, kind/scope restrictions, guarded
+rollback and both full and intermediate migration round trips. New group rows
+block destructive schema rollback; no old content is reinterpreted or backfilled.
+This is storage groundwork only: repository lifecycle commands, legacy-writer
+barriers, bank/builder integration and W-08/09 snapshots/readers remain required
+before any group endpoint or write affordance is enabled.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
