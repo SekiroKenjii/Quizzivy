@@ -2903,9 +2903,15 @@ export interface components {
             durationMinutes: number;
             /** @default 1 */
             maxAttempts: number;
-            /** @default false */
+            /**
+             * @description Shuffle standalone questions and complete groups as units inside each section; preserve member order.
+             * @default false
+             */
             shuffleQuestions: boolean;
-            /** @default false */
+            /**
+             * @description Rejected with VALIDATION_FAILED on shuffleOptions when the selected version contains a group member with fixed option-label dependencies.
+             * @default false
+             */
             shuffleOptions: boolean;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];

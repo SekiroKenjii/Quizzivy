@@ -364,6 +364,26 @@ keyboard navigation, legacy flat papers and preview widths. No migration is need
 Complete draft summaries/outline, bank/builder UI and W-09 learner delivery remain
 required before group authoring can be enabled.
 
+### 1.16 Implementation checkpoint — grouped dealing rules (W-09a)
+
+Attempt question reads now include frozen group identity, member ordinal and the
+fixed-option dependency policy. Seeded dealing ranks complete groups and standalone
+questions inside each section; member order does not depend on SQL row arrival.
+Standalone ranks retain the historical salt/identity, so legacy papers keep exactly
+their previous seeded order. Option dealing preserves fixed-label members and does
+not mutate the loaded paper while shuffling unrelated choices.
+
+Assignment create/update rejects `shuffleOptions` with the existing field-validation
+response when the selected version contains fixed-label group members. It checks
+the frozen selected version, including draft saves, before assignment/target/audit
+writes. A different version without this dependency is unaffected.
+
+Property checks cover seed variation, row permutation, section boundaries, member
+contiguity/order, fixed options and input immutability. Docker checks cover frozen
+metadata reads and create/update rollback, including version-specific validation.
+Attempt/result/group payloads, shared playback counters and learner/context UI remain
+W-09 work; this checkpoint does not enable group authoring or shared audio.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

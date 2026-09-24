@@ -2247,8 +2247,14 @@ components:
             closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer, minimum: 1, maximum: 600 }
         maxAttempts: { type: integer, minimum: 1, default: 1 }
-        shuffleQuestions: { type: boolean, default: false }
-        shuffleOptions: { type: boolean, default: false }
+        shuffleQuestions:
+          type: boolean
+          default: false
+          description: Shuffle standalone questions and complete groups as units inside each section; preserve member order.
+        shuffleOptions:
+          type: boolean
+          default: false
+          description: Rejected with VALIDATION_FAILED on shuffleOptions when the selected version contains a group member with fixed option-label dependencies.
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
         draft:
