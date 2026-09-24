@@ -1686,7 +1686,7 @@
     "assetUnbound": "Chưa liên kết tệp trong bản thử",
     "invalidContent": "Nội dung có cấu trúc chưa được hỗ trợ. Bản gốc không bị thay đổi.",
     "loading": "Đang mở trình soạn…",
-    "pasteBlocked": "Bản thử chưa nhận nội dung định dạng hoặc tệp từ clipboard. Nội dung hiện tại được giữ nguyên. Dùng Ctrl+Shift+V để chủ động dán văn bản thuần.",
+    "pasteBlocked": "Không thể chuyển đầy đủ nội dung dán: có tệp, định dạng chưa hỗ trợ hoặc nội dung vượt giới hạn. Nội dung hiện tại được giữ nguyên. Bạn có thể dùng Ctrl+Shift+V để chủ động dán văn bản thuần và bổ sung lại định dạng.",
     "editBlocked": "Không thể áp dụng thay đổi này: cấu trúc không hỗ trợ, ô trống bị trùng hoặc nội dung vượt giới hạn. Nội dung trước đó được giữ nguyên.",
     "formatting": "Định dạng nội dung",
     "bold": "In đậm",
@@ -1718,6 +1718,11 @@
     "sessionOnly": "Chỉ giữ trong phiên thử nghiệm",
     "sample1": "Định dạng & ô trống",
     "sample2": "Bảng & danh sách",
-    "previewHelp": "Bản xem trước dùng bộ hiển thị độc lập với trình soạn."
+    "previewHelp": "Bản xem trước dùng bộ hiển thị độc lập với trình soạn.",
+    "pasteTitle": "Xem trước nội dung sau khi dán",
+    "pasteDescription": "Kiểm tra nội dung bên dưới trước khi chèn vào vị trí đã chọn. Các định dạng được hỗ trợ sẽ được giữ lại; phông chữ, cỡ chữ, màu sắc và khoảng cách theo giao diện của đề.",
+    "pasteLoading": "Đang kiểm tra nội dung dán…",
+    "pasteApply": "Áp dụng nội dung dán",
+    "pasteStale": "Nội dung đã thay đổi trong lúc xem trước. Hãy dán lại tại vị trí mong muốn; thay đổi hiện tại vẫn được giữ nguyên."
   }
 }

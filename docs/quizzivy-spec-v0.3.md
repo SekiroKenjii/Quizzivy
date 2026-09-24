@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.13 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.14 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.13**
+
+- Rich authoring supports bounded structured clipboard conversion with an explicit
+  preview, atomic insertion and undo. Unsupported source content is refused in full;
+  it is never silently reduced to plain text. Original clipboard HTML stays local.
 
 **Changes since v0.12**
 
@@ -457,6 +463,16 @@ otherwise the update fails atomically. Explicit null clears a document. New
 rich authoring is opt-in via `VITE_RICH_QUESTION_EDITOR`; existing documents stay
 editable. Conversion from Markdown is explicit, validates the supported subset
 and refuses unsupported structures without changing the original.
+
+Formatted clipboard content follows the same principle: parse locally into the
+allowlisted semantic vocabulary, preview the complete resulting field, and apply
+only after confirmation. Preserve supported marks, list starts, table spans and
+safe links; adapt fonts, colors and spacing to the application's design. Reject
+files, active/hidden content, unbound gaps, unsupported styles or incomplete
+structure as one paste. No fallback to text without the teacher explicitly using
+plain-text paste. The converter cannot infer answer keys from visual formatting.
+Cancel/stale preview leaves current edits unchanged; one undo reverses insertion.
+Field profiles and aggregate budgets apply to the whole resulting document.
 
 ### 7.2 Word milestone group ordering (approved, not yet enabled)
 

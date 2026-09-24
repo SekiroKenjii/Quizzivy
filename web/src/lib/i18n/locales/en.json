@@ -1686,7 +1686,7 @@
     "assetUnbound": "Asset not linked in this prototype",
     "invalidContent": "This content has an unsupported structure. The original is unchanged.",
     "loading": "Opening editor…",
-    "pasteBlocked": "This prototype does not accept formatted clipboard content or files. Existing content is unchanged. Use Ctrl+Shift+V to explicitly paste plain text.",
+    "pasteBlocked": "The complete paste could not be converted: it includes a file, unsupported formatting, or content over the limit. The current content is unchanged. Use Ctrl+Shift+V to deliberately paste plain text and reapply formatting.",
     "editBlocked": "This change contains an unsupported structure, a duplicate gap, or exceeds the content limit. Previous content is unchanged.",
     "formatting": "Content formatting",
     "bold": "Bold",
@@ -1718,6 +1718,11 @@
     "sessionOnly": "Kept in this prototype session only",
     "sample1": "Formatting & gaps",
     "sample2": "Tables & lists",
-    "previewHelp": "The preview uses a renderer independent of the editor."
+    "previewHelp": "The preview uses a renderer independent of the editor.",
+    "pasteTitle": "Preview content after pasting",
+    "pasteDescription": "Review the content below before inserting it at the selected position. Supported formatting is retained; fonts, sizes, colors and spacing follow the test layout.",
+    "pasteLoading": "Checking pasted content…",
+    "pasteApply": "Apply pasted content",
+    "pasteStale": "The content changed during preview. Paste again at the intended position; your current edits are unchanged."
   }
 }

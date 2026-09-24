@@ -198,6 +198,24 @@ for undo, requires explicit discard and blocks incomplete bindings before save.
 Legacy Markdown is unchanged. This advances W-06; structured paste, asset bindings,
 groups, revision recovery, import processing/review and teacher acceptance remain.
 
+### 1.8 Implementation checkpoint — structured clipboard (W-06c)
+
+Rich authoring now previews supported clipboard prose before changing a field.
+The local converter preserves inline semantic marks, list starts, safe links and
+table spans, using the existing application-owned content contract. It rejects
+unsupported/ambiguous source structure as a whole and never derives keys from
+underlines or other marks. Input and resulting documents have bounded budgets.
+Captured selection, unchanged-document checks and transaction history protect
+cancel, concurrent edits and undo. The parser loads only when formatted paste is
+requested, outside the learner reader and the initial editor dependency closure.
+
+The pinned `parse5` dependency parses inert HTML without DOM mounting, scripts or
+resource fetching. Files, externally dropped HTML, unbound assets/gaps, stylesheet
+rules, tracked changes and Word-specific list conventions remain explicit refusals.
+This is a bounded clipboard subset, not a claim of arbitrary Word conversion.
+Group/media authoring, revision-safe persistence, local recovery and native IME/
+teacher acceptance remain subsequent gates.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

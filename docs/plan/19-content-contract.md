@@ -1,7 +1,8 @@
 # Versioned content contract — W-02 foundation
 
 Status: content foundation plus W-05a options and W-05b question prose, with
-pilot authoring affordances and stable blank bindings. Groups and import endpoints remain pending.
+pilot authoring affordances, stable blank bindings and bounded clipboard conversion.
+Groups and import endpoints remain pending.
 `api/openapi.yaml` is the structural authority. Go's `shared/content.Parse` and
 the frontend validator enforce the cross-node rules below. They share synthetic
 accept/reject fixtures; generated TS types are the frontend model. Go's domain
@@ -235,3 +236,33 @@ editable when disabled. This is not structured clipboard import or pilot accepta
 Migration Down first restores the old prompt restriction. It therefore refuses
 rich fill-blank rows without losing data. After such writes, retain the schema
 and these readers as the rollback floor and disable only new authoring.
+
+## W-06c — structured clipboard conversion
+
+The editor intercepts formatted/file paste at the DOM-event boundary, before
+ProseMirror's HTML parser runs. `parse5` 8.0.1, MIT, is an explicit dependency for
+inert standards-based HTML parsing. Raw clipboard HTML is never mounted, saved,
+sent to a service, or included in diagnostics. The converter loads on demand.
+
+The accepted subset maps paragraphs, headings 1–3, ordinary lists with explicit
+starts, tables/spans, six marks and safe HTTPS links to the existing semantic AST.
+Allowlisted inline CSS supplies marks. Fonts, size, color and layout decoration
+are replaced by the product design; the preview explains that normalization.
+Unknown tags/attributes, active content, images/files, unbound gap metadata,
+stylesheets, conditional Word markup, tracked changes, ambiguous CSS/list rules,
+nested/malformed tables and unsafe URLs cause whole-paste refusal. Parsed source
+locations must cover the input: HTML tree repair cannot silently discard unknown
+source tags. This is deliberately narrower than arbitrary Word clipboard HTML.
+
+Input is at most 256 KiB UTF-8, with valid Unicode and no NUL. Parse inspection
+allows at most 6,144 source nodes and 48 tree levels before semantic conversion;
+existing content limits and the narrower field profile apply to both the candidate
+and the complete replacement. No mark implies an answer key or gap binding.
+
+Preview renders only the validated resulting semantic document, with accessible
+cancel/apply controls and focus restoration. The original document/selection is
+captured before opening it. Cancellation and a late cancelled conversion do not
+change content. If the document changes before confirmation, the user must paste
+again. Applying uses one validated transaction with history boundaries on both
+sides; undo restores the previous content and answer bindings remain governed by
+W-06b. Existing autosave/server rules apply after the confirmed edit.
