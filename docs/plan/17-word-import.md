@@ -253,6 +253,26 @@ This is storage groundwork only: repository lifecycle commands, legacy-writer
 barriers, bank/builder integration and W-08/09 snapshots/readers remain required
 before any group endpoint or write affordance is enabled.
 
+### 1.11 Implementation checkpoint — atomic group storage (W-07c)
+
+The internal group repository creates and reloads complete independent graphs in
+one transaction, including owned interactions and audit entries. Section-owned
+creation checks the enclosing draft revision and preserves standalone order when
+introducing ordered units. Invalid late media bindings roll back the entire graph.
+Bulk member reads validate relational media mirrors against the semantic content.
+
+Existing question get, update, delete, duplicate, tagging, outline references,
+listing and facet paths hide or reject owned children. Active and archived groups
+protect shared and member media; creation and deletion contend on the same asset
+locks. Admin media-delete conflicts can name both published tests and groups.
+Database tests cover independent copies after source deletion, rollback, stale
+outline writes and both orders of the media create/delete race.
+
+This repository is not connected to a group HTTP endpoint. Revision-safe group
+editing, bank/lifecycle commands, media usage UI, full draft readers and W-08/09
+snapshot/delivery support are still required before enabling group authoring.
+No new migration or dependency is introduced beyond W-07b migrations 35–37.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

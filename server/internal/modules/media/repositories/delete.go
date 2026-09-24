@@ -35,8 +35,12 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.DeleteInput) error 
 	if err != nil {
 		return err
 	}
-	if len(refs) > 0 {
-		return &domain.ReferencedError{Tests: refs}
+	groups, err := GroupReferences(ctx, tx, in.ID)
+	if err != nil {
+		return err
+	}
+	if len(refs) > 0 || len(groups) > 0 {
+		return &domain.ReferencedError{Tests: refs, Groups: groups}
 	}
 
 	if _, err := tx.Exec(ctx,

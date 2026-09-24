@@ -1,7 +1,12 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.16 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.17 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.16**
+
+- W-07c adds atomic internal group persistence, owned-member barriers and protected
+  media references. No group endpoint or authoring affordance is enabled yet.
 
 **Changes since v0.15**
 
@@ -529,8 +534,12 @@ Section units distinguish standalone questions from groups. Material gaps and
 media references have relational bindings; cross-group response/playback links
 are rejected. Owned children cannot be archived separately. Restrictive owner
 foreign keys require explicit whole-graph cleanup; existing section deletion
-cannot leave questions detached from their context. Lifecycle commands, deletion
-races, snapshots and delivery must be integrated before enabling group authoring.
+cannot leave questions detached from their context. Internal graph creation and
+copy materialization are atomic with their audits. Legacy question operations
+hide or refuse owned children; active and archived groups protect referenced
+media under the same asset lock used by deletion. Revision-safe editing, complete
+lifecycle commands, snapshots and delivery remain required before enabling group
+authoring.
 
 ---
 

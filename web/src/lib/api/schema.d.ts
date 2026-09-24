@@ -1724,6 +1724,16 @@ export interface components {
              */
             version?: number;
         };
+        /** @description Admin-only shared context that protects an immutable media asset, including archived bank groups. */
+        ReferencingGroup: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /**
+             * Format: uuid
+             * @description Owning test, absent for an independent bank group.
+             */
+            testId?: string | null;
+        };
         /**
          * @description A MediaAsset as the admin library lists it, with how many published
          *     versions reference it. Flat for the same reason (issue #41) -- this is
@@ -4205,9 +4215,10 @@ export interface operations {
             204: components["responses"]["NoContent"];
             404: components["responses"]["NotFound"];
             /**
-             * @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15).
+             * @description `MEDIA_REFERENCED` — a published version or independent question group still uses it (§8, §15).
              *     `details.tests` names those versions as `ReferencingTest[]`,
-             *     sorted by title then version (A-07).
+             *     sorted by title then version (A-07). `details.groups` names protected
+             *     draft/bank context as `ReferencingGroup[]`, sorted by title then ID.
              */
             409: {
                 headers: {

@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func prepareQuestionContent(ctx context.Context, tx pgx.Tx, id string, in *domain.Input, update bool) error {
+func prepareQuestionContent(ctx context.Context, tx pgx.Tx, id string, in *domain.Input, update bool, groupID *string) error {
 	if !update {
 		return in.ValidateContent()
 	}
@@ -18,7 +18,8 @@ func prepareQuestionContent(ctx context.Context, tx pgx.Tx, id string, in *domai
 	var explanation *string
 	var promptContent, explanationContent json.RawMessage
 	err := tx.QueryRow(ctx, `SELECT prompt, explanation, prompt_content, explanation_content
-        FROM app.questions WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, id).
+        FROM app.questions WHERE id = $1 AND deleted_at IS NULL
+          AND context_group_id IS NOT DISTINCT FROM $2::uuid FOR UPDATE`, id, groupID).
 		Scan(&prompt, &explanation, &promptContent, &explanationContent)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound

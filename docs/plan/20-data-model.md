@@ -1495,3 +1495,17 @@ not a supported downgrade after group content exists. After enabling writes, kee
 a reader-capable binary and schema floor; disable new writes instead of dropping
 context. The guarded rollback and fresh up/down/up are tested in isolated Docker
 databases. No privilege changes touch append-only audit or attempt events.
+
+The W-07c internal repository materializes graphs atomically and resolves owned
+questions through a transaction-bound adapter. Legacy standalone APIs scope reads
+and writes to null ownership. First group mounting locks the test revision, locks
+legacy standalone members by ID, preserves their section ordinals and appends the
+group. Creation then locks all media IDs in stable order before writing members
+and bindings. Readback holds the group shared lock and verifies AST/relational
+asset equality. Group-aware update/delete must take its exclusive counterpart.
+
+Media soft deletion includes material, recording and owned-member references,
+including archived bank groups, under the existing asset row lock. The race tests
+observe actual PostgreSQL blocking and exercise both winner orders. These internal
+operations remain unexposed until complete draft/snapshot readers and lifecycle
+commands are present; new-unit readers must not fall back to legacy flat membership.

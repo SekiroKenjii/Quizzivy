@@ -570,6 +570,19 @@ components:
             The published version holding the reference. Absent when the
             reference is a draft outline, which has no version yet.
 
+    ReferencingGroup:
+      type: object
+      description: Admin-only shared context that protects an immutable media asset, including archived bank groups.
+      additionalProperties: false
+      required: [id, title]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        testId:
+          type: [string, 'null']
+          format: uuid
+          description: Owning test, absent for an independent bank group.
+
     LibraryAsset:
       type: object
       description: |
@@ -3349,9 +3362,10 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
-            `MEDIA_REFERENCED` — a published version still uses it (§8, §15).
+            `MEDIA_REFERENCED` — a published version or independent question group still uses it (§8, §15).
             `details.tests` names those versions as `ReferencingTest[]`,
-            sorted by title then version (A-07).
+            sorted by title then version (A-07). `details.groups` names protected
+            draft/bank context as `ReferencingGroup[]`, sorted by title then ID.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
