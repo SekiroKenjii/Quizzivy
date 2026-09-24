@@ -1,5 +1,5 @@
 import { Extension, Node } from "@tiptap/core";
-import { Plugin } from "@tiptap/pm/state";
+import { Plugin, Selection, TextSelection } from "@tiptap/pm/state";
 import { closeHistory } from "@tiptap/pm/history";
 import { Slice } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
@@ -85,6 +85,32 @@ export function contentExtensions(
           },
           props: {
             handleKeyDown(view, event) {
+              if (
+                event.ctrlKey &&
+                !event.altKey &&
+                !event.metaKey &&
+                !event.isComposing &&
+                (event.key === "Home" || event.key === "End")
+              ) {
+                const edge =
+                  event.key === "Home"
+                    ? Selection.atStart(view.state.doc)
+                    : Selection.atEnd(view.state.doc);
+                view.dispatch(
+                  view.state.tr
+                    .setSelection(
+                      event.shiftKey
+                        ? TextSelection.create(
+                            view.state.doc,
+                            view.state.selection.anchor,
+                            edge.head,
+                          )
+                        : edge,
+                    )
+                    .scrollIntoView(),
+                );
+                return true;
+              }
               if (profile !== "option" || event.key !== "Enter" || event.isComposing)
                 return false;
               const hardBreak = view.state.schema.nodes.hardBreak;

@@ -56,6 +56,8 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   await page.keyboard.press("Control+End");
   await page.keyboard.press("Enter");
   await expect(prompt.locator(":scope > p")).toHaveCount(2);
+  await expect(prompt.locator(":scope > p").first()).toContainText("They");
+  await expect(prompt.locator(":scope > p").last()).toHaveText("");
   await page.getByRole("button", { name: "Thêm bảng", exact: true }).click();
   await prompt.locator("th").first().click();
   await page.getByRole("button", { name: "Thêm ô trống", exact: true }).click();
