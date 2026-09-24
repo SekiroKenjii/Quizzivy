@@ -402,6 +402,7 @@ components:
         - TEST_NOT_PUBLISHED
         - PUBLISH_VALIDATION_FAILED
         - STALE_WRITE
+        - PLAY_ID_CONFLICT
         - QUESTION_REFERENCED
         - MEDIA_REFERENCED
         - MEDIA_TYPE_UNSUPPORTED
@@ -1973,11 +1974,38 @@ components:
             remaining plays from this, decrements optimistically, and reconciles
             on the next fetch. A client-side counter would reset on reload and
             make the limit meaningless (§11.4).
+        groupAudioPlays:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+          description: |
+            Server counts keyed by frozen group recording ID, shared across all
+            members and sessions of this attempt. Different groups using the same
+            file have independent counts. Optional for historical clients.
         answers:
           type: object
           additionalProperties: { $ref: '#/components/schemas/Answer' }
           description: Keyed by question id. The base for the resume merge.
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+
+    GroupAudioPlayInput:
+      type: object
+      additionalProperties: false
+      required: [recordingId, playId, sessionId]
+      properties:
+        recordingId: { $ref: '#/components/schemas/Uuid' }
+        playId:
+          $ref: '#/components/schemas/Uuid'
+          description: Stable random ID for one gesture, reused unchanged by retries; unique within the attempt.
+        sessionId: { $ref: '#/components/schemas/Uuid' }
+
+    GroupAudioPlayResult:
+      type: object
+      additionalProperties: false
+      required: [playId, plays, maxPlays]
+      properties:
+        playId: { $ref: '#/components/schemas/Uuid' }
+        plays: { type: integer, minimum: 1 }
+        maxPlays: { type: [integer, 'null'], minimum: 1 }
 
     IntegrityEventInput:
       type: object
@@ -4710,6 +4738,41 @@ paths:
                   plays: { type: integer, minimum: 1 }
                   maxPlays: { type: [integer, 'null'] }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /app/attempts/{id}/group-audio-play:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: recordGroupAudioPlay
+      tags: [take-test]
+      summary: Record one shared listening gesture, deduplicating retries
+      description: |
+        Counts a frozen recording bound to this attempt's version. Every distinct
+        playId increments its shared counter and appends one server audio_play
+        event in the same transaction. Retrying the same playId and recording
+        returns the current count without another increment/event. Reusing a
+        playId for another recording is PLAY_ID_CONFLICT.
+
+        Requires the current writable session, like answer autosave. Playback
+        remains synchronous and optimistic; no network round trip gates audio.
+        Counts may exceed maxPlays and never block playback or submission.
+        Legacy per-question playback uses the existing audio-play endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupAudioPlayInput' }
+      responses:
+        '200':
+          description: Current server count, including any plays beyond the configured allowance.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GroupAudioPlayResult' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: SESSION_SUPERSEDED, ATTEMPT_CLOSED, DEADLINE_PASSED or PLAY_ID_CONFLICT.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /app/attempts/{id}/submit:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]

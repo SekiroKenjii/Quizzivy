@@ -1282,6 +1282,7 @@ the file it adds.
 | `00037_create_question_group_graph.sql` | Ordered units, materials, cloze targets, protected media/recording bindings | Word W-07 |
 | `00038_index_version_question_sections.sql` | Concurrent section identity index for frozen questions | Word W-08 |
 | `00039_create_version_group_graph.sql` | Independent immutable group/unit/material/recording snapshots | Word W-08 |
+| `00040_create_group_audio_plays.sql` | Shared recording counters and append-only gesture receipts | Word W-09 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1584,8 +1585,9 @@ member policy/order. Material and recording rows receive fresh UUIDv7 identities
 gap targets are remapped to the frozen questions, with their stable prompt gap IDs
 retained. Version listening counts count each question once if it has own audio
 or any shared recording in its group. Frozen group references participate in
-media soft deletion and batched library usage lookups. Student reachability and
-presentation are not broadened until the W-09 reader is integrated.
+media soft deletion and batched library usage lookups. W-09b extends student
+reachability only through protected material bindings on a version they have an
+attempt on; preview/attempt safe readers never select keys or transcripts.
 
 W-08b reads the frozen graph under its parent version lock and validates content,
 member ordering, grading inputs and AST/relational asset mirrors. Restoration
@@ -1605,3 +1607,33 @@ editable IDs; standalone bank references keep their original duplication meaning
 Whole-test deletion clears owned context only after version reference checks,
 with audit history preserved. Grouped draft/preview and learner read paths must
 still be integrated before authoring is enabled.
+
+## 21. Shared recording accounting (W-09c)
+
+`00040_create_group_audio_plays.sql` keeps the counter identity separate from the
+immutable asset. `attempt_group_audio_plays` has primary key `(attempt_id,
+recording_id)`, a positive integer count and last-play timestamp. The attempt owns
+the count through a cascading FK; the frozen recording is protected by RESTRICT.
+A recording-first index supports reverse references and teacher aggregation.
+
+`attempt_group_audio_receipts` has primary key `(attempt_id,play_id)`, the recording,
+reporting session and received timestamp. Its composite FK names the corresponding
+counter and cascades with that owned counter. An `(attempt_id,recording_id)` index
+supports that reverse reference. The application can insert/read receipts but
+cannot update/delete them; existing audit/event privileges are untouched.
+
+The shared-play transaction first takes the same attempt lock as autosave, resume
+and submission, checking owner, writable session, status and deadline. A relational
+join verifies the requested recording is bound to a material on that attempt's
+version. It then looks up the gesture receipt. A matching retry reads the current
+counter without another event; a different recording is refused. A new gesture
+increments via UPSERT, inserts its receipt and appends one `audio_play` event with
+group/recording/gesture identity and count/limit metadata. Server events retain a
+NULL client sequence, so they never collide with browser event sequences.
+
+READ COMMITTED is sufficient: the attempt row serializes shared-play writers with
+each other and with session/closure changes. The whole transaction rolls back if
+any of its three writes fails. Counters may exceed the frozen policy; monitoring
+reports that excess and never changes grading. No historical ledger is backfilled.
+Down restores the prior schema only while the new ledger is empty; populated
+listening evidence must survive disabling the feature.

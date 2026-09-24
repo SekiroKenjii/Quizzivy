@@ -1373,6 +1373,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/app/attempts/{id}/group-audio-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record one shared listening gesture, deduplicating retries
+         * @description Counts a frozen recording bound to this attempt's version. Every distinct
+         *     playId increments its shared counter and appends one server audio_play
+         *     event in the same transaction. Retrying the same playId and recording
+         *     returns the current count without another increment/event. Reusing a
+         *     playId for another recording is PLAY_ID_CONFLICT.
+         *
+         *     Requires the current writable session, like answer autosave. Playback
+         *     remains synchronous and optimistic; no network round trip gates audio.
+         *     Counts may exceed maxPlays and never block playback or submission.
+         *     Legacy per-question playback uses the existing audio-play endpoint.
+         */
+        post: operations["recordGroupAudioPlay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/app/attempts/{id}/submit": {
         parameters: {
             query?: never;
@@ -1619,7 +1650,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2684,11 +2715,30 @@ export interface components {
             audioPlays: {
                 [key: string]: number;
             };
+            /**
+             * @description Server counts keyed by frozen group recording ID, shared across all
+             *     members and sessions of this attempt. Different groups using the same
+             *     file have independent counts. Optional for historical clients.
+             */
+            groupAudioPlays?: {
+                [key: string]: number;
+            };
             /** @description Keyed by question id. The base for the resume merge. */
             answers: {
                 [key: string]: components["schemas"]["Answer"];
             };
             integrity: components["schemas"]["IntegrityPolicy"];
+        };
+        GroupAudioPlayInput: {
+            recordingId: components["schemas"]["Uuid"];
+            /** @description Stable random ID for one gesture, reused unchanged by retries; unique within the attempt. */
+            playId: components["schemas"]["Uuid"];
+            sessionId: components["schemas"]["Uuid"];
+        };
+        GroupAudioPlayResult: {
+            playId: components["schemas"]["Uuid"];
+            plays: number;
+            maxPlays: number | null;
         };
         IntegrityEventInput: {
             /**
@@ -5738,6 +5788,42 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    recordGroupAudioPlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupAudioPlayInput"];
+            };
+        };
+        responses: {
+            /** @description Current server count, including any plays beyond the configured allowance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupAudioPlayResult"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            /** @description SESSION_SUPERSEDED, ATTEMPT_CLOSED, DEADLINE_PASSED or PLAY_ID_CONFLICT. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     submitAttempt: {

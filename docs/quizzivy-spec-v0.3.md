@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.22 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.23 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.22**
+
+- W-09c persists shared-recording counters and gesture receipts, deduplicates
+  retries atomically with timeline events, and includes shared excess plays in
+  teacher monitoring. Group authoring/player/result UI remain gated.
 
 **Changes since v0.21**
 
@@ -786,6 +792,18 @@ from §11.3–11.4. The future shared player must use this scope consistently in
 navigation, event writes and state reconciliation. Its API, relational references,
 concurrency tests and student-payload tests must precede enabling shared audio.
 Existing per-question audio remains a separately supported historical contract.
+
+W-09c adds a separate shared-play endpoint with `recordingId`, current `sessionId`
+and a stable per-gesture `playId`. It follows the existing autosave writable-session
+checks and verifies the recording's material binding belongs to the attempt's
+version before writing. Retrying the same gesture/recording returns its current
+counter; reusing the gesture ID for another recording is a conflict. The counter,
+append-only receipt and server `audio_play` event commit together. Counts survive
+reload/takeover and are returned as `groupAudioPlays`, keyed by recording ID.
+Teacher monitor and timeline excess-play totals include this ledger. New attempts
+start with their own allowance. Network acknowledgements and `maxPlays` never gate
+the actual browser play call. Shared player/retry-queue and result/review context
+integration remain required before group authoring is enabled.
 
 ---
 

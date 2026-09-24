@@ -20,6 +20,8 @@ type Repository interface {
 	Questions(ctx context.Context, testVersionID string) ([]Question, error)
 	Answers(ctx context.Context, attemptID string) (map[string][]byte, error)
 	AudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
+	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
+	RecordGroupPlay(ctx context.Context, in GroupPlayInput, now time.Time) (GroupPlays, error)
 	RecordPlay(ctx context.Context, attemptID, studentID, questionID string, now time.Time) (Plays, error)
 	Save(ctx context.Context, in SaveInput, now time.Time) (SaveResult, error)
 	Flush(ctx context.Context, in FlushInput, now time.Time) error

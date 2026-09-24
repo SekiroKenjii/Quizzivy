@@ -408,6 +408,28 @@ response branch. No migration or dependency is added. Shared recording accountin
 learner/result/review UI, explicit delivery versioning and group authoring remain
 gated pending subsequent slices.
 
+### 1.18 Implementation checkpoint — shared playback ledger (W-09c)
+
+Migration `00040_create_group_audio_plays.sql` adds attempt/recording counters and
+append-only per-gesture receipts. The new shared-play endpoint locks the attempt
+using existing writable-session rules, verifies its version-bound recording and
+material, and atomically increments once, records the receipt and appends a server
+timeline event. Retries return the current count; reusing a gesture ID on another
+recording returns a conflict. No limit rejects additional listening.
+
+Session payloads expose counters by frozen recording identity. Two groups using
+one asset have independent allowances; reload/takeover retain counts; a new attempt
+has fresh counters. Teacher monitor and timeline totals include shared excess plays.
+Historical per-question playback and client event sequence keys are unchanged.
+
+Docker tests cover concurrent identical and distinct gestures, cross-group and
+cross-attempt scope, foreign/version/session/closed/deadline rejection, reload,
+takeover, teacher totals and rollback of both counter and receipt if event writing
+fails. Migration checks cover up/down/up, schema equality, relational constraints,
+append-only privileges and refusal to drop a populated ledger. The shared browser
+player/retry queue, result/review context and explicit delivery-version marker
+remain pending; group authoring is not enabled by this server slice.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

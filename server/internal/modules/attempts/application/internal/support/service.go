@@ -184,6 +184,13 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	if err != nil {
 		return domain.Session{}, err
 	}
+	groupPlays := map[string]int{}
+	if len(groups) > 0 {
+		groupPlays, err = s.Store.GroupAudioPlays(ctx, a.ID)
+		if err != nil {
+			return domain.Session{}, err
+		}
+	}
 	tally, err := s.Store.Tally(ctx, a.AssignmentID, a.StudentID)
 	if err != nil {
 		return domain.Session{}, err
@@ -199,8 +206,9 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 		BeaconToken:       beacon,
 		ServerTime:        s.Now(),
 
-		AudioPlays: plays,
-		Answers:    answers,
-		Integrity:  r.Integrity,
+		AudioPlays:      plays,
+		GroupAudioPlays: groupPlays,
+		Answers:         answers,
+		Integrity:       r.Integrity,
 	}, nil
 }

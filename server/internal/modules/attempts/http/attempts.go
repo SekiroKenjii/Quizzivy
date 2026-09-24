@@ -86,6 +86,10 @@ func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequ
 }
 
 func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in domain.Session) (openapi.AttemptSession, error) {
+	groupPlays := in.GroupAudioPlays
+	if groupPlays == nil {
+		groupPlays = map[string]int{}
+	}
 	groups, err := testshttp.StudentGroups(ctx, in.Groups, func(ctx context.Context, id string) (*openapi.MediaAsset, error) {
 		return h.groupAsset(ctx, studentID, id)
 	})
@@ -126,6 +130,7 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 		BeaconToken:       in.BeaconToken,
 		ServerTime:        in.ServerTime,
 		AudioPlays:        in.AudioPlays,
+		GroupAudioPlays:   &groupPlays,
 		Answers:           answers,
 		Integrity: openapi.IntegrityPolicy{
 			RequireFullscreen: in.Integrity.RequireFullscreen,
