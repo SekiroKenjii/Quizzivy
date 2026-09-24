@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { useState, type ReactNode } from "react";
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import type { SemanticContent } from "../model";
 import { isQuestionContent, isQuestionPromptContent } from "../questionContent";
@@ -19,6 +19,7 @@ function ActiveEditor({
   id,
   profile = "document",
   gapLabel,
+  tools,
 }: Readonly<{
   initialContent: SemanticContent;
   onChange: (content: SemanticContent) => void;
@@ -26,6 +27,7 @@ function ActiveEditor({
   gapLabel?: (() => string) | undefined;
   id?: string;
   profile?: "document" | "option" | "question" | "prompt";
+  tools?: ((editor: Editor) => ReactNode) | undefined;
 }>) {
   const { t } = useTranslation();
   const [notice, setNotice] = useState<EditorNotice>();
@@ -66,6 +68,7 @@ function ActiveEditor({
   return (
     <div className="content-editor bg-card focus-within:ring-ring/30 overflow-hidden rounded-lg border shadow-sm focus-within:ring-2">
       <ContentToolbar editor={editor} profile={profile} gapLabel={gapLabel} />
+      {tools?.(editor)}
       <EditorContent editor={editor} />
       {notice && (
         <p role="alert" className="border-t px-4 py-3 text-sm">
@@ -97,6 +100,7 @@ export function ContentEditor(
     gapLabel?: (() => string) | undefined;
     id?: string;
     profile?: "document" | "option" | "question" | "prompt";
+    tools?: ((editor: Editor) => ReactNode) | undefined;
   }>,
 ) {
   const { t } = useTranslation();

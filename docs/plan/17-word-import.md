@@ -585,6 +585,36 @@ Domain, transport and contract checks pin format/projection validation and expli
 archive conflicts. Typed web helpers retain old writers and prepare mixed writes;
 the editor integration is still outstanding. No migration or dependency is added.
 
+### 1.25 Implementation checkpoint — group bank editor and local recovery (W-07g)
+
+The independent group bank is exposed under `/admin/question-bank/groups`, with
+search, URL/session filter retention, newest-first rows, an inline and menu copy
+action, a recent-copy indicator and confirmed bulk archive/restore/permanent
+removal. Creation opens the editor; duplication leaves the teacher on the list.
+The editor preserves the complete graph and presents one active member/material
+editor, keyboard ordering controls, stable gap targets, HTTPS links, authorized
+image/audio picking and upload, shared recording policy/transcripts and learner
+preview at desktop/phone widths. Historical Markdown remains editable. Material
+preview retains the active editor's undo history. No learner preview includes
+answer keys, explanations or transcripts.
+
+Serialized autosave uses the group revision and preserves edits made while a
+request is in flight. Route exit flushes or explicitly keeps a confirmed local
+draft. The IndexedDB outbox is account/item scoped, expires within seven days from
+unsent creation and stores content/revision only, without files or signed URLs.
+Storage failures remain visible. Logout atomically clears records and fences old
+tabs; a newer editor of the same item fences older local writers. Restoring a
+stale draft retains its edits and offers an independently remapped bank copy,
+without replacing the current server graph. Import-review integration remains.
+
+The real browser-to-Docker check exposed the first PUT endpoint being absent from
+the CORS preflight method list. PUT is now allowed for exactly the configured
+origins; regression tests retain the untrusted-origin boundary. The field primitive
+is vendored from the existing shadcn registry style using the repository's own
+utility imports. No dependency or migration is added. Mixed builder integration,
+context-aware bank insertion, import processing/review/commit and pilot gates
+remain outstanding; this checkpoint does not claim general import availability.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -765,7 +795,8 @@ outbox with visible recovery/conflict handling. Thuong approved account-isolated
 local recovery with a maximum seven-day lifetime from unsent revision creation
 and clearing on logout; source/answer files are excluded. Enforce expiry before
 any read/replay, surface quota/storage failures, and never report local-only
-changes as server-saved. Implementation and recovery tests remain pending.
+changes as server-saved. The group bank editor implements this outbox and recovery
+checks; import review still needs to integrate the same policy.
 Browser unload requests alone are not durability. Server-acknowledged edits must survive all browser failures.
 
 Prepare immutable validated media before commit. Commit runs complete domain
@@ -992,7 +1023,7 @@ deploy and verify backup/restore before enabling production writes.
 | D-01 | Content/editor | Application-owned versioned AST, lightweight student renderer, evaluated editor adapter | Engineering + Thuong; W-02/03 before W-05 |
 | D-02 | Group/material ownership and bank reuse | **Approved by Thuong:** independent copies; full context copied into bank/other tests; source deletion cannot affect copies | Engineering; reference/DDL review remains before W-07 |
 | D-03 | Audio/deal semantics | **Approved by Thuong:** shuffle groups as units within a section, keep child order; a shared recording has one allowance per group/attempt, preserved on navigation/reload/takeover, independent across groups using the same file | Engineering; snapshot/API/ledger integration and legacy regressions before W-08/09 |
-| D-04 | Access and unsent recovery | **Recovery approved by Thuong:** per-account local drafts, at most seven days, logout clearing, explicit local/server save states. Existing admin authorization still applies | Engineering; recovery and access implementation/tests pending |
+| D-04 | Access and unsent recovery | **Recovery approved by Thuong:** per-account local drafts, at most seven days, logout clearing, explicit local/server save states. Existing admin authorization still applies | Group bank recovery implemented and tested; import-review integration pending |
 | D-05 | Converter/extractor dependencies | Benchmark structured OOXML extraction and isolated LibreOffice normalization; Mammoth is a comparison candidate only | Engineering; W-03 before dependency addition |
 | D-06 | Cloud/private model and data policy | Evaluate both, no silent provider fallback or external upload | Thuong + engineering; before real external benchmark/assisted processing |
 | D-07 | Limits/SLOs/cost | Measure §9.2 hypotheses and approve supported envelope and spending cap | Thuong + engineering; W-21 before release |

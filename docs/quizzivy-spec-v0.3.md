@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.29 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.30 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.29**
+
+- W-07g adds the independent group bank and a complete-group editor: shared
+  materials, authorized image/audio insertion, stable gap links, learner preview,
+  revision-checked autosave and explicit local recovery. Archived groups support
+  bulk restoration/deletion; copies remain on the list with an indicator.
+  Mixed builder editing and the import pipeline remain release gates.
 
 **Changes since v0.28**
 
@@ -609,8 +617,9 @@ kind, existence, authorization and deletion locks remain required at persistence
 
 Copying remaps group, question, material, answer, gap and recording identities,
 preserving all grading data, labels, order and content. Immutable media IDs are
-reused through new protected bindings. Group authoring endpoints remain gated;
-the safe preview and attempt readers below are additive. Relational ownership uses a nullable section owner for each group
+reused through new protected bindings. The teacher-only group API and independent
+bank editor are available on the milestone branch; release still requires the
+mixed builder and import acceptance gates. Relational ownership uses a nullable section owner for each group
 (null means an independent bank group) and explicit ownership/order on its member questions.
 Section units distinguish standalone questions from groups. Material gaps and
 media references have relational bindings; cross-group response/playback links
@@ -625,16 +634,32 @@ replace content and member order atomically. Bank archive/restore/delete checks
 the same revision; permanent deletion requires archival and keeps audit history.
 Removing a section-owned group deletes its complete draft graph and compacts unit
 order. Copy materialization checks an observed source revision and creates new
-editable identities. Complete draft readers, snapshots, delivery and UI integration
-remain required before enabling group authoring.
+editable identities. Draft/snapshot/delivery readers preserve the complete graph.
+Mixed builder editing and context-aware insertion remain required before release.
 
 Draft totals and tag filters include owned members alongside standalone questions.
 Listening counts count each question once when it has its own audio or a shared
 group recording. Independent bank groups are not part of a test's totals. The
 legacy question-only whole-outline writer refuses a draft containing groups with
 `GROUP_OUTLINE_REQUIRED` before changing metadata or structure; metadata-only
-updates remain supported. Group-aware outline editing must ship before enabling
-group authoring.
+updates remain supported. The group-aware writer accepts complete mixed units and
+moves whole groups transactionally; its builder UI remains required before release.
+
+The independent group bank supports search, remembered URL filters, newest-first
+updates, inline/menu duplication and bulk archive/restore/permanent deletion.
+Copies keep the teacher on the list with a small indicator. The group editor has
+one active rich editor, ordered materials/members, explicit gap-target selectors,
+authorized image/audio picking and upload, HTTPS links and shared recording policy.
+Historical Markdown material remains editable. Material preview preserves undo
+history; full desktop/phone preview uses the learner renderer without answer keys,
+explanations or transcripts. Archived groups must be restored before editing.
+
+Full-group autosave serializes writes with the observed revision, keeps newer
+keystrokes when an earlier write is acknowledged, and flushes before route exit.
+Incomplete edits remain locally recoverable. Quota/storage errors are visible;
+only a server acknowledgement marks the matching revision saved. Recovery from a
+stale revision never overwrites current data: the teacher can edit the recovered
+content and save a fully remapped independent bank copy.
 
 Publication freezes the entire group into version-owned rows, including ordered
 units, member order, materials, stable gap targets and explicit recording policy.
@@ -697,6 +722,7 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/admin/tests/new`, `/admin/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **audio attach** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. |
 | `/admin/tests/:id` | Test detail | Student-eye preview of any version, with history in the shared right sidebar. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
 | `/admin/question-bank` | Question bank | Type/tag filters + full-text search. CRUD. Audio badge + inline preview. CSV import (P1). |
+| `/admin/question-bank/groups`, `/admin/question-bank/groups/:id` | Group bank/editor | Independent complete-group copies, materials and member editing, shared recording policies, revision-safe autosave and account-scoped local recovery. |
 | `/admin/media` | Media library | Uploaded audio/images: filename, duration, size, where used. Delete blocked if referenced by any published version. |
 | `/admin/assignments` | Assignments list | Test, targets, window, status, `submitted/total`, flagged count. |
 | `/admin/assignments/new` | Create assignment | Published test, targets, window, duration, attempts, shuffle, review policy, integrity policy (§10.3). |
@@ -1358,7 +1384,11 @@ Thuong approved two ownership/recovery policies for this milestone:
   and revision-aware; local-only changes never display as server-saved. Local
   storage failure or quota exhaustion must remain visible and cannot silently
   discard unsent changes. Source/answer files are not stored in this recovery
-  outbox. This is approved policy, not an implemented durability guarantee yet.
+  outbox. The group editor implements this through IndexedDB, with expiry checked
+  before recovery, explicit restore/discard and a global logout fence that rejects
+  older writers in other tabs. Opening a newer editor of the same item fences the
+  previous local writer; it cannot overwrite or clear the newer editor's outbox.
+  Import review and standalone authoring recovery still require integration.
 
 ---
 
