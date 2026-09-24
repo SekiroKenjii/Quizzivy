@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.32 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.33 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.32**
+
+- W-11 adds an internal durable processing queue with immutable source/pipeline
+  identity, bounded attempts, leases, fenced writes and append-only run events.
+  Cancellation and completion serialize on the import. A context-aware runner
+  records safe operational metadata and preserves retryable work after shutdown.
+  The production processor, supervisor and public processing controls are not
+  wired yet; this checkpoint does not enable recognition or review.
 
 **Changes since v0.31**
 
@@ -1417,6 +1426,21 @@ is held during upload or inspection. The API admits one expanded inspection per
 process. Interrupted reservations remain observable; automatic retention is not yet
 implemented or authorized. Only completed sources can receive a 60-second download
 URL, forced to attachment/octet-stream. Source identifiers are never media asset IDs.
+
+Processing requests retain their source-set revision, pipeline version and replay
+identity. One queued/running request per import is permitted, with at most 50
+retained requests per import and 1–10 automatic attempts per request. Claims and
+heartbeats serialize capacity accounting across worker processes. Live leases
+expire after a configured 1 second–5 minutes; every state/result write checks the
+worker identity, fencing token, lease and source revision. Exhausted crashes become
+failed runs. Retrying a failed import creates a new immutable run identity.
+
+An internal runner stops cooperating processors on timeout, lease loss or shutdown.
+Processing runs outside transactions. Only a current claim can store a bounded
+private JSON object and transition to `needs_review`; semantic validation belongs
+to the forthcoming processor. Terminal runs cannot be changed. Run events retain
+actor/worker/stage/failure codes without document contents. This queue foundation
+has no public enqueue route, concrete recognizer or production supervisor yet.
 
 Thuong approved two ownership/recovery policies for this milestone:
 

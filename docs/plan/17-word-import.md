@@ -686,6 +686,39 @@ Remaining W-10/11+ work includes legacy conversion, durable processing, source
 replacement after review, upload-history UI, cleanup/retention, review and commit.
 This checkpoint does not expose the unfinished workflow to teachers or claim GA.
 
+### 1.28 Durable queue foundation (W-11a)
+
+`00043_create_word_import_runs.sql` adds source-pinned processing requests and
+append-only lifecycle events. Scheduling checks the import revision, requires a
+completed exam source, preserves request identity on retries and prevents multiple
+active runs. A failed import can schedule a new run without rewriting old results.
+
+Claims use a short transaction-level advisory capacity lock followed by import and
+run row locks. Candidate selection skips locked parents and rechecks eligibility
+under the parent lock. Heartbeats share the capacity lock, preventing an expiring
+lease renewal from racing a new allocation. Global and actor limits count live
+leases. No source download, parsing or provider call holds these locks.
+
+The runner heartbeats during context-aware processing, stops on lost claims and
+writes only with a current source/worker/fence/lease. Attempts and retry delays are
+bounded; expired final attempts become failed even when no new job can be claimed.
+Cancellation competes with completion under the same parent lock. Successful runs
+store at most 8 MiB of private object JSON and enter review; schema semantics remain
+the processor's responsibility. Terminal results and operational events are immutable.
+Stage events, retry causes, actor actions and lease recovery remain inspectable;
+logs/observers receive identifiers, timing and allowlisted codes, never raw errors.
+
+Docker tests use the app role and exercise concurrent cancellation/completion,
+capacity, retry exhaustion, append-only privileges, source preservation, stale
+writes, and a subprocess SIGKILL/reclaim. Runner tests cover heartbeat/progress
+failure, shutdown, invalid output and late completion; the race detector passes.
+Migration reversal and the existing module checks run in the dedicated test database.
+
+W-11 remains open for concrete pipeline/supervisor wiring and operational metrics
+exposure alongside W-12–16. No enqueue endpoint or teacher processing screen is
+exposed before there is a real processor. No external provider or retention policy
+is enabled by this checkpoint.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

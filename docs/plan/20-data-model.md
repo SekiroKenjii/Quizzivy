@@ -1696,3 +1696,37 @@ Local Docker verification uses the migration owner for fixture setup and the
 `quizzivy_app` role for intake, plus a separate private MinIO bucket. Up/down/up is
 verified on a disposable database. Automatic source retention remains undecided;
 this migration does not infer it from the integrity-event retention policy.
+
+
+## 24. Durable import runs (W-11a)
+
+Migration: `00043_create_word_import_runs.sql`. PG18
+[`SELECT … FOR UPDATE … SKIP LOCKED`](https://www.postgresql.org/docs/18/sql-select.html)
+is used only for queue allocation. [Transaction advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html)
+serialize capacity accounting; durable state is in tables, never the lock itself.
+
+`word_import_runs` references an immutable source set belonging to its import.
+Request identity pins the source revision, expected import revision, pipeline and
+attempt budget. A partial unique index permits one active run per import; queue
+and expiry indexes support allocation/recovery, and actor/source indexes cover FKs.
+CHECKs couple lease/worker presence, terminal completion, ready stage and private
+result presence to lifecycle state. Results are bounded JSON objects, not arbitrary
+SQL or learner payloads. Application column grants protect request/source identity;
+a terminal-state trigger prevents later result/history mutation.
+
+`word_import_run_events` references the run and its same import through a composite
+FK. It contains ordered operational identifiers/codes only. The app role can insert
+and read but cannot update or delete events. Actor and run indexes cover lookups and
+references. Existing `audit_log`/`attempt_events` grants are unchanged.
+
+Lock order is advisory `(73819,11)` when allocating/renewing capacity, then parent
+import, then run. Other transitions start at the parent and never acquire the queue
+advisory lock later. Eligibility is re-read after locking the parent; snapshots from
+joined candidate selection do not authorize a stale lease. Processing and storage
+calls run after commit. Cancellation increments the fence and competes with success
+on the same parent, preventing a cancelled worker from completing the import.
+
+There are at most 50 requests per import and ten attempts per request. Stage writes
+are monotonic within an attempt and repeated stages are no-ops, bounding run-event
+history without truncating it. Down removes events before runs and their guard
+function. Docker up/down/up checks run on a disposable database.
