@@ -258,16 +258,18 @@ func (h Attempts) FlagAttempt(ctx context.Context, request openapi.FlagAttemptRe
 
 func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuestion, publishedAt time.Time) (openapi.AdminQuestion, error) {
 	out := openapi.AdminQuestion{
-		Id:           httpapi.ParseUUID(q.ID),
-		Type:         openapi.QuestionType(q.Type),
-		Prompt:       q.Prompt,
-		Points:       q.Points,
-		Explanation:  q.Explanation,
-		SampleAnswer: q.SampleAnswer,
-		Transcript:   q.Transcript,
-		Tags:         []string{},
-		CreatedAt:    publishedAt,
-		UpdatedAt:    publishedAt,
+		Id:                 httpapi.ParseUUID(q.ID),
+		Type:               openapi.QuestionType(q.Type),
+		Prompt:             q.Prompt,
+		PromptContent:      q.PromptContent,
+		Points:             q.Points,
+		Explanation:        q.Explanation,
+		ExplanationContent: q.ExplanationContent,
+		SampleAnswer:       q.SampleAnswer,
+		Transcript:         q.Transcript,
+		Tags:               []string{},
+		CreatedAt:          publishedAt,
+		UpdatedAt:          publishedAt,
 	}
 	if q.Audio != nil {
 		out.Audio = &openapi.AudioPolicy{

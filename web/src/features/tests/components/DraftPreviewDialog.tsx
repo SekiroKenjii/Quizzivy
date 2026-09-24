@@ -55,6 +55,7 @@ function asStudent(sectionId: string, q: AdminQuestion): StudentQuestion {
     sectionId,
     type: q.type,
     prompt: q.prompt,
+    promptContent: q.promptContent ?? null,
     points: q.points,
     media: q.media ?? null,
     audio: q.audio ?? null,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import type { SemanticContent } from "../model";
+import { isQuestionContent } from "../questionContent";
 import { isOptionContent } from "../optionContent";
 import { validateContent } from "../validation";
 import { fromEditorJSON, toEditorJSON } from "./adapter";
@@ -13,12 +14,14 @@ function ActiveEditor({
   initialContent,
   onChange,
   label,
+  id,
   profile = "document",
 }: Readonly<{
   initialContent: SemanticContent;
   onChange: (content: SemanticContent) => void;
   label: string;
-  profile?: "document" | "option";
+  id?: string;
+  profile?: "document" | "option" | "question";
 }>) {
   const { t } = useTranslation();
   const [notice, setNotice] = useState<EditorNotice>();
@@ -35,6 +38,7 @@ function ActiveEditor({
           profile === "option"
             ? "semantic-content min-h-12 px-3 py-2 outline-none"
             : "semantic-content min-h-64 p-5 outline-none",
+        ...(id ? { id } : {}),
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": label,
@@ -68,14 +72,16 @@ export function ContentEditor(
     initialContent: SemanticContent;
     onChange: (content: SemanticContent) => void;
     label: string;
-    profile?: "document" | "option";
+    id?: string;
+    profile?: "document" | "option" | "question";
   }>,
 ) {
   const { t } = useTranslation();
   const [initial] = useState(() => validateContent(props.initialContent));
   return initial.ok &&
     initial.value.format === "semantic_v1" &&
-    (props.profile !== "option" || isOptionContent(initial.value)) ? (
+    (props.profile !== "option" || isOptionContent(initial.value)) &&
+    (props.profile !== "question" || isQuestionContent(initial.value)) ? (
     <ActiveEditor {...props} initialContent={initial.value} />
   ) : (
     <p role="alert">{t("contentEditor.invalidContent")}</p>

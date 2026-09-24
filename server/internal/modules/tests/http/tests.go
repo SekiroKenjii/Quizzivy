@@ -354,11 +354,12 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		return openapi.StudentQuestion{}, err
 	}
 	sq := openapi.StudentQuestion{
-		Id:        httpapi.ParseUUID(q.ID),
-		SectionId: httpapi.ParseUUID(q.SectionID),
-		Type:      openapi.QuestionType(q.Type),
-		Prompt:    q.Prompt,
-		Points:    points,
+		Id:            httpapi.ParseUUID(q.ID),
+		SectionId:     httpapi.ParseUUID(q.SectionID),
+		Type:          openapi.QuestionType(q.Type),
+		Prompt:        q.Prompt,
+		PromptContent: q.PromptContent,
+		Points:        points,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))

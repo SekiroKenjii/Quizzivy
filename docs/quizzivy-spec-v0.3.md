@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.10 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.11 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.10**
+
+- W-05b adds bounded semantic prompts and explanations with exact plain projections,
+  immutable snapshots and policy-gated explanation delivery. Legacy Markdown remains
+  on its existing reader; no old content is rewritten. Fill-blank prompts retain
+  Markdown until stable gap binding is integrated.
 
 **Changes since v0.9**
 
@@ -389,13 +396,13 @@ schema is in `api/openapi.yaml`; aggregate and cross-node rules are described in
 validators. Unknown fields, answer metadata, raw HTML nodes and editor-specific
 JSON are refused. Text is not rewritten or Unicode-normalized during validation.
 
-The general content components and value object remain a foundation for rich
-prompts and grouped material. Each new profile needs matching persistence,
-publication, restoration and delivery before enabling its writes. The inline
-option profile below is the first such slice; media/group integration is pending.
+The general content components and value object provide the foundation for the
+inline option and question prose profiles below. Each new profile needs matching
+persistence, publication, restoration and delivery before enabling its writes.
+Media/group integration is pending.
 The renderer never resolves an asset ID
 without an authorized media binding. Existing question payloads above remain the
-active contract except for the additive inline option rollout below.
+active contract with the additive option and prose rollouts below.
 
 **Inline option rollout (W-05a).** Choice options may carry optional `content`
 using the `OptionContent` subset: exactly one semantic paragraph of text marks
@@ -409,8 +416,24 @@ current option ID and text match. Stale or changed legacy writes fail atomically
 explicit `content: null` removes formatting. `VITE_RICH_OPTION_EDITOR=true`
 enables the pilot affordance to format plain options; readers and editing
 existing rich options remain available. This is not an import release or final
-editor acceptance. Prompt/explanation Markdown, grouped content and shared audio
-remain on their existing paths until their separate integration gates pass.
+editor acceptance. Grouped content and shared audio remain on their existing paths until their
+separate integration gates pass.
+
+**Question prose rollout (W-05b).** Optional `promptContent` and
+`explanationContent` use `QuestionContent`: semantic paragraphs, headings, lists
+and tables with text marks, breaks and safe links. Assets and gaps are rejected
+recursively until their binding lifecycle is implemented. `prompt`/`explanation`
+are exact plain projections when their document exists; otherwise they retain
+legacy Markdown semantics. Rich prompts are refused for `fill_blank` while its
+existing `{{n}}` path remains active; rich explanations support all five types.
+Snapshots, restoration, bank duplication and all relevant readers preserve these
+fields. Active attempts and learner previews never contain explanations; results
+release both explanation fields only when `review.showExplanations` permits it.
+Legacy writes omitting a rich field must leave its companion string unchanged;
+otherwise the update fails atomically. Explicit null clears a document. New
+rich authoring is opt-in via `VITE_RICH_QUESTION_EDITOR`; existing documents stay
+editable. Conversion from Markdown is explicit, validates the supported subset
+and refuses unsupported structures without changing the original.
 
 ### 7.2 Word milestone group ordering (approved, not yet enabled)
 
@@ -772,6 +795,13 @@ Option identity, order, text and correctness stay relational. No grading key is
 placed in the AST, and no legacy row is rewritten. Read-compatible binaries are
 the rollback floor after rich writes; rolling back the migration discards rich
 formatting and is only a pre-rollout development operation.
+
+Migration `00033_add_question_content.sql` adds nullable `prompt_content jsonb`
+and `explanation_content jsonb` to `questions` and `test_version_questions`.
+These columns hold the bounded prose AST from §7.1; companion strings remain
+exact plain projections. Rich prompts exclude `fill_blank`. No legacy rows are
+rewritten, no grading keys move, and the same read-compatible rollback floor
+applies after prose writes.
 
 ```sql
 CREATE TABLE app.questions (

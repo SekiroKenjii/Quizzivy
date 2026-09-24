@@ -71,6 +71,7 @@ const (
 	BlankPlaceholdersMatch Rule = "blank_placeholders_match"
 	AudioQuestionHasAsset  Rule = "audio_question_has_asset"
 	OptionContentValid     Rule = "option_content_valid"
+	QuestionContentValid   Rule = "question_content_valid"
 	SectionNotEmpty        Rule = "section_not_empty"
 )
 
@@ -113,6 +114,10 @@ func validateQuestion(section DraftSection, q DraftQuestion, add func(Violation)
 		if in.ValidateContent() != nil {
 			add(anchor(OptionContentValid, "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản."))
 		}
+	}
+
+	if (questionsdomain.Input{Type: questionsdomain.Type(q.Type), Prompt: q.Prompt, PromptContent: q.PromptContent, Explanation: q.Explanation, ExplanationContent: q.ExplanationContent}).ValidateContent() != nil {
+		add(anchor(QuestionContentValid, "Nội dung câu hỏi hoặc lời giải có định dạng không hợp lệ."))
 	}
 
 	if q.Type == "fill_blank" {

@@ -576,7 +576,8 @@
       "blankRequired": "There are no blanks yet.",
       "answerRequired": "A blank still has no accepted answer.",
       "placeholderMismatch": "The blank markers do not match.",
-      "optionContent": "Option formatting is invalid or does not match its text."
+      "optionContent": "Option formatting is invalid or does not match its text.",
+      "questionContent": "Rich content is invalid or does not match its text."
     },
     "preview": "What the student sees",
     "removeOptionN": "Remove option {{n}}",
@@ -590,7 +591,18 @@
     "editFormattedOption": "Edit formatted option {{n}}",
     "removeFormatting": "Remove formatting",
     "doneFormatting": "Done",
-    "optionTextLabel": "Option {{n}} text"
+    "optionTextLabel": "Option {{n}} text",
+    "proseConversionBlocked": "This content contains Markdown structures the new editor does not support yet (such as code, images, quotations or non-HTTPS links). The original is unchanged; continue editing in Markdown.",
+    "proseConversionPreview": "Review the conversion below before applying it. The original has not changed.",
+    "keepMarkdown": "Keep Markdown",
+    "applyProseConversion": "Use this content",
+    "removeProseWarning": "Converting to Markdown removes formatting, table structure and links. The text is retained. The change uses the question’s current save workflow.",
+    "confirmRemoveProse": "Remove formatting and convert",
+    "returnToMarkdown": "Convert to Markdown",
+    "formatProse": "Format: {{field}}",
+    "editProse": "Edit: {{field}}",
+    "fillBlankMarkdown": "Fill-in-the-blank questions still use Markdown and numbered placeholders to keep answer positions correct.",
+    "fillBlankMarkdownSwitch": "To switch to fill-in-the-blank, edit the prompt and convert it to Markdown first."
   },
   "builder": {
     "outline": "Structure",

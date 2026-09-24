@@ -66,7 +66,7 @@ func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]
 		SELECT sq.test_section_id::text, sq.ordinal, q.id::text, q.type::text, q.prompt,
 		       q.media_asset_id::text, q.media_asset_kind::text,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
-		       q.transcript, q.points::text, q.explanation, q.sample_answer
+		       q.transcript, q.points::text, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content
 		  FROM app.test_section_questions sq
 		  JOIN app.test_sections s ON s.id = sq.test_section_id
 		  JOIN app.questions q ON q.id = sq.question_id
@@ -84,7 +84,7 @@ func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]
 		var q domain.DraftQuestion
 		if err := rows.Scan(&sectionID, &q.Ordinal, &q.SourceID, &q.Type, &q.Prompt,
 			&q.MediaAssetID, &q.MediaAssetKind, &q.MaxPlays, &q.AllowSeek, &q.ShowTranscript,
-			&q.Transcript, &q.Points, &q.Explanation, &q.SampleAnswer); err != nil {
+			&q.Transcript, &q.Points, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent); err != nil {
 			return nil, fmt.Errorf("publish: scan question: %w", err)
 		}
 		byQuestion[sectionID] = append(byQuestion[sectionID], q)

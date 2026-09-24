@@ -1,3 +1,4 @@
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
 import { useTranslation } from "react-i18next";
 import { Headphones } from "lucide-react";
@@ -32,9 +33,14 @@ export function StudentPreview({
             </div>
 
             <div className="mt-2 text-base leading-relaxed">
-              <Markdown plugins={question.type === "fill_blank" ? [blankSlots] : []}>
-                {question.prompt}
-              </Markdown>
+              {question.type === "fill_blank" ? (
+                <Markdown plugins={[blankSlots]}>{question.prompt}</Markdown>
+              ) : (
+                <QuestionProse
+                  text={question.prompt}
+                  content={question.promptContent}
+                />
+              )}
             </div>
 
             {question.options && question.options.length > 0 ? (

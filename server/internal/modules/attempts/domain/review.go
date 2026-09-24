@@ -32,17 +32,19 @@ type Review struct {
 
 // ReviewQuestion is a frozen version question with everything the grader may see.
 type ReviewQuestion struct {
-	ID           string
-	Type         string
-	Prompt       string
-	Points       float64
-	Media        *Media
-	Audio        *AudioPolicy
-	Transcript   *string
-	Explanation  *string
-	SampleAnswer *string
-	Options      []ReviewOption
-	Blanks       []ReviewBlank
+	PromptContent      json.RawMessage
+	ExplanationContent json.RawMessage
+	ID                 string
+	Type               string
+	Prompt             string
+	Points             float64
+	Media              *Media
+	Audio              *AudioPolicy
+	Transcript         *string
+	Explanation        *string
+	SampleAnswer       *string
+	Options            []ReviewOption
+	Blanks             []ReviewBlank
 }
 
 type ReviewOption struct {
@@ -80,6 +82,7 @@ type ReviewPolicy struct {
 // field is nil unless the policy released it -- and the query that reads it
 // never selected the column when it did not, so there is nothing to strip.
 type ResultQuestion struct {
+	ExplanationContent json.RawMessage
 	Question
 	Answer         []byte
 	Earned         *float64

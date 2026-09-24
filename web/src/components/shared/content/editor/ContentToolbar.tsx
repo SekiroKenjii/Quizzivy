@@ -51,7 +51,7 @@ function ToolButton({ tool }: Readonly<{ tool: Tool }>) {
 export function ContentToolbar({
   editor,
   profile = "document",
-}: Readonly<{ editor: Editor; profile?: "document" | "option" }>) {
+}: Readonly<{ editor: Editor; profile?: "document" | "option" | "question" }>) {
   const { t } = useTranslation();
   const state = useEditorState({
     editor,
@@ -180,6 +180,7 @@ export function ContentToolbar({
           .filter(
             (tool) =>
               profile === "document" ||
+              (profile === "question" && tool.key !== "insertGap") ||
               [
                 "bold",
                 "italic",

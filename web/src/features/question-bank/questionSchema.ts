@@ -1,3 +1,4 @@
+import { questionContentSchema } from "@/components/shared/content/questionContent";
 import { optionContentSchema } from "@/components/shared/content/optionContent";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import { z } from "zod";
@@ -34,25 +35,52 @@ const blankSchema = z.object({
   caseSensitive: z.boolean(),
 });
 
-export const questionSchema = z.object({
-  type: z.enum([
-    "single_choice",
-    "multiple_choice",
-    "true_false",
-    "fill_blank",
-    "short_answer",
-  ]),
-  prompt: z.string().min(1, "questionEditor.errors.promptRequired"),
-  mediaAssetId: z.uuid().nullable(),
-  audio: audioPolicySchema.nullable(),
-  transcript: z.string().nullable(),
-  options: z.array(optionSchema),
-  blanks: z.array(blankSchema),
-  points: z.number().gt(0, "questionEditor.pointsError").max(999999.99),
-  explanation: z.string().nullable(),
-  sampleAnswer: z.string().nullable(),
-  tags: z.array(z.string().min(1)),
-});
+export const questionSchema = z
+  .object({
+    type: z.enum([
+      "single_choice",
+      "multiple_choice",
+      "true_false",
+      "fill_blank",
+      "short_answer",
+    ]),
+    promptContent: questionContentSchema.nullable().optional(),
+    explanationContent: questionContentSchema.nullable().optional(),
+    prompt: z.string().min(1, "questionEditor.errors.promptRequired"),
+    mediaAssetId: z.uuid().nullable(),
+    audio: audioPolicySchema.nullable(),
+    transcript: z.string().nullable(),
+    options: z.array(optionSchema),
+    blanks: z.array(blankSchema),
+    points: z.number().gt(0, "questionEditor.pointsError").max(999999.99),
+    explanation: z.string().nullable(),
+    sampleAnswer: z.string().nullable(),
+    tags: z.array(z.string().min(1)),
+  })
+  .superRefine((value, context) => {
+    for (const [field, text] of [
+      ["promptContent", value.prompt],
+      ["explanationContent", value.explanation],
+    ] as const) {
+      const document = value[field];
+      if (
+        document != null &&
+        (text == null ||
+          contentPlainText(document) !== text ||
+          (field === "promptContent" && value.type === "fill_blank"))
+      )
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: "questionEditor.errors.questionContent",
+        });
+    }
+  })
+  .transform(({ promptContent, explanationContent, ...value }) => ({
+    ...value,
+    ...(promptContent === undefined ? {} : { promptContent }),
+    ...(explanationContent === undefined ? {} : { explanationContent }),
+  }));
 
 export type QuestionValues = z.infer<typeof questionSchema>;
 

@@ -18,7 +18,7 @@ type Postgres struct{ db.Repository }
 func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
 const questionColumns = `
-	       q.id::text, q.type::text, q.prompt,
+	       q.id::text, q.type::text, q.prompt, q.prompt_content, q.explanation_content,
 	       q.media_asset_id::text, q.media_asset_kind::text,
 	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
 	       q.transcript, q.points::text, q.explanation, q.sample_answer,
@@ -36,7 +36,7 @@ func scanQuestion(row pgx.Row) (domain.Question, error) {
 	var maxPlays *int
 	var allowSeek, showTranscript *bool
 
-	err := row.Scan(&q.ID, &typ, &q.Prompt, &q.MediaAssetID, &q.MediaAssetKind,
+	err := row.Scan(&q.ID, &typ, &q.Prompt, &q.PromptContent, &q.ExplanationContent, &q.MediaAssetID, &q.MediaAssetKind,
 		&maxPlays, &allowSeek, &showTranscript, &q.Transcript, &q.Points,
 		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -172,6 +172,10 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := prepareQuestionContent(ctx, tx, in.ID, &in.Input, update); err != nil {
+		return domain.Question{}, err
+	}
+
 	var maxPlays *int
 	var allowSeek, showTranscript *bool
 	if in.Input.Audio != nil {
@@ -194,26 +198,26 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 			       audio_max_plays = $6, audio_allow_seek = $7,
 			       audio_show_transcript_after = $8, transcript = $9,
 			       points = $10::numeric, explanation = $11, sample_answer = $12,
-			       tags = $13
+			       tags = $13, prompt_content = $14, explanation_content = $15
 			 WHERE id = $1 AND deleted_at IS NULL
 			 RETURNING id::text`,
 			id, string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags).Scan(&id)
+			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent)).Scan(&id)
 	} else {
 		err = tx.QueryRow(ctx, `
 			INSERT INTO app.questions
 			       (type, prompt, media_asset_id, media_asset_kind,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
-			        transcript, points, explanation, sample_answer, tags, created_by)
+			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
-			        $8, $9::numeric, $10, $11, $12, $13)
+			        $8, $9::numeric, $10, $11, $12, $13, $14, $15)
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags, in.ActorID).Scan(&id)
+			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent)).Scan(&id)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound
@@ -268,7 +272,7 @@ func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain
 	}
 	rows := make([][]any, len(in.Options))
 	for i, o := range in.Options {
-		rows[i] = []any{questionID, i, o.Text, o.IsCorrect, optionContentValue(o.Content)}
+		rows[i] = []any{questionID, i, o.Text, o.IsCorrect, nullableContent(o.Content)}
 	}
 	_, err := tx.CopyFrom(ctx,
 		pgx.Identifier{"app", "question_options"},

@@ -1,3 +1,4 @@
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -368,7 +369,11 @@ function QuestionCard({
               className="text-muted-foreground mt-0.5 size-4 shrink-0"
               aria-hidden="true"
             />
-            <Markdown className="text-xs">{question.explanation}</Markdown>
+            <QuestionProse
+              className="min-w-0 flex-1 text-xs"
+              text={question.explanation}
+              content={question.explanationContent}
+            />
           </div>
         )}
 
@@ -400,7 +405,11 @@ function Body({
     case "short_answer":
       return (
         <>
-          <Markdown className="text-sm">{question.prompt}</Markdown>
+          <QuestionProse
+            className="text-sm"
+            text={question.prompt}
+            content={question.promptContent}
+          />
           <div className="bg-muted/50 rounded-md p-3">
             {given !== null && "value" in given && String(given.value).trim() !== "" ? (
               <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -466,7 +475,11 @@ function Body({
         : options;
       return (
         <>
-          <Markdown className="text-sm">{question.prompt}</Markdown>
+          <QuestionProse
+            className="text-sm"
+            text={question.prompt}
+            content={question.promptContent}
+          />
           <div className="space-y-2">
             {rows.map((option) => {
               const picked = chosen.has(option.id);

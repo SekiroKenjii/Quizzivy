@@ -57,9 +57,9 @@ func copySnapshotQuestion(ctx context.Context, tx pgx.Tx, sourceID, actorID stri
 	var id string
 	err := tx.QueryRow(ctx, `INSERT INTO app.questions
   (type, prompt, media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
-   audio_show_transcript_after, transcript, points, explanation, sample_answer, created_by)
+   audio_show_transcript_after, transcript, points, explanation, sample_answer, created_by, prompt_content, explanation_content)
   SELECT type, prompt, media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
-   audio_show_transcript_after, transcript, points, explanation, sample_answer, $2
+   audio_show_transcript_after, transcript, points, explanation, sample_answer, $2, prompt_content, explanation_content
   FROM app.test_version_questions WHERE id = $1 RETURNING id::text`, sourceID, actorID).Scan(&id)
 	if err != nil {
 		return "", err

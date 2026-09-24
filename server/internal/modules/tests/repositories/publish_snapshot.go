@@ -70,13 +70,13 @@ func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q domain.D
 		INSERT INTO app.test_version_questions
 		       (test_version_section_id, ordinal, source_question_id, type, prompt,
 		        media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
-		        audio_show_transcript_after, transcript, points, explanation, sample_answer)
+		        audio_show_transcript_after, transcript, points, explanation, sample_answer, prompt_content, explanation_content)
 		VALUES ($1, $2, $3, $4::app.question_type, $5, $6, $7::app.media_kind, $8, $9, $10,
-		        $11, $12::numeric, $13, $14)
+		        $11, $12::numeric, $13, $14, $15, $16)
 		RETURNING id::text`,
 		sectionID, q.Ordinal, q.SourceID, q.Type, q.Prompt,
 		q.MediaAssetID, q.MediaAssetKind, q.MaxPlays, q.AllowSeek, q.ShowTranscript,
-		q.Transcript, q.Points, q.Explanation, q.SampleAnswer).Scan(&id); err != nil {
+		q.Transcript, q.Points, q.Explanation, q.SampleAnswer, q.PromptContent, q.ExplanationContent).Scan(&id); err != nil {
 		return fmt.Errorf("publish: freeze question: %w", err)
 	}
 

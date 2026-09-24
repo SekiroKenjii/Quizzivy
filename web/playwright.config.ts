@@ -71,6 +71,7 @@ export default defineConfig({
       // files, and process.env wins.
       VITE_API_BASE_URL: "http://localhost:8080",
       VITE_RICH_OPTION_EDITOR: "true",
+      VITE_RICH_QUESTION_EDITOR: "true",
     },
   },
 });

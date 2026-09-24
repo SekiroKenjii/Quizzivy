@@ -143,14 +143,39 @@ rollback constraints. The pilot formatting affordance is opt-in with
 `VITE_RICH_OPTION_EDITOR`; existing rich readers/editors remain available.
 
 This is a reviewable W-05/W-06 sub-slice, not completion of either package.
-Rich prompts/explanations, structured paste, grouped materials, shared playback,
-revision recovery and the import journey remain the next work packages.
+Question prose is integrated in §1.5; structured paste, grouped materials, shared
+playback, revision recovery and the import journey remain later work packages.
+
+### 1.5 Implementation checkpoint — question prose (W-05b)
+
+Optional semantic prompts and explanations now use bounded paragraphs, headings,
+lists and tables with marks, breaks and safe links. Migration 00033 preserves
+these documents through bank duplication, publication, restoration, previews,
+attempts, results and teacher review. Existing Markdown stays unchanged. Prose
+cannot bind assets or gaps; fill-blank prompts retain their historical path.
+The new editor affordance is opt-in with `VITE_RICH_QUESTION_EDITOR`; existing
+rich content remains editable when the flag is off.
+
+Explicit Markdown conversion previews the supported subset and refuses unknown
+structures without modifying the original. Removing rich structure is an explicit
+teacher action with a warning; the literal projection is escaped before it goes
+back through the Markdown reader. Editor code remains lazy and absent from the
+learner dependency graph. Explanation delivery follows the existing result
+policy in SQL, while active papers and previews never select either explanation
+column. Legacy writes cannot silently discard these documents.
+
+This remains a partial W-05/W-06 slice. Structured clipboard conversion, stable
+blank bindings, shared material graphs, revision recovery and final editor/pilot
+acceptance are not implied by these integrations. The two new direct dependencies,
+`unified` and `remark-parse`, were already transitive dependencies of the Markdown
+reader; declaring them directly lets the conversion reuse the same parser instead
+of approximating Markdown with regular expressions.
 
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
 | --- | --- | --- |
-| Questions | `questions/domain/question.go` stores Markdown prompt, string options and five supported types | Versioned semantic content for prompts, options, explanations and materials; keep historical text readers |
+| Questions | `questions/domain/question.go` stores legacy Markdown plus additive semantic prose/options and five supported types | Versioned semantic content for prompts, options, explanations and materials; keep historical text readers |
 | Validation | `questions/domain/input.go` expects HTTP shape checks; its true/false check enforces two options but not exactly one key. `tests/domain/publish.go` checks fewer invariants than create/update | A common complete domain validation path for manual writes, imported writes and publication; regression tests before changing validation |
 | Draft outline | `tests/domain/test.go` has sections with question IDs; the UI currently calls these groups | Separate section and actual shared-context group without reinterpreting old sections |
 | Shared materials | Instructions are a small text note in `SectionInstructions.tsx` | First-class rich passage/table/image/audio material and group editing/delivery |

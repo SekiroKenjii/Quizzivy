@@ -7,6 +7,7 @@ import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 import { fromEditorJSON, toEditorJSON } from "./adapter";
 import { isOptionContent, plainOptionContent } from "../optionContent";
+import { isQuestionContent } from "../questionContent";
 import { safeContentURL } from "../validation";
 
 const Gap = Node.create({
@@ -42,7 +43,7 @@ export type EditorNotice = "pasteBlocked" | "editBlocked";
 /** contentExtensions limits the editor to the W03 candidate content vocabulary. */
 export function contentExtensions(
   notify: (notice: EditorNotice) => void = () => undefined,
-  profile: "document" | "option" = "document",
+  profile: "document" | "option" | "question" = "document",
 ) {
   return [
     StarterKit.configure({
@@ -72,7 +73,13 @@ export function contentExtensions(
           filterTransaction(transaction) {
             if (!transaction.docChanged) return true;
             const parsed = fromEditorJSON(transaction.doc.toJSON());
-            if (parsed.ok && (profile === "document" || isOptionContent(parsed.value)))
+            if (
+              parsed.ok &&
+              (profile === "document" ||
+                (profile === "option"
+                  ? isOptionContent(parsed.value)
+                  : isQuestionContent(parsed.value)))
+            )
               return true;
             queueMicrotask(() => notify("editBlocked"));
             return false;

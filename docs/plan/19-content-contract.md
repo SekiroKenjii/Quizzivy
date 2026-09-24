@@ -1,7 +1,7 @@
 # Versioned content contract — W-02 foundation
 
-Status: content foundation plus W-05a inline option persistence/readers and a
-pilot authoring affordance. Groups, rich prompts and import endpoints remain pending.
+Status: content foundation plus W-05a options and W-05b question prose, with
+pilot authoring affordances. Groups, gap bindings and import endpoints remain pending.
 `api/openapi.yaml` is the structural authority. Go's `shared/content.Parse` and
 the frontend validator enforce the cross-node rules below. They share synthetic
 accept/reject fixtures; generated TS types are the frontend model. Go's domain
@@ -169,6 +169,37 @@ to a line break, rejects formatted/file paste visibly, and updates the existing
 bank save/builder autosave coordinator immediately. No local recovery claim is
 made. Disabling the flag must not remove readers or roll back migration 00032.
 
-W-05/W-06 remain partial: rich prompts/explanations, broader content adapters,
-five-type authoring, safe structured paste, final D-01 acceptance and complete
-shared validation are still pending. W-07–W-09 group/media behavior is unchanged.
+W-05b below extends this checkpoint to prompts/explanations. W-05/W-06 remain
+partial: broader content adapters, five-type authoring, safe structured paste,
+final D-01 acceptance and complete shared validation are still pending.
+W-07–W-09 group/media behavior is unchanged.
+
+
+## W-05b — question prose integration
+
+The next profile, `QuestionContent`, carries semantic prose in nullable
+`promptContent` and `explanationContent`. It allows paragraphs, headings, lists
+and tables with text, breaks and safe links; recursively rejects assets and gaps.
+This preserves the existing media/reference lock paths and leaves graph binding
+to W-07/W-08. Prompts for `fill_blank` retain legacy Markdown until stable gap
+bindings are integrated. Explanations support every question type.
+
+Each non-null document must project exactly to its companion string. Raw JSON
+strictness and aggregate budgets are checked on question writes and publication.
+Absent rich fields in legacy updates preserve stored documents only when the
+companion text is unchanged, under the question row lock. Explicit null clears
+the document. The new UI sends explicit document/null values. Existing concurrency
+semantics remain; this is not revision-conflict resolution or durable recovery.
+
+Migration 00033 adds nullable prompt/explanation JSONB to bank and snapshot
+questions, without backfill or new privileges. Publication, restoration, copying
+and reads carry the fields independently of grading keys. Active paper/preview
+queries never read explanations. Result SQL gates both explanation columns with
+the existing review policy. Rollback after rich writes retains these columns
+and capable readers; destructive Down is only for disposable/pre-rollout data.
+
+The lazy authoring affordance is controlled by `VITE_RICH_QUESTION_EDITOR`
+(default false); existing rich documents remain editable. Markdown conversion
+is explicit and refuses unsupported nodes rather than dropping them. Media,
+gap bindings, structured clipboard import, IME/teacher acceptance and full
+five-type rich prompt authoring remain later gates.

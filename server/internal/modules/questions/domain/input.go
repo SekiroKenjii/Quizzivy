@@ -12,17 +12,19 @@ import (
 
 // Input is a create or update body, already parsed but not yet validated.
 type Input struct {
-	Type         Type
-	Prompt       string
-	MediaAssetID *string
-	Audio        *AudioPolicy
-	Transcript   *string
-	Options      []OptionInput
-	Blanks       []BlankInput
-	Points       string
-	Explanation  *string
-	SampleAnswer *string
-	Tags         []string
+	PromptContent      json.RawMessage
+	ExplanationContent json.RawMessage
+	Type               Type
+	Prompt             string
+	MediaAssetID       *string
+	Audio              *AudioPolicy
+	Transcript         *string
+	Options            []OptionInput
+	Blanks             []BlankInput
+	Points             string
+	Explanation        *string
+	SampleAnswer       *string
+	Tags               []string
 }
 
 type WriteRequest struct {
@@ -83,6 +85,9 @@ func (in Input) Validate(assetKind *string) error {
 		add("prompt", "Nội dung câu hỏi không được để trống.")
 	}
 
+	if err := in.ValidateContent(); err != nil {
+		errs = append(errs, err.(*ValidationError).Fields...)
+	}
 	validateOptions(in, add)
 	validateBlanks(in, add)
 	validateMedia(in, assetKind, add)

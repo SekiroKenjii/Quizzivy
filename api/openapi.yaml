@@ -943,6 +943,102 @@ components:
         allowSeek: { type: boolean, description: Defaults to false for listening (§11.1). }
         showTranscriptAfterSubmit: { type: boolean }
 
+    QuestionContent:
+      type: object
+      description: |
+        Bounded semantic prose for prompts and explanations: paragraphs, headings,
+        lists and tables with marked text, breaks and safe links. No media, gaps,
+        source metadata or answer-key properties. ContentDocument aggregate budgets
+        and cross-node validation apply to original raw JSON. The companion string
+        must equal the exact plain projection. Rich prompts are not yet supported
+        for fill_blank; its legacy Markdown placeholders remain unchanged.
+        On question updates, omitting a rich field preserves its stored document
+        only if the companion string is unchanged; otherwise the whole write is
+        rejected. Explicit null removes the document.
+      x-go-type: json.RawMessage
+      additionalProperties: false
+      required: [format, blocks]
+      properties:
+        format: { type: string, const: semantic_v1 }
+        blocks: { $ref: '#/components/schemas/QuestionContentBlocks' }
+    QuestionContentBlocks:
+      type: array
+      minItems: 1
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/QuestionContentBlock' }
+    QuestionContentBlock:
+      oneOf:
+        - $ref: '#/components/schemas/QuestionContentParagraph'
+        - $ref: '#/components/schemas/QuestionContentHeading'
+        - $ref: '#/components/schemas/QuestionContentList'
+        - $ref: '#/components/schemas/QuestionContentTable'
+      discriminator:
+        propertyName: type
+        mapping:
+          paragraph: '#/components/schemas/QuestionContentParagraph'
+          heading: '#/components/schemas/QuestionContentHeading'
+          list: '#/components/schemas/QuestionContentList'
+          table: '#/components/schemas/QuestionContentTable'
+    QuestionContentInlines:
+      type: array
+      maxItems: 2048
+      items:
+        oneOf:
+          - { $ref: '#/components/schemas/ContentText' }
+          - { $ref: '#/components/schemas/ContentBreak' }
+          - { $ref: '#/components/schemas/ContentLink' }
+    QuestionContentParagraph:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, enum: [paragraph] }
+        content: { $ref: '#/components/schemas/QuestionContentInlines' }
+    QuestionContentHeading:
+      type: object
+      additionalProperties: false
+      required: [type, level, content]
+      properties:
+        type: { type: string, enum: [heading] }
+        level: { type: integer, enum: [1, 2, 3] }
+        content: { $ref: '#/components/schemas/QuestionContentInlines' }
+    QuestionContentList:
+      type: object
+      additionalProperties: false
+      required: [type, ordered, start, items]
+      properties:
+        type: { type: string, enum: [list] }
+        ordered: { type: boolean }
+        start: { type: integer, minimum: 1, maximum: 9999 }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/QuestionContentBlocks' }
+    QuestionContentTable:
+      type: object
+      additionalProperties: false
+      required: [type, rows]
+      properties:
+        type: { type: string, enum: [table] }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: array
+            maxItems: 12
+            items: { $ref: '#/components/schemas/QuestionContentCell' }
+    QuestionContentCell:
+      type: object
+      additionalProperties: false
+      required: [header, rowSpan, colSpan, content]
+      properties:
+        header: { type: boolean }
+        rowSpan: { type: integer, minimum: 1, maximum: 50 }
+        colSpan: { type: integer, minimum: 1, maximum: 12 }
+        content: { $ref: '#/components/schemas/QuestionContentBlocks' }
+
     OptionContent:
       type: object
       description: |
@@ -1056,11 +1152,15 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt:
           type: string
           minLength: 1
           description: |
-            Markdown, rendered with rehype-sanitize — never
+            Legacy Markdown, or exact plain projection when promptContent is present. Markdown is rendered with rehype-sanitize — never
             `dangerouslySetInnerHTML` (§2). For `fill_blank`, blanks are marked
             `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
         media:
@@ -1075,6 +1175,10 @@ components:
           type: array
           items: { $ref: '#/components/schemas/AdminQuestionBlank' }
         points: { $ref: '#/components/schemas/Points' }
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         explanation: { type: [string, 'null'] }
         sampleAnswer:
           type: [string, 'null']
@@ -1160,6 +1264,10 @@ components:
           $ref: '#/components/schemas/Uuid'
           description: The `AttemptSession.sections` entry this question belongs to.
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
@@ -1180,6 +1288,10 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
@@ -1214,6 +1326,11 @@ components:
                   **One canonical accepted answer**, not the full accepted list.
                   Showing every accepted spelling would hand over the grading key.
           description: Only when `review.showCorrectAnswers`, for `fill_blank`.
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          description: Absent unless review.showExplanations permits the frozen explanation.
         explanation:
           type: [string, 'null']
           description: Only when `review.showExplanations`.
@@ -1310,6 +1427,7 @@ components:
             - points_positive
             - choice_has_correct_option
             - option_content_valid
+            - question_content_valid
             - blank_has_accepted_answer
             - blank_placeholders_match
             - audio_question_has_asset
@@ -1782,10 +1900,14 @@ components:
       additionalProperties: false
       properties:
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt:
           type: string
           minLength: 1
-          description: Markdown. `fill_blank` marks blanks `{{1}}`, `{{2}}`, 1-indexed.
+          description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` retains Markdown `{{n}}` placeholders.
         mediaAssetId: { type: [string, 'null'], format: uuid }
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
@@ -1823,6 +1945,10 @@ components:
                 items: { type: string, minLength: 1 }
               caseSensitive: { type: boolean, default: false }
         points: { $ref: '#/components/schemas/Points' }
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         explanation: { type: [string, 'null'] }
         sampleAnswer:
           type: [string, 'null']

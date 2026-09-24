@@ -100,7 +100,7 @@ func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.Rev
 		       q.media_asset_id::text, q.media_asset_kind::text, m.mime_type, m.original_filename,
 		       m.bytes, m.duration_ms, m.created_at,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
-		       q.transcript, q.explanation, q.sample_answer
+		       q.transcript, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content
 		  FROM app.test_version_questions q
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		  LEFT JOIN app.media_assets m ON m.id = q.media_asset_id
@@ -141,7 +141,7 @@ func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
 	if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
 		&mediaID, &mediaKind, &mimeType, &filename, &mediaBytes, &durationMs, &createdAt,
 		&maxPlays, &allowSeek, &showTranscript,
-		&q.Transcript, &q.Explanation, &q.SampleAnswer); err != nil {
+		&q.Transcript, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent); err != nil {
 		return domain.ReviewQuestion{}, fmt.Errorf("review: scan question: %w", err)
 	}
 	if mediaID != nil {

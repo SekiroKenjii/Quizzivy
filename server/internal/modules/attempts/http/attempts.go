@@ -146,11 +146,12 @@ func toAPIAttempt(a domain.Attempt) openapi.Attempt {
 
 func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q domain.Question) (openapi.StudentQuestion, error) {
 	out := openapi.StudentQuestion{
-		Id:        httpapi.ParseUUID(q.ID),
-		SectionId: httpapi.ParseUUID(q.SectionID),
-		Type:      openapi.QuestionType(q.Type),
-		Prompt:    q.Prompt,
-		Points:    q.Points,
+		Id:            httpapi.ParseUUID(q.ID),
+		SectionId:     httpapi.ParseUUID(q.SectionID),
+		Type:          openapi.QuestionType(q.Type),
+		Prompt:        q.Prompt,
+		PromptContent: q.PromptContent,
+		Points:        q.Points,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))

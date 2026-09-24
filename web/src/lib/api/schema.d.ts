@@ -1988,6 +1988,67 @@ export interface components {
             showTranscriptAfterSubmit: boolean;
         };
         /**
+         * @description Bounded semantic prose for prompts and explanations: paragraphs, headings,
+         *     lists and tables with marked text, breaks and safe links. No media, gaps,
+         *     source metadata or answer-key properties. ContentDocument aggregate budgets
+         *     and cross-node validation apply to original raw JSON. The companion string
+         *     must equal the exact plain projection. Rich prompts are not yet supported
+         *     for fill_blank; its legacy Markdown placeholders remain unchanged.
+         *     On question updates, omitting a rich field preserves its stored document
+         *     only if the companion string is unchanged; otherwise the whole write is
+         *     rejected. Explicit null removes the document.
+         */
+        QuestionContent: {
+            /** @constant */
+            format: "semantic_v1";
+            blocks: components["schemas"]["QuestionContentBlocks"];
+        };
+        QuestionContentBlocks: components["schemas"]["QuestionContentBlock"][];
+        QuestionContentBlock: components["schemas"]["QuestionContentParagraph"] | components["schemas"]["QuestionContentHeading"] | components["schemas"]["QuestionContentList"] | components["schemas"]["QuestionContentTable"];
+        QuestionContentInlines: (components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"] | components["schemas"]["ContentLink"])[];
+        QuestionContentParagraph: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "paragraph";
+            content: components["schemas"]["QuestionContentInlines"];
+        };
+        QuestionContentHeading: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "heading";
+            /** @enum {integer} */
+            level: 1 | 2 | 3;
+            content: components["schemas"]["QuestionContentInlines"];
+        };
+        QuestionContentList: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "list";
+            ordered: boolean;
+            start: number;
+            items: components["schemas"]["QuestionContentBlocks"][];
+        };
+        QuestionContentTable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "table";
+            rows: components["schemas"]["QuestionContentCell"][][];
+        };
+        QuestionContentCell: {
+            header: boolean;
+            rowSpan: number;
+            colSpan: number;
+            content: components["schemas"]["QuestionContentBlocks"];
+        };
+        /**
          * @description Versioned inline option text: one paragraph of marked text and line breaks.
          *     No links, gaps, media, tables, source metadata or answer keys. The server
          *     validates the original JSON and requires text to equal its plain projection.
@@ -2056,8 +2117,9 @@ export interface components {
         AdminQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            promptContent?: components["schemas"]["QuestionContent"] | null;
             /**
-             * @description Markdown, rendered with rehype-sanitize — never
+             * @description Legacy Markdown, or exact plain projection when promptContent is present. Markdown is rendered with rehype-sanitize — never
              *     `dangerouslySetInnerHTML` (§2). For `fill_blank`, blanks are marked
              *     `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
              */
@@ -2068,6 +2130,7 @@ export interface components {
             options?: components["schemas"]["AdminQuestionOption"][];
             blanks?: components["schemas"]["AdminQuestionBlank"][];
             points: components["schemas"]["Points"];
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
             /**
              * @description `short_answer` only. **Admin-only, shown during grading.** Never
@@ -2132,6 +2195,7 @@ export interface components {
             /** @description The `AttemptSession.sections` entry this question belongs to. */
             sectionId: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            promptContent?: components["schemas"]["QuestionContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
@@ -2147,6 +2211,7 @@ export interface components {
         ResultQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            promptContent?: components["schemas"]["QuestionContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
             options?: components["schemas"]["StudentOption"][];
@@ -2172,6 +2237,8 @@ export interface components {
                  */
                 answer: string;
             }[] | null;
+            /** @description Absent unless review.showExplanations permits the frozen explanation. */
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
             /** @description Only when `review.showExplanations`. */
             explanation?: string | null;
             /**
@@ -2233,7 +2300,7 @@ export interface components {
          */
         PublishValidationError: {
             /** @enum {string} */
-            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
+            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "question_content_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
             message: string;
             /** Format: uuid */
             sectionId?: string | null;
@@ -2624,7 +2691,8 @@ export interface components {
          */
         QuestionInput: {
             type: components["schemas"]["QuestionType"];
-            /** @description Markdown. `fill_blank` marks blanks `{{1}}`, `{{2}}`, 1-indexed. */
+            promptContent?: components["schemas"]["QuestionContent"] | null;
+            /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` retains Markdown `{{n}}` placeholders. */
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
@@ -2652,6 +2720,7 @@ export interface components {
                 caseSensitive: boolean;
             }[];
             points: components["schemas"]["Points"];
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
             /** @description `short_answer` only. Rejected on any other type. */
             sampleAnswer?: string | null;

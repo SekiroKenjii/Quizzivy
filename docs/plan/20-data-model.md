@@ -1275,6 +1275,7 @@ the file it adds.
 | `00030_test_version_sequence.sql` | monotonic publication counter | Admin change request |
 | `00031_allow_no_focus_loss.sql` | no-departure integrity policy | Admin change request |
 | `00032_add_option_content.sql` | bounded inline documents on normalized bank/snapshot options | Word W-05a |
+| `00033_add_question_content.sql` | bounded prompt/explanation documents on bank/snapshot questions | Word W-05b |
 
 Notes on migration mechanics (§13.7):
 
@@ -1386,3 +1387,27 @@ Down drops the two columns and preserves relational text/keys but loses rich
 formatting. Do not use it after rollout; retain this schema and compatible readers
 when disabling the pilot authoring flag. App-role privileges and append-only
 logs are unchanged. Up/down/up is tested only on a disposable database.
+
+
+## 17. Question prose (W-05b, spec v0.11)
+
+`00033_add_question_content.sql` adds nullable `prompt_content` and
+`explanation_content` JSONB to `app.questions` and `app.test_version_questions`.
+CHECK constraints accept SQL NULL or an object with explicit semantic_v1 format;
+rich prompts cannot be attached to fill_blank questions before gap binding exists.
+The domain checks raw JSON, the reference-free prose profile, aggregate budgets
+and exact text projection at write and publication. Relational media, options,
+blanks and grading keys remain on their current tables. No references, new
+privileges or indexes are introduced. Existing prompt indexes search the exact
+plain projection for new prose and the historical Markdown for legacy rows.
+
+Question updates lock the parent before comparing omitted content's companion
+text. If a legacy write changes a rich field's text without supplying a document
+or explicit null, the whole update rolls back. This prevents formatting loss; it
+is not a replacement for the later authoring revision protocol. Student paper
+and preview queries select only prompt content. Result extras select explanation
+content inside the same review-policy CASE as explanation text.
+
+Down removes the four columns and loses formatting; use it only for disposable
+or pre-rollout data. After rich writes, retain this migration and capable readers
+when disabling new authoring. No historical snapshots are backfilled.

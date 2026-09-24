@@ -150,3 +150,24 @@ test("accepts shared default table attributes created by row insertion", () => {
     editor.destroy();
   }
 });
+
+test("question prose editing accepts tables and rejects unbound gaps and media", () => {
+  const editor = new Editor({
+    extensions: contentExtensions(undefined, "question"),
+    content: toEditorJSON(plainOptionContent("Reading")),
+  });
+  try {
+    editor.commands.insertTable({ rows: 2, cols: 2 });
+    expect(editor.getHTML()).toContain("<table");
+    const before = editor.getJSON();
+    editor.commands.insertContent({ type: "gap", attrs: { id: "gap1", label: "1" } });
+    expect(editor.getJSON()).toEqual(before);
+    editor.commands.insertContent({
+      type: "contentImage",
+      attrs: { assetId: "01935000-0000-7000-8000-000000000001", label: "Image" },
+    });
+    expect(editor.getJSON()).toEqual(before);
+  } finally {
+    editor.destroy();
+  }
+});

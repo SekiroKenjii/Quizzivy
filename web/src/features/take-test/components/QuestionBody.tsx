@@ -1,3 +1,4 @@
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
 import {
   createContext,
@@ -80,11 +81,20 @@ function optionKey(index: number): string {
 
 function Prompt({
   children,
+  content,
   action,
-}: Readonly<{ children: string; action?: ReactNode }>) {
+}: Readonly<{
+  children: string;
+  content: StudentQuestion["promptContent"];
+  action?: ReactNode;
+}>) {
   return (
     <div className="flex items-start gap-3">
-      <Markdown className="min-w-0 flex-1 text-base">{children}</Markdown>
+      <QuestionProse
+        className="min-w-0 flex-1 text-base"
+        text={children}
+        content={content}
+      />
       {action}
     </div>
   );
@@ -116,7 +126,9 @@ function Choice({ question, answer, onAnswer, disabled, action }: Readonly<Props
 
   return (
     <div className="space-y-4">
-      <Prompt action={action}>{question.prompt}</Prompt>
+      <Prompt action={action} content={question.promptContent}>
+        {question.prompt}
+      </Prompt>
       <p id={instructionId} className="text-muted-foreground text-sm">
         {t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle")}
       </p>
@@ -248,7 +260,9 @@ function ShortAnswer({
 
   return (
     <div className="space-y-4">
-      <Prompt action={action}>{question.prompt}</Prompt>
+      <Prompt action={action} content={question.promptContent}>
+        {question.prompt}
+      </Prompt>
       <Textarea
         className="min-h-36 leading-relaxed"
         value={value}

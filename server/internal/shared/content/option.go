@@ -3,7 +3,7 @@ package content
 // ParseOption validates the inline learner-safe subset: one paragraph containing marked text and breaks.
 func ParseOption(raw []byte) (Document, error) {
 	d, err := Parse(raw)
-	if err != nil || d.Format() != "semantic_v1" {
+	if err != nil || d.Format() != semanticFormat {
 		return Document{}, ErrInvalidDocument
 	}
 	value, _ := decode(raw)

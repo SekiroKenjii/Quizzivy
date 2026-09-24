@@ -33,7 +33,7 @@ func (s *Postgres) Preview(ctx context.Context, testID string, version int) (int
 
 func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]domain.PreviewQuestion, error) {
 	rows, err := s.Query(ctx, `
-		SELECT q.id::text, q.test_version_section_id::text, q.type::text, q.prompt, q.points::text,
+		SELECT q.id::text, q.test_version_section_id::text, q.type::text, q.prompt, q.prompt_content, q.points::text,
 		       q.media_asset_id::text, q.audio_max_plays, q.audio_allow_seek,
 		       q.audio_show_transcript_after
 		  FROM app.test_version_sections s
@@ -49,7 +49,7 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 	byID := map[string]int{}
 	for rows.Next() {
 		var q domain.PreviewQuestion
-		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.Points, &q.MediaAssetID,
+		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.PromptContent, &q.Points, &q.MediaAssetID,
 			&q.MaxPlays, &q.AllowSeek, &q.ShowScript); err != nil {
 			return nil, fmt.Errorf("tests: scan preview question: %w", err)
 		}

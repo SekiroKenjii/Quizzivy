@@ -22,7 +22,7 @@ func (v *validator) document(value any) (string, bool) {
 			return "", false
 		}
 		return v.string(obj["markdown"], 0, MaxText)
-	case "semantic_v1":
+	case semanticFormat:
 		obj, ok := object(value, "format", "blocks")
 		if !ok {
 			return "", false

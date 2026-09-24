@@ -67,14 +67,15 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 		return openapi.ResultQuestion{}, err
 	}
 	out := openapi.ResultQuestion{
-		Id: base.Id, Type: base.Type, Prompt: base.Prompt, Points: base.Points,
+		Id: base.Id, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
 		Media: base.Media, Options: base.Options, Blanks: base.Blanks,
-		Earned:         q.Earned,
-		PendingManual:  httpapi.Ptr(q.PendingManual),
-		GraderComment:  q.GraderComment,
-		Explanation:    q.Explanation,
-		Transcript:     q.Transcript,
-		AudioPlaysUsed: q.AudioPlaysUsed,
+		Earned:             q.Earned,
+		PendingManual:      httpapi.Ptr(q.PendingManual),
+		GraderComment:      q.GraderComment,
+		Explanation:        q.Explanation,
+		ExplanationContent: q.ExplanationContent,
+		Transcript:         q.Transcript,
+		AudioPlaysUsed:     q.AudioPlaysUsed,
 	}
 	if len(q.Answer) > 0 {
 		var decoded openapi.Answer

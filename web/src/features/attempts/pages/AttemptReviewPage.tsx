@@ -1,3 +1,4 @@
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
@@ -322,9 +323,11 @@ export default function AttemptReviewPage() {
                           {question.sampleAnswer}
                         </p>
                         {question.explanation != null && (
-                          <p className="text-muted-foreground mt-2 text-xs">
-                            {question.explanation}
-                          </p>
+                          <QuestionProse
+                            className="text-muted-foreground mt-2 text-xs"
+                            text={question.explanation}
+                            content={question.explanationContent}
+                          />
                         )}
                       </details>
                     )}

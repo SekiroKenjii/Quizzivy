@@ -6,15 +6,16 @@ import (
 )
 
 type Question struct {
-	ID        string
-	SectionID string
-	Type      string
-	Prompt    string
-	Points    float64
-	Media     *Media
-	Audio     *AudioPolicy
-	Options   []Option
-	Blanks    []Blank
+	PromptContent json.RawMessage
+	ID            string
+	SectionID     string
+	Type          string
+	Prompt        string
+	Points        float64
+	Media         *Media
+	Audio         *AudioPolicy
+	Options       []Option
+	Blanks        []Blank
 }
 
 // Section is one part of the paper in test order; Instructions is the

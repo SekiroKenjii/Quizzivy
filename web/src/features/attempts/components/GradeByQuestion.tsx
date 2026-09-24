@@ -1,9 +1,9 @@
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
 import { EmptyState, ListSkeleton, QueryStates } from "@/components/shared/ListState";
-import { Markdown } from "@/components/shared/Markdown";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -170,7 +170,11 @@ export function GradeByQuestion({
                     points: data.question.points,
                   })}
                 </p>
-                <Markdown className="text-sm">{data.question.prompt}</Markdown>
+                <QuestionProse
+                  className="text-sm"
+                  text={data.question.prompt}
+                  content={data.question.promptContent}
+                />
                 {data.question.sampleAnswer != null && (
                   <div className="bg-muted/30 rounded-md border p-4">
                     <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -181,9 +185,13 @@ export function GradeByQuestion({
                       {data.question.sampleAnswer}
                     </p>
                     {data.question.explanation != null && (
-                      <p className="text-muted-foreground mt-2 text-xs">
-                        {t("byQuestion.rubric")}: {data.question.explanation}
-                      </p>
+                      <div className="text-muted-foreground mt-2 text-xs">
+                        <p>{t("byQuestion.rubric")}</p>
+                        <QuestionProse
+                          text={data.question.explanation}
+                          content={data.question.explanationContent}
+                        />
+                      </div>
                     )}
                   </div>
                 )}

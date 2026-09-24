@@ -576,7 +576,8 @@
       "blankRequired": "Chưa có chỗ trống nào.",
       "answerRequired": "Còn chỗ trống chưa có đáp án.",
       "placeholderMismatch": "Ký hiệu chỗ trống chưa khớp.",
-      "optionContent": "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản."
+      "optionContent": "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.",
+      "questionContent": "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản."
     },
     "preview": "Học viên sẽ thấy",
     "removeOptionN": "Xoá lựa chọn {{n}}",
@@ -590,7 +591,18 @@
     "editFormattedOption": "Sửa định dạng phương án {{n}}",
     "removeFormatting": "Bỏ định dạng",
     "doneFormatting": "Xong",
-    "optionTextLabel": "Nội dung lựa chọn {{n}}"
+    "optionTextLabel": "Nội dung lựa chọn {{n}}",
+    "proseConversionBlocked": "Nội dung này có cấu trúc Markdown chưa được trình soạn mới hỗ trợ (ví dụ mã, hình ảnh, trích dẫn hoặc liên kết không phải HTTPS). Bản gốc được giữ nguyên; hãy tiếp tục sửa bằng Markdown.",
+    "proseConversionPreview": "Kiểm tra bản chuyển đổi bên dưới trước khi áp dụng. Nội dung gốc chưa thay đổi.",
+    "keepMarkdown": "Giữ Markdown",
+    "applyProseConversion": "Dùng nội dung này",
+    "removeProseWarning": "Chuyển về Markdown sẽ bỏ định dạng, cấu trúc bảng và liên kết. Văn bản vẫn được giữ. Thay đổi sẽ dùng cơ chế lưu hiện tại của câu hỏi.",
+    "confirmRemoveProse": "Bỏ định dạng và chuyển đổi",
+    "returnToMarkdown": "Chuyển về Markdown",
+    "formatProse": "Định dạng: {{field}}",
+    "editProse": "Chỉnh sửa: {{field}}",
+    "fillBlankMarkdown": "Câu điền từ vẫn dùng Markdown và ký hiệu chỗ trống đánh số để giữ đúng vị trí đáp án.",
+    "fillBlankMarkdownSwitch": "Để đổi sang câu điền từ, mở chỉnh sửa nội dung và chuyển về Markdown trước."
   },
   "builder": {
     "outline": "Cấu trúc",

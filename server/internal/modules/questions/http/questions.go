@@ -260,12 +260,14 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 
 func toQuestionInput(body openapi.QuestionInput) domain.Input {
 	in := domain.Input{
-		Type:         domain.Type(body.Type),
-		Prompt:       body.Prompt,
-		Transcript:   body.Transcript,
-		Points:       strconv.FormatFloat(float64(body.Points), 'f', 2, 64),
-		Explanation:  body.Explanation,
-		SampleAnswer: body.SampleAnswer,
+		Type:               domain.Type(body.Type),
+		Prompt:             body.Prompt,
+		PromptContent:      body.PromptContent,
+		Transcript:         body.Transcript,
+		Points:             strconv.FormatFloat(float64(body.Points), 'f', 2, 64),
+		Explanation:        body.Explanation,
+		ExplanationContent: body.ExplanationContent,
+		SampleAnswer:       body.SampleAnswer,
 	}
 	if body.MediaAssetId != nil {
 		id := body.MediaAssetId.String()
@@ -313,17 +315,19 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	}
 
 	out := openapi.AdminQuestion{
-		Id:           httpapi.ParseUUID(q.ID),
-		Type:         openapi.QuestionType(q.Type),
-		Prompt:       q.Prompt,
-		Points:       points,
-		Explanation:  q.Explanation,
-		SampleAnswer: q.SampleAnswer,
-		Tags:         q.Tags,
-		UsedInTests:  &q.UsedInTests,
-		Transcript:   q.Transcript,
-		CreatedAt:    q.CreatedAt,
-		UpdatedAt:    q.UpdatedAt,
+		Id:                 httpapi.ParseUUID(q.ID),
+		Type:               openapi.QuestionType(q.Type),
+		Prompt:             q.Prompt,
+		PromptContent:      q.PromptContent,
+		Points:             points,
+		Explanation:        q.Explanation,
+		ExplanationContent: q.ExplanationContent,
+		SampleAnswer:       q.SampleAnswer,
+		Tags:               q.Tags,
+		UsedInTests:        &q.UsedInTests,
+		Transcript:         q.Transcript,
+		CreatedAt:          q.CreatedAt,
+		UpdatedAt:          q.UpdatedAt,
 	}
 	if out.Tags == nil {
 		out.Tags = []string{}

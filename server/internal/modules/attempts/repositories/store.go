@@ -210,7 +210,7 @@ const sectionsQuery = `
 	 ORDER BY ordinal`
 
 const questionsQuery = `
-	SELECT q.id, q.test_version_section_id, q.type, q.prompt, q.points,
+	SELECT q.id, q.test_version_section_id, q.type, q.prompt, q.prompt_content, q.points,
 	       q.media_asset_id, q.media_asset_kind, m.mime_type, m.original_filename,
 	       m.bytes, m.duration_ms, m.created_at,
 	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after
@@ -288,7 +288,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 	for rows.Next() {
 		var q domain.Question
 		var r questionRow
-		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.Points,
+		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.PromptContent, &q.Points,
 			&r.mediaID, &r.mediaKind, &r.mimeType, &r.filename, &r.mediaBytes,
 			&r.durationMs, &r.createdAt,
 			&r.maxPlays, &r.allowSeek, &r.showTranscript); err != nil {
