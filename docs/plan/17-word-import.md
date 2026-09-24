@@ -560,6 +560,31 @@ contract checks cover teacher-only routes, known-length/chunked body budgets,
 recording policy/key round trips and saved-content acknowledgement during media
 outage. This is an authoring foundation, not import or pilot acceptance.
 
+### 1.24 Implementation checkpoint — mixed outline writes (W-07f)
+
+The test update contract accepts explicit `outlineFormat: group_v1` with complete
+ordered units in every section. The legacy question projection must match the
+standalone units. Owned groups occur exactly once across the entire outline;
+omitting one, directly attaching an independent/foreign group, or inserting a
+member outside its aggregate fails without changing metadata or structure. Group
+removal uses the dedicated operation, and cross-test reuse uses independent copy.
+
+One transaction locks the test and its owned groups before standalone questions,
+creates destination sections, moves complete groups, writes both projections and
+removes empty obsolete sections. Only moved groups advance their aggregate revision;
+all successful outline edits advance the enclosing test revision. Archived tests
+must be restored first. Empty groups remain visible and cannot be silently lost.
+Legacy writers still refuse grouped drafts; after explicit removal of the final
+group, they clear obsolete unit rows before replacing the old projection.
+
+Docker integration checks use separate committed transactions for the stale-write
+case, matching real HTTP saves rather than sharing a test transaction's fixed
+`now()`. They cover movement into new/empty sections, preservation of empty groups,
+publication order, foreign/missing/detached-member rollback and legacy cleanup.
+Domain, transport and contract checks pin format/projection validation and explicit
+archive conflicts. Typed web helpers retain old writers and prepare mixed writes;
+the editor integration is still outstanding. No migration or dependency is added.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

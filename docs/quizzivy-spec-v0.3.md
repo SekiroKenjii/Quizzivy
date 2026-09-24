@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.28 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.29 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.28**
+
+- W-07f saves complete mixed outlines under the test revision, moving whole owned
+  groups between sections while retaining every existing group exactly once.
+  Group removal remains explicit. Legacy saves clear obsolete unit rows after
+  the last group is removed. Builder integration remains a release gate.
 
 **Changes since v0.27**
 

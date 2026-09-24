@@ -181,3 +181,26 @@ test("bank summaries do not contain group content, answer keys or source documen
   expect(unitShape({ kind: "question", id })).toBe(true);
   expect(unitShape({ kind: "material", id })).toBe(false);
 });
+
+test("mixed outline transport keeps the legacy question projection and explicit group format", () => {
+  const schema =
+    spec.paths["/admin/tests/{id}"]!.patch.requestBody.content["application/json"]
+      .schema;
+  const validate = ajv.compile({ ...schema, components: spec.components });
+  const body = {
+    expectedUpdatedAt: "2026-09-24T00:00:00Z",
+    outlineFormat: "group_v1",
+    sections: [{ title: "Phần đọc", questionIds: [], units: [{ kind: "group", id }] }],
+  };
+  expect(validate(body), JSON.stringify(validate.errors)).toBe(true);
+  expect(validate({ ...body, outlineFormat: "unknown" })).toBe(false);
+  expect(validate({ ...body, sections: [{ title: "Phần đọc", units: [] }] })).toBe(
+    false,
+  );
+  expect(
+    validate({
+      expectedUpdatedAt: body.expectedUpdatedAt,
+      sections: [{ title: "Legacy", questionIds: [id] }],
+    }),
+  ).toBe(true);
+});

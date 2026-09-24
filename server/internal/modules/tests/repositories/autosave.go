@@ -26,7 +26,7 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 	}
 
 	if in.Input.SetSections {
-		if err := requireLegacyOutline(ctx, tx, in.ID); err != nil {
+		if err := prepareOutline(ctx, tx, in.ID, in.Input); err != nil {
 			return domain.Test{}, err
 		}
 		if err := s.lockQuestions(ctx, tx, in.Input.Sections); err != nil {
@@ -38,7 +38,7 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 		return domain.Test{}, err
 	}
 	if in.Input.SetSections {
-		if err := replaceOutline(ctx, tx, in.ID, in.Input.Sections); err != nil {
+		if err := writeOutline(ctx, tx, in.ID, in.Input); err != nil {
 			return domain.Test{}, err
 		}
 	}
@@ -63,6 +63,23 @@ func (s *Postgres) Update(ctx context.Context, in domain.UpdateRequest) (domain.
 		return domain.Test{}, fmt.Errorf("tests: commit update: %w", err)
 	}
 	return saved, nil
+}
+
+func prepareOutline(ctx context.Context, tx pgx.Tx, id string, in domain.UpdateInput) error {
+	if in.GroupOutline {
+		return lockMixedOutline(ctx, tx, id, in)
+	}
+	return requireLegacyOutline(ctx, tx, id)
+}
+
+func writeOutline(ctx context.Context, tx pgx.Tx, id string, in domain.UpdateInput) error {
+	if in.GroupOutline {
+		return replaceMixedOutline(ctx, tx, id, in.Sections)
+	}
+	if err := clearDraftUnits(ctx, tx, id); err != nil {
+		return err
+	}
+	return replaceOutline(ctx, tx, id, in.Sections)
 }
 
 func requireLegacyOutline(ctx context.Context, tx pgx.Tx, testID string) error {

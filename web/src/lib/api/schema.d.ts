@@ -4171,6 +4171,11 @@ export interface operations {
                     title?: string;
                     description?: string | null;
                     status?: components["schemas"]["TestStatus"];
+                    /**
+                     * @description Complete mixed-unit outline. Every section must include units and every existing owned group exactly once. Group deletion uses its dedicated revision-checked endpoint.
+                     * @enum {string}
+                     */
+                    outlineFormat?: "group_v1";
                     sections?: {
                         /**
                          * Format: uuid
@@ -4179,7 +4184,10 @@ export interface operations {
                         id?: string | null;
                         title: string;
                         instructions?: string | null;
+                        /** @description Standalone question projection, in the same order as question units when outlineFormat is group_v1. */
                         questionIds: components["schemas"]["Uuid"][];
+                        /** @description Required in every section with group_v1. Moves complete groups only within this test; cross-test reuse requires an independent copy. */
+                        units?: components["schemas"]["DraftSectionUnit"][];
                     }[];
                 };
             };
@@ -4196,7 +4204,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`; `GROUP_OUTLINE_REQUIRED` — a legacy question-only outline cannot replace a draft containing shared groups. Metadata-only updates remain supported. */
+            /** @description `STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`; `GROUP_OUTLINE_REQUIRED` — a legacy question-only outline cannot replace a draft containing shared groups. Metadata-only updates remain supported. `TEST_ARCHIVED` — restore the test before a mixed-outline edit. */
             409: {
                 headers: {
                     [name: string]: unknown;
