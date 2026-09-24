@@ -341,6 +341,29 @@ No migration, dependency or API shape is added in this checkpoint. Grouped previ
 complete draft summaries/outline/UI readers and W-09 delivery remain prerequisites
 before new group authoring becomes available.
 
+### 1.15 Implementation checkpoint — safe grouped preview (W-08c)
+
+Published preview now reads sections, ordered frozen members/materials/gap targets,
+recording policies and bound assets under the version lock. Its separate DTO and
+SQL omit answer keys and recording transcripts. The default follows
+`current_version`, including when the teacher selects an older version; explicit
+version selection remains available. The API returns additive section/group fields
+and signs only protected relational asset bindings.
+
+The preview places shared material once before its member questions, renders rich
+tables, resolves cloze links to accessible question anchors and shows bound images
+and audio. A desktop/320px phone switch inspects the same renderer inside the
+supported 768px-or-wider admin shell. Preview playback never calls attempt ledgers;
+expired audio can refresh the preview's signed URLs. Unbound assets remain explicit
+unavailable states and never produce an asset request.
+
+Docker integration checks cover frozen identity, cloze links, source revision
+isolation and default/explicit/missing versions. HTTP and recursive schema checks
+cover the learner-safe boundary; component/browser checks cover media allowlists,
+keyboard navigation, legacy flat papers and preview widths. No migration is needed.
+Complete draft summaries/outline, bank/builder UI and W-09 learner delivery remain
+required before group authoring can be enabled.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

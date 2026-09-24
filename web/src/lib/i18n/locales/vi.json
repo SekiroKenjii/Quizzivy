@@ -821,7 +821,16 @@
   },
   "preview": {
     "questionNumber": "Câu {{n}}",
-    "writtenAnswer": "Học viên viết câu trả lời ở đây"
+    "writtenAnswer": "Học viên viết câu trả lời ở đây",
+    "materialUnavailable": "Ngữ liệu chưa tải được. Hãy tải lại bản xem trước.",
+    "sharedAudioHint": "Nghe thử không tính lượt làm bài.",
+    "sharedRange": "Ngữ liệu dùng chung · Câu {{from}}–{{to}}",
+    "goToQuestion": "Ô {{label}} — chuyển đến câu {{n}}",
+    "phone": "Điện thoại",
+    "desktop": "Máy tính",
+    "displayMode": "Kích thước bản xem trước",
+    "phoneWidth": "Khung điện thoại · 320px",
+    "desktopWidth": "Khung máy tính · theo chiều rộng trang"
   },
   "palette": {
     "title": "Tìm kiếm và lệnh",

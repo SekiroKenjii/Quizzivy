@@ -821,7 +821,16 @@
   },
   "preview": {
     "questionNumber": "Question {{n}}",
-    "writtenAnswer": "The student writes their answer here"
+    "writtenAnswer": "The student writes their answer here",
+    "materialUnavailable": "Material unavailable. Reload the preview to try again.",
+    "sharedAudioHint": "Preview playback does not use attempt allowances.",
+    "sharedRange": "Shared material · Questions {{from}}–{{to}}",
+    "goToQuestion": "Gap {{label}} — go to question {{n}}",
+    "phone": "Phone",
+    "desktop": "Desktop",
+    "displayMode": "Preview size",
+    "phoneWidth": "Phone viewport · 320px",
+    "desktopWidth": "Desktop viewport · available page width"
   },
   "palette": {
     "title": "Search and commands",

@@ -19,7 +19,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { StudentPreview } from "@/features/tests/components/StudentPreview";
+import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
 import {
   getTest,
   listVersions,
@@ -164,7 +164,14 @@ export default function TestDetailPage() {
             skeleton={<ListSkeleton rows={4} />}
             failed={t("tests.previewFailed")}
           >
-            {(data) => <StudentPreview questions={data.questions} />}
+            {(data) => (
+              <StudentPreviewPane
+                questions={data.questions}
+                sections={data.sections ?? []}
+                groups={data.groups ?? []}
+                onRetryMedia={() => void preview.refetch()}
+              />
+            )}
           </QueryStates>
         )}
       </div>

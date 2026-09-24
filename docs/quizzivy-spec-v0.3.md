@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.20 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.21 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.20**
+
+- W-08c previews frozen group context and authorized assets without grading keys,
+  follows the selected default version, and offers a 320px learner preview inside
+  the supported admin shell. Group authoring and live learner delivery stay gated.
 
 **Changes since v0.19**
 
@@ -574,6 +580,13 @@ fresh editable copies and remaps both ends of material/blank gap links. Duplicat
 a draft preserves mixed unit order and independently copies every group; standalone
 bank references retain their existing duplication semantics. Permanent test deletion
 removes its owned draft groups after the assigned-version reference checks pass.
+Published previews resolve the selected default when no version is specified,
+read one coherent frozen version, and expose ordered sections/groups plus safe
+material bindings. Their projection never selects answer keys or transcripts;
+media URLs come only from relational bindings on that version. Group material
+appears before its first member, and material gaps link to the corresponding
+question. Teacher playback consumes no student allowance. Desktop and 320px phone
+preview modes run inside the existing admin shell (minimum supported width 768px).
 Existing version questions and historical attempts are unchanged.
 
 

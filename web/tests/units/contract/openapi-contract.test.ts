@@ -75,6 +75,17 @@ describe("§13.5: the student-payload boundary", () => {
       expect(names.has(bad), `StudentQuestion has ${bad}`).toBe(false);
   });
 
+  it("keeps group context and the complete teacher preview free of keys", () => {
+    for (const schemaName of ["StudentGroup", "StudentGroupRecording"]) {
+      const names = propertyNames(doc, doc.components.schemas[schemaName]);
+      for (const bad of FORBIDDEN)
+        expect(names.has(bad), `${schemaName} has ${bad}`).toBe(false);
+    }
+    expect(
+      ops.filter(({ op }) => op.operationId === "previewTest").flatMap(leaksIn),
+    ).toEqual([]);
+  });
+
   it("still gives AdminQuestion the grading key", () => {
     const names = propertyNames(doc, doc.components.schemas.AdminQuestion);
     for (const needed of [

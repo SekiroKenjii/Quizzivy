@@ -181,17 +181,20 @@ export function AudioPlayer({
 
         <div
           className={cn(
-            "flex items-center justify-between gap-3",
+            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1",
             size === "sm" ? "mt-1.5" : "mt-2",
           )}
         >
-          <span className="text-muted-foreground text-xs tabular-nums">
+          <span className="text-muted-foreground shrink-0 text-xs whitespace-nowrap tabular-nums">
             {clock(position)}
             {" / "}
             {clock(total)}
           </span>
           {hint === undefined ? null : (
-            <span aria-live="polite" className="text-muted-foreground truncate text-xs">
+            <span
+              aria-live="polite"
+              className="text-muted-foreground text-xs wrap-break-word"
+            >
               {hint}
             </span>
           )}

@@ -306,7 +306,7 @@ func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestReque
 	}
 
 	previewResult, err := h.app.Queries.Preview.Handle(ctx, query.Preview{TestID: request.Id.String(), Version: version})
-	resolved, questions := previewResult.Total, previewResult.Questions
+	resolved, questions := previewResult.Version, previewResult.Questions
 	if errors.Is(err, domain.ErrNotPublished) {
 		return openapi.PreviewTest409JSONResponse(httpapi.Error(ctx,
 			openapi.TESTNOTPUBLISHED, "Đề này chưa được phát hành.")), nil
@@ -319,7 +319,12 @@ func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestReque
 	if err != nil {
 		return nil, err
 	}
-	return openapi.PreviewTest200JSONResponse{Version: resolved, Questions: out}, nil
+	groups, err := h.toStudentGroups(ctx, previewResult.Groups)
+	if err != nil {
+		return nil, err
+	}
+	sections := toPreviewSections(previewResult.Sections)
+	return openapi.PreviewTest200JSONResponse{Version: resolved, Questions: out, Groups: &groups, Sections: &sections}, nil
 }
 
 // toStudentQuestions maps the frozen rows to the student payload.

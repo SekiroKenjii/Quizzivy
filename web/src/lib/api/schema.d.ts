@@ -2274,6 +2274,27 @@ export interface components {
             points: components["schemas"]["Points"];
         };
         /**
+         * @description Frozen shared context with ordered version-question identities. Contains
+         *     no answer keys or transcripts. Assets are explicitly authorized by the
+         *     containing preview/session, never by an arbitrary content assetId.
+         */
+        StudentGroup: {
+            id: components["schemas"]["Uuid"];
+            sectionId: components["schemas"]["Uuid"];
+            title: string;
+            instructions?: components["schemas"]["QuestionContent"] | null;
+            questionIds: components["schemas"]["Uuid"][];
+            stimuli: components["schemas"]["GroupStimulus"][];
+            recordings: components["schemas"]["StudentGroupRecording"][];
+            assets: components["schemas"]["MediaAsset"][];
+        };
+        /** @description One versioned group playback scope, independent of other groups using the same file. */
+        StudentGroupRecording: {
+            id: components["schemas"]["Uuid"];
+            assetId: components["schemas"]["Uuid"];
+            policy: components["schemas"]["AudioPolicy"];
+        };
+        /**
          * @description The post-submission view. Every revealing field is gated by the
          *     assignment's review policy and simply absent when the policy is off —
          *     the client has no fallback that could surface a suppressed value.
@@ -3857,6 +3878,8 @@ export interface operations {
                     "application/json": {
                         version: number;
                         questions: components["schemas"]["StudentQuestion"][];
+                        sections?: components["schemas"]["StudentSection"][];
+                        groups?: components["schemas"]["StudentGroup"][];
                     };
                 };
             };

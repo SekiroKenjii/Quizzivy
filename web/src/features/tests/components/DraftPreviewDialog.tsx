@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { StudentPreview } from "@/features/tests/components/StudentPreview";
+import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
 import type { AdminQuestion } from "@/features/question-bank/api";
 import type { components } from "@/lib/api/schema";
 
@@ -37,7 +37,7 @@ export function DraftPreviewDialog({
         {questions.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t("builder.previewEmpty")}</p>
         ) : (
-          <StudentPreview
+          <StudentPreviewPane
             questions={questions.map(({ sectionId, question }) =>
               asStudent(sectionId, question),
             )}

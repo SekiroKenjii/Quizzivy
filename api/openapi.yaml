@@ -1391,6 +1391,37 @@ components:
         blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
         points: { $ref: '#/components/schemas/Points' }
 
+    StudentGroup:
+      type: object
+      description: |
+        Frozen shared context with ordered version-question identities. Contains
+        no answer keys or transcripts. Assets are explicitly authorized by the
+        containing preview/session, never by an arbitrary content assetId.
+      additionalProperties: false
+      required: [id, sectionId, title, questionIds, stimuli, recordings, assets]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        sectionId: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        instructions:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        questionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        stimuli: { type: array, items: { $ref: '#/components/schemas/GroupStimulus' } }
+        recordings: { type: array, items: { $ref: '#/components/schemas/StudentGroupRecording' } }
+        assets: { type: array, items: { $ref: '#/components/schemas/MediaAsset' } }
+
+    StudentGroupRecording:
+      type: object
+      description: One versioned group playback scope, independent of other groups using the same file.
+      additionalProperties: false
+      required: [id, assetId, policy]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        assetId: { $ref: '#/components/schemas/Uuid' }
+        policy: { $ref: '#/components/schemas/AudioPolicy' }
+
     ResultQuestion:
       type: object
       description: |
@@ -3029,6 +3060,8 @@ paths:
                 properties:
                   version: { type: integer }
                   questions: { type: array, items: { $ref: '#/components/schemas/StudentQuestion' } }
+                  sections: { type: array, items: { $ref: '#/components/schemas/StudentSection' } }
+                  groups: { type: array, items: { $ref: '#/components/schemas/StudentGroup' } }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
           content:
