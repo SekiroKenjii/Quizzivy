@@ -57,7 +57,7 @@ func TestGroupBodyBudgetIsBoundedBeforeJSONValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	limits := httpx.RequestBodyLimits(spec)
-	if len(limits) != 2 || limits["POST /admin/question-groups"] != 4<<20 || limits["PUT /admin/question-groups/{id}"] != 4<<20 {
+	if len(limits) != 3 || limits["POST /admin/imports/{id}/sources"] != (25<<20)+(128<<10) || limits["POST /admin/question-groups"] != 4<<20 || limits["PUT /admin/question-groups/{id}"] != 4<<20 {
 		t.Fatalf("unexpected contract budgets: %v", limits)
 	}
 	for _, bytes := range []int{2 << 20, (4 << 20) + 1} {

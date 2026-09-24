@@ -25,6 +25,13 @@ type Config struct {
 	S3SecretAccessKey           string
 	S3ForcePathStyle            bool
 	SignedURLTTL                time.Duration
+	ImportBucket                string
+	ImportWorkDir               string
+	ImportActorCount            int
+	ImportGlobalCount           int
+	ImportSourcesPerItem        int
+	ImportActorMiB              int
+	ImportGlobalMiB             int
 
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
@@ -63,6 +70,10 @@ func Load() (Config, error) {
 		return cfg, err
 	}
 	if err := loadMedia(&cfg); err != nil {
+		return cfg, err
+	}
+
+	if err := loadImports(&cfg); err != nil {
 		return cfg, err
 	}
 

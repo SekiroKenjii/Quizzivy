@@ -49,6 +49,8 @@ tags:
   - name: auth
   - name: admin-tests
   - name: admin-questions
+  - name: admin-imports
+    description: Private Word source intake and durable import review.
   - name: admin-media
   - name: admin-assignments
   - name: admin-attempts
@@ -412,6 +414,13 @@ components:
         - MEDIA_TOO_LARGE
         - MEDIA_TOO_LONG
         - MEDIA_UNREADABLE
+        # Word imports
+        - IMPORT_CONFLICT
+        - IMPORT_QUOTA_EXCEEDED
+        - IMPORT_BUSY
+        - IMPORT_SOURCE_INVALID
+        - IMPORT_SOURCE_TOO_LARGE
+        - IMPORT_SOURCE_UNSUPPORTED
         # attempts
         - ASSIGNMENT_NOT_OPEN
         - ASSIGNMENT_NOT_CLOSED
@@ -474,6 +483,73 @@ components:
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer, minimum: 0 }
+
+    ImportStatus:
+      type: string
+      enum: [awaiting_sources, queued, processing, needs_review, committing, committed, failed, cancelled]
+    ImportSourceRole:
+      type: string
+      enum: [exam, answer_key]
+    ImportSource:
+      type: object
+      additionalProperties: false
+      required: [id, role, filename, format, bytes, sha256, uploadedBy, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        role: { $ref: '#/components/schemas/ImportSourceRole' }
+        filename: { type: string, minLength: 1, maxLength: 255 }
+        format: { type: string, enum: [docx] }
+        bytes: { type: integer, format: int64, minimum: 1, maximum: 26214400 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        uploadedBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+    WordImport:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt]
+      description: |
+        Shared teacher scope within this installation, with creator attribution.
+        Sources are private originals, never learner media. Source revision zero
+        means no completed source set. Upload completion does not mean recognition.
+        Pending uploads are durable reservations and cannot be downloaded or processed.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        sourceRevision: { type: integer, format: int64, minimum: 0 }
+        sources:
+          type: array
+          maxItems: 2
+          items: { $ref: '#/components/schemas/ImportSource' }
+        pendingUploads: { type: integer, minimum: 0 }
+        createdBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    CreateWordImport:
+      type: object
+      additionalProperties: false
+      required: [requestId, title]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: Scoped to the actor; replay with the same title returns the same import, changed title conflicts.
+        title: { type: string, minLength: 1, maxLength: 200, pattern: '\S' }
+    ImportUploadReceipt:
+      type: object
+      additionalProperties: false
+      required: [import, source, sourceRevision]
+      properties:
+        import: { $ref: '#/components/schemas/WordImport' }
+        source: { $ref: '#/components/schemas/ImportSource' }
+        sourceRevision: { type: integer, format: int64, minimum: 1 }
+    ImportSourceDownload:
+      type: object
+      additionalProperties: false
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
 
     # ------------------------------------------------------------------ auth
 
@@ -3661,6 +3737,168 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
   # =============================================================== admin/media
+
+  /admin/imports:
+    post:
+      operationId: createWordImport
+      tags: [admin-imports]
+      summary: Create an empty private import idempotently
+      description: Creates a persistent intake identity without uploading files or starting recognition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWordImport' }
+      responses:
+        '201':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '409':
+          description: IMPORT_CONFLICT — request identity already used with different input.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED — configured actor or installation quota reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    get:
+      operationId: listWordImports
+      tags: [admin-imports]
+      summary: Search private import history
+      description: Paginated shared teacher history with accent-insensitive title and current filename search.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Query'
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ImportStatus' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Newest imports first, stable ID tie-breaker.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/WordImport' }
+  /admin/imports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getWordImport
+      tags: [admin-imports]
+      summary: Read an import and its current completed sources
+      description: Returns a consistent source-set snapshot and the number of incomplete upload reservations.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/sources:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: uploadImportSource
+      tags: [admin-imports]
+      summary: Upload a private Word source and create an immutable source set
+      description: |
+        One multipart file part named file, at most 25 MiB. Only native DOCX intake
+        is enabled in this checkpoint; legacy DOC awaits isolated conversion.
+        Filename must end in .docx and bounded package inspection must agree.
+        The body Content-Type is not evidence of the detected document type.
+        Retry with identical uploadId, role, expectedRevision, filename and bytes.
+        A changed replay conflicts. Completion creates exactly one source revision;
+        replay returns its receipt even when later uploads advanced the import.
+        Only awaiting_sources accepts changes. Every storage write first has a
+        durable reservation; interruptions remain inspectable and quota-counted.
+        Source bytes and storage keys never enter ordinary logs or student payloads.
+      x-max-body-bytes: 26345472
+      parameters:
+        - { name: role, in: query, required: true, schema: { $ref: '#/components/schemas/ImportSourceRole' } }
+        - { name: uploadId, in: query, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+        - { name: expectedRevision, in: query, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Stored and associated with one source revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUploadReceipt' }
+        '400':
+          description: Malformed upload; exactly one file part is required.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: IMPORT_SOURCE_TOO_LARGE — compressed, expanded or XML resource limit exceeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — unsupported, active, encrypted or invalid source.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/sources/{sourceId}/download:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: sourceId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    get:
+      operationId: downloadImportSource
+      tags: [admin-imports]
+      summary: Authorize a short-lived original-file download
+      description: |
+        The completed source must belong to the requested import. Historical
+        completed sources remain accessible to teachers. A 60-second bearer URL
+        forces attachment download as application/octet-stream. Response is no-store.
+        Pending storage reservations are never downloadable.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportSourceDownload' }
+        '404':
+          description: Completed source not found in this import.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/media:
     get:

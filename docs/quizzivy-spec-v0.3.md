@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.31 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.32 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.31**
+
+- W-10a adds disabled-by-default private native DOCX intake, teacher-only history,
+  immutable source sets and retry identities. Storage writes have durable reservations,
+  quota accounting and revision guards. Original downloads require teacher access and
+  short-lived attachment URLs from a separate private bucket. Legacy conversion,
+  processing, review, commit, retention and production acceptance remain later work.
 
 **Changes since v0.30**
 
@@ -1387,6 +1395,28 @@ Imported and manually authored exams must share rendering, publication and
 grading contracts. Missing answers remain unknown; PDF input, OCR, answer
 generation and automatic publication are excluded. Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
+
+The native source intake checkpoint is configured separately from learner media.
+`IMPORT_S3_BUCKET` names a separate private bucket; `IMPORT_WORK_DIR` is an absolute,
+private disk directory. Both are required to enable intake. The existing S3 endpoint
+and credentials are reused, with no public bucket or CDN fallback. Teacher scope is
+shared within this installation; creator and modifying actors are retained.
+
+`/admin/imports` creates an empty record idempotently and lists history by status,
+title or current filename. A source upload accepts exactly one native `.docx`, with
+bounded package/content inspection, a maximum 25 MiB compressed body and the Word
+inspector's expansion/XML limits. `.doc` remains disabled until isolated conversion
+is implemented. A successful upload only acknowledges stored source bytes.
+
+Each accepted exam/key addition or replacement creates an immutable source set,
+retaining its unchanged companion and prior originals. Uploads require the current
+import revision while `awaiting_sources`. Exact retries reuse their upload identity;
+changed input conflicts. A durable reservation precedes each object write, and both
+pending and completed bytes count towards actor/global quotas. No database transaction
+is held during upload or inspection. The API admits one expanded inspection per
+process. Interrupted reservations remain observable; automatic retention is not yet
+implemented or authorized. Only completed sources can receive a 60-second download
+URL, forced to attachment/octet-stream. Source identifiers are never media asset IDs.
 
 Thuong approved two ownership/recovery policies for this milestone:
 

@@ -29,7 +29,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if _, exempt := streaming[r.Pattern]; exempt || r.Body == nil {
+			if streamingRequestBody(w, r, streaming, routeLimits) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -53,6 +53,19 @@ func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLi
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func streamingRequestBody(w http.ResponseWriter, r *http.Request, streaming map[string]struct{}, limits map[string]int64) bool {
+	if r.Body == nil {
+		return true
+	}
+	if _, ok := streaming[r.Pattern]; !ok {
+		return false
+	}
+	if limit := limits[r.Pattern]; limit > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+	}
+	return true
 }
 
 func requestBodyLimit(pattern string, fallback int64, limits map[string]int64) int64 {

@@ -646,6 +646,46 @@ cover new section identity, concurrent editing/movement, complete material previ
 bank copy/insertion, independent deletion and publication. The processing queue,
 import extraction/review/commit and acceptance gates remain subsequent work.
 
+### 1.27 Native private source intake (W-10a)
+
+The imports module implements teacher-only create/history/get, native DOCX upload
+and authorized original download. `00042_create_word_import_sources.sql` adds
+imports, durable source reservations, immutable source sets and their role mappings.
+The source bucket is separately configured and disabled by default; staging uses a
+private disk directory. Legacy DOC conversion is deliberately not enabled yet.
+
+Create identities are actor-scoped. Upload identities are import-scoped and pinned
+to role, expected revision, filename, format, byte count and SHA-256. Reservation
+commits before object storage, so a lost Put response or failed completion never
+creates an untracked object. Retries of identical pending bytes may re-Put the same
+key; completed originals are not rewritten. Completion locks the parent, advances
+one revision and copies the unchanged companion into the new source set. A stale
+completion leaves its reservation visible and counted, without attaching its bytes.
+Cancelled/non-intake states reject new source writes. Future cleanup must coordinate
+with in-flight upload writers; no automatic deletion is introduced here.
+
+Conservative configurable development limits are 10 active imports per actor,
+100 per installation, 32 retained source reservations per import, 256 MiB per actor
+and 1 GiB installation-wide. These are not approved production capacity promises.
+Quota reservation uses one short advisory transaction lock before the parent row;
+no conversion, parsing or storage I/O holds a database lock. Intake permits one
+expanded inspection per API process, with 25 MiB source, bounded XML/ZIP work,
+a 15-second inspection budget and a two-minute intake deadline.
+Multipart wire overhead is capped at 128 KiB beyond the source cap.
+
+The request validator now preserves multipart parameter checks without buffering
+file bodies. Authentication/role middleware remains ahead of validation; the
+validator's duplicate security body snapshot is disabled only for streaming routes.
+Native originals and keys never enter `media_assets`. Downloads resolve the source
+inside its parent import and use a 60-second no-store attachment URL. Tests cover
+student denial, cross-parent lookup, lost responses, changed replay input, concurrent
+completion/quota races, immutable history, unsafe packages, private MinIO storage
+and migration reversal. The TypeScript API adapter shares the generated contract.
+
+Remaining W-10/11+ work includes legacy conversion, durable processing, source
+replacement after review, upload-history UI, cleanup/retention, review and commit.
+This checkpoint does not expose the unfinished workflow to teachers or claim GA.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

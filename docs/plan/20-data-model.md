@@ -1284,6 +1284,7 @@ the file it adds.
 | `00039_create_version_group_graph.sql` | Independent immutable group/unit/material/recording snapshots | Word W-08 |
 | `00040_create_group_audio_plays.sql` | Shared recording counters and append-only gesture receipts | Word W-09 |
 | `00041_version_test_delivery.sql` | Immutable delivery algorithm marker | Word W-09d |
+| `00042_create_word_import_sources.sql` | Private source intake, upload journal and immutable source sets | Word W-10a |
 
 Notes on migration mechanics (§13.7):
 
@@ -1655,3 +1656,43 @@ readers use `attempts.test_version_id`, never the test's selected default. The
 marker remains immutable through the same API boundary as all snapshot fields.
 Down refuses while any group-aware snapshot exists; otherwise it drops only the
 new column. Tests exercise both reversible empty schema and refusal with data.
+
+
+## 23. Private import sources (W-10a)
+
+Migration: `00042_create_word_import_sources.sql`. The only PG18-specific construct
+introduced is built-in [`uuidv7()`](https://www.postgresql.org/docs/18/functions-uuid.html).
+The Neon schema/isolation guidance was applied: text checks for evolving states,
+`bigint` revisions/byte counts, `timestamptz`, indexed foreign keys and explicit
+`ON DELETE RESTRICT`. No partitioning, learner-media link or audit privilege change.
+
+- `word_imports` holds actor-scoped create idempotency, title, lifecycle, optimistic
+  revision and nullable current source revision (wire zero before the first upload).
+  Its composite head FK points to a set owned by that same import. Recency/status
+  indexes serve history; immutable-unaccent trigram indexes serve Vietnamese title
+  and source-filename search. The creator/request unique also indexes the user FK.
+- `word_import_sources` is the durable upload journal and immutable original metadata.
+  Its import/upload unique pins replay identity; SHA-256 is not globally unique.
+  Every storage key has a row before Put. Readiness and completion revision agree via
+  CHECK, and the completion FK cannot name another import's set. Actor/import/revision
+  and pending-age indexes support quota, history and future cleanup inventory.
+- `word_import_source_sets` and `word_import_source_set_items` preserve every completed
+  source revision. The role primary key allows at most one exam and one answer key;
+  a composite source FK pins import, role and `ready=true`, rejecting pending bytes
+  and cross-import sources even if application validation is bypassed. The app role
+  cannot UPDATE/DELETE these histories, rewrite original metadata, or delete originals;
+  only source readiness/completion columns receive UPDATE. Reference-safe retention
+  will need its own explicitly reviewed maintenance operation.
+
+Create/reserve acquire advisory transaction lock `(73819,10)` before any parent row
+lock. This serializes global and actor quota reservations across API processes.
+Completion locks the import row and checks status/revision before atomically attaching
+one new source set and auditing the actor. Exact completed replay succeeds without
+advancing the head. A stale upload retains its tracked object reservation and quota.
+No storage call or package inspection runs inside a transaction. History/get reads
+use short repeatable-read transactions so a head and its source list agree.
+
+Local Docker verification uses the migration owner for fixture setup and the
+`quizzivy_app` role for intake, plus a separate private MinIO bucket. Up/down/up is
+verified on a disposable database. Automatic source retention remains undecided;
+this migration does not infer it from the integrity-event retention policy.
