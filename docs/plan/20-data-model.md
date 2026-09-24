@@ -1730,3 +1730,40 @@ There are at most 50 requests per import and ten attempts per request. Stage wri
 are monotonic within an attempt and repeated stages are no-ops, bounding run-event
 history without truncating it. Down removes events before runs and their guard
 function. Docker up/down/up checks run on a disposable database.
+
+
+## 25. Private stage artifacts (W-13b)
+
+Migration: `00044_create_word_import_artifacts.sql`. `word_import_artifact_sets`
+pins one bounded output manifest to its producing run/claim and immutable source
+set item. Composite FKs enforce same-import run/source revision, source role and
+source identity. Component identity includes processor configuration and upstream
+artifact lineage; reuse additionally requires the same pipeline version.
+
+`word_import_artifacts` journals each private object before storage. Generated
+keys include import/set/file identity, and every takeover receives new writable
+keys. Unique ordinal/name constraints prevent ambiguous manifests. The manifest
+has at most 512 files, 64 MiB per file and 256 MiB total; compact application
+metadata is limited to 60 KiB (128 KiB JSONB allowance for representation spacing).
+These are internal development bounds, not the approved production envelope.
+
+Reservations take quota advisory lock `(73819,10)`, then parent import and run.
+Pending and ready set bytes count towards separate actor/global artifact limits;
+sets per import are also bounded. Storage and checksum IO happen after commit.
+Every acknowledgement/completion requires the live source/worker/fencing claim.
+Completed set reads need no mutable snapshot because completed files and metadata
+cannot change. Only complete sets are reusable, including across explicit retries;
+old incomplete sets remain tracked and charged. No retention decision is inferred.
+
+Column grants prevent metadata rewrites and deletion. Triggers reject completed
+row mutation, file additions to completed sets, out-of-plan ordinals and incomplete
+set completion. Parent/run/source and lookup indexes support reverse references,
+reuse and pending inventory. Existing append-only audit/event permissions remain
+unchanged. Down drops owned files before sets and removes the new FK target keys.
+
+Object persistence uses [conditional S3 creation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html)
+with a SHA-256 checksum. Exact lost-response replay verifies the stored checksum,
+size and MIME type using [HeadObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html).
+Incompatible storage implementations fail closed; production provider compatibility
+is a W-21 gate. Trusted processor reads stage on disk and verify size/digest before
+parsing. A stage manifest grants no learner media authorization.

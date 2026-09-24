@@ -46,7 +46,7 @@ type Result struct {
 	closeErr              error
 }
 
-func (r *Result) Open(name string) (io.ReadCloser, error) {
+func (r *Result) Open(name string) (io.ReadSeekCloser, error) {
 	if !r.allowed[name] {
 		return nil, ErrSource
 	}

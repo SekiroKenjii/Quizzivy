@@ -779,6 +779,28 @@ wiring, detailed loss reconciliation, real legacy-family goldens and W-21 operat
 cleanup/capacity gates remain open. Dependency reasons and the boundary are in the
 [converter runtime instructions](../../docker/word-converter/README.md).
 
+### 1.31 Durable private stage artifacts (W-13b)
+
+Each stage reserves its complete immutable file plan before object storage.
+Source/run/role/claim ownership is relational; acknowledgements and completion
+require a live fenced claim. Whole-set publication waits for every file, so a
+partially uploaded rendition cannot appear complete. Pending bytes and sets count
+against bounded actor/global quotas. Complete evidence is reusable after takeover
+or explicit retry only for the same source, pipeline and component/configuration.
+Incomplete old attempts receive separate keys and cannot mutate successor results.
+
+The private S3 adapter verifies upload checksums, uses create-only writes and
+reconciles exact lost-response retries against stored identity. Processor reads
+verify size and digest into disk-backed staging before parsing. Normalized DOCX,
+source pages, images, blocks, candidates and validation files remain private;
+none automatically becomes learner media. No retention policy is enabled.
+
+Docker verification covers incomplete publication, cancellation/lease fencing,
+source ownership, immutable replay, concurrent quotas, private bytes, lost storage
+responses and staged-read tampering. Public source browsing, concrete processing,
+recognition, review and commit remain subsequent work.
+
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

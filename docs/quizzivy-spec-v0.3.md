@@ -1,6 +1,6 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.35 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.36 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
 **Changes since v0.34**
@@ -1460,7 +1460,18 @@ and artifact identities accompany the rendition. Layout and legacy conversion
 require explicit review; visual source pages do not imply a question-coordinate map.
 A single Docker slot prevents orphan/retry overlap, and the container's independent
 deadline remains active after worker failure. This tool is not yet public legacy
-intake, durable artifact storage or production activation.
+intake or production activation.
+
+Private stage artifacts have a durable reservation before object storage, pinned
+by source revision, role, run, claim and component configuration. Pending bytes
+count towards separate actor/global limits. A set becomes readable only when all
+its declared files are stored; completed files and sets are immutable. Current
+claims may reuse completed evidence for the same source, pipeline and component,
+including after an explicit retry. Incomplete evidence from an older claim is
+retained for accounting but cannot be adopted by a newer worker. Conditional,
+checksum-verified writes prevent changed replay from replacing stored bytes.
+Source blocks and page files stay outside the bounded run-result JSON. There is
+no automatic artifact retention policy or learner access through these objects.
 
 Processing requests retain their source-set revision, pipeline version and replay
 identity. One queued/running request per import is permitted, with at most 50
