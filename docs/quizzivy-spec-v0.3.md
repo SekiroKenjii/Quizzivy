@@ -1,7 +1,56 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.30 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.38 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.37**
+
+- W-11b connects private storage, isolated conversion, chunked source extraction
+  and deterministic recognition in a separate worker process. Completed stages
+  survive retries; source/artifact checksums are verified before parsing. Run
+  envelopes contain lineage IDs, with source and answer content in private artifacts.
+  Public processing controls and full review/domain validation remain subsequent work.
+
+**Changes since v0.34**
+
+- W-13a adds an internal isolated legacy Word converter and private source-page
+  rendition. One physical container slot, offline safe document loading, resource
+  limits, cancellation and independent timeout protect processing capacity. Outputs
+  retain conversion lineage and require review. Public legacy intake and durable
+  processing integration remain disabled pending the complete pipeline.
+
+**Changes since v0.33**
+
+- W-12a adds ordered, source-bound extraction with Unicode fragment locations,
+  nested/merged table evidence and explicit review reasons for private/ambiguous
+  content. Bounded raster normalization retains images privately. These internal
+  tools do not yet enable recognition, review or draft creation; original evidence
+  is never a learner payload.
+
+**Changes since v0.32**
+
+- W-11 adds an internal durable processing queue with immutable source/pipeline
+  identity, bounded attempts, leases, fenced writes and append-only run events.
+  Cancellation and completion serialize on the import. A context-aware runner
+  records safe operational metadata and preserves retryable work after shutdown.
+  The production processor, supervisor and public processing controls are not
+  wired yet; this checkpoint does not enable recognition or review.
+
+**Changes since v0.31**
+
+- W-10a adds disabled-by-default private native DOCX intake, teacher-only history,
+  immutable source sets and retry identities. Storage writes have durable reservations,
+  quota accounting and revision guards. Original downloads require teacher access and
+  short-lived attachment URLs from a separate private bucket. Legacy conversion,
+  processing, review, commit, retention and production acceptance remain later work.
+
+**Changes since v0.30**
+
+- W-07h integrates section → group → question authoring into the test builder.
+  Outline and group writes share a serialized enclosing-test revision; acknowledged
+  moves update only the editor's own revision baseline. Whole-group bank insertion,
+  independent bank copies, complete learner preview and local recovery are available.
+  The import pipeline and pilot acceptance remain release gates.
 
 **Changes since v0.29**
 
@@ -618,8 +667,8 @@ kind, existence, authorization and deletion locks remain required at persistence
 Copying remaps group, question, material, answer, gap and recording identities,
 preserving all grading data, labels, order and content. Immutable media IDs are
 reused through new protected bindings. The teacher-only group API and independent
-bank editor are available on the milestone branch; release still requires the
-mixed builder and import acceptance gates. Relational ownership uses a nullable section owner for each group
+bank editor and mixed builder are available on the milestone branch; release
+still requires import and pilot acceptance gates. Relational ownership uses a nullable section owner for each group
 (null means an independent bank group) and explicit ownership/order on its member questions.
 Section units distinguish standalone questions from groups. Material gaps and
 media references have relational bindings; cross-group response/playback links
@@ -635,7 +684,8 @@ the same revision; permanent deletion requires archival and keeps audit history.
 Removing a section-owned group deletes its complete draft graph and compacts unit
 order. Copy materialization checks an observed source revision and creates new
 editable identities. Draft/snapshot/delivery readers preserve the complete graph.
-Mixed builder editing and context-aware insertion remain required before release.
+The builder inserts bank groups as complete independent copies into an explicitly
+chosen section, and can save the current group graph as an independent bank copy.
 
 Draft totals and tag filters include owned members alongside standalone questions.
 Listening counts count each question once when it has its own audio or a shared
@@ -643,7 +693,14 @@ group recording. Independent bank groups are not part of a test's totals. The
 legacy question-only whole-outline writer refuses a draft containing groups with
 `GROUP_OUTLINE_REQUIRED` before changing metadata or structure; metadata-only
 updates remain supported. The group-aware writer accepts complete mixed units and
-moves whole groups transactionally; its builder UI remains required before release.
+moves whole groups transactionally. The builder keeps new section client identities
+until server IDs arrive, preserving edits and order during acknowledgement. The
+outline distinguishes group and standalone IDs, moves empty groups as units and
+keeps continuous learner numbering across member questions. Group and outline
+writes share a serialized enclosing-test revision. Only acknowledged own moves
+advance the active group's revision baseline; external conflicts remain visible.
+Preview and publication flush pending content and outline writes. Group findings
+open the owning group editor instead of the standalone question endpoint.
 
 The independent group bank supports search, remembered URL filters, newest-first
 updates, inline/menu duplication and bulk archive/restore/permanent deletion.
@@ -1372,6 +1429,97 @@ grading contracts. Missing answers remain unknown; PDF input, OCR, answer
 generation and automatic publication are excluded. Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
 
+The native source intake checkpoint is configured separately from learner media.
+`IMPORT_S3_BUCKET` names a separate private bucket; `IMPORT_WORK_DIR` is an absolute,
+private disk directory. Both are required to enable intake. The existing S3 endpoint
+and credentials are reused, with no public bucket or CDN fallback. Teacher scope is
+shared within this installation; creator and modifying actors are retained.
+
+`/admin/imports` creates an empty record idempotently and lists history by status,
+title or current filename. A source upload accepts exactly one native `.docx`, with
+bounded package/content inspection, a maximum 25 MiB compressed body and the Word
+inspector's expansion/XML limits. `.doc` remains disabled until isolated conversion
+is implemented. A successful upload only acknowledges stored source bytes.
+
+Each accepted exam/key addition or replacement creates an immutable source set,
+retaining its unchanged companion and prior originals. Uploads require the current
+import revision while `awaiting_sources`. Exact retries reuse their upload identity;
+changed input conflicts. A durable reservation precedes each object write, and both
+pending and completed bytes count towards actor/global quotas. No database transaction
+is held during upload or inspection. The API admits one expanded inspection per
+process. Interrupted reservations remain observable; automatic retention is not yet
+implemented or authorized. Only completed sources can receive a 60-second download
+URL, forced to attachment/octet-stream. Source identifiers are never media asset IDs.
+
+Native extraction retains XML order and source-bound identities for paragraph,
+container, object and unassigned-content blocks. Source fragment offsets use
+Unicode code points and exclude generated labels. Hidden/revised text, fields,
+ancillary parts and unsupported objects remain review evidence. No formatting is
+interpreted as correctness without a confirmed convention. Nested table coordinates
+retain merge evidence; ambiguous grids are flagged. Selected PNG/JPEG assets may
+be normalized under bounded decoding limits, but remain private until explicitly
+reviewed and bound to learner content. Source blocks are separate from machine
+candidate JSON and must not be exposed on student endpoints.
+
+An internal offline converter can normalize binary DOC and render private source
+pages under fixed development resource limits. Native originals remain unchanged;
+converted DOCX and raster output are revalidated. Source, renderer, immutable image
+and artifact identities accompany the rendition. Layout and legacy conversion
+require explicit review; visual source pages do not imply a question-coordinate map.
+A single Docker slot prevents orphan/retry overlap, and the container's independent
+deadline remains active after worker failure. This tool is not yet public legacy
+intake or production activation.
+
+Private stage artifacts have a durable reservation before object storage, pinned
+by source revision, role, run, claim and component configuration. Pending bytes
+count towards separate actor/global limits. A set becomes readable only when all
+its declared files are stored; completed files and sets are immutable. Current
+claims may reuse completed evidence for the same source, pipeline and component,
+including after an explicit retry. Incomplete evidence from an older claim is
+retained for accounting but cannot be adopted by a newer worker. Conditional,
+checksum-verified writes prevent changed replay from replacing stored bytes.
+Source blocks and page files stay outside the bounded run-result JSON. There is
+no automatic artifact retention policy or learner access through these objects.
+
+Processing requests retain their source-set revision, pipeline version and replay
+identity. One queued/running request per import is permitted, with at most 50
+retained requests per import and 1–10 automatic attempts per request. Claims and
+heartbeats serialize capacity accounting across worker processes. Live leases
+expire after a configured 1 second–5 minutes; every state/result write checks the
+worker identity, fencing token, lease and source revision. Exhausted crashes become
+failed runs. Retrying a failed import creates a new immutable run identity.
+
+The offline deterministic recognizer produces `word-candidate-v1` proposals from
+source-linked text, never bank questions. It distinguishes unknown, known and
+conflicting choice keys; explicit option IDs survive reordering. Numbering,
+sections/papers, same-line options, continuation paragraphs and explicit inline,
+final or companion choice keys retain Unicode source ranges. Restarted labels and
+ambiguous table associations do not authorize a guessed match. Bold/underline only
+become answer evidence under an explicitly teacher-confirmed convention; key-only
+marks are removed from the proposed learner prose.
+
+Every meaningful block remains in the coverage ledger. Unassigned ranges, private
+branches, uncertain structure, default points and unresolved fidelity are findings.
+Source comments, hidden/revised text and fields are never automatically copied into
+learner prose. This initial recognizer handles labeled choice structures; grouped
+cloze, typed/written keys, saved profiles and assisted free-form recognition remain
+open. A proposal is not a reviewed draft or approval to commit an assessment.
+
+An internal runner stops cooperating processors on timeout, lease loss or shutdown.
+Processing runs outside transactions. Only a current claim can store a bounded
+private JSON object and transition to `needs_review`. Terminal runs cannot be
+changed. Run events retain actor/worker/stage/failure codes without document contents.
+The standalone `import-worker` assembles source verification, private rendition,
+chunked raw extraction and deterministic recognition. It verifies object lengths
+and SHA-256 before parsing, reuses completed stages pinned to source/configuration,
+and stores candidate content privately. Its bounded result contains only lineage
+and artifact-set identities. The API does not start this worker or require Docker.
+One synchronous job per process, database lease limits, a 512 MiB Go soft-memory
+target, a five-minute job deadline and the converter's separate hard limits are
+conservative development defaults, not the approved production capacity envelope.
+Full domain validation, public processing controls and production supervision
+remain required before release.
+
 Thuong approved two ownership/recovery policies for this milestone:
 
 - Groups and shared materials belong to independent editable copies. Saving a
@@ -1388,6 +1536,9 @@ Thuong approved two ownership/recovery policies for this milestone:
   before recovery, explicit restore/discard and a global logout fence that rejects
   older writers in other tabs. Opening a newer editor of the same item fences the
   previous local writer; it cannot overwrite or clear the newer editor's outbox.
+  Section-owned group editing uses the same recovery gate and outbox. An explicit
+  route exit first confirms local persistence; save-and-leave flushes both content
+  and outline. Test title/outline and standalone questions are not stored locally.
   Import review and standalone authoring recovery still require integration.
 
 ---

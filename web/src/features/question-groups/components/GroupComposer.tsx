@@ -34,6 +34,7 @@ import {
 } from "../model";
 import { GapBindings } from "./GapBindings";
 import { MaterialContent } from "./MaterialContent";
+import { cn } from "@/lib/utils";
 
 export function GroupComposer({
   bundle,
@@ -42,6 +43,8 @@ export function GroupComposer({
   onAsset,
   onRefresh,
   selectedQuestionId,
+  onSelectedQuestionChange,
+  embedded = false,
 }: Readonly<{
   bundle: GroupBundle;
   assets: MediaAsset[];
@@ -49,6 +52,8 @@ export function GroupComposer({
   onAsset: (asset: MediaAsset) => void;
   onRefresh: () => void;
   selectedQuestionId?: string | undefined;
+  onSelectedQuestionChange?: (id: string | null) => void;
+  embedded?: boolean;
 }>) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState(
@@ -80,6 +85,15 @@ export function GroupComposer({
       item.gaps.map((binding) => binding.questionId),
     ),
   );
+
+  function selectItem(id: string, newQuestion = false) {
+    setSelected(id);
+    if (onSelectedQuestionChange) {
+      const questionId = newQuestion || questions.has(id) ? id : undefined;
+      setRequestedQuestion(questionId);
+      onSelectedQuestionChange(questionId ?? null);
+    }
+  }
 
   function changeMaterials(stimuli: GroupMaterial[]) {
     for (const recording of bundle.group.recordings)
@@ -117,14 +131,14 @@ export function GroupComposer({
       },
     });
     setStarters((current) => new Set([...current, question.id]));
-    setSelected(question.id);
+    selectItem(question.id, true);
   }
   function addMaterial() {
     const item = emptyMaterial(
       t("groups.newMaterial", { number: bundle.group.stimuli.length + 1 }),
     );
     changeMaterials([...bundle.group.stimuli, item]);
-    setSelected(item.id);
+    selectItem(item.id);
   }
   function moveMaterial(id: string, direction: -1 | 1) {
     const stimuli = [...bundle.group.stimuli];
@@ -156,12 +170,12 @@ export function GroupComposer({
           ),
         },
       });
-    setSelected("instructions");
+    selectItem("instructions");
     setRemoving(null);
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="@container/composer flex min-w-0 flex-col gap-5">
       <Field>
         <FieldLabel htmlFor="shared-group-title">{t("groups.titleLabel")}</FieldLabel>
         <Input
@@ -177,12 +191,26 @@ export function GroupComposer({
         />
         <FieldDescription>{t("groups.independentHint")}</FieldDescription>
       </Field>
-      <div className="grid min-w-0 gap-5 md:grid-cols-[12rem_minmax(0,1fr)]">
-        <nav aria-label={t("groups.contents")} className="flex flex-col gap-3">
+      <div className="grid min-w-0 gap-5 @min-[720px]/composer:grid-cols-[12rem_minmax(0,1fr)]">
+        <CompactGroupNavigation
+          enabled={embedded}
+          bundle={bundle}
+          selected={selected}
+          onSelect={(id) => selectItem(id)}
+          onAddMaterial={addMaterial}
+          onAddQuestion={addQuestion}
+        />
+        <nav
+          aria-label={t("groups.contents")}
+          className={cn(
+            "flex flex-col gap-3",
+            embedded && "hidden @min-[720px]/composer:flex",
+          )}
+        >
           <Button
             variant={selected === "instructions" ? "secondary" : "ghost"}
             className="justify-start"
-            onClick={() => setSelected("instructions")}
+            onClick={() => selectItem("instructions")}
           >
             <FileText aria-hidden="true" />
             {t("groups.instructions")}
@@ -195,7 +223,7 @@ export function GroupComposer({
               key={item.id}
               variant={selected === item.id ? "secondary" : "ghost"}
               className="h-auto justify-start text-left whitespace-normal"
-              onClick={() => setSelected(item.id)}
+              onClick={() => selectItem(item.id)}
             >
               {item.title || t("groups.materials")}
             </Button>
@@ -219,7 +247,7 @@ export function GroupComposer({
                 <Button
                   variant={selected === item.questionId ? "secondary" : "ghost"}
                   className="h-auto w-full justify-start text-left whitespace-normal"
-                  onClick={() => setSelected(item.questionId)}
+                  onClick={() => selectItem(item.questionId)}
                 >
                   <span className="shrink-0 tabular-nums">{index + 1}</span>
                   <span className="line-clamp-2">
@@ -576,5 +604,76 @@ function RecordingSettings({
         onTranscriptChange={(transcript) => onChange({ ...recording, transcript })}
       />
     </FieldGroup>
+  );
+}
+
+function CompactGroupNavigation({
+  enabled,
+  bundle,
+  selected,
+  onSelect,
+  onAddMaterial,
+  onAddQuestion,
+}: Readonly<{
+  enabled: boolean;
+  bundle: GroupBundle;
+  selected: string;
+  onSelect: (id: string) => void;
+  onAddMaterial: () => void;
+  onAddQuestion: () => void;
+}>) {
+  const { t } = useTranslation();
+  const questions = new Map(
+    bundle.questions.map((question) => [question.id, question]),
+  );
+  if (!enabled) return null;
+  return (
+    <div className="flex flex-col gap-3 @min-[720px]/composer:hidden">
+      <Field>
+        <FieldLabel htmlFor="group-content-picker">{t("groups.contents")}</FieldLabel>
+        <Select value={selected} onValueChange={onSelect}>
+          <SelectTrigger id="group-content-picker">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="instructions">{t("groups.instructions")}</SelectItem>
+              {bundle.group.stimuli.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.title || t("groups.materials")}
+                </SelectItem>
+              ))}
+              {bundle.group.members.map((item, index) => (
+                <SelectItem key={item.questionId} value={item.questionId}>
+                  {index + 1}{" "}
+                  {questions.get(item.questionId)?.input.prompt ||
+                    t("builder.untitledQuestion")}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={bundle.group.stimuli.length >= 16}
+          onClick={onAddMaterial}
+        >
+          <Plus />
+          {t("groups.addMaterial")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={bundle.group.members.length >= 200}
+          onClick={onAddQuestion}
+        >
+          <Plus />
+          {t("builder.addQuestion")}
+        </Button>
+      </div>
+    </div>
   );
 }

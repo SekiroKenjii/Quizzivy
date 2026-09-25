@@ -103,15 +103,16 @@ func advanceList(list *listDefinition, index int) (string, bool) {
 	if !level.present || !level.valid {
 		return "", false
 	}
-	if list.seen[index] {
-		list.counts[index]++
+	c := list.counter
+	if c.seen[index] {
+		c.counts[index]++
 	} else {
-		list.counts[index] = level.start
+		c.counts[index] = level.start
 	}
-	list.seen[index] = true
+	c.seen[index] = true
 	for i := index + 1; i < len(list.levels); i++ {
 		if list.levels[i].restart >= index {
-			list.seen[i] = false
+			c.seen[i] = false
 		}
 	}
 	return renderLabel(list, index)
@@ -157,8 +158,8 @@ func referenceNumber(list *listDefinition, index int, legal bool) (string, bool)
 		return "", false
 	}
 	value := level.start
-	if list.seen[index] {
-		value = list.counts[index]
+	if list.counter.seen[index] {
+		value = list.counter.counts[index]
 	}
 	format := level.format
 	if legal {

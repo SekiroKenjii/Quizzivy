@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker, useBeforeUnload, useNavigate, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,11 +8,11 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useAuthStore } from "@/stores/auth";
-import { openDraftScope, type DraftScope, type LocalDraft } from "@/lib/drafts/store";
 import { ApiError } from "@/lib/api/errors";
 import { createGroup, getGroup, updateGroup, type StoredGroup } from "../api";
 import { groupIssue } from "../model";
-import { independentBundle, readGroupRecovery, type GroupRecovery } from "../recovery";
+import { independentBundle } from "../recovery";
+import { GroupRecoveryGate, type RecoveryState } from "../components/GroupRecoveryGate";
 import { useGroupEditor } from "../useGroupEditor";
 import { GroupPreviewDialog } from "../components/GroupPreviewDialog";
 import { GroupComposer } from "../components/GroupComposer";
@@ -32,73 +32,11 @@ export default function GroupEditorPage() {
         {t("groups.loadFailed")}
       </LoadError>
     );
-  return <RecoveryGate key={`${owner}:${id}`} owner={owner} stored={query.data} />;
-}
-
-type RecoveryState = {
-  scope: DraftScope | null;
-  draft: LocalDraft | null;
-  recovery: GroupRecovery | null;
-};
-function RecoveryGate({
-  owner,
-  stored,
-}: Readonly<{ owner: string; stored: StoredGroup }>) {
-  const { t } = useTranslation();
-  const [loaded, setLoaded] = useState<RecoveryState | null>(null);
-  const [chosen, setChosen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const id = stored.bundle.group.id;
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const scope = await openDraftScope(owner, `group:${id}`);
-        const draft = await scope.read();
-        const recovery = draft ? readGroupRecovery(draft.payload, id) : null;
-        if (draft && !recovery) await scope.remove();
-        if (!cancelled) setLoaded({ scope, draft, recovery });
-      } catch {
-        if (!cancelled) setLoaded({ scope: null, draft: null, recovery: null });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [owner, id]);
-  if (!loaded) return <ListSkeleton rows={5} />;
-  if (loaded.recovery && !chosen)
-    return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-4 py-8">
-        <PageHeader
-          title={stored.bundle.group.title}
-          backTo="/admin/question-bank/groups"
-        />
-        <Alert>
-          <AlertTitle>{t("groups.recoveryTitle")}</AlertTitle>
-          <AlertDescription>{t("groups.recoveryBody")}</AlertDescription>
-        </Alert>
-        {error ? <p role="alert">{error}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setChosen(true)}>{t("groups.restoreDraft")}</Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              void loaded.scope
-                ?.remove()
-                .then(() => {
-                  setLoaded({ ...loaded, draft: null, recovery: null });
-                  setChosen(true);
-                })
-                .catch(() => setError(t("groups.localUnavailable")));
-            }}
-          >
-            {t("groups.discardDraft")}
-          </Button>
-        </div>
-      </div>
-    );
-  return <Editor stored={stored} recovery={loaded} />;
+  return (
+    <GroupRecoveryGate key={`${owner}:${id}`} owner={owner} stored={query.data}>
+      {(recovery) => <Editor stored={query.data} recovery={recovery} />}
+    </GroupRecoveryGate>
+  );
 }
 
 function Editor({

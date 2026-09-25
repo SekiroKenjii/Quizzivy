@@ -5,6 +5,7 @@ import type { GroupBundle, StoredGroup } from "@/features/question-groups/api";
 import type { DraftScope } from "@/lib/drafts/store";
 import { ApiError } from "@/lib/api/errors";
 import "@/lib/i18n";
+import { BuilderWrites } from "@/features/tests/BuilderWrites";
 
 function stored(): StoredGroup {
   return {
@@ -27,6 +28,60 @@ function scope(): DraftScope {
 }
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
+
+test("a queued group save reads its revision after an acknowledged move and preserves newer local edits", async () => {
+  const initial = stored();
+  const writes = new BuilderWrites();
+  let finish = () => undefined as void;
+  const move = writes.run(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const save = vi.fn(
+    async (
+      bundle: GroupBundle,
+      revision: number,
+      testUpdatedAt: string | null | undefined,
+    ) => ({
+      ...initial,
+      bundle,
+      revision: revision + 1,
+      testUpdatedAt: testUpdatedAt ?? null,
+    }),
+  );
+  const { result } = renderHook(() =>
+    useGroupEditor({
+      stored: initial,
+      recovered: null,
+      scope: scope(),
+      coordinate: (operation) => writes.run(operation),
+      save,
+    }),
+  );
+  act(() => result.current.change(renamed(initial.bundle, "Before move")));
+  await act(async () => vi.advanceTimersByTimeAsync(1500));
+  expect(save).not.toHaveBeenCalled();
+  act(() => {
+    result.current.change(renamed(initial.bundle, "During move"));
+    result.current.advanceOwner(true, "new-parent");
+  });
+  await act(async () => {
+    finish();
+    await move;
+  });
+  await act(async () => {
+    await result.current.saveNow();
+  });
+  expect(
+    save.mock.calls.map((call) => [call[0].group.title, call[1], call[2]]),
+  ).toEqual([
+    ["Before move", 2, "new-parent"],
+    ["During move", 3, "new-parent"],
+  ]);
+  expect(result.current.dirty).toBe(false);
+});
 
 function renamed(bundle: GroupBundle, title: string): GroupBundle {
   return { ...bundle, group: { ...bundle.group, title } };
