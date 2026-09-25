@@ -53,7 +53,7 @@ func writePreflight(w http.ResponseWriter, permitted bool) {
 	h.Add("Vary", "Access-Control-Request-Method")
 	h.Add("Vary", "Access-Control-Request-Headers")
 	if permitted {
-		h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
 		h.Set("Access-Control-Max-Age", strconv.Itoa(maxAge))
 	}

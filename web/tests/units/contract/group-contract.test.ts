@@ -117,3 +117,90 @@ test("teacher-only recording metadata is separate from learner material and acti
   expect(recording.has("transcript")).toBe(true);
   expect(recording.has("isCorrect")).toBe(false);
 });
+
+test("editable groups carry complete member inputs and retryable media state", () => {
+  const storedShape = ajv.compile({
+    $ref: "#/components/schemas/StoredQuestionGroup",
+    components: spec.components,
+  });
+  const stored: components["schemas"]["StoredQuestionGroup"] = {
+    bundle: {
+      group: fixture(),
+      questions: [
+        {
+          id,
+          input: {
+            type: "single_choice",
+            prompt: "Chọn từ",
+            points: 1,
+            options: [
+              { text: "Một", isCorrect: true },
+              { text: "Hai", isCorrect: false },
+            ],
+          },
+        },
+      ],
+    },
+    ownerSectionId: null,
+    revision: 1,
+    archivedAt: null,
+    createdAt: "2026-09-24T00:00:00Z",
+    updatedAt: "2026-09-24T00:00:00Z",
+    assets: [],
+    unavailableAssetIds: [id],
+  };
+  expect(storedShape(stored), JSON.stringify(storedShape.errors)).toBe(true);
+  expect(storedShape({ ...stored, unavailableAssetIds: undefined })).toBe(false);
+  expect(
+    storedShape({ ...stored, bundle: { ...stored.bundle, questions: [{ id }] } }),
+  ).toBe(false);
+  expect(storedShape({ ...stored, revision: 0 })).toBe(false);
+  expect(storedShape({ ...stored, testUpdatedAt: "not a revision timestamp" })).toBe(
+    false,
+  );
+});
+
+test("bank summaries do not contain group content, answer keys or source documents", () => {
+  const summary = propertyNames(spec, spec.components.schemas.QuestionGroupSummary);
+  for (const field of [
+    "bundle",
+    "questions",
+    "stimuli",
+    "recordings",
+    "transcript",
+    "sourcePath",
+    "sourceUrl",
+  ]) {
+    expect(summary.has(field)).toBe(false);
+  }
+  const unitShape = ajv.compile({
+    $ref: "#/components/schemas/DraftSectionUnit",
+    components: spec.components,
+  });
+  expect(unitShape({ kind: "group", id })).toBe(true);
+  expect(unitShape({ kind: "question", id })).toBe(true);
+  expect(unitShape({ kind: "material", id })).toBe(false);
+});
+
+test("mixed outline transport keeps the legacy question projection and explicit group format", () => {
+  const schema =
+    spec.paths["/admin/tests/{id}"]!.patch.requestBody.content["application/json"]
+      .schema;
+  const validate = ajv.compile({ ...schema, components: spec.components });
+  const body = {
+    expectedUpdatedAt: "2026-09-24T00:00:00Z",
+    outlineFormat: "group_v1",
+    sections: [{ title: "Phần đọc", questionIds: [], units: [{ kind: "group", id }] }],
+  };
+  expect(validate(body), JSON.stringify(validate.errors)).toBe(true);
+  expect(validate({ ...body, outlineFormat: "unknown" })).toBe(false);
+  expect(validate({ ...body, sections: [{ title: "Phần đọc", units: [] }] })).toBe(
+    false,
+  );
+  expect(
+    validate({
+      expectedUpdatedAt: body.expectedUpdatedAt,
+      sections: [{ title: "Legacy", questionIds: [id] }],
+    }),
+  ).toBe(true);
+});

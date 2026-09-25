@@ -67,7 +67,7 @@ func TestPreflightIsAnswered(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Errorf("preflight status = %d, want 204", rec.Code)
 	}
-	for _, want := range []string{"PATCH", "DELETE"} {
+	for _, want := range []string{"PUT", "PATCH", "DELETE"} {
 		if m := rec.Header().Get("Access-Control-Allow-Methods"); !contains(m, want) {
 			t.Errorf("Allow-Methods %q is missing %s", m, want)
 		}
@@ -101,4 +101,19 @@ func indexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+func TestGroupReplacementPreflightKeepsExactOriginBoundary(t *testing.T) {
+	for _, origin := range []string{allowed, "https://untrusted.example"} {
+		req := httptest.NewRequest(http.MethodOptions, "/admin/question-groups/019535d9-3df7-79fb-b466-fa907fa17f9f", nil)
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Access-Control-Request-Method", http.MethodPut)
+		req.Header.Set("Access-Control-Request-Headers", "authorization,content-type")
+		rec := httptest.NewRecorder()
+		corsHandler().ServeHTTP(rec, req)
+		got := contains(rec.Header().Get("Access-Control-Allow-Methods"), http.MethodPut)
+		if want := origin == allowed; got != want {
+			t.Errorf("origin %q: replacement preflight allowed = %v, want %v", origin, got, want)
+		}
+	}
 }

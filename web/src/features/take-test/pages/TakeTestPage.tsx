@@ -394,6 +394,9 @@ function Paper({
   const previousContext = useRef<string | undefined>(undefined);
   const focusTarget = useRef<string | null>(null);
   const [focusRequest, requestFocus] = useReducer((n: number) => n + 1, 0);
+  const revealAnswerPanel = useEffectEvent(() => {
+    if (!wide) answerPanel.current?.scrollIntoView?.({ block: "start" });
+  });
   useEffect(() => {
     const target = focusTarget.current;
     focusTarget.current = null;
@@ -403,13 +406,13 @@ function Paper({
       element?.scrollIntoView?.({ block: "nearest" });
     } else if (context?.id && previousContext.current === context.id) {
       answerPanel.current?.focus({ preventScroll: true });
-      if (!wide) answerPanel.current?.scrollIntoView?.({ block: "start" });
+      revealAnswerPanel();
     } else if (paper.current) {
       paper.current.scrollTop = 0;
       paper.current.focus({ preventScroll: true });
     }
     previousContext.current = context?.id;
-  }, [question.id, context?.id, wide, focusRequest]);
+  }, [question.id, context?.id, focusRequest]);
 
   const jumpToGap = useCallback(
     (gap: MaterialGap) => {
