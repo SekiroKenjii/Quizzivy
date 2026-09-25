@@ -32,10 +32,14 @@ import (
 const Version = "pdf-lines-v1"
 
 var (
+	// ErrEncrypted reports a document that needs a password to open.
 	ErrEncrypted = errors.New("pdftext: the document is encrypted")
-	ErrNoText    = errors.New("pdftext: the document has no text layer")
-	ErrLimit     = errors.New("pdftext: the document exceeds the reading limits")
-	ErrInvalid   = errors.New("pdftext: the document cannot be read")
+	// ErrNoText reports a document without a text layer, such as a scan.
+	ErrNoText = errors.New("pdftext: the document has no text layer")
+	// ErrLimit reports a document over the page or character limit.
+	ErrLimit = errors.New("pdftext: the document exceeds the reading limits")
+	// ErrInvalid reports a document PDFium cannot parse.
+	ErrInvalid = errors.New("pdftext: the document cannot be read")
 )
 
 // Limits bounds one read: pages, characters of text, and wall time.
@@ -92,11 +96,17 @@ func (r *Reader) Read(ctx context.Context, data []byte, limits Limits) (Document
 		}
 		return Document{}, fmt.Errorf("pdftext: sandbox unavailable: %w", err)
 	}
-	stop := context.AfterFunc(ctx, func() { _ = instance.Close() })
+	killed := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(killed)
+		_ = instance.Kill()
+	})
 	defer func() {
 		if stop() {
 			_ = instance.Close()
+			return
 		}
+		<-killed
 	}()
 	doc, err := read(instance, data, limits)
 	if ctxErr := ctx.Err(); ctxErr != nil {

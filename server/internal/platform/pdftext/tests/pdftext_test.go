@@ -2,6 +2,7 @@ package pdftext_test
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
 	"errors"
 	"fmt"
@@ -137,6 +138,66 @@ func TestReadingStaysWithinItsLimits(t *testing.T) {
 	if _, err := read(t, two, pdftext.DefaultLimits()); err != nil {
 		t.Fatalf("the reader did not recover after a timeout: %v", err)
 	}
+}
+
+func fanOut(levels int) []byte {
+	var leaf bytes.Buffer
+	deflate, _ := zlib.NewWriterLevel(&leaf, zlib.BestCompression)
+	_, _ = deflate.Write(bytes.Repeat([]byte("q Q\n"), 250_000))
+	_ = deflate.Close()
+	objects := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /X 5 0 R >> >> /Contents 4 0 R >>",
+		"<< /Length 60 >>\nstream\n" + strings.Repeat("/X Do ", 10) + "\nendstream",
+	}
+	for level := range levels {
+		next := len(objects) + 2
+		if level == levels-1 {
+			objects = append(objects, fmt.Sprintf("<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Filter /FlateDecode /Length %d >>\nstream\n%s\nendstream", leaf.Len(), leaf.String()))
+			break
+		}
+		objects = append(objects, fmt.Sprintf("<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Resources << /XObject << /X %d 0 R >> >> /Length 60 >>\nstream\n%s\nendstream", next, strings.Repeat("/X Do ", 10)))
+	}
+	var out bytes.Buffer
+	out.WriteString("%PDF-1.4\n")
+	offsets := make([]int, len(objects))
+	for i, body := range objects {
+		offsets[i] = out.Len()
+		fmt.Fprintf(&out, "%d 0 obj\n%s\nendobj\n", i+1, body)
+	}
+	xref := out.Len()
+	fmt.Fprintf(&out, "xref\n0 %d\n0000000000 65535 f \n", len(objects)+1)
+	for _, o := range offsets {
+		fmt.Fprintf(&out, "%010d 00000 n \n", o)
+	}
+	fmt.Fprintf(&out, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(objects)+1, xref)
+	return out.Bytes()
+}
+
+func TestTheDeadlineStopsADocumentThatWouldKeepPDFiumBusy(t *testing.T) {
+	var own pdftext.Reader
+	small := build([][]run{{{72, 760, "warm", 0}}}, false)
+	if _, err := own.Read(context.Background(), small, pdftext.DefaultLimits()); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := own.Read(context.Background(), fanOut(4), pdftext.Limits{Pages: 10, Runes: 1000, Timeout: 2 * time.Second})
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("a runaway document answered %v", err)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("PDFium kept running past the two-second deadline")
+	}
+	if _, err := own.Read(context.Background(), small, pdftext.DefaultLimits()); err != nil {
+		t.Fatalf("the reader did not recover after a runaway document: %v", err)
+	}
+	_ = own.Close()
 }
 
 func TestSomethingThatIsNotAPDFIsInvalid(t *testing.T) {
