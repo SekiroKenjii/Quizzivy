@@ -45,7 +45,8 @@ type RunSummary struct {
 	ID, Status, Stage    string
 	Attempt, MaxAttempts int
 	ErrorCode            *string
-	UpdatedAt            time.Time
+	Profile              RecognitionProfile
+	CreatedAt, UpdatedAt time.Time
 }
 
 type Source struct {

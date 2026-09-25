@@ -160,7 +160,10 @@ func toImport(v domain.Import) openapi.WordImport {
 		out.TestId = &id
 	}
 	if r := v.Run; r != nil {
-		out.Run = &openapi.ImportRun{Id: httpapi.ParseUUID(r.ID), Status: openapi.ImportRunStatus(r.Status), Stage: openapi.ImportRunStage(r.Stage), Attempt: r.Attempt, MaxAttempts: r.MaxAttempts, ErrorCode: r.ErrorCode, UpdatedAt: r.UpdatedAt}
+		out.Run = &openapi.ImportRun{Id: httpapi.ParseUUID(r.ID), Status: openapi.ImportRunStatus(r.Status), Stage: openapi.ImportRunStage(r.Stage), Attempt: r.Attempt, MaxAttempts: r.MaxAttempts, ErrorCode: r.ErrorCode, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		if r.Profile.KeyPaper > 0 {
+			out.Run.KeyPaper = &r.Profile.KeyPaper
+		}
 	}
 	return out
 }

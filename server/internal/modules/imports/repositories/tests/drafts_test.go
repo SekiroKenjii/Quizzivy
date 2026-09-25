@@ -169,3 +169,17 @@ func TestTheApplicationCannotRewriteCommitHistory(t *testing.T) {
 		}
 	}
 }
+
+func TestTheLatestRunCarriesItsStartAndTheTeachersKeyPaper(t *testing.T) {
+	h := setup(t)
+	ctx := context.Background()
+	v := h.create(t)
+	receipt := h.finish(t, h.reserve(t, h.upload(v, "exam")))
+	if _, err := h.repo.Schedule(ctx, domain.Schedule{ImportID: v.ID, RequestID: uuid.NewString(), PipelineVersion: uuid.NewString(), ExpectedRevision: receipt.Import.Revision, SourceRevision: receipt.Import.SourceRevision, Actor: h.actor, MaxAttempts: 3, Profile: domain.RecognitionProfile{KeyPaper: 2}}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := h.repo.Get(ctx, v.ID)
+	if err != nil || current.Run == nil || current.Run.Profile.KeyPaper != 2 || current.Run.CreatedAt.IsZero() || current.Run.CreatedAt.After(current.Run.UpdatedAt) {
+		t.Fatalf("run %+v err %v", current.Run, err)
+	}
+}

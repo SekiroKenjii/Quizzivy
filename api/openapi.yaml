@@ -540,8 +540,8 @@ components:
     ImportRun:
       type: object
       additionalProperties: false
-      required: [id, status, stage, attempt, maxAttempts, updatedAt]
-      description: The latest processing run. errorCode names why a failed run stopped.
+      required: [id, status, stage, attempt, maxAttempts, createdAt, updatedAt]
+      description: The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one.
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
@@ -549,6 +549,8 @@ components:
         attempt: { type: integer, minimum: 0 }
         maxAttempts: { type: integer, minimum: 1 }
         errorCode: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,99}$' }
+        keyPaper: { type: integer, minimum: 1, maximum: 999 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
         updatedAt: { $ref: '#/components/schemas/Timestamp' }
     CreateWordImport:
       type: object

@@ -2082,7 +2082,7 @@ export interface components {
             /** @description The draft test created by commit. */
             testId?: components["schemas"]["Uuid"];
         };
-        /** @description The latest processing run. errorCode names why a failed run stopped. */
+        /** @description The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one. */
         ImportRun: {
             id: components["schemas"]["Uuid"];
             /** @enum {string} */
@@ -2092,6 +2092,8 @@ export interface components {
             attempt: number;
             maxAttempts: number;
             errorCode?: string;
+            keyPaper?: number;
+            createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
         };
         CreateWordImport: {
