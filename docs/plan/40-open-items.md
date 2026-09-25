@@ -266,6 +266,9 @@ Turning it on needs three things only Thuong can do or decide:
   store checks the digest itself and sends it as metadata with Content-MD5.
   `make verify-r2-imports` proves the bucket accepts that before release.
 
+PDF needs nothing more: the worker reads it in its own WebAssembly sandbox
+(D-10, `17-word-import.md` §1.39), sized into the worker's 1 GB Machine.
+
 `.doc` stays off either way. Its converter needs a Docker daemon, the production
 image has none, and hosting one means a separate privileged Machine. The steps
 are in `docs/setup/word-import-worker.md` § Production. `deployment_test.go` keeps

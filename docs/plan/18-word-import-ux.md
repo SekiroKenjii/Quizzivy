@@ -27,7 +27,7 @@ finished processing says “Sẵn sàng rà soát”, not “Nhập thành công
 
 | Route | Purpose | Entry / primary action |
 | --- | --- | --- |
-| `/admin/imports` | Searchable import history | Secondary entry from tests; “Nhập đề từ Word” |
+| `/admin/imports` | Searchable import history | Secondary entry from tests; “Nhập đề từ Word/PDF” |
 | `/admin/imports/new` | Upload, optional key/audio, recognition setup | Tests list split action beside “Tạo đề”; “Bắt đầu xử lý” |
 | `/admin/imports/:id` | Current processing state or resumable import | “Tiếp tục rà soát” when ready; committed state links to resulting test |
 | `/admin/imports/:id/review` | Source-linked correction workspace | “Xem trước & hoàn tất” |
@@ -92,7 +92,10 @@ do not choose infrastructure/model knobs on every import. Private mode must not
 silently use cloud when unavailable.
 
 Preflight handles password protection, mismatched extension, corruption, macros,
-scans and limits distinctly. Replacing a rejected file preserves the other valid
+scans and limits distinctly. The exam and the key may each be `.docx` or a PDF
+with a text layer; the limits line says a scanned PDF is refused. A PDF that
+turns out to be a scan, locked, broken or too long fails processing with its own
+message and asks for another file (plan 17 §1.39). Replacing a rejected file preserves the other valid
 inputs. A partially uploaded companion key never appears as fully received.
 
 ## 5. Screen WU-03 — durable processing

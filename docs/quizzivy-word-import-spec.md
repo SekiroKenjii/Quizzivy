@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Version | 1.0 |
-| Date | 2026-09-22 |
+| Version | 1.1 |
+| Date | 2026-09-25 |
 | Status | Proposed production product specification; not implemented |
 | Repository | https://github.com/SekiroKenjii/Quizzivy |
 | Reviewed baseline | `main` at `4b84de3bf468fcb4b0f477caacbf47071b18f2d3` |
@@ -32,7 +32,9 @@ The product succeeds when teachers spend substantially less time creating exams 
 
 ### 1.2 Product boundaries
 
-This feature imports existing exam content. Generating new questions, solving missing answers, OCR of scans, PDF import, and automatic assignment or publication are separate products and are outside this specification.
+This feature imports existing exam content. Generating new questions, solving missing answers, OCR of scans, and automatic assignment or publication are separate products and are outside this specification.
+
+Version 1.1 (2026-09-25, decision D-10): PDF files with a text layer are accepted as exam and key sources. A PDF gives no reliable underline, bold or colour marks, so questions that depend on them are completed by the teacher in review. Scans remain out of scope.
 
 Word document support is not a promise to preserve arbitrary desktop publishing layouts pixel for pixel. Preserve all exam semantics and provide a faithful source view for comparison. Unsupported document objects must produce visible, actionable findings.
 
@@ -62,6 +64,8 @@ Read the current `AGENTS.md`, product specification, architecture plan, and API 
 | Password-protected documents | Reject with a clear request to provide an unprotected copy. |
 | Corrupt or mislabeled documents | Detect from actual package/content structure and return an actionable error. |
 | Macro-enabled documents, active embedded objects, or executable payloads | Reject or isolate unsupported objects without executing them; block completion if required content is unavailable. |
+| PDF with a text layer | Read the text in an isolated, resource-limited reader, never by conversion. Keep running headers, footers and page numbers out of the exam and list them for review. State in the review that formatting marks are unavailable. |
+| Scanned or image-only PDF | Detect the missing text layer and ask for the Word file or a PDF exported from Word; do not attempt OCR. |
 | Image-only/scanned Word documents | Detect lack of extractable exam text and report the unsupported source class; do not present an empty import as success. |
 
 Do not silently fall back from failed legacy conversion to a lossy text extraction path. Conversion findings must be included in the review report.
