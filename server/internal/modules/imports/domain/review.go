@@ -109,7 +109,7 @@ func (a *assessor) question(q *DraftQuestion) int {
 		return 1
 	}
 	a.answer(q)
-	if q.Answer.State == AnswerKnown || q.Type == "short_answer" {
+	if q.Answer.State == AnswerKnown || q.Type == string(questions.ShortAnswer) {
 		if field, invalid := invalidField(q); invalid {
 			a.add(CodeInvalidQuestion, Blocking, q.ID, field, 1, q.Source)
 		}
@@ -134,7 +134,7 @@ func (a *assessor) answer(q *DraftQuestion) {
 		a.add(code, Blocking, q.ID, "answer", 1, q.Answer.Evidence)
 	case AnswerUnknown:
 		a.summary.AnswersMissing++
-		if q.Type != "short_answer" {
+		if q.Type != string(questions.ShortAnswer) {
 			a.add(CodeMissingAnswer, Blocking, q.ID, "answer", 1, q.Source)
 		}
 	default:
@@ -146,7 +146,7 @@ func (a *assessor) options(s *DraftSection) {
 	counts := map[int]int{}
 	var choice []*DraftQuestion
 	for _, it := range s.Items {
-		if q := it.Question; q != nil && q.Excluded == nil && isChoice(q.Type) && q.Type != "true_false" {
+		if q := it.Question; q != nil && q.Excluded == nil && isChoice(q.Type) && q.Type != string(questions.TrueFalse) {
 			counts[len(q.Options)]++
 			choice = append(choice, q)
 		}
@@ -227,7 +227,7 @@ func invalidField(q *DraftQuestion) (string, bool) {
 }
 
 func isChoice(t string) bool {
-	return t == "single_choice" || t == "multiple_choice" || t == "true_false"
+	return t == string(questions.SingleChoice) || t == string(questions.MultipleChoice) || t == string(questions.TrueFalse)
 }
 
 func plainText(raw json.RawMessage) string {

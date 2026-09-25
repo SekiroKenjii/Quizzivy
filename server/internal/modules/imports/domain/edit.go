@@ -1,6 +1,7 @@
 package domain
 
 import (
+	questions "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/shared/content"
 	"regexp"
 	"slices"
@@ -22,7 +23,7 @@ const (
 var (
 	pointsPattern = regexp.MustCompile(`^\d{1,6}(\.\d{1,2})?$`)
 	gapPattern    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
-	questionTypes = []string{"single_choice", "multiple_choice", "true_false", "fill_blank", "short_answer", UnsupportedType}
+	questionTypes = []string{string(questions.SingleChoice), string(questions.MultipleChoice), string(questions.TrueFalse), string(questions.FillBlank), string(questions.ShortAnswer), UnsupportedType}
 	origins       = []Origin{SourceExplicit, InferredStructure, Defaulted, TeacherEntered}
 )
 

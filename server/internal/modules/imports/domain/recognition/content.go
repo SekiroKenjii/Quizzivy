@@ -50,14 +50,27 @@ type richOptions struct {
 	dropUniformMark bool
 }
 
-func plainContent(text string) json.RawMessage {
-	raw, _ := json.Marshal(documentNode{Format: "semantic_v1", Blocks: []paragraphNode{{Type: "paragraph", Content: []any{textNode{Type: "text", Text: text, Marks: []string{}}}}}})
+func plainText(text string) textNode { return markedText(text, []string{}) }
+
+func markedText(text string, marks []string) textNode {
+	return textNode{Type: "text", Text: text, Marks: marks}
+}
+
+func paragraph(nodes ...any) paragraphNode {
+	return paragraphNode{Type: "paragraph", Content: nodes}
+}
+
+func document(blocks ...paragraphNode) json.RawMessage {
+	raw, _ := json.Marshal(documentNode{Format: "semantic_v1", Blocks: blocks})
 	return raw
 }
 
+func plainContent(text string) json.RawMessage {
+	return document(paragraph(plainText(text)))
+}
+
 func gapContent(id, label string) json.RawMessage {
-	raw, _ := json.Marshal(documentNode{Format: "semantic_v1", Blocks: []paragraphNode{{Type: "paragraph", Content: []any{gapNode{Type: "gap", ID: id, Label: label}}}}})
-	return raw
+	return document(paragraph(gapNode{Type: "gap", ID: id, Label: label}))
 }
 
 func richContent(segments []segment, o richOptions) json.RawMessage {
@@ -71,18 +84,17 @@ func richContent(segments []segment, o richOptions) json.RawMessage {
 		current := strings.TrimSpace(s.text())
 		if o.joinWraps && len(blocks) > 0 && softWrapped(previous, current) {
 			last := &blocks[len(blocks)-1]
-			last.Content = append(last.Content, textNode{Type: "text", Text: " ", Marks: []string{}})
+			last.Content = append(last.Content, plainText(" "))
 			last.Content = append(last.Content, nodes...)
 		} else {
-			blocks = append(blocks, paragraphNode{Type: "paragraph", Content: nodes})
+			blocks = append(blocks, paragraph(nodes...))
 		}
 		previous = current
 	}
 	if len(blocks) == 0 {
 		return nil
 	}
-	raw, _ := json.Marshal(documentNode{Format: "semantic_v1", Blocks: blocks})
-	return raw
+	return document(blocks...)
 }
 
 var functionWords = map[string]bool{
@@ -126,11 +138,11 @@ func inlineNodes(s segment, o richOptions) []any {
 		}
 		nodes = appendText(nodes, s.line, position, g.labelStart, uniform)
 		if g.labelStart > start && wordRune(s.line.text[g.labelStart-1]) {
-			nodes = append(nodes, textNode{Type: "text", Text: " ", Marks: []string{}})
+			nodes = append(nodes, plainText(" "))
 		}
 		nodes = append(nodes, gapNode{Type: "gap", ID: id, Label: label})
 		if g.end < end && wordRune(s.line.text[g.end]) {
-			nodes = append(nodes, textNode{Type: "text", Text: " ", Marks: []string{}})
+			nodes = append(nodes, plainText(" "))
 		}
 		position = g.end
 	}
@@ -162,7 +174,7 @@ func appendText(nodes []any, l *line, start, end int, dropped []string) []any {
 	var marks []string
 	flush := func() {
 		if run.Len() > 0 {
-			nodes = append(nodes, textNode{Type: "text", Text: run.String(), Marks: marks})
+			nodes = append(nodes, markedText(run.String(), marks))
 			run.Reset()
 		}
 	}

@@ -77,6 +77,24 @@ func (s *Postgres) Complete(ctx context.Context, c domain.Claim, outcome domain.
 
 var runErrorCode = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,99}$`)
 
+type failureOutcome struct {
+	status string
+	event  string
+	delay  time.Duration
+	refund int
+}
+
+func nextAfterFailure(in domain.RunFailure, run domain.Run) failureOutcome {
+	switch {
+	case in.Released:
+		return failureOutcome{status: "queued", event: "retry_scheduled", refund: 1}
+	case in.Retryable && run.AttemptCount < run.MaxAttempts:
+		return failureOutcome{status: "queued", event: "retry_scheduled", delay: in.RetryAfter}
+	default:
+		return failureOutcome{status: runFailed, event: runFailed, delay: in.RetryAfter}
+	}
+}
+
 func (s *Postgres) Fail(ctx context.Context, in domain.RunFailure) error {
 	if !runErrorCode.MatchString(in.Code) || in.RetryAfter < 0 || in.RetryAfter > time.Hour {
 		return domain.ErrConflict
@@ -86,27 +104,15 @@ func (s *Postgres) Fail(ctx context.Context, in domain.RunFailure) error {
 		if err != nil {
 			return err
 		}
-		retry := in.Released || (in.Retryable && run.AttemptCount < run.MaxAttempts)
-		runState, parentState := runFailed, runFailed
-		if retry {
-			runState, parentState = "queued", "queued"
-		}
-		refund, delay := 0, in.RetryAfter
-		if in.Released {
-			refund, delay = 1, 0
-		}
+		next := nextAfterFailure(in, run)
 		if _, err := tx.Exec(ctx, `UPDATE app.word_import_runs SET status=$2,worker_id=NULL,lease_until=NULL,error_code=$3,attempt_count=attempt_count-$5,
-  available_at=clock_timestamp()+$4*interval '1 millisecond',completed_at=CASE WHEN $2='failed' THEN clock_timestamp() ELSE NULL END WHERE id=$1`, run.ID, runState, in.Code, delay.Milliseconds(), refund); err != nil {
+  available_at=clock_timestamp()+$4*interval '1 millisecond',completed_at=CASE WHEN $2='failed' THEN clock_timestamp() ELSE NULL END WHERE id=$1`, run.ID, next.status, in.Code, next.delay.Milliseconds(), next.refund); err != nil {
 			return err
 		}
-		kind := runFailed
-		if retry {
-			kind = "retry_scheduled"
-		}
-		if err := recordRunEvent(ctx, tx, run, kind, in.Code, nil); err != nil {
+		if err := recordRunEvent(ctx, tx, run, next.event, in.Code, nil); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE app.word_imports SET status=$2,revision=revision+1 WHERE id=$1`, run.ImportID, parentState)
+		_, err = tx.Exec(ctx, `UPDATE app.word_imports SET status=$2,revision=revision+1 WHERE id=$1`, run.ImportID, next.status)
 		return err
 	})
 }

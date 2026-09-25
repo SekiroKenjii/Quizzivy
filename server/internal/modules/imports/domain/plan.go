@@ -51,7 +51,7 @@ func (q DraftQuestion) Input() (questions.Input, error) {
 		gap := b.GapID
 		in.Blanks = append(in.Blanks, questions.BlankInput{GapID: &gap, Ordinal: i + 1, AcceptedAnswers: slices.Clone(b.Accepted), CaseSensitive: b.CaseSensitive})
 	}
-	if q.Type == "short_answer" && strings.TrimSpace(q.Answer.Text) != "" {
+	if q.Type == string(questions.ShortAnswer) && strings.TrimSpace(q.Answer.Text) != "" {
 		sample := q.Answer.Text
 		in.SampleAnswer = &sample
 	}

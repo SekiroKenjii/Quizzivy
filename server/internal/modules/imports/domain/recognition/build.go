@@ -245,7 +245,7 @@ func (b *builder) question(q *questionBuilder) domain.DraftQuestion {
 			out.Type = multipleChoice
 		}
 	case fillBlank:
-		out.Blanks, out.Answer = blanks(q, gaps, q.keys, b.blankKeys[q])
+		out.Blanks, out.Answer = blanks(gaps, q.keys, b.blankKeys[q])
 	case shortAnswer:
 		out.Answer = textAnswer(q.keys)
 	default:
@@ -491,7 +491,7 @@ func appendCandidate(candidates []domain.KeyValue, v keyValue) []domain.KeyValue
 	return append(candidates, domain.KeyValue{Value: v.value, Evidence: slices.Clone(v.source)})
 }
 
-func blanks(q *questionBuilder, gaps []gap, question []keyValue, byLabel map[string][]keyValue) ([]domain.DraftBlank, domain.DraftAnswer) {
+func blanks(gaps []gap, question []keyValue, byLabel map[string][]keyValue) ([]domain.DraftBlank, domain.DraftAnswer) {
 	out := make([]domain.DraftBlank, len(gaps))
 	answer := domain.DraftAnswer{State: domain.AnswerKnown, OptionIDs: []string{}, Evidence: []domain.SourceRef{}}
 	split := splitBlanks(question, len(gaps))
@@ -583,6 +583,13 @@ func (b *builder) prompt(q *questionBuilder, withBlanks bool) (json.RawMessage, 
 	if q.openCloze {
 		return gapContent(blankID(0), q.label.text), domain.InferredStructure
 	}
+	if raw := b.sourcePrompt(q, withBlanks); raw != nil {
+		return raw, domain.SourceExplicit
+	}
+	return plainContent(b.fallbackPrompt(q)), domain.InferredStructure
+}
+
+func (b *builder) sourcePrompt(q *questionBuilder, withBlanks bool) json.RawMessage {
 	segments := q.stem
 	if !withBlanks {
 		segments = withoutAnswerLine(segments)
@@ -590,26 +597,27 @@ func (b *builder) prompt(q *questionBuilder, withBlanks bool) (json.RawMessage, 
 	if q.instruction != nil && b.exam.explicit {
 		segments = append([]segment{*q.instruction}, segments...)
 	}
-	if len(segments) > 0 {
-		o := richOptions{dropUniformMark: true, joinWraps: true}
-		parse := content.ParseQuestion
-		if withBlanks {
-			counter := 0
-			o.name = func(s segment, g gap) (string, string, bool) {
-				if q.instruction != nil && s == *q.instruction {
-					return "", "", false
-				}
-				id, label := blankID(counter), blankLabel(g, counter)
-				counter++
-				return id, label, true
-			}
-			parse = content.ParseQuestionPrompt
-		}
-		if raw := b.valid(richContent(segments, o), parse, q.id); raw != nil {
-			return raw, domain.SourceExplicit
-		}
+	if len(segments) == 0 {
+		return nil
 	}
-	return plainContent(b.fallbackPrompt(q)), domain.InferredStructure
+	o := richOptions{dropUniformMark: true, joinWraps: true}
+	parse := content.ParseQuestion
+	if withBlanks {
+		o.name, parse = blankNaming(q.instruction), content.ParseQuestionPrompt
+	}
+	return b.valid(richContent(segments, o), parse, q.id)
+}
+
+func blankNaming(instruction *segment) gapNaming {
+	counter := 0
+	return func(s segment, g gap) (string, string, bool) {
+		if instruction != nil && s == *instruction {
+			return "", "", false
+		}
+		id, label := blankID(counter), blankLabel(g, counter)
+		counter++
+		return id, label, true
+	}
 }
 
 func withoutAnswerLine(segments []segment) []segment {

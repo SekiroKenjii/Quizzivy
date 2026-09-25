@@ -145,7 +145,8 @@ func (e *exam) started() bool { return e.section != nil || e.group != nil || e.q
 
 func (e *exam) keySection(l *line) bool {
 	text := l.String()
-	if !keyHeading.MatchString(text) && !(paperHeading.MatchString(text) && answerPrefix(text)) {
+	opensKey := keyHeading.MatchString(text) || (paperHeading.MatchString(text) && answerPrefix(text))
+	if !opensKey {
 		return false
 	}
 	e.closeQuestion()
@@ -528,9 +529,17 @@ func (e *exam) inferSections() {
 	if len(e.sections) != 1 {
 		return
 	}
+	inferred := e.splitByInstruction(e.sections[0].items)
+	for _, s := range inferred {
+		e.titleInferred(s)
+	}
+	e.sections = inferred
+}
+
+func (e *exam) splitByInstruction(items []item) []*sectionBuilder {
 	var out []*sectionBuilder
 	var key string
-	for _, it := range e.sections[0].items {
+	for _, it := range items {
 		k := normalizedInstruction(it.instruction())
 		if len(out) == 0 || k != key || (it.group != nil && k == "") {
 			out = append(out, &sectionBuilder{id: identity(e.source, "section", strconv.Itoa(len(out))), origin: domain.InferredStructure})
@@ -542,21 +551,22 @@ func (e *exam) inferSections() {
 			it.question.section = current
 		}
 	}
-	for _, s := range out {
-		instruction := s.items[0].instruction()
-		if instruction == "" {
-			s.title = e.rangeTitle(s)
-			continue
-		}
-		s.title, s.instructions = sectionTitle(instruction)
-		s.tasks = tasksOf(instruction)
-		for _, it := range s.items {
-			if it.group != nil {
-				it.group.instruction = nil
-			}
+	return out
+}
+
+func (e *exam) titleInferred(s *sectionBuilder) {
+	instruction := s.items[0].instruction()
+	if instruction == "" {
+		s.title = e.rangeTitle(s)
+		return
+	}
+	s.title, s.instructions = sectionTitle(instruction)
+	s.tasks = tasksOf(instruction)
+	for _, it := range s.items {
+		if it.group != nil {
+			it.group.instruction = nil
 		}
 	}
-	e.sections = out
 }
 
 func (e *exam) rangeTitle(s *sectionBuilder) string {

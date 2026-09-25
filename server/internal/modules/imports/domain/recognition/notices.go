@@ -1,6 +1,7 @@
 package recognition
 
 import (
+	"maps"
 	"quizzivy/internal/modules/imports/domain"
 	"slices"
 )
@@ -75,36 +76,51 @@ func (b *builder) extraPapers() {
 	b.notice(domain.CodeMultiplePapers, domain.ReviewRequired, "", "", len(lines), lines[0].refs(0, len(lines[0].text)))
 }
 
+type sourceTally struct {
+	count int
+	main  bool
+	refs  []domain.SourceRef
+}
+
+func tallySource(d domain.EvidenceDocument) map[string]*sourceTally {
+	tallies := map[string]*sourceTally{}
+	tally := func(code string, main bool) *sourceTally {
+		t, ok := tallies[code]
+		if !ok {
+			t = &sourceTally{}
+			tallies[code] = t
+		}
+		t.count++
+		t.main = t.main || main
+		return t
+	}
+	for _, f := range d.Findings {
+		tally(f.Code, f.Main)
+	}
+	for _, block := range d.Blocks {
+		if !block.Main && !block.Meaningful {
+			continue
+		}
+		for _, reason := range block.Reasons {
+			if reason != inlineObject {
+				t := tally(reason, block.Main)
+				t.refs = append(t.refs, domain.SourceRef{SourceID: d.SourceID, BlockID: block.ID, End: len([]rune(block.Text))})
+			}
+		}
+	}
+	return tallies
+}
+
 func (b *builder) sourceNotices(docs []domain.EvidenceDocument) {
 	for _, d := range docs {
-		counts := map[string]int{}
-		refs := map[string][]domain.SourceRef{}
-		main := map[string]bool{}
-		for _, f := range d.Findings {
-			counts[f.Code]++
-			main[f.Code] = main[f.Code] || f.Main
-		}
-		for _, block := range d.Blocks {
-			for _, reason := range block.Reasons {
-				if (!block.Main && !block.Meaningful) || reason == inlineObject {
-					continue
-				}
-				counts[reason]++
-				main[reason] = main[reason] || block.Main
-				refs[reason] = append(refs[reason], domain.SourceRef{SourceID: d.SourceID, BlockID: block.ID, End: len([]rune(block.Text))})
-			}
-		}
-		codes := make([]string, 0, len(counts))
-		for code := range counts {
-			codes = append(codes, code)
-		}
-		slices.Sort(codes)
-		for _, code := range codes {
+		tallies := tallySource(d)
+		for _, code := range slices.Sorted(maps.Keys(tallies)) {
+			t := tallies[code]
 			severity := domain.ReviewRequired
-			if informationalSource[code] || !main[code] {
+			if informationalSource[code] || !t.main {
 				severity = domain.Informational
 			}
-			b.notice(domain.CodeSourceObject, severity, d.SourceID, code, counts[code], refs[code])
+			b.notice(domain.CodeSourceObject, severity, d.SourceID, code, t.count, t.refs)
 		}
 	}
 }

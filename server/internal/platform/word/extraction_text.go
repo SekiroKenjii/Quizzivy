@@ -130,27 +130,28 @@ func appendReasons(existing []string, reasons ...string) []string {
 	return existing
 }
 
+func fieldCharType(b SourceBlock) string {
+	if b.Object == nil || !wordName(b.Object.Name, "fldChar") {
+		return ""
+	}
+	return attr(*b.Object, "fldCharType")
+}
+
 func complexFieldRanges(blocks []SourceBlock) []SourceRange {
 	depth, start := 0, 0
 	intervals := []SourceRange{}
 	for _, b := range blocks {
-		if b.Object == nil || !wordName(b.Object.Name, "fldChar") {
-			continue
-		}
-		switch attr(*b.Object, "fldCharType") {
+		switch fieldCharType(b) {
 		case "begin":
 			if depth == 0 {
 				start = b.Order
 			}
 			depth++
 		case "end":
-			if depth == 0 {
-				continue
-			}
-			depth--
-			if depth == 0 {
+			if depth == 1 {
 				intervals = append(intervals, SourceRange{Order: start, End: b.End})
 			}
+			depth = max(depth-1, 0)
 		}
 	}
 	if depth > 0 {

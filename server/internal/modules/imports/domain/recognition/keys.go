@@ -61,45 +61,62 @@ func (b *keyBook) choose(exam, chosen int) (*keyPaper, bool) {
 	return nil, false
 }
 
+type keyReader struct {
+	book    keyBook
+	current *keyPaper
+	section int
+	last    label
+	origin  keyOrigin
+}
+
 func parseKeys(lines []*line, paper int, origin keyOrigin) keyBook {
-	book := keyBook{papers: map[int]*keyPaper{}}
-	current, section, last := book.paper(paper), 0, label{}
+	r := keyReader{book: keyBook{papers: map[int]*keyPaper{}}, origin: origin}
+	r.current = r.book.paper(paper)
 	for _, l := range lines {
-		text := l.String()
-		if m := paperHeading.FindStringSubmatch(text); m != nil {
-			number, _ := strconv.Atoi(m[1])
-			current, section, last = book.paper(number), 0, label{}
-			l.consumeAll()
-			continue
-		}
-		if keyHeading.MatchString(text) {
-			l.consumeAll()
-			continue
-		}
-		from := 0
-		if value, end, ok := roman(l.text); ok {
-			section, from = value, end
-			l.consume(0, end)
-		}
-		entries := lineEntries(l, from, origin)
-		if len(entries) == 0 {
-			if e, ok := numberedEntry(l, last, origin); ok {
-				entries = []keyEntry{e}
-			}
-		}
-		if len(entries) == 0 {
-			if !current.continueLast(l, from) && visible(l.text[from:]) {
-				current.stray = append(current.stray, l)
-			}
-			continue
-		}
-		for i := range entries {
-			entries[i].section = section
-		}
-		last = entries[len(entries)-1].label
-		current.entries = append(current.entries, entries...)
+		r.read(l)
 	}
-	return book
+	return r.book
+}
+
+func (r *keyReader) read(l *line) {
+	text := l.String()
+	if m := paperHeading.FindStringSubmatch(text); m != nil {
+		number, _ := strconv.Atoi(m[1])
+		r.current, r.section, r.last = r.book.paper(number), 0, label{}
+		l.consumeAll()
+		return
+	}
+	if keyHeading.MatchString(text) {
+		l.consumeAll()
+		return
+	}
+	from := 0
+	if value, end, ok := roman(l.text); ok {
+		r.section, from = value, end
+		l.consume(0, end)
+	}
+	entries := r.entries(l, from)
+	if len(entries) == 0 {
+		if !r.current.continueLast(l, from) && visible(l.text[from:]) {
+			r.current.stray = append(r.current.stray, l)
+		}
+		return
+	}
+	for i := range entries {
+		entries[i].section = r.section
+	}
+	r.last = entries[len(entries)-1].label
+	r.current.entries = append(r.current.entries, entries...)
+}
+
+func (r *keyReader) entries(l *line, from int) []keyEntry {
+	if entries := lineEntries(l, from, r.origin); len(entries) > 0 {
+		return entries
+	}
+	if e, ok := numberedEntry(l, r.last, r.origin); ok {
+		return []keyEntry{e}
+	}
+	return nil
 }
 
 func (p *keyPaper) continueLast(l *line, from int) bool {

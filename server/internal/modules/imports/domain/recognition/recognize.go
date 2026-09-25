@@ -5,6 +5,7 @@ package recognition
 import (
 	"context"
 	"quizzivy/internal/modules/imports/domain"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -69,14 +70,11 @@ func validateEvidence(docs []domain.EvidenceDocument) error {
 	roles := map[string]bool{}
 	total, blocks, examText := 0, 0, false
 	for _, d := range docs {
-		if d.Version != evidenceVersion || d.SourceID == "" || len(d.SourceID) > 128 || roles[d.Role] || (d.Role != examRole && d.Role != keyRole) {
+		if !validDocument(d) || roles[d.Role] || slices.ContainsFunc(d.Blocks, invalidBlock) {
 			return domain.ErrInvalid
 		}
 		roles[d.Role] = true
 		for _, b := range d.Blocks {
-			if b.ID == "" || len(b.ID) > 200 || !utf8.ValidString(b.Text) || !orderedSpans(b) {
-				return domain.ErrInvalid
-			}
 			total += len(b.Text)
 			examText = examText || (d.Role == examRole && readable(&b))
 		}
@@ -89,6 +87,14 @@ func validateEvidence(docs []domain.EvidenceDocument) error {
 		return domain.ErrUnsupported
 	}
 	return nil
+}
+
+func validDocument(d domain.EvidenceDocument) bool {
+	return d.Version == evidenceVersion && d.SourceID != "" && len(d.SourceID) <= 128 && (d.Role == examRole || d.Role == keyRole)
+}
+
+func invalidBlock(b domain.EvidenceBlock) bool {
+	return b.ID == "" || len(b.ID) > 200 || !utf8.ValidString(b.Text) || !orderedSpans(b)
 }
 
 func orderedSpans(b domain.EvidenceBlock) bool {
