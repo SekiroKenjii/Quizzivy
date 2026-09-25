@@ -1934,7 +1934,9 @@
       "failed": "Xem lỗi",
       "failedNamed": "Xem lỗi của {{title}}",
       "cancelled": "Xem chi tiết",
-      "cancelledNamed": "Xem chi tiết {{title}}"
+      "cancelledNamed": "Xem chi tiết {{title}}",
+      "view": "Xem chi tiết",
+      "viewNamed": "Xem chi tiết {{title}}"
     },
     "role": {
       "exam": "Đề thi",
@@ -2136,7 +2138,8 @@
         },
         "AMBIGUOUS_KEY_PAPER": {
           "title": "Tệp đáp án có nhiều mã đề",
-          "help": "Chọn mã đề khớp với đề thi này để xử lý lại. Chỉnh sửa của bạn được giữ nguyên."
+          "help": "Chọn mã đề khớp với đề thi này để xử lý lại. Chỉnh sửa của bạn được giữ nguyên.",
+          "helpProcessingOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại theo một mã đề được. Hãy nhập đáp án cho từng câu, hoặc xác nhận để bỏ qua."
         },
         "UNSUPPORTED_INTERACTION": {
           "title": "Dạng câu này chưa được hỗ trợ",
@@ -2370,6 +2373,19 @@
       "keepReviewing": "Tiếp tục rà soát",
       "doneTitle": "Đã tạo bản nháp đề",
       "doneBody": "Đề mới nằm trong danh sách đề thi dưới dạng bản nháp. Mở trình soạn đề để kiểm tra và phát hành khi sẵn sàng."
+    },
+    "availability": {
+      "offTitle": "Nhập đề từ Word",
+      "off": "Máy chủ này chưa bật nhập đề từ Word.",
+      "offHint": "Quản trị hệ thống cần cấu hình kho lưu trữ riêng cho tệp nhập đề. Trong lúc đó, bạn vẫn soạn đề trực tiếp được.",
+      "loadFailed": "Không kiểm tra được máy chủ có hỗ trợ nhập đề từ Word hay không.",
+      "processingOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được.",
+      "newOff": "Chưa nhập được đề mới lúc này.",
+      "newOffHint": "Máy chủ đang tắt xử lý tài liệu Word. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được trong lịch sử nhập.",
+      "intakeOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên hay xử lý lại lượt nhập này được. Lượt nhập vẫn được giữ nguyên.",
+      "queuedOff": "Máy chủ đang tắt xử lý tài liệu Word. Lượt nhập sẽ bắt đầu khi máy chủ bật lại; bạn có thể huỷ nếu không muốn chờ.",
+      "reprocessOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại được. Bản rà soát hiện tại vẫn dùng được.",
+      "startOverOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới."
     }
   }
 }

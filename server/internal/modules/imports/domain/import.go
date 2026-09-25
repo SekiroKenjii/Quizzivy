@@ -20,6 +20,8 @@ var (
 	ErrStale       = errors.New("imports: draft saved elsewhere")
 	ErrNoDraft     = errors.New("imports: no draft yet")
 	ErrBadDraft    = errors.New("imports: malformed draft edit")
+
+	ErrProcessingOff = errors.New("imports: processing is not enabled on this server")
 )
 
 const MaxSourceBytes int64 = 25 << 20

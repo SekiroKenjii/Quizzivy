@@ -247,6 +247,34 @@ Worth deciding before Phase 3 rather than after.
 
 ---
 
+### O-24 — Word import in production · before its pilot (W-22)
+**Default:** off. `fly.toml` sets no `IMPORT_*`. The web shows no way into Word
+import, and `/admin/imports` says it is not enabled (#138).
+
+Turning it on needs three things only Thuong can do or decide:
+
+- **Storage.** A private R2 bucket for imports, and an R2 token that reaches it.
+  This is an account action.
+- **Cost.** A second Fly Machine for the worker. Until #143 is fixed, a Neon
+  compute also never suspends while that worker runs.
+- **W-21 gates.** W-21 is in `17-word-import.md` §6, and decisions D-07 and
+  D-08 are in §10:
+  - D-07, capacity: the quotas are still development defaults.
+  - D-08, retention: there is no cleanup yet, so every uploaded exam and its
+    artifacts are kept.
+- **Storage support.** The import store writes each object once, with a
+  full-object SHA-256 checksum. `docs/setup/r2.md` records that R2 supports
+  SHA-256 only for multipart uploads, so the runbook checks this against the
+  bucket first.
+
+`.doc` stays off either way. Its converter needs a Docker daemon, the production
+image has none, and hosting one means a separate privileged Machine. The steps
+are in `docs/setup/word-import-worker.md` § Production. `deployment_test.go` keeps
+the processing switch and the worker process together, and the deploy preflight
+refuses the switch as a Fly secret.
+
+---
+
 ### O-12 — Dark mode · post-v1
 **Default:** not in v1, per §12. Theming goes through CSS variables and Tailwind
 tokens from T-0.9, so it can be added later without touching components.

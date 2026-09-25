@@ -10,6 +10,7 @@ export type ImportStatus = Schemas["ImportStatus"];
 export type ImportRun = Schemas["ImportRun"];
 export type ImportUploadReceipt = Schemas["ImportUploadReceipt"];
 export type ImportLimits = Schemas["ImportLimits"];
+export type ImportCapabilities = Schemas["ImportCapabilities"];
 export type ImportReview = Schemas["ImportReview"];
 export type ImportReviewSummary = Schemas["ImportReviewSummary"];
 export type ImportDraft = Schemas["ImportDraft"];
@@ -76,6 +77,10 @@ export function downloadImportSource(id: string, sourceId: string) {
   return api("get", "/admin/imports/{id}/sources/{sourceId}/download", {
     path: { id, sourceId },
   });
+}
+
+export function getWordImportCapabilities(signal?: AbortSignal) {
+  return api("get", "/admin/imports/capabilities", signal ? { signal } : {});
 }
 
 export function getWordImportLimits(signal?: AbortSignal) {

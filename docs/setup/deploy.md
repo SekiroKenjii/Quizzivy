@@ -138,6 +138,14 @@ Both need dashboard access the project's tokens do not have. See `dns.md`:
 2. `app` — Pages project → Custom domains → add `app.quizzivy.com`. Cloudflare
    creates the record itself; making it by hand returns 522.
 
+## Word import is not deployed
+
+The Fly deploy runs the API process only; there is no worker process group. Word
+import stays off in production: no `IMPORT_*` is set, so the app shows no way into
+it. Enabling it needs a private bucket, a
+worker process and a decision on cost and retention (O-24). The steps are in
+`word-import-worker.md` § Production.
+
 ## Backups and operational verification
 
 See [operations](operations.md) for the recovery rehearsal, retention commands,

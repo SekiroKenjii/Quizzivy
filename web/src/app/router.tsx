@@ -74,19 +74,25 @@ const adminTree: RouteObject = {
         },
         {
           path: "imports",
-          lazy: page(() => import("@/features/imports/pages/ImportsListPage")),
-        },
-        {
-          path: "imports/new",
-          lazy: page(() => import("@/features/imports/pages/NewImportPage")),
-        },
-        {
-          path: "imports/:id",
-          lazy: page(() => import("@/features/imports/pages/ImportDetailPage")),
-        },
-        {
-          path: "imports/:id/review",
-          lazy: page(() => import("@/features/imports/pages/ImportReviewPage")),
+          lazy: page(() => import("@/features/imports/pages/ImportsGate")),
+          children: [
+            {
+              index: true,
+              lazy: page(() => import("@/features/imports/pages/ImportsListPage")),
+            },
+            {
+              path: "new",
+              lazy: page(() => import("@/features/imports/pages/NewImportPage")),
+            },
+            {
+              path: ":id",
+              lazy: page(() => import("@/features/imports/pages/ImportDetailPage")),
+            },
+            {
+              path: ":id/review",
+              lazy: page(() => import("@/features/imports/pages/ImportReviewPage")),
+            },
+          ],
         },
         {
           path: "question-bank",

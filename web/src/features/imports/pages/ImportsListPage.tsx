@@ -31,7 +31,9 @@ import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
 import { listWordImports, type WordImport } from "../api";
+import { useImportAvailability } from "../availability";
 import { ImportStatusBadge } from "../components/ImportStatusBadge";
+import { ProcessingOffNotice } from "../components/ProcessingOffNotice";
 import { StaleNotice } from "../components/StaleNotice";
 import {
   IMPORT_STATUSES,
@@ -49,6 +51,7 @@ export default function ImportsListPage() {
   const { t } = useTranslation();
   const locale = useLocale();
   const { params, setParams, setFilter } = useListFilters();
+  const canStart = useImportAvailability() !== "reviewOnly";
   const query = params.get("q") ?? "";
   const search = useDebounced(query.trim(), 300);
   const requested = params.get("status");
@@ -118,7 +121,12 @@ export default function ImportsListPage() {
               </TableHeader>
               <TableBody>
                 {data.items.map((item) => (
-                  <HistoryRow key={item.id} item={item} locale={locale} />
+                  <HistoryRow
+                    key={item.id}
+                    item={item}
+                    locale={locale}
+                    processing={canStart}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -138,6 +146,7 @@ export default function ImportsListPage() {
           {t("imports.noMatches")}
         </EmptyState>
       );
+    if (!canStart) return <EmptyState>{t("imports.empty")}</EmptyState>;
     return (
       <EmptyState hint={t("imports.emptyHint")} action={start}>
         {t("imports.empty")}
@@ -151,9 +160,14 @@ export default function ImportsListPage() {
         title={t("imports.historyTitle")}
         backTo="/admin/tests"
         backLabel={t("imports.backToTests")}
-        actions={start}
+        actions={canStart ? start : undefined}
       />
       <p className="text-muted-foreground text-sm">{t("imports.historyHint")}</p>
+      {canStart ? null : (
+        <ProcessingOffNotice>
+          {t("imports.availability.processingOff")}
+        </ProcessingOffNotice>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput
@@ -203,8 +217,14 @@ export default function ImportsListPage() {
   );
 }
 
-function HistoryRow({ item, locale }: Readonly<{ item: WordImport; locale: Locale }>) {
+function HistoryRow({
+  item,
+  locale,
+  processing,
+}: Readonly<{ item: WordImport; locale: Locale; processing: boolean }>) {
   const { t } = useTranslation();
+  const action =
+    item.status === "awaiting_sources" && !processing ? "view" : item.status;
   return (
     <TableRow>
       <TableCell>
@@ -260,11 +280,11 @@ function HistoryRow({ item, locale }: Readonly<{ item: WordImport; locale: Local
         >
           <Link
             to={importActionHref(item)}
-            aria-label={t(`imports.rowAction.${item.status}Named`, {
+            aria-label={t(`imports.rowAction.${action}Named`, {
               title: item.title,
             })}
           >
-            {t(`imports.rowAction.${item.status}`)}
+            {t(`imports.rowAction.${action}`)}
           </Link>
         </Button>
       </TableCell>

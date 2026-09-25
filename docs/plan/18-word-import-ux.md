@@ -39,6 +39,14 @@ and history clearly; the dedicated review route can collapse global navigation
 while preserving a labeled way back. A direct URL must resolve to a helpful state
 for processing, failed, cancelled, stale or committed imports.
 
+These entries follow `GET /admin/imports/capabilities`:
+
+- **Intake off.** The tests list shows neither entry, and every `/admin/imports`
+  route explains that import is not enabled.
+- **Intake on, processing off.** The history, review and commit stay available.
+  Upload, retry, reprocess and "start over" are replaced by a calm note saying
+  why. A queued import says it waits for processing to return.
+
 Imports create a new test initially. Starting from an existing builder flushes
 the existing draft, then clearly states that import creates a separate draft;
 it never silently replaces an open exam. Append/merge into an existing test is

@@ -55,6 +55,7 @@ import {
   type Test,
   type TestStatus,
 } from "@/features/tests/api";
+import { useImportAvailability } from "@/features/imports/availability";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { formatRelative } from "@/lib/i18n/datetime";
 import { useDebounced } from "@/lib/useDebounced";
@@ -79,6 +80,7 @@ export default function TestsListPage() {
   const navigate = useNavigate();
   const bulk = useBulkSelection<Test>();
   const queryClient = useQueryClient();
+  const imports = useImportAvailability();
 
   const { params, setParams, setFilter } = useListFilters();
   const requested = params.get("status");
@@ -192,18 +194,27 @@ export default function TestsListPage() {
         }
         actions={
           <>
-            <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-              <Link to="/admin/imports">
-                <History aria-hidden="true" />
-                {t("tests.importHistory")}
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/admin/imports/new">
-                <FileUp aria-hidden="true" />
-                {t("tests.importWord")}
-              </Link>
-            </Button>
+            {imports === "reviewOnly" || imports === "on" ? (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+              >
+                <Link to="/admin/imports">
+                  <History aria-hidden="true" />
+                  {t("tests.importHistory")}
+                </Link>
+              </Button>
+            ) : null}
+            {imports === "on" ? (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/imports/new">
+                  <FileUp aria-hidden="true" />
+                  {t("tests.importWord")}
+                </Link>
+              </Button>
+            ) : null}
             <Button
               size="sm"
               disabled={create.isPending}

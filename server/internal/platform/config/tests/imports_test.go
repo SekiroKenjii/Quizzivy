@@ -19,3 +19,21 @@ func TestImportIntakeRequiresSeparatePrivateStorageAndDiskDirectory(t *testing.T
 		t.Fatalf("valid intake: %+v %v", cfg, err)
 	}
 }
+
+func TestImportProcessingIsOffUntilSwitchedOnBesideImportStorage(t *testing.T) {
+	storage := merge(fullMedia(), map[string]string{"IMPORT_S3_BUCKET": "private-imports", "IMPORT_WORK_DIR": "/var/lib/quizzivy/imports"})
+	cfg, err := loadWith(t, storage)
+	if err != nil || cfg.ImportProcessing {
+		t.Fatalf("processing must default to off: %+v %v", cfg.ImportProcessing, err)
+	}
+	cfg, err = loadWith(t, merge(storage, map[string]string{"IMPORT_PROCESSING_ENABLED": "true"}))
+	if err != nil || !cfg.ImportProcessing {
+		t.Fatalf("processing switched on beside storage: %+v %v", cfg.ImportProcessing, err)
+	}
+	if _, err := loadWith(t, merge(fullMedia(), map[string]string{"IMPORT_PROCESSING_ENABLED": "true"})); err == nil {
+		t.Fatal("processing accepted without import storage")
+	}
+	if _, err := loadWith(t, merge(storage, map[string]string{"IMPORT_PROCESSING_ENABLED": "yes please"})); err == nil {
+		t.Fatal("a malformed processing switch was accepted")
+	}
+}

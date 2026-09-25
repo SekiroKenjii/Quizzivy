@@ -1934,7 +1934,9 @@
       "failed": "View error",
       "failedNamed": "View error for {{title}}",
       "cancelled": "View details",
-      "cancelledNamed": "View details of {{title}}"
+      "cancelledNamed": "View details of {{title}}",
+      "view": "View details",
+      "viewNamed": "View details of {{title}}"
     },
     "role": {
       "exam": "Exam",
@@ -2136,7 +2138,8 @@
         },
         "AMBIGUOUS_KEY_PAPER": {
           "title": "The answer key holds several papers",
-          "help": "Choose the paper that matches this exam to process it again. Your edits are kept."
+          "help": "Choose the paper that matches this exam to process it again. Your edits are kept.",
+          "helpProcessingOff": "Word processing is switched off on this server, so the import cannot be processed again for one paper. Enter each answer yourself, or confirm to skip."
         },
         "UNSUPPORTED_INTERACTION": {
           "title": "This kind of question isn't supported",
@@ -2370,6 +2373,19 @@
       "keepReviewing": "Keep reviewing",
       "doneTitle": "Draft test created",
       "doneBody": "The new test is in your tests as a draft. Open it in the builder to check it and publish when ready."
+    },
+    "availability": {
+      "offTitle": "Import from Word",
+      "off": "Word import is not enabled on this server.",
+      "offHint": "An administrator needs to configure private storage for imported files. Meanwhile, you can still write tests directly.",
+      "loadFailed": "Could not check whether this server supports Word import.",
+      "processingOff": "Word processing is switched off on this server, so no new import can start. Imports that finished processing can still be reviewed and turned into tests.",
+      "newOff": "A new import cannot start right now.",
+      "newOffHint": "Word processing is switched off on this server. Imports that finished processing can still be reviewed and turned into tests from the import history.",
+      "intakeOff": "Word processing is switched off on this server, so files cannot be uploaded or processed again for this import. The import is kept as it is.",
+      "queuedOff": "Word processing is switched off on this server. The import will start when it is back on; you can cancel if you would rather not wait.",
+      "reprocessOff": "Word processing is switched off on this server, so the import cannot be processed again. The current review still works.",
+      "startOverOff": "Word processing is switched off on this server, so no new import can start."
     }
   }
 }

@@ -33,6 +33,7 @@ type Config struct {
 	ImportActorMiB              int
 	ImportGlobalMiB             int
 	ImportLegacyDoc             bool
+	ImportProcessing            bool
 
 	DocsPublic bool
 

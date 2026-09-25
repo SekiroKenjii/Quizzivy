@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { formatBytes } from "@/features/media/format";
@@ -13,6 +14,8 @@ import {
   type ImportSourceRole,
   type WordImport,
 } from "./api";
+import { refreshAvailability } from "./availability";
+import { importCapabilitiesQuery } from "./queries";
 
 /** SOURCE_ROLES orders the upload: the exam first, then its optional key. */
 export const SOURCE_ROLES: readonly ImportSourceRole[] = ["exam", "answer_key"];
@@ -100,6 +103,7 @@ export function useSourceIntake({
   onStarted: (started: WordImport) => void;
 }>) {
   const { t } = useTranslation();
+  const client = useQueryClient();
   const [slots, setSlots] = useState<Slots>(() => initialSlots(existing));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,6 +234,11 @@ export function useSourceIntake({
     setBusy(true);
     setError(null);
     try {
+      const capabilities = await client.query({
+        ...importCapabilitiesQuery(),
+        staleTime: 0,
+      });
+      if (!capabilities.processingEnabled || signal.aborted) return;
       let target = await ensureImport(title, signal);
       for (const role of SOURCE_ROLES) {
         const next = await upload(role, target, signal);
@@ -255,6 +264,7 @@ export function useSourceIntake({
     } catch (cause) {
       if (signal.aborted) return;
       setError(failureMessage(cause, t("imports.upload.startFailed")));
+      refreshAvailability(client, cause);
       if (
         cause instanceof ApiError &&
         cause.status === 409 &&

@@ -939,6 +939,45 @@ parses each material about seven times; and a student's group context mints and
 reads each asset separately. The publish response's zero `manualCount` and
 `audioCount` predate this stack and are tracked in SekiroKenjii/Quizzivy#136.
 
+### 1.35 Availability (SekiroKenjii/Quizzivy#138)
+
+Whether import works depends on the deployment, and the product now says which
+case applies.
+
+**The contract.** `GET /admin/imports/capabilities` answers `intakeEnabled` (the
+private import store is configured) and `processingEnabled`. It answers on every
+deployment, including one without imports.
+
+**The processing switch.** `processingEnabled` comes from
+`IMPORT_PROCESSING_ENABLED`, set on the API beside a worker. The API refuses to
+start with it but without import storage. The API cannot see a worker, so the
+operator states that one exists. Without the switch, `processWordImport` answers
+503 `IMPORT_PROCESSING_UNAVAILABLE` and queues nothing, so no new run waits for a
+worker that does not exist. A run queued before processing was switched off stays
+queued until a worker returns or the teacher cancels it.
+
+**The web.**
+- The tests list links to the history when intake is on, and to a new import
+  only when processing is on too.
+- `/admin/imports/*` sits under one route gate that explains when import is off.
+- With storage but no worker, finished imports stay reviewable and committable.
+  The following are withdrawn, each with a calm note saying why:
+  - the upload;
+  - retry and reprocess;
+  - "start over".
+- The run's error code stays visible even when retrying is withdrawn.
+- A queued import says it waits for processing to return. Its screen re-reads
+  the capabilities every 30 seconds while it waits.
+- Starting a new import re-reads the capabilities before it creates anything.
+- A 503 from `process` re-reads the capabilities, so a screen opened before a
+  redeploy corrects itself on the next click.
+
+**Production.** Import stays off in production (O-24). The steps to enable it are
+in `docs/setup/word-import-worker.md` § Production. `.doc` is not part of that
+runbook. Its converter needs a Docker daemon, the production image has none, and
+hosting one means a separate privileged Machine. A worker's two-second poll would
+keep Neon awake; that is tracked in SekiroKenjii/Quizzivy#143.
+
 
 ## 2. Current code and the actual gaps
 

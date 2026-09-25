@@ -44,7 +44,10 @@ function resolves(tree: unknown, key: string): boolean {
 const ROLES = ["exam", "answer_key"] as const;
 const TEMPLATED: Record<string, string[]> = {
   "imports.status.": [...IMPORT_STATUSES],
-  "imports.rowAction.": IMPORT_STATUSES.flatMap((status) => [status, `${status}Named`]),
+  "imports.rowAction.": [...IMPORT_STATUSES, "view"].flatMap((action) => [
+    action,
+    `${action}Named`,
+  ]),
   "imports.role.": [...ROLES],
   "imports.upload.": ROLES.flatMap((role) => [
     `${role}Label`,

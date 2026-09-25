@@ -1,5 +1,6 @@
 import { memo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   CircleAlert,
   CircleCheck,
@@ -25,6 +26,17 @@ function toneOf(finding: ImportFinding): Tone {
   if (finding.severity === "blocking") return "blocking";
   if (finding.severity === "informational") return "info";
   return finding.acknowledged === true ? "acknowledged" : "review";
+}
+
+function helpText(
+  t: TFunction,
+  finding: ImportFinding,
+  key: string,
+  reprocess: boolean,
+): string {
+  if (finding.code === "AMBIGUOUS_KEY_PAPER" && !reprocess)
+    return t("imports.findings.codes.AMBIGUOUS_KEY_PAPER.helpProcessingOff");
+  return t(`imports.findings.codes.${key}.help`, { count: finding.count });
 }
 
 /**
@@ -90,7 +102,7 @@ export const FindingNotice = memo(function FindingNotice({
           </p>
           <p className="text-muted-foreground text-xs leading-relaxed">
             {reason === null
-              ? t(`imports.findings.codes.${key}.help`, { count: finding.count })
+              ? helpText(t, finding, key, onReprocess !== undefined)
               : t(`imports.findings.objectReasons.${reason}`)}
           </p>
           {children}

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { failureMessage } from "@/lib/api/errors";
 import { getWordImport, processWordImport, type WordImport } from "./api";
+import { refreshAvailability } from "./availability";
 import { storeImport } from "./queries";
 import { isActiveStatus } from "./status";
 
@@ -75,6 +76,7 @@ export function useReprocess(importId: string, flush: () => Promise<void>) {
       } catch (cause) {
         if (signal.aborted) return;
         setError(failureMessage(cause, t("imports.review.reprocessFailed")));
+        refreshAvailability(client, cause);
         void client.invalidateQueries({ queryKey: ["word-import", importId] });
       } finally {
         running.current = null;

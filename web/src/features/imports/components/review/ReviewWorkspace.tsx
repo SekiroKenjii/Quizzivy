@@ -29,6 +29,7 @@ import {
   type ImportSourceRole,
   type WordImport,
 } from "../../api";
+import { useImportAvailability } from "../../availability";
 import { blockKey, blockOwners, draftPositions, questionPlaces } from "../../draft";
 import {
   findingRank,
@@ -158,6 +159,7 @@ export function ReviewWorkspace({
     pending: reprocessPending,
     error: reprocessError,
   } = useReprocess(importId, flush);
+  const processing = useImportAvailability() !== "reviewOnly";
   const wide = useMediaQuery("(min-width: 1280px)");
   const phone = useMediaQuery("(max-width: 767px)");
   const [params, setParams] = useSearchParams();
@@ -450,10 +452,11 @@ export function ReviewWorkspace({
     },
   });
 
-  const onReprocess = useCallback(
+  const reprocessWith = useCallback(
     (paper: number) => void reprocess(paper),
     [reprocess],
   );
+  const onReprocess = processing ? reprocessWith : undefined;
   const handlers = useMemo<ExamPaneHandlers>(
     () => ({
       onSelect: selectFromExam,

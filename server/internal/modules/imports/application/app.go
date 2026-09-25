@@ -25,12 +25,13 @@ type Commands struct {
 	Commit     cqrs.CommandHandler[command.Commit, command.CommitResult]
 }
 type Queries struct {
-	Get        cqrs.QueryHandler[query.Get, domain.Import]
-	List       cqrs.QueryHandler[query.List, domain.List]
-	Download   cqrs.QueryHandler[query.Download, query.DownloadResult]
-	Review     cqrs.QueryHandler[query.Review, domain.ReviewState]
-	SourceView cqrs.QueryHandler[query.SourceView, query.SourceViewResult]
-	Limits     cqrs.QueryHandler[query.Limits, query.LimitsResult]
+	Get          cqrs.QueryHandler[query.Get, domain.Import]
+	List         cqrs.QueryHandler[query.List, domain.List]
+	Download     cqrs.QueryHandler[query.Download, query.DownloadResult]
+	Review       cqrs.QueryHandler[query.Review, domain.ReviewState]
+	SourceView   cqrs.QueryHandler[query.SourceView, query.SourceViewResult]
+	Limits       cqrs.QueryHandler[query.Limits, query.LimitsResult]
+	Capabilities cqrs.QueryHandler[query.Capabilities, query.CapabilitiesResult]
 }
 
 // Store is the private import bucket: originals for intake and download, artifacts for the source view.
@@ -39,7 +40,9 @@ type Store interface {
 	ports.ArtifactStore
 }
 
-// Dependencies are the ports one import application needs; Legacy admits .doc uploads.
+// Dependencies are the ports one import application needs. Legacy admits .doc
+// uploads; Processing says a worker is deployed, and without it Process refuses
+// rather than queue a run nothing will claim.
 type Dependencies struct {
 	Repo         domain.Repository
 	Drafts       domain.Drafts
@@ -51,6 +54,7 @@ type Dependencies struct {
 	WorkDir      string
 	Quotas       domain.Quotas
 	Legacy       bool
+	Processing   bool
 }
 
 func New(d Dependencies) *Application {
@@ -59,19 +63,20 @@ func New(d Dependencies) *Application {
 		Commands: Commands{
 			Create:     command.CreateHandler{Repo: d.Repo, Quotas: d.Quotas},
 			Upload:     command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Slots: make(chan struct{}, 1), Legacy: d.Legacy},
-			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs},
+			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs, Enabled: d.Processing},
 			Cancel:     command.CancelHandler{Runs: d.Runs},
 			SaveReview: command.SaveReviewHandler{Drafts: d.Drafts},
 			Adopt:      command.AdoptHandler{Drafts: d.Drafts},
 			Commit:     command.CommitHandler{Repo: d.Repo, Drafts: d.Drafts, Materializer: d.Materializer},
 		},
 		Queries: Queries{
-			Get:        query.GetHandler{Repo: d.Repo},
-			List:       query.ListHandler{Repo: d.Repo},
-			Download:   query.DownloadHandler{Repo: d.Repo, Store: d.Store},
-			Review:     query.ReviewHandler{Drafts: d.Drafts},
-			SourceView: query.SourceViewHandler{Repo: d.Repo, Runs: d.Runs, Reader: reader},
-			Limits:     query.LimitsHandler{Legacy: d.Legacy},
+			Get:          query.GetHandler{Repo: d.Repo},
+			List:         query.ListHandler{Repo: d.Repo},
+			Download:     query.DownloadHandler{Repo: d.Repo, Store: d.Store},
+			Review:       query.ReviewHandler{Drafts: d.Drafts},
+			SourceView:   query.SourceViewHandler{Repo: d.Repo, Runs: d.Runs, Reader: reader},
+			Limits:       query.LimitsHandler{Legacy: d.Legacy},
+			Capabilities: query.CapabilitiesHandler{Processing: d.Processing},
 		},
 	}
 }

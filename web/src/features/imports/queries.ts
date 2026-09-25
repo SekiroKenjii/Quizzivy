@@ -1,5 +1,19 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import { getWordImportSource, type ImportSourceRole, type WordImport } from "./api";
+import {
+  getWordImportCapabilities,
+  getWordImportSource,
+  type ImportSourceRole,
+  type WordImport,
+} from "./api";
+
+/** importCapabilitiesQuery reads what this deployment can do with Word imports; it changes only with a redeploy. */
+export function importCapabilitiesQuery() {
+  return queryOptions({
+    queryKey: ["word-import-capabilities"],
+    queryFn: ({ signal }) => getWordImportCapabilities(signal),
+    staleTime: 5 * 60_000,
+  });
+}
 
 /** sourceViewQuery reads the extracted text of one source role; it never goes stale for a given source revision. */
 export function sourceViewQuery(

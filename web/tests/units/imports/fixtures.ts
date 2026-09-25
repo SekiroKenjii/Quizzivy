@@ -12,6 +12,8 @@ import type {
   WordImport,
 } from "@/features/imports/api";
 import type { ContentDocument } from "@/components/shared/content/model";
+import { http } from "msw";
+import { contractJson } from "@tests/support/contractResponse";
 
 export const BASE = "http://localhost:8080";
 export const IMPORT_ID = "018f0000-0000-7000-8000-0000000000e1";
@@ -21,6 +23,15 @@ export const KEY_SOURCE_ID = "018f0000-0000-7000-8000-0000000000e4";
 export const RUN_ID = "0192e7a0-0000-7000-8000-0000000000e5";
 export const TEST_ID = "018f0000-0000-7000-8000-0000000000e6";
 export const AT = "2026-09-20T01:00:00Z";
+
+export function capabilities(processingEnabled = true) {
+  return http.get(`${BASE}/admin/imports/capabilities`, () =>
+    contractJson("/admin/imports/capabilities", "get", 200, {
+      intakeEnabled: true,
+      processingEnabled,
+    }),
+  );
+}
 
 export function source(
   role: ImportSourceRole,

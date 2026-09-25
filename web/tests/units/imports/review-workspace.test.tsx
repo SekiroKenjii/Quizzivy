@@ -8,7 +8,15 @@ import ImportReviewPage from "@/features/imports/pages/ImportReviewPage";
 import type { SaveImportReview } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { BASE, IMPORT_ID, deferred, errorBody, run, wordImport } from "./fixtures";
+import {
+  BASE,
+  IMPORT_ID,
+  capabilities,
+  deferred,
+  errorBody,
+  run,
+  wordImport,
+} from "./fixtures";
 import {
   baseline,
   renderReview,
@@ -255,6 +263,7 @@ describe("excluding a question", () => {
 describe("a review that cannot be edited", () => {
   it("still lets the teacher browse a committed review", async () => {
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () =>
         contractJson(
           "/admin/imports/{id}",
@@ -285,6 +294,7 @@ describe("a review that cannot be edited", () => {
   it("stops saving and refreshes the import when it left review elsewhere", async () => {
     let reads = 0;
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () => {
         reads += 1;
         return contractJson(
@@ -318,6 +328,7 @@ describe("a review that cannot be edited", () => {
 
   it("names a reprocess that did not finish", async () => {
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () =>
         contractJson(
           "/admin/imports/{id}",
@@ -334,6 +345,7 @@ describe("a review that cannot be edited", () => {
   it("tells a review opened during a reprocess that it finished, and reloads it", async () => {
     let finished = false;
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () =>
         contractJson(
           "/admin/imports/{id}",
@@ -372,6 +384,7 @@ describe("a review that cannot be edited", () => {
   it("does not claim processing finished when the reprocess failed, and keeps the review editable", async () => {
     let failed = false;
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () =>
         contractJson(
           "/admin/imports/{id}",
@@ -401,6 +414,7 @@ describe("a review that cannot be edited", () => {
 
   it("links a closed import's review to the import rather than to progress", async () => {
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () =>
         contractJson(
           "/admin/imports/{id}",
@@ -528,11 +542,73 @@ async function choosePaper(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("reprocessing with a chosen key paper", () => {
+  it("is not offered while processing is switched off, and the finding says how to finish instead", async () => {
+    serveReview(withPaperFinding(), state);
+    server.use(
+      capabilities(false),
+      http.get(`${BASE}/admin/imports/:id`, () =>
+        contractJson("/admin/imports/{id}", "get", 200, wordImport()),
+      ),
+    );
+    renderWithDetail();
+    const notice = await screen.findByText("Tệp đáp án có nhiều mã đề");
+    const box = notice.closest<HTMLElement>("[id^='finding-']")!;
+
+    expect(
+      await within(box).findByText(
+        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại theo một mã đề/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(box).queryByRole("button", { name: "Xử lý lại với mã đề này" }),
+    ).toBeNull();
+  });
+
+  it("withdraws the paper choice when the server refuses to reprocess because processing is off", async () => {
+    let processing = true;
+    serveReview(withPaperFinding(), state);
+    server.use(
+      http.get(`${BASE}/admin/imports/capabilities`, () =>
+        contractJson("/admin/imports/capabilities", "get", 200, {
+          intakeEnabled: true,
+          processingEnabled: processing,
+        }),
+      ),
+      http.get(`${BASE}/admin/imports/:id`, () =>
+        contractJson("/admin/imports/{id}", "get", 200, wordImport()),
+      ),
+      http.post(`${BASE}/admin/imports/:id/process`, () => {
+        processing = false;
+        return contractJson(
+          "/admin/imports/{id}/process",
+          "post",
+          503,
+          errorBody(
+            "IMPORT_PROCESSING_UNAVAILABLE",
+            "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập.",
+          ),
+        );
+      }),
+    );
+    const { user } = renderWithDetail();
+    const box = await choosePaper(user);
+
+    expect(
+      await within(box).findByText(
+        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại theo một mã đề/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(box).queryByRole("button", { name: "Xử lý lại với mã đề này" }),
+    ).toBeNull();
+  });
+
   it("re-reads the import after a lost reprocess response instead of staying editable", async () => {
     let reads = 0;
     let posts = 0;
     serveReview(withPaperFinding(), state);
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () => {
         reads += 1;
         return contractJson(
@@ -572,6 +648,7 @@ describe("reprocessing with a chosen key paper", () => {
     let posts = 0;
     serveReview(withPaperFinding(), state);
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () => {
         reads += 1;
         return contractJson(

@@ -20,6 +20,9 @@ var configuredBy = []string{
 	"MAX_CONCURRENT_PASSWORD_HASHES", "REFRESH_COOKIE_SECURE", "S3_ACCESS_KEY_ID",
 	"S3_BUCKET", "S3_ENDPOINT", "S3_FORCE_PATH_STYLE", "S3_REGION",
 	"S3_SECRET_ACCESS_KEY", "VITE_GOOGLE_CLIENT_ID", "DOCS_PUBLIC",
+	"IMPORT_S3_BUCKET", "IMPORT_WORK_DIR", "IMPORT_LEGACY_DOC", "IMPORT_PROCESSING_ENABLED",
+	"IMPORT_ACTOR_COUNT", "IMPORT_GLOBAL_COUNT", "IMPORT_SOURCES_PER_ITEM", "IMPORT_ACTOR_MIB",
+	"IMPORT_GLOBAL_MIB",
 }
 
 // What `fly secrets set` supplies, by name, per docs/setup/dns.md. Values are
@@ -35,43 +38,55 @@ var flySecrets = map[string]string{
 	"S3_SECRET_ACCESS_KEY": "placeholder-secret-key",
 }
 
-var envLine = regexp.MustCompile(`^\s*([A-Z0-9_]+)\s*=\s*"([^"]*)"`)
+var tableLine = regexp.MustCompile(`^\s*([A-Za-z0-9_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s#"']+))\s*(?:#.*)?$`)
 
 // flyEnv parses the [env] table out of the committed fly.toml.
 //
 // Hand-parsed rather than pulling in a TOML decoder: the block is a flat list of
-// quoted strings that this repo writes itself, and a dependency added for a test
-// needs a better reason than fifteen lines.
+// scalars that this repo writes itself, and a dependency added for a test
+// needs a better reason than a few lines.
 func flyEnv(t *testing.T) map[string]string {
+	t.Helper()
+	out := flyTable(t, "env")
+	if len(out) == 0 {
+		t.Fatal("fly.toml has no [env] entries; this test is not reading what it thinks it is")
+	}
+	return out
+}
+
+func flyTable(t *testing.T, name string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	inTable := false
+	for _, line := range strings.Split(repoFile(t, "fly.toml"), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			inTable = trimmed == "["+name+"]"
+			continue
+		}
+		if !inTable || trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		m := tableLine.FindStringSubmatch(line)
+		if m == nil {
+			t.Fatalf("fly.toml [%s] line %q is not a key = value this test can read", name, trimmed)
+		}
+		out[m[1]] = m[2] + m[3] + m[4]
+	}
+	return out
+}
+
+func repoFile(t *testing.T, name string) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("cannot resolve caller")
 	}
-	// server/internal/config -> repo root
-	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "..", "fly.toml"))
+	raw, err := os.ReadFile(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "..", name))
 	if err != nil {
-		t.Fatalf("read fly.toml: %v", err)
+		t.Fatalf("read %s: %v", name, err)
 	}
-
-	out := map[string]string{}
-	inEnv := false
-	for _, line := range strings.Split(string(raw), "\n") {
-		if trimmed := strings.TrimSpace(line); strings.HasPrefix(trimmed, "[") {
-			inEnv = trimmed == "[env]"
-			continue
-		}
-		if !inEnv {
-			continue
-		}
-		if m := envLine.FindStringSubmatch(line); m != nil {
-			out[m[1]] = m[2]
-		}
-	}
-	if len(out) == 0 {
-		t.Fatal("fly.toml has no [env] entries; this test is not reading what it thinks it is")
-	}
-	return out
+	return string(raw)
 }
 
 func apply(t *testing.T, sets ...map[string]string) {
@@ -103,6 +118,53 @@ func TestTheCommittedFlyConfigBootsWithTheDocumentedSecrets(t *testing.T) {
 	}
 	if cfg.DocsPublic {
 		t.Error("the API reference is open to anyone; production must keep the docs gate on")
+	}
+}
+
+func dockerfileShipsTheWorker(t *testing.T) bool {
+	t.Helper()
+	var lines []string
+	for _, line := range strings.Split(repoFile(t, "Dockerfile"), "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			lines = append(lines, trimmed)
+		}
+	}
+	runtime := 0
+	for i, line := range lines {
+		if strings.HasPrefix(strings.ToUpper(line), "FROM ") {
+			runtime = i
+		}
+	}
+	built, copied := false, false
+	for i, line := range lines {
+		if i < runtime && strings.Contains(line, "./cmd/import-worker") {
+			built = true
+		}
+		if i > runtime && strings.HasPrefix(strings.ToUpper(line), "COPY ") && strings.Contains(line, "/app/import-worker") {
+			copied = true
+		}
+	}
+	return built && copied
+}
+
+func TestProductionProcessesWordImportsOnlyBesideADeployedWorker(t *testing.T) {
+	apply(t, flyEnv(t), flySecrets)
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker := false
+	for _, command := range flyTable(t, "processes") {
+		worker = worker || strings.HasPrefix(command, "/app/import-worker")
+	}
+	if cfg.ImportProcessing != worker {
+		t.Fatalf("fly.toml: IMPORT_PROCESSING_ENABLED=%v, import worker process declared=%v; the two go together", cfg.ImportProcessing, worker)
+	}
+	if worker && !dockerfileShipsTheWorker(t) {
+		t.Fatal("fly.toml runs /app/import-worker but the Dockerfile does not build it and copy it there")
+	}
+	if cfg.ImportLegacyDoc {
+		t.Fatal("production accepts .doc uploads, but the converter .doc needs is a Docker container, and the production image has no Docker daemon")
 	}
 }
 

@@ -9,6 +9,7 @@ import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import {
+  capabilities,
   BASE,
   IMPORT_ID,
   question,
@@ -34,6 +35,7 @@ beforeEach(() => {
         formats: ["docx"],
       }),
     ),
+    capabilities(),
     http.get(`${BASE}/admin/imports/:id`, () =>
       contractJson("/admin/imports/{id}", "get", 200, current),
     ),
@@ -391,5 +393,119 @@ describe("sending files from the detail page", () => {
     expect((calls[1]!.body as { requestId: string }).requestId).not.toBe(
       (calls[0]!.body as { requestId: string }).requestId,
     );
+  });
+});
+
+describe("an import while processing is switched off", () => {
+  it("stays closable but offers no upload or retry", async () => {
+    server.use(capabilities(false));
+    current = wordImport({
+      status: "failed",
+      run: run({ status: "failed", errorCode: "PROCESSING_TIMEOUT" }),
+    });
+    renderDetail();
+
+    expect(
+      await screen.findByText(
+        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Thử xử lý lại" })).toBeNull();
+    expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
+    expect(screen.getByText("Mã lỗi: PROCESSING_TIMEOUT")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Huỷ lần nhập" })).toBeInTheDocument();
+  });
+
+  it("still lists the files of an import waiting for them", async () => {
+    server.use(capabilities(false));
+    current = wordImport({ status: "awaiting_sources", sources: [source("exam")] });
+    renderDetail();
+
+    await screen.findByText(
+      /^Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên/,
+    );
+    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+  });
+
+  it("explains a withheld retry after a failed reprocess", async () => {
+    server.use(capabilities(false));
+    current = wordImport({
+      status: "needs_review",
+      draftRevision: 2,
+      run: run({ status: "failed", errorCode: "PROCESSING_TIMEOUT" }),
+    });
+    renderDetail();
+
+    expect(
+      await screen.findByText(
+        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại được/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Thử xử lý lại lần nữa" })).toBeNull();
+  });
+
+  it("switches to the processing-off state when a retry is refused for it", async () => {
+    let processing = true;
+    server.use(
+      http.get(`${BASE}/admin/imports/capabilities`, () =>
+        contractJson("/admin/imports/capabilities", "get", 200, {
+          intakeEnabled: true,
+          processingEnabled: processing,
+        }),
+      ),
+      http.post(`${BASE}/admin/imports/:id/process`, () => {
+        processing = false;
+        return contractJson(
+          "/admin/imports/{id}/process",
+          "post",
+          503,
+          errorBody(
+            "IMPORT_PROCESSING_UNAVAILABLE",
+            "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập.",
+          ),
+        );
+      }),
+    );
+    current = wordImport({
+      status: "failed",
+      run: run({ status: "failed", errorCode: "PROCESSING_TIMEOUT" }),
+    });
+    const user = renderDetail();
+    await user.click(await screen.findByRole("button", { name: "Thử xử lý lại" }));
+
+    expect(
+      await screen.findByText(
+        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Thử xử lý lại" })).toBeNull();
+  });
+
+  it("says a queued import waits for processing to return, and can still be cancelled", async () => {
+    server.use(capabilities(false));
+    current = wordImport({
+      status: "queued",
+      run: run({ status: "queued", stage: "queued" }),
+    });
+    renderDetail();
+
+    expect(
+      await screen.findByText(
+        /^Máy chủ đang tắt xử lý tài liệu Word\. Lượt nhập sẽ bắt đầu/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Huỷ xử lý" })).toBeInTheDocument();
+    expect(screen.queryByText(/việc xử lý vẫn tiếp tục/)).toBeNull();
+  });
+
+  it("offers no fresh import from a closed one", async () => {
+    server.use(capabilities(false));
+    current = wordImport({ status: "cancelled" });
+    renderDetail();
+
+    await screen.findByText(
+      "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới.",
+    );
+    expect(screen.queryByRole("link", { name: "Nhập đề mới" })).toBeNull();
   });
 });

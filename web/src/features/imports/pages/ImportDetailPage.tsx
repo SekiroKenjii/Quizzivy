@@ -21,7 +21,13 @@ import {
   processWordImport,
   type WordImport,
 } from "../api";
+import {
+  CAPABILITIES_POLL_MS,
+  refreshAvailability,
+  useImportAvailability,
+} from "../availability";
 import { ImportStatusBadge } from "../components/ImportStatusBadge";
+import { ProcessingOffNotice } from "../components/ProcessingOffNotice";
 import { ProcessingPanel } from "../components/ProcessingPanel";
 import { ReprocessNotice } from "../components/ReprocessNotice";
 import { SourceIntake } from "../components/SourceIntake";
@@ -43,6 +49,7 @@ export default function ImportDetailPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const client = useQueryClient();
+  const processing = useImportAvailability() !== "reviewOnly";
   const query = useQuery({
     queryKey: ["word-import", id],
     queryFn: ({ signal }) => getWordImport(id, signal),
@@ -104,8 +111,8 @@ export default function ImportDetailPage() {
             : t(`imports.reprocess.${outcome}`)}
         </p>
         {query.isError ? <StaleNotice onRetry={() => void query.refetch()} /> : null}
-        <StatePanel value={value} onChange={store} />
-        {value.status === "awaiting_sources" ? null : (
+        <StatePanel value={value} onChange={store} processing={processing} />
+        {value.status === "awaiting_sources" && processing ? null : (
           <section aria-labelledby="import-sources" className="space-y-2">
             <h2 id="import-sources" className="text-sm font-medium">
               {t("imports.sources.title")}
@@ -126,7 +133,11 @@ function Panel({
   title,
   description,
   children,
-}: Readonly<{ title: string; description?: string; children?: ReactNode }>) {
+}: Readonly<{
+  title: string;
+  description?: string | undefined;
+  children?: ReactNode;
+}>) {
   return (
     <Card>
       <CardHeader>
@@ -145,19 +156,13 @@ function Panel({
 function StatePanel({
   value,
   onChange,
-}: Readonly<{ value: WordImport; onChange: Store }>) {
+  processing,
+}: Readonly<{ value: WordImport; onChange: Store; processing: boolean }>) {
   const { t } = useTranslation();
-  const reviewLink = (
-    <Button asChild variant="outline">
-      <Link to={`/admin/imports/${value.id}/review`}>
-        {t("imports.detail.viewReview")}
-      </Link>
-    </Button>
-  );
   switch (value.status) {
     case "awaiting_sources":
     case "failed":
-      return <IntakePanel value={value} onChange={onChange} />;
+      return <IntakePanel value={value} onChange={onChange} processing={processing} />;
     case "queued":
     case "processing":
       return <ProcessingState value={value} onChange={onChange} />;
@@ -169,32 +174,7 @@ function StatePanel({
         />
       );
     case "needs_review":
-      return (
-        <Panel
-          title={t("imports.detail.readyTitle")}
-          description={t("imports.detail.readyBody")}
-        >
-          <ReprocessNotice
-            value={value}
-            className="bg-muted/40 rounded-md p-3 text-sm"
-          />
-          {reprocessOutcome(value) === "failed" ? (
-            <RetryRun
-              value={value}
-              onChange={onChange}
-              label={t("imports.detail.retryReprocess")}
-            />
-          ) : null}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button asChild>
-              <Link to={`/admin/imports/${value.id}/review`}>
-                {t("imports.detail.continueReview")}
-              </Link>
-            </Button>
-            <CloseImport value={value} onChange={onChange} />
-          </div>
-        </Panel>
-      );
+      return <ReadyPanel value={value} onChange={onChange} processing={processing} />;
     case "committed":
       return (
         <Panel
@@ -211,24 +191,84 @@ function StatePanel({
         </Panel>
       );
     case "cancelled":
-      return (
-        <Panel
-          title={t("imports.detail.cancelledTitle")}
-          description={
-            hasDraft(value)
-              ? t("imports.detail.cancelledBodyReview")
-              : t("imports.detail.cancelledBody")
-          }
-        >
-          <div className="flex flex-wrap items-center gap-3">
-            <Button asChild variant="outline">
-              <Link to="/admin/imports/new">{t("imports.detail.startOver")}</Link>
-            </Button>
-            {hasDraft(value) ? reviewLink : null}
-          </div>
-        </Panel>
-      );
+      return <ClosedPanel value={value} processing={processing} />;
   }
+}
+
+function ReadyPanel({
+  value,
+  onChange,
+  processing,
+}: Readonly<{ value: WordImport; onChange: Store; processing: boolean }>) {
+  const { t } = useTranslation();
+  const reprocessFailed = reprocessOutcome(value) === "failed";
+  return (
+    <Panel
+      title={t("imports.detail.readyTitle")}
+      description={t("imports.detail.readyBody")}
+    >
+      <ReprocessNotice value={value} className="bg-muted/40 rounded-md p-3 text-sm" />
+      {reprocessFailed ? (
+        <RetryRun
+          value={value}
+          onChange={onChange}
+          label={t("imports.detail.retryReprocess")}
+          canRetry={processing}
+        />
+      ) : null}
+      {reprocessFailed && !processing ? (
+        <ProcessingOffNotice>
+          {t("imports.availability.reprocessOff")}
+        </ProcessingOffNotice>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button asChild>
+          <Link to={`/admin/imports/${value.id}/review`}>
+            {t("imports.detail.continueReview")}
+          </Link>
+        </Button>
+        <CloseImport value={value} onChange={onChange} />
+      </div>
+    </Panel>
+  );
+}
+
+function ClosedPanel({
+  value,
+  processing,
+}: Readonly<{ value: WordImport; processing: boolean }>) {
+  const { t } = useTranslation();
+  const reviewLink = hasDraft(value) ? (
+    <Button asChild variant="outline">
+      <Link to={`/admin/imports/${value.id}/review`}>
+        {t("imports.detail.viewReview")}
+      </Link>
+    </Button>
+  ) : null;
+  return (
+    <Panel
+      title={t("imports.detail.cancelledTitle")}
+      description={
+        hasDraft(value)
+          ? t("imports.detail.cancelledBodyReview")
+          : t("imports.detail.cancelledBody")
+      }
+    >
+      {processing ? null : (
+        <ProcessingOffNotice>
+          {t("imports.availability.startOverOff")}
+        </ProcessingOffNotice>
+      )}
+      <div className="flex flex-wrap items-center gap-3 empty:hidden">
+        {processing ? (
+          <Button asChild variant="outline">
+            <Link to="/admin/imports/new">{t("imports.detail.startOver")}</Link>
+          </Button>
+        ) : null}
+        {reviewLink}
+      </div>
+    </Panel>
+  );
 }
 
 function useCancel(value: WordImport, onChange: Store, fallback: string) {
@@ -299,8 +339,14 @@ function ProcessingState({
   onChange,
 }: Readonly<{ value: WordImport; onChange: Store }>) {
   const { t } = useTranslation();
+  const waitingForWorker =
+    useImportAvailability(CAPABILITIES_POLL_MS) === "reviewOnly" &&
+    value.status === "queued";
   const reprocess = hasDraft(value);
   const cancel = useCancel(value, onChange, t("imports.detail.cancelFailed"));
+  const body = reprocess
+    ? t("imports.detail.reprocessBody")
+    : t("imports.detail.processingBody");
   return (
     <Panel
       title={
@@ -308,13 +354,12 @@ function ProcessingState({
           ? t("imports.detail.reprocessTitle")
           : t("imports.detail.processingTitle")
       }
-      description={
-        reprocess
-          ? t("imports.detail.reprocessBody")
-          : t("imports.detail.processingBody")
-      }
+      description={waitingForWorker ? undefined : body}
     >
       <ProcessingPanel run={value.run} />
+      {waitingForWorker ? (
+        <ProcessingOffNotice>{t("imports.availability.queuedOff")}</ProcessingOffNotice>
+      ) : null}
       {cancel.error === null ? null : (
         <p role="alert" className="text-sm">
           {cancel.error}
@@ -389,6 +434,7 @@ function useRetry(value: WordImport, onChange: Store) {
     },
     onError: (cause) => {
       setError(failureMessage(cause, t("imports.detail.retryFailed")));
+      refreshAvailability(client, cause);
       if (cause instanceof ApiError && cause.status === 409)
         void client.invalidateQueries({ queryKey: ["word-import", value.id] });
     },
@@ -400,7 +446,13 @@ function RetryRun({
   value,
   onChange,
   label,
-}: Readonly<{ value: WordImport; onChange: Store; label?: string }>) {
+  canRetry,
+}: Readonly<{
+  value: WordImport;
+  onChange: Store;
+  label?: string;
+  canRetry: boolean;
+}>) {
   const { t } = useTranslation();
   const retry = useRetry(value, onChange);
   const errorCode = value.run?.errorCode;
@@ -416,7 +468,7 @@ function RetryRun({
           {retry.error}
         </p>
       )}
-      {isRetryable(errorCode) ? (
+      {canRetry && isRetryable(errorCode) ? (
         <Button
           className="self-start"
           variant={label === undefined ? "default" : "outline"}
@@ -435,10 +487,12 @@ function RetryRun({
 function IntakePanel({
   value,
   onChange,
-}: Readonly<{ value: WordImport; onChange: Store }>) {
+  processing,
+}: Readonly<{ value: WordImport; onChange: Store; processing: boolean }>) {
   const { t } = useTranslation();
   const headingId = useId();
   const failed = value.status === "failed";
+  const awaitingBody = processing ? t("imports.detail.awaitingBody") : undefined;
   return (
     <Panel
       title={
@@ -447,32 +501,39 @@ function IntakePanel({
       description={
         failed
           ? t(`imports.runError.${runErrorKey(value.run?.errorCode)}`)
-          : t("imports.detail.awaitingBody")
+          : awaitingBody
       }
     >
-      {failed ? <RetryRun value={value} onChange={onChange} /> : null}
-      <section
-        aria-labelledby={failed ? headingId : undefined}
-        className={failed ? "space-y-3 border-t pt-4" : undefined}
-      >
-        {failed ? (
-          <div className="space-y-1">
-            <h2 id={headingId} className="text-sm font-medium">
-              {t("imports.detail.replaceTitle")}
-            </h2>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              {t("imports.detail.replaceHint")}
-            </p>
-          </div>
-        ) : null}
-        <SourceIntake
-          key={value.id}
-          existing={value}
-          replacing={failed}
-          onChanged={(next) => void onChange(next)}
-          onStarted={(next) => void onChange(next)}
-        />
-      </section>
+      {processing ? null : (
+        <ProcessingOffNotice>{t("imports.availability.intakeOff")}</ProcessingOffNotice>
+      )}
+      {failed ? (
+        <RetryRun value={value} onChange={onChange} canRetry={processing} />
+      ) : null}
+      {processing ? (
+        <section
+          aria-labelledby={failed ? headingId : undefined}
+          className={failed ? "space-y-3 border-t pt-4" : undefined}
+        >
+          {failed ? (
+            <div className="space-y-1">
+              <h2 id={headingId} className="text-sm font-medium">
+                {t("imports.detail.replaceTitle")}
+              </h2>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                {t("imports.detail.replaceHint")}
+              </p>
+            </div>
+          ) : null}
+          <SourceIntake
+            key={value.id}
+            existing={value}
+            replacing={failed}
+            onChanged={(next) => void onChange(next)}
+            onStarted={(next) => void onChange(next)}
+          />
+        </section>
+      ) : null}
       <CloseImport value={value} onChange={onChange} />
     </Panel>
   );
