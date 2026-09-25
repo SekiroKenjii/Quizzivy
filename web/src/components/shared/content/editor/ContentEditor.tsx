@@ -1,13 +1,15 @@
-import { useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { useState, type ReactNode } from "react";
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import type { SemanticContent } from "../model";
-import { isQuestionContent } from "../questionContent";
+import { isQuestionContent, isQuestionPromptContent } from "../questionContent";
 import { isOptionContent } from "../optionContent";
 import { validateContent } from "../validation";
-import { fromEditorJSON, toEditorJSON } from "./adapter";
+import { fromEditorDoc, toEditorJSON } from "./adapter";
 import { contentExtensions, type EditorNotice } from "./extensions";
 import { ContentToolbar } from "./ContentToolbar";
+import { useContentPaste } from "./useContentPaste";
+import { PastePreview } from "./PastePreview";
 import "../content.css";
 
 function ActiveEditor({
@@ -16,16 +18,26 @@ function ActiveEditor({
   label,
   id,
   profile = "document",
+  gapLabel,
+  tools,
 }: Readonly<{
   initialContent: SemanticContent;
   onChange: (content: SemanticContent) => void;
   label: string;
+  gapLabel?: (() => string) | undefined;
   id?: string;
-  profile?: "document" | "option" | "question";
+  profile?: "document" | "option" | "question" | "prompt";
+  tools?: ((editor: Editor) => ReactNode) | undefined;
 }>) {
   const { t } = useTranslation();
   const [notice, setNotice] = useState<EditorNotice>();
-  const [extensions] = useState(() => contentExtensions(setNotice, profile));
+  const { paste, previewPaste, applyPaste, closePaste } = useContentPaste(
+    profile,
+    setNotice,
+  );
+  const [extensions] = useState(() =>
+    contentExtensions(setNotice, profile, previewPaste),
+  );
   const [content] = useState(() => toEditorJSON(initialContent));
   const editor = useEditor({
     extensions,
@@ -45,7 +57,7 @@ function ActiveEditor({
       },
     },
     onUpdate: ({ editor }) => {
-      const parsed = fromEditorJSON(editor.getJSON());
+      const parsed = fromEditorDoc(editor.state.doc);
       if (parsed.ok && parsed.value.format === "semantic_v1") {
         setNotice(undefined);
         onChange(parsed.value);
@@ -55,12 +67,25 @@ function ActiveEditor({
   if (!editor) return <p role="status">{t("contentEditor.loading")}</p>;
   return (
     <div className="content-editor bg-card focus-within:ring-ring/30 overflow-hidden rounded-lg border shadow-sm focus-within:ring-2">
-      <ContentToolbar editor={editor} profile={profile} />
+      <ContentToolbar editor={editor} profile={profile} gapLabel={gapLabel} />
+      {tools?.(editor)}
       <EditorContent editor={editor} />
       {notice && (
         <p role="alert" className="border-t px-4 py-3 text-sm">
           {t(`contentEditor.${notice}`)}
         </p>
+      )}
+      {paste && (
+        <PastePreview
+          content={paste.result}
+          failed={paste.failed}
+          onClose={closePaste}
+          onRestoreFocus={() => {
+            if (!editor.isDestroyed)
+              editor.commands.focus(undefined, { scrollIntoView: false });
+          }}
+          onApply={applyPaste}
+        />
       )}
     </div>
   );
@@ -72,8 +97,10 @@ export function ContentEditor(
     initialContent: SemanticContent;
     onChange: (content: SemanticContent) => void;
     label: string;
+    gapLabel?: (() => string) | undefined;
     id?: string;
-    profile?: "document" | "option" | "question";
+    profile?: "document" | "option" | "question" | "prompt";
+    tools?: ((editor: Editor) => ReactNode) | undefined;
   }>,
 ) {
   const { t } = useTranslation();
@@ -81,7 +108,8 @@ export function ContentEditor(
   return initial.ok &&
     initial.value.format === "semantic_v1" &&
     (props.profile !== "option" || isOptionContent(initial.value)) &&
-    (props.profile !== "question" || isQuestionContent(initial.value)) ? (
+    (props.profile !== "question" || isQuestionContent(initial.value)) &&
+    (props.profile !== "prompt" || isQuestionPromptContent(initial.value)) ? (
     <ActiveEditor {...props} initialContent={initial.value} />
   ) : (
     <p role="alert">{t("contentEditor.invalidContent")}</p>

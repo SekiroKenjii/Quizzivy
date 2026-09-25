@@ -54,6 +54,7 @@ type OptionInput struct {
 }
 
 type BlankInput struct {
+	GapID           *string
 	ID              *string
 	Ordinal         int
 	AcceptedAnswers []string
@@ -147,14 +148,47 @@ func validateBlanks(in Input, add func(string, string)) {
 	if len(in.Blanks) == 0 {
 		add("blanks", "Cần ít nhất một chỗ trống.")
 	}
-	validateBlankOrdinalsMatchPrompt(in, validateEachBlank(in, add), add)
+	ordinals := validateEachBlank(in, add)
+	if !hasProse(in.PromptContent) {
+		validateBlankOrdinalsMatchPrompt(in, ordinals, add)
+		for _, blank := range in.Blanks {
+			if blank.GapID != nil {
+				add("blanks", "Liên kết chỗ trống chỉ dùng với nội dung có định dạng.")
+			}
+		}
+	}
+}
+
+func validateGapBindings(in Input, add func(string, string)) {
+	document, err := content.ParseQuestionPrompt(in.PromptContent)
+	if err != nil {
+		return
+	}
+	if len(document.GapIDs()) == 0 || len(in.Blanks) == 0 {
+		add("blanks", "Cần ít nhất một chỗ trống với đáp án tương ứng.")
+		return
+	}
+	expected := make(map[string]bool)
+	for _, id := range document.GapIDs() {
+		expected[id] = true
+	}
+	for _, blank := range in.Blanks {
+		if blank.GapID == nil || !expected[*blank.GapID] {
+			add("blanks", "Mỗi chỗ trống phải liên kết đúng một vị trí trong nội dung.")
+			continue
+		}
+		delete(expected, *blank.GapID)
+	}
+	if len(expected) != 0 {
+		add("blanks", "Có chỗ trống trong nội dung chưa có đáp án tương ứng.")
+	}
 }
 
 func validateEachBlank(in Input, add func(string, string)) map[int]bool {
 	seen := map[int]bool{}
 	for i, b := range in.Blanks {
-		if b.Ordinal < 1 {
-			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống bắt đầu từ 1.")
+		if b.Ordinal < 1 || b.Ordinal > 32767 {
+			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống phải từ 1 đến 32767.")
 		}
 		if seen[b.Ordinal] {
 			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống bị trùng.")

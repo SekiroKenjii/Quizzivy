@@ -5,19 +5,21 @@ import { validateContent } from "./validation";
 
 export type QuestionContent = components["schemas"]["QuestionContent"];
 
-function boundProse(block: ContentBlock): boolean {
+export type QuestionPromptContent = components["schemas"]["QuestionPromptContent"];
+
+function boundProse(block: ContentBlock, gaps = false): boolean {
   switch (block.type) {
     case "image":
     case "audio":
       return false;
     case "paragraph":
     case "heading":
-      return block.content.every((node) => node.type !== "gap");
+      return gaps || block.content.every((node) => node.type !== "gap");
     case "list":
-      return block.items.every((item) => item.every(boundProse));
+      return block.items.every((item) => item.every((node) => boundProse(node, gaps)));
     case "table":
       return block.rows.every((row) =>
-        row.every((cell) => cell.content.every(boundProse)),
+        row.every((cell) => cell.content.every((node) => boundProse(node, gaps))),
       );
   }
 }
@@ -28,11 +30,28 @@ export function isQuestionContent(value: unknown): value is QuestionContent {
   return (
     parsed.ok &&
     parsed.value.format === "semantic_v1" &&
-    parsed.value.blocks.every(boundProse)
+    parsed.value.blocks.every((node) => boundProse(node))
   );
 }
 
 export const questionContentSchema = z.custom<QuestionContent>(
   isQuestionContent,
+  "questionEditor.errors.questionContent",
+);
+
+/** isQuestionPromptContent validates bounded prose and gaps before question-level binding checks. */
+export function isQuestionPromptContent(
+  value: unknown,
+): value is QuestionPromptContent {
+  const parsed = validateContent(value);
+  return (
+    parsed.ok &&
+    parsed.value.format === "semantic_v1" &&
+    parsed.value.blocks.every((node) => boundProse(node, true))
+  );
+}
+
+export const questionPromptContentSchema = z.custom<QuestionPromptContent>(
+  isQuestionPromptContent,
   "questionEditor.errors.questionContent",
 );

@@ -41,7 +41,7 @@ func questionInput(q DraftQuestion) questionsdomain.Input {
 		in.Options = append(in.Options, questionsdomain.OptionInput{Text: option.Text, Content: option.Content, IsCorrect: option.IsCorrect})
 	}
 	for _, blank := range q.Blanks {
-		in.Blanks = append(in.Blanks, questionsdomain.BlankInput{Ordinal: blank.Ordinal, AcceptedAnswers: blank.AcceptedAnswers, CaseSensitive: blank.CaseSensitive})
+		in.Blanks = append(in.Blanks, questionsdomain.BlankInput{GapID: blank.GapID, Ordinal: blank.Ordinal, AcceptedAnswers: blank.AcceptedAnswers, CaseSensitive: blank.CaseSensitive})
 	}
 	return in
 }

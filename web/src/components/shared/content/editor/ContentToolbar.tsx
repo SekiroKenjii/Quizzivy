@@ -51,7 +51,12 @@ function ToolButton({ tool }: Readonly<{ tool: Tool }>) {
 export function ContentToolbar({
   editor,
   profile = "document",
-}: Readonly<{ editor: Editor; profile?: "document" | "option" | "question" }>) {
+  gapLabel,
+}: Readonly<{
+  gapLabel?: (() => string) | undefined;
+  editor: Editor;
+  profile?: "document" | "option" | "question" | "prompt";
+}>) {
   const { t } = useTranslation();
   const state = useEditorState({
     editor,
@@ -146,15 +151,22 @@ export function ContentToolbar({
     {
       key: "insertGap",
       icon: TextCursorInput,
-      run: () =>
+      run: () => {
+        const labels = new Set<string>();
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === "gap") labels.add(String(node.attrs.label));
+        });
+        let label = 1;
+        while (labels.has(String(label))) label++;
         editor
           .chain()
           .focus()
           .insertContent({
             type: "gap",
-            attrs: { id: crypto.randomUUID(), label: t("contentEditor.newGap") },
+            attrs: { id: crypto.randomUUID(), label: gapLabel?.() ?? String(label) },
           })
-          .run(),
+          .run();
+      },
     },
     {
       key: "undo",
@@ -180,6 +192,7 @@ export function ContentToolbar({
           .filter(
             (tool) =>
               profile === "document" ||
+              profile === "prompt" ||
               (profile === "question" && tool.key !== "insertGap") ||
               [
                 "bold",

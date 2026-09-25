@@ -1,6 +1,7 @@
+import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { DOT, OPTION, optionKey } from "@/features/attempts/components/answerStyles";
 import { scoreText } from "@/features/assignments/studentTime";
+import { ReviewGroup } from "@/features/media";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { Answer } from "@/features/take-test/api";
 import { blankInputs } from "@/features/take-test/components/blankInputs";
@@ -45,6 +47,15 @@ export default function ResultPage() {
   const shell = useDetailShell();
   const wide = useMediaQuery("(min-width: 1024px)");
   const [chip, setChip] = useState<Chip>("all");
+  const target = useRef<string | null>(null);
+  const [focusRequest, requestFocus] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (target.current === null) return;
+    const element = document.getElementById(`result-question-${target.current}`);
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView?.({ block: "start" });
+    target.current = null;
+  }, [focusRequest]);
 
   const result = useQuery({
     queryKey: ["attempt-result", attemptId],
@@ -86,6 +97,20 @@ export default function ResultPage() {
     if (activeChip === "pending") return q.pendingManual === true;
     return true;
   });
+
+  const numbers = new Map(questions.map((question, index) => [question.id, index + 1]));
+  const shownIds = new Set(shown.map((question) => question.id));
+  const contexts = new Map(
+    data.sharedContext?.groups.map((group) => [
+      group.questionIds.find((id) => shownIds.has(id)),
+      group,
+    ]),
+  );
+  const jump = (id: string) => {
+    target.current = id;
+    setChip("all");
+    requestFocus();
+  };
 
   const scoreBlock = review.showScore ? (
     <ScoreTile data={data} pending={pending} />
@@ -201,14 +226,34 @@ export default function ResultPage() {
         </EmptyState>
       )}
 
-      {shown.map((question) => (
-        <QuestionCard
-          key={question.id}
-          question={question}
-          number={questions.indexOf(question) + 1}
-          review={review}
-        />
-      ))}
+      {shown.map((question) => {
+        const group = contexts.get(question.id);
+        return (
+          <div key={question.id} className="flex min-w-0 flex-col gap-5">
+            {group && data.sharedContext && (
+              <ReviewGroup
+                group={group}
+                numbers={numbers}
+                transcripts={data.sharedContext.transcripts}
+                plays={data.sharedContext.audioPlays}
+                onQuestion={jump}
+                onRetry={() => void result.refetch()}
+              />
+            )}
+            <div
+              id={`result-question-${question.id}`}
+              tabIndex={-1}
+              className="outline-none"
+            >
+              <QuestionCard
+                question={question}
+                number={numbers.get(question.id) ?? 0}
+                review={review}
+              />
+            </div>
+          </div>
+        );
+      })}
 
       {!review.showExplanations && shown.length > 0 && (
         <p className="text-muted-foreground text-center text-xs leading-relaxed">
@@ -428,28 +473,42 @@ function Body({
       );
       return (
         <>
-          <Markdown
-            className="text-sm"
-            plugins={[blankInputs]}
-            components={{
-              span: (props) => {
-                const ordinal = props.node?.properties?.["data-blank"];
-                if (ordinal === undefined || ordinal === null)
-                  return <span {...props} />;
-                const blank = (question.blanks ?? []).find(
-                  (b) => String(b.ordinal) === String(ordinal),
-                );
-                const typed = blank === undefined ? "" : (values[blank.id] ?? "");
-                return (
-                  <span className="mx-0.5 inline-block rounded-sm border px-1.5 underline decoration-dotted">
-                    {typed === "" ? "…" : typed}
-                  </span>
-                );
-              },
-            }}
-          >
-            {question.prompt}
-          </Markdown>
+          {question.promptContent != null ? (
+            <RichBlankPrompt
+              text={question.prompt}
+              content={question.promptContent}
+              blanks={question.blanks ?? []}
+              className="text-sm"
+              renderBlank={(blank) => (
+                <span className="mx-0.5 inline-block rounded-sm border px-1.5 underline decoration-dotted">
+                  {values[blank.id] || "…"}
+                </span>
+              )}
+            />
+          ) : (
+            <Markdown
+              className="text-sm"
+              plugins={[blankInputs]}
+              components={{
+                span: (props) => {
+                  const ordinal = props.node?.properties?.["data-blank"];
+                  if (ordinal === undefined || ordinal === null)
+                    return <span {...props} />;
+                  const blank = (question.blanks ?? []).find(
+                    (b) => String(b.ordinal) === String(ordinal),
+                  );
+                  const typed = blank === undefined ? "" : (values[blank.id] ?? "");
+                  return (
+                    <span className="mx-0.5 inline-block rounded-sm border px-1.5 underline decoration-dotted">
+                      {typed === "" ? "…" : typed}
+                    </span>
+                  );
+                },
+              }}
+            >
+              {question.prompt}
+            </Markdown>
+          )}
           {review.showCorrectAnswers && key.size > 0 && (
             <p className="text-muted-foreground text-xs">
               {t("result.correctAnswerIs", {

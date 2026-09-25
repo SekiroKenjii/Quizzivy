@@ -94,6 +94,48 @@ async function setup(page: Page, initial = sample(), delayed = false) {
   };
 }
 
+test("bank saves a confirmed structured paste and retains formatting after reload", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  await page.goto(`/admin/question-bank/${ID}`);
+  await page
+    .getByRole("button", { name: "Định dạng: Nội dung câu hỏi", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Dùng nội dung này", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Nội dung câu hỏi", exact: true });
+  await editor.click();
+  await page.keyboard.press("Control+a");
+  await editor.evaluate((element) => {
+    const data = new DataTransfer();
+    data.setData(
+      "text/html",
+      "<p><u>Nội dung dán</u></p><table><tr><th>Cột A</th><th>Cột B</th></tr><tr><td>một</td><td>hai</td></tr></table>",
+    );
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Áp dụng nội dung dán" })
+    .click();
+  await expect(editor.locator("u")).toHaveText("Nội dung dán");
+  expect(state.writes()).toBe(0);
+  await page.getByRole("button", { name: "Xong", exact: true }).click();
+  await page.getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect.poll(state.writes).toBe(1);
+  expect(state.getQuestion().prompt).toBe("Nội dung dán\n\nCột A\tCột B\nmột\thai");
+  expect(state.getQuestion().promptContent?.blocks[1]?.type).toBe("table");
+  await page.reload();
+  await expect(page.locator("u")).toHaveText("Nội dung dán");
+  await expect(page.getByRole("cell", { name: "hai", exact: true })).toBeVisible();
+});
+
 test("bank previews Markdown conversion, preserves tables and explanations after saving and reload", async ({
   page,
 }) => {

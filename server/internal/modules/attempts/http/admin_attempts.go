@@ -88,6 +88,9 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 		return nil, httpx.ErrNotImplemented
 	}
 	rv, err := h.app.Queries.Review.Handle(ctx, query.Review{AttemptID: request.Id.String()})
+	if errors.Is(err, domain.ErrGroupContextUnavailable) {
+		return nil, httpx.ErrNotImplemented
+	}
 	if errors.Is(err, domain.ErrPaperNotFound) {
 		return openapi.GetAttemptForReview404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
@@ -114,19 +117,24 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 	}
 
 	attempt := toAPIAttempt(rv.Attempt)
+	shared, err := sharedReviewContext(ctx, rv.SharedContext, h.adminGroupAsset)
+	if err != nil {
+		return nil, err
+	}
 	if rv.Attempt.Status != domain.InProgress {
 		attempt.Score = toAPIScore(rv.Score)
 	}
 	return openapi.GetAttemptForReview200JSONResponse{
-		Attempt:     attempt,
-		Student:     toAPIUserFromStudent(student),
-		TestTitle:   rv.TestTitle,
-		MaxAttempts: rv.MaxAttempts,
-		Questions:   questions,
-		Answers:     answers,
-		AudioPlays:  rv.AudioPlays,
-		Integrity:   toAPIIntegritySummary(timeline.Summary),
-		TeacherNote: rv.TeacherNote,
+		SharedContext: shared,
+		Attempt:       attempt,
+		Student:       toAPIUserFromStudent(student),
+		TestTitle:     rv.TestTitle,
+		MaxAttempts:   rv.MaxAttempts,
+		Questions:     questions,
+		Answers:       answers,
+		AudioPlays:    rv.AudioPlays,
+		Integrity:     toAPIIntegritySummary(timeline.Summary),
+		TeacherNote:   rv.TeacherNote,
 	}, nil
 }
 
@@ -172,6 +180,8 @@ func (h Attempts) ListAnswersForQuestion(ctx context.Context, request openapi.Li
 		return openapi.ListAnswersForQuestion404JSONResponse(httpapi.NotFound(ctx, "Không tìm thấy bài giao.")), nil
 	case errors.Is(err, domain.ErrQuestionNotOnPaper):
 		return openapi.ListAnswersForQuestion404JSONResponse(httpapi.NotFound(ctx, "Câu hỏi này không có trong đề của bài giao.")), nil
+	case errors.Is(err, domain.ErrGroupContextUnavailable):
+		return nil, httpx.ErrNotImplemented
 	case err != nil:
 		return nil, err
 	}
@@ -202,7 +212,12 @@ func (h Attempts) ListAnswersForQuestion(ctx context.Context, request openapi.Li
 		}
 		items[i] = row
 	}
+	shared, err := sharedReviewContext(ctx, byQ.SharedContext, h.adminGroupAsset)
+	if err != nil {
+		return nil, err
+	}
 	return openapi.ListAnswersForQuestion200JSONResponse{
+		SharedContext:     shared,
 		Question:          question,
 		QuestionNumber:    byQ.Number,
 		QuestionCount:     byQ.Count,
@@ -285,7 +300,8 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
 		blanks[i] = openapi.AdminQuestionBlank{
-			Id: httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal, AcceptedAnswers: b.Accepted, CaseSensitive: b.CaseSensitive,
+			GapId: b.GapID,
+			Id:    httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal, AcceptedAnswers: b.Accepted, CaseSensitive: b.CaseSensitive,
 		}
 	}
 	out.Blanks = &blanks

@@ -163,20 +163,8 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 	       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 	       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
 	       a.integrity_min_away_ms,
-	       EXISTS (SELECT 1 FROM app.test_version_questions q
-	                 JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
-	                WHERE sec.test_version_id = a.test_version_id
-	                  AND q.media_asset_kind = 'audio'),
-	       EXISTS (SELECT 1 FROM app.test_version_questions q
-	                 JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
-	                WHERE sec.test_version_id = a.test_version_id
-	                  AND q.audio_show_transcript_after),
-	       -- The strictest cap on the paper. NULL when every listening question
-	       -- is unlimited, which the intro reads as "no limit to state".
-	       (SELECT min(q.audio_max_plays) FROM app.test_version_questions q
-	          JOIN app.test_version_sections sec ON sec.id = q.test_version_section_id
-	         WHERE sec.test_version_id = a.test_version_id
-	           AND q.media_asset_kind = 'audio')`+studentCardFrom+`
+	       audio.has_audio, audio.has_shared_audio, audio.shows_transcript,
+	       audio.max_plays`+studentCardFrom+studentAudioSummary+`
 	 WHERE a.id = $2::uuid AND a.published_at IS NOT NULL AND `+targeted,
 		studentID, id).Scan(
 		&d.ID, &d.TestTitle, &d.ClassName, &d.ClassID,
@@ -189,7 +177,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		&d.Review.ShowCorrectAnswers, &d.Review.ShowExplanations,
 		&d.Integrity.RequireFullscreen, &d.Integrity.BlockCopyPaste,
 		&d.Integrity.MaxFocusLoss, &onLimit, &d.Integrity.MinAwayMs,
-		&d.HasAudio, &d.ShowsTranscript, &maxPlays)
+		&d.HasAudio, &d.HasSharedAudio, &d.ShowsTranscript, &maxPlays)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StudentDetail{}, domain.ErrForbidden
 	}

@@ -215,6 +215,10 @@ unexpectedly navigate away while the teacher is reading the final summary.
 The normal builder gets the same content editor and section → group → question
 structure, inline material preview and explicit shared audio policy. Restoring old
 versions copies the complete graph; bank insertion cannot orphan passage children.
+The builder now offers whole-group bank insertion with a destination selector and
+an independent save-to-bank action that retains the current editor. Empty groups
+stay selectable. Group navigation collapses to a content selector when the editor's
+available width is narrow; material/member content keeps its usable editing width.
 
 During an attempt, the current group's material remains available across member
 navigation. Desktop offers a readable material area alongside the question;
@@ -226,6 +230,14 @@ counts stable across navigation/reload. Answer controls remain stationary.
 Check long passages, wide tables, picture captions, underlined option fragments,
 ordered cloze gaps and results with hidden answers. Student presentation must not
 expose source filenames/key documents, provenance, teacher notes or answer markings.
+
+Results keep the group's material above its first visible child when filters
+change; following a material gap restores all questions and focuses its target.
+Teacher paper review keeps context while navigating members. Grading by question
+shows that question's complete material without combining different students'
+listening counts. Transcript disclosure is explicit and keyboard-operable;
+learners receive only released transcripts. Review playback never changes an
+attempt's counters.
 
 ## 10. Responsive, keyboard, motion and performance rules
 

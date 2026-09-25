@@ -9,8 +9,13 @@ import (
 // ValidateContent checks the prose profiles and exact companion text before writes and publication.
 func (in Input) ValidateContent() error {
 	var fields []FieldError
-	if !validProse(in.PromptContent, &in.Prompt) || (in.Type == FillBlank && hasProse(in.PromptContent)) {
-		fields = append(fields, FieldError{Field: "promptContent", Message: "Nội dung có định dạng không hợp lệ hoặc chưa hỗ trợ cho câu điền từ."})
+	if !validPrompt(in) {
+		fields = append(fields, FieldError{Field: "promptContent", Message: "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản."})
+	}
+	if in.Type == FillBlank && hasProse(in.PromptContent) {
+		validateGapBindings(in, func(field, message string) {
+			fields = append(fields, FieldError{Field: field, Message: message})
+		})
 	}
 	if !validProse(in.ExplanationContent, in.Explanation) {
 		fields = append(fields, FieldError{Field: "explanationContent", Message: "Lời giải có định dạng không hợp lệ hoặc không khớp văn bản."})
@@ -19,6 +24,14 @@ func (in Input) ValidateContent() error {
 		return &ValidationError{Fields: fields}
 	}
 	return nil
+}
+
+func validPrompt(in Input) bool {
+	if !hasProse(in.PromptContent) {
+		return true
+	}
+	document, err := content.ParseQuestionPrompt(in.PromptContent)
+	return err == nil && document.PlainText() == in.Prompt && (in.Type == FillBlank || len(document.GapIDs()) == 0)
 }
 
 func hasProse(raw json.RawMessage) bool {

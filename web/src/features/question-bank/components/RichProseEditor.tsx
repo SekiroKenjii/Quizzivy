@@ -11,6 +11,7 @@ import {
 import { contentPlainText } from "@/components/shared/content/plainText";
 import {
   isQuestionContent,
+  type QuestionPromptContent,
   type QuestionContent,
 } from "@/components/shared/content/questionContent";
 
@@ -24,14 +25,17 @@ export function RichProseEditor({
   onClose,
 }: Readonly<{
   text: string;
-  content: QuestionContent | null;
+  content: QuestionPromptContent | null;
   id: string;
   label: string;
   onChange: (text: string, content: QuestionContent | null) => void;
   onClose: () => void;
 }>) {
   const { t } = useTranslation();
-  const [initial] = useState(() => content ?? markdownToQuestionContent(text));
+  const [initial] = useState(() => {
+    if (content == null) return markdownToQuestionContent(text);
+    return isQuestionContent(content) ? content : null;
+  });
   const [previewing, setPreviewing] = useState(content == null);
   const [removing, setRemoving] = useState(false);
   if (!initial)

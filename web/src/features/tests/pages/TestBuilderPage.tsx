@@ -32,8 +32,7 @@ import type { MediaAsset } from "@/features/media/api";
 import {
   getTest,
   publishTest,
-  saveOutline,
-  toOutlineDraft,
+  saveMixedOutline,
   type PublishViolation,
   type Test,
 } from "@/features/tests/api";
@@ -48,6 +47,29 @@ import {
 } from "@/features/tests/useAutosave";
 import type { OutlineSection } from "@/features/tests/outline";
 import type { OutlineQuestion } from "@/features/tests/components/OutlineTree";
+import {
+  createGroup,
+  copyGroup,
+  deleteGroup,
+  getGroup,
+  updateGroup,
+  type GroupBundle,
+  type GroupSummary,
+  type StoredGroup,
+} from "@/features/question-groups/api";
+import { emptyGroup } from "@/features/question-groups/model";
+import { BuilderGroupPane, type GroupPaneBridge } from "../components/BuilderGroupPane";
+import { GroupPickerDialog } from "../components/GroupPickerDialog";
+import { BuilderWrites } from "../BuilderWrites";
+import {
+  editableOutline,
+  findUnit,
+  groupOwners,
+  reconcileSections,
+  sectionQuestionIds,
+  unitsOf,
+  withUnits,
+} from "../outlineUnits";
 import { ApiError } from "@/lib/api/errors";
 
 /**
@@ -92,11 +114,29 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
   const [title, setTitle] = useState(test.title);
   const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
-  const [sections, setSections] = useState<OutlineSection[]>(
-    () => toOutlineDraft(test).sections,
+  const [sections, setSections] = useState<OutlineSection[]>(() =>
+    editableOutline(test),
   );
-  const [selectedId, setSelectedId] = useState<string | null>(
-    () => test.sections[0]?.questionIds[0] ?? null,
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    test.sections[0]?.units?.[0]?.kind === "group"
+      ? null
+      : (test.sections[0]?.questionIds[0] ?? null),
+  );
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() =>
+    test.sections[0]?.units?.[0]?.kind === "group"
+      ? test.sections[0].units[0].id
+      : null,
+  );
+  const [activeBundle, setActiveBundle] = useState<GroupBundle | null>(null);
+  const [pickingGroup, setPickingGroup] = useState(false);
+  const [removing, setRemoving] = useState<
+    { groupId: string } | { sectionIndex: number } | null
+  >(null);
+  const groupBridge = useRef<GroupPaneBridge | null>(null);
+  const [writes] = useState(() => new BuilderWrites());
+  const savedOutline = useRef(editableOutline(test));
+  const sectionIds = useRef(
+    new Map(test.sections.map((section) => [section.id, section.id])),
   );
   const [violations, setViolations] = useState<PublishViolation[] | null>(null);
   const [picking, setPicking] = useState(false);
@@ -114,21 +154,84 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   });
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
 
   // The version guard moves with each save.
   const version = useRef(test.updatedAt);
 
+  const coordinate = useCallback(
+    (operation: () => Promise<void>) => writes.run(operation),
+    [writes],
+  );
+
+  async function stopGroupReads() {
+    const ids = [...groupOwners(savedOutline.current).keys()];
+    const known = new Map<string, StoredGroup>();
+    for (const id of ids) {
+      const group = queryClient.getQueryData<StoredGroup>(["admin-group", id]);
+      if (group) {
+        await queryClient.cancelQueries({ queryKey: ["admin-group", id] });
+        known.set(id, group);
+      }
+    }
+    return known;
+  }
+
+  function acknowledge(
+    saved: Test,
+    submitted: OutlineSection[],
+    known: Map<string, StoredGroup>,
+  ) {
+    const previous = groupOwners(savedOutline.current);
+    const next = editableOutline(saved);
+    const owners = groupOwners(next);
+    for (const [index, section] of submitted.entries()) {
+      const id = saved.sections[index]?.id;
+      if (id) sectionIds.current.set(section.clientId ?? section.id ?? id, id);
+    }
+    for (const [id, ownerSectionId] of owners) {
+      const moved = previous.has(id) && previous.get(id) !== ownerSectionId;
+      const group = known.get(id);
+      if (group)
+        queryClient.setQueryData<StoredGroup>(["admin-group", id], {
+          ...group,
+          ownerSectionId,
+          revision: group.revision + (moved ? 1 : 0),
+          testUpdatedAt: saved.updatedAt,
+        });
+      else void queryClient.invalidateQueries({ queryKey: ["admin-group", id] });
+      if (id === groupBridge.current?.id)
+        groupBridge.current.advanceOwner(moved, saved.updatedAt);
+    }
+    savedOutline.current = next;
+    version.current = saved.updatedAt;
+    latestOutline.current = reconcileSections(latestOutline.current, submitted, saved);
+    setSections(latestOutline.current);
+    queryClient.setQueryData(["admin-test", test.id], saved);
+  }
+
   const outline = useAutosave<{ title: string; sections: OutlineSection[] }>({
-    save: async (draft) => {
-      const saved = await saveOutline(test.id, {
-        expectedUpdatedAt: version.current,
-        title: draft.title,
-        description: test.description ?? null,
-        sections: draft.sections,
-      });
-      version.current = saved.updatedAt;
-      queryClient.setQueryData(["admin-test", test.id], saved);
-    },
+    save: (draft) =>
+      writes.run(async () => {
+        const known = await stopGroupReads();
+        const resolved = draft.sections.map((section) => ({
+          ...section,
+          id:
+            sectionIds.current.get(section.clientId ?? section.id ?? "") ?? section.id,
+        }));
+        const saved = await saveMixedOutline(
+          test.id,
+          version.current,
+          draft.title,
+          resolved.map((section) => ({
+            id: section.id,
+            title: section.title,
+            instructions: section.instructions,
+            units: unitsOf(section),
+          })),
+        );
+        acknowledge(saved, resolved, known);
+      }),
   });
 
   const questionIds = useMemo(
@@ -143,6 +246,31 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       staleTime: 60_000,
     })),
   });
+
+  const groupIds = useMemo(
+    () =>
+      sections.flatMap((section) =>
+        unitsOf(section)
+          .filter((unit) => unit.kind === "group")
+          .map((unit) => unit.id),
+      ),
+    [sections],
+  );
+  const loadedGroups = useQueries({
+    queries: groupIds.map((id) => ({
+      queryKey: ["admin-group", id],
+      refetchOnWindowFocus: false,
+      queryFn: ({ signal }: { signal: AbortSignal }) => getGroup(id, signal),
+      staleTime: 60_000,
+    })),
+  });
+  const groups = new Map(
+    loadedGroups.flatMap((result) =>
+      result.data ? [[result.data.bundle.group.id, result.data.bundle] as const] : [],
+    ),
+  );
+  if (activeBundle && groupIds.includes(activeBundle.group.id))
+    groups.set(activeBundle.group.id, activeBundle);
 
   const byId = useMemo(() => {
     const map = new Map<string, OutlineQuestion>();
@@ -160,15 +288,19 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     return map;
   }, [loaded, questionIds, violations, t]);
 
-  useEffect(() => {
-    latestOutline.current = sections;
-  }, [sections]);
-
   const updateOutline = useCallback(
     (next: OutlineSection[]) => {
+      latestOutline.current = next;
       setSections(next);
       setSelectedId((current) => {
-        if (current === null || next.some((s) => s.questionIds.includes(current))) {
+        const groupSelected =
+          selectedGroupId !== null &&
+          findUnit(next, `group:${selectedGroupId}`) !== null;
+        if (
+          current === null ||
+          groupSelected ||
+          next.some((s) => s.questionIds.includes(current))
+        ) {
           return current;
         }
         setQuestionStatus({ kind: "idle" });
@@ -176,7 +308,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       });
       outline.schedule({ title, sections: next });
     },
-    [outline, title],
+    [outline, title, selectedGroupId],
   );
 
   function updateTitle(next: string) {
@@ -185,10 +317,21 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   }
 
   async function selectQuestion(questionId: string) {
+    const group = [...groups.values()].find((bundle) =>
+      bundle.group.members.some((member) => member.questionId === questionId),
+    );
+    if (group) {
+      await selectGroup(group.group.id, questionId);
+      return;
+    }
     const request = ++selectionRequest.current;
     try {
       await flushQuestion.current?.();
-      if (selectionRequest.current === request) setSelectedId(questionId);
+      if (selectionRequest.current === request) {
+        setSelectedGroupId(null);
+        setActiveBundle(null);
+        setSelectedId(questionId);
+      }
     } catch (cause) {
       setPublishError(
         cause instanceof ApiError ? cause.message : t("builder.saveBeforeSwitchFailed"),
@@ -198,11 +341,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
   function appendQuestion(questionId: string) {
     const current = latestOutline.current;
-    const last = current.length - 1;
+    const last = destinationIndex();
     updateOutline(
       current.map((section, i) =>
         i === last
-          ? { ...section, questionIds: [...section.questionIds, questionId] }
+          ? withUnits(section, [
+              ...unitsOf(section),
+              { kind: "question", id: questionId },
+            ])
           : section,
       ),
     );
@@ -231,6 +377,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       ...sections,
       {
         id: null,
+        clientId: crypto.randomUUID(),
+        units: [],
         title: t("builder.newSection", { n: sections.length + 1 }),
         instructions: null,
         questionIds: [],
@@ -243,7 +391,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     setViolations(null);
     setPublishing(true);
     try {
-      await Promise.all([outline.flush(), flushQuestion.current?.()]);
+      await flushQuestion.current?.();
+      await outline.flush();
       await publishTest(test.id);
       await Promise.all([
         queryClient.invalidateQueries({
@@ -268,7 +417,190 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }
   }
 
-  const contextLabel = describePosition(sections, selectedId, t);
+  async function selectGroup(groupId: string, questionId?: string) {
+    const request = ++selectionRequest.current;
+    if (selectedGroupId === groupId) {
+      setSelectedId(questionId ?? null);
+      return;
+    }
+    try {
+      await flushQuestion.current?.();
+      if (selectionRequest.current !== request) return;
+      setSelectedGroupId(groupId);
+      setSelectedId(questionId ?? null);
+      setActiveBundle(null);
+      setQuestionStatus({ kind: "idle" });
+    } catch (cause) {
+      report(cause);
+    }
+  }
+
+  function report(cause: unknown) {
+    setPublishError(
+      cause instanceof ApiError ? cause.message : t("builder.saveBeforeSwitchFailed"),
+    );
+  }
+
+  async function saveGroup(bundle: GroupBundle, revision: number) {
+    await queryClient.cancelQueries({ queryKey: ["admin-group", bundle.group.id] });
+    const saved = await updateGroup(bundle.group.id, {
+      bundle,
+      expectedRevision: revision,
+      expectedTestUpdatedAt: version.current,
+    });
+    version.current = saved.testUpdatedAt ?? version.current;
+    queryClient.setQueryData(["admin-group", bundle.group.id], saved);
+    return saved;
+  }
+
+  async function insertGroup(source?: GroupSummary, sectionIndex = destinationIndex()) {
+    setCreating(true);
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      await writes.run(async () => {
+        const section = latestOutline.current[sectionIndex];
+        if (!section?.id) throw new Error("Destination section is not persisted");
+        const destination = {
+          ownerSectionId: section.id,
+          expectedTestUpdatedAt: version.current,
+        };
+        const saved = source
+          ? await copyGroup(source.id, {
+              ...destination,
+              expectedRevision: source.revision,
+            })
+          : await createGroup({
+              ...destination,
+              bundle: emptyGroup(t("groups.newGroup")),
+            });
+        version.current = saved.testUpdatedAt ?? version.current;
+        groupBridge.current?.advanceOwner(false, version.current);
+        queryClient.setQueryData(["admin-group", saved.bundle.group.id], saved);
+        const next = latestOutline.current.map((item, index) =>
+          index === sectionIndex
+            ? withUnits(item, [
+                ...unitsOf(item),
+                { kind: "group", id: saved.bundle.group.id },
+              ])
+            : item,
+        );
+        latestOutline.current = next;
+        savedOutline.current = next;
+        setSections(next);
+        setPickingGroup(false);
+        setSelectedGroupId(saved.bundle.group.id);
+        setSelectedId(null);
+        setActiveBundle(null);
+        setQuestionStatus({ kind: "idle" });
+      });
+    } catch (cause) {
+      report(cause);
+      throw cause;
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function destinationIndex() {
+    const index = sections.findIndex((section) =>
+      unitsOf(section).some((unit) =>
+        selectedGroupId
+          ? unit.kind === "group" && unit.id === selectedGroupId
+          : unit.kind === "question" && unit.id === selectedId,
+      ),
+    );
+    return index < 0 ? sections.length - 1 : index;
+  }
+
+  const doomedSection =
+    removing && "sectionIndex" in removing
+      ? sections[removing.sectionIndex]
+      : undefined;
+
+  async function removeContent() {
+    if (!removing) return;
+    setCreating(true);
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      const removedSectionId =
+        "sectionIndex" in removing
+          ? latestOutline.current[removing.sectionIndex]?.id
+          : null;
+      const ids =
+        "groupId" in removing
+          ? [removing.groupId]
+          : unitsOf(latestOutline.current[removing.sectionIndex]!)
+              .filter((unit) => unit.kind === "group")
+              .map((unit) => unit.id);
+      for (const id of ids) await removeOwnedGroup(id);
+      if ("sectionIndex" in removing)
+        updateOutline(
+          latestOutline.current.filter((section) => section.id !== removedSectionId),
+        );
+      setRemoving(null);
+    } catch (cause) {
+      report(cause);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function removeOwnedGroup(id: string) {
+    await writes.run(async () => {
+      const group =
+        queryClient.getQueryData<StoredGroup>(["admin-group", id]) ??
+        (await getGroup(id));
+      await deleteGroup(id, group.revision, version.current);
+      const fresh = await getTest(test.id);
+      version.current = fresh.updatedAt;
+      groupBridge.current?.advanceOwner(false, fresh.updatedAt);
+      const next = editableOutline(fresh);
+      latestOutline.current = next;
+      savedOutline.current = next;
+      setTitle(fresh.title);
+      setSections(next);
+      queryClient.setQueryData(["admin-test", test.id], fresh);
+      if (selectedGroupId === id) {
+        setSelectedGroupId(null);
+        setSelectedId(null);
+        setActiveBundle(null);
+        setQuestionStatus({ kind: "idle" });
+      }
+    });
+  }
+
+  async function openPreview() {
+    setPublishError(null);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      await Promise.all([
+        ...questionIds.map((id) =>
+          queryClient.query({
+            staleTime: 60_000,
+            queryKey: ["admin-question", id],
+            queryFn: ({ signal }) => getQuestion(id, signal),
+          }),
+        ),
+        ...groupIds.map((id) =>
+          queryClient.query({
+            staleTime: 60_000,
+            queryKey: ["admin-group", id],
+            queryFn: ({ signal }) => getGroup(id, signal),
+          }),
+        ),
+      ]);
+      setPreviewing(true);
+    } catch (cause) {
+      report(cause);
+    }
+  }
+
+  const contextLabel = describePosition(sections, selectedId, t, groups);
 
   const saveStatus = mergeAutosave([outline.status, questionStatus]);
   const stale = saveStatus.kind === "stale";
@@ -276,10 +608,13 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const unsaved =
     saveStatus.kind === "dirty" ||
     saveStatus.kind === "saving" ||
-    saveStatus.kind === "failed";
+    saveStatus.kind === "failed" ||
+    saveStatus.kind === "stale";
   const leaving = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      unsaved && currentLocation.pathname !== nextLocation.pathname,
+      unsaved &&
+      nextLocation.pathname !== "/login" &&
+      currentLocation.pathname !== nextLocation.pathname,
   );
   useEffect(() => {
     if (!unsaved) return;
@@ -295,8 +630,49 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }),
   );
 
+  function activeEditor() {
+    if (selectedGroupId)
+      return (
+        <BuilderGroupPane
+          key={selectedGroupId}
+          id={selectedGroupId}
+          selectedQuestionId={selectedId}
+          onSelectedQuestionChange={setSelectedId}
+          coordinate={coordinate}
+          save={saveGroup}
+          onChange={setActiveBundle}
+          flushRef={flushQuestion}
+          retryRef={retryQuestion}
+          bridgeRef={groupBridge}
+          onStatus={setQuestionStatus}
+        />
+      );
+    if (selectedId === null)
+      return (
+        <p className="text-muted-foreground text-sm">
+          {questionIds.length === 0 ? t("builder.empty") : t("builder.noSelection")}
+        </p>
+      );
+    return (
+      <QuestionPane
+        settingsOpen={settingsOpen}
+        onSettingsOpenChange={setSettingsOpen}
+        key={selectedId}
+        questionId={selectedId}
+        clearStarterPrompt={starterIds.has(selectedId)}
+        flushRef={flushQuestion}
+        retryRef={retryQuestion}
+        onStatus={setQuestionStatus}
+        contextLabel={contextLabel}
+      />
+    );
+  }
+
   return (
-    <div className="-m-6 flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden">
+    <fieldset
+      disabled={creating || publishing}
+      className="-m-6 flex h-[calc(100svh-3.5rem)] min-w-0 flex-col overflow-hidden"
+    >
       <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
         <Button
           variant="ghost"
@@ -307,6 +683,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           <ArrowLeft aria-hidden="true" />
         </Button>
         <Input
+          disabled={creating}
           value={title}
           aria-label={t("builder.titleLabel")}
           className="h-8 w-96 min-w-32 border-transparent font-medium shadow-none"
@@ -320,7 +697,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             retryQuestion.current?.();
           }}
         />
-        {selectedId === null ? null : (
+        {selectedId === null || selectedGroupId ? null : (
           <Button
             variant="outline"
             size="sm"
@@ -347,7 +724,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             variant="outline"
             size="sm"
             aria-label={t("builder.previewAsStudent")}
-            onClick={() => setPreviewing(true)}
+            onClick={() => void openPreview()}
           >
             <Eye aria-hidden="true" />
             <span className="hidden lg:inline">{t("builder.previewAsStudent")}</span>
@@ -386,43 +763,33 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       )}
 
       <div data-columns className="flex min-h-0 flex-1 overflow-hidden">
-        <Suspense
-          fallback={<div className="w-72 shrink-0 border-r" aria-hidden="true" />}
-        >
-          <OutlineTree
-            sections={sections}
-            questions={byId}
-            selectedId={selectedId}
-            creating={creating}
-            onSelect={(questionId) => void selectQuestion(questionId)}
-            onChange={updateOutline}
-            onCreateQuestion={() => void onCreateQuestion()}
-            onPickFromBank={() => setPicking(true)}
-            onAddSection={onAddSection}
-          />
-        </Suspense>
+        <fieldset disabled={creating} className="contents">
+          <Suspense
+            fallback={<div className="w-72 shrink-0 border-r" aria-hidden="true" />}
+          >
+            <OutlineTree
+              sections={sections}
+              groups={groups}
+              selectedGroupId={selectedGroupId}
+              onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+              onCreateGroup={() => void insertGroup().catch(() => undefined)}
+              onRemoveGroup={(id) => setRemoving({ groupId: id })}
+              onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
+              questions={byId}
+              selectedId={selectedId}
+              creating={creating}
+              onSelect={(questionId) => void selectQuestion(questionId)}
+              onChange={updateOutline}
+              onCreateQuestion={() => void onCreateQuestion()}
+              onPickFromBank={() => setPicking(true)}
+              onAddSection={onAddSection}
+            />
+          </Suspense>
+        </fieldset>
 
         <div data-resize-middle className="min-w-0 flex-1 overflow-y-auto p-6">
           <PageAsideSlot.Provider value={asideSlot}>
-            {selectedId === null ? (
-              <p className="text-muted-foreground text-sm">
-                {questionIds.length === 0
-                  ? t("builder.empty")
-                  : t("builder.noSelection")}
-              </p>
-            ) : (
-              <QuestionPane
-                settingsOpen={settingsOpen}
-                onSettingsOpenChange={setSettingsOpen}
-                key={selectedId}
-                questionId={selectedId}
-                clearStarterPrompt={starterIds.has(selectedId)}
-                flushRef={flushQuestion}
-                retryRef={retryQuestion}
-                onStatus={setQuestionStatus}
-                contextLabel={contextLabel}
-              />
-            )}
+            {activeEditor()}
           </PageAsideSlot.Provider>
         </div>
         {/* A-04 puts the settings column under the builder's own bar. */}
@@ -434,6 +801,38 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         excluded={new Set(questionIds)}
         onOpenChange={setPicking}
         onPick={appendQuestion}
+        onPickGroup={() => {
+          setPicking(false);
+          setPickingGroup(true);
+        }}
+      />
+
+      <GroupPickerDialog
+        open={pickingGroup}
+        sections={sections}
+        onOpenChange={setPickingGroup}
+        onPick={(group, sectionIndex) => insertGroup(group, sectionIndex)}
+      />
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(open) => !open && !creating && setRemoving(null)}
+        title={
+          doomedSection
+            ? t("builder.removeSectionTitle", { title: doomedSection.title })
+            : t("builder.removeGroupTitle")
+        }
+        description={
+          doomedSection
+            ? t("builder.removeSectionWithGroupsBody", {
+                count: sectionQuestionIds(doomedSection, groups).length,
+              })
+            : t("builder.removeGroupBody")
+        }
+        confirmLabel={t("common.delete")}
+        destructive
+        pending={creating}
+        error={publishError}
+        onConfirm={() => void removeContent()}
       />
 
       <PublishDialog
@@ -450,7 +849,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         )}
         location={(violation) =>
           violation.questionId
-            ? describePosition(sections, violation.questionId, t)
+            ? describePosition(sections, violation.questionId, t, groups)
             : (sections.find((section) => section.id === violation.sectionId)?.title ??
               null)
         }
@@ -478,20 +877,58 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       <DraftPreviewDialog
         open={previewing}
         questions={draftQuestions}
+        sections={sections}
+        groups={loadedGroups.flatMap((result) => (result.data ? [result.data] : []))}
         onOpenChange={setPreviewing}
       />
 
       <ConfirmDialog
         open={leaving.state === "blocked"}
-        onOpenChange={(open) => !open && leaving.reset?.()}
+        onOpenChange={(open) => !open && !leaveBusy && leaving.reset?.()}
         title={t("builder.leaveTitle")}
         description={t("builder.leaveBody")}
         confirmLabel={t("builder.leave")}
         cancelLabel={t("builder.stay")}
         destructive
-        onConfirm={() => leaving.proceed?.()}
-      />
-    </div>
+        pending={leaveBusy}
+        error={publishError}
+        onConfirm={() => {
+          if (!groupBridge.current) {
+            leaving.proceed?.();
+            return;
+          }
+          setLeaveBusy(true);
+          void groupBridge.current
+            .persist()
+            .then((ok) => {
+              if (ok) leaving.proceed?.();
+              else setPublishError(t("groups.localUnavailable"));
+            })
+            .finally(() => setLeaveBusy(false));
+        }}
+      >
+        <Button
+          variant="outline"
+          disabled={leaveBusy || stale}
+          onClick={() => {
+            setLeaveBusy(true);
+            void (async () => {
+              try {
+                await flushQuestion.current?.();
+                await outline.flush();
+                leaving.proceed?.();
+              } catch (cause) {
+                report(cause);
+              } finally {
+                setLeaveBusy(false);
+              }
+            })();
+          }}
+        >
+          {t("groups.saveAndLeave")}
+        </Button>
+      </ConfirmDialog>
+    </fieldset>
   );
 }
 
@@ -649,11 +1086,17 @@ function describePosition(
   sections: OutlineSection[],
   questionId: string | null,
   t: TFunction,
+  groups: Map<string, GroupBundle>,
 ): string | null {
   if (questionId === null) return null;
   let number = 0;
   for (const section of sections) {
-    for (const id of section.questionIds) {
+    const ids = unitsOf(section).flatMap((unit) =>
+      unit.kind === "question"
+        ? [unit.id]
+        : (groups.get(unit.id)?.group.members.map((member) => member.questionId) ?? []),
+    );
+    for (const id of ids) {
       number += 1;
       if (id === questionId) {
         return t("builder.position", { number, section: section.title });

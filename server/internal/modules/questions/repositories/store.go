@@ -30,15 +30,16 @@ const questionColumns = `
 	         WHERE sq.question_id = q.id),
 	       q.created_at, q.updated_at`
 
-func scanQuestion(row pgx.Row) (domain.Question, error) {
+func scanQuestion(row pgx.Row, extra ...any) (domain.Question, error) {
 	var q domain.Question
 	var typ string
 	var maxPlays *int
 	var allowSeek, showTranscript *bool
 
-	err := row.Scan(&q.ID, &typ, &q.Prompt, &q.PromptContent, &q.ExplanationContent, &q.MediaAssetID, &q.MediaAssetKind,
+	fields := []any{&q.ID, &typ, &q.Prompt, &q.PromptContent, &q.ExplanationContent, &q.MediaAssetID, &q.MediaAssetKind,
 		&maxPlays, &allowSeek, &showTranscript, &q.Transcript, &q.Points,
-		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt)
+		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt}
+	err := row.Scan(append(fields, extra...)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound
 	}
@@ -59,7 +60,7 @@ func scanQuestion(row pgx.Row) (domain.Question, error) {
 
 // Get returns one live question with its children.
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Question, error) {
-	question, err := s.get(ctx, s.Conn(), id, false)
+	question, err := s.get(ctx, s.Conn(), id, false, nil)
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -70,16 +71,16 @@ func (s *Postgres) Get(ctx context.Context, id string) (domain.Question, error) 
 // GetIncludingDeleted resolves a question by id whether or not it is deleted,
 // so a soft delete cannot break a published version snapshot.
 func (s *Postgres) GetIncludingDeleted(ctx context.Context, id string) (domain.Question, error) {
-	return s.get(ctx, s.Conn(), id, true)
+	return s.get(ctx, s.Conn(), id, true, nil)
 }
 
-func (s *Postgres) get(ctx context.Context, q db.Querier, id string, includeDeleted bool) (domain.Question, error) {
+func (s *Postgres) get(ctx context.Context, q db.Querier, id string, includeDeleted bool, groupID *string) (domain.Question, error) {
 	filter := ` AND q.deleted_at IS NULL`
 	if includeDeleted {
 		filter = ``
 	}
 	question, err := scanQuestion(q.QueryRow(ctx,
-		`SELECT`+questionColumns+` FROM app.questions q WHERE q.id = $1`+filter, id))
+		`SELECT`+questionColumns+` FROM app.questions q WHERE q.id = $1 AND q.context_group_id IS NOT DISTINCT FROM $2::uuid`+filter, id, groupID))
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -134,18 +135,18 @@ func (s *Postgres) loadBlanksFor(ctx context.Context, q db.Querier, questionIDs 
 		return map[string][]domain.Blank{}, nil
 	}
 	byQuestion, err := db.GroupBy(ctx, q,
-		`SELECT b.question_id::text, b.id::text, b.ordinal, b.case_sensitive,
+		`SELECT b.question_id::text, b.id::text, b.ordinal, b.gap_id, b.case_sensitive,
 		        coalesce(array_agg(a.answer ORDER BY a.answer)
 		                 FILTER (WHERE a.answer IS NOT NULL), '{}')
 		   FROM app.question_blanks b
 		   LEFT JOIN app.question_blank_answers a ON a.blank_id = b.id
 		  WHERE b.question_id = ANY($1::uuid[])
-		  GROUP BY b.question_id, b.id, b.ordinal, b.case_sensitive
+		  GROUP BY b.question_id, b.id, b.ordinal, b.gap_id, b.case_sensitive
 		  ORDER BY b.question_id, b.ordinal`, []any{questionIDs},
 		func(rows pgx.Rows) (string, domain.Blank, error) {
 			var questionID string
 			var b domain.Blank
-			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.AcceptedAnswers)
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.GapID, &b.CaseSensitive, &b.AcceptedAnswers)
 			return questionID, b, err
 		})
 	if err != nil {
@@ -156,23 +157,24 @@ func (s *Postgres) loadBlanksFor(ctx context.Context, q db.Querier, questionIDs 
 
 // Create inserts a question and its children in one transaction.
 func (s *Postgres) Create(ctx context.Context, in domain.WriteInput) (domain.Question, error) {
-	return s.write(ctx, in, false)
+	return s.write(ctx, in, false, nil)
 }
 
 // Update replaces a question and its children. Edits the bank copy only;
 // published versions hold their own snapshot.
 func (s *Postgres) Update(ctx context.Context, in domain.WriteInput) (domain.Question, error) {
-	return s.write(ctx, in, true)
+	return s.write(ctx, in, true, nil)
 }
 
-func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool) (domain.Question, error) {
+func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool, ownership *domain.GroupOwnership) (domain.Question, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Question{}, fmt.Errorf("questions: begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := prepareQuestionContent(ctx, tx, in.ID, &in.Input, update); err != nil {
+	groupID, ordinal, optionOrder := ownershipValues(ownership)
+	if err := prepareQuestionContent(ctx, tx, in.ID, &in.Input, update, groupID); err != nil {
 		return domain.Question{}, err
 	}
 
@@ -198,26 +200,35 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 			       audio_max_plays = $6, audio_allow_seek = $7,
 			       audio_show_transcript_after = $8, transcript = $9,
 			       points = $10::numeric, explanation = $11, sample_answer = $12,
-			       tags = $13, prompt_content = $14, explanation_content = $15
+			       tags = $13, prompt_content = $14, explanation_content = $15,
+			       context_ordinal = coalesce($16, context_ordinal),
+			       context_option_order = coalesce($17, context_option_order)
 			 WHERE id = $1 AND deleted_at IS NULL
 			 RETURNING id::text`,
 			id, string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent)).Scan(&id)
+			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder).Scan(&id)
 	} else {
+		var createID *string
+		if ownership != nil {
+			createID = opt.String(in.ID)
+		}
 		err = tx.QueryRow(ctx, `
 			INSERT INTO app.questions
 			       (type, prompt, media_asset_id, media_asset_kind,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
-			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content)
+			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
+			        id, context_group_id, context_ordinal, context_option_order)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
-			        $8, $9::numeric, $10, $11, $12, $13, $14, $15)
+			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
+			        coalesce($16::uuid, uuidv7()), $17, $18, $19)
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent)).Scan(&id)
+			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
+			createID, groupID, ordinal, optionOrder).Scan(&id)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound
@@ -249,7 +260,7 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool)
 		return domain.Question{}, err
 	}
 
-	written, err := s.get(ctx, tx, id, false)
+	written, err := s.get(ctx, tx, id, false, groupID)
 	if err != nil {
 		return domain.Question{}, err
 	}
@@ -296,9 +307,9 @@ func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in domain.
 	for _, b := range in.Blanks {
 		var blankID string
 		if err := tx.QueryRow(ctx,
-			`INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive)
-			 VALUES ($1, $2, $3) RETURNING id::text`,
-			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
+			`INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive, gap_id)
+			 VALUES ($1, $2, $3, $4) RETURNING id::text`,
+			questionID, b.Ordinal, b.CaseSensitive, b.GapID).Scan(&blankID); err != nil {
 			return fmt.Errorf("questions: write blank: %w", err)
 		}
 		seen := map[string]bool{}
@@ -328,7 +339,7 @@ func (s *Postgres) SoftDelete(ctx context.Context, in domain.WriteInput) error {
 
 	var alreadyDeleted bool
 	err = tx.QueryRow(ctx,
-		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,
+		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 AND context_group_id IS NULL FOR UPDATE`,
 		in.ID).Scan(&alreadyDeleted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
@@ -380,6 +391,7 @@ func (s *Postgres) AddTags(ctx context.Context, ids []string, tags []string) (in
 		       updated_at = now()
 		 WHERE q.id = ANY($1::uuid[])
 		   AND q.deleted_at IS NULL
+		   AND q.context_group_id IS NULL
 		   AND NOT (q.tags @> $2::text[])
 		RETURNING q.id`, ids, tags)
 	if err != nil {

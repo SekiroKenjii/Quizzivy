@@ -22,7 +22,12 @@ function markedText(value: string, marks: ContentMark[]): ReactNode {
 }
 
 /** ContentInlineView renders an already validated inline node without HTML injection or asset requests. */
-export function ContentInlineView({ node }: Readonly<{ node: ContentInline }>) {
+export type GapRenderer = (gap: Extract<ContentInline, { type: "gap" }>) => ReactNode;
+
+export function ContentInlineView({
+  node,
+  renderGap,
+}: Readonly<{ node: ContentInline; renderGap?: GapRenderer | undefined }>) {
   const { t } = useTranslation();
   switch (node.type) {
     case "text":
@@ -30,6 +35,7 @@ export function ContentInlineView({ node }: Readonly<{ node: ContentInline }>) {
     case "break":
       return <br />;
     case "gap":
+      if (renderGap) return <>{renderGap(node)}</>;
       return (
         <span
           className="content-gap"
