@@ -108,7 +108,7 @@ export function QuestionEditor({
   onEdit: Edit;
   onAcknowledge: (findingId: string, on: boolean) => void;
   onLocate: (refs: readonly ImportSourceRef[]) => void;
-  onReprocess: (paper: number) => void;
+  onReprocess?: ((paper: number) => void) | undefined;
 }>) {
   const { t } = useTranslation();
   const headingId = useId();

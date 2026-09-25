@@ -7,7 +7,14 @@ import { http } from "msw";
 import NewImportPage from "@/features/imports/pages/NewImportPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { BASE, deferred, errorBody, source, wordImport } from "./fixtures";
+import {
+  BASE,
+  capabilities,
+  deferred,
+  errorBody,
+  source,
+  wordImport,
+} from "./fixtures";
 import "@/lib/i18n";
 
 type Call =
@@ -129,6 +136,76 @@ describe("starting a Word import", () => {
     expect(
       await screen.findByText(/Nhận tệp \.docx, tối đa 25\.0 MB/),
     ).toBeInTheDocument();
+  });
+
+  it("stops offering the upload once the server says processing is switched off", async () => {
+    let processing = true;
+    server.use(
+      http.get(`${BASE}/admin/imports/capabilities`, () =>
+        contractJson("/admin/imports/capabilities", "get", 200, {
+          intakeEnabled: true,
+          processingEnabled: processing,
+        }),
+      ),
+      http.post(`${BASE}/admin/imports/:id/process`, () => {
+        processing = false;
+        return contractJson(
+          "/admin/imports/{id}/process",
+          "post",
+          503,
+          errorBody(
+            "IMPORT_PROCESSING_UNAVAILABLE",
+            "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập.",
+          ),
+        );
+      }),
+    );
+    const user = renderPage();
+    await screen.findByText(/Nhận tệp/);
+    await user.upload(screen.getByLabelText("Tệp đề thi"), docx("de-thi.docx"));
+    await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
+
+    expect(
+      await screen.findByText("Chưa nhập được đề mới lúc này."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
+    expect(screen.queryByText("detail page")).toBeNull();
+  });
+
+  it("checks processing is still on before creating anything", async () => {
+    let processing = true;
+    server.use(
+      http.get(`${BASE}/admin/imports/capabilities`, () =>
+        contractJson("/admin/imports/capabilities", "get", 200, {
+          intakeEnabled: true,
+          processingEnabled: processing,
+        }),
+      ),
+    );
+    const user = renderPage();
+    await screen.findByText(/Nhận tệp/);
+    await user.upload(screen.getByLabelText("Tệp đề thi"), docx("de-thi.docx"));
+    processing = false;
+    await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
+
+    expect(
+      await screen.findByText("Chưa nhập được đề mới lúc này."),
+    ).toBeInTheDocument();
+    expect(calls).toEqual([]);
+  });
+
+  it("explains, instead of offering the upload, while processing is switched off", async () => {
+    server.use(capabilities(false));
+    renderPage();
+
+    expect(
+      await screen.findByText("Chưa nhập được đề mới lúc này."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
+    expect(screen.getByRole("link", { name: "Về lịch sử nhập đề" })).toHaveAttribute(
+      "href",
+      "/admin/imports",
+    );
   });
 
   it("creates, uploads the exam, then the key against the exam's revision, then processes", async () => {

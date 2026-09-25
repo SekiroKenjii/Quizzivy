@@ -99,7 +99,7 @@ gen-check: gen ## Fail if generated output drifts from the contract (what CI run
 	@echo "generated code matches api/openapi.yaml"
 
 dev: ## Run web and api together, plus the Word import worker when imports are configured
-	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker)
+	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker IMPORT_PROCESSING_ENABLED=true)
 
 dev-api: ## Go API on :8080
 	cd server && DATABASE_URL="$(APP_DSN)" go run ./cmd/api

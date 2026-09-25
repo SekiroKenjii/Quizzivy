@@ -8,7 +8,7 @@ import ImportsListPage from "@/features/imports/pages/ImportsListPage";
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { BASE, TEST_ID, run, wordImport } from "./fixtures";
+import { BASE, TEST_ID, capabilities, run, wordImport } from "./fixtures";
 import "@/lib/i18n";
 
 let items: WordImport[] = [];
@@ -113,6 +113,40 @@ describe("the Word import history", () => {
     expect(
       screen.getAllByRole("link", { name: "Nhập đề từ Word" }).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("keeps the history but offers no new import while processing is switched off", async () => {
+    server.use(capabilities(false));
+    items = [wordImport({ status: "needs_review" })];
+    renderHistory();
+
+    expect(
+      await screen.findByText(
+        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới/,
+      ),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Nhập đề từ Word" })).toBeNull();
+  });
+
+  it("offers to view, not continue uploading, an import waiting for files while processing is switched off", async () => {
+    server.use(capabilities(false));
+    items = [wordImport({ title: "Đề A", status: "awaiting_sources", sources: [] })];
+    renderHistory();
+
+    expect(
+      await screen.findByRole("link", { name: "Xem chi tiết Đề A" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Tiếp tục tải tệp/ })).toBeNull();
+  });
+
+  it("offers no upload in an empty history while processing is switched off", async () => {
+    server.use(capabilities(false));
+    renderHistory();
+
+    expect(await screen.findByText("Chưa có lần nhập đề nào.")).toBeInTheDocument();
+    await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu Word/);
+    expect(screen.queryByRole("link", { name: "Nhập đề từ Word" })).toBeNull();
   });
 
   it("reads its filters from the URL and offers to clear them when nothing matches", async () => {

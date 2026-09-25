@@ -12,6 +12,17 @@ import (
 	"quizzivy/internal/shared/actor"
 )
 
+func (h Imports) GetWordImportCapabilities(ctx context.Context, _ openapi.GetWordImportCapabilitiesRequestObject) (openapi.GetWordImportCapabilitiesResponseObject, error) {
+	if h.app == nil {
+		return openapi.GetWordImportCapabilities200JSONResponse{}, nil
+	}
+	v, err := h.app.Queries.Capabilities.Handle(ctx, query.Capabilities{})
+	if err != nil {
+		return nil, err
+	}
+	return openapi.GetWordImportCapabilities200JSONResponse{IntakeEnabled: true, ProcessingEnabled: v.Processing}, nil
+}
+
 func (h Imports) GetWordImportLimits(ctx context.Context, _ openapi.GetWordImportLimitsRequestObject) (openapi.GetWordImportLimitsResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented

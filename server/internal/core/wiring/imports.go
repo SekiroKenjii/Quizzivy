@@ -47,5 +47,5 @@ func imports(ctx context.Context, cfg config.Config, dbx db.Context, mediaApp *m
 			return app
 		},
 	}
-	return importshttp.New(importsapp.New(importsapp.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, Materializer: committer, WorkDir: cfg.ImportWorkDir, Quotas: quotas, Legacy: cfg.ImportLegacyDoc})), nil
+	return importshttp.New(importsapp.New(importsapp.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, Materializer: committer, WorkDir: cfg.ImportWorkDir, Quotas: quotas, Legacy: cfg.ImportLegacyDoc, Processing: cfg.ImportProcessing})), nil
 }

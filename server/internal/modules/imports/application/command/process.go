@@ -17,12 +17,18 @@ type Process struct {
 	Actor               actor.Actor
 }
 
+// ProcessHandler schedules a run of the current source set. Unless Enabled, it
+// refuses with domain.ErrProcessingOff before touching the import.
 type ProcessHandler struct {
-	Repo domain.Repository
-	Runs ports.Runs
+	Repo    domain.Repository
+	Runs    ports.Runs
+	Enabled bool
 }
 
 func (h ProcessHandler) Handle(ctx context.Context, in Process) (domain.Import, error) {
+	if !h.Enabled {
+		return domain.Import{}, domain.ErrProcessingOff
+	}
 	current, err := h.Repo.Get(ctx, in.ImportID)
 	if err != nil {
 		return domain.Import{}, err

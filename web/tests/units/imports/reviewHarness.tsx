@@ -13,6 +13,7 @@ import type {
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import {
+  capabilities,
   BASE,
   EXAM_SOURCE_ID,
   IMPORT_ID,
@@ -108,6 +109,7 @@ export interface ReviewServer {
 
 export function serveReview(initial: ImportReview, state: ReviewServer) {
   server.use(
+    capabilities(),
     http.get(`${BASE}/admin/imports/:id`, () =>
       contractJson("/admin/imports/{id}", "get", 200, wordImport()),
     ),

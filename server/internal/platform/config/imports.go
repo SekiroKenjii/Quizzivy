@@ -9,9 +9,17 @@ import (
 func loadImports(cfg *Config) error {
 	cfg.ImportBucket = os.Getenv("IMPORT_S3_BUCKET")
 	cfg.ImportWorkDir = os.Getenv("IMPORT_WORK_DIR")
+	processing, err := getenvBool("IMPORT_PROCESSING_ENABLED", false)
+	if err != nil {
+		return err
+	}
 	if cfg.ImportBucket == "" && cfg.ImportWorkDir == "" {
+		if processing {
+			return fmt.Errorf("IMPORT_PROCESSING_ENABLED requires IMPORT_S3_BUCKET and IMPORT_WORK_DIR: a worker has nothing to process without import storage")
+		}
 		return nil
 	}
+	cfg.ImportProcessing = processing
 	if !cfg.MediaEnabled() || cfg.ImportBucket == "" || cfg.ImportWorkDir == "" {
 		return fmt.Errorf("imports require existing S3 configuration, IMPORT_S3_BUCKET and IMPORT_WORK_DIR together")
 	}
@@ -19,7 +27,7 @@ func loadImports(cfg *Config) error {
 		return fmt.Errorf("IMPORT_S3_BUCKET must be separate from the media bucket")
 	}
 	if !filepath.IsAbs(cfg.ImportWorkDir) {
-		return fmt.Errorf("IMPORT_WORK_DIR must be an absolute path on persistent disk")
+		return fmt.Errorf("IMPORT_WORK_DIR must be an absolute path on disk, not tmpfs")
 	}
 	switch os.Getenv("IMPORT_LEGACY_DOC") {
 	case "", "false":
@@ -28,6 +36,10 @@ func loadImports(cfg *Config) error {
 	default:
 		return fmt.Errorf("IMPORT_LEGACY_DOC must be true or false")
 	}
+	return loadImportQuotas(cfg)
+}
+
+func loadImportQuotas(cfg *Config) error {
 	for _, v := range []struct {
 		name          string
 		value         *int

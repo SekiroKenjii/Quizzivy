@@ -8,7 +8,7 @@ import ImportDetailPage from "@/features/imports/pages/ImportDetailPage";
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { BASE, IMPORT_ID, run, wordImport } from "./fixtures";
+import { BASE, IMPORT_ID, capabilities, run, wordImport } from "./fixtures";
 import "@/lib/i18n";
 
 let reads = 0;
@@ -21,6 +21,7 @@ beforeEach(() => {
   cancels = [];
   states = [wordImport({ status: "processing", run: run({ stage: "extraction" }) })];
   server.use(
+    capabilities(),
     http.get(`${BASE}/admin/imports/:id`, () => {
       const next = states[Math.min(reads, states.length - 1)]!;
       reads += 1;
@@ -213,6 +214,7 @@ describe("the processing screen", () => {
   it("keeps the last known state on screen when a background poll fails", async () => {
     let fail = false;
     server.use(
+      capabilities(),
       http.get(`${BASE}/admin/imports/:id`, () => {
         reads += 1;
         if (fail) return new Response(null, { status: 503 });

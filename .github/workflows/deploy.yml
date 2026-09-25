@@ -112,9 +112,10 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
+          secrets=$(flyctl secrets list -a quizzivy-api --json | jq -r '.[] | (.Name // .name)')
           have=$( {
             sed -n '/^\[env\]/,/^\[[a-z]/p' fly.toml | grep -oE '^ *[A-Z0-9_]+' | tr -d ' '
-            flyctl secrets list -a quizzivy-api --json | jq -r '.[] | (.Name // .name)'
+            echo "$secrets"
           } | sort -u )
           echo "configured names:"; echo "$have" | sed 's/^/  /'
 
@@ -149,6 +150,15 @@ jobs:
           fi
 
           group "object storage" S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY
+          group "Word import storage" IMPORT_S3_BUCKET IMPORT_WORK_DIR
+
+          # The processing switch says a worker process runs beside the API.
+          # deployment_test.go checks that against fly.toml's [processes]; as a
+          # secret it would skip that check and queue runs nothing claims (#138).
+          if echo "$secrets" | grep -qx IMPORT_PROCESSING_ENABLED; then
+            echo "::error::IMPORT_PROCESSING_ENABLED is a Fly secret. Set it in fly.toml [env] beside the worker process, and unset the secret"
+            fail=1
+          fi
 
           # R2_* are read by `make verify-r2` and by nothing else. Setting those
           # instead of the S3_* names is what docs/setup/dns.md used to instruct,

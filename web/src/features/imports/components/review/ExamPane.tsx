@@ -20,7 +20,7 @@ export interface ExamPaneHandlers {
   onSelect: (questionId: string) => void;
   onAcknowledge: (findingId: string, on: boolean) => void;
   onLocate: (refs: readonly ImportSourceRef[]) => void;
-  onReprocess: (paper: number) => void;
+  onReprocess?: ((paper: number) => void) | undefined;
 }
 
 /**

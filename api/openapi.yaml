@@ -425,6 +425,7 @@ components:
         - IMPORT_SOURCE_UNSUPPORTED
         - IMPORT_NOT_READY
         - IMPORT_NOT_PROCESSED
+        - IMPORT_PROCESSING_UNAVAILABLE
         # attempts
         - ASSIGNMENT_NOT_OPEN
         - ASSIGNMENT_NOT_CLOSED
@@ -579,6 +580,24 @@ components:
         url: { type: string, format: uri }
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
 
+    ImportCapabilities:
+      type: object
+      additionalProperties: false
+      required: [intakeEnabled, processingEnabled]
+      properties:
+        intakeEnabled:
+          type: boolean
+          description: |
+            Private import storage is configured, so imports can be created,
+            listed, reviewed and committed. When false, every other
+            /admin/imports operation answers 501.
+        processingEnabled:
+          type: boolean
+          description: |
+            A worker is deployed to process the queue, so processWordImport
+            accepts work. When false it answers 503
+            IMPORT_PROCESSING_UNAVAILABLE instead of queueing a run nothing will
+            claim. Never true while intakeEnabled is false.
     ImportLimits:
       type: object
       additionalProperties: false
@@ -4276,6 +4295,22 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  /admin/imports/capabilities:
+    get:
+      operationId: getWordImportCapabilities
+      tags: [admin-imports]
+      summary: Read what this deployment can do with Word imports
+      description: |
+        Answers on every deployment, including one where Word import is not
+        configured, so the client can hide or explain the feature instead of
+        failing on it. The values come from configuration and change only with
+        a redeploy.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportCapabilities' }
   /admin/imports/limits:
     get:
       operationId: getWordImportLimits
@@ -4321,6 +4356,13 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429':
           description: IMPORT_QUOTA_EXCEEDED — processing capacity reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: |
+            IMPORT_PROCESSING_UNAVAILABLE — no worker is deployed
+            (`processingEnabled` is false). Nothing is queued.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

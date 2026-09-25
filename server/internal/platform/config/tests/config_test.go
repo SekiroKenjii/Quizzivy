@@ -14,7 +14,7 @@ import (
 func loadWith(t *testing.T, env map[string]string) (config.Config, error) {
 	t.Helper()
 	base := map[string]string{
-		"IMPORT_S3_BUCKET": "", "IMPORT_WORK_DIR": "", "IMPORT_ACTOR_COUNT": "", "IMPORT_GLOBAL_COUNT": "", "IMPORT_SOURCES_PER_ITEM": "", "IMPORT_ACTOR_MIB": "", "IMPORT_GLOBAL_MIB": "",
+		"IMPORT_S3_BUCKET": "", "IMPORT_WORK_DIR": "", "IMPORT_ACTOR_COUNT": "", "IMPORT_GLOBAL_COUNT": "", "IMPORT_SOURCES_PER_ITEM": "", "IMPORT_ACTOR_MIB": "", "IMPORT_GLOBAL_MIB": "", "IMPORT_LEGACY_DOC": "", "IMPORT_PROCESSING_ENABLED": "",
 		"DATABASE_URL":          "postgres://u:p@localhost:5432/db?sslmode=disable",
 		"JWT_SIGNING_KEY":       strings.Repeat("k", 64),
 		"CORS_ALLOWED_ORIGINS":  "http://localhost:5173",

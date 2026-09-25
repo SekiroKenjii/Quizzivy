@@ -1,7 +1,18 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.39 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.40 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.39**
+
+- §16 Word import states whether it can run on this deployment:
+  - `GET /admin/imports/capabilities` reports `intakeEnabled` and
+    `processingEnabled`.
+  - Processing requires `IMPORT_PROCESSING_ENABLED`, set beside a worker. Without
+    it, `processWordImport` answers 503 `IMPORT_PROCESSING_UNAVAILABLE` and
+    queues nothing.
+  - The client hides or explains whatever cannot run.
+  - Production keeps import off until O-24 is decided (#138).
 
 **Changes since v0.38**
 
@@ -1452,11 +1463,28 @@ private disk directory. Both are required to enable intake. The existing S3 endp
 and credentials are reused, with no public bucket or CDN fallback. Teacher scope is
 shared within this installation; creator and modifying actors are retained.
 
+Availability is reported, not assumed. `GET /admin/imports/capabilities` answers on
+every deployment:
+
+- `intakeEnabled` is true when the import store is configured.
+- `processingEnabled` is true when `IMPORT_PROCESSING_ENABLED` states that a
+  worker runs beside the API. The API refuses that setting without import storage.
+
+Without processing, `processWordImport` answers 503 `IMPORT_PROCESSING_UNAVAILABLE`
+and queues nothing, so no new run waits for a worker that does not exist. A run
+queued before processing was switched off waits until a worker returns or the
+teacher cancels it.
+Finished imports stay reviewable and committable. The client hides the feature
+where intake is off. Where processing is off, it withholds new imports, retries
+and reprocessing, and says why. Production keeps both off until O-24 is decided.
+
 `/admin/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with
 bounded package/content inspection, a maximum 25 MiB compressed body and the Word
-inspector's expansion/XML limits. `.doc` remains disabled until isolated conversion
-is implemented. A successful upload only acknowledges stored source bytes.
+inspector's expansion/XML limits. `.doc` is accepted where `IMPORT_LEGACY_DOC` is
+set. Operators set it only beside a worker that has the isolated converter; a run
+without one fails with `LEGACY_CONVERSION_UNAVAILABLE`. A successful upload only
+acknowledges stored source bytes.
 
 Each accepted exam/key addition or replacement creates an immutable source set,
 retaining its unchanged companion and prior originals. Uploads require the current

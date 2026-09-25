@@ -62,6 +62,7 @@ func importFailure(ctx context.Context, err error) (*failure, error) {
 		{domain.ErrTooLarge, 413, openapi.IMPORTSOURCETOOLARGE, "Tệp vượt giới hạn 25 MiB hoặc có cấu trúc quá lớn. Hãy chia nhỏ tài liệu.", "The file exceeds 25 MiB or its expanded structure is too large. Split the document."},
 		{domain.ErrUnsupported, 415, openapi.IMPORTSOURCEUNSUPPORTED, "Hãy dùng tệp Word (.docx, hoặc .doc khi máy chủ hỗ trợ) không có mật khẩu, macro hoặc đối tượng thực thi.", "Use an unprotected Word file (.docx, or .doc where the server supports it) without macros or active objects."},
 		{domain.ErrInvalid, 415, openapi.IMPORTSOURCEINVALID, "Không đọc được cấu trúc Word. Hãy mở tệp trong Word và lưu lại dưới dạng .docx.", "The Word package is invalid. Open it in Word and save a new .docx copy."},
+		{domain.ErrProcessingOff, 503, openapi.IMPORTPROCESSINGUNAVAILABLE, "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được.", "Word processing is not enabled on this server, so the import cannot be processed. Imports that already finished processing can still be reviewed and turned into tests."},
 		{errMultipart, 400, openapi.VALIDATIONFAILED, "Yêu cầu phải chứa đúng một tệp trong trường file.", "The request must contain exactly one file part named file."},
 	}
 	for _, m := range messages {
