@@ -1,3 +1,4 @@
+import { ReviewGroup } from "@/features/media";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -124,6 +125,10 @@ export default function AttemptReviewPage() {
   const gradable = !live && attempt.status !== "voided";
   const verdicts = questions.map((q) => verdictOf(q, data.answers[q.id]));
   const { question, answer } = at(questions, data.answers, current);
+  const group = data.sharedContext?.groups.find((item) =>
+    item.questionIds.includes(question?.id ?? ""),
+  );
+  const numbers = new Map(questions.map((item, index) => [item.id, index + 1]));
 
   const next = () => {
     if (current !== null)
@@ -309,7 +314,22 @@ export default function AttemptReviewPage() {
                 <VerdictBadge verdict={verdicts[current ?? 0] ?? "unanswered"} />
               </div>
 
-              <Card>
+              {group && data.sharedContext && (
+                <ReviewGroup
+                  key={group.id}
+                  group={group}
+                  numbers={numbers}
+                  transcripts={data.sharedContext.transcripts}
+                  plays={data.sharedContext.audioPlays}
+                  onRetry={() => void review.refetch()}
+                  onQuestion={(questionId) => {
+                    const number = numbers.get(questionId);
+                    if (number !== undefined) setCurrent(number - 1);
+                    document.getElementById("review-answer")?.focus();
+                  }}
+                />
+              )}
+              <Card id="review-answer" tabIndex={-1}>
                 <CardContent className="space-y-4">
                   <AnswerReview question={question} answer={answer} />
                   {question.type === "short_answer" &&

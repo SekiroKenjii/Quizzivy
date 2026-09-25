@@ -1277,6 +1277,21 @@ the file it adds.
 | `00032_add_option_content.sql` | bounded inline documents on normalized bank/snapshot options | Word W-05a |
 | `00033_add_question_content.sql` | bounded prompt/explanation documents on bank/snapshot questions | Word W-05b |
 | `00034_add_question_gap_bindings.sql` | stable gap bindings on bank/snapshot blanks | Word W-06b |
+| `00035_add_question_group_ownership.sql` | Independent bank/test group ownership and ordered member columns | Word W-07 |
+| `00036_index_question_group_members.sql` | Concurrent group-member identity and ordinal indexes | Word W-07 |
+| `00037_create_question_group_graph.sql` | Ordered units, materials, cloze targets, protected media/recording bindings | Word W-07 |
+| `00038_index_version_question_sections.sql` | Concurrent section identity index for frozen questions | Word W-08 |
+| `00039_create_version_group_graph.sql` | Independent immutable group/unit/material/recording snapshots | Word W-08 |
+| `00040_create_group_audio_plays.sql` | Shared recording counters and append-only gesture receipts | Word W-09 |
+| `00041_version_test_delivery.sql` | Immutable delivery algorithm marker | Word W-09d |
+| `00042_create_word_import_sources.sql` | Private source intake, upload journal and immutable source sets | Word W-10a |
+| `00043_create_word_import_runs.sql` | Fenced processing runs and append-only run events | Word W-11a |
+| `00044_create_word_import_artifacts.sql` | Private stage artifact sets and object journal | Word W-13b |
+| `00045_create_word_import_drafts.sql` | One revisioned review draft per import, plus a kept-aside reprocessed candidate | Word W-18 |
+| `00046_create_word_import_commits.sql` | One append-only commit record per import linking the approved revision to its test | Word W-20 |
+| `00047_add_word_import_run_profile.sql` | Recognition profile a run was scheduled with | Word W-14 |
+| `00048_allow_legacy_word_sources.sql` | Legacy `.doc` sources | Word W-13 |
+| `00049_index_question_group_bank_recency.sql` | Bank group listing ordered by recency | Word W-07 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1430,3 +1445,367 @@ lock still serializes updates; snapshot writes and graph copies are transactiona
 Copies allocate fresh gap IDs and remap AST and blank metadata together. Down
 restores the old parent restriction before dropping the columns, so rich fill-blank
 rows block rollback atomically. After these writes, keep readers and migration 34.
+
+
+## 19. Independent group ownership and graph storage (W-07b)
+
+This additive storage foundation remains unavailable through application writes
+until group lifecycle commands and W-08/09 readers/snapshots are integrated.
+Existing sections and bank questions retain their interpretation; no backfill
+changes old versions or attempts.
+
+`00035_add_question_group_ownership.sql` introduces `question_groups`. A null
+`owner_section_id` identifies an independent bank group; otherwise the group
+belongs exclusively to that draft section. The section FK uses RESTRICT so old
+section deletion cannot strand its owned questions. Bank groups can be archived;
+test-owned groups follow their enclosing draft lifecycle. Revision and updated
+at are held on the aggregate. New nullable question columns carry group ownership,
+member ordinal and option order as one complete tuple; owned questions cannot be
+soft-deleted separately. The group FK is RESTRICT: lifecycle commands must remove
+the complete graph explicitly, never orphan children into the standalone bank.
+
+`00036_index_question_group_members.sql` builds two unique indexes CONCURRENTLY
+outside a transaction on the existing questions table. The identity pair supports
+same-group foreign keys; the ordinal index supports ordered group reads and later
+becomes a deferrable uniqueness constraint. Legacy null ownership is not unique.
+`00037_create_question_group_graph.sql` attaches these indexes as constraints and
+adds the owned graph. Failed concurrent index creation must be inspected for an
+invalid index and repaired before retry; migration re-runs must not silently
+accept an invalid existing index with IF NOT EXISTS. See PostgreSQL 18
+[CREATE INDEX](https://www.postgresql.org/docs/18/sql-createindex.html) and
+[ALTER TABLE](https://www.postgresql.org/docs/18/sql-altertable.html).
+
+| Table | Ownership, references and indexes |
+| --- | --- |
+| `question_groups` | Section RESTRICT; creator RESTRICT; section lookup and active bank recency indexes; `(id, owner_section_id)` prevents mounting bank/foreign groups into a section |
+| `test_section_units` | Ordered standalone-question/group union, exclusive via CHECK; section CASCADE; referenced question/group RESTRICT; deferrable section ordinal; unique group mounting and no repeated standalone question in a section |
+| `group_stimuli` | Group CASCADE; bounded ordered materials; JSONB content with explicit known format; `(id, group_id)` supports same-group links |
+| `group_gap_bindings` | Material CASCADE; member composite FK prevents cross-group targets; stable `(question_id, gap_id)` blank FK; choice/blank shape CHECK; scoped material-gap primary key; unique response targets; reverse question/blank index |
+| `group_recordings` | Group CASCADE; composite media kind FK RESTRICT; one audio asset binding per group; immutable binding identity and playback/transcript policy; reverse media index |
+| `group_stimulus_assets` | Material CASCADE; media kind FK RESTRICT; audio iff explicit recording; composite recording FK prevents using another group's allowance or another file; reverse media/recording indexes |
+
+Gap-to-member/blank and material-to-recording foreign keys are deferred NO ACTION:
+an atomic replacement may replace normalized answer rows while preserving stable
+gap identities, but commit cannot leave dangling bindings. AST/mirror equality,
+question interaction compatibility, complete member/material/recording coverage,
+aggregate budgets and media authorization still require the domain validator and
+repository checks; JSONB format checks alone do not validate semantic content.
+
+A group update must lock the containing test when present, then the group and
+owned questions, before its media reference locks; lists of question/media IDs
+are locked in stable order. Creation/copy/deletion and bank insertion must use the
+same locks on both sides. Existing bank and outline paths must explicitly reject
+or hide owned children until they can carry complete context. No partial group
+insert is allowed. Legacy flat section membership remains readable; new ordered
+units are enabled only with group-aware draft/snapshot readers.
+
+Down refuses to remove group storage after any group/unit write. With no such
+writes, the graph Down restores the pre-attachment indexes before returning to
+migration 36, so down-one/up works as well as a full reset. That rollback rebuild
+holds the ordinary DDL lock inside the transaction; it is a pre-enablement path,
+not a supported downgrade after group content exists. After enabling writes, keep
+a reader-capable binary and schema floor; disable new writes instead of dropping
+context. The guarded rollback and fresh up/down/up are tested in isolated Docker
+databases. No privilege changes touch append-only audit or attempt events.
+
+The W-07c internal repository materializes graphs atomically and resolves owned
+questions through a transaction-bound adapter. Legacy standalone APIs scope reads
+and writes to null ownership. First group mounting locks the test revision, locks
+legacy standalone members by ID, preserves their section ordinals and appends the
+group. Creation then locks all media IDs in stable order before writing members
+and bindings. Readback holds the group shared lock and verifies AST/relational
+asset equality. Group-aware update/delete must take its exclusive counterpart.
+
+Media soft deletion includes material, recording and owned-member references,
+including archived bank groups, under the existing asset row lock. The race tests
+observe actual PostgreSQL blocking and exercise both winner orders. These internal
+operations remain unexposed until complete draft/snapshot readers and lifecycle
+commands are present; new-unit readers must not fall back to legacy flat membership.
+
+W-07d extends the internal repository with revision-checked updates and lifecycle
+operations. Update locks the enclosing test first, the group FOR UPDATE, then
+owned questions by ID and incoming media by ID. It clears old material bindings,
+replaces members under deferred ordinal uniqueness, reconstructs validated
+bindings and increments the group revision in the same audited transaction.
+Question type and fixed/shuffle policy change in one statement so neither
+intermediate state violates the compatibility CHECK. Readback revalidates the
+complete graph before commit; any failure rolls everything back.
+
+Bank archival/restoration advances the same revision. Permanent deletion requires
+an archived bank group and removes materials, recordings and owned questions
+before the root; audit rows remain. Section removal instead requires both current
+revisions, removes its unit and compacts remaining unit ordinals under their
+deferrable constraint. Copies resolve one coherent source revision, remap all
+editable identities and create a new graph; no editable source FK is retained.
+
+
+## 20. Frozen group graph (W-08)
+
+Migrations 38–39 add snapshot-owned group context without altering historical
+question content or assigning old versions a group interpretation. The existing
+frozen question table retains grading keys, response identities and section-wide
+ordinals. A separate membership table binds those frozen questions to a group,
+with member order and option-order policy. This avoids nullable group ownership
+columns on the populated snapshot table and keeps the legacy read path intact.
+
+Migration 38 builds `(id,test_version_section_id)` uniquely and concurrently on
+`test_version_questions`. Migration 39 attaches that index and creates the graph.
+Composite foreign keys require every group member and ordered unit to belong to
+the same frozen section; material gap targets must be members of the same frozen
+group. Stable blank-gap targets reference the existing frozen blank identity pair.
+Question-type compatibility, complete unit/member coverage and AST binding
+bijections remain domain/repository invariants checked before freezing.
+
+| Table | Contract and reverse-reference access |
+| --- | --- |
+| `test_version_groups` | Snapshot section owns the root; title and semantic instructions; section index; no live source-group FK |
+| `test_version_group_members` | Same-section group/question links; unique question membership and ordered members; option-order policy |
+| `test_version_units` | Ordered standalone/group union; same-section links; unique unit position, question and group |
+| `test_version_group_stimuli` | Immutable ordered material content; group identity pair for scoped child links |
+| `test_version_group_gap_bindings` | Scoped stable gaps, same-group question targets and frozen blank-gap targets; unique response targets and reverse question index |
+| `test_version_group_recordings` | Independent recording identity, immutable policy/transcript and protected audio kind; reverse asset index |
+| `test_version_group_assets` | AST reference mirror, same-group recording and asset linkage; reverse media and recording indexes |
+
+Deleting an unused version cascades through its owned graph. Frozen blank targets
+use deferred NO ACTION to permit that whole-version cleanup while rejecting
+partial dangling targets. Physical media deletion is restricted by frozen graph
+references; soft deletion and the media library must include them under the same
+asset locks as publication. New snapshot graph tables revoke UPDATE from the app
+role; correcting published content creates another version. Audit and attempt
+event grants remain untouched.
+
+Down is for disposable/pre-enablement data only and refuses any frozen group or
+ordered-unit rows. The graph Down restores the index owned by migration 38 so
+an intermediate down/up has identical schema. Once group snapshots exist, keep
+these migrations and compatible readers even when authoring is disabled. No old
+version, attempt or shuffle seed is backfilled.
+
+Publication holds the parent test lock, then shared locks on all context roots
+and referenced question rows in stable ID order before loading prompts and child
+keys. This prevents a concurrent bank edit from mixing parent text from one
+revision with options/blanks from another. Group writes already require that
+parent lock. After validation, every member/material asset is locked once in
+stable ID order across the full test; section-local lock ordering is insufficient
+when tests share assets in different authored orders.
+
+The flattened frozen question ordinals remain the response/grading order, while
+`test_version_units` preserves grouping and `test_version_group_members` preserves
+member policy/order. Material and recording rows receive fresh UUIDv7 identities;
+gap targets are remapped to the frozen questions, with their stable prompt gap IDs
+retained. Version listening counts count each question once if it has own audio
+or any shared recording in its group. Frozen group references participate in
+media soft deletion and batched library usage lookups. W-09b extends student
+reachability only through protected material bindings on a version they have an
+attempt on; preview/attempt safe readers never select keys or transcripts.
+
+W-08b reads the frozen graph under its parent version lock and validates content,
+member ordering, grading inputs and AST/relational asset mirrors. Restoration
+locks the target test/version, clears its old owned draft graph, locks all snapshot
+assets in stable order and creates independent copies in one transaction. New
+gap identities are remapped through material and question documents together.
+Standalone snapshot questions remain ordinary independent bank copies, matching
+the previous restore behavior. Repeated restores delete replaced owned children;
+failed restores roll back that cleanup as well as every new row.
+
+Duplication holds the source test lock and takes referenced question locks in
+stable order before copying; it invokes the existing draft-use guard before every
+standalone reference insertion. These locks are exclusive from the start to avoid
+shared-to-exclusive lock upgrades between concurrent copies. All copied group
+assets are locked together before insertion. Source group graphs receive new
+editable IDs; standalone bank references keep their original duplication meaning.
+Whole-test deletion clears owned context only after version reference checks,
+with audit history preserved. Grouped draft/preview and learner read paths must
+still be integrated before authoring is enabled.
+
+## 21. Shared recording accounting (W-09c)
+
+`00040_create_group_audio_plays.sql` keeps the counter identity separate from the
+immutable asset. `attempt_group_audio_plays` has primary key `(attempt_id,
+recording_id)`, a positive integer count and last-play timestamp. The attempt owns
+the count through a cascading FK; the frozen recording is protected by RESTRICT.
+A recording-first index supports reverse references and teacher aggregation.
+
+`attempt_group_audio_receipts` has primary key `(attempt_id,play_id)`, the recording,
+reporting session and received timestamp. Its composite FK names the corresponding
+counter and cascades with that owned counter. An `(attempt_id,recording_id)` index
+supports that reverse reference. The application can insert/read receipts but
+cannot update/delete them; existing audit/event privileges are untouched.
+
+The shared-play transaction first takes the same attempt lock as autosave, resume
+and submission, checking owner, writable session, status and deadline. A relational
+join verifies the requested recording is bound to a material on that attempt's
+version. It then looks up the gesture receipt. A matching retry reads the current
+counter without another event; a different recording is refused. A new gesture
+increments via UPSERT, inserts its receipt and appends one `audio_play` event with
+group/recording/gesture identity and count/limit metadata. Server events retain a
+NULL client sequence, so they never collide with browser event sequences.
+
+READ COMMITTED is sufficient: the attempt row serializes shared-play writers with
+each other and with session/closure changes. The whole transaction rolls back if
+any of its three writes fails. Counters may exceed the frozen policy; monitoring
+reports that excess and never changes grading. No historical ledger is backfilled.
+Down restores the prior schema only while the new ledger is empty; populated
+listening evidence must survive disabling the feature.
+
+## 22. Frozen delivery algorithm (W-09d)
+
+`00041_version_test_delivery.sql` adds `test_versions.delivery_version`: non-null
+text defaulting to `section_v1`, checked against `section_v1` and `group_v1`.
+An enum would make future algorithm expansion/rollback harder; no index is needed
+because readers resolve by the existing version primary key. Legacy snapshots
+keep their marker, IDs and seeds. Prerelease snapshots with frozen group rows are
+classified by an indexed section/group existence join. This is metadata only;
+no questions, content, options, attempts or answers are rewritten.
+
+The publisher explicitly writes `group_v1` for new versions. Its standalone
+ordering is identical to the historical section algorithm. Attempt and result
+readers use `attempts.test_version_id`, never the test's selected default. The
+marker remains immutable through the same API boundary as all snapshot fields.
+Down refuses while any group-aware snapshot exists; otherwise it drops only the
+new column. Tests exercise both reversible empty schema and refusal with data.
+
+
+## 23. Private import sources (W-10a)
+
+Migration: `00042_create_word_import_sources.sql`. The only PG18-specific construct
+introduced is built-in [`uuidv7()`](https://www.postgresql.org/docs/18/functions-uuid.html).
+The Neon schema/isolation guidance was applied: text checks for evolving states,
+`bigint` revisions/byte counts, `timestamptz`, indexed foreign keys and explicit
+`ON DELETE RESTRICT`. No partitioning, learner-media link or audit privilege change.
+
+- `word_imports` holds actor-scoped create idempotency, title, lifecycle, optimistic
+  revision and nullable current source revision (wire zero before the first upload).
+  Its composite head FK points to a set owned by that same import. Recency/status
+  indexes serve history; immutable-unaccent trigram indexes serve Vietnamese title
+  and source-filename search. The creator/request unique also indexes the user FK.
+- `word_import_sources` is the durable upload journal and immutable original metadata.
+  Its import/upload unique pins replay identity; SHA-256 is not globally unique.
+  Every storage key has a row before Put. Readiness and completion revision agree via
+  CHECK, and the completion FK cannot name another import's set. Actor/import/revision
+  and pending-age indexes support quota, history and future cleanup inventory.
+- `word_import_source_sets` and `word_import_source_set_items` preserve every completed
+  source revision. The role primary key allows at most one exam and one answer key;
+  a composite source FK pins import, role and `ready=true`, rejecting pending bytes
+  and cross-import sources even if application validation is bypassed. The app role
+  cannot UPDATE/DELETE these histories, rewrite original metadata, or delete originals;
+  only source readiness/completion columns receive UPDATE. Reference-safe retention
+  will need its own explicitly reviewed maintenance operation.
+
+Create/reserve acquire advisory transaction lock `(73819,10)` before any parent row
+lock. This serializes global and actor quota reservations across API processes.
+Completion locks the import row and checks status/revision before atomically attaching
+one new source set and auditing the actor. Exact completed replay succeeds without
+advancing the head. A stale upload retains its tracked object reservation and quota.
+No storage call or package inspection runs inside a transaction. History/get reads
+use short repeatable-read transactions so a head and its source list agree.
+
+Local Docker verification uses the migration owner for fixture setup and the
+`quizzivy_app` role for intake, plus a separate private MinIO bucket. Up/down/up is
+verified on a disposable database. Automatic source retention remains undecided;
+this migration does not infer it from the integrity-event retention policy.
+
+
+## 24. Durable import runs (W-11a)
+
+Migration: `00043_create_word_import_runs.sql`. PG18
+[`SELECT … FOR UPDATE … SKIP LOCKED`](https://www.postgresql.org/docs/18/sql-select.html)
+is used only for queue allocation. [Transaction advisory locks](https://www.postgresql.org/docs/18/explicit-locking.html)
+serialize capacity accounting; durable state is in tables, never the lock itself.
+
+`word_import_runs` references an immutable source set belonging to its import.
+Request identity pins the source revision, expected import revision, pipeline and
+attempt budget. A partial unique index permits one active run per import; queue
+and expiry indexes support allocation/recovery, and actor/source indexes cover FKs.
+CHECKs couple lease/worker presence, terminal completion, ready stage and private
+result presence to lifecycle state. Results are bounded JSON objects, not arbitrary
+SQL or learner payloads. Application column grants protect request/source identity;
+a terminal-state trigger prevents later result/history mutation.
+
+`word_import_run_events` references the run and its same import through a composite
+FK. It contains ordered operational identifiers/codes only. The app role can insert
+and read but cannot update or delete events. Actor and run indexes cover lookups and
+references. Existing `audit_log`/`attempt_events` grants are unchanged.
+
+Lock order is advisory `(73819,11)` when allocating/renewing capacity, then parent
+import, then run. Other transitions start at the parent and never acquire the queue
+advisory lock later. Eligibility is re-read after locking the parent; snapshots from
+joined candidate selection do not authorize a stale lease. Processing and storage
+calls run after commit. Cancellation increments the fence and competes with success
+on the same parent, preventing a cancelled worker from completing the import.
+
+There are at most 50 requests per import and ten attempts per request. Stage writes
+are monotonic within an attempt and repeated stages are no-ops, bounding run-event
+history without truncating it. Down removes events before runs and their guard
+function. Docker up/down/up checks run on a disposable database.
+
+
+## 25. Private stage artifacts (W-13b)
+
+Migration: `00044_create_word_import_artifacts.sql`. `word_import_artifact_sets`
+pins one bounded output manifest to its producing run/claim and immutable source
+set item. Composite FKs enforce same-import run/source revision, source role and
+source identity. Component identity includes processor configuration and upstream
+artifact lineage; reuse additionally requires the same pipeline version.
+
+`word_import_artifacts` journals each private object before storage. Generated
+keys include import/set/file identity, and every takeover receives new writable
+keys. Unique ordinal/name constraints prevent ambiguous manifests. The manifest
+has at most 512 files, 64 MiB per file and 256 MiB total; compact application
+metadata is limited to 60 KiB (128 KiB JSONB allowance for representation spacing).
+These are internal development bounds, not the approved production envelope.
+
+Reservations take quota advisory lock `(73819,10)`, then parent import and run.
+Pending and ready set bytes count towards separate actor/global artifact limits;
+sets per import are also bounded. Storage and checksum IO happen after commit.
+Every acknowledgement/completion requires the live source/worker/fencing claim.
+Completed set reads need no mutable snapshot because completed files and metadata
+cannot change. Only complete sets are reusable, including across explicit retries;
+old incomplete sets remain tracked and charged. No retention decision is inferred.
+
+Column grants prevent metadata rewrites and deletion. Triggers reject completed
+row mutation, file additions to completed sets, out-of-plan ordinals and incomplete
+set completion. Parent/run/source and lookup indexes support reverse references,
+reuse and pending inventory. Existing append-only audit/event permissions remain
+unchanged. Down drops owned files before sets and removes the new FK target keys.
+
+Object persistence uses [conditional S3 creation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html)
+with a SHA-256 checksum. Exact lost-response replay verifies the stored checksum,
+size and MIME type using [HeadObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html).
+Incompatible storage implementations fail closed; production provider compatibility
+is a W-21 gate. Trusted processor reads stage on disk and verify size/digest before
+parsing. A stage manifest grants no learner media authorization.
+
+
+## 26. Review drafts and commits (W-18, W-20)
+
+Migrations: `00045_create_word_import_drafts.sql`, `00046_create_word_import_commits.sql`,
+`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`.
+
+`word_import_drafts` holds exactly one review copy per import (the primary key is the
+import). `revision` is the optimistic-concurrency token for teacher saves: an update
+names the revision it read and matches zero rows otherwise. `run_id` is the run whose
+extraction the draft's source references point into, so the source view and the draft
+always describe the same evidence. A run that completes while `edited_by` is null
+replaces the body and bumps the revision; once a teacher has saved, a newer machine
+draft is kept in `candidate`/`candidate_run_id` and never overwrites the edits. The
+body is bounded to 8 MiB as JSONB. The application role may update drafts but not
+delete them; draft saves are not audited individually because autosave would flood
+the log.
+
+`word_import_commits` is append-only (no UPDATE or DELETE for the application role)
+and has one row per import. It records the request identity, the committed draft
+revision and its SHA-256 digest. The commit runs in one transaction with the test,
+section, bank question and group writes it describes, after locking the import row
+`FOR UPDATE`; a second concurrent commit waits on that lock, finds the import already
+committed and rolls back its own writes, and a replay with the same request identity
+returns the recorded test. `test_id` is `ON DELETE SET NULL` so deleting the created
+test later is not blocked by import history.
+
+`word_import_runs.profile` stores the recognition profile (for example the paper to
+read from a multi-paper answer key) so a replayed schedule request must match it.
+Adding the column with a constant default is metadata-only on PG18. The source
+`format` check now admits `doc`; its Down restores the `docx`-only check `NOT VALID`
+so rows written meanwhile do not block the rollback.
+
+`00049` replaces the bank group index on `id DESC` with `(updated_at DESC, id DESC)`
+under the same predicate, which is the order the listing actually uses.

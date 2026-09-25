@@ -47,6 +47,7 @@ type UpdateInput struct {
 	Status            *Status
 	Sections          []SectionInput
 	SetSections       bool
+	GroupOutline      bool
 }
 
 // SectionInput is one section of a whole-outline write. An empty ID creates.
@@ -55,6 +56,8 @@ type SectionInput struct {
 	Title        string
 	Instructions *string
 	QuestionIDs  []string
+	Units        []SectionUnit
+	SetUnits     bool
 }
 
 // DuplicateInput copies a test's draft structure.
@@ -105,6 +108,7 @@ func (in UpdateInput) Validate() error {
 			seen[id] = true
 		}
 	}
+	errs = append(errs, validateMixedOutline(in)...)
 
 	if len(errs) > 0 {
 		return &ValidationError{Fields: errs}

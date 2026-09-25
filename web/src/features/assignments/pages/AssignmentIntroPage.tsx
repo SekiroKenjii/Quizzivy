@@ -57,7 +57,14 @@ export default function AssignmentIntroPage() {
       maxAttempts: a.maxAttempts,
       review: a.review,
       integrity: a.integrity,
-      ...(a.hasAudio ? { audio: { maxPlays: a.audioMaxPlays ?? null } } : {}),
+      ...(a.hasAudio
+        ? {
+            audio: {
+              maxPlays: a.audioMaxPlays ?? null,
+              shared: a.hasSharedAudio ?? false,
+            },
+          }
+        : {}),
     },
     t,
   );

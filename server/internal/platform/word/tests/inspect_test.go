@@ -302,3 +302,27 @@ func BenchmarkInspectFiftyQuestionSource(b *testing.B) {
 		}
 	}
 }
+
+func TestAnUnmatchedFieldEndDoesNotMarkEarlierParagraphs(t *testing.T) {
+	body := `<w:p><w:r><w:t>Question 1</w:t></w:r></w:p><w:p><w:r><w:fldChar w:fldCharType="end"/></w:r><w:r><w:t>Question 2</w:t></w:r></w:p>`
+	data := pack(t, baseEntries(body))
+	got, err := word.Extract(context.Background(), bytes.NewReader(data), int64(len(data)), "sha256:x", word.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range got.Blocks {
+		if b.Kind == "paragraph" && b.Paragraph != nil && slices.Contains(b.ReviewReasons, "FIELD_REQUIRES_REVIEW") && strings.Contains(paragraphText(b), "Question 1") {
+			t.Fatal("paragraph before an unmatched field end marked as a field")
+		}
+	}
+}
+
+func paragraphText(b word.SourceBlock) string {
+	var out strings.Builder
+	for _, r := range b.Paragraph.Runs {
+		for _, f := range r.Fragments {
+			out.WriteString(f.Text)
+		}
+	}
+	return out.String()
+}
