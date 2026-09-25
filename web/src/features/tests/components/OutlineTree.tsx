@@ -53,6 +53,7 @@ import {
   findUnit,
   moveUnit,
   removeUnit,
+  sectionQuestionIds,
   stepUnit,
   unitKey,
   unitsOf,
@@ -179,8 +180,7 @@ export function OutlineTree({
   function remove(index: number) {
     setRemoving(null);
     setClientKeys(clientKeys.filter((_, i) => i !== index));
-    if (onRemoveSection) onRemoveSection(index);
-    else onChange(sections.filter((_, i) => i !== index));
+    onChange(sections.filter((_, i) => i !== index));
   }
 
   function move(index: number, direction: -1 | 1) {
@@ -251,8 +251,13 @@ export function OutlineTree({
                   onInstructions={() => setInstructing(sectionIndex)}
                   onMove={(direction) => move(sectionIndex, direction)}
                   onRemove={() => {
-                    if (onRemoveSection) onRemoveSection(sectionIndex);
-                    else if (unitsOf(section).length === 0) remove(sectionIndex);
+                    const units = unitsOf(section);
+                    if (units.length === 0) remove(sectionIndex);
+                    else if (
+                      onRemoveSection &&
+                      units.some((unit) => unit.kind === "group")
+                    )
+                      onRemoveSection(sectionIndex);
                     else setRemoving(sectionIndex);
                   }}
                 />
@@ -764,15 +769,4 @@ function toggle(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
 
 function titleOf(label: string, t: TFunction): string {
   return label === "" ? t("builder.untitledQuestion") : label;
-}
-
-function sectionQuestionIds(
-  section: OutlineSection,
-  groups: Map<string, GroupBundle>,
-): string[] {
-  return unitsOf(section).flatMap((unit) =>
-    unit.kind === "question"
-      ? [unit.id]
-      : (groups.get(unit.id)?.group.members.map((member) => member.questionId) ?? []),
-  );
 }

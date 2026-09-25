@@ -1,3 +1,4 @@
+import type { GroupBundle } from "@/features/question-groups/api";
 import type { MixedOutlineSection, Test } from "./api";
 import type { OutlineSection, QuestionAt } from "./outline";
 
@@ -9,6 +10,17 @@ export function unitKey(unit: OutlineUnit): string {
 
 export function unitsOf(section: OutlineSection): OutlineUnit[] {
   return section.units ?? section.questionIds.map((id) => ({ kind: "question", id }));
+}
+
+export function sectionQuestionIds(
+  section: OutlineSection,
+  groups: Map<string, GroupBundle>,
+): string[] {
+  return unitsOf(section).flatMap((unit) =>
+    unit.kind === "question"
+      ? [unit.id]
+      : (groups.get(unit.id)?.group.members.map((member) => member.questionId) ?? []),
+  );
 }
 
 export function withUnits(

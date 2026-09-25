@@ -66,6 +66,7 @@ import {
   findUnit,
   groupOwners,
   reconcileSections,
+  sectionQuestionIds,
   unitsOf,
   withUnits,
 } from "../outlineUnits";
@@ -513,6 +514,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     return index < 0 ? sections.length - 1 : index;
   }
 
+  const doomedSection =
+    removing && "sectionIndex" in removing
+      ? sections[removing.sectionIndex]
+      : undefined;
+
   async function removeContent() {
     if (!removing) return;
     setCreating(true);
@@ -810,8 +816,18 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && !creating && setRemoving(null)}
-        title={t("builder.removeGroupTitle")}
-        description={t("builder.removeGroupBody")}
+        title={
+          doomedSection
+            ? t("builder.removeSectionTitle", { title: doomedSection.title })
+            : t("builder.removeGroupTitle")
+        }
+        description={
+          doomedSection
+            ? t("builder.removeSectionWithGroupsBody", {
+                count: sectionQuestionIds(doomedSection, groups).length,
+              })
+            : t("builder.removeGroupBody")
+        }
         confirmLabel={t("common.delete")}
         destructive
         pending={creating}

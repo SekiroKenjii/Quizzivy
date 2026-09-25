@@ -66,7 +66,7 @@ func setup(t *testing.T) intake {
 		t.Fatal(err)
 	}
 	repo := repositories.NewPostgres(db.NewContext(conn))
-	app := application.New(repo, store, adapters.ImportInspector{}, t.TempDir(), domain.DefaultQuotas())
+	app := application.New(application.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, WorkDir: t.TempDir(), Quotas: domain.DefaultQuotas()})
 	issuer, err := identitytoken.NewIssuer([]byte(strings.Repeat("k", 32)), time.Minute)
 	if err != nil {
 		t.Fatal(err)
