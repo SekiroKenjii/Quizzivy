@@ -1,19 +1,24 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 )
 
 type Question struct {
-	ID        string
-	SectionID string
-	Type      string
-	Prompt    string
-	Points    float64
-	Media     *Media
-	Audio     *AudioPolicy
-	Options   []Option
-	Blanks    []Blank
+	GroupID          string
+	GroupOrdinal     int
+	FixedOptionOrder bool
+	PromptContent    json.RawMessage
+	ID               string
+	SectionID        string
+	Type             string
+	Prompt           string
+	Points           float64
+	Media            *Media
+	Audio            *AudioPolicy
+	Options          []Option
+	Blanks           []Blank
 }
 
 // Section is one part of the paper in test order; Instructions is the
@@ -29,11 +34,13 @@ type Section struct {
 // key is to have nowhere to put one (§13.5). CaseSensitive stays because it is
 // the rule the student is graded by, not the key.
 type Option struct {
-	ID   string
-	Text string
+	Content json.RawMessage
+	ID      string
+	Text    string
 }
 
 type Blank struct {
+	GapID         *string
 	ID            string
 	Ordinal       int
 	CaseSensitive bool

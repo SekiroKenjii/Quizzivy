@@ -74,6 +74,86 @@ async function start(page: Page, data: Session = paper()) {
   await expect(page.getByRole("radio", { name: "Đáp án A" })).toBeVisible();
 }
 
+test("rich table blanks preserve frozen answer bindings and reload on a 320px phone", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 320, height: 850 });
+  const data = paper();
+  data.questions[1] = {
+    id: "q2",
+    sectionId: "part",
+    type: "fill_blank",
+    points: 2,
+    prompt: "[2]\t[1]",
+    promptContent: {
+      format: "semantic_v1",
+      blocks: [
+        {
+          type: "table",
+          rows: [
+            [
+              {
+                header: false,
+                rowSpan: 1,
+                colSpan: 1,
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "gap", id: "gap-b", label: "2" }],
+                  },
+                ],
+              },
+              {
+                header: false,
+                rowSpan: 1,
+                colSpan: 1,
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "gap", id: "gap-a", label: "1" }],
+                  },
+                ],
+              },
+            ],
+          ],
+        },
+      ],
+    },
+    blanks: [
+      { id: "frozen-a", gapId: "gap-a", ordinal: 1, caseSensitive: false },
+      { id: "frozen-b", gapId: "gap-b", ordinal: 2, caseSensitive: false },
+    ],
+  };
+  await start(page, data);
+  await page.route("**/app/attempts/paper/answers", async (route) => {
+    const payload = route.request().postDataJSON() as { answers?: Session["answers"] };
+    data.answers = { ...data.answers, ...payload.answers };
+    await route.fulfill({
+      json: { serverTime: data.serverTime, savedAt: data.serverTime },
+    });
+  });
+  await page.getByRole("button", { name: "Câu sau", exact: true }).click();
+  const first = page.getByRole("textbox", { name: "Chỗ trống 1", exact: true });
+  const second = page.getByRole("textbox", { name: "Chỗ trống 2", exact: true });
+  await first.fill("one");
+  await second.fill("two");
+  await expect
+    .poll(() => data.answers["q2"])
+    .toEqual({ type: "fill_blank", values: { "frozen-a": "one", "frozen-b": "two" } });
+  await expect(page.locator("table input").first()).toHaveValue("two");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await page.reload();
+  await page.getByRole("button", { name: "Câu sau", exact: true }).click();
+  await expect(first).toHaveValue("one");
+  await expect(second).toHaveValue("two");
+  await page.screenshot({
+    path: info.outputPath("rich-blank-learner-320.png"),
+    fullPage: true,
+  });
+});
+
 for (const width of [320, 360, 1024, 1440]) {
   test(`student keyboard and fill-blank at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 850 });

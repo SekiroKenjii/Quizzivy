@@ -20,6 +20,8 @@ const (
 	MaxColumns = 12
 )
 
+const semanticFormat = "semantic_v1"
+
 // ErrInvalidDocument rejects invalid or over-budget content without exposing its text.
 var ErrInvalidDocument = errors.New("invalid content document")
 

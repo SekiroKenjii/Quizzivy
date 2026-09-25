@@ -1,3 +1,5 @@
+import { gapBindingsMatch } from "@/components/shared/content/gaps";
+import { isQuestionPromptContent } from "@/components/shared/content/questionContent";
 import type { TFunction } from "i18next";
 import type { AdminQuestion } from "@/features/question-bank/api";
 import {
@@ -18,12 +20,15 @@ export function publishProblem(question: AdminQuestion, t: TFunction): string | 
     if (blanks.some((blank) => blank.acceptedAnswers.length === 0))
       return t("builder.blankAnswerRequired");
     if (
-      hasMismatch(
-        comparePlaceholders(
-          question.prompt,
-          blanks.map((blank) => blank.ordinal),
-        ),
-      )
+      question.promptContent != null
+        ? !isQuestionPromptContent(question.promptContent) ||
+          !gapBindingsMatch(question.promptContent, blanks)
+        : hasMismatch(
+            comparePlaceholders(
+              question.prompt,
+              blanks.map((blank) => blank.ordinal),
+            ),
+          )
     )
       return t("builder.blankMismatch");
   }

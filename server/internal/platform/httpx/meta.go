@@ -13,6 +13,7 @@ const metaKey ctxKey = 1
 type RequestMeta struct {
 	IP        string
 	UserAgent string
+	Language  string
 }
 
 // WithRequestMeta records the client address and user agent.
@@ -22,6 +23,7 @@ func WithRequestMeta(clientIP func(*http.Request) string) func(http.Handler) htt
 			meta := RequestMeta{
 				IP:        clientIP(r),
 				UserAgent: r.UserAgent(),
+				Language:  r.Header.Get("Accept-Language"),
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), metaKey, meta)))
 		})

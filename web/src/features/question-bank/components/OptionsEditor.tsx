@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { OptionField } from "./OptionField";
 import type { QuestionValues } from "@/features/question-bank/questionSchema";
 
 type Option = QuestionValues["options"][number];
@@ -27,6 +28,7 @@ export function OptionsEditor({
   onChange,
 }: Readonly<OptionsEditorProps>) {
   const { t } = useTranslation();
+  const [editorEpoch, setEditorEpoch] = useState(0);
 
   function setCorrect(index: number, correct: boolean) {
     onChange(
@@ -53,22 +55,26 @@ export function OptionsEditor({
 
       <div className="space-y-2">
         {options.map((option, index) => (
-          <div key={index} className="flex items-center gap-2.5">
+          <div
+            key={option.id ?? `${editorEpoch}-${index}`}
+            className="flex items-start gap-2.5"
+          >
             <input
               type={multiple ? "checkbox" : "radio"}
               name="question-option"
               checked={option.isCorrect}
               onChange={(event) => setCorrect(index, event.target.checked)}
               aria-label={t("questionEditor.optionPlaceholder", { n: index + 1 })}
-              className="border-input accent-foreground size-4 shrink-0"
+              className="border-input accent-foreground mt-2.5 size-4 shrink-0"
             />
-            <Input
-              value={option.text}
-              placeholder={t("questionEditor.optionPlaceholder", { n: index + 1 })}
-              onChange={(event) =>
+            <OptionField
+              text={option.text}
+              content={option.content ?? null}
+              index={index}
+              onChange={(text, content) =>
                 onChange(
                   options.map((current, i) =>
-                    i === index ? { ...current, text: event.target.value } : current,
+                    i === index ? { ...current, text, content } : current,
                   ),
                 )
               }
@@ -79,7 +85,10 @@ export function OptionsEditor({
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t("questionEditor.removeOptionN", { n: index + 1 })}
-                onClick={() => onChange(options.filter((_, i) => i !== index))}
+                onClick={() => {
+                  setEditorEpoch((epoch) => epoch + 1);
+                  onChange(options.filter((_, i) => i !== index));
+                }}
               >
                 <Trash2 aria-hidden="true" />
               </Button>

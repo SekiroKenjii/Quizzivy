@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useGroupPlaybackStore } from "./groupPlayback";
 import { clearDraft, readDraft, writeDraft } from "./draft";
 import {
   drain as drainEvents,
@@ -16,6 +17,7 @@ import {
   type IntegrityPolicy,
   type StudentQuestion,
   type StudentSection,
+  type StudentGroup,
 } from "./api";
 
 /** Why the paper is no longer writable. Null while the student is working. */
@@ -40,6 +42,7 @@ interface TakeTestState {
   questions: StudentQuestion[];
   /** In test order; questions never interleave two of them (S-08's rail). */
   sections: StudentSection[];
+  groups: StudentGroup[];
   testTitle: string;
   remainingAttempts: number;
   answers: Record<string, Answer>;
@@ -94,6 +97,7 @@ const initial = {
   beaconToken: "",
   questions: [] as StudentQuestion[],
   sections: [] as StudentSection[],
+  groups: [] as StudentGroup[],
   testTitle: "",
   remainingAttempts: 0,
   answers: {} as Record<string, Answer>,
@@ -154,6 +158,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         beaconToken: session.beaconToken,
         questions: session.questions,
         sections: session.sections,
+        groups: session.groups ?? [],
         testTitle: session.testTitle,
         remainingAttempts: session.remainingAttempts ?? 0,
         answers,
@@ -172,6 +177,9 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         lock: lockFor(session),
       };
     });
+    useGroupPlaybackStore
+      .getState()
+      .hydrate(session, (reason) => get().lockNow(reason));
   },
 
   toggleFlag: (questionId) => {
@@ -308,6 +316,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         set({ submitState: "idle" });
         return;
       }
+      if (!(await flushSharedBeforeSubmit(epoch))) return;
       const attempt = await submitAttempt(attemptId, { reason });
       if (generation !== epoch) return;
       set({
@@ -339,6 +348,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
   },
 
   reset: (options) => {
+    useGroupPlaybackStore.getState().reset(options?.keepDraft);
     if (options?.keepDraft !== true && get().attemptId !== null)
       clearDraft(get().attemptId!);
     generation += 1;
@@ -387,6 +397,8 @@ export function cancelDeadline() {
 }
 
 useTakeTestStore.subscribe((state, previous) => {
+  if (state.lock !== null && state.lock !== previous.lock)
+    useGroupPlaybackStore.getState().lockNow(state.lock);
   if (
     state.attemptId !== null &&
     state.studentId !== null &&
@@ -504,4 +516,14 @@ function persistPending(state: TakeTestState) {
     state.deadlineAt,
     pending,
   );
+}
+
+async function flushSharedBeforeSubmit(epoch: number): Promise<boolean> {
+  await useGroupPlaybackStore.getState().flush();
+  if (generation !== epoch) return false;
+  if (useTakeTestStore.getState().lock === "superseded") {
+    useTakeTestStore.setState({ submitState: "idle" });
+    return false;
+  }
+  return true;
 }

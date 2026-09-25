@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import Ajv from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { loadSpec, propertyNames, SPEC_PATH } from "@tests/support/openapi";
-import { CONTENT_LIMITS } from "@/components/shared/content/model";
+import { ASSET_TEXT_LIMITS, CONTENT_LIMITS } from "@/components/shared/content/model";
 import { validateContent } from "@/components/shared/content/validation";
 import { contentPlainText } from "@/components/shared/content/plainText";
 
@@ -42,6 +42,10 @@ test("content budget constants match the contract", () => {
   expect(CONTENT_LIMITS).toEqual(
     doc.components.schemas.ContentDocument["x-content-limits"],
   );
+  expect(ASSET_TEXT_LIMITS).toEqual({
+    image: doc.components.schemas.ContentImage.properties.alt.maxLength,
+    audio: doc.components.schemas.ContentAudio.properties.label.maxLength,
+  });
 });
 
 test("content vocabulary carries no answer keys or provenance", () => {
@@ -51,6 +55,7 @@ test("content vocabulary carries no answer keys or provenance", () => {
     "acceptedAnswers",
     "sampleAnswer",
     "transcript",
+    "transcripts",
     "sourcePath",
     "teacherNote",
   ])

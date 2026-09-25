@@ -49,6 +49,8 @@ tags:
   - name: auth
   - name: admin-tests
   - name: admin-questions
+  - name: admin-imports
+    description: Private Word source intake and durable import review.
   - name: admin-media
   - name: admin-assignments
   - name: admin-attempts
@@ -400,14 +402,27 @@ components:
         - RESOURCE_NOT_ARCHIVED
         - VERSION_IS_CURRENT
         - TEST_NOT_PUBLISHED
+        - TEST_ARCHIVED
+        - GROUP_OUTLINE_REQUIRED
+        - GROUP_CONFLICT
         - PUBLISH_VALIDATION_FAILED
         - STALE_WRITE
+        - PLAY_ID_CONFLICT
         - QUESTION_REFERENCED
         - MEDIA_REFERENCED
         - MEDIA_TYPE_UNSUPPORTED
         - MEDIA_TOO_LARGE
         - MEDIA_TOO_LONG
         - MEDIA_UNREADABLE
+        # Word imports
+        - IMPORT_CONFLICT
+        - IMPORT_QUOTA_EXCEEDED
+        - IMPORT_BUSY
+        - IMPORT_SOURCE_INVALID
+        - IMPORT_SOURCE_TOO_LARGE
+        - IMPORT_SOURCE_UNSUPPORTED
+        - IMPORT_NOT_READY
+        - IMPORT_NOT_PROCESSED
         # attempts
         - ASSIGNMENT_NOT_OPEN
         - ASSIGNMENT_NOT_CLOSED
@@ -470,6 +485,440 @@ components:
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer, minimum: 0 }
+
+    ImportStatus:
+      type: string
+      enum: [awaiting_sources, queued, processing, needs_review, committing, committed, failed, cancelled]
+    ImportSourceRole:
+      type: string
+      enum: [exam, answer_key]
+    ImportSource:
+      type: object
+      additionalProperties: false
+      required: [id, role, filename, format, bytes, sha256, uploadedBy, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        role: { $ref: '#/components/schemas/ImportSourceRole' }
+        filename: { type: string, minLength: 1, maxLength: 255 }
+        format: { type: string, enum: [docx, doc] }
+        bytes: { type: integer, format: int64, minimum: 1, maximum: 26214400 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        uploadedBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+    WordImport:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt]
+      description: |
+        Shared teacher scope within this installation, with creator attribution.
+        Sources are private originals, never learner media. Source revision zero
+        means no completed source set. Upload completion does not mean recognition.
+        Pending uploads are durable reservations and cannot be downloaded or processed.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        sourceRevision: { type: integer, format: int64, minimum: 0 }
+        sources:
+          type: array
+          maxItems: 2
+          items: { $ref: '#/components/schemas/ImportSource' }
+        pendingUploads: { type: integer, minimum: 0 }
+        createdBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        run: { $ref: '#/components/schemas/ImportRun' }
+        draftRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Zero until processing has produced a reviewable draft.
+        testId:
+          $ref: '#/components/schemas/Uuid'
+          description: The draft test created by commit.
+    ImportRun:
+      type: object
+      additionalProperties: false
+      required: [id, status, stage, attempt, maxAttempts, createdAt, updatedAt]
+      description: The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        stage: { type: string, enum: [queued, source_validation, normalization, extraction, recognition, validation, ready] }
+        attempt: { type: integer, minimum: 0 }
+        maxAttempts: { type: integer, minimum: 1 }
+        errorCode: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,99}$' }
+        keyPaper: { type: integer, minimum: 1, maximum: 999 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    CreateWordImport:
+      type: object
+      additionalProperties: false
+      required: [requestId, title]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: Scoped to the actor; replay with the same title returns the same import, changed title conflicts.
+        title: { type: string, minLength: 1, maxLength: 200, pattern: '\S' }
+    ImportUploadReceipt:
+      type: object
+      additionalProperties: false
+      required: [import, source, sourceRevision]
+      properties:
+        import: { $ref: '#/components/schemas/WordImport' }
+        source: { $ref: '#/components/schemas/ImportSource' }
+        sourceRevision: { type: integer, format: int64, minimum: 1 }
+    ImportSourceDownload:
+      type: object
+      additionalProperties: false
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+
+    ImportLimits:
+      type: object
+      additionalProperties: false
+      required: [maxBytes, formats]
+      properties:
+        maxBytes: { type: integer, format: int64, minimum: 1 }
+        formats:
+          type: array
+          description: Accepted file extensions; doc appears only when legacy conversion is enabled.
+          items: { type: string, enum: [docx, doc] }
+    ProcessWordImport:
+      type: object
+      additionalProperties: false
+      required: [requestId, expectedRevision]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: Replaying the same request returns the same run.
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        keyPaper:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: Paper number to read from an answer-key file that holds several papers.
+    CancelWordImport:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision]
+      properties:
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+    CommitWordImport:
+      type: object
+      additionalProperties: false
+      required: [requestId, draftRevision]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: Replaying a committed request returns the same test.
+        draftRevision: { type: integer, format: int64, minimum: 1 }
+    ImportCommitResult:
+      type: object
+      additionalProperties: false
+      required: [testId, import]
+      properties:
+        testId: { $ref: '#/components/schemas/Uuid' }
+        import: { $ref: '#/components/schemas/WordImport' }
+    ImportSourceRef:
+      type: object
+      additionalProperties: false
+      required: [sourceId, blockId, start, end]
+      description: Unicode code point range of one extracted source block.
+      properties:
+        sourceId: { type: string, minLength: 1, maxLength: 128 }
+        blockId: { type: string, minLength: 1, maxLength: 200 }
+        start: { type: integer, minimum: 0 }
+        end: { type: integer, minimum: 0 }
+        generatedLabel: { type: boolean }
+    ImportOrigin:
+      type: string
+      enum: [source_explicit, inferred_structure, defaulted, teacher_entered]
+    ImportFinding:
+      type: object
+      additionalProperties: false
+      required: [id, code, severity, count, evidence]
+      description: |
+        One actionable observation. blocking must be fixed by an edit;
+        review_required needs a teacher decision (an edit or an acknowledgement);
+        informational needs nothing.
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,99}$' }
+        severity: { type: string, enum: [blocking, review_required, informational] }
+        target: { type: string, maxLength: 128 }
+        field: { type: string, maxLength: 200 }
+        count: { type: integer, minimum: 1 }
+        acknowledged: { type: boolean }
+        evidence:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportKeyValue:
+      type: object
+      additionalProperties: false
+      required: [value, evidence]
+      properties:
+        value: { type: string, maxLength: 10000 }
+        evidence:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportDraftAnswer:
+      type: object
+      additionalProperties: false
+      required: [state, optionIds, evidence]
+      description: |
+        unknown means the source has no key; it is never a set of false options.
+        Choice keys are optionIds, a short answer's sample is text, fill-blank
+        keys live on blanks. conflict keeps every source value in candidates.
+      properties:
+        state: { type: string, enum: [known, unknown, conflict] }
+        optionIds:
+          type: array
+          maxItems: 26
+          items: { type: string, maxLength: 64 }
+        text: { type: string, maxLength: 10000 }
+        evidence:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+        candidates:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/ImportKeyValue' }
+    ImportDraftOption:
+      type: object
+      additionalProperties: false
+      required: [id, label, content]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        label: { type: string, minLength: 1, maxLength: 8 }
+        content: { $ref: '#/components/schemas/ContentDocument' }
+    ImportDraftBlank:
+      type: object
+      additionalProperties: false
+      required: [gapId, accepted, caseSensitive]
+      properties:
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        label: { type: string, maxLength: 32 }
+        accepted:
+          type: array
+          maxItems: 20
+          items: { type: string, minLength: 1, maxLength: 500 }
+        caseSensitive: { type: boolean }
+    ImportFieldOrigins:
+      type: object
+      additionalProperties: false
+      required: [type, prompt, options, answer, points]
+      properties:
+        type: { $ref: '#/components/schemas/ImportOrigin' }
+        prompt: { $ref: '#/components/schemas/ImportOrigin' }
+        options: { $ref: '#/components/schemas/ImportOrigin' }
+        answer: { $ref: '#/components/schemas/ImportOrigin' }
+        points: { $ref: '#/components/schemas/ImportOrigin' }
+    ImportDraftQuestion:
+      type: object
+      additionalProperties: false
+      required: [id, label, type, prompt, options, blanks, answer, points, origins, source]
+      description: unsupported marks content no interaction can represent; it must be retyped or excluded.
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        label: { type: string, maxLength: 32 }
+        task: { type: string, maxLength: 32 }
+        type: { type: string, enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer, unsupported] }
+        prompt: { $ref: '#/components/schemas/ContentDocument' }
+        options:
+          type: array
+          maxItems: 26
+          items: { $ref: '#/components/schemas/ImportDraftOption' }
+        blanks:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/ImportDraftBlank' }
+        answer: { $ref: '#/components/schemas/ImportDraftAnswer' }
+        points: { type: string, pattern: '^\d{1,6}(\.\d{1,2})?$' }
+        excluded:
+          type: object
+          additionalProperties: false
+          required: [reason]
+          properties:
+            reason: { type: string, minLength: 1, maxLength: 500 }
+        origins: { $ref: '#/components/schemas/ImportFieldOrigins' }
+        source:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportGapLink:
+      type: object
+      additionalProperties: false
+      required: [gapId, questionId]
+      description: Binds a passage gap to a choice question, or to one blank of a fill-blank question.
+      properties:
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        questionId: { type: string, minLength: 1, maxLength: 64 }
+        blankGapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+    ImportDraftGroup:
+      type: object
+      additionalProperties: false
+      required: [id, gaps, questions, source]
+      description: Questions sharing one passage; the passage gaps bind to members by stable IDs.
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        label: { type: string, maxLength: 32 }
+        instructions: { type: string, maxLength: 2000 }
+        stimulus: { $ref: '#/components/schemas/ContentDocument' }
+        gaps:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportGapLink' }
+        questions:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportDraftQuestion' }
+        source:
+          type: array
+          maxItems: 2000
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportDraftItem:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      maxProperties: 1
+      description: Exactly one of question or group.
+      properties:
+        question: { $ref: '#/components/schemas/ImportDraftQuestion' }
+        group: { $ref: '#/components/schemas/ImportDraftGroup' }
+    ImportDraftSection:
+      type: object
+      additionalProperties: false
+      required: [id, title, origin, items, source]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        instructions: { type: string, maxLength: 2000 }
+        origin: { $ref: '#/components/schemas/ImportOrigin' }
+        items:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/ImportDraftItem' }
+        source:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportDraft:
+      type: object
+      additionalProperties: false
+      required: [version, title, sections, notices, acknowledged]
+      description: The reviewable exam. Notices are source observations and are kept by the server; edits never change them.
+      properties:
+        version: { type: string, enum: [word-draft-v1] }
+        title: { type: string, maxLength: 200 }
+        sections:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/ImportDraftSection' }
+        notices:
+          type: array
+          maxItems: 2000
+          items: { $ref: '#/components/schemas/ImportFinding' }
+        acknowledged:
+          type: array
+          maxItems: 2000
+          items: { type: string, minLength: 1, maxLength: 64 }
+    ImportReviewSummary:
+      type: object
+      additionalProperties: false
+      required: [sections, groups, questions, included, excluded, totalPoints, answersKnown, answersMissing, answersConflicting, blocking, needsDecision]
+      properties:
+        sections: { type: integer, minimum: 0 }
+        groups: { type: integer, minimum: 0 }
+        questions: { type: integer, minimum: 0 }
+        included: { type: integer, minimum: 0 }
+        excluded: { type: integer, minimum: 0 }
+        totalPoints: { type: string }
+        answersKnown: { type: integer, minimum: 0 }
+        answersMissing: { type: integer, minimum: 0 }
+        answersConflicting: { type: integer, minimum: 0 }
+        blocking: { type: integer, minimum: 0 }
+        needsDecision: { type: integer, minimum: 0 }
+    ImportReview:
+      type: object
+      additionalProperties: false
+      required: [importId, revision, draft, findings, summary, ready, reprocessed, updatedAt]
+      description: |
+        The draft with every current finding. ready is true only when nothing blocks
+        and every review_required finding has a decision. reprocessed means a newer
+        machine draft exists that has not replaced the teacher's edits.
+      properties:
+        importId: { $ref: '#/components/schemas/Uuid' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        draft: { $ref: '#/components/schemas/ImportDraft' }
+        findings:
+          type: array
+          maxItems: 5000
+          items: { $ref: '#/components/schemas/ImportFinding' }
+        summary: { $ref: '#/components/schemas/ImportReviewSummary' }
+        ready: { type: boolean }
+        reprocessed: { type: boolean }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    SaveImportReview:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision, title, sections, acknowledged]
+      properties:
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        title: { type: string, maxLength: 200 }
+        sections:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/ImportDraftSection' }
+        acknowledged:
+          type: array
+          maxItems: 2000
+          items: { type: string, minLength: 1, maxLength: 64 }
+    ImportSourceSpan:
+      type: object
+      additionalProperties: false
+      required: [start, end, marks]
+      properties:
+        start: { type: integer, minimum: 0 }
+        end: { type: integer, minimum: 0 }
+        marks:
+          type: array
+          maxItems: 6
+          items: { $ref: '#/components/schemas/ContentMark' }
+        colored: { type: boolean }
+    ImportSourceBlock:
+      type: object
+      additionalProperties: false
+      required: [id, text, spans]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 200 }
+        text: { type: string, maxLength: 400000 }
+        spans:
+          type: array
+          maxItems: 20000
+          items: { $ref: '#/components/schemas/ImportSourceSpan' }
+        tableId: { type: string, maxLength: 200 }
+        row: { type: integer, minimum: 0 }
+        column: { type: integer, minimum: 0 }
+    ImportSourceView:
+      type: object
+      additionalProperties: false
+      required: [sourceId, role, filename, blocks]
+      description: The extracted main-body text of one source, in document order, for side-by-side review.
+      properties:
+        sourceId: { type: string, minLength: 1, maxLength: 128 }
+        role: { $ref: '#/components/schemas/ImportSourceRole' }
+        filename: { type: string, minLength: 1, maxLength: 255 }
+        blocks:
+          type: array
+          maxItems: 20000
+          items: { $ref: '#/components/schemas/ImportSourceBlock' }
 
     # ------------------------------------------------------------------ auth
 
@@ -570,6 +1019,19 @@ components:
             The published version holding the reference. Absent when the
             reference is a draft outline, which has no version yet.
 
+    ReferencingGroup:
+      type: object
+      description: Admin-only shared context that protects an immutable media asset, including archived bank groups.
+      additionalProperties: false
+      required: [id, title]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        testId:
+          type: [string, 'null']
+          format: uuid
+          description: Owning test, absent for an independent bank group.
+
     LibraryAsset:
       type: object
       description: |
@@ -633,13 +1095,18 @@ components:
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
-        hasAudio: { type: boolean }
+        hasAudio:
+          type: boolean
+          description: Any question audio or shared recording on the assigned frozen version.
+        hasSharedAudio:
+          type: boolean
+          description: A shared recording has one allowance across its group's questions; absent means false for legacy readers.
         showsTranscript:
           type: boolean
-          description: True when any listening question releases its transcript after submitting.
+          description: True when any question audio or shared recording releases its transcript after submitting.
         audioMaxPlays:
           type: [integer, 'null']
-          description: The strictest `maxPlays` across the test, for the intro copy.
+          description: The strictest finite `maxPlays` across question audio and shared recordings on the assigned version; null when all are unlimited. Individual recordings can have higher limits.
 
     StudentClass:
       type: object
@@ -943,6 +1410,226 @@ components:
         allowSeek: { type: boolean, description: Defaults to false for listening (§11.1). }
         showTranscriptAfterSubmit: { type: boolean }
 
+    QuestionContent:
+      type: object
+      description: |
+        Bounded semantic prose for prompts and explanations: paragraphs, headings,
+        lists and tables with marked text, breaks and safe links. No media, gaps,
+        source metadata or answer-key properties. ContentDocument aggregate budgets
+        and cross-node validation apply to original raw JSON. The companion string
+        must equal the exact plain projection. Explanations never contain gaps.
+        On question updates, omitting a rich field preserves its stored document
+        only if the companion string is unchanged; otherwise the whole write is
+        rejected. Explicit null removes the document.
+      x-go-type: json.RawMessage
+      additionalProperties: false
+      required: [format, blocks]
+      properties:
+        format: { type: string, const: semantic_v1 }
+        blocks: { $ref: '#/components/schemas/QuestionContentBlocks' }
+    QuestionContentBlocks:
+      type: array
+      minItems: 1
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/QuestionContentBlock' }
+    QuestionContentBlock:
+      oneOf:
+        - $ref: '#/components/schemas/QuestionContentParagraph'
+        - $ref: '#/components/schemas/QuestionContentHeading'
+        - $ref: '#/components/schemas/QuestionContentList'
+        - $ref: '#/components/schemas/QuestionContentTable'
+      discriminator:
+        propertyName: type
+        mapping:
+          paragraph: '#/components/schemas/QuestionContentParagraph'
+          heading: '#/components/schemas/QuestionContentHeading'
+          list: '#/components/schemas/QuestionContentList'
+          table: '#/components/schemas/QuestionContentTable'
+    QuestionContentInlines:
+      type: array
+      maxItems: 2048
+      items:
+        oneOf:
+          - { $ref: '#/components/schemas/ContentText' }
+          - { $ref: '#/components/schemas/ContentBreak' }
+          - { $ref: '#/components/schemas/ContentLink' }
+    QuestionContentParagraph:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, enum: [paragraph] }
+        content: { $ref: '#/components/schemas/QuestionContentInlines' }
+    QuestionContentHeading:
+      type: object
+      additionalProperties: false
+      required: [type, level, content]
+      properties:
+        type: { type: string, enum: [heading] }
+        level: { type: integer, enum: [1, 2, 3] }
+        content: { $ref: '#/components/schemas/QuestionContentInlines' }
+    QuestionContentList:
+      type: object
+      additionalProperties: false
+      required: [type, ordered, start, items]
+      properties:
+        type: { type: string, enum: [list] }
+        ordered: { type: boolean }
+        start: { type: integer, minimum: 1, maximum: 9999 }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/QuestionContentBlocks' }
+    QuestionContentTable:
+      type: object
+      additionalProperties: false
+      required: [type, rows]
+      properties:
+        type: { type: string, enum: [table] }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: array
+            maxItems: 12
+            items: { $ref: '#/components/schemas/QuestionContentCell' }
+    QuestionContentCell:
+      type: object
+      additionalProperties: false
+      required: [header, rowSpan, colSpan, content]
+      properties:
+        header: { type: boolean }
+        rowSpan: { type: integer, minimum: 1, maximum: 50 }
+        colSpan: { type: integer, minimum: 1, maximum: 12 }
+        content: { $ref: '#/components/schemas/QuestionContentBlocks' }
+
+    QuestionPromptContent:
+      type: object
+      description: |
+        Bounded semantic question prompt without media or answer keys. Gaps are
+        supported only for fill_blank and must match blank gapId values exactly.
+        Gap identity is stable within this question; labels never select answers.
+        The companion prompt equals the exact plain projection. Omitted content
+        on update preserves the stored document only when prompt is unchanged.
+      x-go-type: json.RawMessage
+      additionalProperties: false
+      required: [format, blocks]
+      properties:
+        format: { type: string, const: semantic_v1 }
+        blocks: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+    QuestionPromptContentBlocks:
+      type: array
+      minItems: 1
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/QuestionPromptContentBlock' }
+    QuestionPromptContentBlock:
+      oneOf:
+        - $ref: '#/components/schemas/QuestionPromptContentParagraph'
+        - $ref: '#/components/schemas/QuestionPromptContentHeading'
+        - $ref: '#/components/schemas/QuestionPromptContentList'
+        - $ref: '#/components/schemas/QuestionPromptContentTable'
+      discriminator:
+        propertyName: type
+        mapping:
+          paragraph: '#/components/schemas/QuestionPromptContentParagraph'
+          heading: '#/components/schemas/QuestionPromptContentHeading'
+          list: '#/components/schemas/QuestionPromptContentList'
+          table: '#/components/schemas/QuestionPromptContentTable'
+    QuestionPromptContentInlines:
+      type: array
+      maxItems: 2048
+      items:
+        oneOf:
+          - { $ref: '#/components/schemas/ContentText' }
+          - { $ref: '#/components/schemas/ContentBreak' }
+          - { $ref: '#/components/schemas/ContentLink' }
+          - { $ref: '#/components/schemas/ContentGap' }
+    QuestionPromptContentParagraph:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, enum: [paragraph] }
+        content: { $ref: '#/components/schemas/QuestionPromptContentInlines' }
+    QuestionPromptContentHeading:
+      type: object
+      additionalProperties: false
+      required: [type, level, content]
+      properties:
+        type: { type: string, enum: [heading] }
+        level: { type: integer, enum: [1, 2, 3] }
+        content: { $ref: '#/components/schemas/QuestionPromptContentInlines' }
+    QuestionPromptContentList:
+      type: object
+      additionalProperties: false
+      required: [type, ordered, start, items]
+      properties:
+        type: { type: string, enum: [list] }
+        ordered: { type: boolean }
+        start: { type: integer, minimum: 1, maximum: 9999 }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+    QuestionPromptContentTable:
+      type: object
+      additionalProperties: false
+      required: [type, rows]
+      properties:
+        type: { type: string, enum: [table] }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: array
+            maxItems: 12
+            items: { $ref: '#/components/schemas/QuestionPromptContentCell' }
+    QuestionPromptContentCell:
+      type: object
+      additionalProperties: false
+      required: [header, rowSpan, colSpan, content]
+      properties:
+        header: { type: boolean }
+        rowSpan: { type: integer, minimum: 1, maximum: 50 }
+        colSpan: { type: integer, minimum: 1, maximum: 12 }
+        content: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+
+    OptionContent:
+      type: object
+      description: |
+        Versioned inline option text: one paragraph of marked text and line breaks.
+        No links, gaps, media, tables, source metadata or answer keys. The server
+        validates the original JSON and requires text to equal its plain projection.
+        Omitted content preserves rich formatting only when the current option id and
+        text match; stale or changed legacy writes are rejected. Explicit null
+        removes formatting. Options without rich content remain plain text.
+      x-go-type: json.RawMessage
+      required: [format, blocks]
+      additionalProperties: false
+      properties:
+        format: { type: string, const: semantic_v1 }
+        blocks:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            type: object
+            required: [type, content]
+            additionalProperties: false
+            properties:
+              type: { type: string, const: paragraph }
+              content:
+                type: array
+                maxItems: 2048
+                items:
+                  oneOf:
+                    - { $ref: '#/components/schemas/ContentText' }
+                    - { $ref: '#/components/schemas/ContentBreak' }
+
     AdminQuestionOption:
       type: object
       required: [id, ordinal, text, isCorrect]
@@ -950,6 +1637,10 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         ordinal: { type: integer, minimum: 0 }
+        content:
+          oneOf: [{ $ref: '#/components/schemas/OptionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         text: { type: string, minLength: 1 }
         isCorrect: { type: boolean }
 
@@ -958,11 +1649,16 @@ components:
       required: [id, ordinal, acceptedAnswers, caseSensitive]
       additionalProperties: false
       properties:
+        gapId:
+          type: [string, 'null']
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'
+          description: Stable identity of the rich prompt gap; null for legacy Markdown.
         id: { $ref: '#/components/schemas/Uuid' }
         ordinal:
           type: integer
           minimum: 1
-          description: 1-indexed, matching the `{{1}}` placeholders in the prompt.
+          maximum: 32767
+          description: Stable 1-indexed answer label; matches `{{1}}` only for legacy Markdown.
         acceptedAnswers:
           type: array
           items: { type: string, minLength: 1 }
@@ -1020,11 +1716,15 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt:
           type: string
           minLength: 1
           description: |
-            Markdown, rendered with rehype-sanitize — never
+            Legacy Markdown, or exact plain projection when promptContent is present. Markdown is rendered with rehype-sanitize — never
             `dangerouslySetInnerHTML` (§2). For `fill_blank`, blanks are marked
             `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
         media:
@@ -1039,6 +1739,10 @@ components:
           type: array
           items: { $ref: '#/components/schemas/AdminQuestionBlank' }
         points: { $ref: '#/components/schemas/Points' }
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         explanation: { type: [string, 'null'] }
         sampleAnswer:
           type: [string, 'null']
@@ -1069,6 +1773,10 @@ components:
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
+        content:
+          oneOf: [{ $ref: '#/components/schemas/OptionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         text: { type: string }
 
     StudentBlank:
@@ -1081,8 +1789,12 @@ components:
       required: [id, ordinal, caseSensitive]
       additionalProperties: false
       properties:
+        gapId:
+          type: [string, 'null']
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'
+          description: Stable identity of the rich prompt gap; null for legacy Markdown.
         id: { $ref: '#/components/schemas/Uuid' }
-        ordinal: { type: integer, minimum: 1 }
+        ordinal: { type: integer, minimum: 1, maximum: 32767 }
         caseSensitive: { type: boolean }
 
     StudentSection:
@@ -1120,6 +1832,10 @@ components:
           $ref: '#/components/schemas/Uuid'
           description: The `AttemptSession.sections` entry this question belongs to.
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
@@ -1128,6 +1844,57 @@ components:
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
         blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
         points: { $ref: '#/components/schemas/Points' }
+
+    StudentGroup:
+      type: object
+      description: |
+        Frozen shared context with ordered version-question identities. Contains
+        no answer keys or transcripts. Assets are explicitly authorized by the
+        containing preview/session, never by an arbitrary content assetId.
+      additionalProperties: false
+      required: [id, sectionId, title, questionIds, stimuli, recordings, assets]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        sectionId: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        instructions:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        questionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        stimuli: { type: array, items: { $ref: '#/components/schemas/GroupStimulus' } }
+        recordings: { type: array, items: { $ref: '#/components/schemas/StudentGroupRecording' } }
+        assets: { type: array, items: { $ref: '#/components/schemas/MediaAsset' } }
+
+    StudentGroupRecording:
+      type: object
+      description: One versioned group playback scope, independent of other groups using the same file.
+      additionalProperties: false
+      required: [id, assetId, policy]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        assetId: { $ref: '#/components/schemas/Uuid' }
+        policy: { $ref: '#/components/schemas/AudioPolicy' }
+
+    SharedReviewContext:
+      type: object
+      required: [groups, transcripts]
+      additionalProperties: false
+      description: |
+        Frozen material for completed-attempt results and teacher grading.
+        Learner transcripts contain only recordings whose own policy releases
+        them after submission; teacher grading includes all available transcripts.
+        No grading key is added to groups. Listening here never consumes a play.
+      properties:
+        groups: { type: array, items: { $ref: '#/components/schemas/StudentGroup' } }
+        transcripts:
+          type: object
+          additionalProperties: { type: string }
+          description: Released transcript text keyed by frozen recording ID; suppressed entries are absent.
+        audioPlays:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+          description: Used plays by recording for a single attempt; omitted when grading across attempts.
 
     ResultQuestion:
       type: object
@@ -1140,6 +1907,10 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
@@ -1174,6 +1945,11 @@ components:
                   **One canonical accepted answer**, not the full accepted list.
                   Showing every accepted spelling would hand over the grading key.
           description: Only when `review.showCorrectAnswers`, for `fill_blank`.
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          description: Absent unless review.showExplanations permits the frozen explanation.
         explanation:
           type: [string, 'null']
           description: Only when `review.showExplanations`.
@@ -1191,6 +1967,224 @@ components:
       type: string
       enum: [draft, published, archived]
 
+    QuestionGroup:
+      type: object
+      description: |
+        Independent shared-context draft graph, written through the group endpoints.
+        Array order defines member/material order. Empty draft groups are allowed;
+        publication requires a member. Members belong to one group in one section.
+        Copy with context creates fresh group, member, material, gap and recording
+        identities. Immutable asset bytes may be reused through protected bindings.
+        Validate graph references and aggregate limits in addition to JSON Schema.
+        The byte budget includes resolved question content/keys; a transport must
+        also bound original input before decoding. This is an admin authoring
+        shape, never a learner payload or an asset access grant.
+      additionalProperties: false
+      required: [id, title, members, stimuli, recordings]
+      x-group-limits:
+        bytes: 4194304
+        members: 200
+        stimuli: 16
+        recordings: 16
+        title: 200
+        transcript: 100000
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        instructions:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        members:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GroupMember' }
+        stimuli:
+          type: array
+          maxItems: 16
+          items: { $ref: '#/components/schemas/GroupStimulus' }
+        recordings:
+          type: array
+          maxItems: 16
+          items: { $ref: '#/components/schemas/GroupRecording' }
+
+    GroupMember:
+      type: object
+      additionalProperties: false
+      required: [questionId, optionOrder]
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        optionOrder:
+          type: string
+          enum: [shuffle, fixed]
+          description: Fixed is for choice members whose text depends on authored option labels and forbids option shuffling; other members use shuffle. Neither changes member order.
+
+    GroupStimulus:
+      type: object
+      additionalProperties: false
+      required: [id, title, content, gaps]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content:
+          $ref: '#/components/schemas/ContentDocument'
+          x-go-type: json.RawMessage
+        gaps:
+          type: array
+          maxItems: 2048
+          items: { $ref: '#/components/schemas/GroupGapBinding' }
+          description: Exactly one binding per material gap; targets must be distinct within the group and refer to its members.
+
+    GroupGapBinding:
+      oneOf:
+        - $ref: '#/components/schemas/GroupQuestionGap'
+        - $ref: '#/components/schemas/GroupBlankGap'
+      discriminator:
+        propertyName: kind
+        mapping:
+          question: '#/components/schemas/GroupQuestionGap'
+          blank: '#/components/schemas/GroupBlankGap'
+
+    GroupQuestionGap:
+      type: object
+      additionalProperties: false
+      required: [kind, gapId, questionId]
+      properties:
+        kind: { type: string, enum: [question] }
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+      description: A material gap targets a choice member; display labels never determine identity.
+
+    GroupBlankGap:
+      type: object
+      additionalProperties: false
+      required: [kind, gapId, questionId, blankGapId]
+      properties:
+        kind: { type: string, enum: [blank] }
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        blankGapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+      description: A material gap targets the stable prompt gap of a rich fill-blank member, never a mutable answer-row ID.
+
+    GroupRecording:
+      type: object
+      description: |
+        Admin-only authoring shape. One explicit playback binding per audio asset
+        used in the group's materials. All member questions share its allowance;
+        another group using the same asset has a different binding. Transcripts
+        require a separate policy-gated review projection, never a learner cast.
+      additionalProperties: false
+      required: [id, assetId, policy]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        assetId: { $ref: '#/components/schemas/Uuid' }
+        policy: { $ref: '#/components/schemas/AudioPolicy' }
+        transcript: { type: [string, 'null'], maxLength: 100000 }
+
+    QuestionGroupBundle:
+      type: object
+      additionalProperties: false
+      required: [group, questions]
+      properties:
+        group: { $ref: '#/components/schemas/QuestionGroup' }
+        questions:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GroupQuestionInput' }
+
+    GroupQuestionInput:
+      type: object
+      additionalProperties: false
+      required: [id, input]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        input: { $ref: '#/components/schemas/QuestionInput' }
+
+    StoredQuestionGroup:
+      type: object
+      additionalProperties: false
+      required: [bundle, ownerSectionId, revision, archivedAt, createdAt, updatedAt, assets, unavailableAssetIds]
+      properties:
+        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        ownerSectionId: { type: [string, 'null'], format: uuid }
+        revision: { type: integer, format: int64, minimum: 1 }
+        testUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Enclosing test revision for section-owned groups; absent for bank groups.
+        archivedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        assets:
+          type: array
+          items: { $ref: '#/components/schemas/MediaAsset' }
+          description: Authorized media referenced by members or shared materials.
+        unavailableAssetIds:
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: Bound assets whose metadata or signed link could not be loaded. A media outage does not turn a committed edit into an ambiguous save failure; clients show a retryable material state.
+
+    QuestionGroupSummary:
+      type: object
+      additionalProperties: false
+      required: [id, title, revision, questionCount, recordingCount, totalPoints, tags, archivedAt, updatedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        revision: { type: integer, format: int64, minimum: 1 }
+        questionCount: { type: integer, minimum: 0 }
+        recordingCount: { type: integer, minimum: 0 }
+        totalPoints: { $ref: '#/components/schemas/Points' }
+        tags: { type: array, items: { type: string } }
+        archivedAt: { type: [string, 'null'], format: date-time }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    GroupCreateInput:
+      type: object
+      additionalProperties: false
+      required: [bundle]
+      properties:
+        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        ownerSectionId: { type: [string, 'null'], format: uuid }
+        expectedTestUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Required when ownerSectionId identifies a section; no ownerSectionId means an independent bank group.
+
+    GroupUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [bundle, expectedRevision]
+      properties:
+        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        expectedTestUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Required for a section-owned group; owner cannot change through this operation.
+
+    GroupCopyInput:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision]
+      properties:
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        ownerSectionId: { type: [string, 'null'], format: uuid }
+        expectedTestUpdatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Required when copying into a section; omitted destination creates an independent bank group.
+
+    DraftSectionUnit:
+      type: object
+      additionalProperties: false
+      required: [kind, id]
+      properties:
+        kind: { type: string, enum: [question, group] }
+        id:
+          $ref: '#/components/schemas/Uuid'
+          description: Standalone question ID or owned group ID, according to kind.
+
     TestSection:
       type: object
       required: [id, ordinal, title, questionIds]
@@ -1200,7 +2194,14 @@ components:
         ordinal: { type: integer, minimum: 0 }
         title: { type: string, minLength: 1 }
         instructions: { type: [string, 'null'] }
-        questionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        questionIds:
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: Legacy standalone references; group members belong to their group and are excluded here.
+        units:
+          type: array
+          items: { $ref: '#/components/schemas/DraftSectionUnit' }
+          description: Complete mixed order when the section has shared groups; absent on historical standalone outlines.
 
     Test:
       type: object
@@ -1220,7 +2221,7 @@ components:
         audioCount:
           type: integer
           minimum: 0
-          description: Questions carrying an audio asset. Backs A-03's headphone badge.
+          description: Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge.
         sections:
           type: array
           items: { $ref: '#/components/schemas/TestSection' }
@@ -1245,7 +2246,7 @@ components:
         audioCount:
           type: integer
           minimum: 0
-          description: Listening questions, shown when picking a version to assign (G-01).
+          description: Questions with their own audio or a shared group recording, counted once per question; shown when picking a version to assign (G-01).
         manualCount:
           type: integer
           minimum: 0
@@ -1269,6 +2270,11 @@ components:
           enum:
             - points_positive
             - choice_has_correct_option
+            - option_content_valid
+            - question_content_valid
+            - question_valid
+            - group_valid
+            - total_points_valid
             - blank_has_accepted_answer
             - blank_placeholders_match
             - audio_question_has_asset
@@ -1276,6 +2282,7 @@ components:
         message: { type: string }
         sectionId: { type: [string, 'null'], format: uuid }
         questionId: { type: [string, 'null'], format: uuid }
+        groupId: { type: [string, 'null'], format: uuid }
 
     # ------------------------------------------------------------- assignments
 
@@ -1519,6 +2526,15 @@ components:
             Already in presentation order, shuffled server-side and stable
             across reloads (D-02). Shuffling happens inside each section, so
             the order of sections is the order of `sections`.
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/StudentGroup' }
+          description: |
+            Frozen shared context for this attempt's version. Member IDs name
+            questions in this session; presentation order comes from questions.
+            No answer keys or recording transcripts. Only version-bound assets
+            reachable through this student's own attempt receive signed URLs.
+            Empty for historical standalone papers; optional for compatibility.
         sessionId:
           $ref: '#/components/schemas/Uuid'
           description: |
@@ -1542,11 +2558,38 @@ components:
             remaining plays from this, decrements optimistically, and reconciles
             on the next fetch. A client-side counter would reset on reload and
             make the limit meaningless (§11.4).
+        groupAudioPlays:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+          description: |
+            Server counts keyed by frozen group recording ID, shared across all
+            members and sessions of this attempt. Different groups using the same
+            file have independent counts. Optional for historical clients.
         answers:
           type: object
           additionalProperties: { $ref: '#/components/schemas/Answer' }
           description: Keyed by question id. The base for the resume merge.
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+
+    GroupAudioPlayInput:
+      type: object
+      additionalProperties: false
+      required: [recordingId, playId, sessionId]
+      properties:
+        recordingId: { $ref: '#/components/schemas/Uuid' }
+        playId:
+          $ref: '#/components/schemas/Uuid'
+          description: Stable random ID for one gesture, reused unchanged by retries; unique within the attempt.
+        sessionId: { $ref: '#/components/schemas/Uuid' }
+
+    GroupAudioPlayResult:
+      type: object
+      additionalProperties: false
+      required: [playId, plays, maxPlays]
+      properties:
+        playId: { $ref: '#/components/schemas/Uuid' }
+        plays: { type: integer, minimum: 1 }
+        maxPlays: { type: [integer, 'null'], minimum: 1 }
 
     IntegrityEventInput:
       type: object
@@ -1732,19 +2775,24 @@ components:
       type: object
       description: |
         Create/update body for a bank question. Cross-field rules that a single
-        schema cannot express — a choice question needs at least one correct
-        option, a `fill_blank` needs its `{{n}}` placeholders to match its blank
-        ordinals, an audio policy requires an audio asset — are validated by the
+        schema cannot express — single_choice and true_false need exactly one correct
+        option (true_false has exactly two options), multiple_choice needs at least one correct
+        option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
         server and again at publish (§8). Failing them returns
         `VALIDATION_FAILED` with per-field `details`.
       required: [type, prompt, points]
       additionalProperties: false
       properties:
         type: { $ref: '#/components/schemas/QuestionType' }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         prompt:
           type: string
           minLength: 1
-          description: Markdown. `fill_blank` marks blanks `{{1}}`, `{{2}}`, 1-indexed.
+          description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown.
         mediaAssetId: { type: [string, 'null'], format: uuid }
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
@@ -1760,6 +2808,10 @@ components:
             additionalProperties: false
             properties:
               id: { type: [string, 'null'], format: uuid, description: Omit to create. }
+              content:
+                oneOf: [{ $ref: '#/components/schemas/OptionContent' }, { type: 'null' }]
+                x-go-type: json.RawMessage
+                x-go-type-skip-optional-pointer: true
               text: { type: string, minLength: 1 }
               isCorrect: { type: boolean }
           description: Order in the array is the stored ordinal.
@@ -1771,13 +2823,21 @@ components:
             additionalProperties: false
             properties:
               id: { type: [string, 'null'], format: uuid }
-              ordinal: { type: integer, minimum: 1 }
+              gapId: { type: [string, 'null'], pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+              ordinal: { type: integer, minimum: 1, maximum: 32767 }
               acceptedAnswers:
                 type: array
                 minItems: 1
                 items: { type: string, minLength: 1 }
               caseSensitive: { type: boolean, default: false }
-        points: { $ref: '#/components/schemas/Points' }
+        points:
+          allOf: [{ $ref: '#/components/schemas/Points' }]
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
         explanation: { type: [string, 'null'] }
         sampleAnswer:
           type: [string, 'null']
@@ -1808,8 +2868,14 @@ components:
             closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer, minimum: 1, maximum: 600 }
         maxAttempts: { type: integer, minimum: 1, default: 1 }
-        shuffleQuestions: { type: boolean, default: false }
-        shuffleOptions: { type: boolean, default: false }
+        shuffleQuestions:
+          type: boolean
+          default: false
+          description: Shuffle standalone questions and complete groups as units inside each section; preserve member order.
+        shuffleOptions:
+          type: boolean
+          default: false
+          description: Rejected with VALIDATION_FAILED on shuffleOptions when the selected version contains a group member with fixed option-label dependencies.
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
         draft:
@@ -2293,6 +3359,190 @@ paths:
 
   # =============================================================== admin/tests
 
+  /admin/question-groups:
+    get:
+      operationId: listQuestionGroups
+      tags: [admin-tests]
+      summary: Independent groups in the question bank
+      description: Lists bank-owned groups only, without member keys or transcripts. Search matches group titles and member prompts without accents.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Query'
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [active, archived, all], default: active } }
+        - { name: tag, in: query, schema: { type: string, maxLength: 200 } }
+      responses:
+        '200':
+          description: Newest updated groups first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/QuestionGroupSummary' } }
+    post:
+      operationId: createQuestionGroup
+      tags: [admin-tests]
+      x-max-body-bytes: 4194304
+      summary: Create a complete independent draft group
+      description: Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupCreateInput' }
+      responses:
+        '201':
+          description: Created, with canonical member option/blank identities and media bindings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision, archived owner or duplicate graph identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: Input exceeds the 4 MiB group transport budget.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: Group content, binding or media validation failed; no partial graph was created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/question-groups/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getQuestionGroup
+      tags: [admin-tests]
+      summary: Read a complete editable group including answer keys
+      description: Reads one coherent independent graph and its revisions. Teacher-only; asset links never grant access to an unrelated source document.
+      responses:
+        '200':
+          description: One coherent group revision, including archived groups.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: updateQuestionGroup
+      tags: [admin-tests]
+      x-max-body-bytes: 4194304
+      description: Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupUpdateInput' }
+      responses:
+        '200':
+          description: Saved complete graph and current revisions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision, archived group/test or identity conflict.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: Input exceeds the 4 MiB group transport budget.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: Group content, binding or media validation failed; no partial edit was saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      operationId: deleteQuestionGroup
+      tags: [admin-tests]
+      description: Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision.
+      parameters:
+        - { name: expectedRevision, in: query, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: expectedTestUpdatedAt, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '204': { description: Deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision, archived enclosing test, or bank group not archived.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/question-groups/{id}/copy:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: copyQuestionGroup
+      tags: [admin-tests]
+      description: Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupCopyInput' }
+      responses:
+        '201':
+          description: Independent copy; source edits/deletion cannot affect it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale source/destination revision or archived enclosing test.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+        '422':
+          description: A copied media binding is no longer available; no destination graph was created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/question-groups/{id}/archive:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: archiveQuestionGroup
+      tags: [admin-tests]
+      description: Archives/restores an independent bank group; section-owned groups follow the test lifecycle.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [archived, expectedRevision]
+              properties:
+                archived: { type: boolean }
+                expectedRevision: { type: integer, format: int64, minimum: 1 }
+      responses:
+        '200':
+          description: Current graph and archive state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Stale revision or a section-owned group that follows its test lifecycle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /admin/tests:
     get:
       operationId: listTests
@@ -2419,6 +3669,10 @@ paths:
                 title: { type: string, minLength: 1, maxLength: 200 }
                 description: { type: [string, 'null'] }
                 status: { $ref: '#/components/schemas/TestStatus' }
+                outlineFormat:
+                  type: string
+                  enum: [group_v1]
+                  description: Complete mixed-unit outline. Every section must include units and every existing owned group exactly once. Group deletion uses its dedicated revision-checked endpoint.
                 sections:
                   type: array
                   items:
@@ -2429,7 +3683,15 @@ paths:
                       id: { type: [string, 'null'], format: uuid, description: Omit to create. }
                       title: { type: string, minLength: 1 }
                       instructions: { type: [string, 'null'] }
-                      questionIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+                      questionIds:
+                        type: array
+                        items: { $ref: '#/components/schemas/Uuid' }
+                        description: Standalone question projection, in the same order as question units when outlineFormat is group_v1.
+                      units:
+                        type: array
+                        maxItems: 32768
+                        items: { $ref: '#/components/schemas/DraftSectionUnit' }
+                        description: Required in every section with group_v1. Moves complete groups only within this test; cross-test reuse requires an independent copy.
       responses:
         '200':
           description: Saved.
@@ -2439,7 +3701,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`.'
+          description: '`STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`; `GROUP_OUTLINE_REQUIRED` — a legacy question-only outline cannot replace a draft containing shared groups. Metadata-only updates remain supported. `TEST_ARCHIVED` — restore the test before a mixed-outline edit.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -2525,7 +3787,7 @@ paths:
         '204': { description: Deleted. }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: The version is referenced/current, the test is archived, or the expected update time is stale.
+          description: The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -2621,6 +3883,8 @@ paths:
                 properties:
                   version: { type: integer }
                   questions: { type: array, items: { $ref: '#/components/schemas/StudentQuestion' } }
+                  sections: { type: array, items: { $ref: '#/components/schemas/StudentSection' } }
+                  groups: { type: array, items: { $ref: '#/components/schemas/StudentGroup' } }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
           content:
@@ -2843,6 +4107,391 @@ paths:
 
   # =============================================================== admin/media
 
+  /admin/imports:
+    post:
+      operationId: createWordImport
+      tags: [admin-imports]
+      summary: Create an empty private import idempotently
+      description: Creates a persistent intake identity without uploading files or starting recognition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWordImport' }
+      responses:
+        '201':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '409':
+          description: IMPORT_CONFLICT — request identity already used with different input.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED — configured actor or installation quota reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    get:
+      operationId: listWordImports
+      tags: [admin-imports]
+      summary: Search private import history
+      description: Paginated shared teacher history with accent-insensitive title and current filename search.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Query'
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ImportStatus' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Newest imports first, stable ID tie-breaker.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/WordImport' }
+  /admin/imports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getWordImport
+      tags: [admin-imports]
+      summary: Read an import and its current completed sources
+      description: Returns a consistent source-set snapshot and the number of incomplete upload reservations.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/sources:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: uploadImportSource
+      tags: [admin-imports]
+      summary: Upload a private Word source and create an immutable source set
+      description: |
+        One multipart file part named file, at most 25 MiB. The filename ends in
+        .docx, or in .doc when legacy conversion is enabled (see limits), and the
+        detected content must agree with it.
+        The body Content-Type is not evidence of the detected document type.
+        Retry with identical uploadId, role, expectedRevision, filename and bytes.
+        A changed replay conflicts. Completion creates exactly one source revision;
+        replay returns its receipt even when later uploads advanced the import.
+        Uploads are accepted while the import awaits sources, has failed or is under
+        review; a new source set returns it to awaiting_sources, and processing again
+        keeps teacher edits. Every storage write first has a durable reservation;
+        interruptions remain inspectable and quota-counted.
+        Source bytes and storage keys never enter ordinary logs or student payloads.
+      x-max-body-bytes: 26345472
+      parameters:
+        - { name: role, in: query, required: true, schema: { $ref: '#/components/schemas/ImportSourceRole' } }
+        - { name: uploadId, in: query, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+        - { name: expectedRevision, in: query, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Stored and associated with one source revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUploadReceipt' }
+        '400':
+          description: Malformed upload; exactly one file part is required.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: IMPORT_SOURCE_TOO_LARGE — compressed, expanded or XML resource limit exceeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — unsupported, active, encrypted or invalid source.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/sources/{sourceId}/download:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: sourceId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    get:
+      operationId: downloadImportSource
+      tags: [admin-imports]
+      summary: Authorize a short-lived original-file download
+      description: |
+        The completed source must belong to the requested import. Historical
+        completed sources remain accessible to teachers. A 60-second bearer URL
+        forces attachment download as application/octet-stream. Response is no-store.
+        Pending storage reservations are never downloadable.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportSourceDownload' }
+        '404':
+          description: Completed source not found in this import.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/imports/limits:
+    get:
+      operationId: getWordImportLimits
+      tags: [admin-imports]
+      summary: Read the accepted formats and size limit before uploading
+      description: Lets the upload page state its limits before a file is chosen.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportLimits' }
+  /admin/imports/{id}/process:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: processWordImport
+      tags: [admin-imports]
+      summary: Queue recognition of the current source set
+      description: |
+        Starts processing an import awaiting sources, retries a failed one, or
+        reprocesses one under review. Reprocessing never replaces teacher edits;
+        the new result is offered in the review instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProcessWordImport' }
+      responses:
+        '202':
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, no exam source, or a run already active.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED — processing capacity reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: cancelWordImport
+      tags: [admin-imports]
+      summary: Stop processing, or close an uncommitted import
+      description: >-
+        Stopping a reprocess of an import that already has a draft returns it to
+        needs_review with that draft intact; otherwise the import is closed. A failed
+        reprocess likewise leaves the draft under review. Sources and the review stay
+        readable. A commit that finished first wins.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CancelWordImport' }
+      responses:
+        '200':
+          description: Cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision or already committed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/review:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getWordImportReview
+      tags: [admin-imports]
+      summary: Read the reviewable draft with its current findings
+      description: Findings are recomputed on every read, so they always describe the saved revision.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReview' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      operationId: saveWordImportReview
+      tags: [admin-imports]
+      summary: Save the teacher's edits to the draft
+      description: |
+        Replaces the editable draft at expectedRevision. Notices are kept from
+        the server copy. Findings are recomputed from the saved draft.
+      x-max-body-bytes: 8388608
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveImportReview' }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReview' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: STALE_WRITE — saved elsewhere since expectedRevision; IMPORT_CONFLICT — the import is no longer under review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: VALIDATION_FAILED — the draft is structurally invalid (unknown IDs, duplicate IDs, invalid content).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/review/adopt:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: adoptWordImportReprocessed
+      tags: [admin-imports]
+      summary: Replace the edited draft with the newer machine draft
+      description: |
+        Only when the review reports reprocessed. The teacher's edits and
+        acknowledgements are discarded in favour of the newer recognition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CancelWordImport' }
+      responses:
+        '200':
+          description: Adopted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReview' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: STALE_WRITE — the draft changed since expectedRevision; IMPORT_CONFLICT — nothing newer to adopt, or the import is no longer under review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/source:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getWordImportSource
+      tags: [admin-imports]
+      summary: Read the extracted text of one source for comparison
+      description: Private teacher evidence; the response is never cached and never reaches students.
+      parameters:
+        - { name: role, in: query, required: true, schema: { $ref: '#/components/schemas/ImportSourceRole' } }
+      responses:
+        '200':
+          description: OK.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportSourceView' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/commit:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: commitWordImport
+      tags: [admin-imports]
+      summary: Create one draft test from the reviewed import
+      description: |
+        Creates the test, its sections, groups and bank questions in one
+        transaction; nothing persists on failure. Excluded questions are left out.
+        Replaying the same request after success returns the same test.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommitWordImport' }
+      responses:
+        '200':
+          description: Committed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportCommitResult' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: STALE_WRITE — the draft changed since draftRevision; IMPORT_CONFLICT — already committed by another request, or cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: IMPORT_NOT_READY — blocking findings remain or decisions are missing.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /admin/media:
     get:
       operationId: listMedia
@@ -2956,9 +4605,10 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
-            `MEDIA_REFERENCED` — a published version still uses it (§8, §15).
+            `MEDIA_REFERENCED` — a published version or independent question group still uses it (§8, §15).
             `details.tests` names those versions as `ReferencingTest[]`,
-            sorted by title then version (A-07).
+            sorted by title then version (A-07). `details.groups` names protected
+            draft/bank context as `ReferencingGroup[]`, sorted by title then ID.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -3101,6 +4751,7 @@ paths:
                 additionalProperties: false
                 properties:
                   question: { $ref: '#/components/schemas/AdminQuestion' }
+                  sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
                   questionNumber: { type: integer, minimum: 1, description: 1-based position on the paper. }
                   questionCount: { type: integer, minimum: 1 }
                   manualQuestionIds:
@@ -3245,6 +4896,7 @@ paths:
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "lượt 1/2" in the header (G-03). }
                   questions: { type: array, items: { $ref: '#/components/schemas/AdminQuestion' } }
+                  sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
                   answers:
                     type: object
                     additionalProperties:
@@ -4254,6 +5906,41 @@ paths:
                   maxPlays: { type: [integer, 'null'] }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /app/attempts/{id}/group-audio-play:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: recordGroupAudioPlay
+      tags: [take-test]
+      summary: Record one shared listening gesture, deduplicating retries
+      description: |
+        Counts a frozen recording bound to this attempt's version. Every distinct
+        playId increments its shared counter and appends one server audio_play
+        event in the same transaction. Retrying the same playId and recording
+        returns the current count without another increment/event. Reusing a
+        playId for another recording is PLAY_ID_CONFLICT.
+
+        Requires the current writable session, like answer autosave. Playback
+        remains synchronous and optimistic; no network round trip gates audio.
+        Counts may exceed maxPlays and never block playback or submission.
+        Legacy per-question playback uses the existing audio-play endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupAudioPlayInput' }
+      responses:
+        '200':
+          description: Current server count, including any plays beyond the configured allowance.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GroupAudioPlayResult' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: SESSION_SUPERSEDED, ATTEMPT_CLOSED, DEADLINE_PASSED or PLAY_ID_CONFLICT.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /app/attempts/{id}/submit:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
@@ -4301,9 +5988,10 @@ paths:
         Honours the assignment's review policy. Suppressed fields are **absent**,
         not nulled-and-hidden, so no client fallback can surface them.
 
-        `transcript` appears here and only here, gated on the question's
+        Question `transcript` and shared-context transcripts appear here only
+        after submission, gated by each question/recording's own
         `showTranscriptAfterSubmit` (§11.3, §13.5). `sampleAnswer` never appears
-        at all.
+        at all. Material and shared play counts do not depend on score/key flags.
       responses:
         '200':
           description: OK
@@ -4319,6 +6007,7 @@ paths:
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "Lượt 1/2" under the score (S-09). }
                   questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
+                  sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: '`ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show.'
