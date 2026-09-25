@@ -653,10 +653,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Upload a private Word source and create an immutable source set
+         * Upload a private Word or PDF source and create an immutable source set
          * @description One multipart file part named file, at most 25 MiB. The filename ends in
-         *     .docx, or in .doc when legacy conversion is enabled (see limits), and the
-         *     detected content must agree with it.
+         *     .docx or .pdf, or in .doc when legacy conversion is enabled (see limits), and
+         *     the detected content must agree with it. A PDF is read from its text layer
+         *     only; a scanned PDF fails processing with PDF_NO_TEXT.
          *     The body Content-Type is not evidence of the detected document type.
          *     Retry with identical uploadId, role, expectedRevision, filename and bytes.
          *     A changed replay conflicts. Completion creates exactly one source revision;
@@ -2099,7 +2100,7 @@ export interface components {
             role: components["schemas"]["ImportSourceRole"];
             filename: string;
             /** @enum {string} */
-            format: "docx" | "doc";
+            format: "docx" | "doc" | "pdf";
             /** Format: int64 */
             bytes: number;
             sha256: string;
@@ -2206,7 +2207,7 @@ export interface components {
             /** Format: int64 */
             maxBytes: number;
             /** @description Accepted file extensions; doc appears only when legacy conversion is enabled. */
-            formats: ("docx" | "doc")[];
+            formats: ("docx" | "doc" | "pdf")[];
         };
         ProcessWordImport: {
             /** @description Replaying the same request returns the same run. */

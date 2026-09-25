@@ -1,7 +1,18 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.41 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.42 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.41**
+
+- §16 Word import also takes PDF (D-10, decided 2026-09-25):
+  - Only a PDF with a text layer can be read. A scan fails with `PDF_NO_TEXT`;
+    there is no OCR.
+  - Underline, bold and colour are not read from a PDF, and every PDF draft says
+    so. Keys come from a key file or explicit `1. A` lines.
+  - PDFium reads the file inside a WebAssembly sandbox in the worker. No
+    conversion runs.
+  - `ImportSource.format` and `ImportLimits.formats` gain `pdf`.
 
 **Changes since v0.40**
 
@@ -1466,8 +1477,8 @@ target rather than current availability. Existing free-form `.docx` and `.doc`
 documents, explicit answer evidence, shared context, semantic formatting,
 recoverable review and atomic draft creation are required before general release.
 Imported and manually authored exams must share rendering, publication and
-grading contracts. Missing answers remain unknown; PDF input, OCR, answer
-generation and automatic publication are excluded. Each accepted detailed
+grading contracts. Missing answers remain unknown; OCR, answer generation and
+automatic publication are excluded. PDF input is limited to a text layer (D-10). Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
 
 The native source intake checkpoint is configured separately from learner media.
@@ -1498,6 +1509,19 @@ inspector's expansion/XML limits. `.doc` is accepted where `IMPORT_LEGACY_DOC` i
 set. Operators set it only beside a worker that has the isolated converter; a run
 without one fails with `LEGACY_CONVERSION_UNAVAILABLE`. A successful upload only
 acknowledges stored source bytes.
+
+A `.pdf` is accepted by its `%PDF-` signature. The worker reads it with PDFium
+inside a WebAssembly sandbox: no filesystem, no network, 256 MiB of memory, one
+minute, 60 pages. It never converts a PDF. It reads only the text layer, one
+line per block. Page numbers are kept out of the exam. Lines repeated at the top
+or bottom of the pages are kept out too, and the teacher confirms them, since a
+repeated instruction may belong to the exam. A line holding two questions side
+by side, as a two-column page produces, needs review. A PDF carries no underline,
+bold or colour marks for recognition, and the draft says so in an informational
+finding. A scan, a locked
+file, a broken file or one over the limits fails with `PDF_NO_TEXT`,
+`PDF_PROTECTED`, `PDF_INVALID` or `PDF_TOO_LARGE`, and the teacher needs another
+file.
 
 Each accepted exam/key addition or replacement creates an immutable source set,
 retaining its unchanged companion and prior originals. Uploads require the current

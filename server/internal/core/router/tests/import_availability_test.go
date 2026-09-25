@@ -79,7 +79,7 @@ func TestImportCapabilitiesFollowTheProcessingSwitch(t *testing.T) {
 func TestProcessingWithoutAWorkerIsRefusedInTheEnvelope(t *testing.T) {
 	send := importRouter(t, importshttp.New(importsapp.New(importsapp.Dependencies{})))
 	body := `{"requestId":"01935000-0000-7000-8000-000000000009","expectedRevision":1}`
-	for language, want := range map[string]string{"": "Máy chủ này chưa bật xử lý tài liệu Word", "en": "Word processing is not enabled on this server"} {
+	for language, want := range map[string]string{"": "Máy chủ này chưa bật xử lý tài liệu nên", "en": "Document processing is not enabled on this server"} {
 		rec := send(http.MethodPost, "/admin/imports/01935000-0000-7000-8000-000000000001/process", body, language)
 		if rec.Code != http.StatusServiceUnavailable {
 			t.Fatalf("process without a worker = %d, want 503: %s", rec.Code, rec.Body.String())

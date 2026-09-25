@@ -48,9 +48,27 @@ export const OBJECT_REASONS = [
   "SOURCE_COLOR_REQUIRES_REVIEW",
   "RENDERER_LAYOUT_REQUIRES_REVIEW",
   "ALTERNATE_CONTENT_REQUIRES_RESOLUTION",
+  "PDF_MARKS_UNAVAILABLE",
+  "PDF_REPEATED_LINE_REQUIRES_REVIEW",
+  "PDF_COLUMNS_REQUIRE_REVIEW",
 ] as const;
 
 const KNOWN_REASONS: ReadonlySet<string> = new Set(OBJECT_REASONS);
+
+/** TITLED_REASONS are the document-object reasons whose finding has its own title rather than the generic "objects not read". */
+export const TITLED_REASONS = [
+  "PDF_MARKS_UNAVAILABLE",
+  "PDF_REPEATED_LINE_REQUIRES_REVIEW",
+  "PDF_COLUMNS_REQUIRE_REVIEW",
+] as const;
+
+const TITLED: ReadonlySet<string> = new Set(TITLED_REASONS);
+
+/** titledReason is the explained reason of a document-object finding that has its own title, or null. */
+export function titledReason(finding: ImportFinding): string | null {
+  const reason = objectReason(finding);
+  return reason !== null && TITLED.has(reason) ? reason : null;
+}
 
 /** objectReason is the explained extractor reason of a document-object finding, or null for a generic explanation. */
 export function objectReason(finding: ImportFinding): string | null {

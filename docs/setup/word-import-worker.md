@@ -24,7 +24,19 @@ rendition. Legacy `.doc` needs both, and the API must set `IMPORT_LEGACY_DOC=tru
 so uploads are accepted; a `.doc` run on a worker without a converter fails with
 `LEGACY_CONVERSION_UNAVAILABLE`.
 
-Use PostgreSQL 18 with migrations through `00049`, the application database role,
+PDF needs no converter either. The worker reads it with PDFium compiled to
+WebAssembly, in a wazero sandbox with no filesystem and no network. Each read
+gets a fresh sandbox, which is freed afterwards:
+
+- up to 256 MiB of memory;
+- one minute;
+- 60 pages.
+
+The compiled module is kept, so only the first PDF after start-up pays the
+roughly 2.5 s compile. A scan, a locked file, a broken file and an oversized one
+fail with `PDF_NO_TEXT`, `PDF_PROTECTED`, `PDF_INVALID` and `PDF_TOO_LARGE`.
+
+Use PostgreSQL 18 with migrations through `00052`, the application database role,
 and a separate private import bucket. The storage implementation must support
 conditional `If-None-Match: *` writes, `Content-MD5` and round-tripped
 `x-amz-meta-*` metadata; the SHA-256 digest travels as metadata and is checked by
@@ -138,7 +150,8 @@ Turning it on is a decision, not only a deploy: see O-24 in
 3. **Fly configuration.** In `fly.toml`:
    - add `[processes]` with `app = "/app/api"` and `worker = "/app/import-worker"`;
    - scope `[http_service]` to `processes = ["app"]`;
-   - give the worker its own `[[vm]]`, sized for its 512 MiB Go memory target;
+   - give the worker its own `[[vm]]` with 1 GB: its Go memory target is 512 MiB,
+     and a PDF read adds up to 256 MiB of sandbox memory;
    - set these in `[env]`:
 
      ```toml
@@ -157,8 +170,8 @@ Turning it on is a decision, not only a deploy: see O-24 in
    `IMPORT_WORK_DIR` works there because the image's nonroot user owns its home
    directory. A Machine's root filesystem is disk, not tmpfs. It is reset on
    every deploy, which is fine for scratch files.
-4. **Acceptance.** Deploy, then take one small `.docx` through upload, review and
-   draft.
+4. **Acceptance.** Deploy, then take one small `.docx` and one text-layer PDF
+   through upload, review and draft.
 
 **Cost.** Each running worker is one more Machine. The worker queries PostgreSQL
 only when woken, when work falls due, and once per `IMPORT_WORKER_IDLE_POLL`. At

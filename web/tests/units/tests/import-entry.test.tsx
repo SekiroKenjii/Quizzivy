@@ -57,7 +57,7 @@ function renderList() {
 }
 
 const history = () => screen.queryByRole("link", { name: "Lịch sử nhập" });
-const importWord = () => screen.queryByRole("link", { name: "Nhập đề từ Word" });
+const importWord = () => screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" });
 
 describe("the tests list's way into Word import", () => {
   it("is absent where the server has no import storage", async () => {
@@ -92,7 +92,7 @@ describe("the tests list's way into Word import", () => {
     renderList();
 
     expect(
-      await screen.findByRole("link", { name: "Nhập đề từ Word" }),
+      await screen.findByRole("link", { name: "Nhập đề từ Word/PDF" }),
     ).toHaveAttribute("href", "/admin/imports/new");
     expect(history()).toBeInTheDocument();
   });

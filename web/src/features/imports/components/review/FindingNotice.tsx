@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ImportFinding, ImportSourceRef } from "../../api";
-import { findingKey, keyPapers, objectReason } from "../../findings";
+import { findingKey, keyPapers, objectReason, titledReason } from "../../findings";
 
 type Tone = "blocking" | "review" | "acknowledged" | "info";
 
@@ -67,6 +67,7 @@ export const FindingNotice = memo(function FindingNotice({
   const Icon = ICON[tone];
   const key = findingKey(finding.code);
   const reason = objectReason(finding);
+  const titled = titledReason(finding);
   const decidable = tone === "review" || tone === "acknowledged";
   return (
     <div
@@ -94,10 +95,14 @@ export const FindingNotice = memo(function FindingNotice({
               {t(`imports.severity.${tone}`)}
             </span>
             <span className="font-medium">
-              {t(`imports.findings.codes.${key}.title`, {
-                count: finding.count,
-                code: finding.code,
-              })}
+              {titled === null
+                ? t(`imports.findings.codes.${key}.title`, {
+                    count: finding.count,
+                    code: finding.code,
+                  })
+                : t(`imports.findings.objectTitles.${titled}`, {
+                    count: finding.count,
+                  })}
             </span>
           </p>
           <p className="text-muted-foreground text-xs leading-relaxed">

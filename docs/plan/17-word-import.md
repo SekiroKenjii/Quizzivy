@@ -1070,6 +1070,95 @@ that object when `Finish` refuses it.
   on the upload page and the idle warning, so the copy never drifts from the
   code.
 
+### 1.39 PDF sources
+
+Thuong decided on 2026-09-25 that production takes PDF as well as `.docx`. The
+scope he accepted:
+
+- **Text-layer PDFs only.** A scan or photo has no text to read and fails with
+  `PDF_NO_TEXT`. There is no OCR.
+- **No formatting marks.** Underline, bold and colour are not read from a PDF.
+  Every PDF draft says so in an informational finding (`PDF_MARKS_UNAVAILABLE`).
+  Questions that depend on underlines (pronunciation, "find the mistake") are
+  marked by the teacher in review.
+- **Keys come from text.** An answer key must be a separate key file or explicit
+  `1. A` lines. Answers marked by colour or underline in the exam are not seen.
+
+**Reading.** `platform/pdftext` runs PDFium compiled to WebAssembly inside
+wazero (`github.com/klippa-app/go-pdfium`):
+
+- The sandbox has no filesystem, no network, 256 MiB of linear memory and a
+  one-minute deadline. A hostile PDF can at worst fail its own read, without
+  Docker.
+- The deadline kills the instance. go-pdfium runs every call under its own
+  context and `Close` waits for the running call, so closing alone let a
+  PDF of nested forms run for hours; `TestTheDeadlineStopsADocumentThatWouldKeepPDFiumBusy`
+  pins it. The kill is awaited before the pool closes, which also removes a
+  data race on go-pdfium's instance map.
+- Each read gets a fresh sandbox and keeps only the compiled module. The first
+  read in a process takes about 2.5 s to compile; later ones take about 0.1 s.
+- Limits: 60 pages and 2 Mi characters. Running out of sandbox memory is
+  reported as `PDF_INVALID`, not `PDF_TOO_LARGE`.
+
+It builds lines from PDFium's characters, not its rectangles, because rectangle
+text can repeat a neighbour's first character:
+
+- Characters that share a line band join in stream order, keeping PDFium's
+  spaces.
+- A gap wider than twice the typical glyph height becomes a tab, which is how
+  Word's option columns (`A. …⇥B. …`) and key tables reach the recognizer.
+
+**Evidence.** `adapters.PDFEvidence` makes each line one paragraph block, with
+IDs like `p2-l14` and version `pdf-lines-v1`. It keeps page furniture out of the
+exam, working inward from the two lines at the top and bottom of each page:
+
+- **Page numbers** (`12`, `- 3 -`, `Trang 2/4`, `Page 2 of 4`) whose number is
+  the page's own, and whose total is the page count, are hidden as
+  `ANCILLARY_CONTENT_REQUIRES_REVIEW`, an informational note.
+- **Repeated lines** are hidden when the same line sits at the same edge of
+  another page. Two lines are the same when they differ only where each holds
+  its own page number, so `Trang 1/4 - Mã đề 132` matches `Trang 4/4 - Mã đề 132`
+  and `Tiếng Anh 3` matches itself on page 3. A page of one or two lines counts
+  as both top and bottom. These are `PDF_REPEATED_LINE_REQUIRES_REVIEW`, which
+  the recognizer keeps review-required although the lines are outside the exam:
+  a repeated instruction may belong to it.
+- **Never hidden:** a line the recognizer reads as a question or a section
+  (`recognition.QuestionStart`, `recognition.SectionStart`), so `Câu 2 (NB).`
+  at the top of page 2 stays a question.
+
+An exam line that holds a second question label after a tab, followed by at
+least two words, is flagged `PDF_COLUMNS_REQUIRE_REVIEW`. That is what a
+two-column page turns into; it is flagged, not split, and the note suggests the
+Word file. The recognizer accepts `pdf-lines-v1` beside `ooxml-blocks-v1` and is
+otherwise unchanged.
+
+**No text.** A PDF whose text layer is empty fails in the reader. One whose
+only text is furniture, or an exam with under 20 visible characters a page (a
+typed title over scanned pages), fails the same way with `PDF_NO_TEXT`.
+
+**Pipeline.** A PDF is never normalized, with or without a converter. Extraction
+takes the source format, and `ExtractionVersion(format)` fences stage reuse per
+format. `PipelineVersion` is `word-pipeline-v2`, so a worker that predates PDF
+cannot claim a PDF run. A run left for v1 retires after ten minutes as before.
+
+**Intake.** `.pdf` is accepted by its `%PDF-` signature within the first KiB. A
+password, a broken file and a scan are found by the worker in its sandbox, not
+by the API. `limits.formats` lists `pdf`. Migration `00052` widens the source
+`format` CHECK.
+
+**Failures** a teacher can act on, all terminal: `PDF_NO_TEXT`,
+`PDF_PROTECTED`, `PDF_INVALID`, `PDF_TOO_LARGE`.
+
+**Corpus.** The local corpus has 49 exam PDFs and a separate `.docx` key. It is
+never committed. Read with that key, the result was:
+
+- every PDF read, with 2,451 questions;
+- 2,379 answers known (97%), 65 in conflict and 7 unknown;
+- the conflicts come from matching sections, which the recognizer does not
+  support, and from source typos such as `C/ in/ in`;
+- in every PDF, only the running header was hidden, and no line was flagged as
+  two columns.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -1484,6 +1573,7 @@ deploy and verify backup/restore before enabling production writes.
 | D-07 | Limits/SLOs/cost | Measure §9.2 hypotheses and approve supported envelope and spending cap | Thuong + engineering; W-21 before release |
 | D-08 | Retention/cleanup | **Decided 2026-09-25:** files and draft kept 30 days after commit and 7 after cancel; imports idle 60 days are closed and their files removed; history rows kept (§1.38) | Thuong |
 | D-09 | Quality and pilot | Verified real corpus, holdout, matched manual baseline and explicit release thresholds | Thuong + pilot teachers; W-01 baseline, thresholds before holdout |
+| D-10 | PDF input | **Decided 2026-09-25:** text-layer PDFs are accepted beside `.docx`; scans are refused without OCR; underline, bold and colour are not read; keys come from a key file or explicit lines (§1.39) | Thuong |
 
 First checkpoint deliverables are W-01–04: source family/coverage inventory,
 proposed contracts with concrete examples, extraction/editor/provider comparisons,

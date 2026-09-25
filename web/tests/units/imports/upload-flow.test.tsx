@@ -40,7 +40,7 @@ beforeEach(() => {
     http.get(`${BASE}/admin/imports/limits`, () =>
       contractJson("/admin/imports/limits", "get", 200, {
         maxBytes: 25 * 1024 * 1024,
-        formats: ["docx"],
+        formats: ["docx", "pdf"],
       }),
     ),
     http.post(`${BASE}/admin/imports`, async ({ request }) => {
@@ -143,7 +143,7 @@ describe("starting a Word import", () => {
   it("shows the server's limits before a file is chosen", async () => {
     renderPage();
     expect(
-      await screen.findByText(/Nhận tệp \.docx, tối đa 25\.0 MB/),
+      await screen.findByText(/Nhận tệp \.docx, \.pdf, tối đa 25\.0 MB/),
     ).toBeInTheDocument();
   });
 
@@ -165,7 +165,7 @@ describe("starting a Word import", () => {
           503,
           errorBody(
             "IMPORT_PROCESSING_UNAVAILABLE",
-            "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập.",
+            "Máy chủ này chưa bật xử lý tài liệu nên chưa thể xử lý lượt nhập.",
           ),
         );
       }),
@@ -217,6 +217,18 @@ describe("starting a Word import", () => {
       "href",
       "/admin/imports",
     );
+  });
+
+  it("takes a PDF exam and names the test after it", async () => {
+    const user = renderPage();
+    await screen.findByText(/^Nhận tệp \.docx, \.pdf,/);
+    await user.upload(
+      screen.getByLabelText("Tệp đề thi"),
+      new File(["%PDF-1.4"], "De thi HK2.PDF", { type: "application/pdf" }),
+    );
+
+    expect(screen.getByLabelText("Tên đề")).toHaveValue("De thi HK2");
+    expect(screen.queryByText(/không phải định dạng được hỗ trợ/)).toBeNull();
   });
 
   it("creates, uploads the exam, then the key against the exam's revision, then processes", async () => {
@@ -295,9 +307,9 @@ describe("starting a Word import", () => {
       </QueryClientProvider>,
     );
     await screen.findByText(/Nhận tệp/);
-    await user.upload(screen.getByLabelText("Tệp đề thi"), docx("de-thi.pdf"));
+    await user.upload(screen.getByLabelText("Tệp đề thi"), docx("de-thi.odt"));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/de-thi\.pdf/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/de-thi\.odt/);
     expect(screen.getByRole("button", { name: "Bắt đầu xử lý" })).toBeDisabled();
     await waitFor(() => expect(calls).toHaveLength(0));
   });

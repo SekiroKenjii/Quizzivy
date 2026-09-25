@@ -4,7 +4,11 @@ import { describe, expect, it } from "vitest";
 import vi from "@/lib/i18n/locales/vi.json";
 import en from "@/lib/i18n/locales/en.json";
 import { EDITABLE_TYPES } from "@/features/imports/draft";
-import { FINDING_CODES, OBJECT_REASONS } from "@/features/imports/findings";
+import {
+  FINDING_CODES,
+  OBJECT_REASONS,
+  TITLED_REASONS,
+} from "@/features/imports/findings";
 import {
   IMPORT_STATUSES,
   PROCESSING_STAGES,
@@ -69,6 +73,7 @@ const TEMPLATED: Record<string, string[]> = {
     `${code}.help`,
   ]),
   "imports.findings.objectReasons.": [...OBJECT_REASONS],
+  "imports.findings.objectTitles.": [...TITLED_REASONS],
   "imports.runError.": [...RUN_ERROR_KEYS],
   "imports.reprocess.": ["failed", "cancelled"],
   "imports.processing.stage.": PROCESSING_STAGES.map((stage) => stage.key),

@@ -1293,7 +1293,8 @@ the file it adds.
 | `00048_allow_legacy_word_sources.sql` | Legacy `.doc` sources | Word W-13 |
 | `00049_index_question_group_bank_recency.sql` | Bank group listing ordered by recency | Word W-07 |
 | `00050_add_word_import_files_removed_at.sql` | When retention removed an import's files, and the index its sweep reads | Word D-08 |
-| `00051_grant_word_import_draft_delete.sql` | Lets the worker delete a review draft when retention removes it | Word D-08 |
+| `00051_grant_word_import_draft_delete.sql` | Lets the retention sweep delete a review draft when it removes an import's files | Word D-08 |
+| `00052_allow_pdf_import_sources.sql` | PDF sources | Word D-10 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1843,3 +1844,7 @@ Enforcement:
   filter by status, and the removal sweep's keyset order is `(updated_at, id)`.
 - `00051` grants DELETE on `word_import_drafts` only. No other table gains a
   delete grant.
+
+`00052` widens the source `format` check to `docx`, `doc` and `pdf`. Like
+`00048`, its Down restores the narrower check `NOT VALID`, so PDF rows written
+meanwhile do not block the rollback.
