@@ -692,6 +692,8 @@
     "removeSectionBody_one": "The question in this section leaves this test. A question that came from the bank stays in the bank.",
     "removeSectionBody_other": "The {{count}} questions in this section leave this test. A question that came from the bank stays in the bank.",
     "sectionInstructionsTitle": "Instructions for {{title}}",
+    "removeSectionWithGroupsBody_one": "The question in this section leaves this test, and the section’s draft groups and their materials are deleted with it. Bank questions, published versions and bank copies are preserved.",
+    "removeSectionWithGroupsBody_other": "The {{count}} questions in this section leave this test, and the section’s draft groups and their materials are deleted with them. Bank questions, published versions and bank copies are preserved.",
     "sectionInstructionsHint": "Students read this before the questions in this section.",
     "sectionInstructionsPlaceholder": "For example: listen twice, then choose the right answer.",
     "dropFromTest": "Remove question {{number}} from the test",

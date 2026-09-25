@@ -692,6 +692,8 @@
     "removeSectionBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
     "removeSectionBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Câu lấy từ ngân hàng vẫn còn trong ngân hàng.",
     "sectionInstructionsTitle": "Hướng dẫn cho {{title}}",
+    "removeSectionWithGroupsBody_one": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Nhóm câu và ngữ liệu trong bản nháp của phần này sẽ được xoá cùng; câu lấy từ ngân hàng, các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
+    "removeSectionWithGroupsBody_other": "{{count}} câu trong phần này sẽ bị gỡ khỏi đề. Nhóm câu và ngữ liệu trong bản nháp của phần này sẽ được xoá cùng; câu lấy từ ngân hàng, các bản đã phát hành và bản sao trong ngân hàng vẫn được giữ nguyên.",
     "sectionInstructionsHint": "Học viên đọc hướng dẫn này trước các câu trong phần.",
     "sectionInstructionsPlaceholder": "Ví dụ: Nghe hai lần rồi chọn đáp án đúng.",
     "dropFromTest": "Gỡ câu {{number}} khỏi đề",
