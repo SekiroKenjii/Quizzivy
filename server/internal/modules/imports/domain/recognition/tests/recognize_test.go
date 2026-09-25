@@ -173,6 +173,9 @@ func TestAnOpenClozeCreatesOneBlankQuestionPerNumberedGap(t *testing.T) {
 	if open.Gaps[0].BlankGapID != open.Questions[0].Blanks[0].GapID || open.Questions[1].Blanks[0].Accepted[0] != "After" {
 		t.Fatalf("open cloze links %+v %+v", open.Gaps, open.Questions[1].Blanks)
 	}
+	if got := text(t, open.Questions[0].Prompt); got != "[12]" {
+		t.Fatalf("an open cloze answer should carry its passage label: %q", got)
+	}
 }
 
 func questionPaper() domain.EvidenceDocument {
@@ -285,13 +288,13 @@ func TestALeadingBlankStaysPartOfTheQuestion(t *testing.T) {
 	}
 }
 
-func TestLabelledGapKeysFillTheirBlank(t *testing.T) {
+func TestLabelledGapKeysFillTheirBlankWhichIsNumberedWithinItsQuestion(t *testing.T) {
 	d := recognize(t, questionPaper(), questionKey())
 	q := question(t, d, "7")
-	if q.Type != "fill_blank" || q.Blanks[0].Label != "7.1" || q.Blanks[0].Accepted[0] != "fluently" {
+	if q.Type != "fill_blank" || q.Blanks[0].Label != "1" || q.Blanks[0].Accepted[0] != "fluently" {
 		t.Fatalf("question 7: %s %+v", q.Type, q.Blanks)
 	}
-	if got := text(t, q.Prompt); got != "My grandfather can speak English [7.1] so I admire him. (FLUENCY)" {
+	if got := text(t, q.Prompt); got != "My grandfather can speak English [1] so I admire him. (FLUENCY)" {
 		t.Fatalf("prompt %q", got)
 	}
 }

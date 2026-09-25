@@ -496,7 +496,7 @@ func blanks(gaps []gap, question []keyValue, byLabel map[string][]keyValue) ([]d
 	answer := domain.DraftAnswer{State: domain.AnswerKnown, OptionIDs: []string{}, Evidence: []domain.SourceRef{}}
 	split := splitBlanks(question, len(gaps))
 	for i, g := range gaps {
-		out[i] = domain.DraftBlank{GapID: blankID(i), Label: blankLabel(g, i), Accepted: []string{}}
+		out[i] = domain.DraftBlank{GapID: blankID(i), Label: blankLabel(i), Accepted: []string{}}
 		values := byLabel[g.label]
 		if values == nil && split != nil {
 			values = split[i]
@@ -572,12 +572,7 @@ func alternatives(v string) []string {
 
 func blankID(i int) string { return "blank-" + strconv.Itoa(i+1) }
 
-func blankLabel(g gap, i int) string {
-	if g.label != "" {
-		return g.label
-	}
-	return strconv.Itoa(i + 1)
-}
+func blankLabel(i int) string { return strconv.Itoa(i + 1) }
 
 func (b *builder) prompt(q *questionBuilder, withBlanks bool) (json.RawMessage, domain.Origin) {
 	if q.openCloze {
@@ -610,11 +605,11 @@ func (b *builder) sourcePrompt(q *questionBuilder, withBlanks bool) json.RawMess
 
 func blankNaming(instruction *segment) gapNaming {
 	counter := 0
-	return func(s segment, g gap) (string, string, bool) {
+	return func(s segment, _ gap) (string, string, bool) {
 		if instruction != nil && s == *instruction {
 			return "", "", false
 		}
-		id, label := blankID(counter), blankLabel(g, counter)
+		id, label := blankID(counter), blankLabel(counter)
 		counter++
 		return id, label, true
 	}
