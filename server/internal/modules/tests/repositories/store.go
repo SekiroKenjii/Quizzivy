@@ -47,20 +47,11 @@ func (s *Postgres) WithGroupQuestions(questions GroupQuestionStore) *Postgres {
 
 const testColumns = `
 	       t.id::text, t.title, t.description, t.status::text, t.current_version,
-	       coalesce((SELECT sum(q.points)
-	                   FROM app.test_sections s
-	                   JOIN app.test_section_questions sq ON sq.test_section_id = s.id
-	                   JOIN app.questions q ON q.id = sq.question_id
-	                  WHERE s.test_id = t.id), 0)::text,
-	       (SELECT count(*)
-	          FROM app.test_sections s
-	          JOIN app.test_section_questions sq ON sq.test_section_id = s.id
-	         WHERE s.test_id = t.id),
-	       (SELECT count(*)
-	          FROM app.test_sections s
-	          JOIN app.test_section_questions sq ON sq.test_section_id = s.id
-	          JOIN app.questions q ON q.id = sq.question_id
-	         WHERE s.test_id = t.id AND q.media_asset_kind = 'audio'),
+	       coalesce((SELECT sum(q.points) FROM (` + draftQuestionRows + `) q), 0)::text,
+	       (SELECT count(*) FROM (` + draftQuestionRows + `) q),
+	       (SELECT count(*) FROM (` + draftQuestionRows + `) q
+	         WHERE q.media_asset_kind = 'audio' OR EXISTS (
+	           SELECT 1 FROM app.group_recordings r WHERE r.group_id=q.context_group_id)),
 	       t.created_at, t.updated_at, t.deleted_at`
 
 func scanTest(row pgx.Row) (domain.Test, error) {
@@ -80,7 +71,27 @@ func scanTest(row pgx.Row) (domain.Test, error) {
 
 // Get returns one live test with its draft outline.
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Test, error) {
-	return s.get(ctx, s.Conn(), id)
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return domain.Test{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var locked string
+	err = tx.QueryRow(ctx, `SELECT id::text FROM app.tests WHERE id=$1 AND deleted_at IS NULL FOR SHARE`, id).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Test{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Test{}, err
+	}
+	result, err := s.get(ctx, tx, id)
+	if err != nil {
+		return domain.Test{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Test{}, err
+	}
+	return result, nil
 }
 
 func (s *Postgres) get(ctx context.Context, q db.Querier, id string) (domain.Test, error) {
@@ -135,7 +146,14 @@ func (s *Postgres) sectionsFor(ctx context.Context, q db.Querier, testIDs []stri
 		}
 		byTest[testID] = append(byTest[testID], sec)
 	}
-	return byTest, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	if err := readSectionUnits(ctx, q, testIDs, byTest); err != nil {
+		return nil, err
+	}
+	return byTest, nil
 }
 
 func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Test, error) {
