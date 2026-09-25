@@ -42,3 +42,17 @@ func TestImmutableStorageRejectsBadDigestAndChangedReplay(t *testing.T) {
 		t.Fatalf("immutable read changed: %v", err)
 	}
 }
+
+func TestImmutableStorageChecksTheBytesBeforeSendingThem(t *testing.T) {
+	c := newClient(t)
+	ctx := context.Background()
+	key := testKey(t)
+	const payload = "private source evidence"
+	hash := sha256.Sum256([]byte(payload))
+	if err := c.PutImmutable(ctx, key, "application/json", strings.NewReader(payload), int64(len(payload))+1, hash[:]); err == nil {
+		t.Fatal("a size mismatch was accepted")
+	}
+	if _, _, err := c.Open(ctx, key); err == nil {
+		t.Fatal("a refused object reached storage")
+	}
+}

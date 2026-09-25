@@ -997,6 +997,19 @@ then sleeps until one of three things happens:
 It never polls sooner than every two seconds, not even when woken. That is the
 wake listener's rate limit.
 
+### 1.37 An import store that works on R2
+
+Cloudflare's S3 matrix marks full-object SHA-256 checksums unsupported. The import
+store's create-only writes sent exactly that, so they would have failed on R2 while
+passing on MinIO. `storage.PutImmutable` now works like this:
+
+- It checks the size and SHA-256 before sending anything.
+- It sends `Content-MD5` with `If-None-Match: *`.
+- It stores the digest as object metadata, which a lost-response retry compares.
+
+The worker's SHA-256 check on every read is unchanged. `make verify-r2-imports`
+(`cmd/verify-import-storage`) drives this code against the real bucket.
+
 
 
 ## 2. Current code and the actual gaps
