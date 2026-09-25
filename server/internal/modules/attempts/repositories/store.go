@@ -210,13 +210,15 @@ const sectionsQuery = `
 	 ORDER BY ordinal`
 
 const questionsQuery = `
-	SELECT q.id, q.test_version_section_id, q.type, q.prompt, q.points,
+	SELECT q.id, q.test_version_section_id, q.type, q.prompt, q.prompt_content, q.points,
 	       q.media_asset_id, q.media_asset_kind, m.mime_type, m.original_filename,
 	       m.bytes, m.duration_ms, m.created_at,
-	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after
+	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
+           coalesce(gm.group_id::text,''),coalesce(gm.ordinal,0),coalesce(gm.option_order='fixed',false)
 	  FROM app.test_version_questions q
 	  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 	  LEFT JOIN app.media_assets m ON m.id = q.media_asset_id
+      LEFT JOIN app.test_version_group_members gm ON gm.question_id=q.id
 	 WHERE s.test_version_id = $1::uuid
 	 ORDER BY s.ordinal, q.ordinal`
 
@@ -288,10 +290,11 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 	for rows.Next() {
 		var q domain.Question
 		var r questionRow
-		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.Points,
+		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.PromptContent, &q.Points,
 			&r.mediaID, &r.mediaKind, &r.mimeType, &r.filename, &r.mediaBytes,
 			&r.durationMs, &r.createdAt,
-			&r.maxPlays, &r.allowSeek, &r.showTranscript); err != nil {
+			&r.maxPlays, &r.allowSeek, &r.showTranscript,
+			&q.GroupID, &q.GroupOrdinal, &q.FixedOptionOrder); err != nil {
 			return nil, fmt.Errorf("attempts: scan question: %w", err)
 		}
 		q.Media = r.media()
@@ -311,7 +314,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 
 func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id, o.id, o.text
+		SELECT o.test_version_question_id, o.id, o.text, o.content
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -320,7 +323,7 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 		func(rows pgx.Rows) (string, domain.Option, error) {
 			var questionID string
 			var o domain.Option
-			err := rows.Scan(&questionID, &o.ID, &o.Text)
+			err := rows.Scan(&questionID, &o.ID, &o.Text, &o.Content)
 			return questionID, o, err
 		})
 	if err != nil {
@@ -336,7 +339,7 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 
 func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT b.test_version_question_id, b.id, b.ordinal, b.case_sensitive
+		SELECT b.test_version_question_id, b.id, b.ordinal, b.gap_id, b.case_sensitive
 		  FROM app.test_version_blanks b
 		  JOIN app.test_version_questions q ON q.id = b.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -345,7 +348,7 @@ func (s *Postgres) attachBlanks(ctx context.Context, versionID string, qs []doma
 		func(rows pgx.Rows) (string, domain.Blank, error) {
 			var questionID string
 			var b domain.Blank
-			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive)
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.GapID, &b.CaseSensitive)
 			return questionID, b, err
 		})
 	if err != nil {

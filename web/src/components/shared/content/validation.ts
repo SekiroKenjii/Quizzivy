@@ -1,6 +1,8 @@
+import { contentStringLength } from "./unicode";
 import { withinContentBudget } from "./budget";
 import { z } from "zod";
 import {
+  ASSET_TEXT_LIMITS,
   CONTENT_LIMITS,
   type ContentBlock,
   type ContentCell,
@@ -24,39 +26,57 @@ const marks = z
       new Set(values).size === values.length &&
       !(values.includes("superscript") && values.includes("subscript")),
   );
+function boundedString(min: number, max: number) {
+  return z.string().refine((value) => {
+    const length = contentStringLength(value);
+    return length >= min && length <= max;
+  });
+}
+
 const text = z.strictObject({
   type: z.literal("text"),
-  text: z.string().min(1).max(CONTENT_LIMITS.text),
+  text: boundedString(1, CONTENT_LIMITS.text),
   marks,
 });
 const id = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/);
 const asset = z.uuid();
 
-/** safeContentURL permits explicit HTTPS navigation without credentials or control characters. */
+/** safeContentURL permits HTTPS navigation with a portable ASCII authority and no credentials or unsafe characters. */
 export function safeContentURL(value: string): boolean {
-  if (!/^https:\/\//i.test(value) || value.includes("\\")) return false;
+  if (!/^https:\/\//i.test(value) || contentStringLength(value) > CONTENT_LIMITS.url)
+    return false;
   if (
-    value.length > CONTENT_LIMITS.url ||
-    value !== value.trim() ||
-    Array.from(value).some(
-      (character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127,
-    )
+    Array.from(value).some((character) => {
+      const code = character.codePointAt(0)!;
+      return (
+        character === "\\" ||
+        /\s/u.test(character) ||
+        code < 32 ||
+        (code >= 127 && code <= 159)
+      );
+    }) ||
+    /%(?![0-9a-f]{2})/i.test(value)
   )
     return false;
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol === "https:" && !url.username && !url.password && !!url.hostname
-    );
-  } catch {
+  const authority = value.slice(8).split(/[/?#]/u, 1)[0]!;
+  const [host, port, extra] = authority.split(":");
+  if (extra !== undefined || !host || host.length > 253) return false;
+  if (
+    !host
+      .split(".")
+      .every((label) => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/i.test(label))
+  )
     return false;
-  }
+  return (
+    port === undefined ||
+    (/^\d{1,5}$/.test(port) && Number(port) >= 1 && Number(port) <= 65535)
+  );
 }
 
 const inline: z.ZodType<ContentInline> = z.discriminatedUnion("type", [
   text,
   z.strictObject({ type: z.literal("break") }),
-  z.strictObject({ type: z.literal("gap"), id, label: z.string().min(1).max(32) }),
+  z.strictObject({ type: z.literal("gap"), id, label: boundedString(1, 32) }),
   z.strictObject({
     type: z.literal("link"),
     href: z.string().refine(safeContentURL),
@@ -100,12 +120,12 @@ const block: z.ZodType<ContentBlock> = z.lazy(() =>
     z.strictObject({
       type: z.literal("image"),
       assetId: asset,
-      alt: z.string().min(1).max(1000),
+      alt: boundedString(1, ASSET_TEXT_LIMITS.image),
     }),
     z.strictObject({
       type: z.literal("audio"),
       assetId: asset,
-      label: z.string().min(1).max(200),
+      label: boundedString(1, ASSET_TEXT_LIMITS.audio),
     }),
   ]),
 );
@@ -113,13 +133,13 @@ const block: z.ZodType<ContentBlock> = z.lazy(() =>
 const document: z.ZodType<ContentDocument> = z.discriminatedUnion("format", [
   z.strictObject({
     format: z.literal("legacy_markdown_v1"),
-    markdown: z.string().max(CONTENT_LIMITS.text),
+    markdown: boundedString(0, CONTENT_LIMITS.text),
   }),
   z.strictObject({ format: z.literal("semantic_v1"), blocks }),
 ]);
 
 export type ContentIssue =
-  "limit" | "schema" | "duplicate_gap" | "table_grid" | "nested_table";
+  "limit" | "schema" | "duplicate_gap" | "table_grid" | "nested_table" | "asset_kind";
 export type ContentValidation =
   { ok: true; value: ContentDocument } | { ok: false; issue: ContentIssue };
 
@@ -158,7 +178,12 @@ function validGrid(rows: ContentCell[][]): boolean {
   return width > 0 && occupied.every((row) => row.size === width);
 }
 
-type GraphState = { nodes: number; textLength: number; gaps: Set<string> };
+type GraphState = {
+  nodes: number;
+  textLength: number;
+  gaps: Set<string>;
+  assets: Map<string, "image" | "audio">;
+};
 
 function inlineIssue(
   content: ContentInline[],
@@ -166,17 +191,18 @@ function inlineIssue(
 ): ContentIssue | undefined {
   for (const inline of content) {
     state.nodes++;
-    if (inline.type === "text") state.textLength += inline.text.length;
+    if (inline.type === "text") state.textLength += contentStringLength(inline.text);
     if (inline.type === "link") {
       state.nodes += inline.content.length;
       state.textLength += inline.content.reduce(
-        (sum, text) => sum + text.text.length,
+        (sum, text) => sum + contentStringLength(text.text),
         0,
       );
     }
     if (inline.type === "gap") {
       if (state.gaps.has(inline.id)) return "duplicate_gap";
       state.gaps.add(inline.id);
+      state.textLength += contentStringLength(inline.label);
     }
   }
   return undefined;
@@ -193,6 +219,7 @@ function blockIssue(
     case "table":
       if (inTable) return "nested_table";
       if (!validGrid(block.rows)) return "table_grid";
+      state.nodes += block.rows.reduce((sum, row) => sum + row.length, 0);
       queue.push(
         ...block.rows.flatMap((row) =>
           row.flatMap((cell) =>
@@ -217,18 +244,28 @@ function blockIssue(
     case "heading":
       return inlineIssue(block.content, state);
     case "image":
-      state.textLength += block.alt.length;
+    case "audio": {
+      const id = block.assetId.toLowerCase();
+      const kind = state.assets.get(id);
+      if (kind && kind !== block.type) return "asset_kind";
+      state.assets.set(id, block.type);
+      state.textLength += contentStringLength(
+        block.type === "image" ? block.alt : block.label,
+      );
       break;
-    case "audio":
-      state.textLength += block.label.length;
-      break;
+    }
   }
   return undefined;
 }
 
 function graphIssue(content: ContentBlock[]): ContentIssue | undefined {
   const queue = content.map((block) => ({ block, inTable: false }));
-  const state: GraphState = { nodes: 0, textLength: 0, gaps: new Set() };
+  const state: GraphState = {
+    nodes: 0,
+    textLength: 0,
+    gaps: new Set(),
+    assets: new Map(),
+  };
   while (queue.length) {
     if (++state.nodes > CONTENT_LIMITS.nodes) return "limit";
     const issue = blockIssue(queue.pop()!, queue, state);

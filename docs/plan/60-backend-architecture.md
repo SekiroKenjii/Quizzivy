@@ -5,9 +5,9 @@ the "one package per feature" layout AGENTS.md described until then.
 
 ## Shape
 
-- **One process, one database, eight bounded contexts** under
+- **One process, one database, nine bounded contexts** under
   `server/internal/modules/`: identity, classes, questions, media, tests,
-  assignments, attempts, dashboard. Each is one aggregate (dashboard is read
+  assignments, attempts, dashboard, imports. Each is one aggregate (dashboard is read
   models only) and exposes its operations through its own `http/` package,
   which core embeds into the generated strict server.
 - **Four layers per module** — `domain/`, `application/`, `repositories/`,

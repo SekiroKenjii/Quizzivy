@@ -4,25 +4,28 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 )
 
 // Question is a bank row with its children. Media is the id and kind pair the
 // composite FK needs; the handler resolves the asset itself.
 type Question struct {
-	ID             string
-	Type           Type
-	Prompt         string
-	MediaAssetID   *string
-	MediaAssetKind *string
-	Audio          *AudioPolicy
-	Transcript     *string
-	Options        []Option
-	Blanks         []Blank
-	Points         string
-	Explanation    *string
-	SampleAnswer   *string
-	Tags           []string
+	PromptContent      json.RawMessage
+	ExplanationContent json.RawMessage
+	ID                 string
+	Type               Type
+	Prompt             string
+	MediaAssetID       *string
+	MediaAssetKind     *string
+	Audio              *AudioPolicy
+	Transcript         *string
+	Options            []Option
+	Blanks             []Blank
+	Points             string
+	Explanation        *string
+	SampleAnswer       *string
+	Tags               []string
 	// Draft outlines referencing this question.
 	UsedInTests int
 	UsedIn      []TestRef
@@ -31,6 +34,7 @@ type Question struct {
 }
 
 type Option struct {
+	Content   json.RawMessage
 	ID        string
 	Ordinal   int
 	Text      string
@@ -38,6 +42,7 @@ type Option struct {
 }
 
 type Blank struct {
+	GapID           *string
 	ID              string
 	Ordinal         int
 	AcceptedAnswers []string

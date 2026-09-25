@@ -117,7 +117,7 @@ func (h Questions) CreateQuestion(ctx context.Context, request openapi.CreateQue
 
 	meta := httpx.RequestMetaFromContext(ctx)
 	q, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
-		Input:     toQuestionInput(*request.Body),
+		Input:     ToQuestionInput(*request.Body),
 		ActorID:   principal.UserID,
 		IP:        meta.IP,
 		UserAgent: meta.UserAgent,
@@ -177,7 +177,7 @@ func (h Questions) UpdateQuestion(ctx context.Context, request openapi.UpdateQue
 	meta := httpx.RequestMetaFromContext(ctx)
 	q, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: domain.WriteRequest{
 		ID:        request.Id.String(),
-		Input:     toQuestionInput(*request.Body),
+		Input:     ToQuestionInput(*request.Body),
 		ActorID:   principal.UserID,
 		IP:        meta.IP,
 		UserAgent: meta.UserAgent,
@@ -258,14 +258,17 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 	return openapi.ErrorResponse{}, false
 }
 
-func toQuestionInput(body openapi.QuestionInput) domain.Input {
+// ToQuestionInput projects the API write shape into the shared question validation input.
+func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 	in := domain.Input{
-		Type:         domain.Type(body.Type),
-		Prompt:       body.Prompt,
-		Transcript:   body.Transcript,
-		Points:       strconv.FormatFloat(float64(body.Points), 'f', 2, 64),
-		Explanation:  body.Explanation,
-		SampleAnswer: body.SampleAnswer,
+		Type:               domain.Type(body.Type),
+		Prompt:             body.Prompt,
+		PromptContent:      body.PromptContent,
+		Transcript:         body.Transcript,
+		Points:             strconv.FormatFloat(float64(body.Points), 'f', -1, 64),
+		Explanation:        body.Explanation,
+		ExplanationContent: body.ExplanationContent,
+		SampleAnswer:       body.SampleAnswer,
 	}
 	if body.MediaAssetId != nil {
 		id := body.MediaAssetId.String()
@@ -286,12 +289,15 @@ func toQuestionInput(body openapi.QuestionInput) domain.Input {
 	}
 	if body.Options != nil {
 		for _, o := range *body.Options {
-			in.Options = append(in.Options, domain.OptionInput{Text: o.Text, IsCorrect: o.IsCorrect})
+			option := domain.OptionInput{Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect}
+			option.ID = optionID(o.Id)
+			in.Options = append(in.Options, option)
 		}
 	}
 	if body.Blanks != nil {
 		for _, b := range *body.Blanks {
 			blank := domain.BlankInput{
+				GapID:           b.GapId,
 				Ordinal:         b.Ordinal,
 				AcceptedAnswers: b.AcceptedAnswers,
 			}
@@ -311,17 +317,19 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	}
 
 	out := openapi.AdminQuestion{
-		Id:           httpapi.ParseUUID(q.ID),
-		Type:         openapi.QuestionType(q.Type),
-		Prompt:       q.Prompt,
-		Points:       points,
-		Explanation:  q.Explanation,
-		SampleAnswer: q.SampleAnswer,
-		Tags:         q.Tags,
-		UsedInTests:  &q.UsedInTests,
-		Transcript:   q.Transcript,
-		CreatedAt:    q.CreatedAt,
-		UpdatedAt:    q.UpdatedAt,
+		Id:                 httpapi.ParseUUID(q.ID),
+		Type:               openapi.QuestionType(q.Type),
+		Prompt:             q.Prompt,
+		PromptContent:      q.PromptContent,
+		Points:             points,
+		Explanation:        q.Explanation,
+		ExplanationContent: q.ExplanationContent,
+		SampleAnswer:       q.SampleAnswer,
+		Tags:               q.Tags,
+		UsedInTests:        &q.UsedInTests,
+		Transcript:         q.Transcript,
+		CreatedAt:          q.CreatedAt,
+		UpdatedAt:          q.UpdatedAt,
 	}
 	if out.Tags == nil {
 		out.Tags = []string{}
@@ -344,7 +352,7 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	options := make([]openapi.AdminQuestionOption, len(q.Options))
 	for i, o := range q.Options {
 		options[i] = openapi.AdminQuestionOption{
-			Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, IsCorrect: o.IsCorrect,
+			Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect,
 		}
 	}
 	out.Options = &options
@@ -352,7 +360,8 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
 		blanks[i] = openapi.AdminQuestionBlank{
-			Id: httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal,
+			GapId: b.GapID,
+			Id:    httpapi.ParseUUID(b.ID), Ordinal: b.Ordinal,
 			AcceptedAnswers: b.AcceptedAnswers, CaseSensitive: b.CaseSensitive,
 		}
 	}
@@ -386,4 +395,12 @@ func (h Questions) TagQuestions(ctx context.Context, request openapi.TagQuestion
 		return nil, err
 	}
 	return openapi.TagQuestions200JSONResponse{Updated: updated}, nil
+}
+
+func optionID(id *openapi.Uuid) *string {
+	if id == nil {
+		return nil
+	}
+	value := id.String()
+	return &value
 }

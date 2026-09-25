@@ -1,0 +1,1981 @@
+[
+  {
+    "name": "legacy exact Unicode and whitespace",
+    "document": {
+      "format": "legacy_markdown_v1",
+      "markdown": " **\u0110\u1ec1 c\u0169**\r\n\nTie\u0302\u0301ng Vi\u1eb9\u0302t \ud83c\udf31 "
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": " **\u0110\u1ec1 c\u0169**\r\n\nTie\u0302\u0301ng Vi\u1eb9\u0302t \ud83c\udf31 ",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "empty legacy",
+    "document": {
+      "format": "legacy_markdown_v1",
+      "markdown": ""
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "empty paragraph",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": []
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "Vietnamese supplementary and decomposed Unicode",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Ti\u1ebfng Vi\u1ec7t \ud83c\udf31 e\u0301",
+              "marks": []
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "Ti\u1ebfng Vi\u1ec7t \ud83c\udf31 e\u0301",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "marks gaps links and breaks",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "heading",
+          "level": 3,
+          "content": [
+            {
+              "type": "text",
+              "text": "\u0110\u1ecdc",
+              "marks": [
+                "bold",
+                "italic",
+                "underline",
+                "strike"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "H",
+              "marks": []
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                "subscript"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "O",
+              "marks": []
+            },
+            {
+              "type": "break"
+            },
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                "superscript"
+              ]
+            },
+            {
+              "type": "gap",
+              "id": "gap-2",
+              "label": "23.1"
+            },
+            {
+              "type": "link",
+              "href": "https://example.com/\u0111\u1ecdc?q=1#ph\u1ea7n",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "T\u00e0i li\u1ec7u",
+                  "marks": [
+                    "underline"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "gap",
+              "id": "gap-1",
+              "label": "1"
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "\u0110\u1ecdc\n\nH2O\nx2[23.1]T\u00e0i li\u1ec7u[1]",
+    "gaps": [
+      "gap-2",
+      "gap-1"
+    ],
+    "assets": []
+  },
+  {
+    "name": "nested lists preserve order",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "list",
+          "ordered": true,
+          "start": 3,
+          "items": [
+            [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "M\u1ed9t",
+                    "marks": []
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Hai",
+                    "marks": []
+                  }
+                ]
+              },
+              {
+                "type": "list",
+                "ordered": false,
+                "start": 1,
+                "items": [
+                  [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Nh\u1ecf",
+                          "marks": []
+                        }
+                      ]
+                    }
+                  ]
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "M\u1ed9t\nHai\nNh\u1ecf",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "merged cells preserve reading order",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "table",
+          "rows": [
+            [
+              {
+                "header": true,
+                "rowSpan": 1,
+                "colSpan": 2,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "A",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "header": false,
+                "rowSpan": 2,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "B",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "C",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "D",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "A\nB\tC\nD",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "row wholly covered by span",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "table",
+          "rows": [
+            [
+              {
+                "header": false,
+                "rowSpan": 2,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Tr\u00f9m",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            []
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "Tr\u00f9m\n",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "assets ordered and deduplicated by UUID",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "image",
+          "assetId": "01935000-0000-7000-8000-00000000ABCD",
+          "alt": "\u1ea2nh"
+        },
+        {
+          "type": "audio",
+          "assetId": "01935000-0000-7000-8000-00000000abc2",
+          "label": "B\u00e0i nghe"
+        },
+        {
+          "type": "image",
+          "assetId": "01935000-0000-7000-8000-00000000abcd",
+          "alt": "\u1ea2nh l\u1ea7n hai"
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "\u1ea2nh\n\nB\u00e0i nghe\n\n\u1ea2nh l\u1ea7n hai",
+    "gaps": [],
+    "assets": [
+      {
+        "id": "01935000-0000-7000-8000-00000000abcd",
+        "kind": "image"
+      },
+      {
+        "id": "01935000-0000-7000-8000-00000000abc2",
+        "kind": "audio"
+      }
+    ]
+  },
+  {
+    "name": "supplementary gap label counts scalars",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "gap",
+              "id": "u",
+              "label": "\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31"
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "[\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31]",
+    "gaps": [
+      "u"
+    ],
+    "assets": []
+  },
+  {
+    "name": "unknown format",
+    "document": {
+      "format": "semantic_v2",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "empty blocks",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": []
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "missing content",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "null content",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": null
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "heading out of range",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "heading",
+          "level": 4,
+          "content": []
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "noninteger heading",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "heading",
+          "level": 1.5,
+          "content": []
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "unsupported HTML",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "html",
+          "html": "<p>x</p>"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "empty text",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "",
+              "marks": []
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "unknown mark",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": [
+                "highlight"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "duplicate mark",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": [
+                "bold",
+                "bold"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "bad asset UUID",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "image",
+          "assetId": "wrong",
+          "alt": "Image"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "missing alt",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "image",
+          "assetId": "01935000-0000-7000-8000-00000000abcd"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "empty link content",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com",
+              "content": []
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "invalid gap ID",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "gap",
+              "id": "not a gap",
+              "label": "1"
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "long label",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "gap",
+              "id": "u",
+              "label": "\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31\ud83c\udf31"
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "reject isCorrect",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            }
+          ],
+          "isCorrect": "private"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "reject acceptedAnswers",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            }
+          ],
+          "acceptedAnswers": "private"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "reject sampleAnswer",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            }
+          ],
+          "sampleAnswer": "private"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "reject transcript",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            }
+          ],
+          "transcript": "private"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "reject sourcePath",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            }
+          ],
+          "sourcePath": "private"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "reject onclick",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": []
+            }
+          ],
+          "onclick": "private"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": false
+  },
+  {
+    "name": "conflicting marks",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x",
+              "marks": [
+                "superscript",
+                "subscript"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unordered offset",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "list",
+          "ordered": false,
+          "start": 2,
+          "items": [
+            [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "x",
+                    "marks": []
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "list starts with heading",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "list",
+          "ordered": true,
+          "start": 1,
+          "items": [
+            [
+              {
+                "type": "heading",
+                "level": 1,
+                "content": []
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "duplicate gap",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "gap",
+              "id": "x",
+              "label": "1"
+            },
+            {
+              "type": "gap",
+              "id": "x",
+              "label": "2"
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "ragged table",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "table",
+          "rows": [
+            [
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "x",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "y",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "z",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "empty table width",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "table",
+          "rows": [
+            []
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "span past end",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "table",
+          "rows": [
+            [
+              {
+                "header": false,
+                "rowSpan": 2,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Tr\u00f9m",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "nested table",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "table",
+          "rows": [
+            [
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "table",
+                    "rows": [
+                      [
+                        {
+                          "header": true,
+                          "rowSpan": 1,
+                          "colSpan": 2,
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "A",
+                                  "marks": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      [
+                        {
+                          "header": false,
+                          "rowSpan": 2,
+                          "colSpan": 1,
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "B",
+                                  "marks": []
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "header": false,
+                          "rowSpan": 1,
+                          "colSpan": 1,
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "C",
+                                  "marks": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      [
+                        {
+                          "header": false,
+                          "rowSpan": 1,
+                          "colSpan": 1,
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "D",
+                                  "marks": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    ]
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "same asset conflicting kinds",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "image",
+          "assetId": "01935000-0000-7000-8000-00000000abcd",
+          "alt": "Image"
+        },
+        {
+          "type": "audio",
+          "assetId": "01935000-0000-7000-8000-00000000ABCD",
+          "label": "Audio"
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "NUL text",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "x\u0000y",
+              "marks": []
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unpaired high surrogate",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "\ud800",
+              "marks": []
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unpaired low surrogate",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "\udfff",
+              "marks": []
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "overlapping table span",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "table",
+          "rows": [
+            [
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "a",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "header": false,
+                "rowSpan": 2,
+                "colSpan": 1,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "b",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "header": false,
+                "rowSpan": 1,
+                "colSpan": 2,
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "c",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'javascript:alert(1)'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "javascript:alert(1)",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'data:text/html,x'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "data:text/html,x",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL '//example.com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "//example.com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'http://example.com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "http://example.com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://user:pass@example.com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://user:pass@example.com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com\\n'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com\n",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL ' https://example.com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": " https://example.com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com/a b'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com/a b",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https:example.com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https:example.com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https:\\\\example.com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https:\\example.com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https:///example.com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https:///example.com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com:0'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com:0",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com:65536'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com:65536",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com:+8'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com:+8",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example..com'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example..com",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com/%zz'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com/%zz",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com/\\x85'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com/\u0085",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://example.com/\\ufeff'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com/\ufeff",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://[::1]'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://[::1]",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "unsafe or unsupported URL 'https://ti\u1ebfng-vi\u1ec7t.vn'",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://ti\u1ebfng-vi\u1ec7t.vn",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": false,
+    "schemaValid": true
+  },
+  {
+    "name": "safe URL HTTPS://example.com:443/a%20b",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "HTTPS://example.com:443/a%20b",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nh\u00e3n",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "Nh\u00e3n",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "safe URL https://localhost:5173",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://localhost:5173",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nh\u00e3n",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "Nh\u00e3n",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "safe URL https://xn--vitnam-zva.example/\u0111\u1ecdc",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://xn--vitnam-zva.example/\u0111\u1ecdc",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nh\u00e3n",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "Nh\u00e3n",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "safe URL https://example.com?q=@user",
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com?q=@user",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nh\u00e3n",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "schemaValid": true,
+    "plainText": "Nh\u00e3n",
+    "gaps": [],
+    "assets": []
+  },
+  {
+    "name": "malformed signed percent",
+    "valid": false,
+    "schemaValid": true,
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com/%+1",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "malformed negative percent",
+    "valid": false,
+    "schemaValid": true,
+    "document": {
+      "format": "semantic_v1",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "link",
+              "href": "https://example.com/%-1",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

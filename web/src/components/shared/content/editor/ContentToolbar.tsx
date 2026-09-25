@@ -48,7 +48,15 @@ function ToolButton({ tool }: Readonly<{ tool: Tool }>) {
 }
 
 /** ContentToolbar subscribes only to the selection state displayed by its controls. */
-export function ContentToolbar({ editor }: Readonly<{ editor: Editor }>) {
+export function ContentToolbar({
+  editor,
+  profile = "document",
+  gapLabel,
+}: Readonly<{
+  gapLabel?: (() => string) | undefined;
+  editor: Editor;
+  profile?: "document" | "option" | "question" | "prompt";
+}>) {
   const { t } = useTranslation();
   const state = useEditorState({
     editor,
@@ -143,15 +151,22 @@ export function ContentToolbar({ editor }: Readonly<{ editor: Editor }>) {
     {
       key: "insertGap",
       icon: TextCursorInput,
-      run: () =>
+      run: () => {
+        const labels = new Set<string>();
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === "gap") labels.add(String(node.attrs.label));
+        });
+        let label = 1;
+        while (labels.has(String(label))) label++;
         editor
           .chain()
           .focus()
           .insertContent({
             type: "gap",
-            attrs: { id: crypto.randomUUID(), label: t("contentEditor.newGap") },
+            attrs: { id: crypto.randomUUID(), label: gapLabel?.() ?? String(label) },
           })
-          .run(),
+          .run();
+      },
     },
     {
       key: "undo",
@@ -173,9 +188,26 @@ export function ContentToolbar({ editor }: Readonly<{ editor: Editor }>) {
         aria-label={t("contentEditor.formatting")}
         className="flex flex-wrap gap-0.5"
       >
-        {tools.map((tool) => (
-          <ToolButton key={tool.key} tool={tool} />
-        ))}
+        {tools
+          .filter(
+            (tool) =>
+              profile === "document" ||
+              profile === "prompt" ||
+              (profile === "question" && tool.key !== "insertGap") ||
+              [
+                "bold",
+                "italic",
+                "underline",
+                "strike",
+                "superscript",
+                "subscript",
+                "undo",
+                "redo",
+              ].includes(tool.key),
+          )
+          .map((tool) => (
+            <ToolButton key={tool.key} tool={tool} />
+          ))}
       </div>
       {state.table && (
         <div

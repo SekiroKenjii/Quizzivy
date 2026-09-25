@@ -240,7 +240,7 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 			_, _ = pool.Exec(c, q, w.assignment)
 		}
 		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, w.testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.media_assets WHERE id = $1::uuid`, w.asset)
+		_, _ = pool.Exec(c, `DELETE FROM app.media_assets WHERE uploaded_by = $1::uuid`, w.admin)
 		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1::uuid`, w.testID)
 		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, w.class)
 		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1::uuid`, w.class)

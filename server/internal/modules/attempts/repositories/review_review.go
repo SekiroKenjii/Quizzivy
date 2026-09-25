@@ -100,10 +100,12 @@ func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.Rev
 		       q.media_asset_id::text, q.media_asset_kind::text, m.mime_type, m.original_filename,
 		       m.bytes, m.duration_ms, m.created_at,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
-		       q.transcript, q.explanation, q.sample_answer
+		       q.transcript, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content,
+		       coalesce(gm.group_id::text,'')
 		  FROM app.test_version_questions q
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		  LEFT JOIN app.media_assets m ON m.id = q.media_asset_id
+		  LEFT JOIN app.test_version_group_members gm ON gm.question_id = q.id
 		 WHERE s.test_version_id = $1::uuid
 		 ORDER BY s.ordinal, q.ordinal`, versionID)
 	if err != nil {
@@ -141,7 +143,7 @@ func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
 	if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
 		&mediaID, &mediaKind, &mimeType, &filename, &mediaBytes, &durationMs, &createdAt,
 		&maxPlays, &allowSeek, &showTranscript,
-		&q.Transcript, &q.Explanation, &q.SampleAnswer); err != nil {
+		&q.Transcript, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent, &q.GroupID); err != nil {
 		return domain.ReviewQuestion{}, fmt.Errorf("review: scan question: %w", err)
 	}
 	if mediaID != nil {
@@ -169,7 +171,7 @@ func orZero[T any](p *T) T {
 
 func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct
+		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct, o.content
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -178,7 +180,7 @@ func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []doma
 		func(rows pgx.Rows) (string, domain.ReviewOption, error) {
 			var questionID string
 			var o domain.ReviewOption
-			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect)
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect, &o.Content)
 			return questionID, o, err
 		})
 	if err != nil {
@@ -194,7 +196,7 @@ func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []doma
 
 func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.case_sensitive,
+		SELECT b.test_version_question_id::text, b.id::text, b.ordinal, b.gap_id, b.case_sensitive,
 		       coalesce((SELECT array_agg(ba.answer ORDER BY ba.id)
 		                   FROM app.test_version_blank_answers ba
 		                  WHERE ba.test_version_blank_id = b.id), '{}')
@@ -206,7 +208,7 @@ func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domai
 		func(rows pgx.Rows) (string, domain.ReviewBlank, error) {
 			var questionID string
 			var b domain.ReviewBlank
-			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.CaseSensitive, &b.Accepted)
+			err := rows.Scan(&questionID, &b.ID, &b.Ordinal, &b.GapID, &b.CaseSensitive, &b.Accepted)
 			return questionID, b, err
 		})
 	if err != nil {

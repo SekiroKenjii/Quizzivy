@@ -115,3 +115,59 @@ invalid packages, active objects, XML directives, relationships, duplicate
 attributes and cumulative expansion/complexity bounds. Real teacher files remain
 a separate local evaluation corpus; passing these tests does not establish
 recognition accuracy, `.doc` compatibility or teacher acceptance.
+
+## Ordered extraction (W-12a)
+
+`word.Extract(ctx, reader, size, sourceID, limits)` builds `ooxml-blocks-v1` private
+source blocks from inventory and conservative resolution. The caller supplies the
+immutable source record ID, never a mutable filename. Block IDs bind that identity
+to the package part and XML locator; equal text in two locations stays distinct.
+XML preorder intervals establish mixed paragraph/table/object order and ancestry.
+Sorting XML paths would incorrectly group different element types and `p[10]`.
+Order is local to a part, not a claimed visual/page reading order.
+
+Paragraphs retain every source fragment and resolved mark with its evidence.
+Offsets are Unicode code points across original paragraph fragments, not UTF-8
+bytes or JavaScript UTF-16 indices. Generated numbering stays separate. Hidden,
+inserted/deleted/moved text, field instructions/results (including fields spanning
+paragraphs), ancillary parts and unresolved objects remain private evidence with
+review reasons. The extractor never selects a tracked-change or alternate branch,
+assigns correctness from formatting, or claims these blocks are learner-safe.
+
+Nested tables keep separate grids. Cell coordinates are zero-based; column spans
+and supported vertical merge origins retain their source properties. Duplicate,
+overflowing, legacy horizontal or orphan/mismatched merge evidence remains
+unresolved. The initial grid bound is 128 columns. Conditional table style fidelity,
+visual columns, floating layout and page coordinates still require review/rendition.
+See Microsoft's [grid spans](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.gridspan?view=openxml-3.0.1)
+and [vertical merges](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.verticalmerge?view=openxml-3.0.1).
+
+`word.ReadImage` reads one selected embedded asset without following a URL. It
+checks dimensions before full decoding, following Go's [untrusted-image guidance](https://pkg.go.dev/image#hdr-Security_Considerations),
+and re-encodes static PNG/JPEG as PNG without source metadata. Initial limits are
+10 MiB input, 16 million pixels, 8,192 pixels per edge and 20 MiB output. Animated
+PNG and EXIF-bearing images require an explicit later normalization decision;
+unsupported vector/other formats are not displayed or silently flattened. A
+normalized image is still private: extraction does not create a learner asset,
+choose its placement, or authorize source/answer graphics for student delivery.
+
+Local-only evaluation:
+
+```sh
+GOMAXPROCS=2 go run ./cmd/word-extract source.docx
+GOMAXPROCS=2 go run ./cmd/word-extract -json /private/new-blocks.json source.docx
+```
+
+The CLI derives a local identity from the source digest; its default output contains
+counts/codes/timing only. Optional evidence is a new `0600` file. It is not a
+committable fixture or a public API payload. Large source evidence must be stored
+as private artifacts and paged for review, not placed in the queue's candidate
+result envelope. Original source and extracted text remain outside Git.
+
+Synthetic regressions cover mixed/nested order, stable identities, merges,
+Unicode offsets, inherited marks, automatic numbering, field/revision ambiguity,
+image normalization/resource limits and invalid images. A bounded fuzz check
+asserts distinct identities and valid ancestry. A local independent XML walk of
+the eight authorized DOCX files matched all 13,489 source fragments; this is text
+coverage evidence, not recognition accuracy or an independently reviewed answer
+benchmark. The private corpus/check output is not part of the repository.

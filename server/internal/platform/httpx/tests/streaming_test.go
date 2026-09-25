@@ -31,27 +31,23 @@ func TestStreamingBodyRoutesFindsTheUpload(t *testing.T) {
 	}
 }
 
-// TestStreamingRoutesHaveNoParameters is the condition under which skipping
-// validation costs nothing. Body validation is replaced by the handler's own
-// sniffing, but parameter validation has no replacement, so a streaming route
-// that grows a query parameter would lose its only check. Fail here instead.
-func TestStreamingRoutesHaveNoParameters(t *testing.T) {
-	spec, err := gen.GetSpec()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, item := range spec.Paths.Map() {
-		for method, op := range item.Operations() {
-			pattern := method + " " + path
-			if _, skipped := httpx.StreamingBodyRoutes(spec)[pattern]; !skipped {
-				continue
+func TestStreamingParametersRemainValidated(t *testing.T) {
+	for _, query := range []string{
+		"role=learner&uploadId=01900000-0000-7000-8000-000000000001&expectedRevision=1",
+		"role=exam&uploadId=01900000-0000-7000-8000-000000000001&expectedRevision=0",
+		"role=exam&expectedRevision=1",
+	} {
+		t.Run(query, func(t *testing.T) {
+			reached := false
+			h := validatorUnderTest(t)(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { reached = true }))
+			req := httptest.NewRequest(http.MethodPost, "/admin/imports/01900000-0000-7000-8000-000000000001/sources?"+query, nil)
+			req.Pattern = "POST /admin/imports/{id}/sources"
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if reached || rec.Code != http.StatusBadRequest {
+				t.Fatalf("invalid upload parameters reached handler: %d", rec.Code)
 			}
-			if n := len(op.Parameters) + len(item.Parameters); n != 0 {
-				t.Errorf("%s is skipped by the validator but declares %d parameter(s); "+
-					"they would go unvalidated -- validate them in the handler or stop skipping",
-					pattern, n)
-			}
-		}
+		})
 	}
 }
 

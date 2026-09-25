@@ -2,65 +2,32 @@ import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
 import { cn } from "@/lib/utils";
-import type { ContentBlock, ContentInline, ContentMark } from "./model";
+import type { ContentBlock } from "./model";
 import { validateContent } from "./validation";
 import "./content.css";
+import { ContentInlineView, type GapRenderer } from "./ContentInlineView";
 
-function markedText(value: string, marks: ContentMark[]): ReactNode {
-  return marks.reduce<ReactNode>((child, mark) => {
-    switch (mark) {
-      case "bold":
-        return <strong>{child}</strong>;
-      case "italic":
-        return <em>{child}</em>;
-      case "underline":
-        return <u>{child}</u>;
-      case "strike":
-        return <s>{child}</s>;
-      case "superscript":
-        return <sup>{child}</sup>;
-      case "subscript":
-        return <sub>{child}</sub>;
-    }
-  }, value);
-}
+/** AssetRenderer resolves validated asset nodes only from the caller's authorized bindings. */
+export type AssetRenderer = (
+  node: Extract<ContentBlock, { type: "image" | "audio" }>,
+) => ReactNode;
 
-function Inline({ node }: Readonly<{ node: ContentInline }>) {
-  const { t } = useTranslation();
-  switch (node.type) {
-    case "text":
-      return <>{markedText(node.text, node.marks)}</>;
-    case "break":
-      return <br />;
-    case "gap":
-      return (
-        <span
-          className="content-gap"
-          role="img"
-          aria-label={t("contentEditor.gapLabel", { label: node.label })}
-        >
-          {node.label}
-        </span>
-      );
-    case "link":
-      return (
-        <a href={node.href} target="_blank" rel="noopener noreferrer">
-          {node.content.map((text, i) => (
-            <Inline key={i} node={text} />
-          ))}
-        </a>
-      );
-  }
-}
-
-function Block({ node }: Readonly<{ node: ContentBlock }>) {
+function Block({
+  node,
+  renderGap,
+  renderAsset,
+}: Readonly<{
+  node: ContentBlock;
+  renderGap?: GapRenderer | undefined;
+  renderAsset?: AssetRenderer | undefined;
+}>) {
   const { t } = useTranslation();
   switch (node.type) {
     case "paragraph":
       return (
         <p>
           {node.content.map((inline, i) => (
-            <Inline key={i} node={inline} />
+            <ContentInlineView key={i} node={inline} renderGap={renderGap} />
           ))}
         </p>
       );
@@ -69,7 +36,7 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
       return (
         <Heading>
           {node.content.map((inline, i) => (
-            <Inline key={i} node={inline} />
+            <ContentInlineView key={i} node={inline} renderGap={renderGap} />
           ))}
         </Heading>
       );
@@ -81,7 +48,12 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
           {node.items.map((item, i) => (
             <li key={i}>
               {item.map((block, j) => (
-                <Block key={j} node={block} />
+                <Block
+                  key={j}
+                  node={block}
+                  renderGap={renderGap}
+                  renderAsset={renderAsset}
+                />
               ))}
             </li>
           ))}
@@ -106,7 +78,12 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
                     return (
                       <Cell key={j} colSpan={cell.colSpan} rowSpan={cell.rowSpan}>
                         {cell.content.map((block, k) => (
-                          <Block key={k} node={block} />
+                          <Block
+                            key={k}
+                            node={block}
+                            renderGap={renderGap}
+                            renderAsset={renderAsset}
+                          />
                         ))}
                       </Cell>
                     );
@@ -119,6 +96,7 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
       );
     case "image":
     case "audio":
+      if (renderAsset) return <>{renderAsset(node)}</>;
       return (
         <div className="content-asset" role="note">
           <span>{node.type === "image" ? node.alt : node.label}</span>
@@ -134,7 +112,14 @@ function Block({ node }: Readonly<{ node: ContentBlock }>) {
 export function ContentView({
   document,
   className,
-}: Readonly<{ document: unknown; className?: string }>) {
+  renderGap,
+  renderAsset,
+}: Readonly<{
+  document: unknown;
+  className?: string;
+  renderGap?: GapRenderer | undefined;
+  renderAsset?: AssetRenderer | undefined;
+}>) {
   const { t } = useTranslation();
   const parsed = useMemo(() => validateContent(document), [document]);
   if (!parsed.ok)
@@ -150,7 +135,7 @@ export function ContentView({
   return (
     <div className={cn("semantic-content", className)}>
       {parsed.value.blocks.map((node, i) => (
-        <Block key={i} node={node} />
+        <Block key={i} node={node} renderGap={renderGap} renderAsset={renderAsset} />
       ))}
     </div>
   );

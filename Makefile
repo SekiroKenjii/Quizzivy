@@ -4,6 +4,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
+.PHONY: import-worker
+import-worker: ## Run the separately configured private Word worker
+	cd server && GOMAXPROCS=2 go run ./cmd/import-worker
+
 # Loaded from .env if present; every value has a dev default in docker-compose.
 -include .env
 export
@@ -47,7 +51,7 @@ verify-r2: ## T-0.3 -- check the R2 bucket, credentials and privacy
 	@./scripts/verify-r2.sh
 
 up: ## Start postgres:18 + MinIO
-	docker compose up -d --wait db minio
+	docker compose up -d --build --wait db minio
 	docker compose up minio-init
 
 down: ## Stop the stack (keeps volumes)
@@ -94,11 +98,14 @@ gen-check: gen ## Fail if generated output drifts from the contract (what CI run
 		    exit 1)
 	@echo "generated code matches api/openapi.yaml"
 
-dev: ## Run web and api together
-	$(MAKE) -j2 dev-api dev-web
+dev: ## Run web and api together, plus the Word import worker when imports are configured
+	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker)
 
 dev-api: ## Go API on :8080
 	cd server && DATABASE_URL="$(APP_DSN)" go run ./cmd/api
+
+dev-worker: ## Word import worker against the local database and bucket
+	cd server && DATABASE_URL="$(APP_DSN)" GOMAXPROCS=2 go run ./cmd/import-worker
 
 dev-web: ## Vite on :5173
 	cd web && pnpm dev

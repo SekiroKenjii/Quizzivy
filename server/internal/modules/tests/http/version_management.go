@@ -97,6 +97,8 @@ func (r *versionChangeResponse) write(w nethttp.ResponseWriter) error {
 
 func versionConflict(ctx context.Context, err error) (openapi.ErrorResponse, bool) {
 	switch {
+	case errors.Is(err, domain.ErrArchived):
+		return httpapi.Error(ctx, openapi.TESTARCHIVED, "Hãy khôi phục đề đã lưu trữ trước khi thay đổi phiên bản mặc định hoặc tạo bản nháp."), true
 	case errors.Is(err, domain.ErrStaleWrite):
 		return httpapi.Error(ctx, openapi.STALEWRITE, "Đề đã được sửa ở nơi khác. Vui lòng tải lại trước khi tiếp tục."), true
 	case errors.Is(err, domain.ErrCurrentVersion):
