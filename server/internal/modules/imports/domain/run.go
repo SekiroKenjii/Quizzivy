@@ -23,6 +23,7 @@ type Run struct {
 	LeaseUntil, CompletedAt                                              *time.Time
 	AvailableAt, CreatedAt, UpdatedAt                                    time.Time
 	Result                                                               json.RawMessage
+	Profile                                                              RecognitionProfile
 }
 
 type Schedule struct {
@@ -30,6 +31,7 @@ type Schedule struct {
 	ExpectedRevision, SourceRevision     int64
 	Actor                                actor.Actor
 	MaxAttempts                          int
+	Profile                              RecognitionProfile
 }
 type Cancel struct {
 	ImportID         string

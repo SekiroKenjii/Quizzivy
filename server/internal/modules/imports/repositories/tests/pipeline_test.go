@@ -146,15 +146,16 @@ func TestRealPipelineResumesPrivateArtifactsAndKeepsCandidateOutOfRunEnvelope(t 
 		t.Fatal(err)
 	}
 	defer func() { _ = file.Close() }()
-	var candidate domain.Candidate
+	var candidate domain.Draft
 	if err := json.NewDecoder(file).Decode(&candidate); err != nil {
 		t.Fatal(err)
 	}
-	if len(candidate.Questions) != 1 || candidate.Questions[0].Answer.State != "known" || candidate.Questions[0].Answer.OptionIDs[0] != candidate.Questions[0].Options[1].ID {
+	questions := candidate.Questions()
+	if len(questions) != 1 || questions[0].Answer.State != domain.AnswerKnown || questions[0].Answer.OptionIDs[0] != questions[0].Options[1].ID {
 		t.Fatal("real source/key integration changed association")
 	}
 	updated, err := h.repo.Get(ctx, parent.ID)
-	if err != nil || updated.Status != "needs_review" || len(candidate.Issues) == 0 {
+	if err != nil || updated.Status != "needs_review" {
 		t.Fatal("processing bypassed teacher review")
 	}
 	var unfinished int

@@ -65,7 +65,7 @@ func (p Pipeline) process(ctx context.Context, run domain.Run, progress func(str
 	if err := progress("recognition"); err != nil {
 		return nil, err
 	}
-	candidate, err := recognition.Recognize(ctx, documents, domain.RecognitionProfile{Version: "auto-v1"})
+	candidate, err := recognition.Recognize(ctx, documents, run.Profile)
 	if err != nil {
 		return nil, err
 	}

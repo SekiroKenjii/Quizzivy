@@ -2,11 +2,17 @@ package domain
 
 // EvidenceDocument is a bounded recognition projection; the original extraction artifact retains all raw XML evidence.
 type EvidenceDocument struct {
-	SourceID string          `json:"sourceId"`
-	Role     string          `json:"role"`
-	Version  string          `json:"version"`
-	Findings []string        `json:"findings"`
-	Blocks   []EvidenceBlock `json:"blocks"`
+	SourceID string            `json:"sourceId"`
+	Role     string            `json:"role"`
+	Version  string            `json:"version"`
+	Findings []EvidenceFinding `json:"findings"`
+	Blocks   []EvidenceBlock   `json:"blocks"`
+}
+
+// EvidenceFinding is an extraction observation; Main is false for headers, footers, notes and package parts.
+type EvidenceFinding struct {
+	Code string `json:"code"`
+	Main bool   `json:"main"`
 }
 
 // EvidenceBlock preserves source offsets even when a private or ambiguous fragment cannot enter learner content.
@@ -25,10 +31,12 @@ type EvidenceBlock struct {
 	Column     int            `json:"column,omitempty"`
 }
 
+// EvidenceSpan is one run of text; Colored flags a non-default text colour, which may be a teacher's answer annotation.
 type EvidenceSpan struct {
-	Start int      `json:"start"`
-	End   int      `json:"end"`
-	Marks []string `json:"marks"`
+	Start   int      `json:"start"`
+	End     int      `json:"end"`
+	Marks   []string `json:"marks"`
+	Colored bool     `json:"colored,omitempty"`
 }
 
 // SourceRef names Unicode-code-point offsets in immutable extracted text; generated labels are separate evidence.

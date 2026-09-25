@@ -10,17 +10,15 @@ import (
 // ImportEvidence projects safe recognition text without losing private source offsets or raw-evidence findings.
 func ImportEvidence(raw word.Extraction, role string) domain.EvidenceDocument {
 	out := domain.EvidenceDocument{SourceID: raw.SourceID, Role: role, Version: raw.Version, Blocks: make([]domain.EvidenceBlock, 0, len(raw.Blocks))}
-	out.Findings = []string{}
+	out.Findings = make([]domain.EvidenceFinding, 0, len(raw.Findings))
 	for _, f := range raw.Findings {
-		if !slices.Contains(out.Findings, f.Code) {
-			out.Findings = append(out.Findings, f.Code)
-		}
+		out.Findings = append(out.Findings, domain.EvidenceFinding{Code: f.Code, Main: f.Part == raw.MainPart})
 	}
 	cells := make(map[string]*word.CellEvidence)
 	parents := make(map[string]string)
 	for _, b := range raw.Blocks {
-		if privateColor(b.Properties) && !slices.Contains(out.Findings, "SOURCE_COLOR_REQUIRES_REVIEW") {
-			out.Findings = append(out.Findings, "SOURCE_COLOR_REQUIRES_REVIEW")
+		if privateColor(b.Properties) {
+			out.Findings = append(out.Findings, domain.EvidenceFinding{Code: "SOURCE_COLOR_REQUIRES_REVIEW", Main: b.Part == raw.MainPart})
 		}
 		parents[b.ID] = b.ParentID
 		if b.Cell != nil {
@@ -46,13 +44,14 @@ func projectEvidenceBlock(b word.SourceBlock, main string) domain.EvidenceBlock 
 	}
 	for _, run := range b.Paragraph.Runs {
 		marks, loss := projectMarks(run.Marks)
-		loss = loss || privateColor(run.Properties)
+		colored := privateColor(run.Properties)
+		loss = loss || colored
 		if loss && !slices.Contains(v.Reasons, "SEMANTIC_FORMATTING_LOSS") {
 			v.Reasons = append(v.Reasons, "SEMANTIC_FORMATTING_LOSS")
 		}
 		for _, f := range run.Fragments {
 			text.WriteString(f.Text)
-			v.Spans = append(v.Spans, domain.EvidenceSpan{Start: f.Start, End: f.EndOffset, Marks: marks})
+			v.Spans = append(v.Spans, domain.EvidenceSpan{Start: f.Start, End: f.EndOffset, Marks: marks, Colored: colored})
 		}
 	}
 	v.Text = text.String()

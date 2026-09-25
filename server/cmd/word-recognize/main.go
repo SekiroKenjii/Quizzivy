@@ -27,6 +27,7 @@ func main() {
 func run() error {
 	output := flag.String("json", "", "write private candidate to a new 0600 file; never overwrite")
 	key := flag.String("key", "", "optional local DOCX answer key")
+	paper := flag.Int("paper", 0, "paper number to read from a multi-paper answer key")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		return fmt.Errorf("usage: word-recognize [-key answers.docx] [-json candidate.json] exam.docx")
@@ -48,7 +49,7 @@ func run() error {
 		}
 		docs = append(docs, answers)
 	}
-	candidate, err := recognition.Recognize(ctx, docs, domain.RecognitionProfile{Version: "auto-v1"})
+	candidate, err := recognition.Recognize(ctx, docs, domain.RecognitionProfile{KeyPaper: *paper})
 	if err != nil {
 		return err
 	}
@@ -85,12 +86,12 @@ func extract(ctx context.Context, name, role string) (domain.EvidenceDocument, e
 	return adapters.ImportEvidence(raw, role), nil
 }
 
-func writeCandidate(name string, candidate domain.Candidate) error {
+func writeCandidate(name string, draft domain.Draft) error {
 	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
-	writeErr := json.NewEncoder(f).Encode(candidate)
+	writeErr := json.NewEncoder(f).Encode(draft)
 	closeErr := f.Close()
 	if writeErr != nil || closeErr != nil {
 		_ = os.Remove(name)
@@ -103,22 +104,33 @@ func writeCandidate(name string, candidate domain.Candidate) error {
 }
 
 type recognitionSummary struct {
-	Version      string         `json:"version"`
-	Sections     int            `json:"sections"`
-	Questions    int            `json:"questions"`
-	Answers      map[string]int `json:"answers"`
-	Issues       map[string]int `json:"issues"`
-	SourceBlocks int            `json:"sourceBlocks"`
-	ElapsedMS    int64          `json:"elapsedMs"`
+	Version   string         `json:"version"`
+	Title     string         `json:"title"`
+	Sections  int            `json:"sections"`
+	Groups    int            `json:"groups"`
+	Questions int            `json:"questions"`
+	Types     map[string]int `json:"types"`
+	Answers   map[string]int `json:"answers"`
+	Notices   map[string]int `json:"notices"`
+	ElapsedMS int64          `json:"elapsedMs"`
 }
 
-func summary(c domain.Candidate, elapsed int64) recognitionSummary {
-	out := recognitionSummary{Version: c.RecognizerVersion, Sections: len(c.Sections), Questions: len(c.Questions), Answers: map[string]int{}, Issues: map[string]int{}, SourceBlocks: len(c.Coverage), ElapsedMS: elapsed}
-	for _, q := range c.Questions {
-		out.Answers[q.Answer.State]++
+func summary(d domain.Draft, elapsed int64) recognitionSummary {
+	out := recognitionSummary{Version: recognition.Version, Title: d.Title, Sections: len(d.Sections), Types: map[string]int{}, Answers: map[string]int{}, Notices: map[string]int{}, ElapsedMS: elapsed}
+	for _, s := range d.Sections {
+		for _, it := range s.Items {
+			if it.Group != nil {
+				out.Groups++
+			}
+		}
 	}
-	for _, i := range c.Issues {
-		out.Issues[i.Code]++
+	for _, q := range d.Questions() {
+		out.Questions++
+		out.Types[q.Type]++
+		out.Answers[string(q.Answer.State)]++
+	}
+	for _, n := range d.Notices {
+		out.Notices[n.Code+"/"+string(n.Severity)] += 1
 	}
 	return out
 }

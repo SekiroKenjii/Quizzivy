@@ -1,141 +1,209 @@
-// Package recognition proposes source-linked exam structure without generating answers or writing assessment entities.
 package recognition
 
 import (
 	"encoding/json"
 	"quizzivy/internal/modules/imports/domain"
-	"quizzivy/internal/shared/content"
 	"slices"
+	"sort"
+	"strings"
 	"unicode"
 )
 
-const inlineText = "text"
+type segment struct {
+	line       *line
+	start, end int
+}
 
-type inline struct {
+func (s segment) text() string { return matchable(s.line.text[s.start:s.end]) }
+
+func (s segment) refs() []domain.SourceRef { return s.line.refs(s.start, s.end) }
+
+func (s segment) empty() bool { return !visible(s.line.text[s.start:s.end]) }
+
+type textNode struct {
 	Type  string   `json:"type"`
 	Text  string   `json:"text"`
 	Marks []string `json:"marks"`
 }
-type paragraph struct {
-	Type    string   `json:"type"`
-	Content []inline `json:"content"`
-}
-type document struct {
-	Format string      `json:"format"`
-	Blocks []paragraph `json:"blocks"`
+
+type gapNode struct {
+	Type  string `json:"type"`
+	ID    string `json:"id"`
+	Label string `json:"label"`
 }
 
-func prose(b domain.EvidenceBlock, start, end int, removeMark string) (json.RawMessage, error) {
-	runes := []rune(b.Text)
-	if start < 0 || end < start || end > len(runes) {
-		return nil, domain.ErrInvalid
-	}
-	parts := []inline{}
-	position := start
-	for _, span := range b.Spans {
-		a, z := max(start, span.Start), min(end, span.End)
-		if a >= z {
+type paragraphNode struct {
+	Type    string `json:"type"`
+	Content []any  `json:"content"`
+}
+
+type documentNode struct {
+	Format string          `json:"format"`
+	Blocks []paragraphNode `json:"blocks"`
+}
+
+type gapNaming func(s segment, g gap) (id, label string, ok bool)
+
+type richOptions struct {
+	name            gapNaming
+	joinWraps       bool
+	dropUniformMark bool
+}
+
+func plainContent(text string) json.RawMessage {
+	raw, _ := json.Marshal(documentNode{Format: "semantic_v1", Blocks: []paragraphNode{{Type: "paragraph", Content: []any{textNode{Type: "text", Text: text, Marks: []string{}}}}}})
+	return raw
+}
+
+func gapContent(id, label string) json.RawMessage {
+	raw, _ := json.Marshal(documentNode{Format: "semantic_v1", Blocks: []paragraphNode{{Type: "paragraph", Content: []any{gapNode{Type: "gap", ID: id, Label: label}}}}})
+	return raw
+}
+
+func richContent(segments []segment, o richOptions) json.RawMessage {
+	var blocks []paragraphNode
+	var previous string
+	for _, s := range segments {
+		if s.empty() {
 			continue
 		}
-		if a > position {
-			parts = append(parts, inline{Type: inlineText, Text: string(runes[position:a]), Marks: []string{}})
+		nodes := inlineNodes(s, o)
+		current := strings.TrimSpace(s.text())
+		if o.joinWraps && len(blocks) > 0 && softWrapped(previous, current) {
+			last := &blocks[len(blocks)-1]
+			last.Content = append(last.Content, textNode{Type: "text", Text: " ", Marks: []string{}})
+			last.Content = append(last.Content, nodes...)
+		} else {
+			blocks = append(blocks, paragraphNode{Type: "paragraph", Content: nodes})
 		}
-		marks := slices.DeleteFunc(slices.Clone(span.Marks), func(m string) bool { return m == removeMark })
-		if marks == nil {
-			marks = []string{}
-		}
-		parts = append(parts, inline{Type: inlineText, Text: string(runes[a:z]), Marks: marks})
-		position = z
+		previous = current
 	}
-	if position < end {
-		parts = append(parts, inline{Type: inlineText, Text: string(runes[position:end]), Marks: []string{}})
+	if len(blocks) == 0 {
+		return nil
 	}
-	raw, err := json.Marshal(document{Format: "semantic_v1", Blocks: []paragraph{{Type: "paragraph", Content: parts}}})
-	if err != nil {
-		return nil, err
-	}
-	if _, err := content.ParseQuestion(raw); err != nil {
-		return nil, err
-	}
-	return raw, nil
+	raw, _ := json.Marshal(documentNode{Format: "semantic_v1", Blocks: blocks})
+	return raw
 }
 
-func marked(b domain.EvidenceBlock, start, end int, mark string) bool {
-	if mark == "" {
+var functionWords = map[string]bool{
+	"a": true, "an": true, "the": true, "and": true, "or": true, "but": true, "of": true, "to": true, "in": true, "on": true,
+	"at": true, "by": true, "for": true, "from": true, "with": true, "between": true, "as": true, "than": true, "that": true, "is": true, "are": true,
+}
+
+func softWrapped(previous, next string) bool {
+	if previous == "" || next == "" {
 		return false
 	}
-	runes := []rune(b.Text)
-	found := false
+	words := strings.Fields(previous)
+	if functionWords[strings.ToLower(words[len(words)-1])] {
+		return true
+	}
+	last := []rune(previous)[len([]rune(previous))-1]
+	first := []rune(next)[0]
+	if strings.ContainsRune(".?!:;\"”’)", last) || unicode.IsUpper(first) {
+		return false
+	}
+	if first == '(' {
+		runes := []rune(next)
+		return len(runes) > 1 && unicode.IsDigit(runes[1])
+	}
+	return !strings.ContainsRune("-–—•*\"“‘'", first)
+}
+
+func inlineNodes(s segment, o richOptions) []any {
+	start, end := trimmed(s.line.text, s.start, s.end)
+	var gaps []gap
+	if o.name != nil {
+		gaps = scanGaps(s.line.text, start, end)
+	}
+	uniform := uniformMarks(s.line, start, end, o.dropUniformMark)
+	var nodes []any
 	position := start
-	for _, span := range b.Spans {
-		a, z := max(start, span.Start), min(end, span.End)
-		if a >= z {
+	for _, g := range gaps {
+		id, label, ok := o.name(s, g)
+		if !ok {
 			continue
 		}
-		if visible(runes[position:a]) {
-			return false
+		nodes = appendText(nodes, s.line, position, g.labelStart, uniform)
+		if g.labelStart > start && wordRune(s.line.text[g.labelStart-1]) {
+			nodes = append(nodes, textNode{Type: "text", Text: " ", Marks: []string{}})
 		}
-		if visible(runes[a:z]) {
-			if !slices.Contains(span.Marks, mark) {
-				return false
-			}
-			found = true
+		nodes = append(nodes, gapNode{Type: "gap", ID: id, Label: label})
+		if g.end < end && wordRune(s.line.text[g.end]) {
+			nodes = append(nodes, textNode{Type: "text", Text: " ", Marks: []string{}})
 		}
-
-		position = z
+		position = g.end
 	}
-	if visible(runes[position:end]) {
-		return false
-	}
-	return found
+	return appendText(nodes, s.line, position, end, uniform)
 }
 
-func trimRange(text string, start, end int) (int, int) {
-	runes := []rune(text)
-	for start < end && unicode.IsSpace(runes[start]) {
-		start++
-	}
-	for end > start && unicode.IsSpace(runes[end-1]) {
-		end--
-	}
-	return start, end
+func wordRune(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
+
+func trimmed(text []rune, start, end int) (int, int) {
+	start = skipSpace(text, start)
+	return start, trimRight(text, start, end)
 }
 
-func visible(chars []rune) bool {
-	for _, r := range chars {
-		if !unicode.IsSpace(r) {
-			return true
+func uniformMarks(l *line, start, end int, drop bool) []string {
+	if !drop {
+		return nil
+	}
+	var out []string
+	for _, mark := range []string{"bold", "italic", "underline"} {
+		if l.marked(start, end, mark) {
+			out = append(out, mark)
 		}
 	}
-	return false
+	return out
 }
 
-func (r *recognizer) continuation(b domain.EvidenceBlock, start, end int) error {
-	a, z := trimRange(b.Text, start, end)
-	raw, err := prose(b, a, z, "")
-	if err != nil {
-		return err
+func appendText(nodes []any, l *line, start, end int, dropped []string) []any {
+	var run strings.Builder
+	var marks []string
+	flush := func() {
+		if run.Len() > 0 {
+			nodes = append(nodes, textNode{Type: "text", Text: run.String(), Marks: marks})
+			run.Reset()
+		}
 	}
-	q := &r.out.Questions[r.question]
-	var before, addition document
-	if err := json.Unmarshal(q.Prompt, &before); err != nil {
-		return err
+	for i := start; i < end; i++ {
+		current := l.marksAt(i, dropped)
+		if run.Len() > 0 && !slices.Equal(current, marks) {
+			flush()
+		}
+		marks = current
+		r := l.text[i]
+		if r == '\t' {
+			r = ' '
+		}
+		run.WriteRune(r)
 	}
-	if err := json.Unmarshal(raw, &addition); err != nil {
-		return err
+	flush()
+	return nodes
+}
+
+var allowedMarks = []string{"bold", "italic", "underline", "strike", "superscript", "subscript"}
+
+func (l *line) marksAt(offset int, dropped []string) []string {
+	out := []string{}
+	i := l.firstPieceEndingAfter(offset)
+	if i >= len(l.pieces) || l.pieces[i].at > offset {
+		return out
 	}
-	before.Blocks = append(before.Blocks, addition.Blocks...)
-	combined, err := json.Marshal(before)
-	if err != nil {
-		return err
+	p := l.pieces[i]
+	at := offset - p.at + p.from
+	spans := p.block.Spans
+	j := sort.Search(len(spans), func(k int) bool { return spans[k].End > at })
+	if j >= len(spans) || spans[j].Start > at {
+		return out
 	}
-	if _, err := content.ParseQuestion(combined); err != nil {
-		return err
+	for _, m := range allowedMarks {
+		if slices.Contains(spans[j].Marks, m) && !slices.Contains(dropped, m) {
+			out = append(out, m)
+		}
 	}
-	q.Prompt = combined
-	refs := []domain.SourceRef{r.ref(b, a, z)}
-	q.Fields = append(q.Fields, domain.FieldEvidence{Field: "prompt", Origin: inferredStructure, Refs: refs})
-	r.use(b, start, end, q.ID, "prompt", false)
-	r.issue("CONTEXT_ATTACHMENT_INFERRED", reviewRequired, q.ID, "prompt", refs)
-	return nil
+	if slices.Contains(out, "superscript") && slices.Contains(out, "subscript") {
+		out = slices.DeleteFunc(out, func(m string) bool { return m == "subscript" })
+	}
+	return out
 }
