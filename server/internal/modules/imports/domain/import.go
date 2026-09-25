@@ -22,6 +22,7 @@ var (
 	ErrBadDraft    = errors.New("imports: malformed draft edit")
 
 	ErrProcessingOff = errors.New("imports: processing is not enabled on this server")
+	ErrFilesRemoved  = errors.New("imports: retention removed this import's files")
 )
 
 const MaxSourceBytes int64 = 25 << 20
@@ -40,6 +41,8 @@ type Import struct {
 	Run                          *RunSummary
 	DraftRevision                int64
 	TestID                       *string
+	FilesRemovedAt               *time.Time
+	ClosedIdle                   bool
 }
 
 // RunSummary is the latest processing run as the teacher sees it.

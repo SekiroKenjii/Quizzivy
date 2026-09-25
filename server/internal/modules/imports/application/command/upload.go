@@ -68,15 +68,20 @@ func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, e
 	if err != nil {
 		return domain.Receipt{}, err
 	}
-	if !source.Ready {
-		if _, err := file.Seek(0, io.SeekStart); err != nil {
-			return domain.Receipt{}, errors.New("imports: seek staging file")
-		}
-		if err := h.Store.Put(ctx, source.StorageKey, "application/octet-stream", file, n); err != nil {
-			return domain.Receipt{}, err
-		}
+	if source.Ready {
+		return h.Repo.Finish(ctx, domain.Finish{ImportID: in.ImportID, SourceID: source.ID, Actor: in.Actor})
 	}
-	return h.Repo.Finish(ctx, domain.Finish{ImportID: in.ImportID, SourceID: source.ID, Actor: in.Actor})
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return domain.Receipt{}, errors.New("imports: seek staging file")
+	}
+	if err := h.Store.Put(ctx, source.StorageKey, "application/octet-stream", file, n); err != nil {
+		return domain.Receipt{}, err
+	}
+	receipt, err := h.Repo.Finish(ctx, domain.Finish{ImportID: in.ImportID, SourceID: source.ID, Actor: in.Actor})
+	if errors.Is(err, domain.ErrConflict) {
+		_ = h.Store.Delete(context.WithoutCancel(ctx), source.StorageKey)
+	}
+	return receipt, err
 }
 
 func stageSource(ctx context.Context, in Upload, file *os.File) (int64, []byte, error) {

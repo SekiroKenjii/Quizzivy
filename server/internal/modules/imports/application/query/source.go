@@ -27,6 +27,9 @@ func (h SourceViewHandler) Handle(ctx context.Context, in SourceView) (SourceVie
 	if err != nil {
 		return SourceViewResult{}, err
 	}
+	if current.FilesRemovedAt != nil {
+		return SourceViewResult{}, domain.ErrFilesRemoved
+	}
 	run, err := h.Runs.DraftRun(ctx, in.ImportID)
 	if err != nil {
 		return SourceViewResult{}, domain.ErrNoDraft

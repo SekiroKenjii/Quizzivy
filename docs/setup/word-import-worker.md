@@ -79,11 +79,22 @@ signed URLs or provider responses. Run status and stage events are durable in
 PostgreSQL. A completed run references private artifact sets; it is not a published
 test and cannot bypass teacher review.
 
-Retention/cleanup policy, monitored production supervision and release
-acceptance are still pending. Byte quotas count only imports that are neither
-committed nor cancelled.
-Do not delete source or artifact rows/objects to make quota errors disappear.
-Inspect and resolve the referenced run first; automatic retention is not enabled.
+Retention runs in the API, not in this worker, so it also works on a deployment
+that has import storage but no worker. The API sweeps at start-up and then
+daily. Each sweep:
+
+- closes imports untouched for 60 days, which removes their files at once;
+- removes the files and review drafts of imports committed more than 30 days
+  ago or cancelled more than 7 days ago.
+
+It logs only counts (`import retention swept`). It logs at Warn with
+`IMPORT_RETENTION_FAILED` or `IMPORT_RETENTION_INCOMPLETE` when something went
+wrong, and retries a failed sweep after an hour.
+
+Byte quotas count only imports that are neither committed nor cancelled. Do not
+delete source or artifact rows or objects by hand to make quota errors disappear.
+Inspect and resolve the referenced run first. Monitored production supervision and
+release acceptance are still pending.
 
 ## Production
 

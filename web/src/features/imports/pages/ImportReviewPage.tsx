@@ -71,6 +71,21 @@ function ReviewRoute({ id, onReload }: Readonly<{ id: string; onReload: () => vo
         <Skeleton className="h-96 w-full" />
       </div>
     );
+  if (
+    value.data?.filesRemovedAt !== undefined ||
+    (review.error instanceof ApiError && review.error.code === "IMPORT_FILES_REMOVED")
+  )
+    return (
+      <EmptyState
+        action={
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/admin/imports/${id}`}>{t("imports.retention.viewImport")}</Link>
+          </Button>
+        }
+      >
+        {t("imports.retention.reviewRemoved")}
+      </EmptyState>
+    );
   if (value.isError) {
     if (value.error instanceof ApiError && value.error.status === 404)
       return (

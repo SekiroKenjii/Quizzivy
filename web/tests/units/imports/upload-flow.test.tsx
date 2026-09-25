@@ -131,6 +131,15 @@ function renderPage() {
 }
 
 describe("starting a Word import", () => {
+  it("states how long the files are kept before anything is uploaded", async () => {
+    renderPage();
+    expect(
+      await screen.findByText(
+        /^Tệp gốc và bản rà soát được giữ 30 ngày sau khi tạo đề và 7 ngày sau khi huỷ\. Lượt nhập không có thay đổi trong 60 ngày sẽ tự đóng\.$/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows the server's limits before a file is chosen", async () => {
     renderPage();
     expect(
@@ -145,6 +154,7 @@ describe("starting a Word import", () => {
         contractJson("/admin/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
+          retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
         }),
       ),
       http.post(`${BASE}/admin/imports/:id/process`, () => {
@@ -179,6 +189,7 @@ describe("starting a Word import", () => {
         contractJson("/admin/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
+          retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
         }),
       ),
     );

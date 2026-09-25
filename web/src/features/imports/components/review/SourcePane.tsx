@@ -221,6 +221,8 @@ export function SourcePane({
   const focused = useRef(0);
   const hasKey = sources.some((source) => source.role === "answer_key");
   const view = useQuery(sourceViewQuery(importId, role, sourceRevision));
+  const removed =
+    view.error instanceof ApiError && view.error.code === "IMPORT_FILES_REMOVED";
   const sourceId = view.data?.sourceId;
   const ranges = useMemo(() => {
     const byBlock = new Map<string, Range[]>();
@@ -333,7 +335,12 @@ export function SourcePane({
           </p>
         )}
         {view.isPending ? <ListSkeleton rows={8} /> : null}
-        {view.isError ? (
+        {removed ? (
+          <p className="text-muted-foreground text-sm">
+            {t("imports.retention.sourceRemoved")}
+          </p>
+        ) : null}
+        {view.isError && !removed ? (
           <LoadError error={view.error} onRetry={() => void view.refetch()}>
             {view.error instanceof ApiError &&
             view.error.code === "IMPORT_NOT_PROCESSED"

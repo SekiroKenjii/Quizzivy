@@ -33,6 +33,13 @@ type DownloadHandler struct {
 }
 
 func (h DownloadHandler) Handle(ctx context.Context, in Download) (DownloadResult, error) {
+	parent, err := h.Repo.Get(ctx, in.ImportID)
+	if err != nil {
+		return DownloadResult{}, err
+	}
+	if parent.FilesRemovedAt != nil {
+		return DownloadResult{}, domain.ErrFilesRemoved
+	}
 	src, err := h.Repo.Source(ctx, in.ImportID, in.SourceID)
 	if err != nil {
 		return DownloadResult{}, err

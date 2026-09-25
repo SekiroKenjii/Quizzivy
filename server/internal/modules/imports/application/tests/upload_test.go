@@ -19,6 +19,7 @@ type repository struct {
 	source             domain.Source
 	reserved, finished int
 	failFinish         bool
+	closed             bool
 }
 
 func (r *repository) Get(context.Context, string) (domain.Import, error) {
@@ -38,6 +39,9 @@ func (r *repository) Finish(context.Context, domain.Finish) (domain.Receipt, err
 		r.failFinish = false
 		return domain.Receipt{}, errors.New("lost database response")
 	}
+	if r.closed {
+		return domain.Receipt{}, domain.ErrConflict
+	}
 	if !r.source.Ready {
 		r.finished++
 		r.source.Ready = true
@@ -47,10 +51,11 @@ func (r *repository) Finish(context.Context, domain.Finish) (domain.Receipt, err
 }
 
 type objects struct {
-	repo *repository
-	fail bool
-	puts int
-	data []byte
+	repo    *repository
+	fail    bool
+	puts    int
+	deletes int
+	data    []byte
 }
 
 func (o *objects) Put(_ context.Context, key, _ string, r io.Reader, _ int64) error {
@@ -68,6 +73,10 @@ func (o *objects) Put(_ context.Context, key, _ string, r io.Reader, _ int64) er
 }
 func (*objects) SignedDownloadURL(context.Context, string, string, time.Duration) (string, error) {
 	return "", nil
+}
+func (o *objects) Delete(context.Context, string) error {
+	o.deletes++
+	return nil
 }
 func (*objects) PutImmutable(context.Context, string, string, io.ReadSeeker, int64, []byte) error {
 	return errors.New("not an artifact store")
@@ -123,11 +132,26 @@ func TestFailedStorageAndLostCompletionAreRetryableWithoutNewIdentity(t *testing
 			if store.puts != 2 || string(store.data) != "synthetic Word bytes" {
 				t.Fatalf("replay rewrote completed bytes: %d", store.puts)
 			}
+			if store.deletes != 0 {
+				t.Fatal("a retryable failure deleted the stored bytes")
+			}
 			files, err := os.ReadDir(dir)
 			if err != nil || len(files) != 0 {
 				t.Fatalf("staging not cleaned: %v", err)
 			}
 		})
+	}
+}
+
+func TestAnUploadThatLandsAfterTheImportClosedLeavesNothingBehind(t *testing.T) {
+	repo := &repository{closed: true}
+	store := &objects{repo: repo}
+	app := intake(repo, store, inspector{}, t.TempDir())
+	if _, err := app.Commands.Upload.Handle(context.Background(), upload()); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("upload into a closed import: %v", err)
+	}
+	if store.puts != 1 || store.deletes != 1 {
+		t.Fatalf("puts %d, deletes %d: the orphaned object was not removed", store.puts, store.deletes)
 	}
 }
 

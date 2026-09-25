@@ -12,6 +12,7 @@ import (
 type ObjectStore interface {
 	Put(context.Context, string, string, io.Reader, int64) error
 	SignedDownloadURL(context.Context, string, string, time.Duration) (string, error)
+	ObjectRemover
 }
 
 // ArtifactStore persists checksum-verified private objects with create-only semantics and streams them only to trusted processors.
@@ -23,6 +24,21 @@ type ArtifactStore interface {
 // Inspector validates a native Word package without external requests or returning source content.
 type Inspector interface {
 	Inspect(context.Context, io.ReaderAt, int64) error
+}
+
+// Retention finds imports whose files the retention policy no longer keeps
+// and records their removal. The caller removes the objects in between, so an
+// import is marked only once its bytes are gone.
+type Retention interface {
+	CloseIdle(context.Context, time.Time, int) ([]string, error)
+	ExpiredFiles(context.Context, time.Time, time.Time, domain.Cursor, int) ([]domain.Cursor, error)
+	FilesOf(context.Context, string) ([]string, error)
+	FilesRemoved(context.Context, string) error
+}
+
+// ObjectRemover deletes private objects; deleting one already gone succeeds.
+type ObjectRemover interface {
+	Delete(context.Context, string) error
 }
 
 // WorkerSignal tells the import worker that a run was queued. Wake never blocks

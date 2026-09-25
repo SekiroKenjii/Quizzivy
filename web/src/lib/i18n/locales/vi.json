@@ -2068,7 +2068,14 @@
       "cancelledTitle": "Lần nhập đã được đóng",
       "cancelledBody": "Tệp gốc vẫn được giữ theo chính sách lưu trữ.",
       "cancelledBodyReview": "Phần rà soát và tệp gốc vẫn xem được theo chính sách lưu trữ.",
-      "startOver": "Nhập đề mới"
+      "startOver": "Nhập đề mới",
+      "closedIdleBody": "Lượt nhập đã tự đóng vì không có thay đổi trong {{days}} ngày.",
+      "closedIdleBodyPlain": "Lượt nhập đã tự đóng vì lâu không có thay đổi.",
+      "cancelledBodyDays": "Tệp gốc được giữ {{days}} ngày kể từ khi đóng, sau đó được xoá.",
+      "cancelledBodyReviewDays": "Phần rà soát và tệp gốc vẫn xem được {{days}} ngày kể từ khi đóng, sau đó được xoá.",
+      "closeBodyDays": "Lần nhập sẽ được đóng và không thể tiếp tục. Tệp gốc vẫn xem được thêm {{days}} ngày, sau đó được xoá.",
+      "closeBodyReviewDays": "Lần nhập sẽ được đóng và bạn sẽ không thể tạo bản nháp đề từ phần rà soát này nữa. Phần rà soát và tệp gốc vẫn xem được thêm {{days}} ngày, sau đó được xoá.",
+      "cancelBodyDays": "Việc xử lý sẽ dừng và lần nhập sẽ được đóng; không thể tiếp tục lần nhập này. Tệp gốc được giữ thêm {{days}} ngày, sau đó được xoá."
     },
     "sources": {
       "title": "Tệp gốc",
@@ -2386,6 +2393,14 @@
       "queuedOff": "Máy chủ đang tắt xử lý tài liệu Word. Lượt nhập sẽ bắt đầu khi máy chủ bật lại; bạn có thể huỷ nếu không muốn chờ.",
       "reprocessOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại được. Bản rà soát hiện tại vẫn dùng được.",
       "startOverOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới."
+    },
+    "retention": {
+      "policy": "Tệp gốc và bản rà soát được giữ {{afterCommit}} ngày sau khi tạo đề và {{afterCancel}} ngày sau khi huỷ. Lượt nhập không có thay đổi trong {{idle}} ngày sẽ tự đóng.",
+      "removed": "Tệp gốc và bản rà soát đã được xoá ngày {{date}} theo chính sách lưu trữ. Lịch sử lượt nhập vẫn được giữ.",
+      "idleWarning": "Lượt nhập không có thay đổi trong {{days}} ngày sẽ tự đóng và xoá tệp.",
+      "reviewRemoved": "Bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.",
+      "viewImport": "Xem lượt nhập",
+      "sourceRemoved": "Tệp gốc đã được xoá theo chính sách lưu trữ nên không còn xem được nội dung trích ra."
     }
   }
 }

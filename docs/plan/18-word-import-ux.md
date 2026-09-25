@@ -63,7 +63,10 @@ committed → open test. Do not auto-start a second import from the same row.
 “Tạo đề khác từ tệp này” is a distinct action explaining that it creates a new
 import identity. Retrying resumes the current job policy. Bulk removal, where
 available, lists eligible items and per-row failures; active/committing/referenced
-items cannot be swept away. Archive/delete follows the approved retention policy.
+items cannot be swept away. Archive/delete follows the approved retention policy
+(`17-word-import.md` §1.38). The upload page states it, and a reviewable import
+warns that it closes after the idle period. Once files are removed, the detail
+and review pages say so calmly, without download or review links.
 
 Empty states differ: no imports offers upload; no filtered results offers clearing
 filters; unavailable service preserves controls and offers retry. History remains

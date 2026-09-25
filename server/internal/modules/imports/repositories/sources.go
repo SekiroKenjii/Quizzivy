@@ -37,7 +37,10 @@ func reserveSource(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas dom
 	}
 	previous, err := scanSource(tx.QueryRow(ctx, `SELECT `+sourceColumns+` FROM app.word_import_sources WHERE import_id=$1 AND upload_id=$2`, in.Source.ImportID, in.Source.UploadID))
 	if err == nil {
-		return previous, reuseSource(parent, previous, in.Source)
+		if err := reuseSource(parent, previous, in.Source); err != nil {
+			return previous, err
+		}
+		return previous, touchImport(ctx, tx, parent.ID)
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
 		return domain.Source{}, err
@@ -54,6 +57,9 @@ func reserveSource(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas dom
  SELECT id,$1::uuid,$2,$3,$4,$5,$6,$7,$8,'originals/' || $1::uuid::text || '/' || id::text,$9 FROM identity RETURNING `+sourceColumns,
 		v.ImportID, v.UploadID, v.ExpectedRevision, v.Role, v.Filename, v.Format, v.Bytes, v.SHA256, in.Actor.ID))
 	if err != nil {
+		return domain.Source{}, err
+	}
+	if err := touchImport(ctx, tx, parent.ID); err != nil {
 		return domain.Source{}, err
 	}
 	return out, auditImport(ctx, tx, in.Actor, parent.ID, "import.source_reserved")

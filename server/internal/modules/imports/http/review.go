@@ -14,13 +14,18 @@ import (
 
 func (h Imports) GetWordImportCapabilities(ctx context.Context, _ openapi.GetWordImportCapabilitiesRequestObject) (openapi.GetWordImportCapabilitiesResponseObject, error) {
 	if h.app == nil {
-		return openapi.GetWordImportCapabilities200JSONResponse{}, nil
+		return openapi.GetWordImportCapabilities200JSONResponse{Retention: retention(domain.DefaultRetention())}, nil
 	}
 	v, err := h.app.Queries.Capabilities.Handle(ctx, query.Capabilities{})
 	if err != nil {
 		return nil, err
 	}
-	return openapi.GetWordImportCapabilities200JSONResponse{IntakeEnabled: true, ProcessingEnabled: v.Processing}, nil
+	return openapi.GetWordImportCapabilities200JSONResponse{IntakeEnabled: true, ProcessingEnabled: v.Processing, Retention: retention(v.Retention)}, nil
+}
+
+func retention(r domain.Retention) openapi.ImportRetention {
+	afterCommit, afterCancel, idle := r.Days()
+	return openapi.ImportRetention{AfterCommitDays: afterCommit, AfterCancelDays: afterCancel, IdleDays: idle}
 }
 
 func (h Imports) GetWordImportLimits(ctx context.Context, _ openapi.GetWordImportLimitsRequestObject) (openapi.GetWordImportLimitsResponseObject, error) {

@@ -32,6 +32,7 @@ export const handlers = [
     contractJson("/admin/imports/capabilities", "get", 200, {
       intakeEnabled: true,
       processingEnabled: true,
+      retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
     }),
   ),
 

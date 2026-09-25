@@ -117,22 +117,35 @@ describe("closing an import that is not running", () => {
     expect(calls).toEqual([{ path: "cancel", body: { expectedRevision: 4 } }]);
   });
 
-  it("says a closed import with a draft keeps its review viewable", async () => {
+  it("says for how long a closed import keeps its review viewable", async () => {
     current = wordImport({ status: "cancelled", draftRevision: 3 });
     renderDetail();
     expect(await screen.findByText("Lần nhập đã được đóng")).toBeInTheDocument();
     expect(
-      screen.getByText("Phần rà soát và tệp gốc vẫn xem được theo chính sách lưu trữ."),
+      await screen.findByText(
+        "Phần rà soát và tệp gốc vẫn xem được 7 ngày kể từ khi đóng, sau đó được xoá.",
+      ),
     ).toBeInTheDocument();
   });
 
-  it("warns that a closed review can no longer become a draft test", async () => {
+  it("says an import closed for inactivity closed itself", async () => {
+    current = wordImport({ status: "cancelled", closedIdle: true });
+    renderDetail();
+    expect(
+      await screen.findByText(
+        "Lượt nhập đã tự đóng vì không có thay đổi trong 60 ngày.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("warns that a closed review can no longer become a draft test, and when its files go", async () => {
     current = wordImport({ status: "needs_review", draftRevision: 2 });
     const user = renderDetail();
+    await screen.findByText(/sẽ tự đóng và xoá tệp/);
     await user.click(await screen.findByRole("button", { name: "Huỷ lần nhập" }));
     expect(
       within(await screen.findByRole("dialog")).getByText(
-        /không thể tạo bản nháp đề từ phần rà soát này nữa/,
+        /không thể tạo bản nháp đề từ phần rà soát này nữa\. Phần rà soát và tệp gốc vẫn xem được thêm 7 ngày, sau đó được xoá\./,
       ),
     ).toBeInTheDocument();
   });
@@ -451,6 +464,7 @@ describe("an import while processing is switched off", () => {
         contractJson("/admin/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
+          retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
         }),
       ),
       http.post(`${BASE}/admin/imports/:id/process`, () => {
@@ -507,5 +521,43 @@ describe("an import while processing is switched off", () => {
       "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới.",
     );
     expect(screen.queryByRole("link", { name: "Nhập đề mới" })).toBeNull();
+  });
+});
+
+describe("an import whose files retention removed", () => {
+  it("keeps its history, says when its files went, and offers no download or review", async () => {
+    current = wordImport({
+      status: "cancelled",
+      draftRevision: 3,
+      sources: [source("exam")],
+      filesRemovedAt: "2026-10-02T03:00:00Z",
+    });
+    renderDetail();
+
+    expect(
+      await screen.findByText(/^Tệp gốc và bản rà soát đã được xoá ngày 02\/10\/2026/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Tệp gốc vẫn được giữ theo chính sách lưu trữ."),
+    ).toBeNull();
+    expect(
+      screen.queryByText(
+        "Phần rà soát và tệp gốc vẫn xem được theo chính sách lưu trữ.",
+      ),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /Tải bản gốc/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Xem bản rà soát/ })).toBeNull();
+  });
+
+  it("warns that an import left idle is closed and its files removed", async () => {
+    current = wordImport({ status: "needs_review", draftRevision: 2 });
+    renderDetail();
+
+    expect(
+      await screen.findByText(
+        "Lượt nhập không có thay đổi trong 60 ngày sẽ tự đóng và xoá tệp.",
+      ),
+    ).toBeInTheDocument();
   });
 });
