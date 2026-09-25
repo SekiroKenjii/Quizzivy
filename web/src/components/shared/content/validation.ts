@@ -2,6 +2,7 @@ import { contentStringLength } from "./unicode";
 import { withinContentBudget } from "./budget";
 import { z } from "zod";
 import {
+  ASSET_TEXT_LIMITS,
   CONTENT_LIMITS,
   type ContentBlock,
   type ContentCell,
@@ -119,12 +120,12 @@ const block: z.ZodType<ContentBlock> = z.lazy(() =>
     z.strictObject({
       type: z.literal("image"),
       assetId: asset,
-      alt: boundedString(1, CONTENT_LIMITS.imageAlt),
+      alt: boundedString(1, ASSET_TEXT_LIMITS.image),
     }),
     z.strictObject({
       type: z.literal("audio"),
       assetId: asset,
-      label: boundedString(1, CONTENT_LIMITS.audioLabel),
+      label: boundedString(1, ASSET_TEXT_LIMITS.audio),
     }),
   ]),
 );
