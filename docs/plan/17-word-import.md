@@ -972,8 +972,8 @@ queued until a worker returns or the teacher cancels it.
 - A 503 from `process` re-reads the capabilities, so a screen opened before a
   redeploy corrects itself on the next click.
 
-**Production.** Import stays off in production (O-24). The steps to enable it are
-in `docs/setup/word-import-worker.md` § Production. `.doc` is not part of that
+**Production.** Import stayed off in production until O-24 was decided; §1.40
+turns it on. The steps are in `docs/setup/word-import-worker.md` § Production. `.doc` is not part of that
 runbook. Its converter needs a Docker daemon, the production image has none, and
 hosting one means a separate privileged Machine.
 
@@ -1158,6 +1158,32 @@ never committed. Read with that key, the result was:
   support, and from source typos such as `C/ in/ in`;
 - in every PDF, only the running header was hidden, and no line was flagged as
   two columns.
+
+### 1.40 Production (O-24)
+
+Thuong decided on 2026-09-25 to put import in front of real teachers, after the
+four changes it depended on: the worker wake (§1.36), the R2 import store
+(§1.37), retention (§1.38) and PDF (§1.39).
+
+- **Image.** The Dockerfile builds `./cmd/import-worker` beside the API and
+  copies it to `/app/import-worker`. The PDF sandbox is pure Go, so the image
+  stays distroless and static. A local check ran the built image's worker
+  against Postgres and MinIO: a real PDF reached review in about a second, at
+  about 330 MiB resident.
+- **Fly.** `fly.toml` declares `[processes]` `app` and `worker`, scopes
+  `[http_service]` to `app`, and gives the worker a 1 GB `[[vm]]`. The import
+  settings are in `[env]`: bucket, work directory, the processing switch, the
+  wake URL and listener on the private network, and a six-hour idle poll. No new
+  secret is needed; the store reuses `S3_*`.
+- **Guards.** `deployment_test.go` boots both processes on `fly.toml` plus the
+  documented secrets. It also pins the service scope and the worker's memory,
+  and refuses import storage without the `S3_*` credentials.
+- **Still open.** D-07's capacity envelope. The quotas and the one-job,
+  one-lease concurrency stay at their development defaults until measured with
+  real use.
+- **Release gate.** `make verify-r2-imports` must pass against `quizzivy-imports`
+  before the release that carries this. On 2026-09-26 it answered 403, because
+  the R2 token still lists only `quizzivy-media`.
 
 ## 2. Current code and the actual gaps
 

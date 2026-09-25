@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.42 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.43 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.42**
+
+- §16 Word and PDF import run in production (O-24, decided 2026-09-25). The
+  image ships the import worker, and `fly.toml` runs it as its own process group
+  on a 1 GB Machine, which the API wakes over Fly's private network.
 
 **Changes since v0.41**
 
@@ -1500,7 +1506,8 @@ queued before processing was switched off waits until a worker returns or the
 teacher cancels it.
 Finished imports stay reviewable and committable. The client hides the feature
 where intake is off. Where processing is off, it withholds new imports, retries
-and reprocessing, and says why. Production keeps both off until O-24 is decided.
+and reprocessing, and says why. Production runs both: O-24 was decided on 2026-09-25, and the
+import worker runs there as its own Fly process group.
 
 `/admin/imports` creates an empty record idempotently and lists history by status,
 title or current filename. A source upload accepts exactly one native `.docx`, with

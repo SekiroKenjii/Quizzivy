@@ -138,13 +138,15 @@ Both need dashboard access the project's tokens do not have. See `dns.md`:
 2. `app` — Pages project → Custom domains → add `app.quizzivy.com`. Cloudflare
    creates the record itself; making it by hand returns 522.
 
-## Word import is not deployed
+## Word and PDF import
 
-The Fly deploy runs the API process only; there is no worker process group. Word
-import stays off in production: no `IMPORT_*` is set, so the app shows no way into
-it. Enabling it needs a private bucket, a
-worker process and a decision on cost and retention (O-24). The steps are in
-`word-import-worker.md` § Production.
+The deploy runs two process groups from one image: `app` (the API, the only one
+with an HTTP service) and `worker` (`/app/import-worker`, on its own 1 GB
+Machine). The API wakes the worker over Fly's private network. The first deploy
+that declares the group creates the worker Machine, so `flyctl machines list`
+shows one of each afterwards. Before that deploy, the R2 token must reach
+`quizzivy-imports` and `make verify-r2-imports` must pass. The steps, and how to
+turn import off again, are in `word-import-worker.md` § Production.
 
 ## Backups and operational verification
 

@@ -110,28 +110,53 @@ release acceptance are still pending.
 
 ## Production
 
-Word import is off in production. `fly.toml` sets no `IMPORT_*`, so the tests list
-offers no way into it and `/admin/imports` says it is not enabled.
-`platform/config/tests/deployment_test.go` pins two things:
+Word and PDF import run in production (O-24, decided 2026-09-25). One image
+carries both processes, and `fly.toml` declares them:
 
-- `IMPORT_PROCESSING_ENABLED` in `fly.toml` goes together with a worker process
-  that the Dockerfile builds.
-- `.doc` stays off. Its converter needs a Docker daemon, and the production
-  image has none. Hosting one means a separate privileged Machine running
-  `dockerd`, which this runbook does not cover.
+- `[processes]` runs `app = "/app/api"` and `worker = "/app/import-worker"`.
+- `[http_service]` serves `processes = ["app"]` only. The worker has no public
+  service.
+- The app keeps its 512 MB `[[vm]]`. The worker gets its own with 1 GB: a 512 MiB
+  Go memory target, plus up to 256 MiB of PDF sandbox.
+- `[env]` holds the import settings:
 
-Turning it on is a decision, not only a deploy: see O-24 in
-`docs/plan/40-open-items.md`. When it is taken:
+  ```toml
+  IMPORT_S3_BUCKET = "quizzivy-imports"
+  IMPORT_WORK_DIR = "/home/nonroot/imports"
+  IMPORT_PROCESSING_ENABLED = "true"
+  IMPORT_WORKER_WAKE_URL = "http://worker.process.quizzivy-api.internal:8091/wake"
+  IMPORT_WORKER_WAKE_ADDR = "fly-local-6pn:8091"
+  IMPORT_WORKER_IDLE_POLL = "6h"
+  ```
 
-1. **Storage.** Create a private R2 bucket, for example `quizzivy-imports`, with no
-   public access and no custom domain. Add it to the R2 API token's buckets: the
-   import store reuses the `S3_*` credentials, and the token is scoped to
-   `quizzivy-media` today (`docs/setup/r2.md`).
+The import store reuses the `S3_*` secrets; no new secret is needed.
 
-   Then run `make verify-r2-imports`. It drives the import store's own code
-   against the bucket named by `R2_IMPORT_BUCKET` (default `quizzivy-imports`;
-   it must match the `IMPORT_S3_BUCKET` you set on Fly), with the `R2_*` values
-   `make verify-r2` reads. It covers:
+`platform/config/tests/deployment_test.go` boots both processes on these
+values. It fails when:
+
+- the processing switch and the worker process disagree;
+- the Dockerfile does not build and copy `/app/import-worker`;
+- the worker listens where the API machine cannot reach it, or the wake URL and
+  the listener disagree;
+- the idle poll is under an hour;
+- `[http_service]` is not scoped to the app;
+- the worker's `[[vm]]` has less than 1 GB;
+- `.doc` is enabled. Its converter needs a Docker daemon, and the image has none.
+  Hosting one means a separate privileged Machine, which this runbook does not
+  cover.
+
+`IMPORT_WORK_DIR` works because the image's nonroot user owns its home
+directory. A Machine's root filesystem is disk, not tmpfs. It is reset on every
+deploy, which is fine for scratch files.
+
+**Before the first deploy with import on:**
+
+1. **Storage.** The private bucket `quizzivy-imports` exists, with no public
+   access and no custom domain. The R2 API token behind `S3_ACCESS_KEY_ID` must
+   list it beside `quizzivy-media` (`docs/setup/r2.md`). Then run
+   `make verify-r2-imports`. It drives the import store's own code against the
+   bucket named by `R2_IMPORT_BUCKET` (default `quizzivy-imports`), with the
+   `R2_*` values `make verify-r2` reads. It covers:
    - a create-only write, an identical retry and a refused changed retry;
    - the bytes read back;
    - a source upload and a signed download;
@@ -145,33 +170,19 @@ Turning it on is a decision, not only a deploy: see O-24 in
    wrangler r2 bucket dev-url get quizzivy-imports    # "disabled"
    wrangler r2 bucket domain list quizzivy-imports    # no custom domains
    ```
-2. **Image.** Build `./cmd/import-worker` in the Dockerfile and copy it beside
-   `/app/api`.
-3. **Fly configuration.** In `fly.toml`:
-   - add `[processes]` with `app = "/app/api"` and `worker = "/app/import-worker"`;
-   - scope `[http_service]` to `processes = ["app"]`;
-   - give the worker its own `[[vm]]` with 1 GB: its Go memory target is 512 MiB,
-     and a PDF read adds up to 256 MiB of sandbox memory;
-   - set these in `[env]`:
+2. **Deploy.** Deploy as usual. `flyctl deploy` creates the worker Machine the
+   first time the `worker` group appears. Check it with
+   `flyctl machines list -a quizzivy-api`: one `app` and one `worker`, both
+   `started`. The worker logs `import worker started` with the pipeline version.
+3. **Acceptance.** Take one small `.docx` and one text-layer PDF through upload,
+   review and draft. Then check `/healthz` and the Neon console: compute should
+   suspend again after the worker's last query.
 
-     ```toml
-     IMPORT_S3_BUCKET = "quizzivy-imports"
-     IMPORT_WORK_DIR = "/home/nonroot/imports"
-     IMPORT_PROCESSING_ENABLED = "true"
-     IMPORT_WORKER_WAKE_URL = "http://worker.process.quizzivy-api.internal:8091/wake"
-     IMPORT_WORKER_WAKE_ADDR = "fly-local-6pn:8091"
-     IMPORT_WORKER_IDLE_POLL = "6h"
-     ```
-
-     `deployment_test.go` boots both processes on these values. It fails when
-     the worker listens where the API machine cannot reach it, when the wake URL
-     and the listener disagree, or when the idle poll is under an hour.
-
-   `IMPORT_WORK_DIR` works there because the image's nonroot user owns its home
-   directory. A Machine's root filesystem is disk, not tmpfs. It is reset on
-   every deploy, which is fine for scratch files.
-4. **Acceptance.** Deploy, then take one small `.docx` and one text-layer PDF
-   through upload, review and draft.
+**Turning it off.** Remove `IMPORT_PROCESSING_ENABLED` and the `worker` process
+together; `deployment_test.go` refuses one without the other. Finished imports
+stay reviewable while import storage stays configured. Removing
+`IMPORT_S3_BUCKET` and `IMPORT_WORK_DIR` as well hides the feature, and
+retention stops with it.
 
 **Cost.** Each running worker is one more Machine. The worker queries PostgreSQL
 only when woken, when work falls due, and once per `IMPORT_WORKER_IDLE_POLL`. At
