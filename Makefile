@@ -50,8 +50,10 @@ verify-google: ## T-0.2 -- check the Google OAuth client works
 verify-r2: ## T-0.3 -- check the R2 bucket, credentials and privacy
 	@./scripts/verify-r2.sh
 
-verify-r2-imports: ## check the private Word import bucket on R2 accepts the import store's writes
-	@cd server && go run ./cmd/verify-import-storage
+R2_IMPORT_BUCKET ?= quizzivy-imports
+
+verify-r2-imports: ## check the private Word import bucket on R2 (R2_IMPORT_BUCKET, the same as IMPORT_S3_BUCKET on Fly)
+	@cd server && go run ./cmd/verify-import-storage -bucket "$(R2_IMPORT_BUCKET)"
 
 up: ## Start postgres:18 + MinIO
 	docker compose up -d --build --wait db minio

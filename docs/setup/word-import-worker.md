@@ -26,8 +26,9 @@ so uploads are accepted; a `.doc` run on a worker without a converter fails with
 
 Use PostgreSQL 18 with migrations through `00049`, the application database role,
 and a separate private import bucket. The storage implementation must support
-conditional immutable writes and SHA-256 checksums; no public bucket ACL or learner
-media URL is used. Set the storage/import variables in `.env.example` in the
+conditional `If-None-Match: *` writes, `Content-MD5` and round-tripped
+`x-amz-meta-*` metadata; the SHA-256 digest travels as metadata and is checked by
+the code itself. No public bucket ACL or learner media URL is used. Set the storage/import variables in `.env.example` in the
 process environment. The worker does not need JWT signing or Google credentials.
 
 Set `IMPORT_WORK_DIR` to an absolute, owner-only directory on disk. Keep source
@@ -105,15 +106,22 @@ Turning it on is a decision, not only a deploy: see O-24 in
    `quizzivy-media` today (`docs/setup/r2.md`).
 
    Then run `make verify-r2-imports`. It drives the import store's own code
-   against the new bucket, using the `R2_*` values `make verify-r2` reads, and
-   checks five things:
-   - a create-only write;
-   - an identical retry;
-   - a refused changed retry;
-   - a signed download;
-   - that an unsigned request gets nothing.
+   against the bucket named by `R2_IMPORT_BUCKET` (default `quizzivy-imports`;
+   it must match the `IMPORT_S3_BUCKET` you set on Fly), with the `R2_*` values
+   `make verify-r2` reads. It covers:
+   - a create-only write, an identical retry and a refused changed retry;
+   - the bytes read back;
+   - a source upload and a signed download;
+   - an unsigned request refused;
+   - every verification object removed afterwards.
 
-   Every line must pass before going further.
+   Every line must pass. The S3 API cannot tell whether the bucket is public
+   through r2.dev or a custom domain, so check both with wrangler:
+
+   ```bash
+   wrangler r2 bucket dev-url get quizzivy-imports    # "disabled"
+   wrangler r2 bucket domain list quizzivy-imports    # no custom domains
+   ```
 2. **Image.** Build `./cmd/import-worker` in the Dockerfile and copy it beside
    `/app/api`.
 3. **Fly configuration.** In `fly.toml`:
