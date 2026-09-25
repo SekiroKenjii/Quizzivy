@@ -14,8 +14,11 @@ import (
 //
 // Read inside the publish transaction, after the test row is locked, so what is
 // validated is exactly what is frozen.
-func loadDraft(ctx context.Context, tx pgx.Tx, testID string) (domain.DraftContent, error) {
+func (s *Postgres) loadDraft(ctx context.Context, tx pgx.Tx, testID string, forCopy bool) (domain.DraftContent, error) {
 	d := domain.DraftContent{TestID: testID}
+	if err := lockDraftContent(ctx, tx, testID, forCopy); err != nil {
+		return domain.DraftContent{}, err
+	}
 
 	sections, order, err := loadSections(ctx, tx, testID)
 	if err != nil {
@@ -32,6 +35,9 @@ func loadDraft(ctx context.Context, tx pgx.Tx, testID string) (domain.DraftConte
 	for _, id := range order {
 		section := sections[id]
 		section.Questions = byQuestion[id]
+		if err := s.loadDraftUnits(ctx, tx, &section); err != nil {
+			return domain.DraftContent{}, err
+		}
 		d.Sections = append(d.Sections, section)
 	}
 	return d, nil
@@ -63,11 +69,19 @@ func loadSections(ctx context.Context, tx pgx.Tx, testID string) (map[string]dom
 // by section id and already in outline order.
 func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]domain.DraftQuestion, error) {
 	rows, err := tx.Query(ctx, `
+		WITH members AS (
+		 SELECT sq.test_section_id,sq.ordinal,sq.question_id FROM app.test_section_questions sq
+		 JOIN app.test_sections s ON s.id=sq.test_section_id
+		 WHERE s.test_id=$1 AND NOT EXISTS (SELECT 1 FROM app.test_section_units u WHERE u.test_section_id=s.id)
+		 UNION ALL
+		 SELECT u.test_section_id,u.ordinal,u.question_id FROM app.test_section_units u
+		 JOIN app.test_sections s ON s.id=u.test_section_id WHERE s.test_id=$1 AND u.question_id IS NOT NULL
+		)
 		SELECT sq.test_section_id::text, sq.ordinal, q.id::text, q.type::text, q.prompt,
 		       q.media_asset_id::text, q.media_asset_kind::text,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
 		       q.transcript, q.points::text, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content
-		  FROM app.test_section_questions sq
+		  FROM members sq
 		  JOIN app.test_sections s ON s.id = sq.test_section_id
 		  JOIN app.questions q ON q.id = sq.question_id
 		 WHERE s.test_id = $1

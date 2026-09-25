@@ -116,7 +116,7 @@ func nullableGroupContent(raw json.RawMessage) any {
 	return raw
 }
 
-func checkGroupAssetBindings(ctx context.Context, tx pgx.Tx, group domain.QuestionGroup) error {
+func checkGroupAssetBindings(ctx context.Context, tx pgx.Tx, group domain.QuestionGroup, tables groupGraphTables) error {
 	expected := make(map[string]string)
 	recordings := groupRecordingIDs(group)
 	for _, material := range group.Stimuli {
@@ -129,8 +129,8 @@ func checkGroupAssetBindings(ctx context.Context, tx pgx.Tx, group domain.Questi
 			expected[strings.ToLower(material.ID)+":"+id] = asset.Kind + ":" + recordings[id]
 		}
 	}
-	rows, err := tx.Query(ctx, `SELECT stimulus_id::text, media_asset_id::text, media_asset_kind::text, coalesce(recording_id::text,'')
-		FROM app.group_stimulus_assets WHERE group_id=$1`, group.ID)
+	rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT stimulus_id::text, media_asset_id::text, media_asset_kind::text, coalesce(recording_id::text,'')
+		FROM %s WHERE group_id=$1`, tables.assets), group.ID)
 	if err != nil {
 		return err
 	}

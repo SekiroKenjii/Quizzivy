@@ -14,9 +14,9 @@ func (s *Postgres) CreateOwned(ctx context.Context, in domain.WriteInput, owners
 }
 
 // UpdateOwned replaces a member only within its expected group; the caller holds the aggregate lock and validates all dependent bindings.
-func (s *Postgres) UpdateOwned(ctx context.Context, in domain.WriteInput, groupID string) (domain.Question, error) {
+func (s *Postgres) UpdateOwned(ctx context.Context, in domain.WriteInput, ownership domain.GroupOwnership) (domain.Question, error) {
 	in.Input.Tags = append([]string{}, in.Input.Tags...)
-	return s.write(ctx, in, true, &domain.GroupOwnership{GroupID: groupID})
+	return s.write(ctx, in, true, &ownership)
 }
 
 // GroupQuestions resolves ordered members in bulk on the caller's transaction, which must hold the aggregate lock.

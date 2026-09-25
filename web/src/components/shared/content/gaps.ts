@@ -1,10 +1,10 @@
-import type { ContentBlock, ContentInline } from "./model";
+import type { ContentBlock, ContentInline, SemanticContent } from "./model";
 import type { QuestionPromptContent } from "./questionContent";
 
 export type QuestionGap = Extract<ContentInline, { type: "gap" }>;
 
 /** questionGaps returns stable gaps in document order, including nested lists and table cells. */
-export function questionGaps(document: QuestionPromptContent): QuestionGap[] {
+export function questionGaps(document: SemanticContent): QuestionGap[] {
   const gaps: QuestionGap[] = [];
   const visit = (block: ContentBlock) => {
     switch (block.type) {

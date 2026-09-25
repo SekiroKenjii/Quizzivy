@@ -9,6 +9,7 @@ import (
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 	identityhttp "quizzivy/internal/modules/identity/http"
+	importshttp "quizzivy/internal/modules/imports/http"
 	mediahttp "quizzivy/internal/modules/media/http"
 	questionshttp "quizzivy/internal/modules/questions/http"
 	testshttp "quizzivy/internal/modules/tests/http"
@@ -18,6 +19,7 @@ import (
 type Server struct {
 	dashboardhttp.Dashboard
 	classeshttp.Classes
+	importshttp.Imports
 	identityhttp.Identity
 	questionshttp.Questions
 	mediahttp.Media

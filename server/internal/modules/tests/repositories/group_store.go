@@ -11,10 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const groupMembershipRule = "group_membership"
+
 // GroupQuestionStore persists owned interactions inside the aggregate transaction, without exposing them as standalone bank rows.
 type GroupQuestionStore interface {
 	QuestionLocks
 	CreateGroupMember(context.Context, pgx.Tx, questions.WriteInput, questions.GroupOwnership) (questions.Question, error)
+	UpdateGroupMember(context.Context, pgx.Tx, questions.WriteInput, questions.GroupOwnership) (questions.Question, error)
 	GroupMembers(context.Context, pgx.Tx, string) ([]questions.OwnedQuestion, error)
 }
 
@@ -36,6 +39,9 @@ func (s *GroupsPostgres) Get(ctx context.Context, id string) (domain.StoredGroup
 		return domain.StoredGroup{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockGroupReadOwner(ctx, tx, id); err != nil {
+		return domain.StoredGroup{}, err
+	}
 	group, err := readGroup(ctx, tx, id)
 	if err != nil {
 		return domain.StoredGroup{}, err
@@ -50,15 +56,39 @@ func (s *GroupsPostgres) Get(ctx context.Context, id string) (domain.StoredGroup
 }
 
 func readGroup(ctx context.Context, tx pgx.Tx, id string) (domain.StoredGroup, error) {
+	return readLockedGroup(ctx, tx, id, "FOR SHARE")
+}
+
+func readLockedGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.StoredGroup, error) {
 	var stored domain.StoredGroup
-	err := tx.QueryRow(ctx, `SELECT id::text, title, instructions, owner_section_id::text,
-		revision, archived_at, created_at, updated_at FROM app.question_groups WHERE id=$1 FOR SHARE`, id).
+	err := tx.QueryRow(ctx, `SELECT g.id::text, g.title, g.instructions, g.owner_section_id::text,
+		g.revision, g.archived_at, g.created_at, g.updated_at, t.updated_at
+		FROM app.question_groups g LEFT JOIN app.test_sections s ON s.id=g.owner_section_id
+		LEFT JOIN app.tests t ON t.id=s.test_id WHERE g.id=$1 `+lock+` OF g`, id).
 		Scan(&stored.Bundle.Group.ID, &stored.Bundle.Group.Title, &stored.Bundle.Group.Instructions,
-			&stored.OwnerSectionID, &stored.Revision, &stored.ArchivedAt, &stored.CreatedAt, &stored.UpdatedAt)
+			&stored.OwnerSectionID, &stored.Revision, &stored.ArchivedAt, &stored.CreatedAt, &stored.UpdatedAt, &stored.TestUpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StoredGroup{}, domain.ErrNotFound
 	}
 	return stored, err
+}
+
+func lockGroupReadOwner(ctx context.Context, tx pgx.Tx, id string) error {
+	var testID *string
+	err := tx.QueryRow(ctx, `SELECT s.test_id::text FROM app.question_groups g
+		LEFT JOIN app.test_sections s ON s.id=g.owner_section_id WHERE g.id=$1`, id).Scan(&testID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrNotFound
+	}
+	if err != nil || testID == nil {
+		return err
+	}
+	var locked string
+	err = tx.QueryRow(ctx, `SELECT id::text FROM app.tests WHERE id=$1 AND deleted_at IS NULL FOR SHARE`, *testID).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrNotFound
+	}
+	return err
 }
 
 func (s *GroupsPostgres) readGraph(ctx context.Context, tx pgx.Tx, stored *domain.StoredGroup) error {
@@ -73,18 +103,18 @@ func (s *GroupsPostgres) readGraph(ctx context.Context, tx pgx.Tx, stored *domai
 	stored.Bundle.Questions = make([]domain.GroupQuestion, len(members))
 	for i, member := range members {
 		if member.Ordinal != i {
-			return &domain.GroupError{Rule: "group_membership", QuestionID: member.Question.ID}
+			return &domain.GroupError{Rule: groupMembershipRule, QuestionID: member.Question.ID}
 		}
 		stored.Bundle.Group.Members[i] = domain.GroupMember{QuestionID: member.Question.ID, OptionOrder: member.OptionOrder}
 		stored.Bundle.Questions[i] = domain.GroupQuestion{ID: member.Question.ID, Input: groupQuestionInput(member.Question), MediaAssetKind: member.Question.MediaAssetKind}
 	}
-	if err := readGroupMaterials(ctx, tx, &stored.Bundle.Group); err != nil {
+	if err := readGroupMaterials(ctx, tx, &stored.Bundle.Group, draftGraphTables); err != nil {
 		return err
 	}
-	if err := readGroupRecordings(ctx, tx, &stored.Bundle.Group); err != nil {
+	if err := readGroupRecordings(ctx, tx, &stored.Bundle.Group, draftGraphTables); err != nil {
 		return err
 	}
-	if err := checkGroupAssetBindings(ctx, tx, stored.Bundle.Group); err != nil {
+	if err := checkGroupAssetBindings(ctx, tx, stored.Bundle.Group, draftGraphTables); err != nil {
 		return err
 	}
 	return stored.Bundle.Validate()

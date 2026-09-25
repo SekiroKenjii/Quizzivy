@@ -2,9 +2,11 @@ package httpx
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // SecurityHeaders applies the API's browser protections, including error responses.
@@ -24,22 +26,28 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// StreamingReadTimeout replaces the server-wide read deadline for streamed uploads, so a large file on a slow
+// connection is not cut off; it stays below the server's write timeout.
+const StreamingReadTimeout = 110 * time.Second
+
 // LimitRequestBody bounds non-streaming requests before the contract validator buffers them.
-func LimitRequestBody(streaming map[string]struct{}, limit int64) func(http.Handler) http.Handler {
+func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if _, exempt := streaming[r.Pattern]; exempt || r.Body == nil {
+			if streamingRequestBody(w, r, streaming, routeLimits) {
 				next.ServeHTTP(w, r)
 				return
 			}
+			limit := requestBodyLimit(r.Pattern, defaultLimit, routeLimits)
+			message := fmt.Sprintf("Dữ liệu gửi lên vượt quá giới hạn %g MiB.", float64(limit)/(1<<20))
 			if r.ContentLength > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, "Dữ liệu gửi lên vượt quá giới hạn 1 MiB.")
+				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, message)
 				return
 			}
 			body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
 			_ = r.Body.Close()
 			if int64(len(body)) > limit {
-				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, "Dữ liệu gửi lên vượt quá giới hạn 1 MiB.")
+				WriteError(w, r, http.StatusRequestEntityTooLarge, CodeValidationFailed, message)
 				return
 			}
 			if err != nil {
@@ -50,4 +58,25 @@ func LimitRequestBody(streaming map[string]struct{}, limit int64) func(http.Hand
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func streamingRequestBody(w http.ResponseWriter, r *http.Request, streaming map[string]struct{}, limits map[string]int64) bool {
+	if r.Body == nil {
+		return true
+	}
+	if _, ok := streaming[r.Pattern]; !ok {
+		return false
+	}
+	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(StreamingReadTimeout))
+	if limit := limits[r.Pattern]; limit > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+	}
+	return true
+}
+
+func requestBodyLimit(pattern string, fallback int64, limits map[string]int64) int64 {
+	if configured := limits[pattern]; configured > 0 {
+		return configured
+	}
+	return fallback
 }

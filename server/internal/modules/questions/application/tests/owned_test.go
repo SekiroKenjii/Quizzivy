@@ -71,11 +71,11 @@ func TestOwnedQuestionsRequireTheirGroupForReadsWritesAndCopies(t *testing.T) {
 	if _, err := svc.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: domain.WriteRequest{ID: created.ID, ActorID: author}}); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("standalone duplicate dropped group context: %v", err)
 	}
-	if _, err := repo.UpdateOwned(ctx, in, other); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := repo.UpdateOwned(ctx, in, domain.GroupOwnership{GroupID: other, Ordinal: 0, OptionOrder: "fixed"}); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another group could edit member: %v", err)
 	}
 	in.Input.Prompt = "Đã sửa trong nhóm"
-	updated, err := repo.UpdateOwned(ctx, in, group)
+	updated, err := repo.UpdateOwned(ctx, in, domain.GroupOwnership{GroupID: group, Ordinal: 0, OptionOrder: "fixed"})
 	if err != nil || updated.Prompt != in.Input.Prompt {
 		t.Fatalf("group-owned update: %q, %v", updated.Prompt, err)
 	}
