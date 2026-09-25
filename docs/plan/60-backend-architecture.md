@@ -49,7 +49,7 @@ the "one package per feature" layout AGENTS.md described until then.
 - **core is four packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware
-  order, `/healthz`, `/docs` and the rate limits; `core/adapters` translates
+  order, `/livez`, `/healthz`, `/docs` and the rate limits; `core/adapters` translates
   platform errors into domain errors and one module's handlers into another's
   port; `core/jobs` runs background commands. `platform/httpserver` owns the
   listener and its shutdown.

@@ -64,12 +64,15 @@ primary_region = "sin"
     soft_limit = 200
     hard_limit = 250
 
+  # Liveness only. /livez answers without touching the database, so these
+  # checks (every 15s) no longer keep Neon's compute awake around the clock.
+  # /healthz keeps its database probe for the deploy workflow and the monitor.
   [[http_service.checks]]
     interval = "15s"
     timeout = "3s"
     grace_period = "10s"
     method = "GET"
-    path = "/healthz"
+    path = "/livez"
 
 [[vm]]
   size = "shared-cpu-1x"

@@ -14,6 +14,14 @@ The CSP allows the actual PKCE flow and private R2 media, including blob preview
 it does not load Google's GIS SDK. Test login, image display, audio playback and
 upload previews on the deployed origin before closing #78.
 
+Fly's own check calls `/livez`, which never touches the database, so Neon's
+compute can suspend after five idle minutes. `/healthz` is the database-aware
+probe: every call is a query that wakes the compute and keeps it billed for at
+least five more minutes. Point only deliberate probes at it. At three probes an
+hour, the monitor below would keep the compute running for about a quarter of
+otherwise idle hours; choose its cadence with that cost in mind. Both routes
+are rate-limited per client address (`/livez` 30/min, `/healthz` 10/min).
+
 The proposed initial monitor is `.github/workflows/production-monitor.yml`:
 three checks per hour, with a three-minute job limit. To activate it:
 
