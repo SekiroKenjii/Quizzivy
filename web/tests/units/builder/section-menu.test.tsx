@@ -34,13 +34,17 @@ const questions = new Map<string, OutlineQuestion>([
   ["q3", { id: "q3", prompt: "Câu ba", points: 2, hasAudio: true, problem: null }],
 ]);
 
-function renderTree() {
+function renderTree(
+  initial: OutlineSection[] = sections(),
+  onRemoveSection?: (index: number) => void,
+) {
   const onChange = vi.fn();
   function Harness() {
-    const [value, setValue] = useState(sections());
+    const [value, setValue] = useState(initial);
     return (
       <OutlineTree
         sections={value}
+        {...(onRemoveSection ? { onRemoveSection } : {})}
         questions={questions}
         selectedId="q1"
         creating={false}
@@ -314,4 +318,61 @@ it("renames a section after a double click on its title", async () => {
     "Listening",
     "Viết",
   ]);
+});
+
+describe("removing a section from a builder that owns groups", () => {
+  const withGroup = (): OutlineSection[] => [
+    ...sections(),
+    {
+      id: "s4",
+      title: "Đọc hiểu",
+      instructions: null,
+      questionIds: [],
+      units: [{ kind: "group", id: "g1" }],
+    },
+  ];
+
+  it("still asks with the section's title and count when it holds only questions", async () => {
+    const onRemoveSection = vi.fn();
+    const { user, onChange } = renderTree(withGroup(), onRemoveSection);
+
+    await openMenu(user, 0);
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Ngữ pháp/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/2 câu/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Xoá phần" }));
+
+    expect(onRemoveSection).not.toHaveBeenCalled();
+    expect(titles(onChange.mock.calls[0]![0] as OutlineSection[])).toEqual([
+      "Nghe",
+      "Viết",
+      "Đọc hiểu",
+    ]);
+  });
+
+  it("removes an empty section at once", async () => {
+    const onRemoveSection = vi.fn();
+    const { user, onChange } = renderTree(withGroup(), onRemoveSection);
+
+    await openMenu(user, 2);
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onRemoveSection).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("hands a section holding a group to the builder, which deletes the group too", async () => {
+    const onRemoveSection = vi.fn();
+    const { user, onChange } = renderTree(withGroup(), onRemoveSection);
+
+    await openMenu(user, 3);
+    await user.click(await screen.findByRole("menuitem", { name: "Xoá phần" }));
+
+    expect(onRemoveSection).toHaveBeenCalledWith(3);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

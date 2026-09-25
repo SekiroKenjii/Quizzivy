@@ -1,3 +1,4 @@
+import { clearAuthoringDrafts } from "@/lib/drafts/store";
 import { useEffect } from "react";
 import { clearGroupPlayDrafts } from "@/features/take-test/groupPlaybackDraft";
 import { clearAnswerDrafts } from "@/features/take-test/draft";
@@ -46,6 +47,7 @@ export function useLogout() {
     clearSession();
     clearAnswerDrafts();
     clearGroupPlayDrafts();
+    await clearAuthoringDrafts().catch(() => undefined);
     queryClient.clear();
   };
 }
