@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,7 @@ var configuredBy = []string{
 	"S3_BUCKET", "S3_ENDPOINT", "S3_FORCE_PATH_STYLE", "S3_REGION",
 	"S3_SECRET_ACCESS_KEY", "VITE_GOOGLE_CLIENT_ID", "DOCS_PUBLIC",
 	"IMPORT_S3_BUCKET", "IMPORT_WORK_DIR", "IMPORT_LEGACY_DOC", "IMPORT_PROCESSING_ENABLED", "IMPORT_WORKER_WAKE_URL",
+	"IMPORT_WORKER_WAKE_ADDR", "IMPORT_WORKER_IDLE_POLL", "IMPORT_DOCKER_BINARY", "IMPORT_CONVERTER_IMAGE",
 	"IMPORT_ACTOR_COUNT", "IMPORT_GLOBAL_COUNT", "IMPORT_SOURCES_PER_ITEM", "IMPORT_ACTOR_MIB",
 	"IMPORT_GLOBAL_MIB",
 }
@@ -168,6 +170,7 @@ func TestProductionProcessesWordImportsOnlyBesideADeployedWorker(t *testing.T) {
 	}
 	if worker {
 		assertTheWorkerCanBeWoken(t)
+		assertTheWorkerHasItsOwnMachine(t)
 	}
 	if cfg.ImportLegacyDoc {
 		t.Fatal("production accepts .doc uploads, but the converter .doc needs is a Docker container, and the production image has no Docker daemon")
@@ -194,6 +197,56 @@ func assertTheWorkerCanBeWoken(t *testing.T) {
 	}
 	if worker.IdlePoll < time.Hour {
 		t.Fatalf("IMPORT_WORKER_IDLE_POLL=%v keeps Neon awake; use hours in production", worker.IdlePoll)
+	}
+}
+
+func flyBlocks(t *testing.T, header string) [][]string {
+	t.Helper()
+	var out [][]string
+	in := false
+	for _, line := range strings.Split(repoFile(t, "fly.toml"), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			in = trimmed == header
+			if in {
+				out = append(out, []string{})
+			}
+			continue
+		}
+		if in && trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			out[len(out)-1] = append(out[len(out)-1], trimmed)
+		}
+	}
+	return out
+}
+
+func assertTheWorkerHasItsOwnMachine(t *testing.T) {
+	t.Helper()
+	service := flyBlocks(t, "[http_service]")
+	if len(service) != 1 || !slices.Contains(service[0], `processes = ["app"]`) {
+		t.Fatal(`[http_service] must name processes = ["app"]; otherwise Fly routes requests and health checks to the worker, which serves neither`)
+	}
+	sized := false
+	for _, vm := range flyBlocks(t, "[[vm]]") {
+		if slices.Contains(vm, `processes = ["worker"]`) {
+			sized = slices.Contains(vm, `memory = "1gb"`) || slices.Contains(vm, `memory = "2gb"`)
+		}
+	}
+	if !sized {
+		t.Fatal("the worker needs its own [[vm]] with at least 1gb: a 512 MiB Go target plus up to 256 MiB of PDF sandbox")
+	}
+}
+
+func TestImportsWithoutObjectStorageRefuseToBoot(t *testing.T) {
+	secrets := map[string]string{}
+	for name, value := range flySecrets {
+		if !strings.HasPrefix(name, "S3_") {
+			secrets[name] = value
+		}
+	}
+	apply(t, flyEnv(t), secrets)
+	if _, err := config.Load(); err == nil {
+		t.Fatal("Load accepted import storage without the S3_* credentials it reuses")
 	}
 }
 
@@ -228,7 +281,13 @@ func TestObjectStorageUnderTheWrongNamesLeavesMediaOff(t *testing.T) {
 		}
 		secrets[name] = value
 	}
-	apply(t, flyEnv(t), secrets, map[string]string{
+	env := flyEnv(t)
+	for name := range env {
+		if strings.HasPrefix(name, "IMPORT_") {
+			delete(env, name)
+		}
+	}
+	apply(t, env, secrets, map[string]string{
 		"R2_ACCOUNT_ID": "account", "R2_ACCESS_KEY_ID": "key", "R2_SECRET_ACCESS_KEY": "secret",
 	})
 

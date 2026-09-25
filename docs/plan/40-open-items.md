@@ -248,10 +248,12 @@ Worth deciding before Phase 3 rather than after.
 ---
 
 ### O-24 — Word import in production · before its pilot (W-22)
-**Default:** off. `fly.toml` sets no `IMPORT_*`. The web shows no way into Word
-import, and `/admin/imports` says it is not enabled (#138).
+**Decided 2026-09-25: on,** for `.docx` and text-layer PDF. `fly.toml` runs the
+worker as its own process group (`17-word-import.md` §1.40). Until then the
+default was off: `fly.toml` set no `IMPORT_*`, and the web showed no way in
+(#138).
 
-Turning it on needs three things only Thuong can do or decide:
+What turning it on needed, and where each stands:
 
 - **Storage.** A private R2 bucket for imports, and an R2 token that reaches it.
   This is an account action.
@@ -259,12 +261,14 @@ Turning it on needs three things only Thuong can do or decide:
   until woken, so Neon's compute can still suspend while it runs.
 - **W-21 gates.** W-21 is in `17-word-import.md` §6, and decisions D-07 and
   D-08 are in §10:
-  - D-07, capacity: the quotas are still development defaults.
+  - D-07, capacity: still open. The quotas and concurrency ship at their
+    development defaults until real use is measured.
   - D-08, retention: decided and built (30/7/60 days, `17-word-import.md`
     §1.38).
 - **Storage support.** R2 rejects full-object SHA-256 checksums, so the import
   store checks the digest itself and sends it as metadata with Content-MD5.
-  `make verify-r2-imports` proves the bucket accepts that before release.
+  `make verify-r2-imports` proves the bucket accepts that. It passed on
+  2026-09-26, once the token listed `quizzivy-imports`.
 
 PDF needs nothing more: the worker reads it in its own WebAssembly sandbox
 (D-10, `17-word-import.md` §1.39), sized into the worker's 1 GB Machine.

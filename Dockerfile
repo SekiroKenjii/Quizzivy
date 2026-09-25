@@ -19,6 +19,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     cd server && \
     CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-w -s" -o /out/api ./cmd/api && \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-w -s" -o /out/import-worker ./cmd/import-worker && \
     CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-w -s" -o /out/migrate ./cmd/migrate
 
 # ---------------------------------------------------------------- runtime
@@ -29,6 +30,7 @@ FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 
 COPY --from=build /out/api /app/api
+COPY --from=build /out/import-worker /app/import-worker
 COPY --from=build /out/migrate /app/migrate
 COPY migrations /app/migrations
 

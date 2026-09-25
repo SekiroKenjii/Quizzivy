@@ -14,6 +14,14 @@ primary_region = "sin"
   release_command = "/app/migrate -dir /app/migrations up"
   strategy = "rolling"
 
+# Two process groups from one image. The app serves HTTP; the worker processes
+# Word and PDF imports off the request path and has no public service. The API
+# wakes it over Fly's private network (IMPORT_WORKER_WAKE_URL below), so an idle
+# worker does not poll Neon (#143).
+[processes]
+  app = "/app/api"
+  worker = "/app/import-worker"
+
 [env]
   APP_ENV = "production"
   API_PORT = "8080"
@@ -49,7 +57,21 @@ primary_region = "sin"
   # R-13. Raise this only alongside the machine's memory.
   MAX_CONCURRENT_PASSWORD_HASHES = "4"
 
+  # Word and PDF import (O-24, decided 2026-09-25). The bucket is private and
+  # reached with the S3_* credentials; `make verify-r2-imports` proves the
+  # token reaches it. The work directory is on the Machine's disk, which the
+  # image's nonroot user owns and a deploy resets -- it only holds scratch
+  # files. Processing is on because the worker group below runs beside the
+  # API; deployment_test.go keeps the two together.
+  IMPORT_S3_BUCKET = "quizzivy-imports"
+  IMPORT_WORK_DIR = "/home/nonroot/imports"
+  IMPORT_PROCESSING_ENABLED = "true"
+  IMPORT_WORKER_WAKE_URL = "http://worker.process.quizzivy-api.internal:8091/wake"
+  IMPORT_WORKER_WAKE_ADDR = "fly-local-6pn:8091"
+  IMPORT_WORKER_IDLE_POLL = "6h"
+
 [http_service]
+  processes = ["app"]
   internal_port = 8080
   force_https = true
   auto_stop_machines = false
@@ -75,5 +97,13 @@ primary_region = "sin"
     path = "/livez"
 
 [[vm]]
+  processes = ["app"]
   size = "shared-cpu-1x"
   memory = "512mb"
+
+# The worker's Go heap target is 512 MiB, and reading a PDF adds up to 256 MiB of
+# sandbox memory on top.
+[[vm]]
+  processes = ["worker"]
+  size = "shared-cpu-1x"
+  memory = "1gb"
