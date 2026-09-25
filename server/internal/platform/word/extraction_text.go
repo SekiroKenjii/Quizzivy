@@ -53,6 +53,12 @@ func paragraphEvidence(p Paragraph, resolved ResolvedParagraph, contexts map[Loc
 	return out, meaningful || resolved.Numbering != nil
 }
 
+var inertMarkers = map[string]bool{"br": true, "bookmarkStart": true, "bookmarkEnd": true, "sectPr": true, "mathPr": true, "lastRenderedPageBreak": true}
+
+func inertObject(p Property) bool {
+	return inertMarkers[p.Name[strings.LastIndex(p.Name, "}")+1:]]
+}
+
 func runReasons(r ResolvedRun) []string {
 	var reasons []string
 	if !r.Complete {
@@ -71,7 +77,7 @@ func blockReasons(b SourceBlock) []string {
 	if b.PartKind != "document" {
 		reasons = append(reasons, "ANCILLARY_CONTENT_REQUIRES_REVIEW")
 	}
-	if b.Object != nil {
+	if b.Object != nil && !inertObject(*b.Object) {
 		reasons = append(reasons, "OBJECT_REQUIRES_REVIEW")
 	}
 	if changedProperties(b.Properties) {

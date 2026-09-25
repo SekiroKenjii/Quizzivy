@@ -132,9 +132,9 @@ func partBlocks(part Part, resolved map[Locator]ResolvedParagraph) []SourceBlock
 	for _, o := range part.Objects {
 		if i, found := indexed[o.Locator]; found {
 			blocks[i].Object = &o.Content
-			blocks[i].Meaningful = true
+			blocks[i].Meaningful = !inertObject(o.Content)
 		} else {
-			blocks = append(blocks, SourceBlock{Locator: o.Locator, SourceRange: o.SourceRange, Kind: elementObject, Object: &o.Content, Meaningful: true})
+			blocks = append(blocks, SourceBlock{Locator: o.Locator, SourceRange: o.SourceRange, Kind: elementObject, Object: &o.Content, Meaningful: !inertObject(o.Content)})
 		}
 	}
 	for _, f := range part.Unassigned {
