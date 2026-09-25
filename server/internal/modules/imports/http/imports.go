@@ -151,6 +151,17 @@ func toImport(v domain.Import) openapi.WordImport {
 	for i, s := range v.Sources {
 		out.Sources[i] = toSource(s)
 	}
+	if v.DraftRevision > 0 {
+		revision := v.DraftRevision
+		out.DraftRevision = &revision
+	}
+	if v.TestID != nil {
+		id := httpapi.ParseUUID(*v.TestID)
+		out.TestId = &id
+	}
+	if r := v.Run; r != nil {
+		out.Run = &openapi.ImportRun{Id: httpapi.ParseUUID(r.ID), Status: openapi.ImportRunStatus(r.Status), Stage: openapi.ImportRunStage(r.Stage), Attempt: r.Attempt, MaxAttempts: r.MaxAttempts, ErrorCode: r.ErrorCode, UpdatedAt: r.UpdatedAt}
+	}
 	return out
 }
 func toSource(s domain.Source) openapi.ImportSource {
