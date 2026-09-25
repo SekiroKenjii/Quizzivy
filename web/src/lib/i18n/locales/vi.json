@@ -443,6 +443,13 @@
     "classCount": "Lớp",
     "googleBothExplainer": "Bạn có thể đăng nhập bằng Google hoặc bằng mật khẩu. Bỏ liên kết thì chỉ còn mật khẩu.",
     "languageExplainer": "Đổi ngôn ngữ giao diện. Đề thi vẫn hiện đúng như giáo viên soạn.",
+    "apiDocs": {
+      "title": "Tài liệu API",
+      "body": "Xem tài liệu tham chiếu của API Quizzivy. Trang mở trong tab mới và chỉ dùng được trong 15 phút; sau đó hãy mở lại từ đây.",
+      "open": "Mở tài liệu API",
+      "blocked": "Trình duyệt đã chặn tab mới. Hãy cho phép cửa sổ bật lên cho Quizzivy rồi thử lại.",
+      "failed": "Không mở được tài liệu API. Vui lòng thử lại."
+    },
     "profileSaved": "Đã lưu họ và tên.",
     "emailFromGoogle": "Email lấy từ tài khoản Google, không đổi được.",
     "emailFromTeacher": "Email do giáo viên cấp, không đổi được.",

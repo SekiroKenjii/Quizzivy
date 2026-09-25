@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import {
+  ApiDocsSection,
   GoogleSection,
   LanguageSection,
   PasswordSection,
@@ -103,8 +104,9 @@ export function SettingsPage({
             <PasswordSection />
             <GoogleSection />
           </div>
-          <div hidden={active !== "preferences"} className="settings-panel">
+          <div hidden={active !== "preferences"} className="settings-panel space-y-8">
             <LanguageSection />
+            {base === "/admin/settings" ? <ApiDocsSection /> : null}
           </div>
           <div className="mt-8 border-t pt-5">
             <SignOutButton variant="outline" className="w-full sm:w-auto" />

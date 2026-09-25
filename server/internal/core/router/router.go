@@ -55,8 +55,13 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	mux := http.NewServeMux()
 	mux.Handle("GET /livez", limited(http.HandlerFunc(livez)))
 	mux.Handle("GET /healthz", limited(healthz(deps.DB)))
-	mux.Handle("GET /docs", apidocs.Reference("/docs/openapi.json"))
-	mux.Handle("GET /docs/openapi.json", apidocs.Spec(openapi.GetSpecJSON))
+	docs := limited
+	if !deps.DocsPublic {
+		gate := identityhttp.RequireDocsSession(deps.Docs)
+		docs = func(next http.Handler) http.Handler { return limited(gate(next)) }
+	}
+	mux.Handle("GET /docs", docs(apidocs.Reference("/docs/openapi.json")))
+	mux.Handle("GET /docs/openapi.json", docs(apidocs.Spec(openapi.GetSpecJSON)))
 
 	handler := openapi.HandlerWithOptions(strict, openapi.StdHTTPServerOptions{
 		BaseRouter: mux,

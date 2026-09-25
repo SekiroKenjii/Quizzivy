@@ -34,6 +34,8 @@ type Config struct {
 	ImportGlobalMiB             int
 	ImportLegacyDoc             bool
 
+	DocsPublic bool
+
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration
 	RefreshTokenTTL     time.Duration
@@ -60,6 +62,9 @@ func Load() (Config, error) {
 
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")
+	}
+	if err := loadDocs(&cfg); err != nil {
+		return cfg, err
 	}
 	if err := loadTokens(&cfg); err != nil {
 		return cfg, err
@@ -88,6 +93,18 @@ func Load() (Config, error) {
 		return cfg, fmt.Errorf("API_PORT must be numeric, got %q", cfg.Port)
 	}
 	return cfg, nil
+}
+
+func loadDocs(cfg *Config) error {
+	public, err := getenvBool("DOCS_PUBLIC", false)
+	if err != nil {
+		return err
+	}
+	if public && cfg.Env == "production" {
+		return fmt.Errorf("DOCS_PUBLIC must not be true in production: it opens the API reference to anyone")
+	}
+	cfg.DocsPublic = public
+	return nil
 }
 
 func loadTokens(cfg *Config) error {

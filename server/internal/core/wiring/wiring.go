@@ -13,10 +13,11 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifier the auth middleware needs, and the identity application the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, and the identity application the background jobs drive.
 type Assembly struct {
 	Modules  router.Modules
 	Tokens   *identitytoken.Issuer
+	Docs     *identitytoken.Issuer
 	Identity *identityapp.Application
 }
 
@@ -27,6 +28,10 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 
 	classesApp := classes(dbx, stats)
 	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
+	if err != nil {
+		return Assembly{}, err
+	}
+	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)
 	if err != nil {
 		return Assembly{}, err
 	}
@@ -47,7 +52,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Imports:     importsTransport,
 			Dashboard:   dashboard(dbx),
 			Classes:     classesTransport(classesApp),
-			Identity:    identityTransport(cfg, identityApp),
+			Identity:    identityTransport(cfg, identityApp, docs),
 			Questions:   questionsTransport(questionsApp, mediaApp),
 			Media:       mediaTransport(mediaApp),
 			Tests:       testsTransport(testsApp, mediaApp),
@@ -55,6 +60,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Attempts:    attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 		},
 		Tokens:   tokens,
+		Docs:     docs,
 		Identity: identityApp,
 	}, nil
 }

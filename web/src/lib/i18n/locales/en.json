@@ -443,6 +443,13 @@
     "classCount": "Classes",
     "googleBothExplainer": "You can sign in with Google or with your password. Unlinking leaves only the password.",
     "languageExplainer": "Changes the interface language. Tests still read exactly as your teacher wrote them.",
+    "apiDocs": {
+      "title": "API reference",
+      "body": "Browse the Quizzivy API reference. It opens in a new tab and stays open for 15 minutes; after that, open it again from here.",
+      "open": "Open API reference",
+      "blocked": "Your browser blocked the new tab. Allow pop-ups for Quizzivy and try again.",
+      "failed": "The API reference could not be opened. Please try again."
+    },
     "profileSaved": "Your name has been saved.",
     "emailFromGoogle": "The email comes from your Google account and cannot be changed.",
     "emailFromTeacher": "Your teacher issued this email; it cannot be changed here.",

@@ -44,6 +44,16 @@ func refreshCookie(token string, ttl time.Duration, secure bool) *http.Cookie {
 	}
 }
 
+type clearedSession []*http.Cookie
+
+func (c clearedSession) VisitLogoutResponse(w http.ResponseWriter) error {
+	for _, cookie := range c {
+		w.Header().Add("Set-Cookie", cookie.String())
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
 func clearRefreshCookie(secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     refreshCookieName,

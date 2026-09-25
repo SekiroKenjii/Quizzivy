@@ -105,11 +105,7 @@ func (h Identity) Logout(ctx context.Context, _ openapi.LogoutRequestObject) (op
 		return nil, err
 	}
 
-	return openapi.Logout204Response{
-		Headers: openapi.Logout204ResponseHeaders{
-			SetCookie: httpapi.Ptr(clearRefreshCookie(h.cookieSecure).String()),
-		},
-	}, nil
+	return clearedSession{clearRefreshCookie(h.cookieSecure), clearDocsCookie()}, nil
 }
 
 func toAPIUser(u domain.User) openapi.User {
