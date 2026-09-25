@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,9 @@ import {
  * One dialog shape for every action that asks first; destructive confirms are
  * the app's only red (§12). Without `onConfirm` it is a notice: one button
  * that closes it, for a refusal that has nothing left to ask (A-06a, A-07).
- * Closing returns focus to the element that had it when the dialog opened,
- * when that element is still on the page.
+ * Closing returns focus to `returnFocus`, or else to the element that had it
+ * when the dialog opened, unless the confirmed action already moved focus
+ * somewhere outside the dialog.
  */
 export function ConfirmDialog({
   open,
@@ -32,6 +33,7 @@ export function ConfirmDialog({
   pending = false,
   error = null,
   onConfirm,
+  returnFocus,
 }: Readonly<{
   open: boolean;
   className?: string;
@@ -46,6 +48,7 @@ export function ConfirmDialog({
   pending?: boolean;
   error?: string | null;
   onConfirm?: () => void;
+  returnFocus?: RefObject<HTMLElement | null>;
 }>) {
   const { t } = useTranslation();
   const opener = useRef<HTMLElement | null>(null);
@@ -54,15 +57,14 @@ export function ConfirmDialog({
       <DialogContent
         className={cn("gap-4 p-5 sm:max-w-md", className)}
         onOpenAutoFocus={() => {
+          const active = document.activeElement;
           opener.current =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
+            active instanceof HTMLElement && active !== document.body ? active : null;
         }}
         onCloseAutoFocus={(event) => {
-          const target = opener.current;
+          const target = returnFocus?.current ?? opener.current;
           opener.current = null;
-          if (target === null || !target.isConnected) return;
+          if (focusMovedAway(event.currentTarget) || !target?.isConnected) return;
           event.preventDefault();
           target.focus();
         }}
@@ -106,5 +108,14 @@ export function ConfirmDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function focusMovedAway(dialog: EventTarget | null): boolean {
+  const active = document.activeElement;
+  return (
+    active instanceof HTMLElement &&
+    active !== document.body &&
+    !(dialog instanceof Node && dialog.contains(active))
   );
 }
