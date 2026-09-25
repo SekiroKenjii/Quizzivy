@@ -3,7 +3,6 @@ package domain
 import (
 	"fmt"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
-	"time"
 )
 
 // PublishManager holds the rules a draft must pass to become a version, and the totals frozen with it.
@@ -95,16 +94,6 @@ const (
 
 // PublishValidationError carries every violation at once.
 type PublishValidationError struct{ Violations []Violation }
-
-// PublishedVersion is the snapshot that was created.
-type PublishedVersion struct {
-	ID            string
-	Version       int
-	TotalPoints   string
-	QuestionCount int
-	PublishedAt   time.Time
-	PublishedBy   string
-}
 
 // PublishRequest is one publish.
 type PublishRequest struct {

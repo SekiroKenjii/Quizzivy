@@ -303,22 +303,28 @@ func (h Tests) ListTestVersions(ctx context.Context, request openapi.ListTestVer
 
 	items := make([]openapi.TestVersion, len(versions))
 	for i, v := range versions {
-		points, err := strconv.ParseFloat(v.TotalPoints, 64)
-		if err != nil {
+		if items[i], err = testVersion(v); err != nil {
 			return nil, err
-		}
-		items[i] = openapi.TestVersion{
-			Id:            httpapi.ParseUUID(v.ID),
-			Version:       v.Version,
-			TotalPoints:   points,
-			QuestionCount: v.QuestionCount,
-			AudioCount:    v.AudioCount,
-			ManualCount:   v.ManualCount,
-			PublishedAt:   v.PublishedAt,
-			PublishedBy:   v.PublishedBy,
 		}
 	}
 	return openapi.ListTestVersions200JSONResponse{Items: items}, nil
+}
+
+func testVersion(v domain.Version) (openapi.TestVersion, error) {
+	points, err := strconv.ParseFloat(v.TotalPoints, 64)
+	if err != nil {
+		return openapi.TestVersion{}, err
+	}
+	return openapi.TestVersion{
+		Id:            httpapi.ParseUUID(v.ID),
+		Version:       v.Version,
+		TotalPoints:   points,
+		QuestionCount: v.QuestionCount,
+		AudioCount:    v.AudioCount,
+		ManualCount:   v.ManualCount,
+		PublishedAt:   v.PublishedAt,
+		PublishedBy:   v.PublishedBy,
+	}, nil
 }
 
 func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestRequestObject) (openapi.PreviewTestResponseObject, error) {

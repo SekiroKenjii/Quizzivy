@@ -102,6 +102,6 @@ func (b *builder) draft(title string, questionIDs ...string) domain.Test {
 	return saved
 }
 
-func (b *builder) publish(testID string) (domain.PublishedVersion, error) {
+func (b *builder) publish(testID string) (domain.Version, error) {
 	return application.New(repositories.NewPostgres(db.NewContext(b.pool), questionsrepo.NewPostgres(db.NewContext(b.pool)), mediarepo.NewPostgres(db.NewContext(b.pool)))).Commands.Publish.Handle(context.Background(), command.Publish{Request: domain.PublishRequest{TestID: testID, ActorID: b.author}})
 }

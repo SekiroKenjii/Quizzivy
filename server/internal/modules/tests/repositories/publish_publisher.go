@@ -14,40 +14,40 @@ import (
 
 // Publish validates the draft, freezes it as a new version, bumps
 // current_version, sets status published, and audits -- all in one transaction.
-func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now time.Time, validate func(domain.DraftContent) error) (domain.PublishedVersion, error) {
+func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now time.Time, validate func(domain.DraftContent) error) (domain.Version, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
-		return domain.PublishedVersion{}, fmt.Errorf("publish: begin: %w", err)
+		return domain.Version{}, fmt.Errorf("publish: begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	current, err := lockTest(ctx, tx, req.TestID)
 	if err != nil {
-		return domain.PublishedVersion{}, err
+		return domain.Version{}, err
 	}
 
 	draft, err := s.loadDraft(ctx, tx, req.TestID, false)
 	if err != nil {
-		return domain.PublishedVersion{}, err
+		return domain.Version{}, err
 	}
 	if err := validate(draft); err != nil {
-		return domain.PublishedVersion{}, err
+		return domain.Version{}, err
 	}
 
-	total, count := domain.Publishing.Totals(draft)
+	total, _ := domain.Publishing.Totals(draft)
 
 	versionID, err := insertVersion(ctx, tx, req, current+1, total, now)
 	if err != nil {
-		return domain.PublishedVersion{}, err
+		return domain.Version{}, err
 	}
 	if err := snapshot(ctx, tx, versionID, draft, s.media); err != nil {
-		return domain.PublishedVersion{}, err
+		return domain.Version{}, err
 	}
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE app.tests SET status = 'published', current_version = $2, last_published_version = $2 WHERE id = $1`,
 		req.TestID, current+1); err != nil {
-		return domain.PublishedVersion{}, fmt.Errorf("publish: bump current_version: %w", err)
+		return domain.Version{}, fmt.Errorf("publish: bump current_version: %w", err)
 	}
 
 	if err := audit.Write(ctx, tx, audit.Entry{
@@ -59,17 +59,16 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 		IP:          opt.String(req.IP),
 		UserAgent:   opt.String(req.UserAgent),
 	}); err != nil {
-		return domain.PublishedVersion{}, err
+		return domain.Version{}, err
 	}
 
 	published, err := readVersion(ctx, tx, versionID)
 	if err != nil {
-		return domain.PublishedVersion{}, err
+		return domain.Version{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return domain.PublishedVersion{}, fmt.Errorf("publish: commit: %w", err)
+		return domain.Version{}, fmt.Errorf("publish: commit: %w", err)
 	}
-	published.QuestionCount = count
 	return published, nil
 }
 
@@ -98,16 +97,10 @@ func insertVersion(ctx context.Context, tx pgx.Tx, req domain.PublishRequest, ve
 	return id, nil
 }
 
-func readVersion(ctx context.Context, tx pgx.Tx, versionID string) (domain.PublishedVersion, error) {
-	var v domain.PublishedVersion
-	err := tx.QueryRow(ctx,
-		`SELECT tv.id::text, tv.version, tv.total_points::text, tv.published_at, u.full_name
-		   FROM app.test_versions tv
-		   JOIN app.users u ON u.id = tv.published_by
-		  WHERE tv.id = $1`, versionID).Scan(
-		&v.ID, &v.Version, &v.TotalPoints, &v.PublishedAt, &v.PublishedBy)
+func readVersion(ctx context.Context, tx pgx.Tx, versionID string) (domain.Version, error) {
+	v, err := scanVersion(tx.QueryRow(ctx, `SELECT `+versionColumns+` WHERE v.id = $1`, versionID))
 	if err != nil {
-		return domain.PublishedVersion{}, fmt.Errorf("publish: read version: %w", err)
+		return domain.Version{}, fmt.Errorf("publish: read version: %w", err)
 	}
 	return v, nil
 }

@@ -31,7 +31,7 @@ type Commands struct {
 	Delete                 cqrs.CommandHandler[command.Delete, cqrs.Nothing]
 	Create                 cqrs.CommandHandler[command.Create, domain.Test]
 	Duplicate              cqrs.CommandHandler[command.Duplicate, domain.Test]
-	Publish                cqrs.CommandHandler[command.Publish, domain.PublishedVersion]
+	Publish                cqrs.CommandHandler[command.Publish, domain.Version]
 	Update                 cqrs.CommandHandler[command.Update, domain.Test]
 }
 
