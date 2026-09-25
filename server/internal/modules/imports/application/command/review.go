@@ -38,3 +38,15 @@ func (h SaveReviewHandler) Handle(ctx context.Context, in SaveReview) (domain.Re
 	}
 	return domain.ReviewState{Draft: saved, Review: domain.Assess(saved.Draft)}, nil
 }
+
+type Adopt = domain.AdoptCandidate
+
+type AdoptHandler struct{ Drafts domain.Drafts }
+
+func (h AdoptHandler) Handle(ctx context.Context, in Adopt) (domain.ReviewState, error) {
+	adopted, err := h.Drafts.AdoptCandidate(ctx, in)
+	if err != nil {
+		return domain.ReviewState{}, err
+	}
+	return domain.ReviewState{Draft: adopted, Review: domain.Assess(adopted.Draft)}, nil
+}

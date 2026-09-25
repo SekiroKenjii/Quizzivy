@@ -4395,6 +4395,36 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/review/adopt:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: adoptWordImportReprocessed
+      tags: [admin-imports]
+      summary: Replace the edited draft with the newer machine draft
+      description: |
+        Only when the review reports reprocessed. The teacher's edits and
+        acknowledgements are discarded in favour of the newer recognition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CancelWordImport' }
+      responses:
+        '200':
+          description: Adopted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReview' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: STALE_WRITE — the draft changed since expectedRevision; IMPORT_CONFLICT — nothing newer to adopt, or the import is no longer under review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /admin/imports/{id}/source:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:

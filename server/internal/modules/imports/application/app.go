@@ -21,6 +21,7 @@ type Commands struct {
 	Process    cqrs.CommandHandler[command.Process, domain.Import]
 	Cancel     cqrs.CommandHandler[command.Cancel, domain.Import]
 	SaveReview cqrs.CommandHandler[command.SaveReview, domain.ReviewState]
+	Adopt      cqrs.CommandHandler[command.Adopt, domain.ReviewState]
 	Commit     cqrs.CommandHandler[command.Commit, command.CommitResult]
 }
 type Queries struct {
@@ -61,6 +62,7 @@ func New(d Dependencies) *Application {
 			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs},
 			Cancel:     command.CancelHandler{Runs: d.Runs},
 			SaveReview: command.SaveReviewHandler{Drafts: d.Drafts},
+			Adopt:      command.AdoptHandler{Drafts: d.Drafts},
 			Commit:     command.CommitHandler{Repo: d.Repo, Drafts: d.Drafts, Materializer: d.Materializer},
 		},
 		Queries: Queries{

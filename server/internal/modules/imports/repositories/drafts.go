@@ -70,6 +70,38 @@ func (s *Postgres) SaveDraft(ctx context.Context, in domain.SaveDraft) (domain.S
 	return out, err
 }
 
+func (s *Postgres) AdoptCandidate(ctx context.Context, in domain.AdoptCandidate) (domain.StoredDraft, error) {
+	var out domain.StoredDraft
+	err := s.InTx(ctx, "adopt reprocessed draft", func(tx pgx.Tx) error {
+		if err := lockUnderReview(ctx, tx, in.ImportID); err != nil {
+			return err
+		}
+		var revision int64
+		var pending bool
+		err := tx.QueryRow(ctx, `SELECT revision, candidate IS NOT NULL FROM app.word_import_drafts WHERE import_id=$1 FOR UPDATE`, in.ImportID).Scan(&revision, &pending)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrNoDraft
+		}
+		switch {
+		case err != nil:
+			return err
+		case revision != in.ExpectedRevision:
+			return domain.ErrStale
+		case !pending:
+			return domain.ErrConflict
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.word_import_drafts SET body=candidate, run_id=candidate_run_id, candidate=NULL, candidate_run_id=NULL, edited_by=NULL, revision=revision+1 WHERE import_id=$1`, in.ImportID); err != nil {
+			return err
+		}
+		if err := auditImport(ctx, tx, in.Actor, in.ImportID, "import.reprocessed_adopted"); err != nil {
+			return err
+		}
+		out, err = readDraft(ctx, tx, in.ImportID)
+		return err
+	})
+	return out, err
+}
+
 func lockUnderReview(ctx context.Context, tx pgx.Tx, importID string) error {
 	var status string
 	err := tx.QueryRow(ctx, `SELECT status FROM app.word_imports WHERE id=$1 FOR UPDATE`, importID).Scan(&status)

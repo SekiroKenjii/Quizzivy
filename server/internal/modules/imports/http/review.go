@@ -84,6 +84,19 @@ func (h Imports) SaveWordImportReview(ctx context.Context, request openapi.SaveW
 	return openapi.SaveWordImportReview200JSONResponse(out), err
 }
 
+func (h Imports) AdoptWordImportReprocessed(ctx context.Context, request openapi.AdoptWordImportReprocessedRequestObject) (openapi.AdoptWordImportReprocessedResponseObject, error) {
+	a, ok := httpapi.ActorFromContext(ctx)
+	if h.app == nil || !ok || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	v, err := h.app.Commands.Adopt.Handle(ctx, command.Adopt{ImportID: request.Id.String(), ExpectedRevision: request.Body.ExpectedRevision, Actor: actor.Actor(a)})
+	if err != nil {
+		return importFailure(ctx, err)
+	}
+	out, err := toReview(v)
+	return openapi.AdoptWordImportReprocessed200JSONResponse(out), err
+}
+
 func (h Imports) GetWordImportSource(ctx context.Context, request openapi.GetWordImportSourceRequestObject) (openapi.GetWordImportSourceResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented

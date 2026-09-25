@@ -39,6 +39,9 @@ func (f *failure) VisitGetWordImportReviewResponse(w http.ResponseWriter) error 
 func (f *failure) VisitSaveWordImportReviewResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f *failure) VisitGetWordImportSourceResponse(w http.ResponseWriter) error  { return f.write(w) }
 func (f *failure) VisitCommitWordImportResponse(w http.ResponseWriter) error     { return f.write(w) }
+func (f *failure) VisitAdoptWordImportReprocessedResponse(w http.ResponseWriter) error {
+	return f.write(w)
+}
 
 func importFailure(ctx context.Context, err error) (*failure, error) {
 	type translation struct {

@@ -92,6 +92,16 @@ func TestReprocessingReplacesAnUntouchedDraftButNeverTeacherEdits(t *testing.T) 
 	if err != nil || kept.Draft.Title != "teacher title" || kept.Revision != 3 || !kept.Reprocessed {
 		t.Fatalf("teacher edit overwritten: %+v err %v", kept, err)
 	}
+	if _, err := h.repo.AdoptCandidate(ctx, domain.AdoptCandidate{ImportID: run.ImportID, ExpectedRevision: 2, Actor: h.actor}); !errors.Is(err, domain.ErrStale) {
+		t.Fatalf("stale adopt: %v", err)
+	}
+	adopted, err := h.repo.AdoptCandidate(ctx, domain.AdoptCandidate{ImportID: run.ImportID, ExpectedRevision: 3, Actor: h.actor})
+	if err != nil || adopted.Draft.Title != "third" || adopted.Revision != 4 || adopted.Reprocessed {
+		t.Fatalf("adopted %+v err %v", adopted, err)
+	}
+	if _, err := h.repo.AdoptCandidate(ctx, domain.AdoptCandidate{ImportID: run.ImportID, ExpectedRevision: 4, Actor: h.actor}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("adopt without a candidate: %v", err)
+	}
 }
 
 func TestStaleSavesAndClosedImportsAreRejected(t *testing.T) {

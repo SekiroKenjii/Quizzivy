@@ -49,11 +49,19 @@ type ReviewState struct {
 	Review Review
 }
 
-// Drafts reads and saves review copies under revision control.
+// Drafts reads and saves review copies under revision control; AdoptCandidate replaces an edited draft
+// with the machine draft kept aside, and fails with ErrConflict when there is none.
 type Drafts interface {
 	Draft(context.Context, string) (StoredDraft, error)
 	SaveDraft(context.Context, SaveDraft) (StoredDraft, error)
+	AdoptCandidate(context.Context, AdoptCandidate) (StoredDraft, error)
 	Commit(context.Context, string) (Commit, error)
+}
+
+type AdoptCandidate struct {
+	ImportID         string
+	ExpectedRevision int64
+	Actor            actor.Actor
 }
 
 // CommitStore closes an import inside the transaction that created its test; it fails with

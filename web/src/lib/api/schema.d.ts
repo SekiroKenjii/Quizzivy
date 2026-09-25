@@ -791,6 +791,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/imports/{id}/review/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the edited draft with the newer machine draft
+         * @description Only when the review reports reprocessed. The teacher's edits and
+         *     acknowledgements are discarded in favour of the newer recognition.
+         */
+        post: operations["adoptWordImportReprocessed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/imports/{id}/source": {
         parameters: {
             query?: never;
@@ -5618,6 +5641,50 @@ export interface operations {
             };
             /** @description VALIDATION_FAILED — the draft is structurally invalid (unknown IDs, duplicate IDs, invalid content). */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adoptWordImportReprocessed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelWordImport"];
+            };
+        };
+        responses: {
+            /** @description Adopted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReview"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STALE_WRITE — the draft changed since expectedRevision; IMPORT_CONFLICT — nothing newer to adopt, or the import is no longer under review. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
