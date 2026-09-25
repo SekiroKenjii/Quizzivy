@@ -85,8 +85,8 @@ func (p *xmlParser) consume(token xml.Token) error {
 	case xml.Directive:
 		return fmt.Errorf("%w: XML directives are not permitted", ErrInvalidPackage)
 	case xml.ProcInst:
-		if token.Target != "xml" || p.root != nil {
-			return fmt.Errorf("%w: XML processing instruction", ErrInvalidPackage)
+		if token.Target == "xml" && p.root != nil {
+			return fmt.Errorf("%w: misplaced XML declaration", ErrInvalidPackage)
 		}
 	}
 	return nil

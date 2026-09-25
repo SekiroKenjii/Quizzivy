@@ -146,6 +146,15 @@ func partBlocks(part Part, resolved map[Locator]ResolvedParagraph) []SourceBlock
 	return blocks
 }
 
+func markEnclosingParagraph(blocks []SourceBlock, stack []int) {
+	for i := len(stack) - 1; i >= 0; i-- {
+		if p := &blocks[stack[i]]; p.Kind == "paragraph" {
+			p.ReviewReasons = appendReasons(p.ReviewReasons, "INLINE_OBJECT_REQUIRES_REVIEW")
+			return
+		}
+	}
+}
+
 func linkBlocks(sourceID, mainPart string, part Part, blocks []SourceBlock) {
 	stack := make([]int, 0, 16)
 	for i := range blocks {
@@ -158,6 +167,9 @@ func linkBlocks(sourceID, mainPart string, part Part, blocks []SourceBlock) {
 			parent := &blocks[stack[len(stack)-1]]
 			b.ParentID = parent.ID
 			b.ReviewReasons = slices.Clone(parent.ReviewReasons)
+		}
+		if b.Object != nil && !inertObject(*b.Object) {
+			markEnclosingParagraph(blocks, stack)
 		}
 		b.ReviewReasons = appendReasons(b.ReviewReasons, blockReasons(*b)...)
 		if part.Name != mainPart {

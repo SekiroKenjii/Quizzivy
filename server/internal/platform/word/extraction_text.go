@@ -144,7 +144,10 @@ func complexFieldRanges(blocks []SourceBlock) []SourceRange {
 			}
 			depth++
 		case "end":
-			depth = max(0, depth-1)
+			if depth == 0 {
+				continue
+			}
+			depth--
 			if depth == 0 {
 				intervals = append(intervals, SourceRange{Order: start, End: b.End})
 			}
