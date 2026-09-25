@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.36 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.38 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.37**
+
+- W-11b connects private storage, isolated conversion, chunked source extraction
+  and deterministic recognition in a separate worker process. Completed stages
+  survive retries; source/artifact checksums are verified before parsing. Run
+  envelopes contain lineage IDs, with source and answer content in private artifacts.
+  Public processing controls and full review/domain validation remain subsequent work.
 
 **Changes since v0.34**
 
@@ -1481,12 +1489,36 @@ expire after a configured 1 second–5 minutes; every state/result write checks 
 worker identity, fencing token, lease and source revision. Exhausted crashes become
 failed runs. Retrying a failed import creates a new immutable run identity.
 
+The offline deterministic recognizer produces `word-candidate-v1` proposals from
+source-linked text, never bank questions. It distinguishes unknown, known and
+conflicting choice keys; explicit option IDs survive reordering. Numbering,
+sections/papers, same-line options, continuation paragraphs and explicit inline,
+final or companion choice keys retain Unicode source ranges. Restarted labels and
+ambiguous table associations do not authorize a guessed match. Bold/underline only
+become answer evidence under an explicitly teacher-confirmed convention; key-only
+marks are removed from the proposed learner prose.
+
+Every meaningful block remains in the coverage ledger. Unassigned ranges, private
+branches, uncertain structure, default points and unresolved fidelity are findings.
+Source comments, hidden/revised text and fields are never automatically copied into
+learner prose. This initial recognizer handles labeled choice structures; grouped
+cloze, typed/written keys, saved profiles and assisted free-form recognition remain
+open. A proposal is not a reviewed draft or approval to commit an assessment.
+
 An internal runner stops cooperating processors on timeout, lease loss or shutdown.
 Processing runs outside transactions. Only a current claim can store a bounded
-private JSON object and transition to `needs_review`; semantic validation belongs
-to the forthcoming processor. Terminal runs cannot be changed. Run events retain
-actor/worker/stage/failure codes without document contents. This queue foundation
-has no public enqueue route, concrete recognizer or production supervisor yet.
+private JSON object and transition to `needs_review`. Terminal runs cannot be
+changed. Run events retain actor/worker/stage/failure codes without document contents.
+The standalone `import-worker` assembles source verification, private rendition,
+chunked raw extraction and deterministic recognition. It verifies object lengths
+and SHA-256 before parsing, reuses completed stages pinned to source/configuration,
+and stores candidate content privately. Its bounded result contains only lineage
+and artifact-set identities. The API does not start this worker or require Docker.
+One synchronous job per process, database lease limits, a 512 MiB Go soft-memory
+target, a five-minute job deadline and the converter's separate hard limits are
+conservative development defaults, not the approved production capacity envelope.
+Full domain validation, public processing controls and production supervision
+remain required before release.
 
 Thuong approved two ownership/recovery policies for this milestone:
 

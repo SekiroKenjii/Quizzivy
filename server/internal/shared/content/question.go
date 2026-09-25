@@ -17,3 +17,12 @@ func ParseQuestionPrompt(raw []byte) (Document, error) {
 	}
 	return d, nil
 }
+
+// ParseMaterial validates a shared group material, which is always semantic content because frozen versions store only that format.
+func ParseMaterial(raw []byte) (Document, error) {
+	d, err := Parse(raw)
+	if err != nil || d.Format() != semanticFormat {
+		return Document{}, ErrInvalidDocument
+	}
+	return d, nil
+}

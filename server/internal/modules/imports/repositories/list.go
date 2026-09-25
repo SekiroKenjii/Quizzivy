@@ -72,5 +72,8 @@ func hydrateHistory(ctx context.Context, q db.Querier, items []domain.Import) ([
 		}
 		items[positions[id]].PendingUploads = n
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, attachProgress(ctx, q, items)
 }

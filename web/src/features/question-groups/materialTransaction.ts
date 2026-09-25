@@ -1,6 +1,6 @@
 import { closeHistory } from "@tiptap/pm/history";
 import type { EditorState, SelectionBookmark, Transaction } from "@tiptap/pm/state";
-import { fromEditorJSON } from "@/components/shared/content/editor/adapter";
+import { fromEditorDoc } from "@/components/shared/content/editor/adapter";
 import type { MediaAsset } from "@/features/media/api";
 
 /** materialTransaction inserts one authorized asset at the captured selection only when the entire resulting document remains valid. */
@@ -18,7 +18,7 @@ export function materialTransaction(
       .setSelection(selection.resolve(state.doc))
       .replaceSelectionWith(node.create({ assetId: asset.id, label }))
       .scrollIntoView();
-    return fromEditorJSON(transaction.doc.toJSON()).ok
+    return fromEditorDoc(transaction.doc).ok
       ? transaction.setMeta("structuredPaste", true)
       : null;
   } catch {

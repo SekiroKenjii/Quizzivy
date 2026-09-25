@@ -25,11 +25,11 @@ func (q *queue) Claim(context.Context, domain.ClaimPolicy) (domain.Run, error) {
 }
 func (q *queue) Heartbeat(context.Context, domain.Claim, time.Duration) error { return q.heartbeatErr }
 func (q *queue) Progress(context.Context, domain.Claim, string) error         { return q.progressErr }
-func (q *queue) Complete(_ context.Context, c domain.Claim, result json.RawMessage) error {
+func (q *queue) Complete(_ context.Context, c domain.Claim, outcome domain.Outcome) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.completions++
-	if c.Token != 1 || c.SourceRevision != 2 || string(result) != `{"schemaVersion":1}` {
+	if c.Token != 1 || c.SourceRevision != 2 || string(outcome.Result) != `{"schemaVersion":1}` {
 		return errors.New("wrong result identity")
 	}
 	return q.completeErr
@@ -43,8 +43,9 @@ func (q *queue) Fail(_ context.Context, in domain.RunFailure) error {
 
 type processor func(context.Context, domain.Run, func(string) error) (json.RawMessage, error)
 
-func (p processor) Process(ctx context.Context, r domain.Run, progress func(string) error) (json.RawMessage, error) {
-	return p(ctx, r, progress)
+func (p processor) Process(ctx context.Context, r domain.Run, progress func(string) error) (domain.Outcome, error) {
+	result, err := p(ctx, r, progress)
+	return domain.Outcome{Result: result, Draft: json.RawMessage(`{}`)}, err
 }
 func runner(q *queue, p processor) worker.Runner {
 	return worker.Runner{Queue: q, Processor: p, Policy: domain.ClaimPolicy{Lease: time.Second}, HeartbeatEvery: time.Millisecond, Timeout: time.Second, RetryAfter: time.Second}
@@ -142,5 +143,33 @@ func TestMalformedProcessorOutputFailsWithoutClaimingSuccess(t *testing.T) {
 	}
 	if events[len(events)-1].Kind == "completed" {
 		t.Fatal("malformed output reported success")
+	}
+}
+
+func TestATransientHeartbeatErrorDoesNotAbandonAValidLease(t *testing.T) {
+	q := &queue{heartbeatErr: errors.New("pool busy")}
+	r := runner(q, func(ctx context.Context, _ domain.Run, _ func(string) error) (json.RawMessage, error) {
+		time.Sleep(20 * time.Millisecond)
+		return json.RawMessage(`{"schemaVersion":1}`), ctx.Err()
+	})
+	if _, err := r.RunOne(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if q.completions != 1 || q.failure != nil {
+		t.Fatalf("completions %d failure %+v", q.completions, q.failure)
+	}
+}
+
+func TestShutdownReleasesTheRunWithoutSpendingAnAttempt(t *testing.T) {
+	q := &queue{}
+	ctx, stop := context.WithCancel(context.Background())
+	r := runner(q, func(work context.Context, _ domain.Run, _ func(string) error) (json.RawMessage, error) {
+		stop()
+		<-work.Done()
+		return nil, work.Err()
+	})
+	_, _ = r.RunOne(ctx)
+	if q.failure == nil || !q.failure.Released || q.failure.Code != "WORKER_INTERRUPTED" {
+		t.Fatalf("failure %+v", q.failure)
 	}
 }

@@ -14,6 +14,9 @@ import (
 // ArtifactBody opens one immutable processor output; each invocation must return the same complete bytes and a fresh reader.
 type ArtifactBody func(string) (io.ReadSeekCloser, error)
 
+// ErrPrivateIdentity means stored bytes no longer match the immutable reservation and must not be parsed or retried as a transient outage.
+var ErrPrivateIdentity = errors.New("imports: private object identity mismatch")
+
 // ArtifactWriter uploads a complete stage outside transactions, then publishes it under the live lease; failed reservations remain tracked for recovery.
 type ArtifactWriter struct {
 	Repo   domain.Artifacts
@@ -66,7 +69,7 @@ func FetchPrivate(ctx context.Context, store ports.ArtifactStore, workDir, key s
 	}
 	defer body.Close()
 	if length != size {
-		return nil, domain.ErrInvalid
+		return nil, ErrPrivateIdentity
 	}
 	file, err := os.CreateTemp(workDir, "private-*")
 	if err != nil {
@@ -85,7 +88,7 @@ func FetchPrivate(ctx context.Context, store ports.ArtifactStore, workDir, key s
 		return nil, err
 	}
 	if n != size || !bytes.Equal(hash.Sum(nil), digest) {
-		return nil, errors.New("imports: private object identity mismatch")
+		return nil, ErrPrivateIdentity
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, err

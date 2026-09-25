@@ -53,6 +53,12 @@ func paragraphEvidence(p Paragraph, resolved ResolvedParagraph, contexts map[Loc
 	return out, meaningful || resolved.Numbering != nil
 }
 
+var inertMarkers = map[string]bool{"br": true, "bookmarkStart": true, "bookmarkEnd": true, "sectPr": true, "mathPr": true, "lastRenderedPageBreak": true}
+
+func inertObject(p Property) bool {
+	return inertMarkers[p.Name[strings.LastIndex(p.Name, "}")+1:]]
+}
+
 func runReasons(r ResolvedRun) []string {
 	var reasons []string
 	if !r.Complete {
@@ -71,7 +77,7 @@ func blockReasons(b SourceBlock) []string {
 	if b.PartKind != "document" {
 		reasons = append(reasons, "ANCILLARY_CONTENT_REQUIRES_REVIEW")
 	}
-	if b.Object != nil {
+	if b.Object != nil && !inertObject(*b.Object) {
 		reasons = append(reasons, "OBJECT_REQUIRES_REVIEW")
 	}
 	if changedProperties(b.Properties) {
@@ -124,24 +130,28 @@ func appendReasons(existing []string, reasons ...string) []string {
 	return existing
 }
 
+func fieldCharType(b SourceBlock) string {
+	if b.Object == nil || !wordName(b.Object.Name, "fldChar") {
+		return ""
+	}
+	return attr(*b.Object, "fldCharType")
+}
+
 func complexFieldRanges(blocks []SourceBlock) []SourceRange {
 	depth, start := 0, 0
 	intervals := []SourceRange{}
 	for _, b := range blocks {
-		if b.Object == nil || !wordName(b.Object.Name, "fldChar") {
-			continue
-		}
-		switch attr(*b.Object, "fldCharType") {
+		switch fieldCharType(b) {
 		case "begin":
 			if depth == 0 {
 				start = b.Order
 			}
 			depth++
 		case "end":
-			depth = max(0, depth-1)
-			if depth == 0 {
+			if depth == 1 {
 				intervals = append(intervals, SourceRange{Order: start, End: b.End})
 			}
+			depth = max(depth-1, 0)
 		}
 	}
 	if depth > 0 {

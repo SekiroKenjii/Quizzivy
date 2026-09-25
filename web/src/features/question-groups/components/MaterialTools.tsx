@@ -8,7 +8,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { safeContentURL } from "@/components/shared/content/validation";
 import type { MediaAsset, MediaKind } from "@/features/media/api";
-import { fromEditorJSON } from "@/components/shared/content/editor/adapter";
+import { fromEditorDoc } from "@/components/shared/content/editor/adapter";
 import { materialTransaction } from "../materialTransaction";
 import { MaterialAssetDialog } from "./MaterialAssetDialog";
 
@@ -78,7 +78,7 @@ export function MaterialTools({
       .setLink({ href: url.trim() });
     let valid = false;
     chain.command(({ tr }) => {
-      valid = fromEditorJSON(tr.doc.toJSON()).ok;
+      valid = fromEditorDoc(tr.doc).ok;
       return valid;
     });
     if (!chain.run() || !valid) {
