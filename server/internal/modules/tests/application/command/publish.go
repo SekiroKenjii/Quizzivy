@@ -14,6 +14,6 @@ type PublishHandler struct {
 	*support.Publisher
 }
 
-func (p PublishHandler) Handle(ctx context.Context, cmd Publish) (domain.PublishedVersion, error) {
+func (p PublishHandler) Handle(ctx context.Context, cmd Publish) (domain.Version, error) {
 	return p.Repo.Publish(ctx, cmd.Request, p.Now(), domain.Publishing.Validate)
 }

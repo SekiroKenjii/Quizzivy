@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+
+	"github.com/jackc/pgx/v5"
 )
 
-// ListVersions returns the test's publish history, newest first.
-func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Version, error) {
-	rows, err := s.Query(ctx, `
-		SELECT v.id::text,
+const versionColumns = `v.id::text,
 		       v.version,
 		       v.total_points::text,
 		       (SELECT count(*)
@@ -35,9 +34,17 @@ func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Ve
 		       v.published_at,
 		       u.full_name
 		  FROM app.test_versions v
-		  JOIN app.users u ON u.id = v.published_by
-		 WHERE v.test_id = $1
-		 ORDER BY v.version DESC`, testID)
+		  JOIN app.users u ON u.id = v.published_by`
+
+func scanVersion(row pgx.Row) (domain.Version, error) {
+	var v domain.Version
+	err := row.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount, &v.AudioCount, &v.ManualCount, &v.PublishedAt, &v.PublishedBy)
+	return v, err
+}
+
+// ListVersions returns the test's publish history, newest first.
+func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Version, error) {
+	rows, err := s.Query(ctx, `SELECT `+versionColumns+` WHERE v.test_id = $1 ORDER BY v.version DESC`, testID)
 	if err != nil {
 		return nil, fmt.Errorf("tests: list versions: %w", err)
 	}
@@ -45,9 +52,8 @@ func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Ve
 
 	var out []domain.Version
 	for rows.Next() {
-		var v domain.Version
-		if err := rows.Scan(&v.ID, &v.Version, &v.TotalPoints, &v.QuestionCount, &v.AudioCount, &v.ManualCount,
-			&v.PublishedAt, &v.PublishedBy); err != nil {
+		v, err := scanVersion(rows)
+		if err != nil {
 			return nil, fmt.Errorf("tests: scan version: %w", err)
 		}
 		out = append(out, v)
