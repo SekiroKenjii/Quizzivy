@@ -126,6 +126,9 @@ func (h Tests) UpdateTest(ctx context.Context, request openapi.UpdateTestRequest
 	t, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req, Input: toUpdateInput(*request.Body)})
 	switch {
 	case err == nil:
+	case errors.Is(err, domain.ErrArchived):
+		return openapi.UpdateTest409JSONResponse(httpapi.Error(ctx, openapi.TESTARCHIVED,
+			"Hãy khôi phục đề đã lưu trữ trước khi thay đổi cấu trúc.")), nil
 	case errors.Is(err, domain.ErrGroupOutlineRequired):
 		return openapi.UpdateTest409JSONResponse(httpapi.Error(ctx, openapi.GROUPOUTLINEREQUIRED,
 			"Đề có nhóm ngữ liệu chung. Cần trình soạn đề hỗ trợ nhóm để thay đổi cấu trúc.")), nil
@@ -206,6 +209,7 @@ func toUpdateInput(body openapi.UpdateTestJSONRequestBody) domain.UpdateInput {
 	in := domain.UpdateInput{
 		ExpectedUpdatedAt: body.ExpectedUpdatedAt,
 		Title:             body.Title,
+		GroupOutline:      body.OutlineFormat != nil && *body.OutlineFormat == openapi.GroupV1,
 	}
 	if body.Description != nil {
 		in.Description = body.Description
@@ -227,10 +231,22 @@ func toUpdateInput(body openapi.UpdateTestJSONRequestBody) domain.UpdateInput {
 			for j, id := range sec.QuestionIds {
 				out.QuestionIDs[j] = id.String()
 			}
+			out.Units, out.SetUnits = toSectionUnits(sec.Units)
 			in.Sections[i] = out
 		}
 	}
 	return in
+}
+
+func toSectionUnits(units *[]openapi.DraftSectionUnit) ([]domain.SectionUnit, bool) {
+	if units == nil {
+		return nil, false
+	}
+	out := make([]domain.SectionUnit, len(*units))
+	for i, unit := range *units {
+		out[i] = domain.SectionUnit{Kind: string(unit.Kind), ID: unit.Id.String()}
+	}
+	return out, true
 }
 
 func toAPITest(t domain.Test) (openapi.Test, error) {

@@ -131,3 +131,41 @@ export function createDraftFromTestVersion(test: Test, version: number) {
     body: { expectedUpdatedAt: test.updatedAt },
   });
 }
+
+export interface MixedOutlineSection {
+  id: string | null;
+  title: string;
+  instructions: string | null;
+  units: components["schemas"]["DraftSectionUnit"][];
+}
+
+export function toMixedOutline(test: Test): MixedOutlineSection[] {
+  return test.sections.map((section) => ({
+    id: section.id,
+    title: section.title,
+    instructions: section.instructions ?? null,
+    units: section.units ?? section.questionIds.map((id) => ({ kind: "question", id })),
+  }));
+}
+
+export function saveMixedOutline(
+  id: string,
+  expectedUpdatedAt: string,
+  title: string,
+  sections: MixedOutlineSection[],
+) {
+  return api("patch", "/admin/tests/{id}", {
+    path: { id },
+    body: {
+      expectedUpdatedAt,
+      title,
+      outlineFormat: "group_v1",
+      sections: sections.map((section) => ({
+        ...section,
+        questionIds: section.units
+          .filter((unit) => unit.kind === "question")
+          .map((unit) => unit.id),
+      })),
+    },
+  });
+}
