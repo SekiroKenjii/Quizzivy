@@ -587,6 +587,7 @@
       "optionContent": "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.",
       "questionContent": "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản.",
       "pointPrecision": "Điểm chỉ được có tối đa hai chữ số thập phân.",
+      "pointsTooLarge": "Điểm tối đa là 999999,99.",
       "trueFalseCount": "Câu đúng/sai phải có đúng hai phương án.",
       "oneCorrect": "Câu một đáp án hoặc đúng/sai phải có đúng một phương án đúng.",
       "unexpectedOptions": "Loại câu hỏi này không có phương án chọn.",

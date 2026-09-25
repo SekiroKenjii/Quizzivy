@@ -587,6 +587,7 @@
       "optionContent": "Option formatting is invalid or does not match its text.",
       "questionContent": "Rich content is invalid or does not match its text.",
       "pointPrecision": "Points can have at most two decimal places.",
+      "pointsTooLarge": "Points can be at most 999999.99.",
       "trueFalseCount": "True/false requires exactly two options.",
       "oneCorrect": "Single-choice and true/false require exactly one correct option.",
       "unexpectedOptions": "This question type has no choice options.",
