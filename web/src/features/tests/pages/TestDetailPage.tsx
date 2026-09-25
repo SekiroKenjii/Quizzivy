@@ -186,6 +186,7 @@ export default function TestDetailPage() {
           locale={locale}
           selected={version ?? test.data.currentVersion}
           current={test.data.currentVersion}
+          archived={test.data.status === "archived"}
           pending={change.isPending}
           onAction={(kind, version) => {
             setActionError(null);
@@ -226,6 +227,7 @@ export default function TestDetailPage() {
 
 function VersionHistory({
   current,
+  archived,
   pending,
   onAction,
   query,
@@ -234,6 +236,7 @@ function VersionHistory({
   onSelect,
 }: Readonly<{
   current: number;
+  archived: boolean;
   pending: boolean;
   onAction: (kind: "draft" | "delete" | "current", version: number) => void;
   query: UseQueryResult<Awaited<ReturnType<typeof listVersions>>>;
@@ -256,62 +259,69 @@ function VersionHistory({
     return <p className="text-muted-foreground text-sm">{t("tests.noVersions")}</p>;
   }
   return (
-    <ol className="space-y-3">
-      {query.data.items.map((version) => (
-        <li key={version.id} className="text-sm">
-          <button
-            type="button"
-            aria-pressed={selected === version.version}
-            onClick={() => onSelect(version.version)}
-            className="hover:bg-accent aria-pressed:bg-accent flex w-full items-baseline justify-between gap-3 rounded-md p-2 text-left"
-          >
-            <span className="font-medium tabular-nums">
-              <span>{t("tests.versionNumber", { n: version.version })}</span>
-              {version.version === current ? (
-                <Badge variant="outline" className="ml-2">
-                  {t("tests.defaultVersion")}
-                </Badge>
-              ) : null}
-            </span>
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {version.questionCount} · {version.totalPoints}
-            </span>
-          </button>
-          <p className="text-muted-foreground px-2 text-xs">
-            {formatDateTime(version.publishedAt, locale)} · {version.publishedBy}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1 px-2">
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={pending}
-              onClick={() => onAction("draft", version.version)}
+    <>
+      {archived && (
+        <p className="text-muted-foreground text-xs">
+          {t("tests.archivedVersionsHint")}
+        </p>
+      )}
+      <ol className="space-y-3">
+        {query.data.items.map((version) => (
+          <li key={version.id} className="text-sm">
+            <button
+              type="button"
+              aria-pressed={selected === version.version}
+              onClick={() => onSelect(version.version)}
+              className="hover:bg-accent aria-pressed:bg-accent flex w-full items-baseline justify-between gap-3 rounded-md p-2 text-left"
             >
-              {t("tests.versionActions.draft")}
-            </Button>
-            {version.version !== current ? (
-              <>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={() => onAction("current", version.version)}
-                >
-                  {t("tests.versionActions.current")}
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={() => onAction("delete", version.version)}
-                >
-                  {t("tests.versionActions.delete")}
-                </Button>
-              </>
-            ) : null}
-          </div>
-        </li>
-      ))}
-    </ol>
+              <span className="font-medium tabular-nums">
+                <span>{t("tests.versionNumber", { n: version.version })}</span>
+                {version.version === current ? (
+                  <Badge variant="outline" className="ml-2">
+                    {t("tests.defaultVersion")}
+                  </Badge>
+                ) : null}
+              </span>
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {version.questionCount} · {version.totalPoints}
+              </span>
+            </button>
+            <p className="text-muted-foreground px-2 text-xs">
+              {formatDateTime(version.publishedAt, locale)} · {version.publishedBy}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1 px-2">
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={pending || archived}
+                onClick={() => onAction("draft", version.version)}
+              >
+                {t("tests.versionActions.draft")}
+              </Button>
+              {version.version !== current ? (
+                <>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    disabled={pending || archived}
+                    onClick={() => onAction("current", version.version)}
+                  >
+                    {t("tests.versionActions.current")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => onAction("delete", version.version)}
+                  >
+                    {t("tests.versionActions.delete")}
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }

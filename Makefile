@@ -4,6 +4,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
+.PHONY: import-worker
+import-worker: ## Run the separately configured private Word worker
+	cd server && GOMAXPROCS=2 go run ./cmd/import-worker
+
 # Loaded from .env if present; every value has a dev default in docker-compose.
 -include .env
 export
@@ -94,11 +98,14 @@ gen-check: gen ## Fail if generated output drifts from the contract (what CI run
 		    exit 1)
 	@echo "generated code matches api/openapi.yaml"
 
-dev: ## Run web and api together
-	$(MAKE) -j2 dev-api dev-web
+dev: ## Run web and api together, plus the Word import worker when imports are configured
+	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker)
 
 dev-api: ## Go API on :8080
 	cd server && DATABASE_URL="$(APP_DSN)" go run ./cmd/api
+
+dev-worker: ## Word import worker against the local database and bucket
+	cd server && DATABASE_URL="$(APP_DSN)" GOMAXPROCS=2 go run ./cmd/import-worker
 
 dev-web: ## Vite on :5173
 	cd web && pnpm dev
