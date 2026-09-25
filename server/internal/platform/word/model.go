@@ -15,6 +15,12 @@ type Locator struct {
 	Path string `json:"path"`
 }
 
+// SourceRange is the inclusive XML element interval within one package part, independent of ZIP ordering.
+type SourceRange struct {
+	Order int `json:"order"`
+	End   int `json:"end"`
+}
+
 // Part retains ordered paragraphs and the source's structural containers.
 type Part struct {
 	Name       string      `json:"name"`
@@ -29,6 +35,7 @@ type Part struct {
 // Fragment retains text that is outside an understood paragraph/run structure.
 type Fragment struct {
 	Locator
+	SourceRange
 	Kind string `json:"kind"`
 	Text string `json:"text"`
 }
@@ -36,6 +43,7 @@ type Fragment struct {
 // Structure records the original attributes of a table, revision or other contextual object.
 type Structure struct {
 	Locator
+	SourceRange
 	Kind       string            `json:"kind"`
 	Attributes map[string]string `json:"attributes,omitempty"`
 	Properties []Property        `json:"properties,omitempty"`
@@ -44,12 +52,14 @@ type Structure struct {
 // Object retains a source subtree whose layout or semantics are not yet resolved.
 type Object struct {
 	Locator
+	SourceRange
 	Content Property `json:"content"`
 }
 
 // Paragraph retains raw run evidence and ancestor identities without inferring a question boundary.
 type Paragraph struct {
 	Locator
+	SourceRange
 	Containers []Locator  `json:"containers,omitempty"`
 	Properties []Property `json:"properties,omitempty"`
 	Runs       []Run      `json:"runs"`

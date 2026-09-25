@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/platform/db"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -77,7 +78,15 @@ func appendGroupPlay(ctx context.Context, tx pgx.Tx, in domain.GroupPlayInput, o
 
 // GroupAudioPlays returns counters by frozen recording identity, independent of active question or session.
 func (s *Postgres) GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error) {
-	rows, err := s.Query(ctx, `SELECT recording_id::text,plays FROM app.attempt_group_audio_plays WHERE attempt_id=$1`, attemptID)
+	return sharedAudioPlays(ctx, s, attemptID)
+}
+
+func (s *Reviews) GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error) {
+	return sharedAudioPlays(ctx, s, attemptID)
+}
+
+func sharedAudioPlays(ctx context.Context, conn db.Querier, attemptID string) (map[string]int, error) {
+	rows, err := conn.Query(ctx, `SELECT recording_id::text,plays FROM app.attempt_group_audio_plays WHERE attempt_id=$1`, attemptID)
 	if err != nil {
 		return nil, fmt.Errorf("attempts: read shared audio plays: %w", err)
 	}

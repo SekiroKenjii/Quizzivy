@@ -12,9 +12,11 @@ import { formatTime } from "@/lib/i18n/datetime";
 export function AutosaveStatusLabel({
   status,
   onRetry,
+  staleLabel,
 }: Readonly<{
   status: AutosaveStatus;
   onRetry?: () => void;
+  staleLabel?: string;
 }>) {
   const { t } = useTranslation();
 
@@ -49,7 +51,7 @@ export function AutosaveStatusLabel({
     return (
       <Badge variant="danger" role="alert">
         <CircleAlert aria-hidden="true" />
-        {t("builder.stale")}
+        {staleLabel ?? t("builder.stale")}
       </Badge>
     );
   }
