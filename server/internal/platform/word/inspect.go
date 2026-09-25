@@ -2,6 +2,7 @@ package word
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path"
@@ -74,6 +75,10 @@ func (a *archive) inspectPart(ctx context.Context, name, main, mediaType string,
 		return nil
 	}
 	n, err := a.readXML(ctx, name, budget)
+	if err != nil && kind == partUnknownXML && !errors.Is(err, ErrLimit) && ctx.Err() == nil {
+		out.Findings = append(out.Findings, Finding{Code: "UNSUPPORTED_SOURCE_PART", Locator: Locator{Part: name}})
+		return nil
+	}
 	if err != nil {
 		return err
 	}

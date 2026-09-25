@@ -26,7 +26,7 @@ func TestPrivateFetchRejectsTamperingAndRemovesPartialStagingFiles(t *testing.T)
 	digest := sha256.Sum256([]byte("known"))
 	for _, store := range []objectReader{{body: "other", size: 5}, {body: "known trailing", size: 5}, {body: "short", size: 20}} {
 		dir := t.TempDir()
-		if _, err := worker.FetchPrivate(context.Background(), store, dir, "private", 5, digest[:]); err == nil {
+		if _, err := worker.FetchPrivate(context.Background(), store, dir, "private", 5, digest[:]); !errors.Is(err, worker.ErrPrivateIdentity) {
 			t.Fatal("invalid stored bytes accepted")
 		}
 		files, err := os.ReadDir(dir)

@@ -3,7 +3,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"quizzivy/internal/modules/imports/domain"
 	"slices"
@@ -12,8 +11,10 @@ import (
 
 // Processor produces a private machine candidate and must stop when its context is cancelled; it never publishes an assessment.
 type Processor interface {
-	Process(context.Context, domain.Run, func(string) error) (json.RawMessage, error)
+	Process(context.Context, domain.Run, func(string) error) (domain.Outcome, error)
 }
+
+const processorOutputInvalid = "PROCESSOR_OUTPUT_INVALID"
 
 const processingFailed = "PROCESSING_FAILED"
 const processingTimeout = "PROCESSING_TIMEOUT"
@@ -73,7 +74,7 @@ func (r Runner) RunOne(ctx context.Context) (bool, error) {
 	r.emit(run, kind, code, time.Since(started))
 	return true, err
 }
-func (r Runner) execute(ctx context.Context, run domain.Run) (json.RawMessage, error) {
+func (r Runner) execute(ctx context.Context, run domain.Run) (domain.Outcome, error) {
 	work, cancel := context.WithTimeout(ctx, r.Timeout)
 	defer cancel()
 	done, stopped := make(chan struct{}), make(chan struct{})
@@ -83,28 +84,31 @@ func (r Runner) execute(ctx context.Context, run domain.Run) (json.RawMessage, e
 	result, err := r.Processor.Process(work, run, r.progress(work, run, progressError, cancel))
 	close(done)
 	<-stopped
-	if ctx.Err() != nil {
-		return nil, Failure{Code: "WORKER_INTERRUPTED", Retryable: true}
-	}
-	if errors.Is(work.Err(), context.DeadlineExceeded) {
-		return nil, Failure{Code: processingTimeout, Retryable: true}
-	}
 	select {
 	case leaseErr := <-heartbeatError:
-		return nil, leaseErr
+		return domain.Outcome{}, leaseErr
 	default:
+	}
+	if err == nil && ctx.Err() != nil && domain.ValidateRunResult(result.Result) == nil {
+		return result, nil
+	}
+	if ctx.Err() != nil {
+		return domain.Outcome{}, Failure{Code: interrupted, Retryable: true}
+	}
+	if errors.Is(work.Err(), context.DeadlineExceeded) {
+		return domain.Outcome{}, Failure{Code: processingTimeout, Retryable: true}
 	}
 	select {
 	case progressErr := <-progressError:
-		return nil, progressErr
+		return domain.Outcome{}, progressErr
 	default:
 	}
 
 	if work.Err() != nil {
-		return nil, Failure{Code: processingTimeout, Retryable: true}
+		return domain.Outcome{}, Failure{Code: processingTimeout, Retryable: true}
 	}
-	if err == nil && domain.ValidateRunResult(result) != nil {
-		return nil, Failure{Code: "PROCESSOR_OUTPUT_INVALID", Retryable: false}
+	if err == nil && domain.ValidateRunResult(result.Result) != nil {
+		return domain.Outcome{}, Failure{Code: processorOutputInvalid, Retryable: false}
 	}
 	return result, err
 }
@@ -131,6 +135,7 @@ func (r Runner) progress(ctx context.Context, run domain.Run, failures chan<- er
 func (r Runner) heartbeat(ctx context.Context, claim domain.Claim, done <-chan struct{}, failures chan<- error, cancel context.CancelFunc) {
 	ticker := time.NewTicker(r.HeartbeatEvery)
 	defer ticker.Stop()
+	renewed := time.Now()
 	for {
 		select {
 		case <-done:
@@ -141,7 +146,10 @@ func (r Runner) heartbeat(ctx context.Context, claim domain.Claim, done <-chan s
 			pulse, cancelPulse := context.WithTimeout(ctx, r.HeartbeatEvery)
 			err := r.Queue.Heartbeat(pulse, claim, r.Policy.Lease)
 			cancelPulse()
-			if err != nil {
+			switch {
+			case err == nil:
+				renewed = time.Now()
+			case errors.Is(err, domain.ErrLeaseLost) || time.Since(renewed) >= r.Policy.Lease-r.HeartbeatEvery:
 				failures <- err
 				cancel()
 				return
@@ -149,7 +157,7 @@ func (r Runner) heartbeat(ctx context.Context, claim domain.Claim, done <-chan s
 		}
 	}
 }
-func (r Runner) finish(ctx context.Context, run domain.Run, result json.RawMessage, processErr error) error {
+func (r Runner) finish(ctx context.Context, run domain.Run, result domain.Outcome, processErr error) error {
 	if errors.Is(processErr, domain.ErrLeaseLost) {
 		return domain.ErrLeaseLost
 	}
@@ -163,12 +171,15 @@ func (r Runner) finish(ctx context.Context, run domain.Run, result json.RawMessa
 		return err
 	}
 	failure := classify(processErr)
-	err := r.Queue.Fail(write, domain.RunFailure{Claim: run.Claim(), Code: failure.Code, Retryable: failure.Retryable, RetryAfter: r.RetryAfter})
+	err := r.Queue.Fail(write, domain.RunFailure{Claim: run.Claim(), Code: failure.Code, Retryable: failure.Retryable, Released: failure.Code == interrupted, RetryAfter: r.RetryAfter})
 	if errors.Is(err, domain.ErrLeaseLost) {
 		return domain.ErrLeaseLost
 	}
 	return err
 }
+
+const interrupted = "WORKER_INTERRUPTED"
+
 func classify(err error) Failure {
 	var pointer *Failure
 	if errors.As(err, &pointer) && pointer != nil {
@@ -190,7 +201,7 @@ func (r Runner) emit(run domain.Run, kind, code string, duration time.Duration) 
 }
 
 func safeFailure(f Failure) Failure {
-	if !slices.Contains([]string{processingFailed, "PROCESSOR_OUTPUT_INVALID", "SOURCE_INVALID", "SOURCE_TOO_LARGE", "SOURCE_UNSUPPORTED", "STORAGE_UNAVAILABLE", "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED", "PROVIDER_OUTPUT_INVALID", "CONVERSION_FAILED", "CONVERSION_TIMEOUT", processingTimeout, "WORKER_INTERRUPTED", "WORKER_LEASE_LOST"}, f.Code) {
+	if !slices.Contains([]string{processingFailed, processorOutputInvalid, "SOURCE_INVALID", "SOURCE_TOO_LARGE", "SOURCE_UNSUPPORTED", "STORAGE_UNAVAILABLE", "STORAGE_QUOTA_EXCEEDED", "STORAGE_INTEGRITY_FAILED", "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED", "PROVIDER_OUTPUT_INVALID", "CONVERSION_FAILED", "CONVERSION_TIMEOUT", "CONVERSION_BUSY", "CONVERSION_CLEANUP_FAILED", "LEGACY_CONVERSION_UNAVAILABLE", processingTimeout, interrupted, "WORKER_LEASE_LOST"}, f.Code) {
 		f.Code = processingFailed
 	}
 	return f

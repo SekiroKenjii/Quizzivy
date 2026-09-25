@@ -102,7 +102,7 @@ func TestArtifactGlobalQuotaOrdersReservationsFromDifferentParents(t *testing.T)
 	other.schedule(t, otherVersion, 3)
 	second := other.claim(t, policy(otherVersion))
 	q := artifactQuotas()
-	if err := h.pool.QueryRow(ctx, `SELECT coalesce(sum(bytes),0)+38 FROM app.word_import_artifact_sets`).Scan(&q.GlobalBytes); err != nil {
+	if err := h.pool.QueryRow(ctx, `SELECT coalesce(sum(a.bytes),0)+38 FROM app.word_import_artifact_sets a JOIN app.word_imports i ON i.id=a.import_id WHERE i.status NOT IN ('committed','cancelled')`).Scan(&q.GlobalBytes); err != nil {
 		t.Fatal(err)
 	}
 	p := h.artifactPlan(t, first)

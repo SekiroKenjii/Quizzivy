@@ -37,7 +37,7 @@ func (c *Converter) removeOwnedContainer(job, owner string) (bool, error) {
 func (c *Converter) reapStoppedSlot(ctx context.Context) error {
 	bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(bounded, c.executable, "ps", "--all", "--filter", "name=^/"+converterSlot+"$", "--filter", "label=quizzivy.word-converter=true", "--filter", "status=exited", "--filter", "status=dead", "--format", "{{.ID}}").Output()
+	output, err := exec.CommandContext(bounded, c.executable, "ps", "--all", "--filter", "name=^/"+converterSlot+"$", "--filter", "label=quizzivy.word-converter=true", "--filter", "status=exited", "--filter", "status=dead", "--filter", "status=created", "--format", "{{.ID}}").Output()
 	if err != nil {
 		return ErrConversion
 	}

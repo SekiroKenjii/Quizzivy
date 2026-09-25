@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { ApiError } from "@/lib/api/errors";
+import { useDebounced } from "@/lib/useDebounced";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { listGroups, type GroupSummary } from "@/features/question-groups/api";
 import type { OutlineSection } from "../outline";
@@ -62,10 +63,12 @@ function GroupChoices({
   const [destination, setDestination] = useState("0");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const search = useDebounced(query.trim(), 300);
   const list = useQuery({
-    queryKey: ["admin-groups", "picker", query, page],
+    queryKey: ["admin-groups", "picker", search, page],
     queryFn: ({ signal }) =>
-      listGroups({ q: query, page, limit: 20, status: "active" }, signal),
+      listGroups({ q: search, page, limit: 20, status: "active" }, signal),
+    placeholderData: keepPreviousData,
   });
   async function choose(group: GroupSummary) {
     setBusy(true);
