@@ -157,7 +157,8 @@ func officeRelationship(value, kind string) bool {
 }
 
 func wordName(name, local string) bool {
-	return name == "{"+wordNamespace+"}"+local || name == "{"+strictWordNamespace+"}"+local
+	prefix, ok := strings.CutSuffix(name, local)
+	return ok && (prefix == wordPrefix || prefix == strictWordPrefix)
 }
 
 func prop(props []Property, local string) Property {
@@ -170,10 +171,13 @@ func prop(props []Property, local string) Property {
 }
 
 func attr(p Property, local string) string {
-	if value, ok := p.Attributes["{"+wordNamespace+"}"+local]; ok {
-		return value
+	var key [128]byte
+	for _, prefix := range [...]string{wordPrefix, strictWordPrefix} {
+		if value, ok := p.Attributes[string(append(append(key[:0], prefix...), local...))]; ok {
+			return value
+		}
 	}
-	return p.Attributes["{"+strictWordNamespace+"}"+local]
+	return ""
 }
 
 func val(props []Property, local string) string { return attr(prop(props, local), propertyValue) }
