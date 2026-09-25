@@ -51,6 +51,7 @@ func TestImportWorkerRejectsUnboundedOrMutableRuntime(t *testing.T) {
 		{"IMPORT_ARTIFACT_GLOBAL_MIB": "unlimited"},
 		{"IMPORT_ARTIFACT_SETS_PER_ITEM": "1001"},
 		{"IMPORT_WORKER_WAKE_ADDR": "8091"},
+		{"IMPORT_WORKER_WAKE_ADDR": ":8091"},
 		{"IMPORT_WORKER_IDLE_POLL": "2s"},
 		{"IMPORT_WORKER_IDLE_POLL": "48h"},
 	} {

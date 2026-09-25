@@ -34,6 +34,7 @@ func RunImports(ctx context.Context, logger *slog.Logger, runner ImportRunner, s
 		return errors.New("import worker schedule needs a positive retry no longer than its idle interval")
 	}
 	for ctx.Err() == nil {
+		polled := time.Now()
 		worked, err := runner.RunOne(ctx)
 		if err != nil {
 			logger.Warn("import worker poll failed", "code", "WORKER_POLL_FAILED")
@@ -45,17 +46,26 @@ func RunImports(ctx context.Context, logger *slog.Logger, runner ImportRunner, s
 		if err == nil {
 			wait = schedule.idleWait(ctx, logger, runner)
 		}
-		timer := time.NewTimer(wait)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
+		if !sleep(ctx, schedule.Wake, wait) || !sleep(ctx, nil, schedule.Retry-time.Since(polled)) {
 			return nil
-		case <-schedule.Wake:
-			timer.Stop()
-		case <-timer.C:
 		}
 	}
 	return nil
+}
+
+func sleep(ctx context.Context, wake <-chan struct{}, d time.Duration) bool {
+	if d <= 0 {
+		return ctx.Err() == nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-wake:
+	case <-timer.C:
+	}
+	return true
 }
 
 func (s ImportSchedule) idleWait(ctx context.Context, logger *slog.Logger, runner ImportRunner) time.Duration {
@@ -70,9 +80,10 @@ func (s ImportSchedule) idleWait(ctx context.Context, logger *slog.Logger, runne
 	return min(max(time.Until(due), s.Retry), s.Idle)
 }
 
-// WakeHandler answers POST /wake with 204 and signals the worker; signals
-// coalesce, so any number of wakes costs at most one extra poll. It reveals
-// nothing about the queue.
+// WakeHandler answers POST /wake with 204 and signals the worker. Signals
+// coalesce and RunImports never polls sooner than its Retry pause, so wakes
+// cannot drive the database harder than one poll per Retry. It reveals nothing
+// about the queue.
 func WakeHandler(wake chan<- struct{}) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /wake", func(w http.ResponseWriter, _ *http.Request) {

@@ -19,6 +19,7 @@ type Commands struct {
 	Create     cqrs.CommandHandler[command.Create, domain.Import]
 	Upload     cqrs.CommandHandler[command.Upload, domain.Receipt]
 	Process    cqrs.CommandHandler[command.Process, domain.Import]
+	Nudge      cqrs.CommandHandler[command.Nudge, cqrs.Nothing]
 	Cancel     cqrs.CommandHandler[command.Cancel, domain.Import]
 	SaveReview cqrs.CommandHandler[command.SaveReview, domain.ReviewState]
 	Adopt      cqrs.CommandHandler[command.Adopt, domain.ReviewState]
@@ -65,13 +66,14 @@ func New(d Dependencies) *Application {
 			Create:     command.CreateHandler{Repo: d.Repo, Quotas: d.Quotas},
 			Upload:     command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Slots: make(chan struct{}, 1), Legacy: d.Legacy},
 			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs, Worker: d.Worker, Enabled: d.Processing},
+			Nudge:      command.NudgeHandler{Worker: d.Worker},
 			Cancel:     command.CancelHandler{Runs: d.Runs},
 			SaveReview: command.SaveReviewHandler{Drafts: d.Drafts},
 			Adopt:      command.AdoptHandler{Drafts: d.Drafts},
 			Commit:     command.CommitHandler{Repo: d.Repo, Drafts: d.Drafts, Materializer: d.Materializer},
 		},
 		Queries: Queries{
-			Get:          query.GetHandler{Repo: d.Repo, Worker: d.Worker},
+			Get:          query.GetHandler{Repo: d.Repo},
 			List:         query.ListHandler{Repo: d.Repo},
 			Download:     query.DownloadHandler{Repo: d.Repo, Store: d.Store},
 			Review:       query.ReviewHandler{Drafts: d.Drafts},

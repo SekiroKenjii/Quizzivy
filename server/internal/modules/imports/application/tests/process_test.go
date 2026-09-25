@@ -82,15 +82,12 @@ func TestCapabilitiesReportTheProcessingSwitch(t *testing.T) {
 	}
 }
 
-func TestWatchingAQueuedImportWakesTheWorkerAgain(t *testing.T) {
-	for status, wakes := range map[string]int{"queued": 1, "processing": 0, "needs_review": 0} {
-		app, repo, _, worker := processWith(true)
-		repo.status = status
-		if _, err := app.Queries.Get.Handle(context.Background(), query.Get{ID: "import-1"}); err != nil {
-			t.Fatal(err)
-		}
-		if worker.wakes != wakes {
-			t.Fatalf("reading a %s import sent %d wakes, want %d", status, worker.wakes, wakes)
-		}
+func TestANudgeWakesTheWorkerAndReadingDoesNot(t *testing.T) {
+	app, _, _, worker := processWith(true)
+	if _, err := app.Queries.Get.Handle(context.Background(), query.Get{ID: "import-1"}); err != nil || worker.wakes != 0 {
+		t.Fatalf("a query woke the worker: %d wakes, %v", worker.wakes, err)
+	}
+	if _, err := app.Commands.Nudge.Handle(context.Background(), command.Nudge{}); err != nil || worker.wakes != 1 {
+		t.Fatalf("a nudge sent %d wakes: %v", worker.wakes, err)
 	}
 }

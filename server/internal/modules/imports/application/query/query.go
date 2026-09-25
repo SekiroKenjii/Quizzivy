@@ -9,19 +9,10 @@ import (
 
 type Get struct{ ID string }
 
-// GetHandler reads one import. Reading a queued import also wakes the worker,
-// so a lost wake signal heals while a teacher watches the import wait.
-type GetHandler struct {
-	Repo   domain.Repository
-	Worker ports.WorkerSignal
-}
+type GetHandler struct{ Repo domain.Repository }
 
 func (h GetHandler) Handle(ctx context.Context, in Get) (domain.Import, error) {
-	v, err := h.Repo.Get(ctx, in.ID)
-	if err == nil && v.Status == "queued" && h.Worker != nil {
-		h.Worker.Wake()
-	}
-	return v, err
+	return h.Repo.Get(ctx, in.ID)
 }
 
 type List = domain.Filter

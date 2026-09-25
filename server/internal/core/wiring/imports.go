@@ -50,7 +50,7 @@ func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db
 	}
 	deps := importsapp.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, Materializer: committer, WorkDir: cfg.ImportWorkDir, Quotas: quotas, Legacy: cfg.ImportLegacyDoc, Processing: cfg.ImportProcessing}
 	if cfg.ImportProcessing {
-		deps.Worker = adapters.NewWorkerWake(ctx, cfg.ImportWorkerWakeURL, logger)
+		deps.Worker = adapters.NewWorkerWake(context.WithoutCancel(ctx), cfg.ImportWorkerWakeURL, logger)
 	}
 	return importshttp.New(importsapp.New(deps)), nil
 }

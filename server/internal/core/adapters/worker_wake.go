@@ -14,7 +14,8 @@ type WorkerWake struct {
 	pending chan struct{}
 }
 
-// NewWorkerWake starts the sender, which stops with ctx.
+// NewWorkerWake starts the sender, which stops with ctx. The API passes a ctx
+// that outlives the HTTP drain, so a run queued during shutdown is still announced.
 func NewWorkerWake(ctx context.Context, url string, logger *slog.Logger) *WorkerWake {
 	w := &WorkerWake{pending: make(chan struct{}, 1)}
 	client := &http.Client{Timeout: 2 * time.Second}

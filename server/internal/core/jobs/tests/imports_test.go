@@ -178,3 +178,29 @@ func TestTheWakeListenerRefusesAnUnusableAddress(t *testing.T) {
 		t.Fatal("a bad wake address was accepted")
 	}
 }
+
+func TestAFloodOfWakesStillPollsNoFasterThanTheRetryPause(t *testing.T) {
+	wake := make(chan struct{}, 1)
+	runner := &fakeRunner{}
+	runInBackground(t, runner, jobs.ImportSchedule{Wake: wake, Idle: time.Hour, Retry: 40 * time.Millisecond})
+	stop := time.After(300 * time.Millisecond)
+	for flooding := true; flooding; {
+		select {
+		case <-stop:
+			flooding = false
+		case wake <- struct{}{}:
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	if len(runner.polls) < 3 {
+		t.Fatalf("wakes produced only %d polls", len(runner.polls))
+	}
+	for i := 1; i < len(runner.polls); i++ {
+		if gap := runner.polls[i].Sub(runner.polls[i-1]); gap < 40*time.Millisecond {
+			t.Fatalf("polls %d and %d were %v apart under a flood of wakes", i-1, i, gap)
+		}
+	}
+}

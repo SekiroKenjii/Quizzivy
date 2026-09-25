@@ -50,6 +50,9 @@ func (h Imports) GetWordImport(ctx context.Context, request openapi.GetWordImpor
 	if err != nil {
 		return importFailure(ctx, err)
 	}
+	if v.Status == "queued" {
+		h.nudge(ctx)
+	}
 	return openapi.GetWordImport200JSONResponse(toImport(v)), nil
 }
 func (h Imports) ListWordImports(ctx context.Context, request openapi.ListWordImportsRequestObject) (openapi.ListWordImportsResponseObject, error) {
@@ -71,8 +74,13 @@ func (h Imports) ListWordImports(ctx context.Context, request openapi.ListWordIm
 		return nil, err
 	}
 	out := openapi.ListWordImports200JSONResponse{Items: make([]openapi.WordImport, len(v.Items)), Page: v.Page.Number, PageSize: v.Page.Size, Total: v.Page.Total}
+	queued := false
 	for i, v := range v.Items {
 		out.Items[i] = toImport(v)
+		queued = queued || v.Status == "queued"
+	}
+	if queued {
+		h.nudge(ctx)
 	}
 	return out, nil
 }
@@ -115,6 +123,10 @@ func (h Imports) DownloadImportSource(ctx context.Context, request openapi.Downl
 		return importFailure(ctx, err)
 	}
 	return openapi.DownloadImportSource200JSONResponse{Url: v.URL, ExpiresAt: v.ExpiresAt}, nil
+}
+
+func (h Imports) nudge(ctx context.Context) {
+	_, _ = h.app.Commands.Nudge.Handle(ctx, command.Nudge{})
 }
 
 func endMultipart(reader *multipart.Reader) error {

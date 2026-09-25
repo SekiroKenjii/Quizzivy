@@ -31,7 +31,7 @@ func TestImportProcessingIsOffUntilSwitchedOnBesideImportStorage(t *testing.T) {
 	if err != nil || !cfg.ImportProcessing || cfg.ImportWorkerWakeURL != "http://localhost:8091/wake" {
 		t.Fatalf("processing switched on beside storage: %+v %q %v", cfg.ImportProcessing, cfg.ImportWorkerWakeURL, err)
 	}
-	for _, wake := range []string{"", "localhost:8091", "ftp://worker/wake", "http://"} {
+	for _, wake := range []string{"", "localhost:8091", "ftp://worker/wake", "http://", "http://localhost:8091", "http://localhost:8091/"} {
 		if _, err := loadWith(t, merge(worker, map[string]string{"IMPORT_WORKER_WAKE_URL": wake})); err == nil {
 			t.Fatalf("processing accepted with wake URL %q", wake)
 		}

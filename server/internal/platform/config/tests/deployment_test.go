@@ -1,12 +1,15 @@
 package config_test
 
 import (
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"quizzivy/internal/platform/config"
 )
@@ -163,8 +166,34 @@ func TestProductionProcessesWordImportsOnlyBesideADeployedWorker(t *testing.T) {
 	if worker && !dockerfileShipsTheWorker(t) {
 		t.Fatal("fly.toml runs /app/import-worker but the Dockerfile does not build it and copy it there")
 	}
+	if worker {
+		assertTheWorkerCanBeWoken(t)
+	}
 	if cfg.ImportLegacyDoc {
 		t.Fatal("production accepts .doc uploads, but the converter .doc needs is a Docker container, and the production image has no Docker daemon")
+	}
+}
+
+func assertTheWorkerCanBeWoken(t *testing.T) {
+	t.Helper()
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	apply(t, flyEnv(t), flySecrets)
+	worker, err := config.LoadImportWorker()
+	if err != nil {
+		t.Fatalf("the worker process does not boot on fly.toml: %v", err)
+	}
+	host, port, _ := net.SplitHostPort(worker.WakeAddress)
+	if host == "localhost" || strings.HasPrefix(host, "127.") || host == "::1" {
+		t.Fatalf("the worker listens on %s, where the API machine cannot reach it", worker.WakeAddress)
+	}
+	if wake, err := url.Parse(cfg.ImportWorkerWakeURL); err != nil || wake.Port() != port || !strings.HasSuffix(wake.Hostname(), ".internal") {
+		t.Fatalf("the API wakes %q but the worker listens on %s", cfg.ImportWorkerWakeURL, worker.WakeAddress)
+	}
+	if worker.IdlePoll < time.Hour {
+		t.Fatalf("IMPORT_WORKER_IDLE_POLL=%v keeps Neon awake; use hours in production", worker.IdlePoll)
 	}
 }
 

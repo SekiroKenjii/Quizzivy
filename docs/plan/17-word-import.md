@@ -984,15 +984,18 @@ awake around the clock once deployed. It now claims until the queue is empty,
 then sleeps until one of three things happens:
 
 - **A wake signal.** The API sends it after queueing a run (`IMPORT_WORKER_WAKE_URL`
-  → the worker's `POST /wake` on `IMPORT_WORKER_WAKE_ADDR`). Signals coalesce, a
-  failed send is retried briefly, and a teacher watching a queued import re-sends
-  one.
+  → the worker's `POST /wake` on `IMPORT_WORKER_WAKE_ADDR`). Signals coalesce, and
+  a failed send is retried briefly. The sender outlives the API's HTTP drain.
+  Reading a queued import or a history page that shows one runs the `Nudge`
+  command, so a lost signal heals while a teacher watches. The query itself stays
+  free of side effects.
 - **Work falling due.** The queue's `NextDue` mirrors `Claim`'s filters, so a run
   `Claim` would never take cannot keep it polling.
 - **`IMPORT_WORKER_IDLE_POLL`.** The safety-net timeout, 1h by default and 6h in
   production.
 
-It never polls sooner than every two seconds.
+It never polls sooner than every two seconds, not even when woken. That is the
+wake listener's rate limit.
 
 
 

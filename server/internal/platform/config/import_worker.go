@@ -65,8 +65,8 @@ func LoadImportWorker() (ImportWorker, error) {
 
 func loadWorkerWake(w *ImportWorker) error {
 	w.WakeAddress = getenv("IMPORT_WORKER_WAKE_ADDR", "localhost:8091")
-	if _, _, err := net.SplitHostPort(w.WakeAddress); err != nil {
-		return fmt.Errorf("IMPORT_WORKER_WAKE_ADDR must be host:port: %w", err)
+	if host, _, err := net.SplitHostPort(w.WakeAddress); err != nil || host == "" {
+		return fmt.Errorf("IMPORT_WORKER_WAKE_ADDR must be host:port with a host, such as localhost:8091 or fly-local-6pn:8091")
 	}
 	var err error
 	if w.IdlePoll, err = parseDuration("IMPORT_WORKER_IDLE_POLL", "1h"); err != nil {
