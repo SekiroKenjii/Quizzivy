@@ -59,6 +59,7 @@ type ResolvedMark struct {
 	Name     string    `json:"name"`
 	Value    string    `json:"value"`
 	Resolved bool      `json:"resolved"`
+	Direct   bool      `json:"direct,omitempty"`
 	Sources  []Locator `json:"sources"`
 }
 
