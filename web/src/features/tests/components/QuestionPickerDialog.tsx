@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { listQuestions } from "@/features/question-bank/api";
 
 interface QuestionPickerDialogProps {
@@ -17,6 +18,7 @@ interface QuestionPickerDialogProps {
   excluded: ReadonlySet<string>;
   onOpenChange: (open: boolean) => void;
   onPick: (questionId: string) => void;
+  onPickGroup?: () => void;
 }
 
 /** A-04's "Lấy từ ngân hàng": the second test is faster only if the first is reusable. */
@@ -25,6 +27,7 @@ export function QuestionPickerDialog({
   excluded,
   onOpenChange,
   onPick,
+  onPickGroup,
 }: Readonly<QuestionPickerDialogProps>) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -35,6 +38,11 @@ export function QuestionPickerDialog({
         <DialogHeader>
           <DialogTitle>{t("builder.fromBank")}</DialogTitle>
         </DialogHeader>
+        {onPickGroup ? (
+          <Button variant="outline" onClick={onPickGroup}>
+            {t("builder.chooseWholeGroup")}
+          </Button>
+        ) : null}
         <Input
           value={query}
           placeholder={t("builder.searchBank")}

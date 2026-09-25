@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 interface AudioPlayerProps {
   src: string;
   label: string;
+  disabled?: boolean;
   /** Known before the file loads, so the total does not pop in on play. */
   durationMs?: number | null | undefined;
   /** §11.1: false locks the track to display-only for a student. */
@@ -32,6 +33,7 @@ interface AudioPlayerProps {
 export function AudioPlayer({
   src,
   label,
+  disabled = false,
   durationMs,
   allowSeek = true,
   hint,
@@ -81,9 +83,14 @@ export function AudioPlayer({
       // §11.3: one instance per question, and navigating away releases it.
       element.pause();
     };
-  }, []);
+  }, [failed]);
+
+  useEffect(() => {
+    if (disabled) audio.current?.pause();
+  }, [disabled]);
 
   function toggle() {
+    if (disabled) return;
     const element = audio.current;
     if (!element) return;
     if (element.paused) {
@@ -131,6 +138,7 @@ export function AudioPlayer({
       <button
         type="button"
         onClick={toggle}
+        disabled={disabled}
         aria-label={playing ? t("media.pause") : t("media.play")}
         className={cn(
           "bg-primary text-primary-foreground focus-visible:ring-ring grid flex-none place-content-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
@@ -158,6 +166,7 @@ export function AudioPlayer({
           {allowSeek ? (
             <input
               type="range"
+              disabled={disabled}
               min={0}
               max={total || 1}
               step={0.1}

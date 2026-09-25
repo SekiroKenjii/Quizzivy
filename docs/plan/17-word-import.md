@@ -364,6 +364,582 @@ keyboard navigation, legacy flat papers and preview widths. No migration is need
 Complete draft summaries/outline, bank/builder UI and W-09 learner delivery remain
 required before group authoring can be enabled.
 
+### 1.16 Implementation checkpoint — grouped dealing rules (W-09a)
+
+Attempt question reads now include frozen group identity, member ordinal and the
+fixed-option dependency policy. Seeded dealing ranks complete groups and standalone
+questions inside each section; member order does not depend on SQL row arrival.
+Standalone ranks retain the historical salt/identity, so legacy papers keep exactly
+their previous seeded order. Option dealing preserves fixed-label members and does
+not mutate the loaded paper while shuffling unrelated choices.
+
+Assignment create/update rejects `shuffleOptions` with the existing field-validation
+response when the selected version contains fixed-label group members. It checks
+the frozen selected version, including draft saves, before assignment/target/audit
+writes. A different version without this dependency is unaffected.
+
+Property checks cover seed variation, row permutation, section boundaries, member
+contiguity/order, fixed options and input immutability. Docker checks cover frozen
+metadata reads and create/update rollback, including version-specific validation.
+Attempt/result/group payloads, shared playback counters and learner/context UI remain
+W-09 work; this checkpoint does not enable group authoring or shared audio.
+
+### 1.17 Implementation checkpoint — safe attempt context (W-09b)
+
+Start/resume/read attempt payloads now include optional additive `groups` using the
+existing safe preview projection. The tests module reads one frozen version under
+a share lock; the attempts application invokes that query only after authorizing
+the attempt. Frozen question membership detects when the context reader is required,
+and an unconfigured dependency reports 501 instead of dropping the materials.
+Historical standalone papers continue without the new dependency.
+
+The shared transport projection retains stable question/gap/recording identities
+and omits grading data and transcripts. Every asset is authorized for the current
+student before metadata and a signed URL are returned. Media reachability includes
+relational group bindings only on versions the student has an attempt on, retaining
+the existing legacy-question path. Assignment targeting and unrelated versions
+grant no access.
+
+Docker tests cover start, reload, takeover, preserved membership/material/policy,
+secret omission, missing dependencies/versions and cross-student/version media
+denial. Public transport tests cover both session endpoints and ensure authorization
+failure returns no partial payload. Existing recursive schema checks cover the new
+response branch. No migration or dependency is added. Shared recording accounting,
+learner/result/review UI, explicit delivery versioning and group authoring remain
+gated pending subsequent slices.
+
+### 1.18 Implementation checkpoint — shared playback ledger (W-09c)
+
+Migration `00040_create_group_audio_plays.sql` adds attempt/recording counters and
+append-only per-gesture receipts. The new shared-play endpoint locks the attempt
+using existing writable-session rules, verifies its version-bound recording and
+material, and atomically increments once, records the receipt and appends a server
+timeline event. Retries return the current count; reusing a gesture ID on another
+recording returns a conflict. No limit rejects additional listening.
+
+Session payloads expose counters by frozen recording identity. Two groups using
+one asset have independent allowances; reload/takeover retain counts; a new attempt
+has fresh counters. Teacher monitor and timeline totals include shared excess plays.
+Historical per-question playback and client event sequence keys are unchanged.
+
+Docker tests cover concurrent identical and distinct gestures, cross-group and
+cross-attempt scope, foreign/version/session/closed/deadline rejection, reload,
+takeover, teacher totals and rollback of both counter and receipt if event writing
+fails. Migration checks cover up/down/up, schema equality, relational constraints,
+append-only privileges and refusal to drop a populated ledger. The shared browser
+player/retry queue, result/review context and explicit delivery-version marker
+remain pending; group authoring is not enabled by this server slice.
+
+### 1.19 Implementation checkpoint — frozen delivery algorithm (W-09d)
+
+Migration `00041_version_test_delivery.sql` adds a constrained marker on the
+immutable version root. Historical standalone rows retain `section_v1`; only
+existing prerelease grouped snapshots are classified `group_v1`. New publisher
+writes explicitly use `group_v1`. The old per-section question/options order
+is preserved for every standalone paper. Attempts and result readers use the
+attempt's frozen version ID, independently of the current test default.
+Unsupported markers and grouped metadata under the legacy algorithm fail closed.
+
+Docker tests cover empty up/down/up, metadata classification, refusal to discard
+a used group marker, new publication, reload/takeover/result order, and 100 seeds
+with all shuffle-switch combinations. No API shape or learner rollout changes.
+Shared player/retry queue and result/review context remain in progress.
+
+### 1.20 Implementation checkpoint — learner shared reader (W-09e)
+
+The attempt engine reuses the learner-safe material renderer from preview.
+Wide content areas show material and answer columns; phones offer remembered
+collapse state while keeping audio controls available. One recording player
+survives navigation between children. Gap buttons target the displayed question
+or its stable rich-blank input; navigation preserves pending answers. Group
+rendering is memoized so typing an answer does not revalidate the whole passage.
+
+Each play gesture has a UUID persisted separately with learner/attempt identity
+and the attempt deadline. The single-flight retry queue keeps that UUID after
+network loss, reload or takeover. Optimistic counts use a minimum acknowledged
+position, rather than adding pending entries to a server total that may already
+include them. Independent recording IDs retain independent counts for the same
+asset. Stale responses cannot affect a new session; confirmed counts do not
+regress on a stale refetch. Logout clears local telemetry. Server-confirmed
+extensions update recovery's deadline. Invalid/expired entries are discarded.
+
+Playback remains synchronous with the click, including over-limit playback.
+Network accounting does not gate playback. Submission gives pending telemetry a
+bounded three-second flush and proceeds with answer submission if unavailable;
+closed/expired sessions cannot add late listening evidence. The queue is bounded
+recovery, not a promise to reconstruct all playback after an offline close.
+A pending-sync label and retry action remain separate from answer save status.
+
+Validation includes serialized gestures, ambiguous-response replay, session
+change, account isolation, expiry, stale totals, same-file independent scopes,
+non-blocking submission, synchronous playback, player recovery and stable blank
+focus. Production-build Chromium checks exercise 320px and desktop layouts,
+keyboard gap navigation, unchanged audio elements and reload after a committed
+play whose response was lost. Screenshot review confirms local table wrapping
+and side-by-side desktop layout. Native Safari/mobile QA and full result/review
+context remain required before group authoring is enabled.
+
+### 1.21 Implementation checkpoint — shared review context (W-09f)
+
+Submitted learner results and teacher paper/question review read frozen shared
+materials through the existing tests port after authorization. Learner transcript
+queries select only recordings explicitly released after submission; score, key
+and explanation flags never override this decision. Teacher paper review includes
+all shared transcripts and the attempt's confirmed counters. Cross-attempt question
+grading includes only the selected group and omits misleading aggregate counters.
+Signed asset delivery uses the existing ownership checks. A missing group reader
+fails closed; flat historical papers keep the existing path and payload.
+
+One shared review renderer serves results and both grading modes. Filters retain
+material for visible members; gap navigation restores all results and focuses the
+correct child. Teacher member navigation retains the player. Transcripts use a
+keyboard-operable disclosure, and review playback does not record new gestures.
+The learner bundle still excludes admin code. No schema migration or dependency
+is added.
+
+Validation covers all eight score/key/explanation combinations, released/private
+transcripts, outsider access, active-attempt refusal, authorized asset resolution,
+independent recording totals and question-scoped review. Contract leak guards now
+also reject plural transcript maps on active learner payloads. Production Chromium
+checks cover results at 320/1440px and both grading modes at 768/1440px, including
+keyboard gap focus, real audio playback without new accounting calls, filters and
+horizontal overflow. Screenshots were reviewed. Group authoring/draft summaries,
+assignment listening summaries, native mobile QA and the import workflow remain
+open; this checkpoint does not enable group authoring or establish pilot quality.
+
+### 1.22 Implementation checkpoint — group summary/lifecycle readiness
+
+Draft list/detail totals and tag queries now include owned group questions and
+exclude independent bank groups. Listening counts use one count per member with
+its own or shared recording, matching published version summaries. The legacy
+question-only outline writer refuses grouped drafts before any metadata/structure
+change, preserving empty as well as populated groups. Metadata updates still work.
+The complete group-aware draft reader/editor remains required before public writes.
+
+Archived test restoration/default-version changes now return an explicit conflict
+before touching the draft for both legacy and grouped versions. The history UI
+explains the need to restore the parent and disables those actions. Unused,
+non-current version deletion remains available while archived. Tests pin rejection
+atomicity and successful whole-group restoration after unarchiving.
+
+Learner introductions include shared audio and transcript policies from the
+assigned version, with the minimum finite cap across shared and individual scopes.
+The copy states that each recording has its own limit and that shared questions
+share one allowance. Newer default versions do not change existing assignments.
+Docker tests cover mixed/independent groups, filtering, summary parity, immutable
+version selection and archived lifecycle; HTTP tests assert actionable conflict
+codes. No migration or dependency is added.
+
+### 1.23 Implementation checkpoint — group authoring API (W-07e)
+
+Seven teacher-only operations expose complete independent group graphs, bank
+summaries, copy, archive/restore and deletion. Client-generated identities cannot
+replace existing content; duplicates return a conflict. Group changes check the
+observed aggregate revision; section-owned writes also require the enclosing test
+revision. Bank list search is accent-insensitive and escapes literal wildcards;
+section-owned copies never appear as independent bank entries.
+
+Draft sections now expose optional ordered `units` containing standalone questions
+and owned groups; `questionIds` remains the legacy standalone projection. Group and
+test detail reads lock the enclosing test before its group, matching writer order
+and returning coherent revision/outline data. Legacy question-only outline writes
+continue to refuse grouped drafts. Full mixed-outline writing and the builder/bank
+editing UI must ship before this stacked milestone is released.
+
+The transport accepts at most 4 MiB for complete-group creation/replacement, before
+JSON buffering/validation, with the existing 1 MiB default elsewhere. Schema and
+aggregate limits remain cumulative. Authorized assets are resolved only from the
+saved graph; temporarily unavailable metadata/signed URLs are returned as explicit
+`unavailableAssetIds`, so a successful committed edit is not reported as a failed
+save. No source-document links are exposed. Typed web clients use the generated
+contract. No migration, dependency, external processing or infrastructure is added.
+
+Docker checks cover complete-copy independence, lifecycle, stale revisions,
+accent/literal search, mixed draft reads, media protection and rollback. HTTP and
+contract checks cover teacher-only routes, known-length/chunked body budgets,
+recording policy/key round trips and saved-content acknowledgement during media
+outage. This is an authoring foundation, not import or pilot acceptance.
+
+### 1.24 Implementation checkpoint — mixed outline writes (W-07f)
+
+The test update contract accepts explicit `outlineFormat: group_v1` with complete
+ordered units in every section. The legacy question projection must match the
+standalone units. Owned groups occur exactly once across the entire outline;
+omitting one, directly attaching an independent/foreign group, or inserting a
+member outside its aggregate fails without changing metadata or structure. Group
+removal uses the dedicated operation, and cross-test reuse uses independent copy.
+
+One transaction locks the test and its owned groups before standalone questions,
+creates destination sections, moves complete groups, writes both projections and
+removes empty obsolete sections. Only moved groups advance their aggregate revision;
+all successful outline edits advance the enclosing test revision. Archived tests
+must be restored first. Empty groups remain visible and cannot be silently lost.
+Legacy writers still refuse grouped drafts; after explicit removal of the final
+group, they clear obsolete unit rows before replacing the old projection.
+
+Docker integration checks use separate committed transactions for the stale-write
+case, matching real HTTP saves rather than sharing a test transaction's fixed
+`now()`. They cover movement into new/empty sections, preservation of empty groups,
+publication order, foreign/missing/detached-member rollback and legacy cleanup.
+Domain, transport and contract checks pin format/projection validation and explicit
+archive conflicts. Typed web helpers retain old writers and prepare mixed writes;
+the editor integration is still outstanding. No migration or dependency is added.
+
+### 1.25 Implementation checkpoint — group bank editor and local recovery (W-07g)
+
+The independent group bank is exposed under `/admin/question-bank/groups`, with
+search, URL/session filter retention, newest-first rows, an inline and menu copy
+action, a recent-copy indicator and confirmed bulk archive/restore/permanent
+removal. Creation opens the editor; duplication leaves the teacher on the list.
+The editor preserves the complete graph and presents one active member/material
+editor, keyboard ordering controls, stable gap targets, HTTPS links, authorized
+image/audio picking and upload, shared recording policy/transcripts and learner
+preview at desktop/phone widths. Historical Markdown remains editable. Material
+preview retains the active editor's undo history. No learner preview includes
+answer keys, explanations or transcripts.
+
+Serialized autosave uses the group revision and preserves edits made while a
+request is in flight. Route exit flushes or explicitly keeps a confirmed local
+draft. The IndexedDB outbox is account/item scoped, expires within seven days from
+unsent creation and stores content/revision only, without files or signed URLs.
+Storage failures remain visible. Logout atomically clears records and fences old
+tabs; a newer editor of the same item fences older local writers. Restoring a
+stale draft retains its edits and offers an independently remapped bank copy,
+without replacing the current server graph. Import-review integration remains.
+
+The real browser-to-Docker check exposed the first PUT endpoint being absent from
+the CORS preflight method list. PUT is now allowed for exactly the configured
+origins; regression tests retain the untrusted-origin boundary. The field primitive
+is vendored from the existing shadcn registry style using the repository's own
+utility imports. No dependency or migration is added. Mixed builder integration,
+context-aware bank insertion, import processing/review/commit and pilot gates
+remain outstanding; this checkpoint does not claim general import availability.
+
+### 1.26 Implementation checkpoint — mixed builder authoring (W-07h)
+
+The regular test builder displays section → group → member structure alongside
+standalone questions. Both pointer and keyboard movement treat the complete group
+as one unit, including an empty group and an empty destination section. Member
+ordering, bindings and shared media remain inside the complete-group composer.
+Client section identities survive acknowledgement, so a new section can be renamed,
+reordered and used as a group destination without being recreated on every save.
+
+Group content and outline operations share a serial write queue and the latest
+acknowledged enclosing-test revision. Own section moves advance the active group's
+revision without replacing its newer local content; external writes still conflict.
+Cached group reads are cancelled before writes to avoid overwriting acknowledgements.
+The independent-bank recovery gate/outbox is shared with section-owned editing.
+Explicit route exit confirms local group persistence; save-and-leave, preview and
+publication flush content and outline. Standalone/title/outline local recovery is
+not included in this checkpoint. Group publication findings open the owned member.
+
+The bank picker copies the complete selected group into a chosen persisted section.
+Saving a bank copy retains the builder and shows a confirmation/link. Group removal
+uses the explicit whole-graph operation; removing a section processes its groups
+before removing the section, reflecting completed removals if a later step fails.
+Learner preview projects all mixed units in order without teacher-only keys or
+transcripts. The embedded composer uses a compact content selector when its actual
+available width is narrow; desktop retains the material/member navigation.
+
+No migration, API contract change or dependency is added. Docker/browser checks
+cover new section identity, concurrent editing/movement, complete material preview,
+bank copy/insertion, independent deletion and publication. The processing queue,
+import extraction/review/commit and acceptance gates remain subsequent work.
+
+### 1.27 Native private source intake (W-10a)
+
+The imports module implements teacher-only create/history/get, native DOCX upload
+and authorized original download. `00042_create_word_import_sources.sql` adds
+imports, durable source reservations, immutable source sets and their role mappings.
+The source bucket is separately configured and disabled by default; staging uses a
+private disk directory. Legacy DOC conversion is deliberately not enabled yet.
+
+Create identities are actor-scoped. Upload identities are import-scoped and pinned
+to role, expected revision, filename, format, byte count and SHA-256. Reservation
+commits before object storage, so a lost Put response or failed completion never
+creates an untracked object. Retries of identical pending bytes may re-Put the same
+key; completed originals are not rewritten. Completion locks the parent, advances
+one revision and copies the unchanged companion into the new source set. A stale
+completion leaves its reservation visible and counted, without attaching its bytes.
+Cancelled/non-intake states reject new source writes. Future cleanup must coordinate
+with in-flight upload writers; no automatic deletion is introduced here.
+
+Conservative configurable development limits are 10 active imports per actor,
+100 per installation, 32 retained source reservations per import, 256 MiB per actor
+and 1 GiB installation-wide. These are not approved production capacity promises.
+Quota reservation uses one short advisory transaction lock before the parent row;
+no conversion, parsing or storage I/O holds a database lock. Intake permits one
+expanded inspection per API process, with 25 MiB source, bounded XML/ZIP work,
+a 15-second inspection budget and a two-minute intake deadline.
+Multipart wire overhead is capped at 128 KiB beyond the source cap.
+
+The request validator now preserves multipart parameter checks without buffering
+file bodies. Authentication/role middleware remains ahead of validation; the
+validator's duplicate security body snapshot is disabled only for streaming routes.
+Native originals and keys never enter `media_assets`. Downloads resolve the source
+inside its parent import and use a 60-second no-store attachment URL. Tests cover
+student denial, cross-parent lookup, lost responses, changed replay input, concurrent
+completion/quota races, immutable history, unsafe packages, private MinIO storage
+and migration reversal. The TypeScript API adapter shares the generated contract.
+
+Remaining W-10/11+ work includes legacy conversion, durable processing, source
+replacement after review, upload-history UI, cleanup/retention, review and commit.
+This checkpoint does not expose the unfinished workflow to teachers or claim GA.
+
+### 1.28 Durable queue foundation (W-11a)
+
+`00043_create_word_import_runs.sql` adds source-pinned processing requests and
+append-only lifecycle events. Scheduling checks the import revision, requires a
+completed exam source, preserves request identity on retries and prevents multiple
+active runs. A failed import can schedule a new run without rewriting old results.
+
+Claims use a short transaction-level advisory capacity lock followed by import and
+run row locks. Candidate selection skips locked parents and rechecks eligibility
+under the parent lock. Heartbeats share the capacity lock, preventing an expiring
+lease renewal from racing a new allocation. Global and actor limits count live
+leases. No source download, parsing or provider call holds these locks.
+
+The runner heartbeats during context-aware processing, stops on lost claims and
+writes only with a current source/worker/fence/lease. Attempts and retry delays are
+bounded; expired final attempts become failed even when no new job can be claimed.
+Cancellation competes with completion under the same parent lock. Successful runs
+store at most 8 MiB of private object JSON and enter review; schema semantics remain
+the processor's responsibility. Terminal results and operational events are immutable.
+Stage events, retry causes, actor actions and lease recovery remain inspectable;
+logs/observers receive identifiers, timing and allowlisted codes, never raw errors.
+
+Docker tests use the app role and exercise concurrent cancellation/completion,
+capacity, retry exhaustion, append-only privileges, source preservation, stale
+writes, and a subprocess SIGKILL/reclaim. Runner tests cover heartbeat/progress
+failure, shutdown, invalid output and late completion; the race detector passes.
+Migration reversal and the existing module checks run in the dedicated test database.
+
+W-11 remains open for concrete pipeline/supervisor wiring and operational metrics
+exposure alongside W-12–16. No enqueue endpoint or teacher processing screen is
+exposed before there is a real processor. No external provider or retention policy
+is enabled by this checkpoint.
+
+### 1.29 Ordered source extraction (W-12a)
+
+The native extractor now emits versioned, source-bound blocks in actual XML order,
+with structural ancestry, per-fragment Unicode offsets, original numbering and
+supported inherited mark evidence. Raw fields, hidden/revised text, alternate
+branches, equations and objects remain inspectable and require review; none is
+implicitly accepted as learner content. Nested table grids have independent cell
+coordinates and supported vertical merge origins. Ambiguous/duplicate/overflowing
+properties remain unresolved rather than being guessed.
+
+Embedded static PNG/JPEG can be decoded with input/pixel/dimension/output limits
+and re-encoded without private metadata. Animated or EXIF-bearing images and
+unsupported formats require a later explicit normalization decision. Assets stay
+private until a reviewed learner placement and authorized media binding exist.
+The `word-extract` CLI produces counts by default and optional new `0600` evidence
+files. It neither contacts a provider nor writes assessment records.
+
+Synthetic coverage includes mixed table/paragraph order, nested/merged cells,
+numbering, Unicode spans, source replacement identity, fields across paragraphs,
+inline revisions, alternate branches and safe raster handling. A bounded fuzz run
+checks block identity and ancestry. An independent local XML walk matched every
+one of 13,489 fragments in the eight authorized DOCX files. Text coverage is not
+semantic accuracy; reviewed question/key outputs and wider source families are
+still needed. Private evidence can be much larger than candidate JSON and belongs
+in separately stored/paged source artifacts, not the run result envelope.
+
+This checkpoint implements extraction building blocks, not the complete W-12
+quality gate. Conditional styles, source rendition, durable artifact integration,
+recognition/reconciliation, review and atomic commit remain subsequent work.
+
+### 1.30 Isolated normalization and rendition (W-13a)
+
+A separately built LibreOffice/Python UNO/Poppler image converts binary DOC into
+native DOCX and renders private PDF/PNG source pages. The Go adapter supplies an
+immutable local image ID, fixed safe load policy, isolated disk directories,
+network/capability restrictions and CPU/memory/process/file limits. It admits one
+physical conversion container per Docker host, including containers surviving a
+worker crash; a second worker cannot kill the first worker's slot. Completed owned
+slots can be reclaimed. Host cancellation and an independent container deadline
+bound work. A disk watchdog stops oversized jobs without using host tmpfs.
+
+Source originals are never modified. Converted DOCX passes native inspection;
+page images and output paths are checked before artifact access. The manifest
+records source/image/renderer identities and checksums. Layout review is always
+required; legacy conversion adds an explicit normalization-review finding. This
+is not a promise that desktop rendering or every legacy object is equivalent.
+
+Docker tests exercise actual DOC round-trip with text/underline preservation,
+password-protected failure, native rendition, cancellation/timeout, per-process
+and global physical slots, orphan completion/reclaim, disk limits and runtime
+network/mount/cgroup restrictions. A local real DOCX produced 33 private source
+pages; sampled pages retain teacher annotations in the source view. That is not
+recognition or learner-content acceptance. Sources and renderings remain outside Git.
+
+The image/tool/adapter are internal building blocks, with no new public route,
+provider transfer or production activation. Durable artifact storage, processing
+wiring, detailed loss reconciliation, real legacy-family goldens and W-21 operator
+cleanup/capacity gates remain open. Dependency reasons and the boundary are in the
+[converter runtime instructions](../../docker/word-converter/README.md).
+
+### 1.31 Durable private stage artifacts (W-13b)
+
+Each stage reserves its complete immutable file plan before object storage.
+Source/run/role/claim ownership is relational; acknowledgements and completion
+require a live fenced claim. Whole-set publication waits for every file, so a
+partially uploaded rendition cannot appear complete. Pending bytes and sets count
+against bounded actor/global quotas. Complete evidence is reusable after takeover
+or explicit retry only for the same source, pipeline and component/configuration.
+Incomplete old attempts receive separate keys and cannot mutate successor results.
+
+The private S3 adapter verifies upload checksums, uses create-only writes and
+reconciles exact lost-response retries against stored identity. Processor reads
+verify size and digest into disk-backed staging before parsing. Normalized DOCX,
+source pages, images, blocks, candidates and validation files remain private;
+none automatically becomes learner media. No retention policy is enabled.
+
+Docker verification covers incomplete publication, cancellation/lease fencing,
+source ownership, immutable replay, concurrent quotas, private bytes, lost storage
+responses and staged-read tampering. Public source browsing, concrete processing,
+recognition, review and commit remain subsequent work.
+
+
+### 1.32 Conservative source-linked recognition (W-14a)
+
+The private candidate schema separates printed labels, stable local question/option
+IDs, answer states, provenance, findings and exact source coverage. The local rules
+recognizer handles manual/automatic numbering, labeled choices on separate or shared
+lines, Unicode/nonbreaking Word spaces, inferred continuation paragraphs, explicit
+inline/final keys and unambiguous horizontal/vertical key-table pairs. Paper and
+section scopes prevent restarted numbers from silently selecting another answer.
+Contradictions and dangling labels remain blocking findings. Teacher-confirmed whole
+option bold/underline conventions are explicit inputs; unspecified formatting is
+never evidence of correctness. Key-only marks stay out of candidate learner prose.
+
+A bounded adapter retains raw extraction separately, projects supported semantic
+marks and flags private/revised/field/layout-dependent branches. Every meaningful
+block receives a coverage entry; partial text assignment cannot count as full
+coverage. Rules use bounded source/candidate sizes, question/option counts and
+indexed answer lookup. No source text is deduplicated. The CLI defaults to counts;
+optional candidate output is a new private 0600 file, with no external services.
+
+Synthetic tests cover Vietnamese offsets, explicit conflicts, repeated labels,
+collected papers, nonbreaking spaces, private text, generated labels and ambiguous
+table geometry. Fuzzing exercises bounded recognition and source-range invariants.
+The eight local DOCX files expose additional non-choice/group cases; running them
+is a compatibility exercise, not a reviewed accuracy or pilot result. Files and
+candidate outputs remain outside Git.
+
+W-14 remains open for grouped cloze/material attachment, typed/written key mapping,
+saved profile persistence and corpus-reviewed reconciliation. W-15 provider policy,
+W-16 full validation, durable processing and review/commit integration remain open.
+
+
+### 1.33 Durable processing assembly (W-11b)
+
+A standalone `cmd/import-worker` now joins immutable source sets, private object
+verification, Docker rendition, native OOXML extraction and the deterministic
+recognizer. It uses the application database role and private storage credentials;
+API signing/Google credentials are not required. The API never starts Docker.
+The worker polls serially, obeys database actor/global lease limits, heartbeats,
+job deadlines and cancellation, and records safe IDs/codes/timing only.
+
+Completed normalization and extraction sets are reusable after a retry. Version
+identities include the converter image or extractor projection and normalized
+source identity; candidate lineage includes every contributing source stage.
+Original DOCX coordinates remain original; a normalized legacy source would use
+its immutable artifact identity. Private reads verify recorded length and SHA-256
+before parsing. An integrity mismatch is a terminal error, not an outage retry.
+
+Raw evidence is split into contiguous files of at most 100 blocks, with a separate
+inventory and recognition projection. Candidate JSON is a private artifact;
+`word-run-result-v1` contains only source lineage and artifact-set IDs. Completion
+still requires teacher review and never writes questions or assessments.
+
+Validation: all backend unit tests and lint pass. PostgreSQL/MinIO with the real
+Docker converter exercise an exam/key pair, interrupted extraction, reuse of both
+completed renditions and successful review handoff. Adapter tests reconstruct the
+complete raw block sequence and verify every artifact checksum. Worker config,
+serial draining, cancellation and safe error logging are covered. No new dependency
+or migration is introduced. See [worker operation](../setup/word-import-worker.md).
+
+Public queue/progress controls, full W-16 validation, review, commit, retention and
+production capacity/rollout gates remain open. This internal worker does not enable
+public legacy intake, external AI processing or production activation.
+
+### 1.34 Takeover checkpoint — corpus recognition, review and commit (2026-09-25)
+
+The stack above (W-02 to W-14a, W-11b) was reviewed area by area with an
+adversarial second pass. Its package safety, fenced queue and converter isolation
+were kept; every confirmed finding was fixed on this branch, except the items listed
+as still open at the end of this section. Against the supplied
+papers the rules-v1 recognizer produced about 1,300 findings for a 31-question
+paper, read one section and could not separate the papers of a combined key, so it
+was replaced rather than tuned.
+
+**Recognition (rules-v2).** Evidence becomes logical lines (table rows joined by
+tab); a state machine builds sections, shared-passage groups and questions; keys are
+read per paper and per section. It covers Roman sections with continuous numbering,
+same-line options split only at the next expected letter, per-question instructions
+grouped into inferred sections, a question promoted to a group by its sub-labels,
+cloze gaps bound to choice questions or to blanks (open cloze), true/false tables,
+multi-blank keys and teacher-graded rewrites with the key as sample. Misprinted
+numbers are kept and flagged; letters for a question without options stay
+unsupported; coloured text inside a question is flagged as a possible answer leak.
+Measured on the 54 supplied papers (5 DOCX with their key, 49 DOCX rebuilt from the
+PDFs with the combined `ĐÁP ÁN.docx`): 2,562 of 2,626 questions receive their key
+automatically, 37 papers need no decision beyond source formatting; the rest are
+matching exercises (unsupported by design) or misprints in the source, each surfaced
+as a finding. PDF-derived files carry no underline, so pronunciation questions from
+them always ask for the underline. This is a regression harness, not a pilot result.
+
+**Review (W-16, W-18 core).** One revisioned draft per import is written in the
+transaction that completes its run. A newer machine draft that arrives after teacher
+edits is kept aside, and the teacher adopts it explicitly (`review/adopt`, revision
+checked). Findings are derived on every read from the draft's content (bank validation
+is reused), joined with source notices; blockers need an edit, review items need an
+acknowledgement keyed to the content it judged. Malformed edits are 422.
+
+**Commit (W-20 core).** `core/adapters.ImportCommitter` runs the tests and questions
+use cases on one transaction and records the commit in it. Fresh IDs make repeated
+imports independent; concurrent or replayed commits yield one test.
+
+**Operations.** Processing is queued and cancelled from the API. DOCX is processed
+natively without a converter; `.doc` needs the converter and `IMPORT_LEGACY_DOC`.
+Heartbeat, shutdown, quota and retired-pipeline handling were corrected. A reprocess
+that fails or is stopped returns an import that already has a draft to
+needs_review with the draft intact (18-word-import-ux §7); the latest run keeps its
+status and error code so the review can say what happened. A failed import takes a
+replacement file in place. A question's own blanks are numbered 1, 2, … within the
+question, as the bank editor numbers them; passage gaps keep the source label.
+
+**Screens (WU-01 to WU-04, WU-06 core).** History with search and status filter;
+upload with the server's limits, idempotent create → upload → process; a detail
+page per state (progress by real stage with elapsed time, failure with a specific
+action, stop or close with honest copy); and the review workspace: extracted source
+beside the rebuilt exam, finding filters with previous/next, provenance per field,
+one editable question at a time, autosave with a single save in flight, and a
+summary that creates the draft test. Deviations from 18-word-import-ux, to revisit
+with the design deck (it has no import boards yet): the summary is a dialog rather
+than the `/confirm` route; shared passages are edited in the test builder, not in
+review; there is no split, merge or move; learner preview is the builder's.
+
+Verified in a browser against the real API, worker and MinIO on 2026-09-25: upload
+of a real .docx with a separate key, processing, review with exclusions of
+unsupported matching items, draft creation, builder, learner preview and publish;
+stopping a reprocess, a failed reprocess, and replacing the file of a failed import.
+
+A version's shared group contexts now load in six batched queries, whatever the
+number of groups, instead of about five per group.
+
+Still open: W-15 (assisted recognition), the rest of W-19 (a side-by-side compare of
+the kept draft and the reprocessed one; adoption replaces the draft whole),
+W-21/W-22 (capacity, retention, runbooks, pilot), and media/audio attachment in
+imports. Three low findings stay open because none of them shows on the supplied
+papers: element locators repeat the namespace URI in every segment, so the locator
+budget runs out near 80k elements rather than at the node limit; one group save
+parses each material about seven times; and a student's group context mints and
+reads each asset separately. The publish response's zero `manualCount` and
+`audioCount` predate this stack and are tracked in SekiroKenjii/Quizzivy#136.
+
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -544,7 +1120,8 @@ outbox with visible recovery/conflict handling. Thuong approved account-isolated
 local recovery with a maximum seven-day lifetime from unsent revision creation
 and clearing on logout; source/answer files are excluded. Enforce expiry before
 any read/replay, surface quota/storage failures, and never report local-only
-changes as server-saved. Implementation and recovery tests remain pending.
+changes as server-saved. The group bank editor implements this outbox and recovery
+checks; import review still needs to integrate the same policy.
 Browser unload requests alone are not durability. Server-acknowledged edits must survive all browser failures.
 
 Prepare immutable validated media before commit. Commit runs complete domain
@@ -771,7 +1348,7 @@ deploy and verify backup/restore before enabling production writes.
 | D-01 | Content/editor | Application-owned versioned AST, lightweight student renderer, evaluated editor adapter | Engineering + Thuong; W-02/03 before W-05 |
 | D-02 | Group/material ownership and bank reuse | **Approved by Thuong:** independent copies; full context copied into bank/other tests; source deletion cannot affect copies | Engineering; reference/DDL review remains before W-07 |
 | D-03 | Audio/deal semantics | **Approved by Thuong:** shuffle groups as units within a section, keep child order; a shared recording has one allowance per group/attempt, preserved on navigation/reload/takeover, independent across groups using the same file | Engineering; snapshot/API/ledger integration and legacy regressions before W-08/09 |
-| D-04 | Access and unsent recovery | **Recovery approved by Thuong:** per-account local drafts, at most seven days, logout clearing, explicit local/server save states. Existing admin authorization still applies | Engineering; recovery and access implementation/tests pending |
+| D-04 | Access and unsent recovery | **Recovery approved by Thuong:** per-account local drafts, at most seven days, logout clearing, explicit local/server save states. Existing admin authorization still applies | Group bank recovery implemented and tested; import-review integration pending |
 | D-05 | Converter/extractor dependencies | Benchmark structured OOXML extraction and isolated LibreOffice normalization; Mammoth is a comparison candidate only | Engineering; W-03 before dependency addition |
 | D-06 | Cloud/private model and data policy | Evaluate both, no silent provider fallback or external upload | Thuong + engineering; before real external benchmark/assisted processing |
 | D-07 | Limits/SLOs/cost | Measure §9.2 hypotheses and approve supported envelope and spending cap | Thuong + engineering; W-21 before release |

@@ -77,7 +77,7 @@ func LockForVersionUse(ctx context.Context, q db.Querier, assetID string) error 
 }
 
 // ReachableByStudent reports whether a student may mint a signed URL for an
-// asset, true only when it is used by a question in a version they have an
+// asset, true only when it is bound to a question or group in a version they have an
 // attempt on.
 func ReachableByStudent(ctx context.Context, q db.Querier, studentID, assetID string) (bool, error) {
 	var reachable bool
@@ -88,7 +88,14 @@ func ReachableByStudent(ctx context.Context, q db.Querier, studentID, assetID st
 		    JOIN app.test_version_sections s ON s.test_version_id = a.test_version_id
 		    JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		   WHERE a.student_id = $1
-		     AND q.media_asset_id = $2)`, studentID, assetID).Scan(&reachable)
+		     AND q.media_asset_id = $2
+		  UNION ALL
+		  SELECT 1
+		    FROM app.attempts a
+		    JOIN app.test_version_sections s ON s.test_version_id = a.test_version_id
+		    JOIN app.test_version_groups g ON g.test_version_section_id = s.id
+		    JOIN app.test_version_group_assets ga ON ga.group_id = g.id
+		   WHERE a.student_id = $1 AND ga.media_asset_id = $2)`, studentID, assetID).Scan(&reachable)
 	if err != nil {
 		return false, fmt.Errorf("media: student reachability: %w", err)
 	}

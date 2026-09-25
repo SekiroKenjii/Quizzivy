@@ -17,6 +17,7 @@ import {
   RotateCw,
   Copy,
   Eye,
+  FileUp,
   Filter,
   Headphones,
   History,
@@ -190,10 +191,28 @@ export default function TestsListPage() {
             : "\u00a0"
         }
         actions={
-          <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>
-            <Plus aria-hidden="true" />
-            {t("tests.new")}
-          </Button>
+          <>
+            <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+              <Link to="/admin/imports">
+                <History aria-hidden="true" />
+                {t("tests.importHistory")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/imports/new">
+                <FileUp aria-hidden="true" />
+                {t("tests.importWord")}
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              disabled={create.isPending}
+              onClick={() => create.mutate()}
+            >
+              <Plus aria-hidden="true" />
+              {t("tests.new")}
+            </Button>
+          </>
         }
       />
 

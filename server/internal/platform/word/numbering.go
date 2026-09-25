@@ -23,15 +23,20 @@ type numberingIndex struct {
 	abstracts     map[string]Property
 	duplicates    map[string]bool
 	cache         map[string]*listDefinition
+	counters      map[string]*listCounter
 }
 
 type listDefinition struct {
 	valid     bool
 	levels    [9]listLevel
-	counts    [9]int64
-	seen      [9]bool
+	counter   *listCounter
 	sources   []Locator
 	overrides [9]bool
+}
+
+type listCounter struct {
+	counts [9]int64
+	seen   [9]bool
 }
 
 type listLevel struct {
@@ -49,7 +54,7 @@ type listLevel struct {
 
 func (r *resolver) initNumbering() error {
 	part, valid := r.linkedPart(partNumbering)
-	r.numbering = numberingIndex{part: part.Name, valid: valid, instances: map[string]Property{}, abstracts: map[string]Property{}, duplicates: map[string]bool{}, cache: map[string]*listDefinition{}}
+	r.numbering = numberingIndex{part: part.Name, valid: valid, instances: map[string]Property{}, abstracts: map[string]Property{}, duplicates: map[string]bool{}, cache: map[string]*listDefinition{}, counters: map[string]*listCounter{}}
 	for _, finding := range r.source.Findings {
 		if finding.Part == r.source.MainPart && (finding.Code == "TRACKED_CHANGE_REQUIRES_REVIEW" || finding.Code == "ALTERNATE_CONTENT_REQUIRES_RESOLUTION") {
 			r.numbering.ambiguousBody = true
@@ -114,16 +119,31 @@ func (r *resolver) list(id string) (*listDefinition, error) {
 			r.addLevel(result, child)
 		}
 	}
+	overridden := false
 	for _, child := range instance.Children {
 		if err := r.spend(1 + len(child.Children)); err != nil {
 			return nil, err
 		}
 		if wordName(child.Name, "lvlOverride") {
 			r.overrideLevel(result, child)
+			overridden = true
 		}
 	}
+	result.counter = r.counter(abstractID, overridden)
 	r.numbering.cache[id] = result
 	return result, nil
+}
+
+func (r *resolver) counter(abstractID string, overridden bool) *listCounter {
+	if overridden {
+		return &listCounter{}
+	}
+	shared, ok := r.numbering.counters[abstractID]
+	if !ok {
+		shared = &listCounter{}
+		r.numbering.counters[abstractID] = shared
+	}
+	return shared
 }
 
 func listIndex(value string) (int, bool) {

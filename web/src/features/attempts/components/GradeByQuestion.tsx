@@ -1,3 +1,4 @@
+import { ReviewGroup } from "@/features/media";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -170,6 +171,24 @@ export function GradeByQuestion({
                     points: data.question.points,
                   })}
                 </p>
+                {data.sharedContext?.groups.map((group) => (
+                  <ReviewGroup
+                    key={group.id}
+                    group={group}
+                    numbers={
+                      new Map(
+                        group.questionIds.map((id, index) => [
+                          id,
+                          data.questionNumber -
+                            group.questionIds.indexOf(data.question.id) +
+                            index,
+                        ]),
+                      )
+                    }
+                    transcripts={data.sharedContext!.transcripts}
+                    onRetry={() => void answers.refetch()}
+                  />
+                ))}
                 <QuestionProse
                   className="text-sm"
                   text={data.question.prompt}

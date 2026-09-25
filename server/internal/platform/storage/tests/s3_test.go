@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"strings"
@@ -143,5 +144,33 @@ func TestDeletingSomethingThatIsNotThereSucceeds(t *testing.T) {
 	client := newClient(t)
 	if err := client.Delete(context.Background(), testKey(t)); err != nil {
 		t.Errorf("Delete on a missing key: %v", err)
+	}
+}
+
+func TestPrivateOriginalDownloadForcesAttachment(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+	key := testKey(t)
+	payload := []byte("teacher-only synthetic source")
+	if err := client.Put(ctx, key, "text/html", bytes.NewReader(payload), int64(len(payload))); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Delete(context.Background(), key) })
+	signed, err := client.SignedDownloadURL(ctx, key, "Đề kiểm tra.docx", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.Get(signed)
+	if err != nil {
+		t.Fatal("private download request failed")
+	}
+	defer response.Body.Close()
+	kind, params, err := mime.ParseMediaType(response.Header.Get("Content-Disposition"))
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/octet-stream" || err != nil || kind != "attachment" || params["filename"] != "Đề kiểm tra.docx" {
+		t.Fatalf("original download headers: status=%d kind=%s filename=%s", response.StatusCode, kind, params["filename"])
+	}
+	got, err := io.ReadAll(response.Body)
+	if err != nil || !bytes.Equal(got, payload) {
+		t.Fatal("original bytes changed")
 	}
 }
