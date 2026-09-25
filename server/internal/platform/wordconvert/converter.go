@@ -25,6 +25,7 @@ var (
 	ErrSource        = errors.New("wordconvert: invalid or unsupported source")
 	ErrLimit         = errors.New("wordconvert: resource limit exceeded")
 	ErrConversion    = errors.New("wordconvert: conversion failed")
+	ErrTimeout       = errors.New("wordconvert: conversion exceeded its time limit")
 	ErrCleanup       = errors.New("wordconvert: container cleanup failed; private job retained")
 )
 
@@ -111,8 +112,11 @@ func (c *Converter) convert(ctx context.Context, job string, source io.Reader, f
 	if limitErr != nil {
 		return nil, limitErr
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if work.Err() != nil {
-		return nil, work.Err()
+		return nil, ErrTimeout
 	}
 	if runErr != nil {
 		if !owned {
@@ -122,7 +126,9 @@ func (c *Converter) convert(ctx context.Context, job string, source io.Reader, f
 		}
 		return nil, ErrConversion
 	}
-	return readResult(work, job, c.image, checksum, format)
+	reading, stop := context.WithTimeout(ctx, 30*time.Second)
+	defer stop()
+	return readResult(reading, job, c.image, checksum, format)
 }
 
 func (c *Converter) arguments(job, owner, format string) []string {
