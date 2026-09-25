@@ -1,12 +1,14 @@
 package support
 
 import (
+	"quizzivy/internal/modules/attempts/application/ports"
 	"quizzivy/internal/modules/attempts/domain"
 )
 
 // Review carries what the review handlers share: their ports and the helpers they call.
 type Review struct {
-	Repo domain.ReviewRepository
+	Repo   domain.ReviewRepository
+	Groups ports.GroupContexts
 }
 
 func NewReview(repo domain.ReviewRepository) *Review {

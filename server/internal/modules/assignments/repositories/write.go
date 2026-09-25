@@ -27,6 +27,9 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 	if err != nil {
 		return domain.Assignment{}, err
 	}
+	if err := checkOptionShuffle(ctx, tx, in); err != nil {
+		return domain.Assignment{}, err
+	}
 	if err := checkTargets(ctx, tx, in); err != nil {
 		return domain.Assignment{}, err
 	}
@@ -114,6 +117,9 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		return domain.Assignment{}, err
 	}
 	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, current.versionID); err != nil {
+		return domain.Assignment{}, err
+	}
+	if err := checkOptionShuffle(ctx, tx, in); err != nil {
 		return domain.Assignment{}, err
 	}
 	if err := checkTargets(ctx, tx, in); err != nil {
@@ -240,6 +246,25 @@ func publishedTestFor(ctx context.Context, tx pgx.Tx, versionID string) (string,
 		return "", fmt.Errorf("assignments: resolve version: %w", err)
 	}
 	return testID, nil
+}
+
+func checkOptionShuffle(ctx context.Context, tx pgx.Tx, in domain.WriteInput) error {
+	if !in.ShuffleO {
+		return nil
+	}
+	var fixed bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (
+        SELECT 1 FROM app.test_version_group_members m
+        JOIN app.test_version_groups g ON g.id=m.group_id
+        JOIN app.test_version_sections s ON s.id=g.test_version_section_id
+        WHERE s.test_version_id=$1 AND m.option_order='fixed')`, in.TestVersionID).Scan(&fixed)
+	if err != nil {
+		return fmt.Errorf("assignments: check option order: %w", err)
+	}
+	if fixed {
+		return &domain.ValidationError{Fields: []domain.FieldError{{Field: "shuffleOptions", Message: "Đề có câu hỏi dùng thứ tự đáp án cố định. Hãy tắt xáo trộn đáp án."}}}
+	}
+	return nil
 }
 
 // checkTargets rejects ids that name nothing, rather than letting the FK fail.

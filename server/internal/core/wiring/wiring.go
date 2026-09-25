@@ -34,12 +34,17 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
+	importsTransport, err := imports(ctx, cfg, dbx, mediaApp)
+	if err != nil {
+		return Assembly{}, err
+	}
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
-	testsApp := tests(dbx, questionsRepo, mediaRepo)
-	attemptsApp := attempts(dbx)
+	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
+	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts)
 
 	return Assembly{
 		Modules: router.Modules{
+			Imports:     importsTransport,
 			Dashboard:   dashboard(dbx),
 			Classes:     classesTransport(classesApp),
 			Identity:    identityTransport(cfg, identityApp),

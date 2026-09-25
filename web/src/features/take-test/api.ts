@@ -4,6 +4,7 @@ import type { components } from "@/lib/api/schema";
 export type AttemptSession = components["schemas"]["AttemptSession"];
 export type StudentQuestion = components["schemas"]["StudentQuestion"];
 export type StudentSection = components["schemas"]["StudentSection"];
+export type StudentGroup = components["schemas"]["StudentGroup"];
 export type Answer = components["schemas"]["Answer"];
 export type Attempt = components["schemas"]["Attempt"];
 export type IntegrityPolicy = components["schemas"]["IntegrityPolicy"];
@@ -43,6 +44,18 @@ export function recordAudioPlay(attemptId: string, questionId: string) {
   return api("post", "/app/attempts/{id}/audio-play", {
     path: { id: attemptId },
     body: { questionId },
+  });
+}
+
+export function recordGroupAudioPlay(
+  attemptId: string,
+  body: components["schemas"]["GroupAudioPlayInput"],
+  signal?: AbortSignal,
+) {
+  return api("post", "/app/attempts/{id}/group-audio-play", {
+    path: { id: attemptId },
+    body,
+    ...(signal ? { signal } : {}),
   });
 }
 

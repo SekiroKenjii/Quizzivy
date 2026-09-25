@@ -34,6 +34,11 @@ func (PublishManager) Validate(d DraftContent) error {
 	}
 	var total int64
 	for _, section := range d.Sections {
+		for _, group := range section.Groups {
+			if err := group.ValidateForPublish(false); err != nil {
+				add(Violation{Rule: GroupValid, SectionID: section.ID, GroupID: group.Group.ID, Message: "Nhóm câu hỏi chưa đầy đủ hoặc có liên kết ngữ liệu không hợp lệ."})
+			}
+		}
 		if len(section.Questions) == 0 {
 			add(Violation{
 				Rule:      SectionNotEmpty,
@@ -71,6 +76,7 @@ type Violation struct {
 	Message    string
 	SectionID  string
 	QuestionID string
+	GroupID    string
 }
 
 const (
@@ -83,6 +89,7 @@ const (
 	QuestionContentValid   Rule = "question_content_valid"
 	SectionNotEmpty        Rule = "section_not_empty"
 	QuestionValid          Rule = "question_valid"
+	GroupValid             Rule = "group_valid"
 	TotalPointsValid       Rule = "total_points_valid"
 )
 

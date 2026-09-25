@@ -1,5 +1,6 @@
 import { withinContentBudget } from "../budget";
 import type { JSONContent } from "@tiptap/core";
+import type { Node as EditorDocument } from "@tiptap/pm/model";
 import { z } from "zod";
 import type {
   ContentBlock,
@@ -252,6 +253,18 @@ function readBlock(
 }
 
 /** fromEditorJSON rejects unsupported editor structure before it can become learner content. */
+const validatedDocuments = new WeakMap<EditorDocument, ContentValidation>();
+
+/** fromEditorDoc validates an editor document once; documents are immutable, so every later check of the same node reuses the result. */
+export function fromEditorDoc(doc: EditorDocument): ContentValidation {
+  let validation = validatedDocuments.get(doc);
+  if (!validation) {
+    validation = fromEditorJSON(doc.toJSON());
+    validatedDocuments.set(doc, validation);
+  }
+  return validation;
+}
+
 export function fromEditorJSON(input: unknown): ContentValidation {
   if (!withinContentBudget(input)) return { ok: false, issue: "limit" };
   try {

@@ -54,10 +54,13 @@ func TestEditingTheBankAfterPublishLeavesTheVersionUnchanged(t *testing.T) {
 		t.Errorf("the version's points are %q, want 5.00", points)
 	}
 
-	var total string
+	var total, delivery string
 	if err := pool.QueryRow(ctx,
-		`SELECT total_points::text FROM app.test_versions WHERE id = $1`, version.ID).Scan(&total); err != nil {
+		`SELECT total_points::text, delivery_version FROM app.test_versions WHERE id = $1`, version.ID).Scan(&total, &delivery); err != nil {
 		t.Fatal(err)
+	}
+	if delivery != "group_v1" {
+		t.Errorf("new publication uses delivery version %q", delivery)
 	}
 	if total != "5.00" {
 		t.Errorf("the version's total_points is %q; the score denominator drifted", total)

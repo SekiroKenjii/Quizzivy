@@ -33,6 +33,10 @@ func (s *Timelines) Timeline(ctx context.Context, attemptID string) (domain.Time
 		                   FROM app.attempt_audio_plays p
 		                   JOIN app.test_version_questions q ON q.id = p.question_id
 		                  WHERE p.attempt_id = at.id AND q.audio_max_plays IS NOT NULL), 0)
+		       + coalesce((SELECT sum(greatest(p.plays-r.max_plays,0))
+		           FROM app.attempt_group_audio_plays p
+		           JOIN app.test_version_group_recordings r ON r.id=p.recording_id
+		           WHERE p.attempt_id=at.id AND r.max_plays IS NOT NULL),0)
 		  FROM app.attempts at
 		  JOIN app.assignments a ON a.id = at.assignment_id
 		 WHERE at.id = $1::uuid`, attemptID).Scan(&startedAt, &minAwayMs, &audioReplays)

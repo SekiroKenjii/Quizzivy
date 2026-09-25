@@ -2,7 +2,8 @@
 
 Status: content foundation plus W-05a options and W-05b question prose, with
 pilot authoring affordances, stable blank bindings and bounded clipboard conversion.
-Groups and import endpoints remain pending.
+Group graph validation/copy foundations are additive; group persistence and import
+endpoints remain pending.
 `api/openapi.yaml` is the structural authority. Go's `shared/content.Parse` and
 the frontend validator enforce the cross-node rules below. They share synthetic
 accept/reject fixtures; generated TS types are the frontend model. Go's domain
@@ -138,6 +139,49 @@ idempotent playback retries and session handover; immutable published bindings;
 and unchanged legacy deal/audio/leak canaries. This is an approved product policy,
 not an enabled player, new ledger schema or implemented group endpoint.
 
+
+## W-07a — independent group graph
+
+`QuestionGroup` is an additive admin contract; current section/test writes do not
+accept it. The tests domain resolves a `GroupBundle` against exactly its member
+questions, validates existing question invariants and rejects missing, duplicate
+or foreign members. The catalog's fetch order and UUID letter case do not define
+authored member order. Empty drafts are allowed; publication rejects emptiness.
+Fixed option order applies only to choice members and rejects a conflicting
+shuffle configuration rather than silently changing the assignment policy.
+
+A stimulus owns a content document plus one binding per gap. `question` targets
+a choice member; `blank` targets a rich fill-blank member's stable prompt gap.
+Printed labels may repeat. Binding IDs are local to a document, while response
+targets are unique across the group's materials. Blank row IDs are not stable
+targets because ordinary question writes may replace those rows. Unsupported
+targets, orphan gaps, missing keys, invalid content and mixed asset kinds fail
+before copy. These are graph checks in addition to the structural OpenAPI schema.
+
+Each audio asset appearing in materials has exactly one explicit recording
+binding, even when repeated across materials. It cannot also carry a member-level
+allowance in that group. Other member audio retains its own policy. Different
+groups may reuse the same file under independent recording identities. Group
+recording transcripts are teacher metadata: future learner/review projections
+must be explicit and disclosure-policy gated, never JSON casts of this graph.
+
+The complete resolved group is limited to 4 MiB, 200 members, 16 materials and
+16 recordings. Titles allow 200 Unicode scalars and recording transcripts
+100,000; the content-document limits still apply independently. Persistence must
+validate original bounded raw input, authorized media kinds and relational
+references, not treat successful domain validation as an access grant.
+
+`GroupBundle.Copy` first validates and deep-copies all data, then generates fresh
+group, member, option/blank, material, local-gap and recording identities. Both
+ends of cloze links are remapped together; exact text, keys, scores, order and
+audio policy remain unchanged. Asset IDs stay stable; future storage creates
+independent protected bindings. An invalid/repeated ID provider returns no
+partial copy and cannot mutate its source. Source provenance is not a live link.
+
+Relational ownership, group-only bank insertion, deletion races, optimistic
+revisions, snapshot/restore and learner delivery are not supplied by this value
+model. Keep new writes disabled until those lifecycle paths and readers ship;
+do not claim W-07 complete from these foundation tests.
 
 ## W-05a — inline option integration
 
