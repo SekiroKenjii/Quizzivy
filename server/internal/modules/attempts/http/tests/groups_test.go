@@ -108,7 +108,7 @@ func TestAttemptGroupTransportAuthorizesEveryAssetAndOmitsKeys(t *testing.T) {
 				t.Fatal(err)
 			}
 			body := response.Body.String()
-			for _, key := range []string{"isCorrect", "acceptedAnswers", "sampleAnswer", "transcript"} {
+			for _, key := range []string{"isCorrect", "acceptedAnswers", "sampleAnswer", "transcript", "transcripts"} {
 				if strings.Contains(body, `"`+key+`"`) {
 					t.Fatalf("payload leaked %s", key)
 				}

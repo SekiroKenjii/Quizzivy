@@ -166,6 +166,14 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	if err != nil {
 		return domain.Session{}, err
 	}
+	version, err := s.Store.DeliveryVersion(ctx, a.TestVersionID)
+	if err != nil {
+		return domain.Session{}, err
+	}
+	questions, err = domain.Deal.PresentVersion(version, a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions)
+	if err != nil {
+		return domain.Session{}, err
+	}
 	groups := []testsdomain.PreviewGroup{}
 	if slices.ContainsFunc(questions, func(q domain.Question) bool { return q.GroupID != "" }) {
 		if s.Groups == nil {
@@ -200,7 +208,7 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 		Attempt:           a.Attempt,
 		TestTitle:         r.TestTitle,
 		Sections:          sections,
-		Questions:         domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions),
+		Questions:         questions,
 		Groups:            groups,
 		SessionID:         a.SessionID,
 		BeaconToken:       beacon,

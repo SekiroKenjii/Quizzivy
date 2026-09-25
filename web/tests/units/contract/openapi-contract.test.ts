@@ -21,12 +21,13 @@ import { MAX_BYTES, MAX_DURATION_MS } from "@/features/media/limits";
 const doc = loadSpec();
 const ops = operations(doc);
 
-/** §13.5. `transcript` is the one exception, on the result endpoint only. */
+/** §13.5 permits question/shared transcripts only on the post-submission result endpoint. */
 const FORBIDDEN = [
   "isCorrect",
   "sampleAnswer",
   "acceptedAnswers",
   "transcript",
+  "transcripts",
   "teacherNote",
 ] as const;
 const TRANSCRIPT_ALLOWED_AT = new Set(["/app/attempts/{id}/result"]);
@@ -51,7 +52,9 @@ function successStatuses(op: Json): string[] {
 }
 
 function allowedAt(bad: string, path: string): boolean {
-  return bad === "transcript" && TRANSCRIPT_ALLOWED_AT.has(path);
+  return (
+    (bad === "transcript" || bad === "transcripts") && TRANSCRIPT_ALLOWED_AT.has(path)
+  );
 }
 
 describe("references", () => {

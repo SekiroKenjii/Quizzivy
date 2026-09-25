@@ -4,7 +4,9 @@ package word
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +14,36 @@ import (
 	"path"
 	"strings"
 )
+
+func declaredEntries(src io.ReaderAt, size int64) (uint64, bool) {
+	const eocdLength, zip64LocatorLength = 22, 20
+	window := min(size, int64(math.MaxUint16+eocdLength))
+	tail := make([]byte, window)
+	if _, err := src.ReadAt(tail, size-window); err != nil && !errors.Is(err, io.EOF) {
+		return 0, false
+	}
+	at := bytes.LastIndex(tail, []byte{0x50, 0x4b, 0x05, 0x06})
+	if at < 0 || len(tail)-at < eocdLength {
+		return 0, false
+	}
+	entries := uint64(binary.LittleEndian.Uint16(tail[at+10:]))
+	if entries != math.MaxUint16 || at < zip64LocatorLength {
+		return entries, true
+	}
+	locator := tail[at-zip64LocatorLength : at]
+	if !bytes.Equal(locator[:4], []byte{0x50, 0x4b, 0x06, 0x07}) {
+		return entries, true
+	}
+	record := make([]byte, 56)
+	offset := int64(binary.LittleEndian.Uint64(locator[8:]))
+	if offset < 0 || offset > size-int64(len(record)) {
+		return 0, false
+	}
+	if _, err := src.ReadAt(record, offset); err != nil || !bytes.Equal(record[:4], []byte{0x50, 0x4b, 0x06, 0x06}) {
+		return 0, false
+	}
+	return binary.LittleEndian.Uint64(record[32:]), true
+}
 
 // Limits bounds archive expansion and the total XML work performed by Inspect.
 type Limits struct {
@@ -61,6 +93,9 @@ func openArchive(ctx context.Context, src io.ReaderAt, size int64, limits Limits
 	_, _ = src.ReadAt(signature[:], 0)
 	if signature == [8]byte{0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1} {
 		return nil, ErrLegacyOrLocked
+	}
+	if declared, ok := declaredEntries(src, size); ok && declared > uint64(limits.Entries) {
+		return nil, fmt.Errorf("%w: archive entries", ErrLimit)
 	}
 	zr, err := zip.NewReader(src, size)
 	if err != nil {

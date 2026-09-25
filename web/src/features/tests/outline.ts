@@ -1,6 +1,9 @@
-import type { OutlineDraft } from "@/features/tests/api";
+import type { MixedOutlineSection, OutlineDraft } from "@/features/tests/api";
 
-export type OutlineSection = OutlineDraft["sections"][number];
+export type OutlineSection = OutlineDraft["sections"][number] & {
+  clientId?: string;
+  units?: MixedOutlineSection["units"];
+};
 
 /** Where a question sits: which section, and its position within it. */
 export interface QuestionAt {

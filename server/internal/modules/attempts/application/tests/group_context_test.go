@@ -96,6 +96,18 @@ func TestAttemptSharedContextIsFrozenSafeAndOwned(t *testing.T) {
 	if !errors.Is(err, testsdomain.ErrNotFound) || len(absent) != 0 {
 		t.Fatalf("missing version: %+v, %v", absent, err)
 	}
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, q := range result.Questions {
+		if q.ID != resumed.Questions[i].ID || !reflect.DeepEqual(q.Options, resumed.Questions[i].Options) {
+			t.Fatal("result changed the frozen question/option deal")
+		}
+	}
 }
 
 func attemptGroupFixture(t *testing.T, tx pgx.Tx, w world) (string, string) {
@@ -108,6 +120,7 @@ func attemptGroupFixture(t *testing.T, tx pgx.Tx, w world) (string, string) {
 		}
 	}
 	var section, group, asset, material, recording string
+	exec(`UPDATE app.test_versions SET delivery_version='group_v1' WHERE id=$1`, w.versionID)
 	if err := tx.QueryRow(ctx, `SELECT test_version_section_id::text FROM app.test_version_questions WHERE id=$1`, w.choice).Scan(&section); err != nil {
 		t.Fatal(err)
 	}

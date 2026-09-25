@@ -163,7 +163,7 @@ func (v *groupValidator) stimulus(stimulus GroupStimulus) error {
 	if !validGroupText(stimulus.Title, MaxGroupTitle, true) {
 		return &GroupError{Rule: groupContent, StimulusID: stimulus.ID}
 	}
-	document, err := content.Parse(stimulus.Content)
+	document, err := content.ParseMaterial(stimulus.Content)
 	if err != nil {
 		return &GroupError{Rule: groupContent, StimulusID: stimulus.ID}
 	}
