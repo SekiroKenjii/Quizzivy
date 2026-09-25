@@ -4190,8 +4190,10 @@ paths:
         Retry with identical uploadId, role, expectedRevision, filename and bytes.
         A changed replay conflicts. Completion creates exactly one source revision;
         replay returns its receipt even when later uploads advanced the import.
-        Only awaiting_sources accepts changes. Every storage write first has a
-        durable reservation; interruptions remain inspectable and quota-counted.
+        Uploads are accepted while the import awaits sources, has failed or is under
+        review; a new source set returns it to awaiting_sources, and processing again
+        keeps teacher edits. Every storage write first has a durable reservation;
+        interruptions remain inspectable and quota-counted.
         Source bytes and storage keys never enter ordinary logs or student payloads.
       x-max-body-bytes: 26345472
       parameters:
