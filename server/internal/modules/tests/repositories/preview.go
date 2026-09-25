@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
@@ -10,25 +11,46 @@ import (
 )
 
 // Preview renders a published version the way a student would receive it.
-func (s *Postgres) Preview(ctx context.Context, testID string, version int) (int, []domain.PreviewQuestion, error) {
+func (s *Postgres) Preview(ctx context.Context, testID string, version int) (domain.PreviewPaper, error) {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return domain.PreviewPaper{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 	var versionID string
-	var resolved int
-	err := s.QueryRow(ctx, `
-		SELECT v.id::text, v.version
-		  FROM app.test_versions v
-		 WHERE v.test_id = $1
-		   AND ($2 = 0 OR v.version = $2)
-		 ORDER BY v.version DESC
-		 LIMIT 1`, testID, version).Scan(&versionID, &resolved)
-	if err != nil {
-		return 0, nil, domain.ErrNotPublished
+	var paper domain.PreviewPaper
+	err = tx.QueryRow(ctx, `
+        SELECT v.id::text, v.version FROM app.test_versions v
+        JOIN app.tests t ON t.id=v.test_id
+        WHERE v.test_id=$1 AND t.deleted_at IS NULL
+        AND v.version=CASE WHEN $2::integer=0 THEN t.current_version ELSE $2 END
+        FOR SHARE OF v`, testID, version).Scan(&versionID, &paper.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.PreviewPaper{}, domain.ErrNotPublished
 	}
-
-	questions, err := s.previewQuestions(ctx, versionID)
 	if err != nil {
-		return 0, nil, err
+		return domain.PreviewPaper{}, err
 	}
-	return resolved, questions, nil
+	bound := NewPostgres(db.NewContext(tx), s.questions, s.media)
+	paper.Questions, err = bound.previewQuestions(ctx, versionID)
+	if err != nil {
+		return domain.PreviewPaper{}, err
+	}
+	paper.Sections, err = db.QueryMany(ctx, tx, `SELECT id::text,title,instructions
+        FROM app.test_version_sections WHERE test_version_id=$1 ORDER BY ordinal`, []any{versionID},
+		func(rows pgx.Rows) (domain.PreviewSection, error) {
+			var section domain.PreviewSection
+			err := rows.Scan(&section.ID, &section.Title, &section.Instructions)
+			return section, err
+		})
+	if err != nil {
+		return domain.PreviewPaper{}, err
+	}
+	paper.Groups, err = previewGroups(ctx, tx, versionID)
+	if err != nil {
+		return domain.PreviewPaper{}, err
+	}
+	return paper, tx.Commit(ctx)
 }
 
 func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]domain.PreviewQuestion, error) {

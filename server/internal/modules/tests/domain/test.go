@@ -30,6 +30,13 @@ type Section struct {
 	Title        string
 	Instructions *string
 	QuestionIDs  []string
+	Units        []SectionUnit
+}
+
+// SectionUnit identifies a standalone question or complete owned group in authored order.
+type SectionUnit struct {
+	Kind string
+	ID   string
 }
 
 type Status string

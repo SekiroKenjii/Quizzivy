@@ -106,7 +106,7 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	}
 
 	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
-	version, questionsOut := previewResult.Total, previewResult.Questions
+	version, questionsOut := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	}
 
 	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 1})
-	v1, questionsV1 := previewResult.Total, previewResult.Questions
+	v1, questionsV1 := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview v1: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	}
 
 	previewResult, err = svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
-	v2, questionsV2 := previewResult.Total, previewResult.Questions
+	v2, questionsV2 := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview current: %v", err)
 	}
