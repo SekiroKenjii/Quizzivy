@@ -33,11 +33,12 @@ type MethodsOf<P extends keyof paths> = {
 type JsonOf<T> = T extends { content: { "application/json": infer R } } ? R : never;
 
 type ResponsesOf<O> = O extends { responses: infer R } ? R : never;
-type OkStatusOf<O> = Extract<keyof ResponsesOf<O>, 200 | 201>;
-/** 204 responses have no JSON body, so they resolve to `void`. */
+type OkStatusOf<O> = Extract<keyof ResponsesOf<O>, 200 | 201 | 202>;
 type SuccessOf<O> = [OkStatusOf<O>] extends [never]
   ? void
-  : JsonOf<ResponsesOf<O>[OkStatusOf<O>]>;
+  : [JsonOf<ResponsesOf<O>[OkStatusOf<O>]>] extends [never]
+    ? void
+    : JsonOf<ResponsesOf<O>[OkStatusOf<O>]>;
 
 type BodyOf<O> = O extends { requestBody?: infer B }
   ? [B] extends [never]

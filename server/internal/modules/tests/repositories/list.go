@@ -17,13 +17,7 @@ const (
 const titleSearch = `app.immutable_unaccent(lower(t.title))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
 
-const tagCondition = `EXISTS (
-		SELECT 1
-		  FROM app.test_sections s
-		  JOIN app.test_section_questions sq ON sq.test_section_id = s.id
-		  JOIN app.questions q ON q.id = sq.question_id AND q.deleted_at IS NULL
-		 WHERE s.test_id = t.id AND q.tags && $%d::text[]
-	)`
+const tagCondition = `EXISTS (SELECT 1 FROM (` + draftQuestionRows + `) q WHERE q.tags && $%d::text[])`
 
 // List returns one page of live tests, newest first, and the paging that
 // goes with it (O-20: OFFSET, so the client can draw numbered pages).
@@ -119,9 +113,7 @@ func (s *Postgres) Tags(ctx context.Context, in domain.ListInput) ([]string, err
 	rows, err := s.Query(ctx, `
 		SELECT DISTINCT unnest(q.tags)
 		  FROM app.tests t
-		  JOIN app.test_sections sec ON sec.test_id = t.id
-		  JOIN app.test_section_questions sq ON sq.test_section_id = sec.id
-		  JOIN app.questions q ON q.id = sq.question_id AND q.deleted_at IS NULL
+		  JOIN LATERAL (`+draftQuestionRows+`) q ON true
 		 WHERE `+strings.Join(where, " AND ")+`
 		 ORDER BY 1`, args...)
 	if err != nil {

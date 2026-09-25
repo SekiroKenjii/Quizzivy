@@ -1,3 +1,4 @@
+import { BankNavigation } from "@/features/question-groups/components/BankNavigation";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { BulkActions } from "@/components/shared/BulkActions";
 import { formatRelative } from "@/lib/i18n/datetime";
@@ -196,6 +197,7 @@ export default function QuestionBankPage() {
           }
         />
 
+        <BankNavigation />
         <SearchInput
           className="w-full"
           value={query}

@@ -15,6 +15,11 @@ import (
 
 // Create writes the complete independent graph and its audit entry in one transaction; no partial group survives failure.
 func (s *GroupsPostgres) Create(ctx context.Context, in domain.CreateGroupInput) (domain.StoredGroup, error) {
+	stored, err := s.create(ctx, in)
+	return stored, groupWriteError(err)
+}
+
+func (s *GroupsPostgres) create(ctx context.Context, in domain.CreateGroupInput) (domain.StoredGroup, error) {
 	if err := in.Bundle.Validate(); err != nil {
 		return domain.StoredGroup{}, err
 	}

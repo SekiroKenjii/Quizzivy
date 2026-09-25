@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type { EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { SemanticContent } from "../model";
-import { fromEditorJSON } from "./adapter";
+import { fromEditorDoc } from "./adapter";
 import { pasteTransaction } from "./pasteTransaction";
 import type { EditorProfile } from "./profile";
 import type { EditorNotice } from "./extensions";
@@ -26,7 +26,7 @@ async function convertPaste(
     if (pending.view.isDestroyed) return { ...pending, failed: true };
     const content = clipboardHTML(html);
     const transaction = content && pasteTransaction(pending.state, content, profile);
-    const parsed = transaction && fromEditorJSON(transaction.doc.toJSON());
+    const parsed = transaction && fromEditorDoc(transaction.doc);
     const result =
       parsed?.ok && parsed.value.format === "semantic_v1" ? parsed.value : null;
     return { ...pending, content, result, failed: !result };

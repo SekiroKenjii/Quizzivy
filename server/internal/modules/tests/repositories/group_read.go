@@ -2,13 +2,31 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 
 	"github.com/jackc/pgx/v5"
 )
 
-func readGroupMaterials(ctx context.Context, tx pgx.Tx, group *domain.QuestionGroup) error {
-	rows, err := tx.Query(ctx, `SELECT id::text, title, content FROM app.group_stimuli WHERE group_id=$1 ORDER BY ordinal`, group.ID)
+type groupGraphTables struct {
+	materials  string
+	gaps       string
+	recordings string
+	assets     string
+}
+
+var draftGraphTables = groupGraphTables{
+	materials: "app.group_stimuli", gaps: "app.group_gap_bindings",
+	recordings: "app.group_recordings", assets: "app.group_stimulus_assets",
+}
+
+var frozenGraphTables = groupGraphTables{
+	materials: "app.test_version_group_stimuli", gaps: "app.test_version_group_gap_bindings",
+	recordings: "app.test_version_group_recordings", assets: "app.test_version_group_assets",
+}
+
+func readGroupMaterials(ctx context.Context, tx pgx.Tx, group *domain.QuestionGroup, tables groupGraphTables) error {
+	rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT id::text, title, content FROM %s WHERE group_id=$1 ORDER BY ordinal`, tables.materials), group.ID)
 	if err != nil {
 		return err
 	}
@@ -24,8 +42,8 @@ func readGroupMaterials(ctx context.Context, tx pgx.Tx, group *domain.QuestionGr
 	for i, material := range group.Stimuli {
 		byID[material.ID] = i
 	}
-	rows, err = tx.Query(ctx, `SELECT stimulus_id::text, kind, gap_id, question_id::text, blank_gap_id
-		FROM app.group_gap_bindings WHERE group_id=$1 ORDER BY stimulus_id, gap_id`, group.ID)
+	rows, err = tx.Query(ctx, fmt.Sprintf(`SELECT stimulus_id::text, kind, gap_id, question_id::text, blank_gap_id
+		FROM %s WHERE group_id=$1 ORDER BY stimulus_id, gap_id`, tables.gaps), group.ID)
 	if err != nil {
 		return err
 	}
@@ -45,9 +63,9 @@ func readGroupMaterials(ctx context.Context, tx pgx.Tx, group *domain.QuestionGr
 	return rows.Err()
 }
 
-func readGroupRecordings(ctx context.Context, tx pgx.Tx, group *domain.QuestionGroup) error {
-	rows, err := tx.Query(ctx, `SELECT id::text, media_asset_id::text, max_plays, allow_seek,
-		show_transcript_after_submit, transcript FROM app.group_recordings WHERE group_id=$1 ORDER BY id`, group.ID)
+func readGroupRecordings(ctx context.Context, tx pgx.Tx, group *domain.QuestionGroup, tables groupGraphTables) error {
+	rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT id::text, media_asset_id::text, max_plays, allow_seek,
+		show_transcript_after_submit, transcript FROM %s WHERE group_id=$1 ORDER BY id`, tables.recordings), group.ID)
 	if err != nil {
 		return err
 	}

@@ -34,5 +34,9 @@ func (s ResultHandler) Handle(ctx context.Context, q Result) (domain.Result, err
 	case domain.Voided:
 		return domain.Result{}, domain.ErrAttemptVoided
 	}
-	return s.Store.LoadResult(ctx, a)
+	result, err := s.Store.LoadResult(ctx, a)
+	if err != nil {
+		return domain.Result{}, err
+	}
+	return s.ResultContext(ctx, result)
 }

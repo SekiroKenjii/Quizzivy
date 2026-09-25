@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func lockDraftContent(ctx context.Context, tx pgx.Tx, testID string) error {
+func lockDraftContent(ctx context.Context, tx pgx.Tx, testID string, forCopy bool) error {
 	rows, err := tx.Query(ctx, `SELECT g.id FROM app.question_groups g JOIN app.test_sections s ON s.id=g.owner_section_id
 		WHERE s.test_id=$1 ORDER BY g.id FOR SHARE OF g`, testID)
 	if err != nil {
@@ -18,11 +18,15 @@ func lockDraftContent(ctx context.Context, tx pgx.Tx, testID string) error {
 	if _, err := pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
 		return err
 	}
+	lock := "FOR SHARE OF q"
+	if forCopy {
+		lock = "FOR UPDATE OF q"
+	}
 	rows, err = tx.Query(ctx, `WITH members AS (
 		SELECT sq.question_id FROM app.test_section_questions sq JOIN app.test_sections s ON s.id=sq.test_section_id WHERE s.test_id=$1
 		UNION SELECT u.question_id FROM app.test_section_units u JOIN app.test_sections s ON s.id=u.test_section_id WHERE s.test_id=$1 AND u.question_id IS NOT NULL
 		UNION SELECT q.id FROM app.questions q JOIN app.question_groups g ON g.id=q.context_group_id JOIN app.test_sections s ON s.id=g.owner_section_id WHERE s.test_id=$1
-	) SELECT q.id::text FROM members m JOIN app.questions q ON q.id=m.question_id ORDER BY q.id FOR SHARE OF q`, testID)
+	) SELECT q.id::text FROM members m JOIN app.questions q ON q.id=m.question_id ORDER BY q.id `+lock, testID)
 	if err != nil {
 		return err
 	}

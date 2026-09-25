@@ -26,7 +26,7 @@ func (s *Postgres) Publish(ctx context.Context, req domain.PublishRequest, now t
 		return domain.PublishedVersion{}, err
 	}
 
-	draft, err := s.loadDraft(ctx, tx, req.TestID)
+	draft, err := s.loadDraft(ctx, tx, req.TestID, false)
 	if err != nil {
 		return domain.PublishedVersion{}, err
 	}
@@ -90,9 +90,9 @@ func lockTest(ctx context.Context, tx pgx.Tx, testID string) (int, error) {
 func insertVersion(ctx context.Context, tx pgx.Tx, req domain.PublishRequest, version int, total string, now time.Time) (string, error) {
 	var id string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO app.test_versions (test_id, version, total_points, published_at, published_by)
-		 VALUES ($1, $2, $3::numeric, $4, $5) RETURNING id::text`,
-		req.TestID, version, total, now, req.ActorID).Scan(&id); err != nil {
+		`INSERT INTO app.test_versions (test_id, version, total_points, published_at, published_by, delivery_version)
+		 VALUES ($1, $2, $3::numeric, $4, $5, $6) RETURNING id::text`,
+		req.TestID, version, total, now, req.ActorID, domain.DeliveryGroupV1).Scan(&id); err != nil {
 		return "", fmt.Errorf("publish: insert version: %w", err)
 	}
 	return id, nil

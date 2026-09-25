@@ -14,9 +14,9 @@ import (
 //
 // Read inside the publish transaction, after the test row is locked, so what is
 // validated is exactly what is frozen.
-func (s *Postgres) loadDraft(ctx context.Context, tx pgx.Tx, testID string) (domain.DraftContent, error) {
+func (s *Postgres) loadDraft(ctx context.Context, tx pgx.Tx, testID string, forCopy bool) (domain.DraftContent, error) {
 	d := domain.DraftContent{TestID: testID}
-	if err := lockDraftContent(ctx, tx, testID); err != nil {
+	if err := lockDraftContent(ctx, tx, testID, forCopy); err != nil {
 		return domain.DraftContent{}, err
 	}
 
