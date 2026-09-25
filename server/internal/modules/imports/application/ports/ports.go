@@ -25,6 +25,13 @@ type Inspector interface {
 	Inspect(context.Context, io.ReaderAt, int64) error
 }
 
+// WorkerSignal tells the import worker that a run was queued. Wake never blocks
+// and never fails the request; a lost signal only delays the run until the
+// worker's next scheduled check.
+type WorkerSignal interface {
+	Wake()
+}
+
 // Runs queues and stops processing for the API; the worker owns every other run transition.
 type Runs interface {
 	Schedule(context.Context, domain.Schedule) (domain.Run, error)

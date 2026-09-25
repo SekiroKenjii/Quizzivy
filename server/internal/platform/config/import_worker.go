@@ -2,18 +2,23 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 )
 
 // ImportWorker contains the standalone processor's storage/runtime limits without API signing or Google credentials.
 // DockerBinary and ImageID are set together or not at all; without them the worker processes DOCX natively only.
+// WakeAddress is where the API's wake signal arrives; IdlePoll is the longest an idle worker waits without one.
 type ImportWorker struct {
 	Base                                               Config
 	DockerBinary, ImageID                              string
 	GlobalWorkers, ActorWorkers                        int
 	ActorArtifactMiB, GlobalArtifactMiB, SetsPerImport int
+	WakeAddress                                        string
+	IdlePoll                                           time.Duration
 }
 
 // LoadImportWorker reads an explicitly configured private worker; starting the API never starts this runtime.
@@ -55,5 +60,20 @@ func LoadImportWorker() (ImportWorker, error) {
 	if w.ActorWorkers > w.GlobalWorkers || w.ActorArtifactMiB > w.GlobalArtifactMiB {
 		return w, fmt.Errorf("worker actor limits must not exceed global limits")
 	}
-	return w, nil
+	return w, loadWorkerWake(&w)
+}
+
+func loadWorkerWake(w *ImportWorker) error {
+	w.WakeAddress = getenv("IMPORT_WORKER_WAKE_ADDR", "localhost:8091")
+	if _, _, err := net.SplitHostPort(w.WakeAddress); err != nil {
+		return fmt.Errorf("IMPORT_WORKER_WAKE_ADDR must be host:port: %w", err)
+	}
+	var err error
+	if w.IdlePoll, err = parseDuration("IMPORT_WORKER_IDLE_POLL", "1h"); err != nil {
+		return err
+	}
+	if w.IdlePoll < time.Minute || w.IdlePoll > 24*time.Hour {
+		return fmt.Errorf("IMPORT_WORKER_IDLE_POLL must be between 1m and 24h")
+	}
+	return nil
 }

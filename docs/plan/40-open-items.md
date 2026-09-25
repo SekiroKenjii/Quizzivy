@@ -255,8 +255,8 @@ Turning it on needs three things only Thuong can do or decide:
 
 - **Storage.** A private R2 bucket for imports, and an R2 token that reaches it.
   This is an account action.
-- **Cost.** A second Fly Machine for the worker. Until #143 is fixed, a Neon
-  compute also never suspends while that worker runs.
+- **Cost.** A second Fly Machine for the worker. Since #143 the worker sleeps
+  until woken, so Neon's compute can still suspend while it runs.
 - **W-21 gates.** W-21 is in `17-word-import.md` §6, and decisions D-07 and
   D-08 are in §10:
   - D-07, capacity: the quotas are still development defaults.

@@ -3,6 +3,7 @@ package wiring
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"quizzivy/internal/core/adapters"
 	importsapp "quizzivy/internal/modules/imports/application"
@@ -19,7 +20,7 @@ import (
 	"quizzivy/internal/platform/storage"
 )
 
-func imports(ctx context.Context, cfg config.Config, dbx db.Context, mediaApp *mediaapp.Application) (importshttp.Imports, error) {
+func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, mediaApp *mediaapp.Application) (importshttp.Imports, error) {
 	if cfg.ImportBucket == "" {
 		return importshttp.New(nil), nil
 	}
@@ -47,5 +48,9 @@ func imports(ctx context.Context, cfg config.Config, dbx db.Context, mediaApp *m
 			return app
 		},
 	}
-	return importshttp.New(importsapp.New(importsapp.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, Materializer: committer, WorkDir: cfg.ImportWorkDir, Quotas: quotas, Legacy: cfg.ImportLegacyDoc, Processing: cfg.ImportProcessing})), nil
+	deps := importsapp.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, Materializer: committer, WorkDir: cfg.ImportWorkDir, Quotas: quotas, Legacy: cfg.ImportLegacyDoc, Processing: cfg.ImportProcessing}
+	if cfg.ImportProcessing {
+		deps.Worker = adapters.NewWorkerWake(ctx, cfg.ImportWorkerWakeURL, logger)
+	}
+	return importshttp.New(importsapp.New(deps)), nil
 }

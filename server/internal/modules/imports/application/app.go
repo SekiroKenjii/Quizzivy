@@ -42,7 +42,7 @@ type Store interface {
 
 // Dependencies are the ports one import application needs. Legacy admits .doc
 // uploads; Processing says a worker is deployed, and without it Process refuses
-// rather than queue a run nothing will claim.
+// rather than queue a run nothing will claim. Worker is told of each queued run.
 type Dependencies struct {
 	Repo         domain.Repository
 	Drafts       domain.Drafts
@@ -53,6 +53,7 @@ type Dependencies struct {
 	Materializer ports.Materializer
 	WorkDir      string
 	Quotas       domain.Quotas
+	Worker       ports.WorkerSignal
 	Legacy       bool
 	Processing   bool
 }
@@ -63,14 +64,14 @@ func New(d Dependencies) *Application {
 		Commands: Commands{
 			Create:     command.CreateHandler{Repo: d.Repo, Quotas: d.Quotas},
 			Upload:     command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Slots: make(chan struct{}, 1), Legacy: d.Legacy},
-			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs, Enabled: d.Processing},
+			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs, Worker: d.Worker, Enabled: d.Processing},
 			Cancel:     command.CancelHandler{Runs: d.Runs},
 			SaveReview: command.SaveReviewHandler{Drafts: d.Drafts},
 			Adopt:      command.AdoptHandler{Drafts: d.Drafts},
 			Commit:     command.CommitHandler{Repo: d.Repo, Drafts: d.Drafts, Materializer: d.Materializer},
 		},
 		Queries: Queries{
-			Get:          query.GetHandler{Repo: d.Repo},
+			Get:          query.GetHandler{Repo: d.Repo, Worker: d.Worker},
 			List:         query.ListHandler{Repo: d.Repo},
 			Download:     query.DownloadHandler{Repo: d.Repo, Store: d.Store},
 			Review:       query.ReviewHandler{Drafts: d.Drafts},

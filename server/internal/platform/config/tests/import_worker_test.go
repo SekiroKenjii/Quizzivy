@@ -3,6 +3,7 @@ package config_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"quizzivy/internal/platform/config"
 )
@@ -14,6 +15,7 @@ func workerEnvironment(t *testing.T, overrides map[string]string) {
 		"IMPORT_DOCKER_BINARY": "/usr/bin/docker", "IMPORT_CONVERTER_IMAGE": "sha256:" + strings.Repeat("a", 64),
 		"IMPORT_WORKER_GLOBAL_LIMIT": "", "IMPORT_WORKER_ACTOR_LIMIT": "",
 		"IMPORT_ARTIFACT_ACTOR_MIB": "", "IMPORT_ARTIFACT_GLOBAL_MIB": "", "IMPORT_ARTIFACT_SETS_PER_ITEM": "",
+		"IMPORT_WORKER_WAKE_ADDR": "", "IMPORT_WORKER_IDLE_POLL": "",
 	})
 	_, _ = loadWith(t, merge(env, overrides))
 	t.Setenv("JWT_SIGNING_KEY", "")
@@ -32,6 +34,9 @@ func TestImportWorkerNeedsNoAPISecretsAndDefaultsToOneLease(t *testing.T) {
 	if len(cfg.Base.JWTSigningKey) != 0 {
 		t.Fatal("worker loaded API signing credentials")
 	}
+	if cfg.WakeAddress != "localhost:8091" || cfg.IdlePoll != time.Hour {
+		t.Fatalf("wake defaults: %q %v", cfg.WakeAddress, cfg.IdlePoll)
+	}
 }
 
 func TestImportWorkerRejectsUnboundedOrMutableRuntime(t *testing.T) {
@@ -45,6 +50,9 @@ func TestImportWorkerRejectsUnboundedOrMutableRuntime(t *testing.T) {
 		{"IMPORT_ARTIFACT_ACTOR_MIB": "2049"},
 		{"IMPORT_ARTIFACT_GLOBAL_MIB": "unlimited"},
 		{"IMPORT_ARTIFACT_SETS_PER_ITEM": "1001"},
+		{"IMPORT_WORKER_WAKE_ADDR": "8091"},
+		{"IMPORT_WORKER_IDLE_POLL": "2s"},
+		{"IMPORT_WORKER_IDLE_POLL": "48h"},
 	} {
 		workerEnvironment(t, extra)
 		if _, err := config.LoadImportWorker(); err == nil {

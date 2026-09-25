@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 )
@@ -20,6 +21,13 @@ func loadImports(cfg *Config) error {
 		return nil
 	}
 	cfg.ImportProcessing = processing
+	if processing {
+		wake, err := url.Parse(os.Getenv("IMPORT_WORKER_WAKE_URL"))
+		if err != nil || (wake.Scheme != "http" && wake.Scheme != "https") || wake.Host == "" {
+			return fmt.Errorf("IMPORT_PROCESSING_ENABLED requires IMPORT_WORKER_WAKE_URL, the worker's wake endpoint, as an http(s) URL")
+		}
+		cfg.ImportWorkerWakeURL = wake.String()
+	}
 	if !cfg.MediaEnabled() || cfg.ImportBucket == "" || cfg.ImportWorkDir == "" {
 		return fmt.Errorf("imports require existing S3 configuration, IMPORT_S3_BUCKET and IMPORT_WORK_DIR together")
 	}

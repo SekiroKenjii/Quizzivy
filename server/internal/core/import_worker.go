@@ -40,6 +40,10 @@ func RunImportWorker(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 	runner.Observe = jobs.ObserveImportRun(logger)
+	wake := make(chan struct{}, 1)
+	if err := jobs.ServeWake(ctx, logger, cfg.WakeAddress, wake); err != nil {
+		return err
+	}
 	logger.Info("import worker started", "pipeline", runner.Policy.PipelineVersion, "workerId", runner.Policy.WorkerID)
-	return jobs.RunImports(ctx, logger, runner, 2*time.Second)
+	return jobs.RunImports(ctx, logger, runner, jobs.ImportSchedule{Wake: wake, Idle: cfg.IdlePoll, Retry: 2 * time.Second})
 }

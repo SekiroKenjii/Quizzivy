@@ -48,7 +48,18 @@ without capacity measurements and approval of the supported envelope. Stage quot
 default to 512 MiB per creator, 2 GiB globally and 200 sets per import; pending
 reservations count, including artifacts left by interrupted workers.
 
-The worker polls every two seconds. SIGTERM/SIGINT cancels the current job,
+The worker does not poll on a timer. It claims until the queue is empty, then
+sleeps until one of three things happens:
+
+- The API wakes it. `process` sends `POST /wake` to `IMPORT_WORKER_WAKE_URL`, which
+  the worker serves on `IMPORT_WORKER_WAKE_ADDR`. Wakes coalesce and are retried
+  briefly, and a teacher watching a queued import re-sends one.
+- Queued work falls due: a delayed retry, an expiring lease, or a retired
+  pipeline version reaching its grace period.
+- `IMPORT_WORKER_IDLE_POLL` passes (1h by default), as a safety net.
+
+It never polls sooner than every two seconds. An idle worker therefore lets
+Neon's compute suspend (#143). SIGTERM/SIGINT cancels the current job,
 records a result that finished before the signal, and otherwise releases the run
 to the queue without spending an attempt; the fenced write gets at most five
 seconds. A heartbeat that fails transiently is retried until the lease is nearly
@@ -114,6 +125,9 @@ Turning it on is a decision, not only a deploy: see O-24 in
 4. **Acceptance.** Deploy, then take one small `.docx` through upload, review and
    draft.
 
-**Cost.** Each running worker is one more Machine. Until SekiroKenjii/Quizzivy#143
-is fixed, the worker also polls PostgreSQL every two seconds. While it runs, Neon's
-compute never suspends, which undoes the saving from SekiroKenjii/Quizzivy#134.
+**Cost.** Each running worker is one more Machine. The worker queries PostgreSQL
+only when woken, when work falls due, and once per `IMPORT_WORKER_IDLE_POLL`. Set
+that to `6h` in production, so an idle worker keeps Neon's compute awake about 20
+minutes a day. On Fly the API reaches the worker at
+`http://worker.process.quizzivy-api.internal:8091/wake`, and the worker listens on
+`fly-local-6pn:8091`. Nothing is exposed publicly.
