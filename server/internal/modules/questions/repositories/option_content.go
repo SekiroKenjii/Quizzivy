@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func optionContentValue(raw json.RawMessage) json.RawMessage {
+func nullableContent(raw json.RawMessage) json.RawMessage {
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return nil
 	}

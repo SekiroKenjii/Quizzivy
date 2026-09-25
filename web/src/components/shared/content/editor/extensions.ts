@@ -1,12 +1,15 @@
-import { Extension, Node } from "@tiptap/core";
-import { Plugin } from "@tiptap/pm/state";
+import { Extension, Node, isMacOS, isiOS } from "@tiptap/core";
+import { AllSelection, Plugin, Selection, TextSelection } from "@tiptap/pm/state";
+import { closeHistory } from "@tiptap/pm/history";
 import { Slice } from "@tiptap/pm/model";
+import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
-import { fromEditorJSON, toEditorJSON } from "./adapter";
+import { fromEditorDoc, toEditorJSON } from "./adapter";
 import { isOptionContent, plainOptionContent } from "../optionContent";
+import { validEditorProfile } from "./profile";
 import { safeContentURL } from "../validation";
 
 const Gap = Node.create({
@@ -37,13 +40,15 @@ function assetNode(name: string) {
   });
 }
 
-export type EditorNotice = "pasteBlocked" | "editBlocked";
+export type EditorNotice = "pasteBlocked" | "editBlocked" | "pasteStale";
 
 /** contentExtensions limits the editor to the W03 candidate content vocabulary. */
 export function contentExtensions(
   notify: (notice: EditorNotice) => void = () => undefined,
-  profile: "document" | "option" = "document",
+  profile: "document" | "option" | "question" | "prompt" = "document",
+  previewPaste: (view: EditorView, html: string) => void = () => notify("pasteBlocked"),
 ) {
+  let plainPaste = false;
   return [
     StarterKit.configure({
       blockquote: false,
@@ -69,16 +74,64 @@ export function contentExtensions(
       name: "contentBoundary",
       addProseMirrorPlugins: () => [
         new Plugin({
+          appendTransaction(transactions, _previous, current) {
+            return transactions.some(
+              (transaction) =>
+                transaction.getMeta("blur") || transaction.getMeta("structuredPaste"),
+            )
+              ? closeHistory(current.tr)
+              : null;
+          },
           filterTransaction(transaction) {
             if (!transaction.docChanged) return true;
-            const parsed = fromEditorJSON(transaction.doc.toJSON());
-            if (parsed.ok && (profile === "document" || isOptionContent(parsed.value)))
-              return true;
+            const parsed = fromEditorDoc(transaction.doc);
+            if (parsed.ok && validEditorProfile(parsed.value, profile)) return true;
             queueMicrotask(() => notify("editBlocked"));
             return false;
           },
           props: {
             handleKeyDown(view, event) {
+              const mod = isMacOS() || isiOS() ? event.metaKey : event.ctrlKey;
+              if (
+                mod &&
+                !event.altKey &&
+                !event.shiftKey &&
+                !event.isComposing &&
+                event.key.toLowerCase() === "a"
+              ) {
+                view.dispatch(
+                  view.state.tr.setSelection(new AllSelection(view.state.doc)),
+                );
+                view.focus();
+                return true;
+              }
+              if (
+                event.ctrlKey &&
+                !event.altKey &&
+                !event.metaKey &&
+                !event.isComposing &&
+                (event.key === "Home" || event.key === "End")
+              ) {
+                const edge =
+                  event.key === "Home"
+                    ? Selection.atStart(view.state.doc)
+                    : Selection.atEnd(view.state.doc);
+                view.dispatch(
+                  view.state.tr
+                    .setSelection(
+                      event.shiftKey
+                        ? TextSelection.create(
+                            view.state.doc,
+                            view.state.selection.anchor,
+                            edge.head,
+                          )
+                        : edge,
+                    )
+                    .scrollIntoView(),
+                );
+                view.focus();
+                return true;
+              }
               if (profile !== "option" || event.key !== "Enter" || event.isComposing)
                 return false;
               const hardBreak = view.state.schema.nodes.hardBreak;
@@ -88,31 +141,57 @@ export function contentExtensions(
               );
               return true;
             },
-            handlePaste(view, event) {
-              if (
-                event.clipboardData?.files.length ||
-                event.clipboardData?.getData("text/html")
-              ) {
+            handleDOMEvents: {
+              keydown(_view, event) {
+                plainPaste =
+                  event.shiftKey &&
+                  (event.metaKey || event.ctrlKey) &&
+                  event.key.toLowerCase() === "v";
+                return false;
+              },
+              keyup() {
+                plainPaste = false;
+                return false;
+              },
+              paste(view, event) {
+                const preferPlain = plainPaste;
+                plainPaste = false;
+                if (event.clipboardData?.files.length) {
+                  event.preventDefault();
+                  notify("pasteBlocked");
+                  return true;
+                }
+                const html = !preferPlain && event.clipboardData?.getData("text/html");
+                if (html) {
+                  event.preventDefault();
+                  previewPaste(view, html);
+                  return true;
+                }
+                if (profile !== "option") return false;
+                event.preventDefault();
+                const text = event.clipboardData?.getData("text/plain") ?? "";
+                const document = plainOptionContent(text);
+                if (!isOptionContent(document)) {
+                  notify("pasteBlocked");
+                  return true;
+                }
+                const paragraph = view.state.schema.nodeFromJSON(
+                  toEditorJSON(document),
+                ).firstChild;
+                if (paragraph)
+                  view.dispatch(
+                    view.state.tr
+                      .replaceSelection(new Slice(paragraph.content, 0, 0))
+                      .scrollIntoView(),
+                  );
+                return true;
+              },
+              drop(view, event) {
+                if (view.dragging) return false;
+                event.preventDefault();
                 notify("pasteBlocked");
                 return true;
-              }
-              if (profile !== "option") return false;
-              const text = event.clipboardData?.getData("text/plain") ?? "";
-              const document = plainOptionContent(text);
-              if (!isOptionContent(document)) {
-                notify("pasteBlocked");
-                return true;
-              }
-              const paragraph = view.state.schema.nodeFromJSON(
-                toEditorJSON(document),
-              ).firstChild;
-              if (paragraph)
-                view.dispatch(
-                  view.state.tr
-                    .replaceSelection(new Slice(paragraph.content, 0, 0))
-                    .scrollIntoView(),
-                );
-              return true;
+              },
             },
             handleDrop(_view, event, _slice, moved) {
               if (moved) return false;

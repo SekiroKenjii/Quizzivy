@@ -6,21 +6,23 @@ import (
 
 func InputOf(q domain.Question) domain.Input {
 	in := domain.Input{
-		Type:         q.Type,
-		Prompt:       q.Prompt,
-		MediaAssetID: q.MediaAssetID,
-		Audio:        q.Audio,
-		Transcript:   q.Transcript,
-		Points:       q.Points,
-		Explanation:  q.Explanation,
-		SampleAnswer: q.SampleAnswer,
-		Tags:         append([]string{}, q.Tags...),
+		Type:               q.Type,
+		Prompt:             q.Prompt,
+		PromptContent:      q.PromptContent,
+		MediaAssetID:       q.MediaAssetID,
+		Audio:              q.Audio,
+		Transcript:         q.Transcript,
+		Points:             q.Points,
+		Explanation:        q.Explanation,
+		ExplanationContent: q.ExplanationContent,
+		SampleAnswer:       q.SampleAnswer,
+		Tags:               append([]string{}, q.Tags...),
 	}
 	for _, o := range q.Options {
 		in.Options = append(in.Options, domain.OptionInput{Text: o.Text, IsCorrect: o.IsCorrect, Content: o.Content})
 	}
 	for _, b := range q.Blanks {
-		in.Blanks = append(in.Blanks, domain.BlankInput{
+		in.Blanks = append(in.Blanks, domain.BlankInput{GapID: b.GapID,
 			Ordinal: b.Ordinal, AcceptedAnswers: append([]string{}, b.AcceptedAnswers...), CaseSensitive: b.CaseSensitive,
 		})
 	}

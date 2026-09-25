@@ -256,9 +256,21 @@ func TestResolutionDirectFormattingClearsAmbiguousToggle(t *testing.T) {
 	}
 }
 
+func TestDirectMarksInsideATableStayResolved(t *testing.T) {
+	body := `<w:tbl><w:tr><w:tc><w:p><w:r><w:t>f</w:t></w:r><w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t>oo</w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>µF</w:t></w:r></w:p></w:tc></w:tr></w:tbl>`
+	got := resolved(t, resolutionEntries(body, "", ""))
+	runs := got.Paragraphs[0].Runs
+	if m := mark(t, runs[1], "u"); !m.Resolved || m.Value != "single" || !m.Direct {
+		t.Fatalf("direct underline in a table dropped: %+v", m)
+	}
+	if m := mark(t, runs[2], "b"); !m.Resolved || m.Value != "on" {
+		t.Fatalf("direct bold next to a Greek-script sign dropped: %+v", m)
+	}
+}
+
 func TestResolutionDoesNotGuessConditionalOrScriptMarks(t *testing.T) {
 	for _, tc := range []struct{ name, body, styles string }{
-		{"table", `<w:tbl><w:tr><w:tc><w:p><w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>`, ""},
+		{"table style", `<w:tbl><w:tr><w:tc><w:p><w:r><w:t>cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>`, `<w:style w:type="paragraph" w:styleId="a" w:default="1"><w:rPr><w:u w:val="single"/></w:rPr></w:style>`},
 		{"inherited complex script", `<w:p><w:r><w:t>Text</w:t></w:r></w:p>`, `<w:style w:type="paragraph" w:styleId="a" w:default="1"><w:rPr><w:cs/><w:b/></w:rPr></w:style>`},
 		{"non Latin", `<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>العربية</w:t></w:r></w:p>`, ""},
 		{"duplicate direct property", `<w:p><w:r><w:rPr><w:u w:val="single"/><w:u w:val="none"/></w:rPr><w:t>Text</w:t></w:r></w:p>`, ""},
@@ -390,5 +402,16 @@ func BenchmarkResolveFiftyNumberedParagraphs(b *testing.B) {
 		if _, err := word.Resolve(context.Background(), source); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func TestInstancesOfOneAbstractListContinueOneSequenceUnlessOverridden(t *testing.T) {
+	numbers := `<w:abstractNum w:abstractNumId="0">` + level(0, 1, "decimal", "%1.", "") + `</w:abstractNum>` +
+		`<w:num w:numId="3"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="4"><w:abstractNumId w:val="0"/></w:num>` +
+		`<w:num w:numId="5"><w:abstractNumId w:val="0"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`
+	body := numbered(3, 0, "a") + numbered(3, 0, "b") + numbered(4, 0, "c") + numbered(4, 0, "d") + numbered(5, 0, "restart") + numbered(4, 0, "e")
+	got := labels(t, resolved(t, resolutionEntries(body, "", numbers)))
+	if want := []string{"1.", "2.", "3.", "4.", "1.", "5."}; !slices.Equal(got, want) {
+		t.Fatalf("labels %v, want %v", got, want)
 	}
 }

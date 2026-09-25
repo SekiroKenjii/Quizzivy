@@ -51,6 +51,8 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
   return {
     type: question.type,
     prompt: question.prompt,
+    promptContent: question.promptContent ?? null,
+    explanationContent: question.explanationContent ?? null,
     mediaAssetId: question.media?.id ?? null,
     audio: question.audio ?? null,
     transcript: question.transcript ?? null,
@@ -63,6 +65,7 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
     blanks: (question.blanks ?? []).map((blank) => ({
       id: blank.id,
       ordinal: blank.ordinal,
+      gapId: blank.gapId ?? null,
       acceptedAnswers: blank.acceptedAnswers,
       caseSensitive: blank.caseSensitive ?? false,
     })),

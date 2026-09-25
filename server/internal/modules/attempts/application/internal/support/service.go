@@ -3,7 +3,11 @@ package support
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/modules/attempts/application/ports"
 	"quizzivy/internal/modules/attempts/domain"
+	testsquery "quizzivy/internal/modules/tests/application/query"
+	testsdomain "quizzivy/internal/modules/tests/domain"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +16,7 @@ import (
 // Service carries what the service handlers share: their ports and the helpers they call.
 type Service struct {
 	Store        domain.Repository
+	Groups       ports.GroupContexts
 	Now          func() time.Time
 	NewSessionID func() string
 	NewSeed      func() (int64, error)
@@ -161,6 +166,24 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	if err != nil {
 		return domain.Session{}, err
 	}
+	version, err := s.Store.DeliveryVersion(ctx, a.TestVersionID)
+	if err != nil {
+		return domain.Session{}, err
+	}
+	questions, err = domain.Deal.PresentVersion(version, a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions)
+	if err != nil {
+		return domain.Session{}, err
+	}
+	groups := []testsdomain.PreviewGroup{}
+	if slices.ContainsFunc(questions, func(q domain.Question) bool { return q.GroupID != "" }) {
+		if s.Groups == nil {
+			return domain.Session{}, domain.ErrGroupContextUnavailable
+		}
+		groups, err = s.Groups.Handle(ctx, testsquery.GroupContexts{VersionID: a.TestVersionID})
+		if err != nil {
+			return domain.Session{}, err
+		}
+	}
 	answers, err := s.Store.Answers(ctx, a.ID)
 	if err != nil {
 		return domain.Session{}, err
@@ -168,6 +191,13 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	plays, err := s.Store.AudioPlays(ctx, a.ID)
 	if err != nil {
 		return domain.Session{}, err
+	}
+	groupPlays := map[string]int{}
+	if len(groups) > 0 {
+		groupPlays, err = s.Store.GroupAudioPlays(ctx, a.ID)
+		if err != nil {
+			return domain.Session{}, err
+		}
 	}
 	tally, err := s.Store.Tally(ctx, a.AssignmentID, a.StudentID)
 	if err != nil {
@@ -178,13 +208,15 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 		Attempt:           a.Attempt,
 		TestTitle:         r.TestTitle,
 		Sections:          sections,
-		Questions:         domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions),
+		Questions:         questions,
+		Groups:            groups,
 		SessionID:         a.SessionID,
 		BeaconToken:       beacon,
 		ServerTime:        s.Now(),
 
-		AudioPlays: plays,
-		Answers:    answers,
-		Integrity:  r.Integrity,
+		AudioPlays:      plays,
+		GroupAudioPlays: groupPlays,
+		Answers:         answers,
+		Integrity:       r.Integrity,
 	}, nil
 }

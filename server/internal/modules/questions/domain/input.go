@@ -12,17 +12,19 @@ import (
 
 // Input is a create or update body, already parsed but not yet validated.
 type Input struct {
-	Type         Type
-	Prompt       string
-	MediaAssetID *string
-	Audio        *AudioPolicy
-	Transcript   *string
-	Options      []OptionInput
-	Blanks       []BlankInput
-	Points       string
-	Explanation  *string
-	SampleAnswer *string
-	Tags         []string
+	PromptContent      json.RawMessage
+	ExplanationContent json.RawMessage
+	Type               Type
+	Prompt             string
+	MediaAssetID       *string
+	Audio              *AudioPolicy
+	Transcript         *string
+	Options            []OptionInput
+	Blanks             []BlankInput
+	Points             string
+	Explanation        *string
+	SampleAnswer       *string
+	Tags               []string
 }
 
 type WriteRequest struct {
@@ -52,6 +54,7 @@ type OptionInput struct {
 }
 
 type BlankInput struct {
+	GapID           *string
 	ID              *string
 	Ordinal         int
 	AcceptedAnswers []string
@@ -68,9 +71,7 @@ type ListInput struct {
 	Limit    int
 }
 
-// Validate enforces the cross-field rules a schema cannot express. The request
-// validator has already checked types, lengths and enums. Publish re-runs these
-// against the snapshot, because the bank stays editable afterwards.
+// Validate enforces question invariants for HTTP, internal writes and publication.
 func (in Input) Validate(assetKind *string) error {
 	var errs []FieldError
 	add := func(field, msg string) { errs = append(errs, FieldError{Field: field, Message: msg}) }
@@ -82,7 +83,13 @@ func (in Input) Validate(assetKind *string) error {
 	if strings.TrimSpace(in.Prompt) == "" {
 		add("prompt", "Nội dung câu hỏi không được để trống.")
 	}
+	if _, valid := PointUnits(in.Points); !valid {
+		add("points", "Điểm phải lớn hơn 0, không quá 999999,99 và có tối đa hai chữ số thập phân.")
+	}
 
+	if err := in.ValidateContent(); err != nil {
+		errs = append(errs, err.(*ValidationError).Fields...)
+	}
 	validateOptions(in, add)
 	validateBlanks(in, add)
 	validateMedia(in, assetKind, add)
@@ -123,8 +130,8 @@ func validateOptions(in Input, add func(string, string)) {
 	if correct == 0 {
 		add("options", "Cần ít nhất một phương án đúng.")
 	}
-	if in.Type == SingleChoice && correct > 1 {
-		add("options", "Câu hỏi một đáp án chỉ được có một phương án đúng.")
+	if (in.Type == SingleChoice || in.Type == TrueFalse) && correct > 1 {
+		add("options", "Câu hỏi một đáp án hoặc đúng/sai chỉ được có một phương án đúng.")
 	}
 	if in.Type == TrueFalse && len(in.Options) != 2 {
 		add("options", "Câu đúng/sai phải có đúng hai phương án.")
@@ -141,14 +148,47 @@ func validateBlanks(in Input, add func(string, string)) {
 	if len(in.Blanks) == 0 {
 		add("blanks", "Cần ít nhất một chỗ trống.")
 	}
-	validateBlankOrdinalsMatchPrompt(in, validateEachBlank(in, add), add)
+	ordinals := validateEachBlank(in, add)
+	if !hasProse(in.PromptContent) {
+		validateBlankOrdinalsMatchPrompt(in, ordinals, add)
+		for _, blank := range in.Blanks {
+			if blank.GapID != nil {
+				add("blanks", "Liên kết chỗ trống chỉ dùng với nội dung có định dạng.")
+			}
+		}
+	}
+}
+
+func validateGapBindings(in Input, add func(string, string)) {
+	document, err := content.ParseQuestionPrompt(in.PromptContent)
+	if err != nil {
+		return
+	}
+	if len(document.GapIDs()) == 0 || len(in.Blanks) == 0 {
+		add("blanks", "Cần ít nhất một chỗ trống với đáp án tương ứng.")
+		return
+	}
+	expected := make(map[string]bool)
+	for _, id := range document.GapIDs() {
+		expected[id] = true
+	}
+	for _, blank := range in.Blanks {
+		if blank.GapID == nil || !expected[*blank.GapID] {
+			add("blanks", "Mỗi chỗ trống phải liên kết đúng một vị trí trong nội dung.")
+			continue
+		}
+		delete(expected, *blank.GapID)
+	}
+	if len(expected) != 0 {
+		add("blanks", "Có chỗ trống trong nội dung chưa có đáp án tương ứng.")
+	}
 }
 
 func validateEachBlank(in Input, add func(string, string)) map[int]bool {
 	seen := map[int]bool{}
 	for i, b := range in.Blanks {
-		if b.Ordinal < 1 {
-			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống bắt đầu từ 1.")
+		if b.Ordinal < 1 || b.Ordinal > 32767 {
+			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống phải từ 1 đến 32767.")
 		}
 		if seen[b.Ordinal] {
 			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống bị trùng.")

@@ -1,6 +1,6 @@
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
 import { useTranslation } from "react-i18next";
-import { Markdown } from "@/components/shared/Markdown";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { Answer } from "@/features/take-test/api";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,11 @@ export function AnswerReview({
   const given = answer?.answer ?? null;
   return (
     <div className="space-y-4">
-      <Markdown className="text-sm">{question.prompt}</Markdown>
+      <QuestionProse
+        className="text-sm"
+        text={question.prompt}
+        content={question.promptContent}
+      />
       {question.media?.kind === "audio" && (
         <AudioPlayer
           src={question.media.url}

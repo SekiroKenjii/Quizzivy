@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"crypto/sha256"
 	"encoding/binary"
+	testsdomain "quizzivy/internal/modules/tests/domain"
 	"slices"
 )
 
@@ -14,23 +15,47 @@ type DealManager struct{}
 // Present applies §7's two Shuffle switches. Questions move only inside their
 // section and sections keep the order given, so the navigator can group the
 // numbers by part (S-06, S-08) and still count them in presentation order; a
-// question whose section is not listed sorts after the listed ones. Blanks are
+// question whose section is not listed sorts after the listed ones. Groups move
+// as units with members in authored order. Fixed-label options and blanks are
 // never shuffled: a blank's ordinal is its position in the prompt text, so
 // reordering them would renumber the sentence the student is reading.
 func (DealManager) Present(seed int64, shuffleQuestions, shuffleOptions bool, sections []Section, qs []Question) []Question {
+	return present(seed, shuffleQuestions, shuffleOptions, sections, qs, true)
+}
+
+// PresentVersion deals with the snapshot's algorithm, refusing unsupported or inconsistent formats.
+func (DealManager) PresentVersion(version testsdomain.DeliveryVersion, seed int64, shuffleQuestions, shuffleOptions bool, sections []Section, qs []Question) ([]Question, error) {
+	switch version {
+	case testsdomain.DeliveryGroupV1:
+		return present(seed, shuffleQuestions, shuffleOptions, sections, qs, true), nil
+	case testsdomain.DeliverySectionV1:
+		if slices.ContainsFunc(qs, func(q Question) bool { return q.GroupID != "" || q.FixedOptionOrder }) {
+			return nil, ErrUnsupportedDeliveryVersion
+		}
+		return present(seed, shuffleQuestions, shuffleOptions, sections, qs, false), nil
+	default:
+		return nil, ErrUnsupportedDeliveryVersion
+	}
+}
+
+func present(seed int64, shuffleQuestions, shuffleOptions bool, sections []Section, qs []Question, grouped bool) []Question {
 	if shuffleQuestions {
-		qs = shuffleWithinSections(seed, sections, qs)
+		qs = shuffleWithinSections(seed, sections, qs, grouped)
 	}
 	if !shuffleOptions {
 		return qs
 	}
+	qs = slices.Clone(qs)
 	for i, q := range qs {
+		if q.FixedOptionOrder {
+			continue
+		}
 		qs[i].Options = Shuffle(seed, q.ID, q.Options, func(o Option) string { return o.ID })
 	}
 	return qs
 }
 
-func shuffleWithinSections(seed int64, sections []Section, qs []Question) []Question {
+func shuffleWithinSections(seed int64, sections []Section, qs []Question, grouped bool) []Question {
 	order := make([]string, 0, len(sections))
 	groups := map[string][]Question{}
 	for _, sec := range sections {
@@ -46,7 +71,43 @@ func shuffleWithinSections(seed int64, sections []Section, qs []Question) []Ques
 
 	out := make([]Question, 0, len(qs))
 	for _, id := range order {
-		out = append(out, Shuffle(seed, "questions", groups[id], func(q Question) string { return q.ID })...)
+		if grouped {
+			out = append(out, shuffleSectionUnits(seed, groups[id])...)
+		} else {
+			out = append(out, Shuffle(seed, "questions", groups[id], func(q Question) string { return q.ID })...)
+		}
+	}
+	return out
+}
+
+type questionUnit struct {
+	id      string
+	members []Question
+}
+
+func shuffleSectionUnits(seed int64, qs []Question) []Question {
+	units := make([]questionUnit, 0, len(qs))
+	byGroup := make(map[string]int)
+	for _, q := range qs {
+		if q.GroupID == "" {
+			units = append(units, questionUnit{id: q.ID, members: []Question{q}})
+			continue
+		}
+		index, exists := byGroup[q.GroupID]
+		if !exists {
+			index = len(units)
+			byGroup[q.GroupID] = index
+			units = append(units, questionUnit{id: "group:" + q.GroupID})
+		}
+		units[index].members = append(units[index].members, q)
+	}
+	ordered := Shuffle(seed, "questions", units, func(unit questionUnit) string { return unit.id })
+	out := make([]Question, 0, len(qs))
+	for _, unit := range ordered {
+		slices.SortFunc(unit.members, func(a, b Question) int {
+			return cmp.Or(cmp.Compare(a.GroupOrdinal, b.GroupOrdinal), cmp.Compare(a.ID, b.ID))
+		})
+		out = append(out, unit.members...)
 	}
 	return out
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/content"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -20,10 +22,8 @@ func snapshot(ctx context.Context, tx pgx.Tx, versionID string, d domain.DraftCo
 		if err != nil {
 			return err
 		}
-		for _, q := range section.Questions {
-			if err := freezeQuestion(ctx, tx, sectionID, q); err != nil {
-				return err
-			}
+		if err := freezeSectionGraph(ctx, tx, sectionID, section); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -43,19 +43,13 @@ func freezeSection(ctx context.Context, tx pgx.Tx, versionID string, section dom
 // lockMediaAssets takes every asset lock the snapshot needs, up front and in
 // sorted order.
 func lockMediaAssets(ctx context.Context, tx pgx.Tx, d domain.DraftContent, media MediaLocks) error {
-	seen := map[string]bool{}
-	var ids []string
-	for _, section := range d.Sections {
-		for _, q := range section.Questions {
-			if q.MediaAssetID == nil || seen[*q.MediaAssetID] {
-				continue
-			}
-			seen[*q.MediaAssetID] = true
-			ids = append(ids, *q.MediaAssetID)
-		}
+	ids, err := snapshotMediaIDs(d)
+	if err != nil {
+		return err
 	}
-	slices.Sort(ids)
-
+	if len(ids) > 0 && media == nil {
+		return fmt.Errorf("publish: media reference locks unavailable")
+	}
 	for _, id := range ids {
 		if err := media.LockForVersionUse(ctx, tx, id); err != nil {
 			return fmt.Errorf("publish: media asset %s: %w", id, err)
@@ -64,26 +58,29 @@ func lockMediaAssets(ctx context.Context, tx pgx.Tx, d domain.DraftContent, medi
 	return nil
 }
 
-func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q domain.DraftQuestion) error {
+func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q domain.DraftQuestion) (string, error) {
 	var id string
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO app.test_version_questions
 		       (test_version_section_id, ordinal, source_question_id, type, prompt,
 		        media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
-		        audio_show_transcript_after, transcript, points, explanation, sample_answer)
+		        audio_show_transcript_after, transcript, points, explanation, sample_answer, prompt_content, explanation_content)
 		VALUES ($1, $2, $3, $4::app.question_type, $5, $6, $7::app.media_kind, $8, $9, $10,
-		        $11, $12::numeric, $13, $14)
+		        $11, $12::numeric, $13, $14, $15, $16)
 		RETURNING id::text`,
 		sectionID, q.Ordinal, q.SourceID, q.Type, q.Prompt,
 		q.MediaAssetID, q.MediaAssetKind, q.MaxPlays, q.AllowSeek, q.ShowTranscript,
-		q.Transcript, q.Points, q.Explanation, q.SampleAnswer).Scan(&id); err != nil {
-		return fmt.Errorf("publish: freeze question: %w", err)
+		q.Transcript, q.Points, q.Explanation, q.SampleAnswer, q.PromptContent, q.ExplanationContent).Scan(&id); err != nil {
+		return "", fmt.Errorf("publish: freeze question: %w", err)
 	}
 
 	if err := freezeOptions(ctx, tx, id, q.Options); err != nil {
-		return err
+		return "", err
 	}
-	return freezeBlanks(ctx, tx, id, q.Blanks)
+	if err := freezeBlanks(ctx, tx, id, q.Blanks); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func freezeOptions(ctx context.Context, tx pgx.Tx, questionID string, options []domain.DraftOption) error {
@@ -108,9 +105,9 @@ func freezeBlanks(ctx context.Context, tx pgx.Tx, questionID string, blanks []do
 		var blankID string
 		if err := tx.QueryRow(ctx,
 			`INSERT INTO app.test_version_blanks
-			        (test_version_question_id, ordinal, case_sensitive)
-			 VALUES ($1, $2, $3) RETURNING id::text`,
-			questionID, b.Ordinal, b.CaseSensitive).Scan(&blankID); err != nil {
+			        (test_version_question_id, ordinal, case_sensitive, gap_id)
+			 VALUES ($1, $2, $3, $4) RETURNING id::text`,
+			questionID, b.Ordinal, b.CaseSensitive, b.GapID).Scan(&blankID); err != nil {
 			return fmt.Errorf("publish: freeze blank: %w", err)
 		}
 		for _, answer := range b.AcceptedAnswers {
@@ -118,6 +115,41 @@ func freezeBlanks(ctx context.Context, tx pgx.Tx, questionID string, blanks []do
 				`INSERT INTO app.test_version_blank_answers (test_version_blank_id, answer)
 				 VALUES ($1, $2)`, blankID, answer); err != nil {
 				return fmt.Errorf("publish: freeze blank answer: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func snapshotMediaIDs(d domain.DraftContent) ([]string, error) {
+	seen := make(map[string]bool)
+	for _, section := range d.Sections {
+		for _, question := range section.Questions {
+			if question.MediaAssetID != nil {
+				seen[strings.ToLower(*question.MediaAssetID)] = true
+			}
+		}
+		if err := collectGroupAssets(section.Groups, seen); err != nil {
+			return nil, err
+		}
+	}
+	ids := make([]string, 0, len(seen))
+	for id := range seen {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids, nil
+}
+
+func collectGroupAssets(groups []domain.GroupBundle, seen map[string]bool) error {
+	for _, group := range groups {
+		for _, material := range group.Group.Stimuli {
+			document, err := content.Parse(material.Content)
+			if err != nil {
+				return err
+			}
+			for _, asset := range document.Assets() {
+				seen[strings.ToLower(asset.ID)] = true
 			}
 		}
 	}

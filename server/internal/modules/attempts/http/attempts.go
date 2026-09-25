@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
+	testshttp "quizzivy/internal/modules/tests/http"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 )
@@ -38,6 +39,8 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 	case errors.Is(err, domain.ErrLimitReached):
 		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.Error(ctx,
 			openapi.ATTEMPTLIMITREACHED, "Bạn đã dùng hết số lượt làm bài.")), nil
+	case (errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion)):
+		return nil, httpx.ErrNotImplemented
 	case err != nil:
 		return nil, err
 	}
@@ -68,6 +71,9 @@ func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequ
 				httpapi.Error(ctx, openapi.FORBIDDEN, "Bạn không có quyền xem bài làm này.")),
 		}, nil
 	}
+	if errors.Is(err, domain.ErrGroupContextUnavailable) || errors.Is(err, domain.ErrUnsupportedDeliveryVersion) {
+		return nil, httpx.ErrNotImplemented
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +86,16 @@ func (h Attempts) GetAttempt(ctx context.Context, request openapi.GetAttemptRequ
 }
 
 func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in domain.Session) (openapi.AttemptSession, error) {
+	groupPlays := in.GroupAudioPlays
+	if groupPlays == nil {
+		groupPlays = map[string]int{}
+	}
+	groups, err := testshttp.StudentGroups(ctx, in.Groups, func(ctx context.Context, id string) (*openapi.MediaAsset, error) {
+		return h.groupAsset(ctx, studentID, id)
+	})
+	if err != nil {
+		return openapi.AttemptSession{}, err
+	}
 	questions := make([]openapi.StudentQuestion, len(in.Questions))
 	for i, q := range in.Questions {
 		converted, err := h.toAPIStudentQuestion(ctx, studentID, q)
@@ -109,10 +125,12 @@ func (h Attempts) toAPIAttemptSession(ctx context.Context, studentID string, in 
 		TestTitle:         in.TestTitle,
 		Sections:          sections,
 		Questions:         questions,
+		Groups:            &groups,
 		SessionId:         httpapi.ParseUUID(in.SessionID),
 		BeaconToken:       in.BeaconToken,
 		ServerTime:        in.ServerTime,
 		AudioPlays:        in.AudioPlays,
+		GroupAudioPlays:   &groupPlays,
 		Answers:           answers,
 		Integrity: openapi.IntegrityPolicy{
 			RequireFullscreen: in.Integrity.RequireFullscreen,
@@ -146,11 +164,12 @@ func toAPIAttempt(a domain.Attempt) openapi.Attempt {
 
 func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q domain.Question) (openapi.StudentQuestion, error) {
 	out := openapi.StudentQuestion{
-		Id:        httpapi.ParseUUID(q.ID),
-		SectionId: httpapi.ParseUUID(q.SectionID),
-		Type:      openapi.QuestionType(q.Type),
-		Prompt:    q.Prompt,
-		Points:    q.Points,
+		Id:            httpapi.ParseUUID(q.ID),
+		SectionId:     httpapi.ParseUUID(q.SectionID),
+		Type:          openapi.QuestionType(q.Type),
+		Prompt:        q.Prompt,
+		PromptContent: q.PromptContent,
+		Points:        q.Points,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
@@ -163,6 +182,7 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
 		for i, b := range q.Blanks {
 			blanks[i] = openapi.StudentBlank{
+				GapId:         b.GapID,
 				Id:            httpapi.ParseUUID(b.ID),
 				Ordinal:       b.Ordinal,
 				CaseSensitive: b.CaseSensitive,

@@ -16,26 +16,30 @@ type DraftSection struct {
 	Title        string
 	Instructions *string
 	Questions    []DraftQuestion
+	Groups       []GroupBundle
+	Units        []DraftUnit
 }
 
 // DraftQuestion is one bank question resolved for the snapshot, in the position the
 // outline gives it.
 type DraftQuestion struct {
-	SourceID       string
-	Ordinal        int
-	Type           string
-	Prompt         string
-	MediaAssetID   *string
-	MediaAssetKind *string
-	MaxPlays       *int
-	AllowSeek      *bool
-	ShowTranscript *bool
-	Transcript     *string
-	Points         string
-	Explanation    *string
-	SampleAnswer   *string
-	Options        []DraftOption
-	Blanks         []DraftBlank
+	PromptContent      json.RawMessage
+	ExplanationContent json.RawMessage
+	SourceID           string
+	Ordinal            int
+	Type               string
+	Prompt             string
+	MediaAssetID       *string
+	MediaAssetKind     *string
+	MaxPlays           *int
+	AllowSeek          *bool
+	ShowTranscript     *bool
+	Transcript         *string
+	Points             string
+	Explanation        *string
+	SampleAnswer       *string
+	Options            []DraftOption
+	Blanks             []DraftBlank
 }
 
 // DraftOption is a choice option as the draft holds it.
@@ -48,32 +52,26 @@ type DraftOption struct {
 
 // DraftBlank is a fill_blank slot with its accepted answers.
 type DraftBlank struct {
+	GapID           *string
 	Ordinal         int
 	CaseSensitive   bool
 	AcceptedAnswers []string
 }
 
-func isChoice(questionType string) bool {
-	switch questionType {
-	case "single_choice", "multiple_choice", "true_false":
-		return true
-	}
-	return false
-}
-
 // PreviewQuestion is one question as a student receives it.
 type PreviewQuestion struct {
-	ID           string
-	SectionID    string
-	Type         string
-	Prompt       string
-	Points       string
-	MediaAssetID *string
-	MaxPlays     *int
-	AllowSeek    *bool
-	ShowScript   *bool
-	Options      []PreviewOption
-	Blanks       []PreviewBlank
+	PromptContent json.RawMessage
+	ID            string
+	SectionID     string
+	Type          string
+	Prompt        string
+	Points        string
+	MediaAssetID  *string
+	MaxPlays      *int
+	AllowSeek     *bool
+	ShowScript    *bool
+	Options       []PreviewOption
+	Blanks        []PreviewBlank
 }
 
 type PreviewOption struct {
@@ -83,7 +81,14 @@ type PreviewOption struct {
 }
 
 type PreviewBlank struct {
+	GapID         *string
 	ID            string
 	Ordinal       int
 	CaseSensitive bool
+}
+
+// DraftUnit is one ordered standalone question or independent group within a section.
+type DraftUnit struct {
+	QuestionID string
+	GroupID    string
 }

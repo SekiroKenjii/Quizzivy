@@ -71,7 +71,7 @@ func (s *Postgres) Counts(ctx context.Context, in domain.ListInput) (total int, 
 	args, where := appendFilters(in, allFilters())
 
 	if err := s.QueryRow(ctx, `
-		SELECT (SELECT count(*) FROM app.questions q WHERE q.deleted_at IS NULL),
+		SELECT (SELECT count(*) FROM app.questions q WHERE q.deleted_at IS NULL AND q.context_group_id IS NULL),
 		       (SELECT count(*) FROM app.questions q WHERE `+strings.Join(where, " AND ")+`)`,
 		args...).Scan(&total, &filtered); err != nil {
 		return 0, 0, fmt.Errorf("questions: counts: %w", err)

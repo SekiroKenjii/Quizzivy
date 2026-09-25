@@ -6,15 +6,19 @@ import (
 )
 
 type Question struct {
-	ID        string
-	SectionID string
-	Type      string
-	Prompt    string
-	Points    float64
-	Media     *Media
-	Audio     *AudioPolicy
-	Options   []Option
-	Blanks    []Blank
+	GroupID          string
+	GroupOrdinal     int
+	FixedOptionOrder bool
+	PromptContent    json.RawMessage
+	ID               string
+	SectionID        string
+	Type             string
+	Prompt           string
+	Points           float64
+	Media            *Media
+	Audio            *AudioPolicy
+	Options          []Option
+	Blanks           []Blank
 }
 
 // Section is one part of the paper in test order; Instructions is the
@@ -36,6 +40,7 @@ type Option struct {
 }
 
 type Blank struct {
+	GapID         *string
 	ID            string
 	Ordinal       int
 	CaseSensitive bool
