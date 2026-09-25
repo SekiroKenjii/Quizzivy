@@ -30,7 +30,14 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord) (doma
 	if err != nil {
 		return domain.Result{}, err
 	}
-	base = domain.Deal.Present(a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
+	version, err := s.DeliveryVersion(ctx, a.TestVersionID)
+	if err != nil {
+		return domain.Result{}, err
+	}
+	base, err = domain.Deal.PresentVersion(version, a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
+	if err != nil {
+		return domain.Result{}, err
+	}
 
 	extras, err := s.resultExtras(ctx, a.TestVersionID, rules.Review)
 	if err != nil {

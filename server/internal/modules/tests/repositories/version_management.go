@@ -23,6 +23,9 @@ func (s *Postgres) SetCurrentVersion(ctx context.Context, req domain.VersionRequ
 	if err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt); err != nil {
 		return domain.Test{}, err
 	}
+	if err := requireActiveTest(ctx, tx, req.ID); err != nil {
+		return domain.Test{}, err
+	}
 	if _, err := lockVersion(ctx, tx, req); err != nil {
 		return domain.Test{}, err
 	}
@@ -40,6 +43,9 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt); err != nil {
+		return domain.Test{}, err
+	}
+	if err := requireActiveTest(ctx, tx, req.ID); err != nil {
 		return domain.Test{}, err
 	}
 	versionID, err := lockVersion(ctx, tx, req)
@@ -73,6 +79,17 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 		return domain.Test{}, err
 	}
 	return s.finishVersionChange(ctx, tx, req, now, "test.draft_restored")
+}
+
+func requireActiveTest(ctx context.Context, tx pgx.Tx, testID string) error {
+	var archived bool
+	if err := tx.QueryRow(ctx, `SELECT status='archived' FROM app.tests WHERE id=$1`, testID).Scan(&archived); err != nil {
+		return err
+	}
+	if archived {
+		return domain.ErrArchived
+	}
+	return nil
 }
 
 func lockVersion(ctx context.Context, tx pgx.Tx, req domain.VersionRequest) (string, error) {

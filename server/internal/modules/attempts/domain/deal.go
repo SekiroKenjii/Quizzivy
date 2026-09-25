@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"crypto/sha256"
 	"encoding/binary"
+	testsdomain "quizzivy/internal/modules/tests/domain"
 	"slices"
 )
 
@@ -19,8 +20,27 @@ type DealManager struct{}
 // never shuffled: a blank's ordinal is its position in the prompt text, so
 // reordering them would renumber the sentence the student is reading.
 func (DealManager) Present(seed int64, shuffleQuestions, shuffleOptions bool, sections []Section, qs []Question) []Question {
+	return present(seed, shuffleQuestions, shuffleOptions, sections, qs, true)
+}
+
+// PresentVersion deals with the snapshot's algorithm, refusing unsupported or inconsistent formats.
+func (DealManager) PresentVersion(version testsdomain.DeliveryVersion, seed int64, shuffleQuestions, shuffleOptions bool, sections []Section, qs []Question) ([]Question, error) {
+	switch version {
+	case testsdomain.DeliveryGroupV1:
+		return present(seed, shuffleQuestions, shuffleOptions, sections, qs, true), nil
+	case testsdomain.DeliverySectionV1:
+		if slices.ContainsFunc(qs, func(q Question) bool { return q.GroupID != "" || q.FixedOptionOrder }) {
+			return nil, ErrUnsupportedDeliveryVersion
+		}
+		return present(seed, shuffleQuestions, shuffleOptions, sections, qs, false), nil
+	default:
+		return nil, ErrUnsupportedDeliveryVersion
+	}
+}
+
+func present(seed int64, shuffleQuestions, shuffleOptions bool, sections []Section, qs []Question, grouped bool) []Question {
 	if shuffleQuestions {
-		qs = shuffleWithinSections(seed, sections, qs)
+		qs = shuffleWithinSections(seed, sections, qs, grouped)
 	}
 	if !shuffleOptions {
 		return qs
@@ -35,7 +55,7 @@ func (DealManager) Present(seed int64, shuffleQuestions, shuffleOptions bool, se
 	return qs
 }
 
-func shuffleWithinSections(seed int64, sections []Section, qs []Question) []Question {
+func shuffleWithinSections(seed int64, sections []Section, qs []Question, grouped bool) []Question {
 	order := make([]string, 0, len(sections))
 	groups := map[string][]Question{}
 	for _, sec := range sections {
@@ -51,7 +71,11 @@ func shuffleWithinSections(seed int64, sections []Section, qs []Question) []Ques
 
 	out := make([]Question, 0, len(qs))
 	for _, id := range order {
-		out = append(out, shuffleSectionUnits(seed, groups[id])...)
+		if grouped {
+			out = append(out, shuffleSectionUnits(seed, groups[id])...)
+		} else {
+			out = append(out, Shuffle(seed, "questions", groups[id], func(q Question) string { return q.ID })...)
+		}
 	}
 	return out
 }

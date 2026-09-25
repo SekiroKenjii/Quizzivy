@@ -1,4 +1,9 @@
-import { emptyQuestion, questionSchema } from "@/features/question-bank/questionSchema";
+import {
+  emptyQuestion,
+  issueKey,
+  questionSchema,
+} from "@/features/question-bank/questionSchema";
+import vi from "@/lib/i18n/locales/vi.json";
 
 function choice(
   type: "single_choice" | "multiple_choice" | "true_false",
@@ -72,4 +77,28 @@ test("rejects disconnected, duplicate and empty blank answers", () => {
       blanks: [{ ...value.blanks[0], acceptedAnswers: [" "] }],
     }).success,
   ).toBe(false);
+});
+
+test("every issue the editor can show is a translated key, never zod's own text", () => {
+  const cases = [
+    { ...choice("single_choice", 1), points: 1000000 },
+    { ...choice("single_choice", 1), tags: [""] },
+    {
+      ...choice("single_choice", 1),
+      audio: { maxPlays: 0, allowSeek: true, showTranscriptAfterSubmit: false },
+    },
+    { ...choice("single_choice", 0), prompt: "" },
+  ];
+  for (const value of cases) {
+    const parsed = questionSchema.safeParse(value);
+    expect(parsed.success).toBe(false);
+    const key = issueKey(parsed.error!, "questionEditor.saveFailed");
+    const text = key
+      .split(".")
+      .reduce<unknown>(
+        (node, part) => (node as Record<string, unknown> | undefined)?.[part],
+        vi,
+      );
+    expect(typeof text, key).toBe("string");
+  }
 });

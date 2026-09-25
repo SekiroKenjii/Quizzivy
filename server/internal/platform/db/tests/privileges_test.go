@@ -61,7 +61,7 @@ func TestAppRoleCanReadAndWriteEveryTable(t *testing.T) {
 func TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole(t *testing.T) {
 	conn := migrated(t)
 
-	for _, table := range []string{"app.audit_log", "app.attempt_events"} {
+	for _, table := range []string{"app.audit_log", "app.attempt_events", "app.attempt_group_audio_receipts"} {
 		t.Run(table, func(t *testing.T) {
 			for _, priv := range []string{"SELECT", "INSERT"} {
 				if !hasTablePrivilege(t, conn, appRole, table, priv) {

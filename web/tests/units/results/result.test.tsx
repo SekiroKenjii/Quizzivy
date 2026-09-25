@@ -10,6 +10,7 @@ import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { viewport } from "@tests/support/viewport";
 import "@/lib/i18n";
+import { previewGroup } from "@tests/support/groupPreview";
 
 const BASE = "http://localhost:8080";
 const ATTEMPT_ID = "018f0000-0000-7000-8000-0000000000a7";
@@ -115,6 +116,77 @@ function serve(body: unknown) {
 
 beforeEach(() => viewport("phone"));
 afterEach(() => vi.unstubAllGlobals());
+
+it("keeps shared material under a result filter and follows gaps to a hidden question", async () => {
+  const body = result(
+    { showScore: true, showCorrectAnswers: false, showExplanations: false },
+    false,
+  );
+  const group = {
+    ...previewGroup,
+    questionIds: body.questions.map((question) => question.id),
+    stimuli: [
+      {
+        ...previewGroup.stimuli[0]!,
+        gaps: [
+          {
+            kind: "question" as const,
+            gapId: "material",
+            questionId: body.questions[1]!.id,
+          },
+        ],
+      },
+    ],
+  };
+  serve({
+    ...body,
+    sharedContext: {
+      groups: [group],
+      transcripts: {},
+      audioPlays: { [group.recordings[0]!.id]: 3 },
+    },
+  });
+  renderResult();
+  const user = userEvent.setup();
+  await screen.findByText(group.title);
+  expect(screen.queryByText("Nội dung bài nghe")).not.toBeInTheDocument();
+  expect(
+    screen.getByText("Đã nghe 3 lượt · Quy định 2 lượt cho cả nhóm"),
+  ).toBeVisible();
+  await user.click(screen.getByRole("button", { name: /^Sai/ }));
+  expect(screen.getByText(group.title)).toBeVisible();
+  expect(screen.queryByText(body.questions[1]!.prompt)).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Ô A — chuyển đến câu 2" }));
+  expect(screen.getByText(body.questions[1]!.prompt)).toBeVisible();
+  expect(document.activeElement).toHaveAttribute(
+    "id",
+    `result-question-${body.questions[1]!.id}`,
+  );
+});
+
+it("shows a released group transcript while score, answer keys and explanations are hidden", async () => {
+  const body = result(
+    { showScore: false, showCorrectAnswers: false, showExplanations: false },
+    false,
+  );
+  const group = {
+    ...previewGroup,
+    questionIds: body.questions.map((question) => question.id),
+  };
+  serve({
+    ...body,
+    sharedContext: {
+      groups: [group],
+      transcripts: { [group.recordings[0]!.id]: "A released group transcript." },
+      audioPlays: {},
+    },
+  });
+  renderResult();
+  await screen.findByText(group.title);
+  await userEvent.setup().click(screen.getByText("Nội dung bài nghe"));
+  expect(screen.getByText("A released group transcript.")).toBeVisible();
+  expect(screen.getByText("Giáo viên chưa công bố điểm")).toBeVisible();
+});
 
 describe("the result page", () => {
   const flags: [boolean, boolean, boolean][] = [
