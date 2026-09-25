@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -99,6 +100,19 @@ func (c *Client) SignedURL(ctx context.Context, key string, ttl time.Duration) (
 	}, s3.WithPresignExpires(ttl))
 	if err != nil {
 		return "", fmt.Errorf("storage: sign %s: %w", key, err)
+	}
+	return req.URL, nil
+}
+
+// SignedDownloadURL authorizes a private original as an attachment, never inline active content.
+func (c *Client) SignedDownloadURL(ctx context.Context, key, filename string, ttl time.Duration) (string, error) {
+	req, err := c.presign.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(c.bucket), Key: aws.String(key),
+		ResponseContentType:        aws.String("application/octet-stream"),
+		ResponseContentDisposition: aws.String(mime.FormatMediaType("attachment", map[string]string{"filename": filename})),
+	}, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", fmt.Errorf("storage: sign import source: %w", err)
 	}
 	return req.URL, nil
 }

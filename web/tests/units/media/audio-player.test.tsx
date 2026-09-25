@@ -40,6 +40,15 @@ afterEach(() => vi.restoreAllMocks());
 
 const audio = () => document.querySelector("audio") as HTMLAudioElement;
 
+it("restores playback listeners after recovering a failed media element", () => {
+  render(<AudioPlayer src="/a.mp3" label="Audio" onRetry={() => undefined} />);
+  fireEvent.error(audio());
+  fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+  fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+  fireEvent.play(audio());
+  expect(screen.getByRole("button", { name: "Tạm dừng" })).toBeVisible();
+});
+
 describe("the player at rest", () => {
   it("offers play and the duration it was handed, without loading anything", () => {
     render(<AudioPlayer src="/a.mp3" label="Audio" durationMs={110_000} />);

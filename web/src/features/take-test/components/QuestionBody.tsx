@@ -259,6 +259,7 @@ function BlankInput({
     <input
       className="border-input focus-visible:ring-ring mx-1 my-1 inline-block h-11 w-32 max-w-full rounded-md border px-3 text-center align-middle text-[length:var(--text-input)] focus-visible:ring-2 focus-visible:outline-none lg:h-9 lg:text-sm"
       aria-label={t("takeTest.blankLabel", { n: blank.ordinal })}
+      id={`answer-blank-${blank.id}`}
       value={state.values[blank.id] ?? ""}
       disabled={state.disabled}
       autoComplete="off"

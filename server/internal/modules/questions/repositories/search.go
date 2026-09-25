@@ -27,7 +27,7 @@ const searchCondition = `(
 
 func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
 	var args []any
-	where := []string{`q.deleted_at IS NULL`}
+	where := []string{`q.deleted_at IS NULL`, `q.context_group_id IS NULL`}
 
 	if opts.types && len(in.Types) > 0 {
 		types := make([]string, len(in.Types))
