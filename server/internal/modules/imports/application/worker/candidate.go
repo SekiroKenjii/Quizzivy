@@ -28,7 +28,11 @@ func addRenditionFindings(draft *domain.Draft, sources []pipelineSource) error {
 		}
 		for _, code := range manifest.Findings {
 			id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(s.identity+"/"+code)).String()
-			draft.Notices = append(draft.Notices, domain.Finding{ID: id, Code: domain.CodeSourceObject, Severity: domain.ReviewRequired, Target: s.identity, Field: code, Count: 1, Evidence: []domain.SourceRef{{SourceID: s.identity}}})
+			severity := domain.ReviewRequired
+			if code == "RENDERER_LAYOUT_REQUIRES_REVIEW" {
+				severity = domain.Informational
+			}
+			draft.Notices = append(draft.Notices, domain.Finding{ID: id, Code: domain.CodeSourceObject, Severity: severity, Target: s.identity, Field: code, Count: 1, Evidence: []domain.SourceRef{{SourceID: s.identity}}})
 		}
 	}
 	return nil
