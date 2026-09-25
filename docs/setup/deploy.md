@@ -116,7 +116,8 @@ the next one.
 ## Verifying afterwards
 
 The workflow checks `/healthz` reports `database:ok` before it calls the API
-deploy done. The rest is by hand:
+deploy done. Fly's routing check uses `/livez` instead, which does not query the
+database (see `operations.md`). The rest is by hand:
 
 ```bash
 curl -s https://api.quizzivy.com/healthz

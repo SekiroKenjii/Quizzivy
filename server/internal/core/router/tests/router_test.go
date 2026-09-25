@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"quizzivy/internal/core/router"
+	"strings"
 	"testing"
 )
 
@@ -43,6 +44,71 @@ func TestHealthzReportsDatabaseReachability(t *testing.T) {
 	_ = json.NewDecoder(down.Body).Decode(&body)
 	if body["database"] != "unreachable" {
 		t.Errorf("body = %v, want database:unreachable", body)
+	}
+}
+
+type countingDB struct {
+	pings *int
+	err   error
+}
+
+func (c countingDB) Ping(context.Context) error {
+	*c.pings++
+	return c.err
+}
+
+func TestLivezAnswersWithoutTouchingTheDatabase(t *testing.T) {
+	pings := 0
+	rec := httptest.NewRecorder()
+	newTestRouter(t, countingDB{pings: &pings, err: errors.New("connection refused")}).
+		ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/livez", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 whatever the database says", rec.Code)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil || body["status"] != "ok" || len(body) != 1 {
+		t.Fatalf("body = %v err %v, want only status:ok", body, err)
+	}
+	if pings != 0 {
+		t.Fatalf("liveness pinged the database %d times", pings)
+	}
+}
+
+func TestHealthRoutesAreRateLimitedPerAddress(t *testing.T) {
+	for _, tc := range []struct {
+		path   string
+		budget int
+	}{{"/livez", 30}, {"/healthz", 10}} {
+		t.Run(tc.path, func(t *testing.T) {
+			handler := newTestRouter(t, fakeDB{})
+			for i := 0; i < tc.budget; i++ {
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+				if rec.Code != http.StatusOK {
+					t.Fatalf("request %d status = %d, want 200 within the budget", i+1, rec.Code)
+				}
+			}
+			over := httptest.NewRecorder()
+			handler.ServeHTTP(over, httptest.NewRequest(http.MethodGet, tc.path, nil))
+			if over.Code != http.StatusTooManyRequests || over.Header().Get("Retry-After") == "" {
+				t.Fatalf("request past the budget: status = %d, Retry-After %q", over.Code, over.Header().Get("Retry-After"))
+			}
+		})
+	}
+}
+
+func TestEveryServiceRateLimitNamesARouteTheRouterServes(t *testing.T) {
+	handler := newTestRouter(t, fakeDB{})
+	for _, pattern := range router.ServiceRateLimits().Patterns() {
+		method, path, ok := strings.Cut(pattern, " ")
+		if !ok {
+			t.Fatalf("pattern %q has no method", pattern)
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(method, path, nil))
+		if rec.Code == http.StatusNotFound {
+			t.Errorf("ServiceRateLimits limits %q, which the router does not serve", pattern)
+		}
 	}
 }
 

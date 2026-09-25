@@ -72,7 +72,7 @@ at the end says how much is covered and what the next round is.
 
 | ID | Requirement | Source | Status | Evidence / gap |
 |---|---|---|---|---|
-| NFR-A01 | The API is always warm: one machine minimum, never auto-stopped, `/healthz` checked by the platform | O-16, `fly.toml` | ✅ | `min_machines_running = 1`, `auto_stop_machines = false`, `[[http_service.checks]]` |
+| NFR-A01 | The API is always warm: one machine minimum, never auto-stopped, `/livez` checked by the platform | O-16, `fly.toml` | ✅ | `min_machines_running = 1`, `auto_stop_machines = false`, `[[http_service.checks]]` |
 | NFR-A02 | Nothing deploys from `develop`; a merge to `main` deploys only after CI is green, API before SPA, migrations in the release command with rollback on failure | `docs/setup/deploy.md` | ✅ | `deploy.yml` `workflow_run` gate, preflight, post-deploy verification |
 | NFR-A03 | The deploy verifies itself: the machine is running and the API answers, or the job fails loudly with the crash log | `deploy.md` | ✅ | "Verify the API answers", "Why it crashed" steps |
 | NFR-A04 | Database backups exist and a restore has been rehearsed: Neon history retention is set to a known window and a point-in-time restore has been done once into a branch | good practice | ❓ | Recovery verifier and isolated-drill procedure are in `../setup/operations.md`; actual Neon history window and production PITR remain unverified because project access is unavailable (#79) |
@@ -81,6 +81,7 @@ at the end says how much is covered and what the next round is.
 | NFR-A07 | Secrets are provisioned once and checked before use; a missing one fails the deploy with a name | `deploy.md` | ✅ | "Check the token is present" steps |
 | NFR-A08 | Fitting the machine: 512 MB with Argon2 bounded; memory is raised only alongside the hash bound | R-13 | ✅ | `fly.toml` comment |
 | NFR-A09 | Local development reproduces production: compose PG18 + MinIO, seed, `make test-api`; one documented loop | AGENTS.md, `00-overview.md` §9 | ✅ | `docker-compose.yml`, `Makefile`, `seed/` |
+| NFR-A10 | The platform's probe never keeps the database awake: Fly checks `/livez`, which runs no query, so Neon can suspend its compute when nobody uses the app; `/healthz` keeps the database probe for deploy verification and the monitor, and both are rate-limited per address | #134 | 🟡 | `livez` and `ServiceRateLimits` in `core/router`; `fly.toml` check path. The one machine is still the only routing target, so a database probe in the platform check changed no outcome except the bill. Still to measure: a night with the compute suspended and a zero-traffic day well under 6 CU-hours in the Neon console, posted on #134 |
 
 ## E. Performance and capacity
 
@@ -176,7 +177,7 @@ at the end says how much is covered and what the next round is.
 | A. Security | 12 | 3 | 0 | 0 | 0 | 15 |
 | B. Privacy | 6 | 0 | 0 | 0 | 0 | 6 |
 | C. Reliability | 9 | 1 | 0 | 0 | 0 | 10 |
-| D. Availability | 6 | 2 | 0 | 0 | 1 | 9 |
+| D. Availability | 6 | 3 | 0 | 0 | 1 | 10 |
 | E. Performance | 5 | 1 | 2 | 0 | 0 | 8 |
 | F. Accessibility | 3 | 2 | 1 | 0 | 0 | 6 |
 | G. Usability | 9 | 1 | 0 | 0 | 0 | 10 |
@@ -184,7 +185,7 @@ at the end says how much is covered and what the next round is.
 | I. Compatibility | 3 | 2 | 0 | 0 | 0 | 5 |
 | J. Maintainability | 12 | 0 | 0 | 0 | 0 | 12 |
 | K. Observability | 3 | 1 | 0 | 0 | 0 | 4 |
-| **Total** | **72** | **13** | **4** | **0** | **1** | **90** |
+| **Total** | **72** | **14** | **4** | **0** | **1** | **91** |
 
 Counts include all twelve maintainability requirements. Implemented mechanisms
 remain partial where deployment, notification delivery or device evidence is

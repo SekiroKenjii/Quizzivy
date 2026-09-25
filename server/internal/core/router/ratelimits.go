@@ -28,3 +28,13 @@ func RateLimits() *ratelimit.Registry {
 
 	return reg
 }
+
+// ServiceRateLimits declares the policy for the routes served beside the
+// contract, which the generated middleware chain never sees.
+func ServiceRateLimits() *ratelimit.Registry {
+	reg := ratelimit.NewRegistry()
+	const capacity = 10_000
+	reg.Add("GET /livez", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(900))
+	reg.Add("GET /healthz", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(120))
+	return reg
+}
