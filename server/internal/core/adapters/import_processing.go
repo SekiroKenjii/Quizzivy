@@ -27,6 +27,9 @@ type ImportProcessing struct {
 func (p ImportProcessing) Converts() bool { return p.Converter != nil }
 
 func (p ImportProcessing) NormalizationVersion() string { return "rendition-v1:" + p.ImageID }
+
+// ExtractionVersion names the extractor and projection for a source format, so
+// stage reuse never mixes a PDF's output with a Word document's.
 func (p ImportProcessing) ExtractionVersion(format string) string {
 	if format == pdfFormat {
 		return pdftext.Version + ":projection-v1"

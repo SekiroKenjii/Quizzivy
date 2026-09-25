@@ -19,6 +19,7 @@ import (
 	"quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/platform/pdftext"
+	"quizzivy/internal/platform/storage"
 )
 
 type convertingEngine struct {
@@ -113,11 +114,61 @@ func TestAPDFExamAndKeyReachReviewWithoutConversion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var result domain.ProcessingResult
-	if err := json.Unmarshal(completed.Result, &result); err != nil {
+	candidate := candidateOf(t, h, store, work, parent.ID, completed)
+	questions := candidate.Questions()
+	if len(questions) != 1 || questions[0].Answer.State != domain.AnswerKnown || questions[0].Answer.OptionIDs[0] != questions[0].Options[0].ID {
+		t.Fatalf("questions = %+v", questions)
+	}
+}
+
+func processOnce(t *testing.T, h harness, sources map[string][]byte, filenames map[string]string) (domain.Run, *domain.Draft) {
+	t.Helper()
+	ctx := context.Background()
+	store := privateStore(t)
+	work := t.TempDir()
+	reader := &pdftext.Reader{}
+	t.Cleanup(func() { _ = reader.Close() })
+	parent := h.create(t)
+	t.Cleanup(func() { cleanupPipelineObjects(t, h, store, parent.ID) })
+	intake := command.UploadHandler{Repo: h.repo, Store: store, Inspector: adapters.ImportInspector{}, WorkDir: work, Quotas: h.quotas, Slots: make(chan struct{}, 1)}
+	for _, role := range []string{"exam", "answer_key"} {
+		body, ok := sources[role]
+		if !ok {
+			continue
+		}
+		receipt, err := intake.Handle(ctx, command.Upload{ImportID: parent.ID, UploadID: uuid.NewString(), Role: role, Filename: filenames[role], ExpectedRevision: parent.Revision, Actor: h.actor, Body: bytes.NewReader(body)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		parent = receipt.Import
+	}
+	run, err := h.repo.Schedule(ctx, domain.Schedule{ImportID: parent.ID, RequestID: uuid.NewString(), PipelineVersion: worker.PipelineVersion, SourceRevision: parent.SourceRevision, ExpectedRevision: parent.Revision, Actor: h.actor, MaxAttempts: 3})
+	if err != nil {
 		t.Fatal(err)
 	}
-	set, err := h.repo.ArtifactSet(ctx, parent.ID, result.CandidateSetID)
+	processor := worker.Pipeline{Sources: h.repo, Artifacts: h.repo, Store: store, Engine: adapters.ImportProcessing{PDF: reader, WorkDir: work}, Quotas: artifactQuotas(), WorkDir: work}
+	runner := worker.Runner{Queue: h.repo, Processor: processor, Policy: policy(worker.PipelineVersion), HeartbeatEvery: time.Second, Timeout: time.Minute}
+	if worked, err := runner.RunOne(ctx); err != nil || !worked {
+		t.Fatalf("processing: %v", err)
+	}
+	finished, err := h.repo.Run(ctx, parent.ID, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if finished.Status != "succeeded" {
+		return finished, nil
+	}
+	return finished, candidateOf(t, h, store, work, parent.ID, finished)
+}
+
+func candidateOf(t *testing.T, h harness, store *storage.Client, work, importID string, run domain.Run) *domain.Draft {
+	t.Helper()
+	ctx := context.Background()
+	var result domain.ProcessingResult
+	if err := json.Unmarshal(run.Result, &result); err != nil {
+		t.Fatal(err)
+	}
+	set, err := h.repo.ArtifactSet(ctx, importID, result.CandidateSetID)
 	if err != nil || len(set.Files) != 1 {
 		t.Fatalf("candidate set: %v", err)
 	}
@@ -130,8 +181,38 @@ func TestAPDFExamAndKeyReachReviewWithoutConversion(t *testing.T) {
 	if err := json.NewDecoder(file).Decode(&candidate); err != nil {
 		t.Fatal(err)
 	}
+	return &candidate
+}
+
+func TestAScannedPDFFailsForGoodWithItsOwnCode(t *testing.T) {
+	h := setup(t)
+	run, _ := processOnce(t, h, map[string][]byte{"exam": textPDF(nil)}, map[string]string{"exam": "scan.pdf"})
+	if code := errorCode(run); run.Status != "failed" || code != "PDF_NO_TEXT" {
+		t.Fatalf("run = %s %q", run.Status, code)
+	}
+	updated, err := h.repo.Get(context.Background(), run.ImportID)
+	if err != nil || updated.Status != "failed" {
+		t.Fatalf("import = %+v, %v", updated, err)
+	}
+}
+
+func TestAPDFExamReadsItsAnswersFromAWordKey(t *testing.T) {
+	h := setup(t)
+	run, candidate := processOnce(t, h,
+		map[string][]byte{"exam": textPDF([]string{"Part I. Choose the best answer", "1. Which one is a fruit?", "A. apple    B. chair"}), "answer_key": nativePaper(t, []string{"1. B"})},
+		map[string]string{"exam": "De thi.pdf", "answer_key": "Dap an.docx"})
+	if candidate == nil {
+		t.Fatalf("run = %s %q", run.Status, errorCode(run))
+	}
 	questions := candidate.Questions()
-	if len(questions) != 1 || questions[0].Answer.State != domain.AnswerKnown || questions[0].Answer.OptionIDs[0] != questions[0].Options[0].ID {
+	if len(questions) != 1 || questions[0].Answer.State != domain.AnswerKnown || questions[0].Answer.OptionIDs[0] != questions[0].Options[1].ID {
 		t.Fatalf("questions = %+v", questions)
 	}
+}
+
+func errorCode(run domain.Run) string {
+	if run.ErrorCode == nil {
+		return ""
+	}
+	return *run.ErrorCode
 }

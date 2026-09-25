@@ -2234,7 +2234,16 @@
         "SOURCE_COLOR_REQUIRES_REVIEW": "Tài liệu có chữ màu; màu không được giữ khi nhập. Kiểm tra xem màu có đánh dấu đáp án không.",
         "RENDERER_LAYOUT_REQUIRES_REVIEW": "Bố cục trang của tài liệu không được giữ nguyên.",
         "ALTERNATE_CONTENT_REQUIRES_RESOLUTION": "Tài liệu có nội dung thay thế, ví dụ hình có hai phiên bản. Kiểm tra bản được dùng.",
-        "PDF_MARKS_UNAVAILABLE": "Tệp PDF không giữ được gạch chân, in đậm hay màu chữ. Nếu câu hỏi hoặc đáp án dựa vào các dấu này, hãy đánh dấu lại khi rà soát."
+        "PDF_MARKS_UNAVAILABLE": "Tệp PDF không giữ được gạch chân, in đậm hay màu chữ. Nếu câu hỏi hoặc đáp án dựa vào các dấu này, hãy đánh dấu lại khi rà soát.",
+        "PDF_REPEATED_LINE_REQUIRES_REVIEW": "Các dòng này lặp lại ở đầu hoặc cuối nhiều trang nên được coi là tiêu đề trang và bỏ khỏi đề. Nếu đó là nội dung của đề, ví dụ một yêu cầu đề bài, hãy thêm lại khi rà soát.",
+        "PDF_COLUMNS_REQUIRE_REVIEW": "Trang PDF có vẻ chia hai cột nên các câu hai bên bị ghép vào cùng một dòng. Hãy tách lại các câu được chỉ ra, hoặc dùng tệp Word của đề."
+      },
+      "objectTitles": {
+        "PDF_MARKS_UNAVAILABLE": "PDF không giữ định dạng chữ",
+        "PDF_REPEATED_LINE_REQUIRES_REVIEW_one": "{{count}} dòng lặp lại ở đầu hoặc cuối trang đã được bỏ ra",
+        "PDF_REPEATED_LINE_REQUIRES_REVIEW_other": "{{count}} dòng lặp lại ở đầu hoặc cuối trang đã được bỏ ra",
+        "PDF_COLUMNS_REQUIRE_REVIEW_one": "{{count}} dòng có hai câu nằm cạnh nhau",
+        "PDF_COLUMNS_REQUIRE_REVIEW_other": "{{count}} dòng có hai câu nằm cạnh nhau"
       }
     },
     "review": {

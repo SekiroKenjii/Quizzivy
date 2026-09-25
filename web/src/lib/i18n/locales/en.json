@@ -2234,7 +2234,16 @@
         "SOURCE_COLOR_REQUIRES_REVIEW": "The document has coloured text; colour isn't kept. Check whether it marks answers.",
         "RENDERER_LAYOUT_REQUIRES_REVIEW": "The document's page layout isn't kept.",
         "ALTERNATE_CONTENT_REQUIRES_RESOLUTION": "The document has alternate content, such as a drawing with two versions. Check which one is used.",
-        "PDF_MARKS_UNAVAILABLE": "A PDF does not keep underline, bold or text colour. If a question or its answer depends on those marks, mark them again during review."
+        "PDF_MARKS_UNAVAILABLE": "A PDF does not keep underline, bold or text colour. If a question or its answer depends on those marks, mark them again during review.",
+        "PDF_REPEATED_LINE_REQUIRES_REVIEW": "These lines repeat at the top or bottom of several pages, so they were treated as page headers and left out of the exam. If one belongs to the exam, such as an instruction, add it back during review.",
+        "PDF_COLUMNS_REQUIRE_REVIEW": "The PDF page seems to have two columns, so questions from both sides were joined on one line. Separate the questions shown, or use the exam's Word file."
+      },
+      "objectTitles": {
+        "PDF_MARKS_UNAVAILABLE": "The PDF keeps no text formatting",
+        "PDF_REPEATED_LINE_REQUIRES_REVIEW_one": "{{count}} line repeated at the top or bottom of pages was left out",
+        "PDF_REPEATED_LINE_REQUIRES_REVIEW_other": "{{count}} lines repeated at the top or bottom of pages were left out",
+        "PDF_COLUMNS_REQUIRE_REVIEW_one": "{{count}} line holds two questions side by side",
+        "PDF_COLUMNS_REQUIRE_REVIEW_other": "{{count}} lines hold two questions side by side"
       }
     },
     "review": {

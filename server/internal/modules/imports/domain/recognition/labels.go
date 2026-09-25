@@ -42,6 +42,27 @@ func matchable(text []rune) string {
 	return b.String()
 }
 
+// QuestionStart reports whether text begins with a question label the
+// recognizer reads, such as "12.", "Câu 3:" or "Question 1", and returns the
+// text that follows the label.
+func QuestionStart(text string) (string, bool) {
+	runes := []rune(text)
+	l, ok := questionLabel(runes)
+	if !ok {
+		return "", false
+	}
+	return string(runes[l.end:]), true
+}
+
+// SectionStart reports whether text begins with a section heading the
+// recognizer reads, such as "II." or "Part 2".
+func SectionStart(text string) bool {
+	if _, _, ok := roman([]rune(text)); ok {
+		return true
+	}
+	return namedSection.MatchString(matchable([]rune(text)))
+}
+
 func questionLabel(text []rune) (label, bool) {
 	s := matchable(text)
 	if m := keywordLabel.FindStringSubmatchIndex(s); m != nil {

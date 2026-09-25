@@ -1090,9 +1090,15 @@ wazero (`github.com/klippa-app/go-pdfium`):
 - The sandbox has no filesystem, no network, 256 MiB of linear memory and a
   one-minute deadline. A hostile PDF can at worst fail its own read, without
   Docker.
+- The deadline kills the instance. go-pdfium runs every call under its own
+  context and `Close` waits for the running call, so closing alone let a
+  PDF of nested forms run for hours; `TestTheDeadlineStopsADocumentThatWouldKeepPDFiumBusy`
+  pins it. The kill is awaited before the pool closes, which also removes a
+  data race on go-pdfium's instance map.
 - Each read gets a fresh sandbox and keeps only the compiled module. The first
   read in a process takes about 2.5 s to compile; later ones take about 0.1 s.
-- Limits: 60 pages and 2 Mi characters.
+- Limits: 60 pages and 2 Mi characters. Running out of sandbox memory is
+  reported as `PDF_INVALID`, not `PDF_TOO_LARGE`.
 
 It builds lines from PDFium's characters, not its rectangles, because rectangle
 text can repeat a neighbour's first character:
@@ -1103,20 +1109,32 @@ text can repeat a neighbour's first character:
   Word's option columns (`A. …⇥B. …`) and key tables reach the recognizer.
 
 **Evidence.** `adapters.PDFEvidence` makes each line one paragraph block, with
-IDs like `p2-l14` and version `pdf-lines-v1`. It hides running headers, footers
-and page numbers:
+IDs like `p2-l14` and version `pdf-lines-v1`. It keeps page furniture out of the
+exam, working inward from the two lines at the top and bottom of each page:
 
-- It considers two lines at the top and bottom of each page, working inward.
-- A line is hidden when it repeats at that edge on at least two pages. Only a
-  number equal to the page number is ignored in the comparison, so
-  `Trang 1/4` and `Trang 2/4` match but `2. Choose…` and `3. Choose…` do not.
-- A numbered line (`12.`, `Câu 3:`) is never hidden this way.
-- Page-number shapes (`12`, `- 3 -`, `Trang 2/4`, `Page 2 of 4`) are hidden at
-  either edge.
+- **Page numbers** (`12`, `- 3 -`, `Trang 2/4`, `Page 2 of 4`) whose number is
+  the page's own, and whose total is the page count, are hidden as
+  `ANCILLARY_CONTENT_REQUIRES_REVIEW`, an informational note.
+- **Repeated lines** are hidden when the same line sits at the same edge of
+  another page. Two lines are the same when they differ only where each holds
+  its own page number, so `Trang 1/4 - Mã đề 132` matches `Trang 4/4 - Mã đề 132`
+  and `Tiếng Anh 3` matches itself on page 3. A page of one or two lines counts
+  as both top and bottom. These are `PDF_REPEATED_LINE_REQUIRES_REVIEW`, which
+  the recognizer keeps review-required although the lines are outside the exam:
+  a repeated instruction may belong to it.
+- **Never hidden:** a line the recognizer reads as a question or a section
+  (`recognition.QuestionStart`, `recognition.SectionStart`), so `Câu 2 (NB).`
+  at the top of page 2 stays a question.
 
-Hidden lines stay in the evidence as `ANCILLARY_CONTENT_REQUIRES_REVIEW`, so the
-review lists them. The recognizer accepts `pdf-lines-v1` beside
-`ooxml-blocks-v1` and is otherwise unchanged.
+An exam line that holds a second question label after a tab, followed by at
+least two words, is flagged `PDF_COLUMNS_REQUIRE_REVIEW`. That is what a
+two-column page turns into; it is flagged, not split, and the note suggests the
+Word file. The recognizer accepts `pdf-lines-v1` beside `ooxml-blocks-v1` and is
+otherwise unchanged.
+
+**No text.** A PDF whose text layer is empty fails in the reader. One whose
+only text is furniture, or an exam with under 20 visible characters a page (a
+typed title over scanned pages), fails the same way with `PDF_NO_TEXT`.
 
 **Pipeline.** A PDF is never normalized, with or without a converter. Extraction
 takes the source format, and `ExtractionVersion(format)` fences stage reuse per
@@ -1138,7 +1156,8 @@ never committed. Read with that key, the result was:
 - 2,379 answers known (97%), 65 in conflict and 7 unknown;
 - the conflicts come from matching sections, which the recognizer does not
   support, and from source typos such as `C/ in/ in`;
-- in every PDF, only the running header was hidden.
+- in every PDF, only the running header was hidden, and no line was flagged as
+  two columns.
 
 ## 2. Current code and the actual gaps
 

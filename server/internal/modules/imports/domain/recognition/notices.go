@@ -22,6 +22,10 @@ var informationalSource = map[string]bool{
 	"PDF_MARKS_UNAVAILABLE":             true,
 }
 
+var reviewedOutsideExam = map[string]bool{
+	"PDF_REPEATED_LINE_REQUIRES_REVIEW": true,
+}
+
 func (b *builder) notice(code string, severity domain.Severity, target, field string, count int, evidence []domain.SourceRef) {
 	if len(evidence) > maxEvidence {
 		evidence = evidence[:maxEvidence]
@@ -118,7 +122,7 @@ func (b *builder) sourceNotices(docs []domain.EvidenceDocument) {
 		for _, code := range slices.Sorted(maps.Keys(tallies)) {
 			t := tallies[code]
 			severity := domain.ReviewRequired
-			if informationalSource[code] || !t.main {
+			if !reviewedOutsideExam[code] && (informationalSource[code] || !t.main) {
 				severity = domain.Informational
 			}
 			b.notice(domain.CodeSourceObject, severity, d.SourceID, code, t.count, t.refs)

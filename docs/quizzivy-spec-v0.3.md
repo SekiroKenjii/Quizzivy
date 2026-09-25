@@ -1513,9 +1513,12 @@ acknowledges stored source bytes.
 A `.pdf` is accepted by its `%PDF-` signature. The worker reads it with PDFium
 inside a WebAssembly sandbox: no filesystem, no network, 256 MiB of memory, one
 minute, 60 pages. It never converts a PDF. It reads only the text layer, one
-line per block. Running headers, footers and page numbers are kept out of the
-exam and listed for review. A PDF carries no underline, bold or colour marks for
-recognition, and the draft says so in an informational finding. A scan, a locked
+line per block. Page numbers are kept out of the exam. Lines repeated at the top
+or bottom of the pages are kept out too, and the teacher confirms them, since a
+repeated instruction may belong to the exam. A line holding two questions side
+by side, as a two-column page produces, needs review. A PDF carries no underline,
+bold or colour marks for recognition, and the draft says so in an informational
+finding. A scan, a locked
 file, a broken file or one over the limits fails with `PDF_NO_TEXT`,
 `PDF_PROTECTED`, `PDF_INVALID` or `PDF_TOO_LARGE`, and the teacher needs another
 file.

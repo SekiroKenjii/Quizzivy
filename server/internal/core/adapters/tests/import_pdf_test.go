@@ -70,20 +70,32 @@ func linesOf(pages ...[]string) pdftext.Document {
 	return doc
 }
 
-func hiddenLines(e domain.EvidenceDocument) []string {
+func flagged(e domain.EvidenceDocument) []string {
 	var out []string
 	for _, b := range e.Blocks {
-		if !b.Main {
-			if b.Safe || !slices.Equal(b.Reasons, []string{"ANCILLARY_CONTENT_REQUIRES_REVIEW"}) {
-				t := fmt.Sprintf("%s kept safe or unexplained: %+v", b.ID, b)
-				out = append(out, t)
-				continue
-			}
-			out = append(out, b.ID+" "+b.Text)
+		if len(b.Reasons) == 0 {
+			continue
 		}
+		if b.Main != (b.Reasons[0] == "PDF_COLUMNS_REQUIRE_REVIEW") || b.Safe != b.Main {
+			out = append(out, fmt.Sprintf("%s inconsistent: %+v", b.ID, b))
+			continue
+		}
+		out = append(out, b.ID+" "+strings.Join(b.Reasons, ",")+" "+b.Text)
 	}
 	return out
 }
+
+func expectFlagged(t *testing.T, e domain.EvidenceDocument, want ...string) {
+	t.Helper()
+	if got := flagged(e); !slices.Equal(got, want) {
+		t.Fatalf("flagged lines:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+const (
+	repeated   = "PDF_REPEATED_LINE_REQUIRES_REVIEW"
+	pageNumber = "ANCILLARY_CONTENT_REQUIRES_REVIEW"
+)
 
 func TestPDFEvidenceKeepsRunningHeadersAndPageNumbersOutOfTheExam(t *testing.T) {
 	header := "Trường THCS Minh Khai - Đề kiểm tra học kỳ"
@@ -92,10 +104,10 @@ func TestPDFEvidenceKeepsRunningHeadersAndPageNumbersOutOfTheExam(t *testing.T) 
 		[]string{header, "2. Choose the odd one out", "A. red\tB. blue", "Trang 2/3"},
 		[]string{header, "3. Choose the odd one out", "A. cat\tB. dog", "- 3 -"},
 	), "source-1", "exam")
-	want := []string{"p1-l1 " + header, "p1-l5 Trang 1/3", "p2-l1 " + header, "p2-l4 Trang 2/3", "p3-l1 " + header, "p3-l4 - 3 -"}
-	if got := hiddenLines(evidence); !slices.Equal(got, want) {
-		t.Fatalf("hidden lines:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
-	}
+	expectFlagged(t, evidence,
+		"p1-l1 "+repeated+" "+header, "p1-l5 "+pageNumber+" Trang 1/3",
+		"p2-l1 "+repeated+" "+header, "p2-l4 "+pageNumber+" Trang 2/3",
+		"p3-l1 "+repeated+" "+header, "p3-l4 "+pageNumber+" - 3 -")
 	if evidence.Version != pdftext.Version || evidence.SourceID != "source-1" || evidence.Role != "exam" || len(evidence.Blocks) != 13 {
 		t.Fatalf("evidence identity: %+v", evidence)
 	}
@@ -104,14 +116,40 @@ func TestPDFEvidenceKeepsRunningHeadersAndPageNumbersOutOfTheExam(t *testing.T) 
 	}
 }
 
-func TestPDFEvidenceHidesNothingThatDoesNotRepeat(t *testing.T) {
+func TestPDFEvidenceMatchesAFooterThatCarriesThePageNumberOnEveryPage(t *testing.T) {
 	evidence := adapters.PDFEvidence(linesOf(
-		[]string{"Đề số 1", "1. Choose the odd one out", "A. one\tB. two", "12"},
-		[]string{"2. Choose the odd one out", "A. red\tB. blue", "3. Choose the odd one out", "A. cat\tB. dog"},
+		[]string{"Tiếng Anh 3 - HK2", "1. Choose the odd one out", "A. one\tB. two", "Trang 1/2 - Mã đề 132"},
+		[]string{"Tiếng Anh 3 - HK2", "2. Choose the odd one out", "A. red\tB. blue", "Trang 2/2 - Mã đề 132"},
 	), "source-1", "exam")
-	if got, want := hiddenLines(evidence), []string{"p1-l4 12"}; !slices.Equal(got, want) {
-		t.Fatalf("hidden lines = %q, want %q", got, want)
-	}
+	expectFlagged(t, evidence,
+		"p1-l1 "+repeated+" Tiếng Anh 3 - HK2", "p1-l4 "+repeated+" Trang 1/2 - Mã đề 132",
+		"p2-l1 "+repeated+" Tiếng Anh 3 - HK2", "p2-l4 "+repeated+" Trang 2/2 - Mã đề 132")
+}
+
+func TestPDFEvidenceNeverHidesAQuestionOrAHeadingThatRepeats(t *testing.T) {
+	evidence := adapters.PDFEvidence(linesOf(
+		[]string{"Câu 1 (NB). Chọn đáp án đúng", "A. one\tB. two", "12"},
+		[]string{"Câu 2 (NB). Chọn đáp án đúng", "A. red\tB. blue", "II. Choose the best answer"},
+		[]string{"3. Choose the best answer", "A. cat\tB. dog", "II. Choose the best answer"},
+	), "source-1", "exam")
+	expectFlagged(t, evidence)
+}
+
+func TestPDFEvidenceReadsShortPagesFromBothEdges(t *testing.T) {
+	evidence := adapters.PDFEvidence(linesOf(
+		[]string{"Đề số 1", "1. Choose the odd one out", "A. one\tB. two", "Giáo viên: Nguyễn An", "1"},
+		[]string{"2. Choose the odd one out", "Giáo viên: Nguyễn An"},
+	), "source-1", "exam")
+	expectFlagged(t, evidence,
+		"p1-l4 "+repeated+" Giáo viên: Nguyễn An", "p1-l5 "+pageNumber+" 1",
+		"p2-l2 "+repeated+" Giáo viên: Nguyễn An")
+}
+
+func TestPDFEvidenceFlagsQuestionsPrintedSideBySide(t *testing.T) {
+	lines := []string{"1. Which one is a fruit?\t3. Which one is a pet?", "A. apple\tB. chair\tA. dog\tB. table", "1. cat\t2. dog"}
+	expectFlagged(t, adapters.PDFEvidence(linesOf(lines), "source-1", "exam"),
+		"p1-l1 PDF_COLUMNS_REQUIRE_REVIEW 1. Which one is a fruit?\t3. Which one is a pet?")
+	expectFlagged(t, adapters.PDFEvidence(linesOf([]string{"1. has gone to\t2. went to the"}), "key-1", "answer_key"))
 }
 
 func TestAPDFExamIsRecognizedWithItsAnswerKey(t *testing.T) {
@@ -145,6 +183,31 @@ func TestAPDFExamIsRecognizedWithItsAnswerKey(t *testing.T) {
 	})
 	if marks < 0 || draft.Notices[marks].Severity != domain.Informational {
 		t.Fatalf("notices = %+v", draft.Notices)
+	}
+}
+
+func TestTheTeacherConfirmsLinesThePDFReadingLeftOutOrJoined(t *testing.T) {
+	instruction := "Choose the best answer to complete each sentence."
+	exam := adapters.PDFEvidence(linesOf(
+		[]string{instruction, "1. Which one is a fruit?\t3. Which one is a pet?", "A. apple\tB. chair\tA. dog\tB. table"},
+		[]string{instruction, "2. Which one is a colour?", "A. red\tB. run"},
+	), "exam-source", "exam")
+	draft, err := recognition.Recognize(context.Background(), []domain.EvidenceDocument{exam}, domain.RecognitionProfile{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	severity := map[string]domain.Severity{}
+	counts := map[string]int{}
+	for _, f := range draft.Notices {
+		if f.Code == domain.CodeSourceObject {
+			severity[f.Field], counts[f.Field] = f.Severity, f.Count
+		}
+	}
+	if severity["PDF_REPEATED_LINE_REQUIRES_REVIEW"] != domain.ReviewRequired || counts["PDF_REPEATED_LINE_REQUIRES_REVIEW"] != 2 {
+		t.Fatalf("left-out lines: %v %v", severity, counts)
+	}
+	if severity["PDF_COLUMNS_REQUIRE_REVIEW"] != domain.ReviewRequired || severity["PDF_MARKS_UNAVAILABLE"] != domain.Informational {
+		t.Fatalf("notices: %v", severity)
 	}
 }
 
@@ -208,6 +271,8 @@ func TestPDFExtractionFailuresNameWhatTheTeacherMustChange(t *testing.T) {
 		{"a password", &pdfReader, pdfOf([][]string{{"secret"}}, true), "PDF_PROTECTED"},
 		{"too many pages", &pdfReader, pdfOf(long, false), "PDF_TOO_LARGE"},
 		{"no PDF reader", nil, pdfOf([][]string{{"text"}}, false), "SOURCE_UNSUPPORTED"},
+		{"page numbers only", &pdfReader, pdfOf([][]string{{"Trang 1/2"}, {"Trang 2/2"}}, false), "PDF_NO_TEXT"},
+		{"a typed title over a scan", &pdfReader, pdfOf([][]string{{"DE THI HOC KY"}, {}, {}}, false), "PDF_NO_TEXT"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
