@@ -27,6 +27,7 @@ import { ApiError } from "@/lib/api/errors";
 import { useLazyList } from "@/hooks/useLazyList";
 import { LoadMoreSentinel } from "@/components/shared/LoadMoreSentinel";
 import { formatBytes } from "@/features/media/format";
+import { ASSET_TEXT_LIMITS } from "@/components/shared/content/model";
 
 export function MaterialAssetDialog({
   kind,
@@ -95,7 +96,7 @@ export function MaterialAssetDialog({
             </FieldLabel>
             <Input
               id="group-asset-label"
-              maxLength={500}
+              maxLength={ASSET_TEXT_LIMITS[kind]}
               value={label}
               onChange={(event) => setLabel(event.target.value)}
             />

@@ -49,6 +49,8 @@ tags:
   - name: auth
   - name: admin-tests
   - name: admin-questions
+  - name: admin-imports
+    description: Private Word source intake and durable import review.
   - name: admin-media
   - name: admin-assignments
   - name: admin-attempts
@@ -412,6 +414,15 @@ components:
         - MEDIA_TOO_LARGE
         - MEDIA_TOO_LONG
         - MEDIA_UNREADABLE
+        # Word imports
+        - IMPORT_CONFLICT
+        - IMPORT_QUOTA_EXCEEDED
+        - IMPORT_BUSY
+        - IMPORT_SOURCE_INVALID
+        - IMPORT_SOURCE_TOO_LARGE
+        - IMPORT_SOURCE_UNSUPPORTED
+        - IMPORT_NOT_READY
+        - IMPORT_NOT_PROCESSED
         # attempts
         - ASSIGNMENT_NOT_OPEN
         - ASSIGNMENT_NOT_CLOSED
@@ -474,6 +485,440 @@ components:
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer, minimum: 0 }
+
+    ImportStatus:
+      type: string
+      enum: [awaiting_sources, queued, processing, needs_review, committing, committed, failed, cancelled]
+    ImportSourceRole:
+      type: string
+      enum: [exam, answer_key]
+    ImportSource:
+      type: object
+      additionalProperties: false
+      required: [id, role, filename, format, bytes, sha256, uploadedBy, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        role: { $ref: '#/components/schemas/ImportSourceRole' }
+        filename: { type: string, minLength: 1, maxLength: 255 }
+        format: { type: string, enum: [docx, doc] }
+        bytes: { type: integer, format: int64, minimum: 1, maximum: 26214400 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        uploadedBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+    WordImport:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt]
+      description: |
+        Shared teacher scope within this installation, with creator attribution.
+        Sources are private originals, never learner media. Source revision zero
+        means no completed source set. Upload completion does not mean recognition.
+        Pending uploads are durable reservations and cannot be downloaded or processed.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        sourceRevision: { type: integer, format: int64, minimum: 0 }
+        sources:
+          type: array
+          maxItems: 2
+          items: { $ref: '#/components/schemas/ImportSource' }
+        pendingUploads: { type: integer, minimum: 0 }
+        createdBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        run: { $ref: '#/components/schemas/ImportRun' }
+        draftRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Zero until processing has produced a reviewable draft.
+        testId:
+          $ref: '#/components/schemas/Uuid'
+          description: The draft test created by commit.
+    ImportRun:
+      type: object
+      additionalProperties: false
+      required: [id, status, stage, attempt, maxAttempts, createdAt, updatedAt]
+      description: The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        stage: { type: string, enum: [queued, source_validation, normalization, extraction, recognition, validation, ready] }
+        attempt: { type: integer, minimum: 0 }
+        maxAttempts: { type: integer, minimum: 1 }
+        errorCode: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,99}$' }
+        keyPaper: { type: integer, minimum: 1, maximum: 999 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    CreateWordImport:
+      type: object
+      additionalProperties: false
+      required: [requestId, title]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: Scoped to the actor; replay with the same title returns the same import, changed title conflicts.
+        title: { type: string, minLength: 1, maxLength: 200, pattern: '\S' }
+    ImportUploadReceipt:
+      type: object
+      additionalProperties: false
+      required: [import, source, sourceRevision]
+      properties:
+        import: { $ref: '#/components/schemas/WordImport' }
+        source: { $ref: '#/components/schemas/ImportSource' }
+        sourceRevision: { type: integer, format: int64, minimum: 1 }
+    ImportSourceDownload:
+      type: object
+      additionalProperties: false
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+
+    ImportLimits:
+      type: object
+      additionalProperties: false
+      required: [maxBytes, formats]
+      properties:
+        maxBytes: { type: integer, format: int64, minimum: 1 }
+        formats:
+          type: array
+          description: Accepted file extensions; doc appears only when legacy conversion is enabled.
+          items: { type: string, enum: [docx, doc] }
+    ProcessWordImport:
+      type: object
+      additionalProperties: false
+      required: [requestId, expectedRevision]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: Replaying the same request returns the same run.
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        keyPaper:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: Paper number to read from an answer-key file that holds several papers.
+    CancelWordImport:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision]
+      properties:
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+    CommitWordImport:
+      type: object
+      additionalProperties: false
+      required: [requestId, draftRevision]
+      properties:
+        requestId:
+          $ref: '#/components/schemas/Uuid'
+          description: Replaying a committed request returns the same test.
+        draftRevision: { type: integer, format: int64, minimum: 1 }
+    ImportCommitResult:
+      type: object
+      additionalProperties: false
+      required: [testId, import]
+      properties:
+        testId: { $ref: '#/components/schemas/Uuid' }
+        import: { $ref: '#/components/schemas/WordImport' }
+    ImportSourceRef:
+      type: object
+      additionalProperties: false
+      required: [sourceId, blockId, start, end]
+      description: Unicode code point range of one extracted source block.
+      properties:
+        sourceId: { type: string, minLength: 1, maxLength: 128 }
+        blockId: { type: string, minLength: 1, maxLength: 200 }
+        start: { type: integer, minimum: 0 }
+        end: { type: integer, minimum: 0 }
+        generatedLabel: { type: boolean }
+    ImportOrigin:
+      type: string
+      enum: [source_explicit, inferred_structure, defaulted, teacher_entered]
+    ImportFinding:
+      type: object
+      additionalProperties: false
+      required: [id, code, severity, count, evidence]
+      description: |
+        One actionable observation. blocking must be fixed by an edit;
+        review_required needs a teacher decision (an edit or an acknowledgement);
+        informational needs nothing.
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{0,99}$' }
+        severity: { type: string, enum: [blocking, review_required, informational] }
+        target: { type: string, maxLength: 128 }
+        field: { type: string, maxLength: 200 }
+        count: { type: integer, minimum: 1 }
+        acknowledged: { type: boolean }
+        evidence:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportKeyValue:
+      type: object
+      additionalProperties: false
+      required: [value, evidence]
+      properties:
+        value: { type: string, maxLength: 10000 }
+        evidence:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportDraftAnswer:
+      type: object
+      additionalProperties: false
+      required: [state, optionIds, evidence]
+      description: |
+        unknown means the source has no key; it is never a set of false options.
+        Choice keys are optionIds, a short answer's sample is text, fill-blank
+        keys live on blanks. conflict keeps every source value in candidates.
+      properties:
+        state: { type: string, enum: [known, unknown, conflict] }
+        optionIds:
+          type: array
+          maxItems: 26
+          items: { type: string, maxLength: 64 }
+        text: { type: string, maxLength: 10000 }
+        evidence:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+        candidates:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/ImportKeyValue' }
+    ImportDraftOption:
+      type: object
+      additionalProperties: false
+      required: [id, label, content]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        label: { type: string, minLength: 1, maxLength: 8 }
+        content: { $ref: '#/components/schemas/ContentDocument' }
+    ImportDraftBlank:
+      type: object
+      additionalProperties: false
+      required: [gapId, accepted, caseSensitive]
+      properties:
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        label: { type: string, maxLength: 32 }
+        accepted:
+          type: array
+          maxItems: 20
+          items: { type: string, minLength: 1, maxLength: 500 }
+        caseSensitive: { type: boolean }
+    ImportFieldOrigins:
+      type: object
+      additionalProperties: false
+      required: [type, prompt, options, answer, points]
+      properties:
+        type: { $ref: '#/components/schemas/ImportOrigin' }
+        prompt: { $ref: '#/components/schemas/ImportOrigin' }
+        options: { $ref: '#/components/schemas/ImportOrigin' }
+        answer: { $ref: '#/components/schemas/ImportOrigin' }
+        points: { $ref: '#/components/schemas/ImportOrigin' }
+    ImportDraftQuestion:
+      type: object
+      additionalProperties: false
+      required: [id, label, type, prompt, options, blanks, answer, points, origins, source]
+      description: unsupported marks content no interaction can represent; it must be retyped or excluded.
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        label: { type: string, maxLength: 32 }
+        task: { type: string, maxLength: 32 }
+        type: { type: string, enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer, unsupported] }
+        prompt: { $ref: '#/components/schemas/ContentDocument' }
+        options:
+          type: array
+          maxItems: 26
+          items: { $ref: '#/components/schemas/ImportDraftOption' }
+        blanks:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/ImportDraftBlank' }
+        answer: { $ref: '#/components/schemas/ImportDraftAnswer' }
+        points: { type: string, pattern: '^\d{1,6}(\.\d{1,2})?$' }
+        excluded:
+          type: object
+          additionalProperties: false
+          required: [reason]
+          properties:
+            reason: { type: string, minLength: 1, maxLength: 500 }
+        origins: { $ref: '#/components/schemas/ImportFieldOrigins' }
+        source:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportGapLink:
+      type: object
+      additionalProperties: false
+      required: [gapId, questionId]
+      description: Binds a passage gap to a choice question, or to one blank of a fill-blank question.
+      properties:
+        gapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+        questionId: { type: string, minLength: 1, maxLength: 64 }
+        blankGapId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+    ImportDraftGroup:
+      type: object
+      additionalProperties: false
+      required: [id, gaps, questions, source]
+      description: Questions sharing one passage; the passage gaps bind to members by stable IDs.
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        label: { type: string, maxLength: 32 }
+        instructions: { type: string, maxLength: 2000 }
+        stimulus: { $ref: '#/components/schemas/ContentDocument' }
+        gaps:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportGapLink' }
+        questions:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportDraftQuestion' }
+        source:
+          type: array
+          maxItems: 2000
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportDraftItem:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      maxProperties: 1
+      description: Exactly one of question or group.
+      properties:
+        question: { $ref: '#/components/schemas/ImportDraftQuestion' }
+        group: { $ref: '#/components/schemas/ImportDraftGroup' }
+    ImportDraftSection:
+      type: object
+      additionalProperties: false
+      required: [id, title, origin, items, source]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        instructions: { type: string, maxLength: 2000 }
+        origin: { $ref: '#/components/schemas/ImportOrigin' }
+        items:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/ImportDraftItem' }
+        source:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/ImportSourceRef' }
+    ImportDraft:
+      type: object
+      additionalProperties: false
+      required: [version, title, sections, notices, acknowledged]
+      description: The reviewable exam. Notices are source observations and are kept by the server; edits never change them.
+      properties:
+        version: { type: string, enum: [word-draft-v1] }
+        title: { type: string, maxLength: 200 }
+        sections:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/ImportDraftSection' }
+        notices:
+          type: array
+          maxItems: 2000
+          items: { $ref: '#/components/schemas/ImportFinding' }
+        acknowledged:
+          type: array
+          maxItems: 2000
+          items: { type: string, minLength: 1, maxLength: 64 }
+    ImportReviewSummary:
+      type: object
+      additionalProperties: false
+      required: [sections, groups, questions, included, excluded, totalPoints, answersKnown, answersMissing, answersConflicting, blocking, needsDecision]
+      properties:
+        sections: { type: integer, minimum: 0 }
+        groups: { type: integer, minimum: 0 }
+        questions: { type: integer, minimum: 0 }
+        included: { type: integer, minimum: 0 }
+        excluded: { type: integer, minimum: 0 }
+        totalPoints: { type: string }
+        answersKnown: { type: integer, minimum: 0 }
+        answersMissing: { type: integer, minimum: 0 }
+        answersConflicting: { type: integer, minimum: 0 }
+        blocking: { type: integer, minimum: 0 }
+        needsDecision: { type: integer, minimum: 0 }
+    ImportReview:
+      type: object
+      additionalProperties: false
+      required: [importId, revision, draft, findings, summary, ready, reprocessed, updatedAt]
+      description: |
+        The draft with every current finding. ready is true only when nothing blocks
+        and every review_required finding has a decision. reprocessed means a newer
+        machine draft exists that has not replaced the teacher's edits.
+      properties:
+        importId: { $ref: '#/components/schemas/Uuid' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        draft: { $ref: '#/components/schemas/ImportDraft' }
+        findings:
+          type: array
+          maxItems: 5000
+          items: { $ref: '#/components/schemas/ImportFinding' }
+        summary: { $ref: '#/components/schemas/ImportReviewSummary' }
+        ready: { type: boolean }
+        reprocessed: { type: boolean }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+    SaveImportReview:
+      type: object
+      additionalProperties: false
+      required: [expectedRevision, title, sections, acknowledged]
+      properties:
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        title: { type: string, maxLength: 200 }
+        sections:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/ImportDraftSection' }
+        acknowledged:
+          type: array
+          maxItems: 2000
+          items: { type: string, minLength: 1, maxLength: 64 }
+    ImportSourceSpan:
+      type: object
+      additionalProperties: false
+      required: [start, end, marks]
+      properties:
+        start: { type: integer, minimum: 0 }
+        end: { type: integer, minimum: 0 }
+        marks:
+          type: array
+          maxItems: 6
+          items: { $ref: '#/components/schemas/ContentMark' }
+        colored: { type: boolean }
+    ImportSourceBlock:
+      type: object
+      additionalProperties: false
+      required: [id, text, spans]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 200 }
+        text: { type: string, maxLength: 400000 }
+        spans:
+          type: array
+          maxItems: 20000
+          items: { $ref: '#/components/schemas/ImportSourceSpan' }
+        tableId: { type: string, maxLength: 200 }
+        row: { type: integer, minimum: 0 }
+        column: { type: integer, minimum: 0 }
+    ImportSourceView:
+      type: object
+      additionalProperties: false
+      required: [sourceId, role, filename, blocks]
+      description: The extracted main-body text of one source, in document order, for side-by-side review.
+      properties:
+        sourceId: { type: string, minLength: 1, maxLength: 128 }
+        role: { $ref: '#/components/schemas/ImportSourceRole' }
+        filename: { type: string, minLength: 1, maxLength: 255 }
+        blocks:
+          type: array
+          maxItems: 20000
+          items: { $ref: '#/components/schemas/ImportSourceBlock' }
 
     # ------------------------------------------------------------------ auth
 
@@ -3662,6 +4107,391 @@ paths:
 
   # =============================================================== admin/media
 
+  /admin/imports:
+    post:
+      operationId: createWordImport
+      tags: [admin-imports]
+      summary: Create an empty private import idempotently
+      description: Creates a persistent intake identity without uploading files or starting recognition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWordImport' }
+      responses:
+        '201':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '409':
+          description: IMPORT_CONFLICT — request identity already used with different input.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED — configured actor or installation quota reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    get:
+      operationId: listWordImports
+      tags: [admin-imports]
+      summary: Search private import history
+      description: Paginated shared teacher history with accent-insensitive title and current filename search.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Query'
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ImportStatus' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Newest imports first, stable ID tie-breaker.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/WordImport' }
+  /admin/imports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getWordImport
+      tags: [admin-imports]
+      summary: Read an import and its current completed sources
+      description: Returns a consistent source-set snapshot and the number of incomplete upload reservations.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/sources:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: uploadImportSource
+      tags: [admin-imports]
+      summary: Upload a private Word source and create an immutable source set
+      description: |
+        One multipart file part named file, at most 25 MiB. The filename ends in
+        .docx, or in .doc when legacy conversion is enabled (see limits), and the
+        detected content must agree with it.
+        The body Content-Type is not evidence of the detected document type.
+        Retry with identical uploadId, role, expectedRevision, filename and bytes.
+        A changed replay conflicts. Completion creates exactly one source revision;
+        replay returns its receipt even when later uploads advanced the import.
+        Uploads are accepted while the import awaits sources, has failed or is under
+        review; a new source set returns it to awaiting_sources, and processing again
+        keeps teacher edits. Every storage write first has a durable reservation;
+        interruptions remain inspectable and quota-counted.
+        Source bytes and storage keys never enter ordinary logs or student payloads.
+      x-max-body-bytes: 26345472
+      parameters:
+        - { name: role, in: query, required: true, schema: { $ref: '#/components/schemas/ImportSourceRole' } }
+        - { name: uploadId, in: query, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+        - { name: expectedRevision, in: query, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Stored and associated with one source revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUploadReceipt' }
+        '400':
+          description: Malformed upload; exactly one file part is required.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: IMPORT_SOURCE_TOO_LARGE — compressed, expanded or XML resource limit exceeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — unsupported, active, encrypted or invalid source.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/sources/{sourceId}/download:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: sourceId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    get:
+      operationId: downloadImportSource
+      tags: [admin-imports]
+      summary: Authorize a short-lived original-file download
+      description: |
+        The completed source must belong to the requested import. Historical
+        completed sources remain accessible to teachers. A 60-second bearer URL
+        forces attachment download as application/octet-stream. Response is no-store.
+        Pending storage reservations are never downloadable.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportSourceDownload' }
+        '404':
+          description: Completed source not found in this import.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/imports/limits:
+    get:
+      operationId: getWordImportLimits
+      tags: [admin-imports]
+      summary: Read the accepted formats and size limit before uploading
+      description: Lets the upload page state its limits before a file is chosen.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportLimits' }
+  /admin/imports/{id}/process:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: processWordImport
+      tags: [admin-imports]
+      summary: Queue recognition of the current source set
+      description: |
+        Starts processing an import awaiting sources, retries a failed one, or
+        reprocesses one under review. Reprocessing never replaces teacher edits;
+        the new result is offered in the review instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProcessWordImport' }
+      responses:
+        '202':
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, no exam source, or a run already active.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED — processing capacity reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: cancelWordImport
+      tags: [admin-imports]
+      summary: Stop processing, or close an uncommitted import
+      description: >-
+        Stopping a reprocess of an import that already has a draft returns it to
+        needs_review with that draft intact; otherwise the import is closed. A failed
+        reprocess likewise leaves the draft under review. Sources and the review stay
+        readable. A commit that finished first wins.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CancelWordImport' }
+      responses:
+        '200':
+          description: Cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WordImport' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision or already committed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/review:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getWordImportReview
+      tags: [admin-imports]
+      summary: Read the reviewable draft with its current findings
+      description: Findings are recomputed on every read, so they always describe the saved revision.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReview' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      operationId: saveWordImportReview
+      tags: [admin-imports]
+      summary: Save the teacher's edits to the draft
+      description: |
+        Replaces the editable draft at expectedRevision. Notices are kept from
+        the server copy. Findings are recomputed from the saved draft.
+      x-max-body-bytes: 8388608
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveImportReview' }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReview' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: STALE_WRITE — saved elsewhere since expectedRevision; IMPORT_CONFLICT — the import is no longer under review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: VALIDATION_FAILED — the draft is structurally invalid (unknown IDs, duplicate IDs, invalid content).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/review/adopt:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: adoptWordImportReprocessed
+      tags: [admin-imports]
+      summary: Replace the edited draft with the newer machine draft
+      description: |
+        Only when the review reports reprocessed. The teacher's edits and
+        acknowledgements are discarded in favour of the newer recognition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CancelWordImport' }
+      responses:
+        '200':
+          description: Adopted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportReview' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: STALE_WRITE — the draft changed since expectedRevision; IMPORT_CONFLICT — nothing newer to adopt, or the import is no longer under review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/source:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getWordImportSource
+      tags: [admin-imports]
+      summary: Read the extracted text of one source for comparison
+      description: Private teacher evidence; the response is never cached and never reaches students.
+      parameters:
+        - { name: role, in: query, required: true, schema: { $ref: '#/components/schemas/ImportSourceRole' } }
+      responses:
+        '200':
+          description: OK.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportSourceView' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/imports/{id}/commit:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: commitWordImport
+      tags: [admin-imports]
+      summary: Create one draft test from the reviewed import
+      description: |
+        Creates the test, its sections, groups and bank questions in one
+        transaction; nothing persists on failure. Excluded questions are left out.
+        Replaying the same request after success returns the same test.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommitWordImport' }
+      responses:
+        '200':
+          description: Committed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportCommitResult' }
+        '404':
+          description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: STALE_WRITE — the draft changed since draftRevision; IMPORT_CONFLICT — already committed by another request, or cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: IMPORT_NOT_READY — blocking findings remain or decisions are missing.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /admin/media:
     get:
       operationId: listMedia

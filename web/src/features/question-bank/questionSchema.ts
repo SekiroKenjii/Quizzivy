@@ -88,7 +88,7 @@ export const questionSchema = z
     points: z
       .number()
       .gt(0, "questionEditor.pointsError")
-      .max(999999.99)
+      .max(999999.99, "questionEditor.errors.pointsTooLarge")
       .multipleOf(0.01, "questionEditor.errors.pointPrecision"),
     explanation: z.string().nullable(),
     sampleAnswer: z.string().nullable(),
@@ -116,6 +116,12 @@ export const questionSchema = z
   }));
 
 export type QuestionValues = z.infer<typeof questionSchema>;
+
+/** issueKey is the translation key of a failed parse's first issue, or fallback when that issue carries zod's own untranslated text. */
+export function issueKey(error: z.ZodError, fallback: string): string {
+  const message = error.issues[0]?.message;
+  return message?.startsWith("questionEditor.") ? message : fallback;
+}
 
 export type QuestionType = QuestionValues["type"];
 

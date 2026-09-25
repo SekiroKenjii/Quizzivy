@@ -2,7 +2,7 @@ import { Slice } from "@tiptap/pm/model";
 import { closeHistory } from "@tiptap/pm/history";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 import type { SemanticContent } from "../model";
-import { fromEditorJSON, toEditorJSON } from "./adapter";
+import { fromEditorDoc, toEditorJSON } from "./adapter";
 import { validEditorProfile, type EditorProfile } from "./profile";
 
 /** pasteTransaction validates the complete replacement at the captured selection before returning one undoable edit. */
@@ -17,7 +17,7 @@ export function pasteTransaction(
     const transaction = closeHistory(state.tr).replaceSelection(
       Slice.maxOpen(node.content),
     );
-    const parsed = fromEditorJSON(transaction.doc.toJSON());
+    const parsed = fromEditorDoc(transaction.doc);
     if (!parsed.ok || !validEditorProfile(parsed.value, profile)) return null;
     return transaction.setMeta("structuredPaste", true).scrollIntoView();
   } catch {
