@@ -154,6 +154,13 @@ func TestRealPipelineResumesPrivateArtifactsAndKeepsCandidateOutOfRunEnvelope(t 
 	if len(questions) != 1 || questions[0].Answer.State != domain.AnswerKnown || questions[0].Answer.OptionIDs[0] != questions[0].Options[1].ID {
 		t.Fatal("real source/key integration changed association")
 	}
+	for _, notice := range candidate.Notices {
+		for _, ref := range notice.Evidence {
+			if ref.SourceID == "" || ref.BlockID == "" {
+				t.Fatalf("notice %s points at no source block: %+v", notice.Field, ref)
+			}
+		}
+	}
 	updated, err := h.repo.Get(ctx, parent.ID)
 	if err != nil || updated.Status != "needs_review" {
 		t.Fatal("processing bypassed teacher review")

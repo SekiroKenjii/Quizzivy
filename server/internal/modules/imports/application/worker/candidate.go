@@ -32,7 +32,7 @@ func addRenditionFindings(draft *domain.Draft, sources []pipelineSource) error {
 			if code == "RENDERER_LAYOUT_REQUIRES_REVIEW" {
 				severity = domain.Informational
 			}
-			draft.Notices = append(draft.Notices, domain.Finding{ID: id, Code: domain.CodeSourceObject, Severity: severity, Target: s.identity, Field: code, Count: 1, Evidence: []domain.SourceRef{{SourceID: s.identity}}})
+			draft.Notices = append(draft.Notices, domain.Finding{ID: id, Code: domain.CodeSourceObject, Severity: severity, Target: s.identity, Field: code, Count: 1, Evidence: []domain.SourceRef{}})
 		}
 	}
 	return nil
