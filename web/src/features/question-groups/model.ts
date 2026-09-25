@@ -5,6 +5,7 @@ import { validateContent } from "@/components/shared/content/validation";
 import { contentStringLength } from "@/components/shared/content/unicode";
 import { questionGaps } from "@/components/shared/content/gaps";
 import {
+  issueKey,
   questionSchema,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
@@ -177,8 +178,7 @@ export function groupIssue(bundle: GroupBundle): string | null {
     return "groups.invalidQuestion";
   for (const question of bundle.questions) {
     const parsed = questionSchema.safeParse(memberValues(question.input));
-    if (!parsed.success)
-      return parsed.error.issues[0]?.message ?? "groups.invalidQuestion";
+    if (!parsed.success) return issueKey(parsed.error, "groups.invalidQuestion");
   }
   const issue = materialsIssue(bundle);
   if (issue) return issue;

@@ -1285,6 +1285,13 @@ the file it adds.
 | `00040_create_group_audio_plays.sql` | Shared recording counters and append-only gesture receipts | Word W-09 |
 | `00041_version_test_delivery.sql` | Immutable delivery algorithm marker | Word W-09d |
 | `00042_create_word_import_sources.sql` | Private source intake, upload journal and immutable source sets | Word W-10a |
+| `00043_create_word_import_runs.sql` | Fenced processing runs and append-only run events | Word W-11a |
+| `00044_create_word_import_artifacts.sql` | Private stage artifact sets and object journal | Word W-13b |
+| `00045_create_word_import_drafts.sql` | One revisioned review draft per import, plus a kept-aside reprocessed candidate | Word W-18 |
+| `00046_create_word_import_commits.sql` | One append-only commit record per import linking the approved revision to its test | Word W-20 |
+| `00047_add_word_import_run_profile.sql` | Recognition profile a run was scheduled with | Word W-14 |
+| `00048_allow_legacy_word_sources.sql` | Legacy `.doc` sources | Word W-13 |
+| `00049_index_question_group_bank_recency.sql` | Bank group listing ordered by recency | Word W-07 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1730,3 +1737,75 @@ There are at most 50 requests per import and ten attempts per request. Stage wri
 are monotonic within an attempt and repeated stages are no-ops, bounding run-event
 history without truncating it. Down removes events before runs and their guard
 function. Docker up/down/up checks run on a disposable database.
+
+
+## 25. Private stage artifacts (W-13b)
+
+Migration: `00044_create_word_import_artifacts.sql`. `word_import_artifact_sets`
+pins one bounded output manifest to its producing run/claim and immutable source
+set item. Composite FKs enforce same-import run/source revision, source role and
+source identity. Component identity includes processor configuration and upstream
+artifact lineage; reuse additionally requires the same pipeline version.
+
+`word_import_artifacts` journals each private object before storage. Generated
+keys include import/set/file identity, and every takeover receives new writable
+keys. Unique ordinal/name constraints prevent ambiguous manifests. The manifest
+has at most 512 files, 64 MiB per file and 256 MiB total; compact application
+metadata is limited to 60 KiB (128 KiB JSONB allowance for representation spacing).
+These are internal development bounds, not the approved production envelope.
+
+Reservations take quota advisory lock `(73819,10)`, then parent import and run.
+Pending and ready set bytes count towards separate actor/global artifact limits;
+sets per import are also bounded. Storage and checksum IO happen after commit.
+Every acknowledgement/completion requires the live source/worker/fencing claim.
+Completed set reads need no mutable snapshot because completed files and metadata
+cannot change. Only complete sets are reusable, including across explicit retries;
+old incomplete sets remain tracked and charged. No retention decision is inferred.
+
+Column grants prevent metadata rewrites and deletion. Triggers reject completed
+row mutation, file additions to completed sets, out-of-plan ordinals and incomplete
+set completion. Parent/run/source and lookup indexes support reverse references,
+reuse and pending inventory. Existing append-only audit/event permissions remain
+unchanged. Down drops owned files before sets and removes the new FK target keys.
+
+Object persistence uses [conditional S3 creation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html)
+with a SHA-256 checksum. Exact lost-response replay verifies the stored checksum,
+size and MIME type using [HeadObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html).
+Incompatible storage implementations fail closed; production provider compatibility
+is a W-21 gate. Trusted processor reads stage on disk and verify size/digest before
+parsing. A stage manifest grants no learner media authorization.
+
+
+## 26. Review drafts and commits (W-18, W-20)
+
+Migrations: `00045_create_word_import_drafts.sql`, `00046_create_word_import_commits.sql`,
+`00047_add_word_import_run_profile.sql`, `00048_allow_legacy_word_sources.sql`.
+
+`word_import_drafts` holds exactly one review copy per import (the primary key is the
+import). `revision` is the optimistic-concurrency token for teacher saves: an update
+names the revision it read and matches zero rows otherwise. `run_id` is the run whose
+extraction the draft's source references point into, so the source view and the draft
+always describe the same evidence. A run that completes while `edited_by` is null
+replaces the body and bumps the revision; once a teacher has saved, a newer machine
+draft is kept in `candidate`/`candidate_run_id` and never overwrites the edits. The
+body is bounded to 8 MiB as JSONB. The application role may update drafts but not
+delete them; draft saves are not audited individually because autosave would flood
+the log.
+
+`word_import_commits` is append-only (no UPDATE or DELETE for the application role)
+and has one row per import. It records the request identity, the committed draft
+revision and its SHA-256 digest. The commit runs in one transaction with the test,
+section, bank question and group writes it describes, after locking the import row
+`FOR UPDATE`; a second concurrent commit waits on that lock, finds the import already
+committed and rolls back its own writes, and a replay with the same request identity
+returns the recorded test. `test_id` is `ON DELETE SET NULL` so deleting the created
+test later is not blocked by import history.
+
+`word_import_runs.profile` stores the recognition profile (for example the paper to
+read from a multi-paper answer key) so a replayed schedule request must match it.
+Adding the column with a constant default is metadata-only on PG18. The source
+`format` check now admits `doc`; its Down restores the `docx`-only check `NOT VALID`
+so rows written meanwhile do not block the rollback.
+
+`00049` replaces the bank group index on `id DESC` with `(updated_at DESC, id DESC)`
+under the same predicate, which is the order the listing actually uses.

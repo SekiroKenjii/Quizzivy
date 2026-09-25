@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // SecurityHeaders applies the API's browser protections, including error responses.
@@ -24,6 +25,10 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// StreamingReadTimeout replaces the server-wide read deadline for streamed uploads, so a large file on a slow
+// connection is not cut off; it stays below the server's write timeout.
+const StreamingReadTimeout = 110 * time.Second
 
 // LimitRequestBody bounds non-streaming requests before the contract validator buffers them.
 func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]int64) func(http.Handler) http.Handler {
@@ -62,6 +67,7 @@ func streamingRequestBody(w http.ResponseWriter, r *http.Request, streaming map[
 	if _, ok := streaming[r.Pattern]; !ok {
 		return false
 	}
+	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(StreamingReadTimeout))
 	if limit := limits[r.Pattern]; limit > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 	}

@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -24,6 +25,7 @@ type Upload struct {
 }
 
 // UploadHandler bounds concurrent intake and local staging; durable reservations precede every object write.
+// Legacy admits .doc files, checked only by signature here and converted in isolation by the worker.
 type UploadHandler struct {
 	Repo      domain.Repository
 	Store     ports.ObjectStore
@@ -31,6 +33,7 @@ type UploadHandler struct {
 	Quotas    domain.Quotas
 	WorkDir   string
 	Slots     chan struct{}
+	Legacy    bool
 }
 
 func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, error) {
@@ -42,7 +45,8 @@ func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, e
 	default:
 		return domain.Receipt{}, domain.ErrBusy
 	}
-	if !validFilename(in.Filename) {
+	format := sourceFormat(in.Filename, h.Legacy)
+	if format == "" {
 		return domain.Receipt{}, domain.ErrUnsupported
 	}
 	if _, err := h.Repo.Get(ctx, in.ImportID); err != nil {
@@ -57,10 +61,10 @@ func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, e
 	if err != nil {
 		return domain.Receipt{}, err
 	}
-	if err := h.Inspector.Inspect(ctx, file, n); err != nil {
+	if err := h.inspect(ctx, file, n, format); err != nil {
 		return domain.Receipt{}, err
 	}
-	source, err := h.Repo.Reserve(ctx, domain.Reserve{Actor: in.Actor, Source: domain.Source{ImportID: in.ImportID, UploadID: in.UploadID, ExpectedRevision: in.ExpectedRevision, Role: in.Role, Filename: in.Filename, Format: "docx", Bytes: n, SHA256: checksum}}, h.Quotas)
+	source, err := h.Repo.Reserve(ctx, domain.Reserve{Actor: in.Actor, Source: domain.Source{ImportID: in.ImportID, UploadID: in.UploadID, ExpectedRevision: in.ExpectedRevision, Role: in.Role, Filename: in.Filename, Format: format, Bytes: n, SHA256: checksum}}, h.Quotas)
 	if err != nil {
 		return domain.Receipt{}, err
 	}
@@ -95,8 +99,31 @@ func stageSource(ctx context.Context, in Upload, file *os.File) (int64, []byte, 
 	return n, hash.Sum(nil), nil
 }
 
-func validFilename(name string) bool {
-	return name != "" && utf8.RuneCountInString(name) <= 255 && strings.HasSuffix(strings.ToLower(name), ".docx") && !strings.ContainsAny(name, "/\\") && strings.IndexFunc(name, unicode.IsControl) < 0
+var oleSignature = []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
+
+func (h UploadHandler) inspect(ctx context.Context, file io.ReaderAt, size int64, format string) error {
+	if format == "docx" {
+		return h.Inspector.Inspect(ctx, file, size)
+	}
+	header := make([]byte, len(oleSignature))
+	if _, err := file.ReadAt(header, 0); err != nil || !bytes.Equal(header, oleSignature) {
+		return domain.ErrInvalid
+	}
+	return nil
+}
+
+func sourceFormat(name string, legacy bool) string {
+	if name == "" || utf8.RuneCountInString(name) > 255 || strings.ContainsAny(name, "/\\") || strings.IndexFunc(name, unicode.IsControl) >= 0 {
+		return ""
+	}
+	lower := strings.ToLower(name)
+	switch {
+	case strings.HasSuffix(lower, ".docx"):
+		return "docx"
+	case legacy && strings.HasSuffix(lower, ".doc"):
+		return "doc"
+	}
+	return ""
 }
 
 type contextReader struct {
