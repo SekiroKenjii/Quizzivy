@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,7 +27,7 @@ export function useReprocess(importId: string, flush: () => Promise<void>) {
     null,
   );
 
-  useEffect(() => () => running.current?.abort(), []);
+  useLayoutEffect(() => () => running.current?.abort(), []);
 
   const reprocess = useCallback(
     async (paper: number) => {
