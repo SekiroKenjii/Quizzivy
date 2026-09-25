@@ -864,6 +864,51 @@ Public queue/progress controls, full W-16 validation, review, commit, retention 
 production capacity/rollout gates remain open. This internal worker does not enable
 public legacy intake, external AI processing or production activation.
 
+### 1.34 Takeover checkpoint — corpus recognition, review and commit (2026-09-25)
+
+The stack above (W-02 to W-14a, W-11b) was reviewed area by area with an
+adversarial second pass. Its package safety, fenced queue and converter isolation
+were kept; 43 confirmed findings were fixed or listed below. Against the supplied
+papers the rules-v1 recognizer produced about 1,300 findings for a 31-question
+paper, read one section and could not separate the papers of a combined key, so it
+was replaced rather than tuned.
+
+**Recognition (rules-v2).** Evidence becomes logical lines (table rows joined by
+tab); a state machine builds sections, shared-passage groups and questions; keys are
+read per paper and per section. It covers Roman sections with continuous numbering,
+same-line options split only at the next expected letter, per-question instructions
+grouped into inferred sections, a question promoted to a group by its sub-labels,
+cloze gaps bound to choice questions or to blanks (open cloze), true/false tables,
+multi-blank keys and teacher-graded rewrites with the key as sample. Misprinted
+numbers are kept and flagged; letters for a question without options stay
+unsupported; coloured text inside a question is flagged as a possible answer leak.
+Measured on the 54 supplied papers (5 DOCX with their key, 49 DOCX rebuilt from the
+PDFs with the combined `ĐÁP ÁN.docx`): 2,562 of 2,626 questions receive their key
+automatically, 37 papers need no decision beyond source formatting; the rest are
+matching exercises (unsupported by design) or misprints in the source, each surfaced
+as a finding. PDF-derived files carry no underline, so pronunciation questions from
+them always ask for the underline. This is a regression harness, not a pilot result.
+
+**Review (W-16, W-18 core).** One revisioned draft per import is written in the
+transaction that completes its run; a newer machine draft after teacher edits is kept
+aside. Findings are derived on every read from the draft's content (bank validation
+is reused), joined with source notices; blockers need an edit, review items need an
+acknowledgement keyed to the content it judged. Malformed edits are 422.
+
+**Commit (W-20 core).** `core/adapters.ImportCommitter` runs the tests and questions
+use cases on one transaction and records the commit in it. Fresh IDs make repeated
+imports independent; concurrent or replayed commits yield one test.
+
+**Operations.** Processing is queued and cancelled from the API. DOCX is processed
+natively without a converter; `.doc` needs the converter and `IMPORT_LEGACY_DOC`.
+Heartbeat, shutdown, quota and retired-pipeline handling were corrected.
+
+Still open: W-15 (assisted recognition), W-19 (compare/apply a reprocessed draft;
+the candidate is stored but not yet offered), W-21/W-22 (capacity, retention,
+runbooks, pilot), media/audio attachment in imports, and batching the per-group
+student context reads (about five queries per group per session load).
+
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
