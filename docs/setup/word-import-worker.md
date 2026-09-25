@@ -104,13 +104,16 @@ Turning it on is a decision, not only a deploy: see O-24 in
    import store reuses the `S3_*` credentials, and the token is scoped to
    `quizzivy-media` today (`docs/setup/r2.md`).
 
-   Then check the bucket can hold import objects. The import store writes each
-   object once, with `If-None-Match: *` and a full-object `x-amz-checksum-sha256`,
-   then verifies that checksum with `HeadObject`
-   (`server/internal/platform/storage/immutable.go`). `docs/setup/r2.md` records
-   that R2 supports SHA-256 only as a composite multipart checksum. If R2 refuses
-   that single-part write, every run fails at its first artifact. Try one
-   conditional SHA-256 put and head against the new bucket before going further.
+   Then run `make verify-r2-imports`. It drives the import store's own code
+   against the new bucket, using the `R2_*` values `make verify-r2` reads, and
+   checks five things:
+   - a create-only write;
+   - an identical retry;
+   - a refused changed retry;
+   - a signed download;
+   - that an unsigned request gets nothing.
+
+   Every line must pass before going further.
 2. **Image.** Build `./cmd/import-worker` in the Dockerfile and copy it beside
    `/app/api`.
 3. **Fly configuration.** In `fly.toml`:

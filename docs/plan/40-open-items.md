@@ -262,10 +262,9 @@ Turning it on needs three things only Thuong can do or decide:
   - D-07, capacity: the quotas are still development defaults.
   - D-08, retention: there is no cleanup yet, so every uploaded exam and its
     artifacts are kept.
-- **Storage support.** The import store writes each object once, with a
-  full-object SHA-256 checksum. `docs/setup/r2.md` records that R2 supports
-  SHA-256 only for multipart uploads, so the runbook checks this against the
-  bucket first.
+- **Storage support.** R2 rejects full-object SHA-256 checksums, so the import
+  store checks the digest itself and sends it as metadata with Content-MD5.
+  `make verify-r2-imports` proves the bucket accepts that before release.
 
 `.doc` stays off either way. Its converter needs a Docker daemon, the production
 image has none, and hosting one means a separate privileged Machine. The steps

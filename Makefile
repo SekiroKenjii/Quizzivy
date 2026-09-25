@@ -24,7 +24,7 @@ MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),mig
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
-        seed gen contract verify-google verify-r2 dev dev-web dev-api test test-web test-api \
+        seed gen contract verify-google verify-r2 verify-r2-imports dev dev-web dev-api test test-web test-api \
         test-api-unit test-api-integration test-api-e2e test-api-all e2e lint
 
 help: ## Show this help
@@ -49,6 +49,9 @@ verify-google: ## T-0.2 -- check the Google OAuth client works
 
 verify-r2: ## T-0.3 -- check the R2 bucket, credentials and privacy
 	@./scripts/verify-r2.sh
+
+verify-r2-imports: ## check the private Word import bucket on R2 accepts the import store's writes
+	@cd server && go run ./cmd/verify-import-storage
 
 up: ## Start postgres:18 + MinIO
 	docker compose up -d --build --wait db minio
