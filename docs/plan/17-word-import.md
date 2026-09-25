@@ -868,7 +868,8 @@ public legacy intake, external AI processing or production activation.
 
 The stack above (W-02 to W-14a, W-11b) was reviewed area by area with an
 adversarial second pass. Its package safety, fenced queue and converter isolation
-were kept; 43 confirmed findings were fixed or listed below. Against the supplied
+were kept; every confirmed finding was fixed on this branch, except the items listed
+as still open at the end of this section. Against the supplied
 papers the rules-v1 recognizer produced about 1,300 findings for a 31-question
 paper, read one section and could not separate the papers of a combined key, so it
 was replaced rather than tuned.
@@ -890,8 +891,9 @@ as a finding. PDF-derived files carry no underline, so pronunciation questions f
 them always ask for the underline. This is a regression harness, not a pilot result.
 
 **Review (W-16, W-18 core).** One revisioned draft per import is written in the
-transaction that completes its run; a newer machine draft after teacher edits is kept
-aside. Findings are derived on every read from the draft's content (bank validation
+transaction that completes its run. A newer machine draft that arrives after teacher
+edits is kept aside, and the teacher adopts it explicitly (`review/adopt`, revision
+checked). Findings are derived on every read from the draft's content (bank validation
 is reused), joined with source notices; blockers need an edit, review items need an
 acknowledgement keyed to the content it judged. Malformed edits are 422.
 
@@ -901,12 +903,41 @@ imports independent; concurrent or replayed commits yield one test.
 
 **Operations.** Processing is queued and cancelled from the API. DOCX is processed
 natively without a converter; `.doc` needs the converter and `IMPORT_LEGACY_DOC`.
-Heartbeat, shutdown, quota and retired-pipeline handling were corrected.
+Heartbeat, shutdown, quota and retired-pipeline handling were corrected. A reprocess
+that fails or is stopped returns an import that already has a draft to
+needs_review with the draft intact (18-word-import-ux §7); the latest run keeps its
+status and error code so the review can say what happened. A failed import takes a
+replacement file in place. A question's own blanks are numbered 1, 2, … within the
+question, as the bank editor numbers them; passage gaps keep the source label.
 
-Still open: W-15 (assisted recognition), W-19 (compare/apply a reprocessed draft;
-the candidate is stored but not yet offered), W-21/W-22 (capacity, retention,
-runbooks, pilot), media/audio attachment in imports, and batching the per-group
-student context reads (about five queries per group per session load).
+**Screens (WU-01 to WU-04, WU-06 core).** History with search and status filter;
+upload with the server's limits, idempotent create → upload → process; a detail
+page per state (progress by real stage with elapsed time, failure with a specific
+action, stop or close with honest copy); and the review workspace: extracted source
+beside the rebuilt exam, finding filters with previous/next, provenance per field,
+one editable question at a time, autosave with a single save in flight, and a
+summary that creates the draft test. Deviations from 18-word-import-ux, to revisit
+with the design deck (it has no import boards yet): the summary is a dialog rather
+than the `/confirm` route; shared passages are edited in the test builder, not in
+review; there is no split, merge or move; learner preview is the builder's.
+
+Verified in a browser against the real API, worker and MinIO on 2026-09-25: upload
+of a real .docx with a separate key, processing, review with exclusions of
+unsupported matching items, draft creation, builder, learner preview and publish;
+stopping a reprocess, a failed reprocess, and replacing the file of a failed import.
+
+A version's shared group contexts now load in six batched queries, whatever the
+number of groups, instead of about five per group.
+
+Still open: W-15 (assisted recognition), the rest of W-19 (a side-by-side compare of
+the kept draft and the reprocessed one; adoption replaces the draft whole),
+W-21/W-22 (capacity, retention, runbooks, pilot), and media/audio attachment in
+imports. Three low findings stay open because none of them shows on the supplied
+papers: element locators repeat the namespace URI in every segment, so the locator
+budget runs out near 80k elements rather than at the node limit; one group save
+parses each material about seven times; and a student's group context mints and
+reads each asset separately. The publish response's zero `manualCount` and
+`audioCount` predate this stack and are tracked in SekiroKenjii/Quizzivy#136.
 
 
 ## 2. Current code and the actual gaps
