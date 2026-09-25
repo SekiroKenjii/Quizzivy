@@ -119,12 +119,12 @@ const block: z.ZodType<ContentBlock> = z.lazy(() =>
     z.strictObject({
       type: z.literal("image"),
       assetId: asset,
-      alt: boundedString(1, 1000),
+      alt: boundedString(1, CONTENT_LIMITS.imageAlt),
     }),
     z.strictObject({
       type: z.literal("audio"),
       assetId: asset,
-      label: boundedString(1, 200),
+      label: boundedString(1, CONTENT_LIMITS.audioLabel),
     }),
   ]),
 );

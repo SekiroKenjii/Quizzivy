@@ -17,4 +17,6 @@ export const CONTENT_LIMITS = {
   url: 2000,
   rows: 50,
   columns: 12,
+  imageAlt: 1000,
+  audioLabel: 200,
 } as const;
