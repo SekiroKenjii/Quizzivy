@@ -1358,6 +1358,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/docs-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open the API reference for fifteen minutes
+         * @description Sets `quizzivy_docs`, a docs-only session cookie. `/docs` and
+         *     `/docs/openapi.json` answer only to it: 401 without a valid one, 403 for
+         *     a role other than admin. The cookie carries a token for the `docs`
+         *     audience signed with its own key, so it is never an access token and an
+         *     access token never opens the docs. `Path=/docs` keeps it off every API
+         *     request, and `SameSite=Strict` still travels on the SPA's same-site
+         *     navigation to the API origin. Admin only, like every `/admin/` path, and
+         *     rate-limited as an operation that mints a credential.
+         */
+        post: operations["openDocsSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/classes": {
         parameters: {
             query?: never;
@@ -4107,7 +4134,11 @@ export interface operations {
              */
             204: {
                 headers: {
-                    /** @description `quizzivy_refresh=; Max-Age=0` — same Path and flags, or the browser keeps the old cookie. */
+                    /**
+                     * @description Two headers. `quizzivy_refresh=; Max-Age=0` with the same Path and flags,
+                     *     or the browser keeps the old cookie; and `quizzivy_docs=; Path=/docs;
+                     *     Max-Age=0`, so signing out also ends an open API reference session (§5.5).
+                     */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
@@ -6795,6 +6826,26 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    openDocsSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The docs session is open for fifteen minutes. */
+            204: {
+                headers: {
+                    /** @description `quizzivy_docs=<token>; Path=/docs; Max-Age=900; HttpOnly; Secure; SameSite=Strict` */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listClasses: {

@@ -8,6 +8,7 @@ import (
 	attemptshttp "quizzivy/internal/modules/attempts/http"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
+	identitytoken "quizzivy/internal/modules/identity/application/token"
 	identityhttp "quizzivy/internal/modules/identity/http"
 	importshttp "quizzivy/internal/modules/imports/http"
 	mediahttp "quizzivy/internal/modules/media/http"
@@ -33,9 +34,11 @@ type Server struct {
 
 // Deps is what handlers need. It grows as phases add capability.
 type Deps struct {
-	Modules Modules
-	DB      DB
-	Tokens  TokenVerifier
+	Modules    Modules
+	DB         DB
+	Tokens     TokenVerifier
+	Docs       *identitytoken.Issuer
+	DocsPublic bool
 }
 
 var _ openapi.StrictServerInterface = (*Server)(nil)

@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.38 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.39 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.38**
+
+- §5.5 adds a docs session: the API reference (`/docs`, `/docs/openapi.json`)
+  opens only with a fifteen-minute, docs-only cookie that an admin gets from
+  `POST /admin/docs-session`. Its token is signed with its own key for its own
+  audience and is never an access token. Local development may opt out with
+  `DOCS_PUBLIC`, which production refuses. The page loads Scalar by SRI under a
+  CSP that admits only that bundle and its own inline script (#135).
 
 **Changes since v0.37**
 
@@ -391,6 +400,14 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
 - Password reset in v1: admin sets a temporary password from the student detail page. No self-service email flow (§17.1).
+
+### 5.5 API reference session
+
+- `/docs` and `/docs/openapi.json` are served by the API beside the contract and are **admin only**. A browser navigating there sends no bearer token, so they check a separate cookie instead.
+- `POST /admin/docs-session` (admin, rate-limited like any credential-minting operation) sets `quizzivy_docs`: `Path=/docs; HttpOnly; Secure; SameSite=Strict; Max-Age=900`. Its value is a JWT for the `docs` audience, signed with a key derived from the access-token key: a docs token is never accepted as an access token, and an access token never opens the docs.
+- Missing, tampered or expired cookie → `401`; a role other than admin → `403`, both in the error envelope with no page or contract leaked. `POST /auth/logout` clears `quizzivy_docs` together with the refresh cookie, so signing out also ends an open docs session.
+- The SPA's admin settings open the reference: the new tab is opened synchronously in the click, `opener` is cleared, and only then is the session requested and the tab pointed at `/docs`.
+- `DOCS_PUBLIC=true` skips only the cookie check, for local development. The server refuses to start with it when `APP_ENV=production`; SRI, the page's CSP and the rate limit apply everywhere.
 
 ---
 

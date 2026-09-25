@@ -19,7 +19,7 @@ var configuredBy = []string{
 	"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI", "JWT_SIGNING_KEY",
 	"MAX_CONCURRENT_PASSWORD_HASHES", "REFRESH_COOKIE_SECURE", "S3_ACCESS_KEY_ID",
 	"S3_BUCKET", "S3_ENDPOINT", "S3_FORCE_PATH_STYLE", "S3_REGION",
-	"S3_SECRET_ACCESS_KEY", "VITE_GOOGLE_CLIENT_ID",
+	"S3_SECRET_ACCESS_KEY", "VITE_GOOGLE_CLIENT_ID", "DOCS_PUBLIC",
 }
 
 // What `fly secrets set` supplies, by name, per docs/setup/dns.md. Values are
@@ -100,6 +100,17 @@ func TestTheCommittedFlyConfigBootsWithTheDocumentedSecrets(t *testing.T) {
 	}
 	if len(cfg.GoogleRedirectURIs) == 0 {
 		t.Error("google sign-in is off; §5.3 is not optional in production")
+	}
+	if cfg.DocsPublic {
+		t.Error("the API reference is open to anyone; production must keep the docs gate on")
+	}
+}
+
+func TestPublicDocsAreRefusedInProduction(t *testing.T) {
+	apply(t, flyEnv(t), flySecrets, map[string]string{"DOCS_PUBLIC": "true"})
+
+	if _, err := config.Load(); err == nil {
+		t.Fatal("Load accepted DOCS_PUBLIC=true with APP_ENV=production")
 	}
 }
 

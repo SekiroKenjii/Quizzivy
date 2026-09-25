@@ -44,7 +44,7 @@ func (f *fakeAuth) app() *application.Application {
 
 func loginCookie(t *testing.T, ttl time.Duration, secure bool) *http.Cookie {
 	t.Helper()
-	h := identityhttp.NewIdentity((&fakeAuth{refreshToken: "opaque-token-value"}).app(), ttl, secure)
+	h := identityhttp.NewIdentity((&fakeAuth{refreshToken: "opaque-token-value"}).app(), ttl, secure, nil)
 	resp, err := h.Login(context.Background(), openapi.LoginRequestObject{
 		Body: &openapi.LoginJSONRequestBody{Email: openapi_types.Email("a@example.com"), Password: "mật-khẩu"},
 	})
@@ -93,7 +93,7 @@ func TestRefreshCookieSecureFlagFollowsConfiguration(t *testing.T) {
 
 func TestLogoutClearsTheCookieItReplaces(t *testing.T) {
 	live := loginCookie(t, time.Hour, true)
-	h := identityhttp.NewIdentity((&fakeAuth{}).app(), time.Hour, true)
+	h := identityhttp.NewIdentity((&fakeAuth{}).app(), time.Hour, true, nil)
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.AddCookie(&http.Cookie{Name: live.Name, Value: "the-token"})
 
@@ -105,23 +105,30 @@ func TestLogoutClearsTheCookieItReplaces(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Logout: %v", err)
 	}
-	gone, isGone := resp.(openapi.Logout204Response)
-	if !isGone || gone.Headers.SetCookie == nil {
-		t.Fatalf("Logout answered %T without a Set-Cookie header", resp)
+	rec := httptest.NewRecorder()
+	if err := resp.VisitLogoutResponse(rec); err != nil || rec.Code != http.StatusNoContent {
+		t.Fatalf("Logout rendered %d: %v", rec.Code, err)
 	}
-	cleared, err := http.ParseSetCookie(*gone.Headers.SetCookie)
-	if err != nil {
-		t.Fatal(err)
+	cookies := map[string]*http.Cookie{}
+	for _, c := range rec.Result().Cookies() {
+		cookies[c.Name] = c
 	}
-	if cleared.Name != live.Name || cleared.Path != live.Path || cleared.Domain != live.Domain {
-		t.Errorf("cleared cookie identity (%s,%s,%q) != live (%s,%s,%q)",
-			cleared.Name, cleared.Path, cleared.Domain, live.Name, live.Path, live.Domain)
+	cleared := cookies[live.Name]
+	if cleared == nil {
+		t.Fatalf("Logout did not clear %s: %v", live.Name, rec.Header().Values("Set-Cookie"))
+	}
+	if cleared.Path != live.Path || cleared.Domain != live.Domain {
+		t.Errorf("cleared cookie identity (%s,%q) != live (%s,%q)", cleared.Path, cleared.Domain, live.Path, live.Domain)
 	}
 	if cleared.Value != "" || cleared.MaxAge >= 0 {
 		t.Errorf("cleared cookie still lives: value %q max-age %d", cleared.Value, cleared.MaxAge)
 	}
 	if !cleared.HttpOnly || !cleared.Secure {
 		t.Error("cleared cookie dropped HttpOnly/Secure; some browsers refuse the overwrite")
+	}
+	docs := cookies["quizzivy_docs"]
+	if docs == nil || docs.Path != "/docs" || docs.Value != "" || docs.MaxAge >= 0 || !docs.HttpOnly || !docs.Secure || docs.SameSite != http.SameSiteStrictMode {
+		t.Errorf("signing out left the API reference session open: %+v", docs)
 	}
 }
 
@@ -146,7 +153,7 @@ func TestMiddlewareLiftsTheCookieAndToleratesItsAbsence(t *testing.T) {
 	name := loginCookie(t, time.Hour, true).Name
 	presented := func(cookie *http.Cookie) string {
 		fake := &fakeAuth{}
-		h := identityhttp.NewIdentity(fake.app(), time.Hour, true)
+		h := identityhttp.NewIdentity(fake.app(), time.Hour, true, nil)
 		req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 		if cookie != nil {
 			req.AddCookie(cookie)

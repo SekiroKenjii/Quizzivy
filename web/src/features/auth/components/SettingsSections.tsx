@@ -10,7 +10,12 @@ import { toast } from "@/components/ui/sonner";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { changePassword, fetchCurrentUser, updateProfile } from "@/features/auth/api";
+import {
+  changePassword,
+  fetchCurrentUser,
+  openDocsSession,
+  updateProfile,
+} from "@/features/auth/api";
 import {
   changePasswordSchema,
   type ChangePasswordValues,
@@ -20,7 +25,7 @@ import {
   googleSignInAvailable,
   useGoogleSignIn,
 } from "@/features/auth/google/useGoogleSignIn";
-import { api } from "@/lib/api/client";
+import { api, BASE_URL } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { SUPPORTED_LOCALES, setLocale, type Locale } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth";
@@ -340,5 +345,52 @@ function LinkGoogleControl({
       <GoogleMark />
       {t("settings.linkGoogle")}
     </Button>
+  );
+}
+
+/**
+ * ApiDocsSection opens the API reference in a new tab: the tab is opened with its
+ * opener cleared, then pointed at /docs once the docs session exists, and closed
+ * if it cannot be opened.
+ */
+export function ApiDocsSection() {
+  const { t } = useTranslation();
+  const [problem, setProblem] = useState<"blocked" | "failed" | null>(null);
+  const [pending, setPending] = useState(false);
+  const open = () => {
+    const tab = window.open("about:blank", "_blank");
+    if (!tab) {
+      setProblem("blocked");
+      return;
+    }
+    tab.opener = null;
+    setProblem(null);
+    setPending(true);
+    openDocsSession()
+      .then(
+        () => {
+          tab.location.href = `${BASE_URL}/docs`;
+        },
+        () => {
+          tab.close();
+          setProblem("failed");
+        },
+      )
+      .finally(() => setPending(false));
+  };
+  return (
+    <Section title={t("settings.apiDocs.title")} labelledBy="settings-api-docs">
+      <p className="text-muted-foreground mb-4 text-sm leading-relaxed">
+        {t("settings.apiDocs.body")}
+      </p>
+      <Button type="button" variant="outline" disabled={pending} onClick={open}>
+        {t("settings.apiDocs.open")}
+      </Button>
+      {problem ? (
+        <p role="alert" className="mt-3 text-sm">
+          {t(`settings.apiDocs.${problem}`)}
+        </p>
+      ) : null}
+    </Section>
   );
 }

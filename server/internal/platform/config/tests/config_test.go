@@ -29,6 +29,8 @@ func loadWith(t *testing.T, env map[string]string) (config.Config, error) {
 		"GOOGLE_CLIENT_SECRET":  "",
 		"GOOGLE_REDIRECT_URI":   "",
 		"VITE_GOOGLE_CLIENT_ID": "",
+		"DOCS_PUBLIC":           "",
+		"APP_ENV":               "",
 	}
 	for k, v := range env {
 		base[k] = v
@@ -162,4 +164,21 @@ func merge(a, b map[string]string) map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+func TestTheDocsStayGatedUnlessOptedIn(t *testing.T) {
+	cfg, err := loadWith(t, nil)
+	if err != nil || cfg.DocsPublic {
+		t.Fatalf("default: DocsPublic=%v err %v", cfg.DocsPublic, err)
+	}
+	cfg, err = loadWith(t, map[string]string{"DOCS_PUBLIC": "true"})
+	if err != nil || !cfg.DocsPublic {
+		t.Fatalf("local opt-in: DocsPublic=%v err %v", cfg.DocsPublic, err)
+	}
+	if _, err := loadWith(t, map[string]string{"DOCS_PUBLIC": "true", "APP_ENV": "production"}); err == nil {
+		t.Fatal("DOCS_PUBLIC=true was accepted in production")
+	}
+	if _, err := loadWith(t, map[string]string{"DOCS_PUBLIC": "sometimes"}); err == nil {
+		t.Fatal("an unparseable DOCS_PUBLIC was accepted")
+	}
 }

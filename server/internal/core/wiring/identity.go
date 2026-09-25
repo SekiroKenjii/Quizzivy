@@ -27,8 +27,8 @@ func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stat
 	return app, tokens, nil
 }
 
-func identityTransport(cfg config.Config, app *identityapp.Application) identityhttp.Identity {
-	return identityhttp.NewIdentity(app, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure)
+func identityTransport(cfg config.Config, app *identityapp.Application, docs *identitytoken.Issuer) identityhttp.Identity {
+	return identityhttp.NewIdentity(app, cfg.RefreshTokenTTL, cfg.RefreshCookieSecure, docs)
 }
 
 func boundPasswordHashing(cfg config.Config, logger *slog.Logger) {

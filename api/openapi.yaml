@@ -56,6 +56,8 @@ tags:
   - name: admin-attempts
   - name: admin-students
   - name: admin-classes
+  - name: admin-docs
+    description: Admin access to the API reference served beside the API.
   - name: student
   - name: take-test
 
@@ -3225,7 +3227,10 @@ paths:
           headers:
             Set-Cookie:
               schema: { type: string }
-              description: '`quizzivy_refresh=; Max-Age=0` — same Path and flags, or the browser keeps the old cookie.'
+              description: |
+                Two headers. `quizzivy_refresh=; Max-Age=0` with the same Path and flags,
+                or the browser keeps the old cookie; and `quizzivy_docs=; Path=/docs;
+                Max-Age=0`, so signing out also ends an open API reference session (§5.5).
         '401':
           description: No refresh cookie was presented, so there is no session to end.
           content:
@@ -5352,6 +5357,28 @@ paths:
                 properties:
                   temporaryPassword: { type: string }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/docs-session:
+    post:
+      operationId: openDocsSession
+      tags: [admin-docs]
+      summary: Open the API reference for fifteen minutes
+      description: |
+        Sets `quizzivy_docs`, a docs-only session cookie. `/docs` and
+        `/docs/openapi.json` answer only to it: 401 without a valid one, 403 for
+        a role other than admin. The cookie carries a token for the `docs`
+        audience signed with its own key, so it is never an access token and an
+        access token never opens the docs. `Path=/docs` keeps it off every API
+        request, and `SameSite=Strict` still travels on the SPA's same-site
+        navigation to the API origin. Admin only, like every `/admin/` path, and
+        rate-limited as an operation that mints a credential.
+      responses:
+        '204':
+          description: The docs session is open for fifteen minutes.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: '`quizzivy_docs=<token>; Path=/docs; Max-Age=900; HttpOnly; Secure; SameSite=Strict`'
 
   /admin/classes:
     get:

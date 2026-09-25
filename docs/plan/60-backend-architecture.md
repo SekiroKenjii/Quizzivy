@@ -56,9 +56,9 @@ the "one package per feature" layout AGENTS.md described until then.
 - **Tests in three tiers** (unit, integration, e2e — see server/README.md),
   every test file in a `<layer>/tests/` directory as an external package,
   none reaching a private identifier.
-- **Self-served API reference**: `/docs` is our page loading Scalar's pinned
-  bundle against `/docs/openapi.json`, served by the API from the contract
-  it was generated from.
+- **Self-served API reference**: `/docs` is our page loading Scalar's pinned,
+  SRI-checked bundle against `/docs/openapi.json`, served by the API from the
+  contract it was generated from, behind an admin docs session (spec §5.5).
 - **Comments state contracts, code states the rest**: no comment inside a
   function body, no doc comment on an unexported identifier, one paragraph
   on an exported one, and a package comment naming the context's model.
