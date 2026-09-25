@@ -16,8 +16,11 @@ func (s *Postgres) GroupContexts(ctx context.Context, versionID string) ([]domai
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`); err != nil {
+		return nil, err
+	}
 	var id string
-	if err := tx.QueryRow(ctx, `SELECT id::text FROM app.test_versions WHERE id=$1 FOR SHARE`, versionID).Scan(&id); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT id::text FROM app.test_versions WHERE id=$1`, versionID).Scan(&id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrNotFound
 		}
