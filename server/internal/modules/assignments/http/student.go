@@ -87,6 +87,7 @@ func (h Assignments) GetMyAssignment(ctx context.Context, request openapi.GetMyA
 			MinAwayMs:         d.Integrity.MinAwayMs,
 		},
 		HasAudio:        d.HasAudio,
+		HasSharedAudio:  &d.HasSharedAudio,
 		ShowsTranscript: d.ShowsTranscript,
 		AudioMaxPlays:   d.AudioMaxPlays,
 	}

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
@@ -29,7 +30,14 @@ func (s *Postgres) LoadResult(ctx context.Context, a domain.AttemptRecord) (doma
 	if err != nil {
 		return domain.Result{}, err
 	}
-	base = domain.Deal.Present(a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
+	version, err := s.DeliveryVersion(ctx, a.TestVersionID)
+	if err != nil {
+		return domain.Result{}, err
+	}
+	base, err = domain.Deal.PresentVersion(version, a.Seed, rules.ShuffleQuestions, rules.ShuffleOptions, sections, base)
+	if err != nil {
+		return domain.Result{}, err
+	}
 
 	extras, err := s.resultExtras(ctx, a.TestVersionID, rules.Review)
 	if err != nil {
@@ -79,6 +87,7 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 	rq := domain.ResultQuestion{Question: q}
 	if ex, ok := extras[q.ID]; ok {
 		rq.Explanation, rq.Transcript = ex.explanation, ex.transcript
+		rq.ExplanationContent = ex.explanationContent
 		rq.CorrectOptions, rq.CorrectAnswers = ex.correctOptions, ex.correctAnswers
 	}
 	if q.Audio != nil {
@@ -124,10 +133,11 @@ func (s *Postgres) resultRules(ctx context.Context, assignmentID string) (result
 }
 
 type resultExtra struct {
-	explanation    *string
-	transcript     *string
-	correctOptions []string
-	correctAnswers []domain.BlankAnswer
+	explanation        *string
+	explanationContent json.RawMessage
+	transcript         *string
+	correctOptions     []string
+	correctAnswers     []domain.BlankAnswer
 }
 
 // resultExtras reads the released parts of the key. Each column is gated in
@@ -137,6 +147,7 @@ func (s *Postgres) resultExtras(ctx context.Context, versionID string, p domain.
 	rows, err := s.Query(ctx, `
 		SELECT q.id::text,
 		       CASE WHEN $2 THEN q.explanation END,
+		       CASE WHEN $2 THEN q.explanation_content END,
 		       CASE WHEN q.audio_show_transcript_after THEN q.transcript END,
 		       CASE WHEN $3 THEN coalesce((SELECT array_agg(o.id::text ORDER BY o.ordinal)
 		                                     FROM app.test_version_options o
@@ -164,7 +175,7 @@ func (s *Postgres) resultExtras(ctx context.Context, versionID string, p domain.
 		var id string
 		var ex resultExtra
 		var blankIDs, blankAnswers []*string
-		if err := rows.Scan(&id, &ex.explanation, &ex.transcript, &ex.correctOptions, &blankIDs, &blankAnswers); err != nil {
+		if err := rows.Scan(&id, &ex.explanation, &ex.explanationContent, &ex.transcript, &ex.correctOptions, &blankIDs, &blankAnswers); err != nil {
 			return nil, fmt.Errorf("attempts: scan released key: %w", err)
 		}
 		for i, blankID := range blankIDs {

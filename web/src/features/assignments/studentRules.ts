@@ -7,7 +7,7 @@ export interface RulesDraft {
   review: ReviewPolicy;
   integrity: IntegrityPolicy;
   /** Set by the intro, which knows the paper; the teacher's form does not. */
-  audio?: { maxPlays: number | null };
+  audio?: { maxPlays: number | null; shared?: boolean };
 }
 
 /**
@@ -66,6 +66,9 @@ export function duringRules(draft: RulesDraft, t: TFunction): Rule[] {
           ? t("assignments.rules.audioUnlimited")
           : t("assignments.rules.audioLimited", { count: draft.audio.maxPlays }),
     });
+    if (draft.audio.shared) {
+      rules.push({ kind: "audio", text: t("assignments.rules.audioShared") });
+    }
   }
   if (draft.integrity.requireFullscreen) {
     rules.push({ kind: "fullscreen", text: t("assignments.rules.fullscreen") });

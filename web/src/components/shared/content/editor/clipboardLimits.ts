@@ -1,0 +1,1 @@
+export const CLIPBOARD_HTML_LIMIT = 262_144;

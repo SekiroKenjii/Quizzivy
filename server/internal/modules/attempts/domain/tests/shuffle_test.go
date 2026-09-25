@@ -189,3 +189,78 @@ func TestASingleSectionDealsAsBeforeSectionsExisted(t *testing.T) {
 		}
 	}
 }
+
+func TestGroupsShuffleAsUnitsWithStableMemberOrder(t *testing.T) {
+	sections, qs := sectioned(6, 4)
+	for i := 1; i < 4; i++ {
+		qs[i].GroupID = "group-a"
+		qs[i].GroupOrdinal = i - 1
+	}
+	for i := 7; i < 10; i++ {
+		qs[i].GroupID = "group-b"
+		qs[i].GroupOrdinal = i - 7
+	}
+	positions := map[string]bool{}
+	random := rand.New(rand.NewPCG(73, 19))
+	for seed := int64(1); seed <= 100; seed++ {
+		got := domain.Deal.Present(seed, true, false, sections, qs)
+		positions[order(got)] = true
+		if len(got) != len(qs) {
+			t.Fatal("group dealing lost a question")
+		}
+		seen := make(map[string]bool)
+		for i, q := range got {
+			if seen[q.ID] {
+				t.Fatal("group dealing duplicated a question")
+			}
+			seen[q.ID] = true
+			expectedSection := "s-0"
+			if i >= 6 {
+				expectedSection = "s-1"
+			}
+			if q.SectionID != expectedSection {
+				t.Fatal("group crossed its section")
+			}
+			if q.GroupID != "" && q.GroupOrdinal > 0 {
+				if i == 0 || got[i-1].GroupID != q.GroupID || got[i-1].GroupOrdinal != q.GroupOrdinal-1 {
+					t.Fatalf("group separated or reordered at seed %d: %s", seed, order(got))
+				}
+			}
+		}
+		reordered := slices.Clone(qs)
+		random.Shuffle(len(reordered), func(i, j int) { reordered[i], reordered[j] = reordered[j], reordered[i] })
+		if other := domain.Deal.Present(seed, true, false, sections, reordered); order(other) != order(got) {
+			t.Fatalf("unordered SQL rows changed group deal at seed %d", seed)
+		}
+	}
+	if len(positions) < 5 {
+		t.Fatal("groups did not move across seeds")
+	}
+	if got := domain.Deal.Present(19, false, false, sections, qs); order(got) != order(qs) {
+		t.Fatal("disabled shuffle changed authored order")
+	}
+}
+
+func TestFixedGroupOptionsKeepAuthoredOrderAndDoNotMutateInput(t *testing.T) {
+	qs := questions(4)
+	qs[0].GroupID = "group-a"
+	qs[0].FixedOptionOrder = true
+	original := slices.Clone(qs[0].Options)
+	other := slices.Clone(qs[1].Options)
+	varied := false
+	for seed := int64(1); seed <= 30; seed++ {
+		got := domain.Deal.Present(seed, false, true, nil, qs)
+		if !slices.EqualFunc(got[0].Options, original, func(a, b domain.Option) bool { return a.ID == b.ID }) {
+			t.Fatal("fixed labels changed")
+		}
+		if !slices.EqualFunc(got[1].Options, other, func(a, b domain.Option) bool { return a.ID == b.ID }) {
+			varied = true
+		}
+		if !slices.EqualFunc(qs[1].Options, other, func(a, b domain.Option) bool { return a.ID == b.ID }) {
+			t.Fatal("presentation mutated the loaded paper")
+		}
+	}
+	if !varied {
+		t.Fatal("fixed group member disabled shuffling for unrelated questions")
+	}
+}

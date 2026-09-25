@@ -97,13 +97,23 @@ describe("what the intro states, per policy", () => {
   it("states the listening cap when the paper has audio, and not otherwise", async () => {
     show({ hasAudio: true, audioMaxPlays: 2 });
     expect(await rules()).toContain(
-      "Giáo viên quy định 2 lượt nghe cho mỗi câu. Lượt nghe thêm được ghi lại.",
+      "Mỗi bài nghe có giới hạn riêng, từ 2 lượt. Lượt nghe thêm được ghi lại.",
     );
   });
 
   it("says replays are unlimited when they are", async () => {
     show({ hasAudio: true, audioMaxPlays: null });
     expect(await rules()).toContain("không giới hạn");
+  });
+
+  it("explains that shared recordings do not grant a fresh allowance for each question", async () => {
+    show({ hasAudio: true, hasSharedAudio: true, audioMaxPlays: 2 });
+    expect(await rules()).toContain(
+      "Các câu dùng chung bài nghe cũng dùng chung lượt nghe.",
+    );
+    expect(await rules()).toContain(
+      "Đổi câu hoặc tải lại trang không đặt lại lượt nghe.",
+    );
   });
 
   it("lists attempts only when there is more than one", async () => {
