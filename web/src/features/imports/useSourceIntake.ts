@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
@@ -122,7 +122,7 @@ export function useSourceIntake({
   });
   const running = useRef<AbortController | null>(null);
 
-  useEffect(() => () => running.current?.abort(), []);
+  useLayoutEffect(() => () => running.current?.abort(), []);
 
   useEffect(() => {
     latest.current = existing;

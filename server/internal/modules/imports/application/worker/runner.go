@@ -43,6 +43,11 @@ type Runner struct {
 	Observe                             func(Event)
 }
 
+// NextDue reports when this runner's queue will next have work for it; false means nothing is pending.
+func (r Runner) NextDue(ctx context.Context) (time.Time, bool, error) {
+	return r.Queue.NextDue(ctx, r.Policy.PipelineVersion)
+}
+
 func (r Runner) RunOne(ctx context.Context) (bool, error) {
 	if r.Queue == nil || r.Processor == nil || r.HeartbeatEvery <= 0 || r.HeartbeatEvery >= r.Policy.Lease || r.Timeout <= 0 {
 		return false, errors.New("imports: invalid worker configuration")

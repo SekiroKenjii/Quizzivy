@@ -34,6 +34,7 @@ type Config struct {
 	ImportGlobalMiB             int
 	ImportLegacyDoc             bool
 	ImportProcessing            bool
+	ImportWorkerWakeURL         string
 
 	DocsPublic bool
 

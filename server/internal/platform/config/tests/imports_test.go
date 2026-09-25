@@ -26,14 +26,20 @@ func TestImportProcessingIsOffUntilSwitchedOnBesideImportStorage(t *testing.T) {
 	if err != nil || cfg.ImportProcessing {
 		t.Fatalf("processing must default to off: %+v %v", cfg.ImportProcessing, err)
 	}
-	cfg, err = loadWith(t, merge(storage, map[string]string{"IMPORT_PROCESSING_ENABLED": "true"}))
-	if err != nil || !cfg.ImportProcessing {
-		t.Fatalf("processing switched on beside storage: %+v %v", cfg.ImportProcessing, err)
+	worker := merge(storage, map[string]string{"IMPORT_PROCESSING_ENABLED": "true", "IMPORT_WORKER_WAKE_URL": "http://localhost:8091/wake"})
+	cfg, err = loadWith(t, worker)
+	if err != nil || !cfg.ImportProcessing || cfg.ImportWorkerWakeURL != "http://localhost:8091/wake" {
+		t.Fatalf("processing switched on beside storage: %+v %q %v", cfg.ImportProcessing, cfg.ImportWorkerWakeURL, err)
+	}
+	for _, wake := range []string{"", "localhost:8091", "ftp://worker/wake", "http://", "http://localhost:8091", "http://localhost:8091/"} {
+		if _, err := loadWith(t, merge(worker, map[string]string{"IMPORT_WORKER_WAKE_URL": wake})); err == nil {
+			t.Fatalf("processing accepted with wake URL %q", wake)
+		}
 	}
 	if _, err := loadWith(t, merge(fullMedia(), map[string]string{"IMPORT_PROCESSING_ENABLED": "true"})); err == nil {
 		t.Fatal("processing accepted without import storage")
 	}
-	if _, err := loadWith(t, merge(storage, map[string]string{"IMPORT_PROCESSING_ENABLED": "yes please"})); err == nil {
+	if _, err := loadWith(t, merge(worker, map[string]string{"IMPORT_PROCESSING_ENABLED": "yes please"})); err == nil {
 		t.Fatal("a malformed processing switch was accepted")
 	}
 }

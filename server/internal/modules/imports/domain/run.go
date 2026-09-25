@@ -81,6 +81,7 @@ type Queue interface {
 	Progress(context.Context, Claim, string) error
 	Complete(context.Context, Claim, Outcome) error
 	Fail(context.Context, RunFailure) error
+	NextDue(context.Context, string) (time.Time, bool, error)
 }
 
 // ValidateRunResult bounds the private result envelope; the processor owns versioned candidate semantics before returning it.

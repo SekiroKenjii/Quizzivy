@@ -80,6 +80,27 @@ type expiredRun struct{ importID, runID string }
 
 const retirementGrace = "10 minutes"
 
+// NextDue reports when Claim will next find work for the given pipeline
+// version: a queued run falling due, a lease expiring, or a run of a retired
+// version reaching its grace period. It mirrors Claim's filters, so a run Claim
+// would never take cannot keep an idle worker polling.
+func (s *Postgres) NextDue(ctx context.Context, version string) (time.Time, bool, error) {
+	var due *time.Time
+	err := s.QueryRow(ctx, `SELECT min(due) FROM (
+ SELECT CASE WHEN r.status='queued' THEN r.available_at ELSE r.lease_until END AS due
+ FROM app.word_import_runs r JOIN app.word_imports i ON i.id=r.import_id
+ WHERE r.pipeline_version=$1 AND r.status IN ('queued','running') AND i.status IN ('queued','processing')
+ AND ((r.attempt_count<r.max_attempts AND i.source_revision=r.source_revision) OR (r.status='running' AND r.attempt_count>=r.max_attempts AND i.status='processing'))
+ UNION ALL
+ SELECT CASE WHEN r.status='queued' THEN r.available_at ELSE r.lease_until END+$2::interval
+ FROM app.word_import_runs r JOIN app.word_imports i ON i.id=r.import_id
+ WHERE r.pipeline_version<>$1 AND r.status IN ('queued','running') AND i.status IN ('queued','processing')) pending`, version, retirementGrace).Scan(&due)
+	if err != nil || due == nil {
+		return time.Time{}, false, err
+	}
+	return *due, true, nil
+}
+
 func retireStaleVersions(ctx context.Context, tx pgx.Tx, version string) error {
 	rows, err := db.QueryMany(ctx, tx, `SELECT i.id::text,r.id::text FROM app.word_imports i JOIN app.word_import_runs r ON r.import_id=i.id
  WHERE i.status IN ('queued','processing') AND r.pipeline_version<>$1

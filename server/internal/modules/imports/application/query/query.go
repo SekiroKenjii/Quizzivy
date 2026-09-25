@@ -8,6 +8,7 @@ import (
 )
 
 type Get struct{ ID string }
+
 type GetHandler struct{ Repo domain.Repository }
 
 func (h GetHandler) Handle(ctx context.Context, in Get) (domain.Import, error) {
