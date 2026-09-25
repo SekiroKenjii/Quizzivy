@@ -419,9 +419,7 @@ describe("an import while processing is switched off", () => {
     renderDetail();
 
     expect(
-      await screen.findByText(
-        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên/,
-      ),
+      await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Thử xử lý lại" })).toBeNull();
     expect(screen.queryByLabelText("Tệp đề thi")).toBeNull();
@@ -434,9 +432,7 @@ describe("an import while processing is switched off", () => {
     current = wordImport({ status: "awaiting_sources", sources: [source("exam")] });
     renderDetail();
 
-    await screen.findByText(
-      /^Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên/,
-    );
+    await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên/);
     expect(screen.getByText("de-thi-hk1.docx")).toBeInTheDocument();
   });
 
@@ -451,7 +447,7 @@ describe("an import while processing is switched off", () => {
 
     expect(
       await screen.findByText(
-        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại được/,
+        /^Máy chủ đang tắt xử lý tài liệu nên chưa xử lý lại được/,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Thử xử lý lại lần nữa" })).toBeNull();
@@ -475,7 +471,7 @@ describe("an import while processing is switched off", () => {
           503,
           errorBody(
             "IMPORT_PROCESSING_UNAVAILABLE",
-            "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập.",
+            "Máy chủ này chưa bật xử lý tài liệu nên chưa thể xử lý lượt nhập.",
           ),
         );
       }),
@@ -488,9 +484,7 @@ describe("an import while processing is switched off", () => {
     await user.click(await screen.findByRole("button", { name: "Thử xử lý lại" }));
 
     expect(
-      await screen.findByText(
-        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên/,
-      ),
+      await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Thử xử lý lại" })).toBeNull();
   });
@@ -505,7 +499,7 @@ describe("an import while processing is switched off", () => {
 
     expect(
       await screen.findByText(
-        /^Máy chủ đang tắt xử lý tài liệu Word\. Lượt nhập sẽ bắt đầu/,
+        /^Máy chủ đang tắt xử lý tài liệu\. Lượt nhập sẽ bắt đầu/,
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Huỷ xử lý" })).toBeInTheDocument();
@@ -518,7 +512,7 @@ describe("an import while processing is switched off", () => {
     renderDetail();
 
     await screen.findByText(
-      "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới.",
+      "Máy chủ đang tắt xử lý tài liệu nên chưa nhập được đề mới.",
     );
     expect(screen.queryByRole("link", { name: "Nhập đề mới" })).toBeNull();
   });

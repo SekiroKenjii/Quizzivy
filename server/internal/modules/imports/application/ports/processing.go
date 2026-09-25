@@ -28,11 +28,11 @@ type StageOutput struct {
 }
 
 // ProcessingEngine normalizes and extracts privately outside database transactions; versions include all configuration affecting stage output.
-// Without a converter, native DOCX skips normalization and legacy DOC cannot be processed.
+// PDF is never normalized. Without a converter, native DOCX skips normalization and legacy DOC cannot be processed.
 type ProcessingEngine interface {
 	Converts() bool
 	NormalizationVersion() string
-	ExtractionVersion() string
+	ExtractionVersion(format string) string
 	Normalize(context.Context, DocumentInput) (StageOutput, error)
 	Extract(context.Context, DocumentInput) (StageOutput, error)
 }

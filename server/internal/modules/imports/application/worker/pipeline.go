@@ -14,7 +14,7 @@ import (
 )
 
 // PipelineVersion pins the default deterministic workflow; configuration-specific output versions also fence stage reuse.
-const PipelineVersion = "word-pipeline-v1"
+const PipelineVersion = "word-pipeline-v2"
 
 // Pipeline joins private source reads, durable stages and conservative recognition; only Runner may complete its live claim.
 type Pipeline struct {
@@ -81,12 +81,12 @@ func (p Pipeline) process(ctx context.Context, run domain.Run, progress func(str
 func (p Pipeline) normalizeSources(ctx context.Context, claim domain.Claim, sources []domain.Source) ([]pipelineSource, error) {
 	prepared := make([]pipelineSource, 0, len(sources))
 	for _, source := range sources {
-		if !p.Engine.Converts() {
-			if source.Format != "docx" {
-				return nil, Failure{Code: "LEGACY_CONVERSION_UNAVAILABLE"}
-			}
+		if source.Format == "pdf" || (source.Format == "docx" && !p.Engine.Converts()) {
 			prepared = append(prepared, pipelineSource{source: source, identity: source.ID})
 			continue
+		}
+		if !p.Engine.Converts() {
+			return nil, Failure{Code: "LEGACY_CONVERSION_UNAVAILABLE"}
 		}
 		set, err := p.normalize(ctx, claim, source)
 		if err != nil {
@@ -125,22 +125,22 @@ func (p Pipeline) normalize(ctx context.Context, c domain.Claim, s domain.Source
 }
 
 func (p Pipeline) extract(ctx context.Context, c domain.Claim, s *pipelineSource) error {
-	key, size, digest := s.source.StorageKey, s.source.Bytes, s.source.SHA256
-	if s.source.Format == "doc" {
+	key, size, digest, format := s.source.StorageKey, s.source.Bytes, s.source.SHA256, s.source.Format
+	if format == "doc" {
 		file, err := artifactKind(s.normalization, "normalized_docx")
 		if err != nil {
 			return err
 		}
-		key, size, digest, s.identity = file.StorageKey, file.Bytes, file.SHA256, file.ID
+		key, size, digest, s.identity, format = file.StorageKey, file.Bytes, file.SHA256, file.ID, "docx"
 	}
-	version := componentIdentity(p.Engine.ExtractionVersion(), s.identity)
+	version := componentIdentity(p.Engine.ExtractionVersion(format), s.identity)
 	set, err := p.stage(ctx, c, s.source, "extraction", version, func() (ports.StageOutput, error) {
 		file, err := p.fetch(ctx, key, size, digest)
 		if err != nil {
 			return ports.StageOutput{}, err
 		}
 		defer removeStaging(file)
-		return p.Engine.Extract(ctx, ports.DocumentInput{OriginalID: s.source.ID, Identity: s.identity, Role: s.source.Role, Format: "docx", Body: file, Bytes: size})
+		return p.Engine.Extract(ctx, ports.DocumentInput{OriginalID: s.source.ID, Identity: s.identity, Role: s.source.Role, Format: format, Body: file, Bytes: size})
 	})
 	s.extraction = set
 	return err

@@ -47,7 +47,7 @@ describe("the Word import routes", () => {
     const user = renderGate();
 
     expect(
-      await screen.findByText("Máy chủ này chưa bật nhập đề từ Word."),
+      await screen.findByText("Máy chủ này chưa bật nhập đề từ Word/PDF."),
     ).toBeInTheDocument();
     expect(screen.queryByText("history")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Về danh sách đề thi" }));
@@ -82,7 +82,7 @@ describe("the Word import routes", () => {
 
     expect(
       await screen.findByText(
-        "Không kiểm tra được máy chủ có hỗ trợ nhập đề từ Word hay không.",
+        "Không kiểm tra được máy chủ có hỗ trợ nhập đề từ Word/PDF hay không.",
       ),
     ).toBeInTheDocument();
     failing = false;

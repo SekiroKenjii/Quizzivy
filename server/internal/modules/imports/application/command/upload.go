@@ -25,6 +25,7 @@ type Upload struct {
 }
 
 // UploadHandler bounds concurrent intake and local staging; durable reservations precede every object write.
+// A .pdf is checked only by signature here and read in a sandbox by the worker.
 // Legacy admits .doc files, checked only by signature here and converted in isolation by the worker.
 type UploadHandler struct {
 	Repo      domain.Repository
@@ -104,11 +105,21 @@ func stageSource(ctx context.Context, in Upload, file *os.File) (int64, []byte, 
 	return n, hash.Sum(nil), nil
 }
 
-var oleSignature = []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
+var (
+	oleSignature = []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
+	pdfSignature = []byte("%PDF-")
+)
 
 func (h UploadHandler) inspect(ctx context.Context, file io.ReaderAt, size int64, format string) error {
-	if format == "docx" {
+	switch format {
+	case "docx":
 		return h.Inspector.Inspect(ctx, file, size)
+	case "pdf":
+		header := make([]byte, min(size, 1024))
+		if _, err := file.ReadAt(header, 0); err != nil || !bytes.Contains(header, pdfSignature) {
+			return domain.ErrInvalid
+		}
+		return nil
 	}
 	header := make([]byte, len(oleSignature))
 	if _, err := file.ReadAt(header, 0); err != nil || !bytes.Equal(header, oleSignature) {
@@ -125,6 +136,8 @@ func sourceFormat(name string, legacy bool) string {
 	switch {
 	case strings.HasSuffix(lower, ".docx"):
 		return "docx"
+	case strings.HasSuffix(lower, ".pdf"):
+		return "pdf"
 	case legacy && strings.HasSuffix(lower, ".doc"):
 		return "doc"
 	}

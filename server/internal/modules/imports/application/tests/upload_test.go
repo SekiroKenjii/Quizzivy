@@ -9,7 +9,9 @@ import (
 	"path/filepath"
 	"quizzivy/internal/modules/imports/application"
 	"quizzivy/internal/modules/imports/application/command"
+	"quizzivy/internal/modules/imports/application/query"
 	"quizzivy/internal/modules/imports/domain"
+	"slices"
 	"testing"
 	"time"
 )
@@ -184,6 +186,44 @@ func TestInvalidOrExcessiveUploadNeverReachesStorage(t *testing.T) {
 				t.Fatal("rejected upload left staging")
 			}
 		})
+	}
+}
+
+func TestAPDFIsAdmittedByItsSignatureAlone(t *testing.T) {
+	for _, test := range []struct {
+		name, filename, body string
+		want                 error
+	}{
+		{name: "pdf", filename: "Đề.pdf", body: "%PDF-1.7\nsynthetic"},
+		{name: "upper case", filename: "ĐÁP ÁN.PDF", body: "%PDF-1.4\nsynthetic"},
+		{name: "leading bytes", filename: "Đề.pdf", body: "\xef\xbb\xbf%PDF-1.4\nsynthetic"},
+		{name: "not a pdf", filename: "Đề.pdf", body: "synthetic Word bytes", want: domain.ErrInvalid},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			repo := &repository{}
+			store := &objects{repo: repo}
+			app := intake(repo, store, inspector{err: domain.ErrUnsupported}, t.TempDir())
+			in := upload()
+			in.Filename, in.Body = test.filename, bytes.NewReader([]byte(test.body))
+			_, err := app.Commands.Upload.Handle(context.Background(), in)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("wanted %v, got %v", test.want, err)
+			}
+			if test.want == nil && (repo.source.Format != "pdf" || store.puts != 1) {
+				t.Fatalf("stored %q with %d writes", repo.source.Format, store.puts)
+			}
+			if test.want != nil && (repo.reserved != 0 || store.puts != 0) {
+				t.Fatal("a rejected PDF reached persistence")
+			}
+		})
+	}
+}
+
+func TestLimitsNameThePDFBesideWord(t *testing.T) {
+	app := intake(&repository{}, &objects{}, inspector{}, t.TempDir())
+	limits, err := app.Queries.Limits.Handle(context.Background(), query.Limits{})
+	if err != nil || !slices.Equal(limits.Formats, []string{"docx", "pdf"}) {
+		t.Fatalf("formats = %v, %v", limits.Formats, err)
 	}
 }
 

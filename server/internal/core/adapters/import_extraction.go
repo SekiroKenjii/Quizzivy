@@ -16,16 +16,34 @@ import (
 )
 
 func (p ImportProcessing) Extract(ctx context.Context, in ports.DocumentInput) (ports.StageOutput, error) {
+	if in.Format == pdfFormat {
+		return p.extractPDF(ctx, in)
+	}
 	raw, err := word.Extract(ctx, in.Body, in.Bytes, in.Identity, word.DefaultLimits())
 	if err != nil {
 		return ports.StageOutput{}, extractionFailure(err)
 	}
-	job, err := os.MkdirTemp(p.WorkDir, "extraction-")
+	evidence := ImportEvidence(raw, in.Role)
+	blocks := raw.Blocks
+	raw.Blocks = nil
+	return stageExtraction(ctx, p.WorkDir, in, extracted[word.SourceBlock]{component: p.ExtractionVersion(in.Format), version: raw.Version, identity: raw.SourceID, mainPart: raw.MainPart, evidence: evidence, blocks: blocks, inventory: raw})
+}
+
+type extracted[T any] struct {
+	component                   string
+	version, identity, mainPart string
+	evidence                    domain.EvidenceDocument
+	blocks                      []T
+	inventory                   any
+}
+
+func stageExtraction[T any](ctx context.Context, workDir string, in ports.DocumentInput, out extracted[T]) (ports.StageOutput, error) {
+	job, err := os.MkdirTemp(workDir, "extraction-")
 	if err != nil {
 		return ports.StageOutput{}, err
 	}
-	stage := &extractionFiles{ctx: ctx, root: job, allowed: map[string]bool{}, plan: domain.ArtifactPlan{SourceID: in.OriginalID, Role: in.Role, Stage: "extraction", ComponentVersion: p.ExtractionVersion()}}
-	if err := stage.write(raw, in.Role); err != nil {
+	stage := &extractionFiles{ctx: ctx, root: job, allowed: map[string]bool{}, plan: domain.ArtifactPlan{SourceID: in.OriginalID, Role: in.Role, Stage: "extraction", ComponentVersion: out.component}}
+	if err := writeExtraction(stage, out); err != nil {
 		_ = stage.close()
 		return ports.StageOutput{}, err
 	}
@@ -53,27 +71,26 @@ type extractionFiles struct {
 	bytes   int64
 }
 
-func (s *extractionFiles) write(raw word.Extraction, role string) error {
-	if len(raw.Blocks) > 20000 {
+func writeExtraction[T any](s *extractionFiles, out extracted[T]) error {
+	if len(out.blocks) > 20000 {
 		return domain.ErrTooLarge
 	}
-	manifest := domain.ExtractionManifest{Version: raw.Version, Identity: raw.SourceID, MainPart: raw.MainPart, BlockCount: len(raw.Blocks), EvidenceFile: "evidence.json", InventoryFile: "inventory.json", Chunks: []domain.BlockChunk{}}
-	if err := s.add(manifest.EvidenceFile, ImportEvidence(raw, role)); err != nil {
+	manifest := domain.ExtractionManifest{Version: out.version, Identity: out.identity, MainPart: out.mainPart, BlockCount: len(out.blocks), EvidenceFile: "evidence.json", InventoryFile: "inventory.json", Chunks: []domain.BlockChunk{}}
+	if err := s.add(manifest.EvidenceFile, out.evidence); err != nil {
 		return err
 	}
-	for start := 0; start < len(raw.Blocks); start += 100 {
+	for start := 0; start < len(out.blocks); start += 100 {
 		if err := s.ctx.Err(); err != nil {
 			return err
 		}
-		end := min(start+100, len(raw.Blocks))
+		end := min(start+100, len(out.blocks))
 		name := fmt.Sprintf("blocks-%04d.json", len(manifest.Chunks)+1)
-		if err := s.add(name, raw.Blocks[start:end]); err != nil {
+		if err := s.add(name, out.blocks[start:end]); err != nil {
 			return err
 		}
 		manifest.Chunks = append(manifest.Chunks, domain.BlockChunk{Name: name, First: start, Count: end - start})
 	}
-	raw.Blocks = nil
-	if err := s.add(manifest.InventoryFile, raw); err != nil {
+	if err := s.add(manifest.InventoryFile, out.inventory); err != nil {
 		return err
 	}
 	encoded, err := json.Marshal(manifest)

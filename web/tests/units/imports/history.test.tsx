@@ -111,7 +111,7 @@ describe("the Word import history", () => {
     renderHistory();
     expect(await screen.findByText("Chưa có lần nhập đề nào.")).toBeInTheDocument();
     expect(
-      screen.getAllByRole("link", { name: "Nhập đề từ Word" }).length,
+      screen.getAllByRole("link", { name: "Nhập đề từ Word/PDF" }).length,
     ).toBeGreaterThan(0);
   });
 
@@ -122,11 +122,11 @@ describe("the Word import history", () => {
 
     expect(
       await screen.findByText(
-        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới/,
+        /^Máy chủ đang tắt xử lý tài liệu nên chưa nhập được đề mới/,
       ),
     ).toBeInTheDocument();
     expect(await screen.findByRole("table")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Nhập đề từ Word" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" })).toBeNull();
   });
 
   it("offers to view, not continue uploading, an import waiting for files while processing is switched off", async () => {
@@ -145,8 +145,8 @@ describe("the Word import history", () => {
     renderHistory();
 
     expect(await screen.findByText("Chưa có lần nhập đề nào.")).toBeInTheDocument();
-    await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu Word/);
-    expect(screen.queryByRole("link", { name: "Nhập đề từ Word" })).toBeNull();
+    await screen.findByText(/^Máy chủ đang tắt xử lý tài liệu/);
+    expect(screen.queryByRole("link", { name: "Nhập đề từ Word/PDF" })).toBeNull();
   });
 
   it("reads its filters from the URL and offers to clear them when nothing matches", async () => {

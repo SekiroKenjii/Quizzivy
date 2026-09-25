@@ -851,7 +851,7 @@
       "current": "Chỉ những lần giao bài tiếp theo dùng mặc định này. Bài đã giao không thay đổi.",
       "delete": "Chỉ xoá được phiên bản chưa được bài giao hoặc bài làm sử dụng. Không thể hoàn tác."
     },
-    "importWord": "Nhập đề từ Word",
+    "importWord": "Nhập đề từ Word/PDF",
     "importHistory": "Lịch sử nhập"
   },
   "preview": {
@@ -1881,11 +1881,11 @@
     "moveMaterialDown": "Chuyển ngữ liệu xuống"
   },
   "imports": {
-    "historyTitle": "Lịch sử nhập đề từ Word",
+    "historyTitle": "Lịch sử nhập đề từ Word/PDF",
     "historyHint": "Mỗi lần nhập giữ tệp gốc, tiến trình xử lý và phần rà soát của bạn. Bạn có thể quay lại bất cứ lúc nào.",
     "backToTests": "Về danh sách đề thi",
     "backToHistory": "Về lịch sử nhập đề",
-    "start": "Nhập đề từ Word",
+    "start": "Nhập đề từ Word/PDF",
     "searchPlaceholder": "Tìm theo tên đề hoặc tên tệp",
     "statusFilter": "Lọc theo trạng thái",
     "allStatuses": "Tất cả trạng thái",
@@ -1897,7 +1897,7 @@
     "columnActions": "Thao tác",
     "historyFailed": "Không tải được lịch sử nhập đề.",
     "empty": "Chưa có lần nhập đề nào.",
-    "emptyHint": "Tải lên một đề thi Word để hệ thống dựng lại cấu trúc, rồi rà soát trước khi tạo bản nháp.",
+    "emptyHint": "Tải lên một đề thi Word hoặc PDF để hệ thống dựng lại cấu trúc, rồi rà soát trước khi tạo bản nháp.",
     "noMatches": "Không có lần nhập nào khớp bộ lọc.",
     "clearFilters": "Xoá bộ lọc",
     "noSources": "Chưa có tệp",
@@ -1905,9 +1905,9 @@
     "pendingUploads_other": "{{count}} tệp đang tải lên dở",
     "notFound": "Không tìm thấy lần nhập này.",
     "detailFailed": "Không tải được lần nhập này.",
-    "newTitle": "Nhập đề từ Word",
+    "newTitle": "Nhập đề từ Word/PDF",
     "newHeading": "Chọn tệp để nhập",
-    "newHint": "Tải lên đề thi Word và, nếu có, tệp đáp án riêng. Bạn sẽ rà soát kết quả trước khi tạo bản nháp đề.",
+    "newHint": "Tải lên đề thi Word hoặc PDF và, nếu có, tệp đáp án riêng. Bạn sẽ rà soát kết quả trước khi tạo bản nháp đề.",
     "status": {
       "awaiting_sources": "Chờ tải tệp",
       "queued": "Đang chờ xử lý",
@@ -1944,7 +1944,7 @@
     },
     "upload": {
       "examLabel": "Tệp đề thi",
-      "examHint": "Đề thi gốc dạng Word, gồm các câu hỏi và có thể cả đáp án.",
+      "examHint": "Đề thi gốc dạng Word hoặc PDF, gồm các câu hỏi và có thể cả đáp án.",
       "examChoose": "Chọn tệp đề thi",
       "answer_keyLabel": "Tệp đáp án",
       "answer_keyHint": "Chỉ cần khi đáp án nằm ở tệp riêng. Nếu đề đã có đáp án, bỏ qua.",
@@ -1973,7 +1973,7 @@
       "examRequired": "Cần tệp đề thi trước khi xử lý.",
       "limitsLoading": "Đang tải giới hạn tệp…",
       "limitsFailed": "Không tải được giới hạn tệp. Máy chủ vẫn kiểm tra khi tải lên.",
-      "limits": "Nhận tệp {{formats}}, tối đa {{size}} mỗi tệp. Tệp có mật khẩu hoặc chứa macro sẽ không được nhận.",
+      "limits": "Nhận tệp {{formats}}, tối đa {{size}} mỗi tệp. Không nhận tệp có mật khẩu hoặc chứa macro, và PDF chụp hoặc scan (không có chữ chọn được).",
       "titleLabel": "Tên đề",
       "titlePlaceholder": "Lấy theo tên tệp đề",
       "titleHint": "Tự điền từ tên tệp đề; bạn có thể sửa.",
@@ -2016,7 +2016,11 @@
       "PIPELINE_RETIRED": "Phiên bản xử lý cũ đã ngừng dùng. Thử lại để xử lý bằng phiên bản hiện tại.",
       "TEMPORARY": "Dịch vụ xử lý gặp sự cố tạm thời. Tệp của bạn vẫn được giữ; hãy thử lại sau ít phút.",
       "INTERNAL": "Hệ thống chưa hoàn tất được việc xử lý. Tệp của bạn vẫn được giữ; hãy thử lại.",
-      "UNKNOWN": "Việc xử lý dừng lại vì một lỗi chưa xác định. Tệp của bạn vẫn được giữ; hãy thử lại."
+      "UNKNOWN": "Việc xử lý dừng lại vì một lỗi chưa xác định. Tệp của bạn vẫn được giữ; hãy thử lại.",
+      "PDF_NO_TEXT": "Tệp PDF này không có chữ chọn được, thường là bản scan hoặc ảnh chụp. Hãy dùng tệp Word, hoặc PDF xuất trực tiếp từ Word.",
+      "PDF_PROTECTED": "Tệp PDF có mật khẩu. Hãy dùng bản không đặt mật khẩu.",
+      "PDF_INVALID": "Tệp PDF bị hỏng hoặc không đọc được. Hãy xuất lại PDF, hoặc dùng tệp Word.",
+      "PDF_TOO_LARGE": "Tệp PDF quá dài hoặc quá phức tạp để đọc (tối đa 60 trang). Hãy tách đề rồi tải lên lại."
     },
     "reprocess": {
       "failed": "Lần xử lý lại gần nhất không hoàn tất. Bản rà soát hiện tại không thay đổi.",
@@ -2146,7 +2150,7 @@
         "AMBIGUOUS_KEY_PAPER": {
           "title": "Tệp đáp án có nhiều mã đề",
           "help": "Chọn mã đề khớp với đề thi này để xử lý lại. Chỉnh sửa của bạn được giữ nguyên.",
-          "helpProcessingOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại theo một mã đề được. Hãy nhập đáp án cho từng câu, hoặc xác nhận để bỏ qua."
+          "helpProcessingOff": "Máy chủ đang tắt xử lý tài liệu nên chưa xử lý lại theo một mã đề được. Hãy nhập đáp án cho từng câu, hoặc xác nhận để bỏ qua."
         },
         "UNSUPPORTED_INTERACTION": {
           "title": "Dạng câu này chưa được hỗ trợ",
@@ -2229,7 +2233,8 @@
         "COLUMN_ORDER_REQUIRES_REVIEW": "Tài liệu chia nhiều cột; thứ tự đọc có thể khác bản gốc.",
         "SOURCE_COLOR_REQUIRES_REVIEW": "Tài liệu có chữ màu; màu không được giữ khi nhập. Kiểm tra xem màu có đánh dấu đáp án không.",
         "RENDERER_LAYOUT_REQUIRES_REVIEW": "Bố cục trang của tài liệu không được giữ nguyên.",
-        "ALTERNATE_CONTENT_REQUIRES_RESOLUTION": "Tài liệu có nội dung thay thế, ví dụ hình có hai phiên bản. Kiểm tra bản được dùng."
+        "ALTERNATE_CONTENT_REQUIRES_RESOLUTION": "Tài liệu có nội dung thay thế, ví dụ hình có hai phiên bản. Kiểm tra bản được dùng.",
+        "PDF_MARKS_UNAVAILABLE": "Tệp PDF không giữ được gạch chân, in đậm hay màu chữ. Nếu câu hỏi hoặc đáp án dựa vào các dấu này, hãy đánh dấu lại khi rà soát."
       }
     },
     "review": {
@@ -2382,17 +2387,17 @@
       "doneBody": "Đề mới nằm trong danh sách đề thi dưới dạng bản nháp. Mở trình soạn đề để kiểm tra và phát hành khi sẵn sàng."
     },
     "availability": {
-      "offTitle": "Nhập đề từ Word",
-      "off": "Máy chủ này chưa bật nhập đề từ Word.",
+      "offTitle": "Nhập đề từ Word/PDF",
+      "off": "Máy chủ này chưa bật nhập đề từ Word/PDF.",
       "offHint": "Quản trị hệ thống cần cấu hình kho lưu trữ riêng cho tệp nhập đề. Trong lúc đó, bạn vẫn soạn đề trực tiếp được.",
-      "loadFailed": "Không kiểm tra được máy chủ có hỗ trợ nhập đề từ Word hay không.",
-      "processingOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được.",
+      "loadFailed": "Không kiểm tra được máy chủ có hỗ trợ nhập đề từ Word/PDF hay không.",
+      "processingOff": "Máy chủ đang tắt xử lý tài liệu nên chưa nhập được đề mới. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được.",
       "newOff": "Chưa nhập được đề mới lúc này.",
-      "newOffHint": "Máy chủ đang tắt xử lý tài liệu Word. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được trong lịch sử nhập.",
-      "intakeOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa tải tệp lên hay xử lý lại lượt nhập này được. Lượt nhập vẫn được giữ nguyên.",
-      "queuedOff": "Máy chủ đang tắt xử lý tài liệu Word. Lượt nhập sẽ bắt đầu khi máy chủ bật lại; bạn có thể huỷ nếu không muốn chờ.",
-      "reprocessOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại được. Bản rà soát hiện tại vẫn dùng được.",
-      "startOverOff": "Máy chủ đang tắt xử lý tài liệu Word nên chưa nhập được đề mới."
+      "newOffHint": "Máy chủ đang tắt xử lý tài liệu. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được trong lịch sử nhập.",
+      "intakeOff": "Máy chủ đang tắt xử lý tài liệu nên chưa tải tệp lên hay xử lý lại lượt nhập này được. Lượt nhập vẫn được giữ nguyên.",
+      "queuedOff": "Máy chủ đang tắt xử lý tài liệu. Lượt nhập sẽ bắt đầu khi máy chủ bật lại; bạn có thể huỷ nếu không muốn chờ.",
+      "reprocessOff": "Máy chủ đang tắt xử lý tài liệu nên chưa xử lý lại được. Bản rà soát hiện tại vẫn dùng được.",
+      "startOverOff": "Máy chủ đang tắt xử lý tài liệu nên chưa nhập được đề mới."
     },
     "retention": {
       "policy": "Tệp gốc và bản rà soát được giữ {{afterCommit}} ngày sau khi tạo đề và {{afterCancel}} ngày sau khi huỷ. Lượt nhập không có thay đổi trong {{idle}} ngày sẽ tự đóng.",

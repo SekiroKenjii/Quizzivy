@@ -851,7 +851,7 @@
       "current": "Only future assignments use this default. Existing assignments remain unchanged.",
       "delete": "Only versions without assignment or attempt references can be deleted. This cannot be undone."
     },
-    "importWord": "Import from Word",
+    "importWord": "Import from Word/PDF",
     "importHistory": "Import history"
   },
   "preview": {
@@ -1881,11 +1881,11 @@
     "moveMaterialDown": "Move material down"
   },
   "imports": {
-    "historyTitle": "Word import history",
+    "historyTitle": "Word and PDF import history",
     "historyHint": "Each import keeps its original files, its processing progress and your review. You can come back at any time.",
     "backToTests": "Back to tests",
     "backToHistory": "Back to import history",
-    "start": "Import from Word",
+    "start": "Import from Word/PDF",
     "searchPlaceholder": "Search by title or filename",
     "statusFilter": "Filter by status",
     "allStatuses": "All statuses",
@@ -1897,7 +1897,7 @@
     "columnActions": "Actions",
     "historyFailed": "Couldn't load the import history.",
     "empty": "No imports yet.",
-    "emptyHint": "Upload a Word exam to have its structure rebuilt, then review it before a draft is created.",
+    "emptyHint": "Upload a Word or PDF exam to have its structure rebuilt, then review it before a draft is created.",
     "noMatches": "No imports match these filters.",
     "clearFilters": "Clear filters",
     "noSources": "No files yet",
@@ -1905,9 +1905,9 @@
     "pendingUploads_other": "{{count}} uploads not finished",
     "notFound": "This import could not be found.",
     "detailFailed": "Couldn't load this import.",
-    "newTitle": "Import from Word",
+    "newTitle": "Import from Word/PDF",
     "newHeading": "Choose the files to import",
-    "newHint": "Upload the Word exam and, if you have one, a separate answer key. You'll review the result before a draft test is created.",
+    "newHint": "Upload the Word or PDF exam and, if you have one, a separate answer key. You'll review the result before a draft test is created.",
     "status": {
       "awaiting_sources": "Awaiting files",
       "queued": "Queued",
@@ -1944,7 +1944,7 @@
     },
     "upload": {
       "examLabel": "Exam file",
-      "examHint": "The original exam as a Word document, with its questions and possibly its answers.",
+      "examHint": "The original exam as a Word or PDF document, with its questions and possibly its answers.",
       "examChoose": "Choose file for the exam",
       "answer_keyLabel": "Answer key file",
       "answer_keyHint": "Only needed when the key is in a separate file. Skip it if the exam already contains its answers.",
@@ -1973,7 +1973,7 @@
       "examRequired": "An exam file is needed before processing.",
       "limitsLoading": "Loading file limits…",
       "limitsFailed": "Couldn't load the file limits. The server still checks them on upload.",
-      "limits": "Accepts {{formats}} files up to {{size}} each. Password-protected or macro-enabled files are refused.",
+      "limits": "Accepts {{formats}} files up to {{size}} each. Files with a password or macros are refused, and so are scanned or photographed PDFs (with no selectable text).",
       "titleLabel": "Test title",
       "titlePlaceholder": "Taken from the exam filename",
       "titleHint": "Filled in from the exam filename; you can change it.",
@@ -2016,7 +2016,11 @@
       "PIPELINE_RETIRED": "The old processing version was retired. Try again to process with the current one.",
       "TEMPORARY": "The processing service had a temporary problem. Your files are kept; try again in a few minutes.",
       "INTERNAL": "Processing couldn't be completed. Your files are kept; try again.",
-      "UNKNOWN": "Processing stopped for an unexpected reason. Your files are kept; try again."
+      "UNKNOWN": "Processing stopped for an unexpected reason. Your files are kept; try again.",
+      "PDF_NO_TEXT": "This PDF has no selectable text; it is usually a scan or a photo. Use the Word file, or a PDF exported directly from Word.",
+      "PDF_PROTECTED": "This PDF has a password. Use a copy without one.",
+      "PDF_INVALID": "This PDF is damaged or cannot be read. Export the PDF again, or use the Word file.",
+      "PDF_TOO_LARGE": "This PDF is too long or too complex to read (60 pages at most). Split the exam and upload it again."
     },
     "reprocess": {
       "failed": "The latest reprocess didn't finish. The current review is unchanged.",
@@ -2146,7 +2150,7 @@
         "AMBIGUOUS_KEY_PAPER": {
           "title": "The answer key holds several papers",
           "help": "Choose the paper that matches this exam to process it again. Your edits are kept.",
-          "helpProcessingOff": "Word processing is switched off on this server, so the import cannot be processed again for one paper. Enter each answer yourself, or confirm to skip."
+          "helpProcessingOff": "Document processing is switched off on this server, so the import cannot be processed again for one paper. Enter each answer yourself, or confirm to skip."
         },
         "UNSUPPORTED_INTERACTION": {
           "title": "This kind of question isn't supported",
@@ -2229,7 +2233,8 @@
         "COLUMN_ORDER_REQUIRES_REVIEW": "The document uses columns; the reading order may differ from the original.",
         "SOURCE_COLOR_REQUIRES_REVIEW": "The document has coloured text; colour isn't kept. Check whether it marks answers.",
         "RENDERER_LAYOUT_REQUIRES_REVIEW": "The document's page layout isn't kept.",
-        "ALTERNATE_CONTENT_REQUIRES_RESOLUTION": "The document has alternate content, such as a drawing with two versions. Check which one is used."
+        "ALTERNATE_CONTENT_REQUIRES_RESOLUTION": "The document has alternate content, such as a drawing with two versions. Check which one is used.",
+        "PDF_MARKS_UNAVAILABLE": "A PDF does not keep underline, bold or text colour. If a question or its answer depends on those marks, mark them again during review."
       }
     },
     "review": {
@@ -2382,17 +2387,17 @@
       "doneBody": "The new test is in your tests as a draft. Open it in the builder to check it and publish when ready."
     },
     "availability": {
-      "offTitle": "Import from Word",
-      "off": "Word import is not enabled on this server.",
+      "offTitle": "Import from Word/PDF",
+      "off": "Word and PDF import is not enabled on this server.",
       "offHint": "An administrator needs to configure private storage for imported files. Meanwhile, you can still write tests directly.",
-      "loadFailed": "Could not check whether this server supports Word import.",
-      "processingOff": "Word processing is switched off on this server, so no new import can start. Imports that finished processing can still be reviewed and turned into tests.",
+      "loadFailed": "Could not check whether this server supports Word and PDF import.",
+      "processingOff": "Document processing is switched off on this server, so no new import can start. Imports that finished processing can still be reviewed and turned into tests.",
       "newOff": "A new import cannot start right now.",
-      "newOffHint": "Word processing is switched off on this server. Imports that finished processing can still be reviewed and turned into tests from the import history.",
-      "intakeOff": "Word processing is switched off on this server, so files cannot be uploaded or processed again for this import. The import is kept as it is.",
-      "queuedOff": "Word processing is switched off on this server. The import will start when it is back on; you can cancel if you would rather not wait.",
-      "reprocessOff": "Word processing is switched off on this server, so the import cannot be processed again. The current review still works.",
-      "startOverOff": "Word processing is switched off on this server, so no new import can start."
+      "newOffHint": "Document processing is switched off on this server. Imports that finished processing can still be reviewed and turned into tests from the import history.",
+      "intakeOff": "Document processing is switched off on this server, so files cannot be uploaded or processed again for this import. The import is kept as it is.",
+      "queuedOff": "Document processing is switched off on this server. The import will start when it is back on; you can cancel if you would rather not wait.",
+      "reprocessOff": "Document processing is switched off on this server, so the import cannot be processed again. The current review still works.",
+      "startOverOff": "Document processing is switched off on this server, so no new import can start."
     },
     "retention": {
       "policy": "Original files and the review are kept for {{afterCommit}} days after the test is created and {{afterCancel}} days after cancelling. An import with no changes for {{idle}} days is closed automatically.",

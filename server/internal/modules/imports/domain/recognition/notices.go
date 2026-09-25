@@ -19,6 +19,7 @@ var informationalSource = map[string]bool{
 	"SOURCE_COLOR_REQUIRES_REVIEW":      true,
 	"TABLE_GRID_REQUIRES_REVIEW":        true,
 	"ANCILLARY_CONTENT_REQUIRES_REVIEW": true,
+	"PDF_MARKS_UNAVAILABLE":             true,
 }
 
 func (b *builder) notice(code string, severity domain.Severity, target, field string, count int, evidence []domain.SourceRef) {

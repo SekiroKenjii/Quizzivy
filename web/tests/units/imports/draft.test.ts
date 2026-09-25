@@ -247,6 +247,15 @@ describe("findings and runs", () => {
     expect(isRetryable("PROCESSING_TIMEOUT")).toBe(true);
     expect(isRetryable("SOURCE_UNSUPPORTED")).toBe(false);
     expect(isRetryable("LEGACY_CONVERSION_UNAVAILABLE")).toBe(false);
+    for (const code of [
+      "PDF_NO_TEXT",
+      "PDF_PROTECTED",
+      "PDF_INVALID",
+      "PDF_TOO_LARGE",
+    ]) {
+      expect(isRetryable(code)).toBe(false);
+      expect(runErrorKey(code)).toBe(code);
+    }
     expect(runErrorKey("SOMETHING_NEW")).toBe("UNKNOWN");
     expect(runErrorKey("PIPELINE_RETIRED")).toBe("PIPELINE_RETIRED");
   });

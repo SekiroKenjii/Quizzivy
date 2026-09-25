@@ -1,4 +1,4 @@
-// Package recognition reconstructs a reviewable exam draft from Word source evidence.
+// Package recognition reconstructs a reviewable exam draft from Word or PDF source evidence.
 // It reads structure and explicit keys only; it never solves, invents or silently drops content.
 package recognition
 
@@ -16,11 +16,12 @@ import (
 const Version = "rules-v2"
 
 const (
-	evidenceVersion = "ooxml-blocks-v1"
-	examRole        = "exam"
-	keyRole         = "answer_key"
-	maxQuestions    = 2000
+	examRole     = "exam"
+	keyRole      = "answer_key"
+	maxQuestions = 2000
 )
+
+var evidenceVersions = []string{"ooxml-blocks-v1", "pdf-lines-v1"}
 
 // Recognize builds the machine draft for one exam and an optional companion answer key.
 func Recognize(ctx context.Context, docs []domain.EvidenceDocument, p domain.RecognitionProfile) (domain.Draft, error) {
@@ -90,7 +91,7 @@ func validateEvidence(docs []domain.EvidenceDocument) error {
 }
 
 func validDocument(d domain.EvidenceDocument) bool {
-	return d.Version == evidenceVersion && d.SourceID != "" && len(d.SourceID) <= 128 && (d.Role == examRole || d.Role == keyRole)
+	return slices.Contains(evidenceVersions, d.Version) && d.SourceID != "" && len(d.SourceID) <= 128 && (d.Role == examRole || d.Role == keyRole)
 }
 
 func invalidBlock(b domain.EvidenceBlock) bool {

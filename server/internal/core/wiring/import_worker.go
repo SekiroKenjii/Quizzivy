@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/imports/repositories"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/pdftext"
 	"quizzivy/internal/platform/storage"
 	"quizzivy/internal/platform/wordconvert"
 	"time"
@@ -35,7 +36,7 @@ func ImportWorker(ctx context.Context, cfg config.ImportWorker, dbx db.Context) 
 		return worker.Runner{}, err
 	}
 	repo := repositories.NewPostgres(dbx)
-	pipeline := worker.Pipeline{Sources: repo, Artifacts: repo, Store: store, Engine: adapters.ImportProcessing{Converter: converter, ImageID: cfg.ImageID, WorkDir: base.ImportWorkDir}, WorkDir: base.ImportWorkDir,
+	pipeline := worker.Pipeline{Sources: repo, Artifacts: repo, Store: store, Engine: adapters.ImportProcessing{Converter: converter, PDF: &pdftext.Reader{}, ImageID: cfg.ImageID, WorkDir: base.ImportWorkDir}, WorkDir: base.ImportWorkDir,
 		Quotas: domain.ArtifactQuotas{ActorBytes: int64(cfg.ActorArtifactMiB) << 20, GlobalBytes: int64(cfg.GlobalArtifactMiB) << 20, SetsPerImport: cfg.SetsPerImport}}
 	return worker.Runner{Queue: repo, Processor: pipeline, Policy: domain.ClaimPolicy{WorkerID: uuid.NewString(), PipelineVersion: worker.PipelineVersion, Lease: time.Minute, GlobalLimit: cfg.GlobalWorkers, ActorLimit: cfg.ActorWorkers}, HeartbeatEvery: 5 * time.Second, Timeout: 5 * time.Minute, RetryAfter: 2 * time.Minute}, nil
 }

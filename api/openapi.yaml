@@ -504,7 +504,7 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         role: { $ref: '#/components/schemas/ImportSourceRole' }
         filename: { type: string, minLength: 1, maxLength: 255 }
-        format: { type: string, enum: [docx, doc] }
+        format: { type: string, enum: [docx, doc, pdf] }
         bytes: { type: integer, format: int64, minimum: 1, maximum: 26214400 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         uploadedBy: { $ref: '#/components/schemas/Uuid' }
@@ -633,7 +633,7 @@ components:
         formats:
           type: array
           description: Accepted file extensions; doc appears only when legacy conversion is enabled.
-          items: { type: string, enum: [docx, doc] }
+          items: { type: string, enum: [docx, doc, pdf] }
     ProcessWordImport:
       type: object
       additionalProperties: false
@@ -4231,11 +4231,12 @@ paths:
     post:
       operationId: uploadImportSource
       tags: [admin-imports]
-      summary: Upload a private Word source and create an immutable source set
+      summary: Upload a private Word or PDF source and create an immutable source set
       description: |
         One multipart file part named file, at most 25 MiB. The filename ends in
-        .docx, or in .doc when legacy conversion is enabled (see limits), and the
-        detected content must agree with it.
+        .docx or .pdf, or in .doc when legacy conversion is enabled (see limits), and
+        the detected content must agree with it. A PDF is read from its text layer
+        only; a scanned PDF fails processing with PDF_NO_TEXT.
         The body Content-Type is not evidence of the detected document type.
         Retry with identical uploadId, role, expectedRevision, filename and bytes.
         A changed replay conflicts. Completion creates exactly one source revision;

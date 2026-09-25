@@ -591,7 +591,7 @@ describe("reprocessing with a chosen key paper", () => {
 
     expect(
       await within(box).findByText(
-        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại theo một mã đề/,
+        /^Máy chủ đang tắt xử lý tài liệu nên chưa xử lý lại theo một mã đề/,
       ),
     ).toBeInTheDocument();
     expect(
@@ -621,7 +621,7 @@ describe("reprocessing with a chosen key paper", () => {
           503,
           errorBody(
             "IMPORT_PROCESSING_UNAVAILABLE",
-            "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập.",
+            "Máy chủ này chưa bật xử lý tài liệu nên chưa thể xử lý lượt nhập.",
           ),
         );
       }),
@@ -631,7 +631,7 @@ describe("reprocessing with a chosen key paper", () => {
 
     expect(
       await within(box).findByText(
-        /^Máy chủ đang tắt xử lý tài liệu Word nên chưa xử lý lại theo một mã đề/,
+        /^Máy chủ đang tắt xử lý tài liệu nên chưa xử lý lại theo một mã đề/,
       ),
     ).toBeInTheDocument();
     expect(

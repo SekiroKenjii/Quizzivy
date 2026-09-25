@@ -14,7 +14,7 @@ const TITLE_MAX = 200;
 
 function titleFromFilename(name: string): string {
   return name
-    .replace(/\.docx?$/i, "")
+    .replace(/\.(docx?|pdf)$/i, "")
     .trim()
     .slice(0, TITLE_MAX);
 }

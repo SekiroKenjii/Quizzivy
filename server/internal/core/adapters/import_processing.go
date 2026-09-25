@@ -8,15 +8,18 @@ import (
 	"quizzivy/internal/modules/imports/application/ports"
 	"quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
+	"quizzivy/internal/platform/pdftext"
 	"quizzivy/internal/platform/word"
 	"quizzivy/internal/platform/wordconvert"
 )
 
 const conversionFailed = "CONVERSION_FAILED"
 
-// ImportProcessing bridges the isolated converter and native extractor to durable worker stages.
+// ImportProcessing bridges the isolated converter and the native Word and PDF
+// extractors to durable worker stages. Without PDF, PDF sources fail as unsupported.
 type ImportProcessing struct {
 	Converter *wordconvert.Converter
+	PDF       *pdftext.Reader
 	ImageID   string
 	WorkDir   string
 }
@@ -24,7 +27,10 @@ type ImportProcessing struct {
 func (p ImportProcessing) Converts() bool { return p.Converter != nil }
 
 func (p ImportProcessing) NormalizationVersion() string { return "rendition-v1:" + p.ImageID }
-func (p ImportProcessing) ExtractionVersion() string {
+func (p ImportProcessing) ExtractionVersion(format string) string {
+	if format == pdfFormat {
+		return pdftext.Version + ":projection-v1"
+	}
 	return word.ExtractionVersion + ":projection-v1"
 }
 

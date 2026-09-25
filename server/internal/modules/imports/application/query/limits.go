@@ -16,7 +16,7 @@ type LimitsResult struct {
 type LimitsHandler struct{ Legacy bool }
 
 func (h LimitsHandler) Handle(context.Context, Limits) (LimitsResult, error) {
-	formats := []string{"docx"}
+	formats := []string{"docx", "pdf"}
 	if h.Legacy {
 		formats = append(formats, "doc")
 	}
