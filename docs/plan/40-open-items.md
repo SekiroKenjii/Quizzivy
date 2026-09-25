@@ -267,9 +267,8 @@ What turning it on needed, and where each stands:
     §1.38).
 - **Storage support.** R2 rejects full-object SHA-256 checksums, so the import
   store checks the digest itself and sends it as metadata with Content-MD5.
-  `make verify-r2-imports` proves the bucket accepts that. It must pass before
-  the release; the bucket exists, but the token did not reach it on
-  2026-09-26.
+  `make verify-r2-imports` proves the bucket accepts that. It passed on
+  2026-09-26, once the token listed `quizzivy-imports`.
 
 PDF needs nothing more: the worker reads it in its own WebAssembly sandbox
 (D-10, `17-word-import.md` §1.39), sized into the worker's 1 GB Machine.

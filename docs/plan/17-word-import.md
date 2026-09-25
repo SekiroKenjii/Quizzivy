@@ -1181,9 +1181,9 @@ four changes it depended on: the worker wake (§1.36), the R2 import store
 - **Still open.** D-07's capacity envelope. The quotas and the one-job,
   one-lease concurrency stay at their development defaults until measured with
   real use.
-- **Release gate.** `make verify-r2-imports` must pass against `quizzivy-imports`
-  before the release that carries this. On 2026-09-26 it answered 403, because
-  the R2 token still lists only `quizzivy-media`.
+- **Release gate, met 2026-09-26.** Thuong added `quizzivy-imports` to the R2
+  token. `make verify-r2-imports` then passed all eleven checks, and wrangler
+  reported r2.dev access disabled, no custom domain and no CORS rule.
 
 ## 2. Current code and the actual gaps
 
