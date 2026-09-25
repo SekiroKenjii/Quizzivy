@@ -115,14 +115,21 @@ func (s *Postgres) Cancel(ctx context.Context, in domain.Cancel) (domain.Import,
 		if parent.Revision != in.ExpectedRevision || parent.Status == "committing" || parent.Status == "committed" {
 			return domain.ErrConflict
 		}
-		if err := cancelActiveRuns(ctx, tx, in); err != nil {
+		stopped, err := cancelActiveRuns(ctx, tx, in)
+		if err != nil {
 			return err
 		}
-
-		if _, err := tx.Exec(ctx, `UPDATE app.word_imports SET status='cancelled',revision=revision+1 WHERE id=$1`, in.ImportID); err != nil {
+		var status string
+		if err := tx.QueryRow(ctx, `UPDATE app.word_imports SET revision=revision+1,
+ status=CASE WHEN $2 AND EXISTS (SELECT 1 FROM app.word_import_drafts WHERE import_id=$1) THEN 'needs_review' ELSE 'cancelled' END
+ WHERE id=$1 RETURNING status`, in.ImportID, stopped).Scan(&status); err != nil {
 			return err
 		}
-		if err := auditImport(ctx, tx, in.Actor, in.ImportID, "import.cancelled"); err != nil {
+		action := "import.cancelled"
+		if status == "needs_review" {
+			action = "import.reprocess_cancelled"
+		}
+		if err := auditImport(ctx, tx, in.Actor, in.ImportID, action); err != nil {
 			return err
 		}
 		out, err = readImport(ctx, tx, in.ImportID)
@@ -131,16 +138,18 @@ func (s *Postgres) Cancel(ctx context.Context, in domain.Cancel) (domain.Import,
 	return out, err
 }
 
-func cancelActiveRuns(ctx context.Context, tx pgx.Tx, in domain.Cancel) error {
+func cancelActiveRuns(ctx context.Context, tx pgx.Tx, in domain.Cancel) (bool, error) {
 	cancelled, err := db.QueryMany(ctx, tx, `UPDATE app.word_import_runs SET status='cancelled',claim_token=claim_token+1,worker_id=NULL,lease_until=NULL,completed_at=clock_timestamp() WHERE import_id=$1 AND status IN ('queued','running') RETURNING `+runColumns, []any{in.ImportID}, func(row pgx.Rows) (domain.Run, error) { return scanRun(row) })
 	if err != nil {
-		return err
+		return false, err
 	}
 	for _, run := range cancelled {
 		if err := recordRunEvent(ctx, tx, run, "cancelled", "", &in.Actor.ID); err != nil {
-			return err
+			return false, err
 		}
 	}
-
-	return nil
+	return len(cancelled) > 0, nil
 }
+
+const failImport = `UPDATE app.word_imports SET revision=revision+1,
+ status=CASE WHEN EXISTS (SELECT 1 FROM app.word_import_drafts WHERE import_id=$1) THEN 'needs_review' ELSE 'failed' END WHERE id=$1`

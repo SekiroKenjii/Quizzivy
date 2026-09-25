@@ -112,6 +112,10 @@ func (s *Postgres) Fail(ctx context.Context, in domain.RunFailure) error {
 		if err := recordRunEvent(ctx, tx, run, next.event, in.Code, nil); err != nil {
 			return err
 		}
+		if next.status == runFailed {
+			_, err = tx.Exec(ctx, failImport, run.ImportID)
+			return err
+		}
 		_, err = tx.Exec(ctx, `UPDATE app.word_imports SET status=$2,revision=revision+1 WHERE id=$1`, run.ImportID, next.status)
 		return err
 	})

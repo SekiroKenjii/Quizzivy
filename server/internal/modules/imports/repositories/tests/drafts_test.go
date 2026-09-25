@@ -31,7 +31,7 @@ func (h harness) processed(t *testing.T, title string) domain.Run {
 	return claimed
 }
 
-func (h harness) reprocess(t *testing.T, importID, title string) {
+func (h harness) startReprocess(t *testing.T, importID string) domain.Run {
 	t.Helper()
 	ctx := context.Background()
 	current, err := h.repo.Get(ctx, importID)
@@ -42,8 +42,13 @@ func (h harness) reprocess(t *testing.T, importID, title string) {
 	if _, err := h.repo.Schedule(ctx, domain.Schedule{ImportID: importID, RequestID: uuid.NewString(), PipelineVersion: version, ExpectedRevision: current.Revision, SourceRevision: current.SourceRevision, Actor: h.actor, MaxAttempts: 3}); err != nil {
 		t.Fatal(err)
 	}
-	claimed := h.claim(t, policy(version))
-	if err := h.repo.Complete(ctx, claimed.Claim(), domain.Outcome{Result: json.RawMessage(`{"schemaVersion":1}`), Draft: machineDraft(title)}); err != nil {
+	return h.claim(t, policy(version))
+}
+
+func (h harness) reprocess(t *testing.T, importID, title string) {
+	t.Helper()
+	claimed := h.startReprocess(t, importID)
+	if err := h.repo.Complete(context.Background(), claimed.Claim(), domain.Outcome{Result: json.RawMessage(`{"schemaVersion":1}`), Draft: machineDraft(title)}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -181,5 +186,63 @@ func TestTheLatestRunCarriesItsStartAndTheTeachersKeyPaper(t *testing.T) {
 	current, err := h.repo.Get(ctx, v.ID)
 	if err != nil || current.Run == nil || current.Run.Profile.KeyPaper != 2 || current.Run.CreatedAt.IsZero() || current.Run.CreatedAt.After(current.Run.UpdatedAt) {
 		t.Fatalf("run %+v err %v", current.Run, err)
+	}
+}
+
+func TestAFailedReprocessLeavesTheDraftUnderReview(t *testing.T) {
+	h := setup(t)
+	ctx := context.Background()
+	run := h.processed(t, "kept")
+	claimed := h.startReprocess(t, run.ImportID)
+	if err := h.repo.Fail(ctx, domain.RunFailure{Claim: claimed.Claim(), Code: "CONVERSION_FAILED"}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := h.repo.Get(ctx, run.ImportID)
+	if err != nil || current.Status != "needs_review" || current.Run == nil || current.Run.Status != "failed" || current.Run.ErrorCode == nil || *current.Run.ErrorCode != "CONVERSION_FAILED" {
+		t.Fatalf("import %+v run %+v err %v", current, current.Run, err)
+	}
+	stored, err := h.repo.Draft(ctx, run.ImportID)
+	if err != nil || stored.Draft.Title != "kept" {
+		t.Fatalf("draft %+v err %v", stored, err)
+	}
+	if _, err := h.repo.SaveDraft(ctx, domain.SaveDraft{ImportID: run.ImportID, ExpectedRevision: stored.Revision, Draft: stored.Draft, Actor: h.actor}); err != nil {
+		t.Fatalf("draft not editable after a failed reprocess: %v", err)
+	}
+}
+
+func TestAFirstRunThatFailsFailsTheImport(t *testing.T) {
+	h := setup(t)
+	ctx := context.Background()
+	version := uuid.NewString()
+	h.schedule(t, version, 1)
+	claimed := h.claim(t, policy(version))
+	if err := h.repo.Fail(ctx, domain.RunFailure{Claim: claimed.Claim(), Code: "SOURCE_INVALID"}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := h.repo.Get(ctx, claimed.ImportID)
+	if err != nil || current.Status != "failed" {
+		t.Fatalf("import %+v err %v", current, err)
+	}
+}
+
+func TestCancellingAReprocessStopsItAndCancellingAgainClosesTheImport(t *testing.T) {
+	h := setup(t)
+	ctx := context.Background()
+	run := h.processed(t, "kept")
+	h.startReprocess(t, run.ImportID)
+	current, err := h.repo.Get(ctx, run.ImportID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped, err := h.repo.Cancel(ctx, domain.Cancel{ImportID: run.ImportID, ExpectedRevision: current.Revision, Actor: h.actor})
+	if err != nil || stopped.Status != "needs_review" || stopped.Run == nil || stopped.Run.Status != "cancelled" {
+		t.Fatalf("stopped %+v err %v", stopped, err)
+	}
+	if stored, err := h.repo.Draft(ctx, run.ImportID); err != nil || stored.Draft.Title != "kept" {
+		t.Fatalf("draft %+v err %v", stored, err)
+	}
+	closed, err := h.repo.Cancel(ctx, domain.Cancel{ImportID: run.ImportID, ExpectedRevision: stopped.Revision, Actor: h.actor})
+	if err != nil || closed.Status != "cancelled" {
+		t.Fatalf("closed %+v err %v", closed, err)
 	}
 }

@@ -100,7 +100,7 @@ func retireStaleVersions(ctx context.Context, tx pgx.Tx, version string) error {
 		if err := recordRunEvent(ctx, tx, run, "failed", "PIPELINE_RETIRED", nil); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE app.word_imports SET status='failed',revision=revision+1 WHERE id=$1`, r.importID); err != nil {
+		if _, err := tx.Exec(ctx, failImport, r.importID); err != nil {
 			return err
 		}
 	}
@@ -129,7 +129,7 @@ func expireExhausted(ctx context.Context, tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `UPDATE app.word_import_runs SET status='failed',claim_token=claim_token+1,worker_id=NULL,lease_until=NULL,error_code='WORKER_LEASE_EXPIRED',completed_at=clock_timestamp() WHERE id=$1`, r.runID); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE app.word_imports SET status='failed',revision=revision+1 WHERE id=$1`, r.importID); err != nil {
+		if _, err := tx.Exec(ctx, failImport, r.importID); err != nil {
 			return err
 		}
 	}

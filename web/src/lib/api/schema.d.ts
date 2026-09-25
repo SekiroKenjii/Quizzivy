@@ -754,8 +754,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Stop processing and close an uncommitted import
-         * @description Sources and the review stay readable. A commit that finished first wins.
+         * Stop processing, or close an uncommitted import
+         * @description Stopping a reprocess of an import that already has a draft returns it to needs_review with that draft intact; otherwise the import is closed. A failed reprocess likewise leaves the draft under review. Sources and the review stay readable. A commit that finished first wins.
          */
         post: operations["cancelWordImport"];
         delete?: never;
