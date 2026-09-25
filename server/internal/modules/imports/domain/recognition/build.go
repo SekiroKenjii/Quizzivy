@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const inlineObject = "INLINE_OBJECT_REQUIRES_REVIEW"
+
 const (
 	singleChoice   = "single_choice"
 	multipleChoice = "multiple_choice"
@@ -218,6 +220,7 @@ func (b *builder) group(g *groupBuilder) domain.DraftGroup {
 		out.Questions = append(out.Questions, b.question(q))
 	}
 	b.flagColored(g.id, g.stimulus)
+	b.flagInlineObjects(g.id, g.stimulus)
 	return out
 }
 
@@ -257,6 +260,21 @@ func (b *builder) question(q *questionBuilder) domain.DraftQuestion {
 	return out
 }
 
+func (b *builder) flagInlineObjects(target string, segments []segment) {
+	var refs []domain.SourceRef
+	for _, s := range segments {
+		for _, p := range s.line.pieces {
+			if slices.Contains(p.block.Reasons, inlineObject) {
+				refs = append(refs, s.refs()...)
+				break
+			}
+		}
+	}
+	if len(refs) > 0 {
+		b.notice(domain.CodeSourceObject, domain.ReviewRequired, target, inlineObject, 1, refs)
+	}
+}
+
 func (b *builder) flagColored(target string, segments []segment) {
 	var colored []domain.SourceRef
 	for _, s := range segments {
@@ -275,6 +293,7 @@ func (b *builder) flagQuestion(q *questionBuilder) {
 		segments = append(segments, o.seg)
 	}
 	b.flagColored(q.id, segments)
+	b.flagInlineObjects(q.id, segments)
 	if q.irregular {
 		b.notice(domain.CodeNumberingIrregular, domain.ReviewRequired, q.id, "", 1, q.source)
 	}

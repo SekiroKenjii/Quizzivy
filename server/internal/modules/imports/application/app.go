@@ -1,10 +1,12 @@
-// Package application coordinates private Word source intake and authorized source access.
+// Package application coordinates Word import use cases: private intake, processing requests,
+// teacher review under revision control, and the atomic commit into a draft test.
 package application
 
 import (
 	"quizzivy/internal/modules/imports/application/command"
 	"quizzivy/internal/modules/imports/application/ports"
 	"quizzivy/internal/modules/imports/application/query"
+	"quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/shared/cqrs"
 )
@@ -14,18 +16,60 @@ type Application struct {
 	Queries  Queries
 }
 type Commands struct {
-	Create cqrs.CommandHandler[command.Create, domain.Import]
-	Upload cqrs.CommandHandler[command.Upload, domain.Receipt]
+	Create     cqrs.CommandHandler[command.Create, domain.Import]
+	Upload     cqrs.CommandHandler[command.Upload, domain.Receipt]
+	Process    cqrs.CommandHandler[command.Process, domain.Import]
+	Cancel     cqrs.CommandHandler[command.Cancel, domain.Import]
+	SaveReview cqrs.CommandHandler[command.SaveReview, domain.ReviewState]
+	Commit     cqrs.CommandHandler[command.Commit, command.CommitResult]
 }
 type Queries struct {
-	Get      cqrs.QueryHandler[query.Get, domain.Import]
-	List     cqrs.QueryHandler[query.List, domain.List]
-	Download cqrs.QueryHandler[query.Download, query.DownloadResult]
+	Get        cqrs.QueryHandler[query.Get, domain.Import]
+	List       cqrs.QueryHandler[query.List, domain.List]
+	Download   cqrs.QueryHandler[query.Download, query.DownloadResult]
+	Review     cqrs.QueryHandler[query.Review, domain.ReviewState]
+	SourceView cqrs.QueryHandler[query.SourceView, query.SourceViewResult]
+	Limits     cqrs.QueryHandler[query.Limits, query.LimitsResult]
 }
 
-func New(repo domain.Repository, store ports.ObjectStore, inspector ports.Inspector, workDir string, quotas domain.Quotas) *Application {
+// Store is the private import bucket: originals for intake and download, artifacts for the source view.
+type Store interface {
+	ports.ObjectStore
+	ports.ArtifactStore
+}
+
+// Dependencies are the ports one import application needs; Legacy admits .doc uploads.
+type Dependencies struct {
+	Repo         domain.Repository
+	Drafts       domain.Drafts
+	Runs         ports.Runs
+	Artifacts    domain.Artifacts
+	Store        Store
+	Inspector    ports.Inspector
+	Materializer ports.Materializer
+	WorkDir      string
+	Quotas       domain.Quotas
+	Legacy       bool
+}
+
+func New(d Dependencies) *Application {
+	reader := worker.EvidenceReader{Artifacts: d.Artifacts, Store: d.Store, WorkDir: d.WorkDir}
 	return &Application{
-		Commands: Commands{Create: command.CreateHandler{Repo: repo, Quotas: quotas}, Upload: command.UploadHandler{Repo: repo, Store: store, Inspector: inspector, WorkDir: workDir, Quotas: quotas, Slots: make(chan struct{}, 1)}},
-		Queries:  Queries{Get: query.GetHandler{Repo: repo}, List: query.ListHandler{Repo: repo}, Download: query.DownloadHandler{Repo: repo, Store: store}},
+		Commands: Commands{
+			Create:     command.CreateHandler{Repo: d.Repo, Quotas: d.Quotas},
+			Upload:     command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Slots: make(chan struct{}, 1), Legacy: d.Legacy},
+			Process:    command.ProcessHandler{Repo: d.Repo, Runs: d.Runs},
+			Cancel:     command.CancelHandler{Runs: d.Runs},
+			SaveReview: command.SaveReviewHandler{Drafts: d.Drafts},
+			Commit:     command.CommitHandler{Repo: d.Repo, Drafts: d.Drafts, Materializer: d.Materializer},
+		},
+		Queries: Queries{
+			Get:        query.GetHandler{Repo: d.Repo},
+			List:       query.ListHandler{Repo: d.Repo},
+			Download:   query.DownloadHandler{Repo: d.Repo, Store: d.Store},
+			Review:     query.ReviewHandler{Drafts: d.Drafts},
+			SourceView: query.SourceViewHandler{Repo: d.Repo, Runs: d.Runs, Reader: reader},
+			Limits:     query.LimitsHandler{Legacy: d.Legacy},
+		},
 	}
 }

@@ -86,7 +86,7 @@ func (b *builder) sourceNotices(docs []domain.EvidenceDocument) {
 		}
 		for _, block := range d.Blocks {
 			for _, reason := range block.Reasons {
-				if !block.Main && !block.Meaningful {
+				if (!block.Main && !block.Meaningful) || reason == inlineObject {
 					continue
 				}
 				counts[reason]++

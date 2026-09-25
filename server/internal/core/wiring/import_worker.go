@@ -22,9 +22,13 @@ func ImportWorker(ctx context.Context, cfg config.ImportWorker, dbx db.Context) 
 	if err := os.MkdirAll(base.ImportWorkDir, 0o700); err != nil {
 		return worker.Runner{}, err
 	}
-	converter, err := wordconvert.New(base.ImportWorkDir, cfg.DockerBinary, cfg.ImageID, 2*time.Minute)
-	if err != nil {
-		return worker.Runner{}, fmt.Errorf("prepare isolated import converter: %w", err)
+	var converter *wordconvert.Converter
+	if cfg.ImageID != "" {
+		var err error
+		converter, err = wordconvert.New(base.ImportWorkDir, cfg.DockerBinary, cfg.ImageID, 2*time.Minute)
+		if err != nil {
+			return worker.Runner{}, fmt.Errorf("prepare isolated import converter: %w", err)
+		}
 	}
 	store, err := storage.New(ctx, storage.Config{Endpoint: base.S3Endpoint, Region: base.S3Region, Bucket: base.ImportBucket, AccessKeyID: base.S3AccessKeyID, SecretAccessKey: base.S3SecretAccessKey, ForcePathStyle: base.S3ForcePathStyle})
 	if err != nil {

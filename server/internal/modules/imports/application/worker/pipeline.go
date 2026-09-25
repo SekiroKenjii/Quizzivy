@@ -32,48 +32,48 @@ type pipelineSource struct {
 	identity                  string
 }
 
-func (p Pipeline) Process(ctx context.Context, run domain.Run, progress func(string) error) (json.RawMessage, error) {
+func (p Pipeline) Process(ctx context.Context, run domain.Run, progress func(string) error) (domain.Outcome, error) {
 	result, err := p.process(ctx, run, progress)
 	return result, pipelineFailure(err)
 }
 
-func (p Pipeline) process(ctx context.Context, run domain.Run, progress func(string) error) (json.RawMessage, error) {
+func (p Pipeline) process(ctx context.Context, run domain.Run, progress func(string) error) (domain.Outcome, error) {
 	if run.PipelineVersion != PipelineVersion {
-		return nil, domain.ErrInvalidResult
+		return domain.Outcome{}, domain.ErrInvalidResult
 	}
 	sources, err := p.Sources.Sources(ctx, run.ImportID, run.SourceRevision)
 	if err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	if len(sources) < 1 || len(sources) > 2 {
-		return nil, domain.ErrInvalid
+		return domain.Outcome{}, domain.ErrInvalid
 	}
 	if err := progress("normalization"); err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	prepared, err := p.normalizeSources(ctx, run.Claim(), sources)
 	if err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	if err := progress("extraction"); err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	documents, err := p.extractSources(ctx, run.Claim(), prepared)
 	if err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	if err := progress("recognition"); err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	candidate, err := recognition.Recognize(ctx, documents, run.Profile)
 	if err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	if err := addRenditionFindings(&candidate, prepared); err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	if err := progress("validation"); err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	return p.saveCandidate(ctx, run.Claim(), candidate, prepared)
 }
@@ -81,6 +81,13 @@ func (p Pipeline) process(ctx context.Context, run domain.Run, progress func(str
 func (p Pipeline) normalizeSources(ctx context.Context, claim domain.Claim, sources []domain.Source) ([]pipelineSource, error) {
 	prepared := make([]pipelineSource, 0, len(sources))
 	for _, source := range sources {
+		if !p.Engine.Converts() {
+			if source.Format != "docx" {
+				return nil, Failure{Code: "LEGACY_CONVERSION_UNAVAILABLE"}
+			}
+			prepared = append(prepared, pipelineSource{source: source, identity: source.ID})
+			continue
+		}
 		set, err := p.normalize(ctx, claim, source)
 		if err != nil {
 			return nil, err

@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/imports/application"
 	"quizzivy/internal/modules/imports/application/command"
@@ -139,6 +140,9 @@ func bodyError(err error) error {
 	}
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return errMultipart
+	}
+	if errors.Is(err, os.ErrDeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
+		return domain.ErrBusy
 	}
 	return err
 }

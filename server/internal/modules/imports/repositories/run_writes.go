@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/modules/imports/domain"
 	"regexp"
@@ -52,8 +51,8 @@ func (s *Postgres) Progress(ctx context.Context, c domain.Claim, stage string) e
 	})
 }
 
-func (s *Postgres) Complete(ctx context.Context, c domain.Claim, result json.RawMessage) error {
-	if err := domain.ValidateRunResult(result); err != nil {
+func (s *Postgres) Complete(ctx context.Context, c domain.Claim, outcome domain.Outcome) error {
+	if err := domain.ValidateRunResult(outcome.Result); err != nil {
 		return err
 	}
 	return s.InTx(ctx, "complete import run", func(tx pgx.Tx) error {
@@ -61,7 +60,10 @@ func (s *Postgres) Complete(ctx context.Context, c domain.Claim, result json.Raw
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE app.word_import_runs SET status='succeeded',stage='ready',worker_id=NULL,lease_until=NULL,result=$2,completed_at=clock_timestamp() WHERE id=$1`, c.RunID, result); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.word_import_runs SET status='succeeded',stage='ready',worker_id=NULL,lease_until=NULL,result=$2,completed_at=clock_timestamp() WHERE id=$1`, c.RunID, outcome.Result); err != nil {
+			return err
+		}
+		if err := storeMachineDraft(ctx, tx, c, outcome.Draft); err != nil {
 			return err
 		}
 		run.Stage = "ready"
@@ -84,13 +86,17 @@ func (s *Postgres) Fail(ctx context.Context, in domain.RunFailure) error {
 		if err != nil {
 			return err
 		}
-		retry := in.Retryable && run.AttemptCount < run.MaxAttempts
+		retry := in.Released || (in.Retryable && run.AttemptCount < run.MaxAttempts)
 		runState, parentState := runFailed, runFailed
 		if retry {
 			runState, parentState = "queued", "queued"
 		}
-		if _, err := tx.Exec(ctx, `UPDATE app.word_import_runs SET status=$2,worker_id=NULL,lease_until=NULL,error_code=$3,
-  available_at=clock_timestamp()+$4*interval '1 millisecond',completed_at=CASE WHEN $2='failed' THEN clock_timestamp() ELSE NULL END WHERE id=$1`, run.ID, runState, in.Code, in.RetryAfter.Milliseconds()); err != nil {
+		refund, delay := 0, in.RetryAfter
+		if in.Released {
+			refund, delay = 1, 0
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.word_import_runs SET status=$2,worker_id=NULL,lease_until=NULL,error_code=$3,attempt_count=attempt_count-$5,
+  available_at=clock_timestamp()+$4*interval '1 millisecond',completed_at=CASE WHEN $2='failed' THEN clock_timestamp() ELSE NULL END WHERE id=$1`, run.ID, runState, in.Code, delay.Milliseconds(), refund); err != nil {
 			return err
 		}
 		kind := runFailed

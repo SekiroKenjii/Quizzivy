@@ -25,6 +25,9 @@ func TestImportOperationsRequireTeacherBeforeReadingSourceBytes(t *testing.T) {
 			if method == http.MethodPost && strings.HasSuffix(path, "/sources") {
 				target += "?role=exam&uploadId=01935000-0000-7000-8000-000000000003&expectedRevision=1"
 			}
+			if strings.HasSuffix(path, "/source") {
+				target += "?role=exam"
+			}
 			for _, role := range []string{"", "student"} {
 				response := requestAs(t, handler, issuer, method, target, role)
 				want := http.StatusForbidden
@@ -38,7 +41,7 @@ func TestImportOperationsRequireTeacherBeforeReadingSourceBytes(t *testing.T) {
 			count++
 		}
 	}
-	if count != 5 {
+	if count != 12 {
 		t.Fatalf("protected import operations: %d", count)
 	}
 }

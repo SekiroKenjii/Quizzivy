@@ -1,4 +1,5 @@
-// Package domain models private source intake and immutable Word import source sets.
+// Package domain models a Word import: private sources and their revisions, fenced processing runs,
+// the reviewable exam draft with its findings, and the plan that commits it as one draft test.
 package domain
 
 import (
@@ -16,9 +17,17 @@ var (
 	ErrTooLarge    = errors.New("imports: source limit exceeded")
 	ErrUnsupported = errors.New("imports: unsupported source")
 	ErrInvalid     = errors.New("imports: invalid source")
+	ErrStale       = errors.New("imports: draft saved elsewhere")
+	ErrNoDraft     = errors.New("imports: no draft yet")
+	ErrBadDraft    = errors.New("imports: malformed draft edit")
 )
 
 const MaxSourceBytes int64 = 25 << 20
+
+// Statuses in which a teacher may add or replace a source; a new source set returns the import to awaiting_sources.
+func AcceptsSources(status string) bool {
+	return status == "awaiting_sources" || status == "failed" || status == "needs_review"
+}
 
 type Import struct {
 	ID, Title, Status, CreatedBy string
@@ -26,6 +35,17 @@ type Import struct {
 	CreatedAt, UpdatedAt         time.Time
 	Sources                      []Source
 	PendingUploads               int
+	Run                          *RunSummary
+	DraftRevision                int64
+	TestID                       *string
+}
+
+// RunSummary is the latest processing run as the teacher sees it.
+type RunSummary struct {
+	ID, Status, Stage    string
+	Attempt, MaxAttempts int
+	ErrorCode            *string
+	UpdatedAt            time.Time
 }
 
 type Source struct {

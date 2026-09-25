@@ -28,16 +28,18 @@ const (
 	CodeEmptySection           = "EMPTY_SECTION"
 	CodeNumberingIrregular     = "NUMBERING_IRREGULAR"
 	CodeColoredText            = "COLORED_TEXT_IN_CONTENT"
+	CodeOptionReference        = "OPTION_LABEL_REFERENCE"
 	CodeNoQuestions            = "NO_QUESTIONS"
 )
 
 // Finding is one actionable observation; Count aggregates repeats so one cause yields one finding.
 type Finding struct {
-	ID       string      `json:"id"`
-	Code     string      `json:"code"`
-	Severity Severity    `json:"severity"`
-	Target   string      `json:"target,omitempty"`
-	Field    string      `json:"field,omitempty"`
-	Count    int         `json:"count"`
-	Evidence []SourceRef `json:"evidence"`
+	ID           string      `json:"id"`
+	Code         string      `json:"code"`
+	Severity     Severity    `json:"severity"`
+	Target       string      `json:"target,omitempty"`
+	Field        string      `json:"field,omitempty"`
+	Count        int         `json:"count"`
+	Acknowledged bool        `json:"acknowledged,omitempty"`
+	Evidence     []SourceRef `json:"evidence"`
 }

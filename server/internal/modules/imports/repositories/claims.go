@@ -21,6 +21,9 @@ func (s *Postgres) Claim(ctx context.Context, p domain.ClaimPolicy) (domain.Run,
 		if err := expireExhausted(ctx, tx); err != nil {
 			return err
 		}
+		if err := retireStaleVersions(ctx, tx, p.PipelineVersion); err != nil {
+			return err
+		}
 		var err error
 		out, err = claimRun(ctx, tx, p)
 		if errors.Is(err, domain.ErrNoWork) {
@@ -74,6 +77,35 @@ func claimRun(ctx context.Context, tx pgx.Tx, p domain.ClaimPolicy) (domain.Run,
 }
 
 type expiredRun struct{ importID, runID string }
+
+const retirementGrace = "10 minutes"
+
+func retireStaleVersions(ctx context.Context, tx pgx.Tx, version string) error {
+	rows, err := db.QueryMany(ctx, tx, `SELECT i.id::text,r.id::text FROM app.word_imports i JOIN app.word_import_runs r ON r.import_id=i.id
+ WHERE i.status IN ('queued','processing') AND r.pipeline_version<>$1
+ AND ((r.status='queued' AND r.available_at<=clock_timestamp()-$2::interval) OR (r.status='running' AND r.lease_until<=clock_timestamp()-$2::interval))
+ ORDER BY r.available_at,r.id FOR UPDATE OF i SKIP LOCKED LIMIT 50`, []any{version, retirementGrace}, func(row pgx.Rows) (expiredRun, error) {
+		var r expiredRun
+		err := row.Scan(&r.importID, &r.runID)
+		return r, err
+	})
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		run, err := scanRun(tx.QueryRow(ctx, `UPDATE app.word_import_runs SET status='failed',claim_token=claim_token+1,worker_id=NULL,lease_until=NULL,error_code='PIPELINE_RETIRED',completed_at=clock_timestamp() WHERE id=$1 RETURNING `+runColumns, r.runID))
+		if err != nil {
+			return err
+		}
+		if err := recordRunEvent(ctx, tx, run, "failed", "PIPELINE_RETIRED", nil); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.word_imports SET status='failed',revision=revision+1 WHERE id=$1`, r.importID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func expireExhausted(ctx context.Context, tx pgx.Tx) error {
 	rows, err := db.QueryMany(ctx, tx, `SELECT i.id::text,r.id::text FROM app.word_imports i JOIN app.word_import_runs r ON r.import_id=i.id

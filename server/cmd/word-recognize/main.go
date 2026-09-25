@@ -112,6 +112,8 @@ type recognitionSummary struct {
 	Types     map[string]int `json:"types"`
 	Answers   map[string]int `json:"answers"`
 	Notices   map[string]int `json:"notices"`
+	Findings  map[string]int `json:"findings"`
+	Ready     bool           `json:"ready"`
 	ElapsedMS int64          `json:"elapsedMs"`
 }
 
@@ -131,6 +133,13 @@ func summary(d domain.Draft, elapsed int64) recognitionSummary {
 	}
 	for _, n := range d.Notices {
 		out.Notices[n.Code+"/"+string(n.Severity)] += 1
+	}
+	review := domain.Assess(d)
+	out.Ready, out.Findings = review.Ready, map[string]int{}
+	for _, f := range review.Findings {
+		if f.Severity != domain.Informational && !f.Acknowledged {
+			out.Findings[f.Code+"/"+string(f.Severity)]++
+		}
 	}
 	return out
 }
