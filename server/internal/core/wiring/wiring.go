@@ -34,7 +34,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
-	importsTransport, err := imports(ctx, cfg, dbx)
+	importsTransport, err := imports(ctx, cfg, dbx, mediaApp)
 	if err != nil {
 		return Assembly{}, err
 	}

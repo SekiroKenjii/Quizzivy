@@ -686,6 +686,260 @@ Remaining W-10/11+ work includes legacy conversion, durable processing, source
 replacement after review, upload-history UI, cleanup/retention, review and commit.
 This checkpoint does not expose the unfinished workflow to teachers or claim GA.
 
+### 1.28 Durable queue foundation (W-11a)
+
+`00043_create_word_import_runs.sql` adds source-pinned processing requests and
+append-only lifecycle events. Scheduling checks the import revision, requires a
+completed exam source, preserves request identity on retries and prevents multiple
+active runs. A failed import can schedule a new run without rewriting old results.
+
+Claims use a short transaction-level advisory capacity lock followed by import and
+run row locks. Candidate selection skips locked parents and rechecks eligibility
+under the parent lock. Heartbeats share the capacity lock, preventing an expiring
+lease renewal from racing a new allocation. Global and actor limits count live
+leases. No source download, parsing or provider call holds these locks.
+
+The runner heartbeats during context-aware processing, stops on lost claims and
+writes only with a current source/worker/fence/lease. Attempts and retry delays are
+bounded; expired final attempts become failed even when no new job can be claimed.
+Cancellation competes with completion under the same parent lock. Successful runs
+store at most 8 MiB of private object JSON and enter review; schema semantics remain
+the processor's responsibility. Terminal results and operational events are immutable.
+Stage events, retry causes, actor actions and lease recovery remain inspectable;
+logs/observers receive identifiers, timing and allowlisted codes, never raw errors.
+
+Docker tests use the app role and exercise concurrent cancellation/completion,
+capacity, retry exhaustion, append-only privileges, source preservation, stale
+writes, and a subprocess SIGKILL/reclaim. Runner tests cover heartbeat/progress
+failure, shutdown, invalid output and late completion; the race detector passes.
+Migration reversal and the existing module checks run in the dedicated test database.
+
+W-11 remains open for concrete pipeline/supervisor wiring and operational metrics
+exposure alongside W-12–16. No enqueue endpoint or teacher processing screen is
+exposed before there is a real processor. No external provider or retention policy
+is enabled by this checkpoint.
+
+### 1.29 Ordered source extraction (W-12a)
+
+The native extractor now emits versioned, source-bound blocks in actual XML order,
+with structural ancestry, per-fragment Unicode offsets, original numbering and
+supported inherited mark evidence. Raw fields, hidden/revised text, alternate
+branches, equations and objects remain inspectable and require review; none is
+implicitly accepted as learner content. Nested table grids have independent cell
+coordinates and supported vertical merge origins. Ambiguous/duplicate/overflowing
+properties remain unresolved rather than being guessed.
+
+Embedded static PNG/JPEG can be decoded with input/pixel/dimension/output limits
+and re-encoded without private metadata. Animated or EXIF-bearing images and
+unsupported formats require a later explicit normalization decision. Assets stay
+private until a reviewed learner placement and authorized media binding exist.
+The `word-extract` CLI produces counts by default and optional new `0600` evidence
+files. It neither contacts a provider nor writes assessment records.
+
+Synthetic coverage includes mixed table/paragraph order, nested/merged cells,
+numbering, Unicode spans, source replacement identity, fields across paragraphs,
+inline revisions, alternate branches and safe raster handling. A bounded fuzz run
+checks block identity and ancestry. An independent local XML walk matched every
+one of 13,489 fragments in the eight authorized DOCX files. Text coverage is not
+semantic accuracy; reviewed question/key outputs and wider source families are
+still needed. Private evidence can be much larger than candidate JSON and belongs
+in separately stored/paged source artifacts, not the run result envelope.
+
+This checkpoint implements extraction building blocks, not the complete W-12
+quality gate. Conditional styles, source rendition, durable artifact integration,
+recognition/reconciliation, review and atomic commit remain subsequent work.
+
+### 1.30 Isolated normalization and rendition (W-13a)
+
+A separately built LibreOffice/Python UNO/Poppler image converts binary DOC into
+native DOCX and renders private PDF/PNG source pages. The Go adapter supplies an
+immutable local image ID, fixed safe load policy, isolated disk directories,
+network/capability restrictions and CPU/memory/process/file limits. It admits one
+physical conversion container per Docker host, including containers surviving a
+worker crash; a second worker cannot kill the first worker's slot. Completed owned
+slots can be reclaimed. Host cancellation and an independent container deadline
+bound work. A disk watchdog stops oversized jobs without using host tmpfs.
+
+Source originals are never modified. Converted DOCX passes native inspection;
+page images and output paths are checked before artifact access. The manifest
+records source/image/renderer identities and checksums. Layout review is always
+required; legacy conversion adds an explicit normalization-review finding. This
+is not a promise that desktop rendering or every legacy object is equivalent.
+
+Docker tests exercise actual DOC round-trip with text/underline preservation,
+password-protected failure, native rendition, cancellation/timeout, per-process
+and global physical slots, orphan completion/reclaim, disk limits and runtime
+network/mount/cgroup restrictions. A local real DOCX produced 33 private source
+pages; sampled pages retain teacher annotations in the source view. That is not
+recognition or learner-content acceptance. Sources and renderings remain outside Git.
+
+The image/tool/adapter are internal building blocks, with no new public route,
+provider transfer or production activation. Durable artifact storage, processing
+wiring, detailed loss reconciliation, real legacy-family goldens and W-21 operator
+cleanup/capacity gates remain open. Dependency reasons and the boundary are in the
+[converter runtime instructions](../../docker/word-converter/README.md).
+
+### 1.31 Durable private stage artifacts (W-13b)
+
+Each stage reserves its complete immutable file plan before object storage.
+Source/run/role/claim ownership is relational; acknowledgements and completion
+require a live fenced claim. Whole-set publication waits for every file, so a
+partially uploaded rendition cannot appear complete. Pending bytes and sets count
+against bounded actor/global quotas. Complete evidence is reusable after takeover
+or explicit retry only for the same source, pipeline and component/configuration.
+Incomplete old attempts receive separate keys and cannot mutate successor results.
+
+The private S3 adapter verifies upload checksums, uses create-only writes and
+reconciles exact lost-response retries against stored identity. Processor reads
+verify size and digest into disk-backed staging before parsing. Normalized DOCX,
+source pages, images, blocks, candidates and validation files remain private;
+none automatically becomes learner media. No retention policy is enabled.
+
+Docker verification covers incomplete publication, cancellation/lease fencing,
+source ownership, immutable replay, concurrent quotas, private bytes, lost storage
+responses and staged-read tampering. Public source browsing, concrete processing,
+recognition, review and commit remain subsequent work.
+
+
+### 1.32 Conservative source-linked recognition (W-14a)
+
+The private candidate schema separates printed labels, stable local question/option
+IDs, answer states, provenance, findings and exact source coverage. The local rules
+recognizer handles manual/automatic numbering, labeled choices on separate or shared
+lines, Unicode/nonbreaking Word spaces, inferred continuation paragraphs, explicit
+inline/final keys and unambiguous horizontal/vertical key-table pairs. Paper and
+section scopes prevent restarted numbers from silently selecting another answer.
+Contradictions and dangling labels remain blocking findings. Teacher-confirmed whole
+option bold/underline conventions are explicit inputs; unspecified formatting is
+never evidence of correctness. Key-only marks stay out of candidate learner prose.
+
+A bounded adapter retains raw extraction separately, projects supported semantic
+marks and flags private/revised/field/layout-dependent branches. Every meaningful
+block receives a coverage entry; partial text assignment cannot count as full
+coverage. Rules use bounded source/candidate sizes, question/option counts and
+indexed answer lookup. No source text is deduplicated. The CLI defaults to counts;
+optional candidate output is a new private 0600 file, with no external services.
+
+Synthetic tests cover Vietnamese offsets, explicit conflicts, repeated labels,
+collected papers, nonbreaking spaces, private text, generated labels and ambiguous
+table geometry. Fuzzing exercises bounded recognition and source-range invariants.
+The eight local DOCX files expose additional non-choice/group cases; running them
+is a compatibility exercise, not a reviewed accuracy or pilot result. Files and
+candidate outputs remain outside Git.
+
+W-14 remains open for grouped cloze/material attachment, typed/written key mapping,
+saved profile persistence and corpus-reviewed reconciliation. W-15 provider policy,
+W-16 full validation, durable processing and review/commit integration remain open.
+
+
+### 1.33 Durable processing assembly (W-11b)
+
+A standalone `cmd/import-worker` now joins immutable source sets, private object
+verification, Docker rendition, native OOXML extraction and the deterministic
+recognizer. It uses the application database role and private storage credentials;
+API signing/Google credentials are not required. The API never starts Docker.
+The worker polls serially, obeys database actor/global lease limits, heartbeats,
+job deadlines and cancellation, and records safe IDs/codes/timing only.
+
+Completed normalization and extraction sets are reusable after a retry. Version
+identities include the converter image or extractor projection and normalized
+source identity; candidate lineage includes every contributing source stage.
+Original DOCX coordinates remain original; a normalized legacy source would use
+its immutable artifact identity. Private reads verify recorded length and SHA-256
+before parsing. An integrity mismatch is a terminal error, not an outage retry.
+
+Raw evidence is split into contiguous files of at most 100 blocks, with a separate
+inventory and recognition projection. Candidate JSON is a private artifact;
+`word-run-result-v1` contains only source lineage and artifact-set IDs. Completion
+still requires teacher review and never writes questions or assessments.
+
+Validation: all backend unit tests and lint pass. PostgreSQL/MinIO with the real
+Docker converter exercise an exam/key pair, interrupted extraction, reuse of both
+completed renditions and successful review handoff. Adapter tests reconstruct the
+complete raw block sequence and verify every artifact checksum. Worker config,
+serial draining, cancellation and safe error logging are covered. No new dependency
+or migration is introduced. See [worker operation](../setup/word-import-worker.md).
+
+Public queue/progress controls, full W-16 validation, review, commit, retention and
+production capacity/rollout gates remain open. This internal worker does not enable
+public legacy intake, external AI processing or production activation.
+
+### 1.34 Takeover checkpoint — corpus recognition, review and commit (2026-09-25)
+
+The stack above (W-02 to W-14a, W-11b) was reviewed area by area with an
+adversarial second pass. Its package safety, fenced queue and converter isolation
+were kept; every confirmed finding was fixed on this branch, except the items listed
+as still open at the end of this section. Against the supplied
+papers the rules-v1 recognizer produced about 1,300 findings for a 31-question
+paper, read one section and could not separate the papers of a combined key, so it
+was replaced rather than tuned.
+
+**Recognition (rules-v2).** Evidence becomes logical lines (table rows joined by
+tab); a state machine builds sections, shared-passage groups and questions; keys are
+read per paper and per section. It covers Roman sections with continuous numbering,
+same-line options split only at the next expected letter, per-question instructions
+grouped into inferred sections, a question promoted to a group by its sub-labels,
+cloze gaps bound to choice questions or to blanks (open cloze), true/false tables,
+multi-blank keys and teacher-graded rewrites with the key as sample. Misprinted
+numbers are kept and flagged; letters for a question without options stay
+unsupported; coloured text inside a question is flagged as a possible answer leak.
+Measured on the 54 supplied papers (5 DOCX with their key, 49 DOCX rebuilt from the
+PDFs with the combined `ĐÁP ÁN.docx`): 2,562 of 2,626 questions receive their key
+automatically, 37 papers need no decision beyond source formatting; the rest are
+matching exercises (unsupported by design) or misprints in the source, each surfaced
+as a finding. PDF-derived files carry no underline, so pronunciation questions from
+them always ask for the underline. This is a regression harness, not a pilot result.
+
+**Review (W-16, W-18 core).** One revisioned draft per import is written in the
+transaction that completes its run. A newer machine draft that arrives after teacher
+edits is kept aside, and the teacher adopts it explicitly (`review/adopt`, revision
+checked). Findings are derived on every read from the draft's content (bank validation
+is reused), joined with source notices; blockers need an edit, review items need an
+acknowledgement keyed to the content it judged. Malformed edits are 422.
+
+**Commit (W-20 core).** `core/adapters.ImportCommitter` runs the tests and questions
+use cases on one transaction and records the commit in it. Fresh IDs make repeated
+imports independent; concurrent or replayed commits yield one test.
+
+**Operations.** Processing is queued and cancelled from the API. DOCX is processed
+natively without a converter; `.doc` needs the converter and `IMPORT_LEGACY_DOC`.
+Heartbeat, shutdown, quota and retired-pipeline handling were corrected. A reprocess
+that fails or is stopped returns an import that already has a draft to
+needs_review with the draft intact (18-word-import-ux §7); the latest run keeps its
+status and error code so the review can say what happened. A failed import takes a
+replacement file in place. A question's own blanks are numbered 1, 2, … within the
+question, as the bank editor numbers them; passage gaps keep the source label.
+
+**Screens (WU-01 to WU-04, WU-06 core).** History with search and status filter;
+upload with the server's limits, idempotent create → upload → process; a detail
+page per state (progress by real stage with elapsed time, failure with a specific
+action, stop or close with honest copy); and the review workspace: extracted source
+beside the rebuilt exam, finding filters with previous/next, provenance per field,
+one editable question at a time, autosave with a single save in flight, and a
+summary that creates the draft test. Deviations from 18-word-import-ux, to revisit
+with the design deck (it has no import boards yet): the summary is a dialog rather
+than the `/confirm` route; shared passages are edited in the test builder, not in
+review; there is no split, merge or move; learner preview is the builder's.
+
+Verified in a browser against the real API, worker and MinIO on 2026-09-25: upload
+of a real .docx with a separate key, processing, review with exclusions of
+unsupported matching items, draft creation, builder, learner preview and publish;
+stopping a reprocess, a failed reprocess, and replacing the file of a failed import.
+
+A version's shared group contexts now load in six batched queries, whatever the
+number of groups, instead of about five per group.
+
+Still open: W-15 (assisted recognition), the rest of W-19 (a side-by-side compare of
+the kept draft and the reprocessed one; adoption replaces the draft whole),
+W-21/W-22 (capacity, retention, runbooks, pilot), and media/audio attachment in
+imports. Three low findings stay open because none of them shows on the supplied
+papers: element locators repeat the namespace URI in every segment, so the locator
+budget runs out near 80k elements rather than at the node limit; one group save
+parses each material about seven times; and a student's group context mints and
+reads each asset separately. The publish response's zero `manualCount` and
+`audioCount` predate this stack and are tracked in SekiroKenjii/Quizzivy#136.
+
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |

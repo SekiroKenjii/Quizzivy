@@ -10,12 +10,17 @@ export type AutosaveStatus =
   | { kind: "saving" }
   | { kind: "saved"; at: Date }
   | { kind: "failed"; message: string }
-  /** A second tab wrote first. Editing here would silently discard theirs. */
+  /** The save was superseded. No further saves are attempted. */
   | { kind: "stale" };
 
 interface AutosaveOptions<T> {
   save: (value: T) => Promise<void>;
   delay?: number;
+  isStale?: (cause: unknown) => boolean;
+}
+
+function staleWrite(cause: unknown): boolean {
+  return cause instanceof ApiError && cause.code === "STALE_WRITE";
 }
 
 /** Merges the statuses of several autosaves into the one the topbar shows. */
@@ -39,10 +44,15 @@ export function mergeAutosave(statuses: AutosaveStatus[]): AutosaveStatus {
   return newest;
 }
 
-/** §8's 1.5s debounced autosave. */
+/**
+ * useAutosave is §8's 1.5s debounced autosave. A save failure that `isStale`
+ * accepts, STALE_WRITE by default, marks the status stale and stops further
+ * saves.
+ */
 export function useAutosave<T>({
   save,
   delay = AUTOSAVE_DELAY_MS,
+  isStale = staleWrite,
 }: AutosaveOptions<T>) {
   const [status, setStatus] = useState<AutosaveStatus>({ kind: "idle" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,12 +60,14 @@ export function useAutosave<T>({
   const lastValue = useRef<T | null>(null);
   const inFlight = useRef<Promise<void> | null>(null);
   const latestSave = useRef(save);
+  const latestIsStale = useRef(isStale);
   const stale = useRef(false);
   const failure = useRef<unknown>(null);
 
   useEffect(() => {
     latestSave.current = save;
-  }, [save]);
+    latestIsStale.current = isStale;
+  }, [save, isStale]);
 
   const run = useCallback(async function drain(): Promise<void> {
     if (inFlight.current !== null) {
@@ -78,7 +90,7 @@ export function useAutosave<T>({
         );
       } catch (cause) {
         failure.current = cause;
-        if (cause instanceof ApiError && cause.code === "STALE_WRITE") {
+        if (latestIsStale.current(cause)) {
           stale.current = true;
           setStatus({ kind: "stale" });
           return;

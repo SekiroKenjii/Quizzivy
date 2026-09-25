@@ -133,7 +133,9 @@ func mergeNumProps(base, next []Property) []Property {
 	return out
 }
 
-var semanticMarkNames = []string{"b", "i", "u", "strike", "dstrike", propertyVertical, "vanish", "webHidden", "caps", "smallCaps"}
+var semanticMarkNames = [...]string{"b", "i", "u", "strike", "dstrike", propertyVertical, propertyHidden, propertyWebHidden, "caps", "smallCaps"}
+
+type markSet [len(semanticMarkNames)]ResolvedMark
 
 func (r *resolver) resolveRun(p Paragraph, run Run, paragraphStyle styleResult, structures map[Locator]Structure) (ResolvedRun, error) {
 	character, err := r.style(val(run.Properties, "rStyle"), styleCharacter)
@@ -144,50 +146,46 @@ func (r *resolver) resolveRun(p Paragraph, run Run, paragraphStyle styleResult, 
 	if !result.Complete {
 		r.finding("STYLE_CHAIN_REQUIRES_REVIEW", run.Locator)
 	}
-	if r.unsupportedRunContext(p, run, structures) {
-		result.Complete = false
-	}
+	inTable, complexScript := r.runContext(p, run, structures)
+	inherited := result.Complete && !inTable && !complexScript
 	layers := []propertyLayer{r.styles.runDefaults}
 	layers = append(layers, paragraphStyle.layers...)
 	layers = append(layers, character.layers...)
-	marks := make(map[string]ResolvedMark, len(semanticMarkNames))
+	var marks markSet
 	for _, layer := range layers {
-		if unsafeMarkLayer(layer.props) {
-			result.Complete = false
-		}
-		if err := r.applyMarks(marks, layer, false); err != nil {
+		inherited = inherited && !unsafeMarkLayer(layer.props)
+		if err := r.applyMarks(&marks, layer, false); err != nil {
 			return ResolvedRun{}, err
 		}
 	}
-	if unsafeMarkLayer(run.Properties) {
-		result.Complete = false
-	}
-	if err := r.applyMarks(marks, propertyLayer{part: run.Part, props: run.Properties}, true); err != nil {
+	direct := !unsafeMarkLayer(run.Properties) && !complexScript
+	if err := r.applyMarks(&marks, propertyLayer{part: run.Part, props: run.Properties}, true); err != nil {
 		return ResolvedRun{}, err
 	}
-	return r.finishMarks(result, marks)
+	result.Complete = inherited && direct
+	return r.finishMarks(result, &marks, inherited, direct)
 }
 
-func (r *resolver) finishMarks(result ResolvedRun, marks map[string]ResolvedMark) (ResolvedRun, error) {
-	contextComplete := result.Complete
-	for _, name := range semanticMarkNames {
-		mark, exists := marks[name]
-		if !exists {
+func (r *resolver) finishMarks(result ResolvedRun, marks *markSet, inherited, direct bool) (ResolvedRun, error) {
+	complete := true
+	for _, mark := range marks {
+		if mark.Name == "" {
 			continue
 		}
-		if !contextComplete {
+		if (mark.Direct && !direct) || (!mark.Direct && !inherited) {
 			mark.Resolved = false
 		}
 		if !mark.Resolved {
 			mark.Value = ""
-			result.Complete = false
+			complete = false
 		}
 		result.Marks = append(result.Marks, mark)
 		if err := r.retainLocations(mark.Sources); err != nil {
 			return ResolvedRun{}, err
 		}
 	}
-	if !result.Complete {
+	result.Complete = result.Complete && complete
+	if !complete {
 		r.finding("SEMANTIC_MARK_REQUIRES_REVIEW", result.Locator)
 	}
 	return result, nil
@@ -232,28 +230,22 @@ func unsafeMarkLayer(props []Property) bool {
 	return false
 }
 
-func (r *resolver) applyMarks(marks map[string]ResolvedMark, layer propertyLayer, direct bool) error {
+func (r *resolver) applyMarks(marks *markSet, layer propertyLayer, direct bool) error {
 	if err := r.spend(len(layer.props) + len(semanticMarkNames)); err != nil {
 		return err
 	}
 	for _, p := range layer.props {
-		name := ""
-		for _, candidate := range semanticMarkNames {
-			if wordName(p.Name, candidate) {
-				name = candidate
-				break
-			}
-		}
-		if name == "" {
+		index := slices.IndexFunc(semanticMarkNames[:], func(candidate string) bool { return wordName(p.Name, candidate) })
+		if index < 0 {
 			continue
 		}
-		old, exists := marks[name]
+		name, old := semanticMarkNames[index], marks[index]
 		value, valid := markValue(name, p)
-		if exists && !direct && name != "u" && name != propertyVertical {
+		if old.Name != "" && !direct && name != "u" && name != propertyVertical {
 			valid = false
 		}
 		sources := append(slices.Clone(old.Sources), Locator{Part: layer.part, Path: p.Path})
-		marks[name] = ResolvedMark{Name: name, Value: value, Resolved: valid, Sources: sources}
+		marks[index] = ResolvedMark{Name: name, Value: value, Resolved: valid, Direct: direct, Sources: sources}
 	}
 	return nil
 }
@@ -274,18 +266,19 @@ func markValue(name string, p Property) (string, bool) {
 	}
 }
 
-func (r *resolver) unsupportedRunContext(p Paragraph, run Run, structures map[Locator]Structure) bool {
-	unsupported := false
+var complexScripts = []*unicode.RangeTable{unicode.Arabic, unicode.Hebrew, unicode.Syriac, unicode.Thaana, unicode.Nko, unicode.Thai, unicode.Lao, unicode.Khmer, unicode.Myanmar, unicode.Tibetan, unicode.Devanagari, unicode.Bengali, unicode.Gurmukhi, unicode.Gujarati, unicode.Oriya, unicode.Tamil, unicode.Telugu, unicode.Kannada, unicode.Malayalam, unicode.Sinhala}
+
+func (r *resolver) runContext(p Paragraph, run Run, structures map[Locator]Structure) (inTable, complexScript bool) {
 	for _, loc := range p.Containers {
-		if structures[loc].Kind == "tbl" {
+		if structures[loc].Kind == elementTable {
 			r.finding("TABLE_STYLE_REQUIRES_REVIEW", run.Locator)
-			unsupported = true
+			inTable = true
 			break
 		}
 	}
-	if strings.ContainsFunc(run.Text, func(c rune) bool { return unicode.IsLetter(c) && !unicode.Is(unicode.Latin, c) }) {
+	if strings.ContainsFunc(run.Text, func(c rune) bool { return unicode.In(c, complexScripts...) }) {
 		r.finding("SCRIPT_MARKS_REQUIRES_REVIEW", run.Locator)
-		unsupported = true
+		complexScript = true
 	}
-	return unsupported
+	return inTable, complexScript
 }

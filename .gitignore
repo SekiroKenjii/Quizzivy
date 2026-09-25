@@ -28,3 +28,4 @@ server/bin/
 
 # Local perf captures land in docs/perf/ deliberately; scratch does not
 /tmp-*
+.import-work/

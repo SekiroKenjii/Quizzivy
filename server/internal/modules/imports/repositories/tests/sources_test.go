@@ -47,6 +47,12 @@ func setup(t *testing.T) harness {
 	t.Cleanup(func() {
 		for _, sql := range []string{
 			`UPDATE app.word_imports SET source_revision=NULL WHERE created_by=$1`,
+			`DELETE FROM app.word_import_commits WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
+			`DELETE FROM app.word_import_drafts WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
+			`DELETE FROM app.word_import_run_events WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
+			`DELETE FROM app.word_import_artifacts WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
+			`DELETE FROM app.word_import_artifact_sets WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
+			`DELETE FROM app.word_import_runs WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
 			`DELETE FROM app.word_import_source_set_items WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
 			`DELETE FROM app.word_import_sources WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
 			`DELETE FROM app.word_import_source_sets WHERE import_id IN (SELECT id FROM app.word_imports WHERE created_by=$1)`,
