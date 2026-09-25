@@ -32,6 +32,7 @@ type Config struct {
 	ImportSourcesPerItem        int
 	ImportActorMiB              int
 	ImportGlobalMiB             int
+	ImportLegacyDoc             bool
 
 	JWTSigningKey       []byte
 	AccessTokenTTL      time.Duration

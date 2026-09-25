@@ -23,6 +23,7 @@ type Run struct {
 	LeaseUntil, CompletedAt                                              *time.Time
 	AvailableAt, CreatedAt, UpdatedAt                                    time.Time
 	Result                                                               json.RawMessage
+	Profile                                                              RecognitionProfile
 }
 
 type Schedule struct {
@@ -30,6 +31,7 @@ type Schedule struct {
 	ExpectedRevision, SourceRevision     int64
 	Actor                                actor.Actor
 	MaxAttempts                          int
+	Profile                              RecognitionProfile
 }
 type Cancel struct {
 	ImportID         string
@@ -57,10 +59,13 @@ type ClaimPolicy struct {
 	Lease                     time.Duration
 	GlobalLimit, ActorLimit   int
 }
+
+// RunFailure stops a claimed run; Released returns it to the queue without spending an attempt, for a worker that is shutting down.
 type RunFailure struct {
 	Claim      Claim
 	Code       string
 	Retryable  bool
+	Released   bool
 	RetryAfter time.Duration
 }
 
@@ -74,7 +79,7 @@ type Queue interface {
 	Claim(context.Context, ClaimPolicy) (Run, error)
 	Heartbeat(context.Context, Claim, time.Duration) error
 	Progress(context.Context, Claim, string) error
-	Complete(context.Context, Claim, json.RawMessage) error
+	Complete(context.Context, Claim, Outcome) error
 	Fail(context.Context, RunFailure) error
 }
 

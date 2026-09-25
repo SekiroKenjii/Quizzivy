@@ -9,8 +9,6 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-const awaitingSources = "awaiting_sources"
-
 func (s *Postgres) Sources(ctx context.Context, importID string, revision int64) ([]domain.Source, error) {
 	sources, err := db.QueryMany(ctx, s, `SELECT `+sourceColumns+` FROM app.word_import_sources WHERE import_id=$1 AND id IN
  (SELECT source_id FROM app.word_import_source_set_items WHERE import_id=$1 AND revision=$2) ORDER BY role`, []any{importID, revision}, func(row pgx.Rows) (domain.Source, error) { return scanSource(row) })
@@ -44,7 +42,7 @@ func reserveSource(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas dom
 	if !errors.Is(err, domain.ErrNotFound) {
 		return domain.Source{}, err
 	}
-	if parent.Status != awaitingSources || parent.Revision != in.Source.ExpectedRevision {
+	if !domain.AcceptsSources(parent.Status) || parent.Revision != in.Source.ExpectedRevision {
 		return domain.Source{}, domain.ErrConflict
 	}
 	if err := sourceQuota(ctx, tx, in, quotas); err != nil {
@@ -64,7 +62,7 @@ func reuseSource(parent domain.Import, previous, in domain.Source) error {
 	if !sameUpload(previous, in) {
 		return domain.ErrConflict
 	}
-	if !previous.Ready && (parent.Status != awaitingSources || parent.Revision != previous.ExpectedRevision) {
+	if !previous.Ready && (!domain.AcceptsSources(parent.Status) || parent.Revision != previous.ExpectedRevision) {
 		return domain.ErrConflict
 	}
 	return nil
@@ -72,7 +70,8 @@ func reuseSource(parent domain.Import, previous, in domain.Source) error {
 func sourceQuota(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas domain.Quotas) error {
 	var actorBytes, totalBytes int64
 	var sourceCount int
-	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(bytes) FILTER (WHERE uploaded_by=$1),0), coalesce(sum(bytes),0), count(*) FILTER (WHERE import_id=$2) FROM app.word_import_sources`, in.Actor.ID, in.Source.ImportID).Scan(&actorBytes, &totalBytes, &sourceCount); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(s.bytes) FILTER (WHERE s.uploaded_by=$1),0), coalesce(sum(s.bytes),0), count(*) FILTER (WHERE s.import_id=$2)
+ FROM app.word_import_sources s JOIN app.word_imports i ON i.id=s.import_id WHERE i.status NOT IN ('committed','cancelled')`, in.Actor.ID, in.Source.ImportID).Scan(&actorBytes, &totalBytes, &sourceCount); err != nil {
 		return err
 	}
 	if in.Source.Bytes > quotas.ActorBytes-actorBytes || in.Source.Bytes > quotas.GlobalBytes-totalBytes || sourceCount >= quotas.SourcesPerImport {
@@ -97,7 +96,7 @@ func (s *Postgres) Finish(ctx context.Context, in domain.Finish) (domain.Receipt
 			return err
 		}
 		if !src.Ready {
-			if parent.Status != awaitingSources || parent.Revision != src.ExpectedRevision {
+			if !domain.AcceptsSources(parent.Status) || parent.Revision != src.ExpectedRevision {
 				return domain.ErrConflict
 			}
 			if err := finishSource(ctx, tx, parent, src, in); err != nil {
@@ -128,7 +127,7 @@ func finishSource(ctx context.Context, tx pgx.Tx, parent domain.Import, src doma
 	if _, err := tx.Exec(ctx, `INSERT INTO app.word_import_source_set_items(import_id,revision,role,source_id) VALUES($1,$2,$3,$4)`, parent.ID, revision, src.Role, src.ID); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE app.word_imports SET revision=revision+1,source_revision=$2 WHERE id=$1`, parent.ID, revision); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app.word_imports SET status='awaiting_sources',revision=revision+1,source_revision=$2 WHERE id=$1`, parent.ID, revision); err != nil {
 		return err
 	}
 	return auditImport(ctx, tx, in.Actor, parent.ID, "import.source_completed")

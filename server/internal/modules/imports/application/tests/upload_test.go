@@ -69,6 +69,16 @@ func (o *objects) Put(_ context.Context, key, _ string, r io.Reader, _ int64) er
 func (*objects) SignedDownloadURL(context.Context, string, string, time.Duration) (string, error) {
 	return "", nil
 }
+func (*objects) PutImmutable(context.Context, string, string, io.ReadSeeker, int64, []byte) error {
+	return errors.New("not an artifact store")
+}
+func (*objects) Open(context.Context, string) (io.ReadCloser, int64, error) {
+	return nil, 0, errors.New("not an artifact store")
+}
+
+func intake(repo *repository, store *objects, check inspector, dir string) *application.Application {
+	return application.New(application.Dependencies{Repo: repo, Store: store, Inspector: check, WorkDir: dir, Quotas: domain.DefaultQuotas()})
+}
 
 type inspector struct {
 	err     error
@@ -93,7 +103,7 @@ func TestFailedStorageAndLostCompletionAreRetryableWithoutNewIdentity(t *testing
 			repo := &repository{failFinish: failure == "completion"}
 			store := &objects{repo: repo, fail: failure == "storage"}
 			dir := t.TempDir()
-			app := application.New(repo, store, inspector{}, dir, domain.DefaultQuotas())
+			app := intake(repo, store, inspector{}, dir)
 			if _, err := app.Commands.Upload.Handle(context.Background(), upload()); err == nil {
 				t.Fatal("injected failure disappeared")
 			}
@@ -137,7 +147,7 @@ func TestInvalidOrExcessiveUploadNeverReachesStorage(t *testing.T) {
 			repo := &repository{}
 			store := &objects{repo: repo}
 			dir := t.TempDir()
-			app := application.New(repo, store, inspector{err: test.inspection}, dir, domain.DefaultQuotas())
+			app := intake(repo, store, inspector{err: test.inspection}, dir)
 			_, err := app.Commands.Upload.Handle(context.Background(), test.input)
 			if !errors.Is(err, test.errorWant) {
 				t.Fatalf("wanted %v, got %v", test.errorWant, err)
@@ -161,7 +171,7 @@ func TestOnlyOneIntakeCanHoldExpandedDocumentMemory(t *testing.T) {
 	repo := &repository{}
 	store := &objects{repo: repo}
 	started, release := make(chan struct{}), make(chan struct{})
-	app := application.New(repo, store, inspector{started: started, release: release}, t.TempDir(), domain.DefaultQuotas())
+	app := intake(repo, store, inspector{started: started, release: release}, t.TempDir())
 	done := make(chan error, 1)
 	go func() { _, err := app.Commands.Upload.Handle(context.Background(), upload()); done <- err }()
 	<-started

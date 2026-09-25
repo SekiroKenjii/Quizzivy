@@ -1,6 +1,9 @@
 package content
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // WithGapIDs returns an independently validated copy with exactly the supplied gap identities.
 func (d Document) WithGapIDs(ids map[string]string) (Document, error) {
@@ -17,11 +20,13 @@ func (d Document) WithGapIDs(ids map[string]string) (Document, error) {
 		return Document{}, ErrInvalidDocument
 	}
 	rebindGaps(value, ids)
-	raw, err := json.Marshal(value)
-	if err != nil {
+	var out bytes.Buffer
+	encoder := json.NewEncoder(&out)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
 		return Document{}, ErrInvalidDocument
 	}
-	return Parse(raw)
+	return Parse(bytes.TrimSpace(out.Bytes()))
 }
 
 func rebindGaps(value any, ids map[string]string) {

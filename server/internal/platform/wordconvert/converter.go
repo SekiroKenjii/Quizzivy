@@ -25,6 +25,7 @@ var (
 	ErrSource        = errors.New("wordconvert: invalid or unsupported source")
 	ErrLimit         = errors.New("wordconvert: resource limit exceeded")
 	ErrConversion    = errors.New("wordconvert: conversion failed")
+	ErrTimeout       = errors.New("wordconvert: conversion exceeded its time limit")
 	ErrCleanup       = errors.New("wordconvert: container cleanup failed; private job retained")
 )
 
@@ -81,18 +82,35 @@ func (c *Converter) Convert(ctx context.Context, source io.Reader, format string
 }
 
 func (c *Converter) convert(ctx context.Context, job string, source io.Reader, format string) (*Result, error) {
+	checksum, err := c.prepare(ctx, job, source, format)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.run(ctx, job, format); err != nil {
+		return nil, err
+	}
+	reading, stop := context.WithTimeout(ctx, 30*time.Second)
+	defer stop()
+	return readResult(reading, job, c.image, checksum, format)
+}
+
+func (c *Converter) prepare(ctx context.Context, job string, source io.Reader, format string) (string, error) {
 	for _, name := range []string{"input", "work", "fallback-tmp"} {
 		if err := os.Mkdir(filepath.Join(job, name), 0o700); err != nil {
-			return nil, err
+			return "", err
 		}
 	}
 	checksum, err := stageSource(ctx, filepath.Join(job, "input", "source."+format), source, format)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if err := c.reapStoppedSlot(ctx); err != nil {
-		return nil, err
+		return "", err
 	}
+	return checksum, nil
+}
+
+func (c *Converter) run(ctx context.Context, job, format string) error {
 	owner := uuid.NewString()
 	work, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
@@ -105,24 +123,28 @@ func (c *Converter) convert(ctx context.Context, job string, source io.Reader, f
 	close(finished)
 	limitErr := <-monitored
 	owned, err := c.removeOwnedContainer(job, owner)
-	if err != nil {
-		return nil, err
+	switch {
+	case err != nil:
+		return err
+	case limitErr != nil:
+		return limitErr
+	case ctx.Err() != nil:
+		return ctx.Err()
+	case work.Err() != nil:
+		return ErrTimeout
+	case runErr != nil:
+		return c.runFailure(ctx, owned)
 	}
-	if limitErr != nil {
-		return nil, limitErr
-	}
-	if work.Err() != nil {
-		return nil, work.Err()
-	}
-	if runErr != nil {
-		if !owned {
-			if occupied, err := c.slotOccupied(ctx); err == nil && occupied {
-				return nil, ErrBusy
-			}
+	return nil
+}
+
+func (c *Converter) runFailure(ctx context.Context, owned bool) error {
+	if !owned {
+		if occupied, err := c.slotOccupied(ctx); err == nil && occupied {
+			return ErrBusy
 		}
-		return nil, ErrConversion
 	}
-	return readResult(work, job, c.image, checksum, format)
+	return ErrConversion
 }
 
 func (c *Converter) arguments(job, owner, format string) []string {

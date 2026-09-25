@@ -21,6 +21,8 @@ type ImportProcessing struct {
 	WorkDir   string
 }
 
+func (p ImportProcessing) Converts() bool { return p.Converter != nil }
+
 func (p ImportProcessing) NormalizationVersion() string { return "rendition-v1:" + p.ImageID }
 func (p ImportProcessing) ExtractionVersion() string {
 	return word.ExtractionVersion + ":projection-v1"
@@ -79,6 +81,8 @@ func conversionFailure(err error) error {
 		return worker.Failure{Code: "CONVERSION_BUSY", Retryable: true}
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return err
+	case errors.Is(err, wordconvert.ErrTimeout):
+		return worker.Failure{Code: "CONVERSION_TIMEOUT"}
 	case errors.Is(err, wordconvert.ErrLimit):
 		return worker.Failure{Code: "SOURCE_TOO_LARGE"}
 	case errors.Is(err, wordconvert.ErrSource):

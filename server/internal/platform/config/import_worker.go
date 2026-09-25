@@ -8,6 +8,7 @@ import (
 )
 
 // ImportWorker contains the standalone processor's storage/runtime limits without API signing or Google credentials.
+// DockerBinary and ImageID are set together or not at all; without them the worker processes DOCX natively only.
 type ImportWorker struct {
 	Base                                               Config
 	DockerBinary, ImageID                              string
@@ -28,8 +29,11 @@ func LoadImportWorker() (ImportWorker, error) {
 	if err := loadImports(&w.Base); err != nil {
 		return w, err
 	}
-	if w.Base.ImportBucket == "" || !filepath.IsAbs(w.DockerBinary) || !regexp.MustCompile(`^sha256:[a-f0-9]{64}$`).MatchString(w.ImageID) {
-		return w, fmt.Errorf("worker requires private import storage, an absolute IMPORT_DOCKER_BINARY and immutable IMPORT_CONVERTER_IMAGE")
+	if w.Base.ImportBucket == "" {
+		return w, fmt.Errorf("worker requires private import storage")
+	}
+	if (w.DockerBinary != "" || w.ImageID != "") && (!filepath.IsAbs(w.DockerBinary) || !regexp.MustCompile(`^sha256:[a-f0-9]{64}$`).MatchString(w.ImageID)) {
+		return w, fmt.Errorf("legacy conversion requires an absolute IMPORT_DOCKER_BINARY and an immutable IMPORT_CONVERTER_IMAGE together")
 	}
 	for _, entry := range []struct {
 		name              string

@@ -654,15 +654,17 @@ export interface paths {
         put?: never;
         /**
          * Upload a private Word source and create an immutable source set
-         * @description One multipart file part named file, at most 25 MiB. Only native DOCX intake
-         *     is enabled in this checkpoint; legacy DOC awaits isolated conversion.
-         *     Filename must end in .docx and bounded package inspection must agree.
+         * @description One multipart file part named file, at most 25 MiB. The filename ends in
+         *     .docx, or in .doc when legacy conversion is enabled (see limits), and the
+         *     detected content must agree with it.
          *     The body Content-Type is not evidence of the detected document type.
          *     Retry with identical uploadId, role, expectedRevision, filename and bytes.
          *     A changed replay conflicts. Completion creates exactly one source revision;
          *     replay returns its receipt even when later uploads advanced the import.
-         *     Only awaiting_sources accepts changes. Every storage write first has a
-         *     durable reservation; interruptions remain inspectable and quota-counted.
+         *     Uploads are accepted while the import awaits sources, has failed or is under
+         *     review; a new source set returns it to awaiting_sources, and processing again
+         *     keeps teacher edits. Every storage write first has a durable reservation;
+         *     interruptions remain inspectable and quota-counted.
          *     Source bytes and storage keys never enter ordinary logs or student payloads.
          */
         post: operations["uploadImportSource"];
@@ -692,6 +694,168 @@ export interface paths {
         get: operations["downloadImportSource"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the accepted formats and size limit before uploading
+         * @description Lets the upload page state its limits before a file is chosen.
+         */
+        get: operations["getWordImportLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue recognition of the current source set
+         * @description Starts processing an import awaiting sources, retries a failed one, or
+         *     reprocesses one under review. Reprocessing never replaces teacher edits;
+         *     the new result is offered in the review instead.
+         */
+        post: operations["processWordImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop processing, or close an uncommitted import
+         * @description Stopping a reprocess of an import that already has a draft returns it to needs_review with that draft intact; otherwise the import is closed. A failed reprocess likewise leaves the draft under review. Sources and the review stay readable. A commit that finished first wins.
+         */
+        post: operations["cancelWordImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the reviewable draft with its current findings
+         * @description Findings are recomputed on every read, so they always describe the saved revision.
+         */
+        get: operations["getWordImportReview"];
+        /**
+         * Save the teacher's edits to the draft
+         * @description Replaces the editable draft at expectedRevision. Notices are kept from
+         *     the server copy. Findings are recomputed from the saved draft.
+         */
+        put: operations["saveWordImportReview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/review/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the edited draft with the newer machine draft
+         * @description Only when the review reports reprocessed. The teacher's edits and
+         *     acknowledgements are discarded in favour of the newer recognition.
+         */
+        post: operations["adoptWordImportReprocessed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the extracted text of one source for comparison
+         * @description Private teacher evidence; the response is never cached and never reaches students.
+         */
+        get: operations["getWordImportSource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create one draft test from the reviewed import
+         * @description Creates the test, its sections, groups and bank questions in one
+         *     transaction; nothing persists on failure. Excluded questions are left out.
+         *     Replaying the same request after success returns the same test.
+         */
+        post: operations["commitWordImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1840,7 +2004,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -1885,7 +2049,7 @@ export interface components {
             role: components["schemas"]["ImportSourceRole"];
             filename: string;
             /** @enum {string} */
-            format: "docx";
+            format: "docx" | "doc";
             /** Format: int64 */
             bytes: number;
             sha256: string;
@@ -1911,6 +2075,28 @@ export interface components {
             createdBy: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
+            run?: components["schemas"]["ImportRun"];
+            /**
+             * Format: int64
+             * @description Zero until processing has produced a reviewable draft.
+             */
+            draftRevision?: number;
+            /** @description The draft test created by commit. */
+            testId?: components["schemas"]["Uuid"];
+        };
+        /** @description The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one. */
+        ImportRun: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+            /** @enum {string} */
+            stage: "queued" | "source_validation" | "normalization" | "extraction" | "recognition" | "validation" | "ready";
+            attempt: number;
+            maxAttempts: number;
+            errorCode?: string;
+            keyPaper?: number;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
         };
         CreateWordImport: {
             /** @description Scoped to the actor; replay with the same title returns the same import, changed title conflicts. */
@@ -1927,6 +2113,208 @@ export interface components {
             /** Format: uri */
             url: string;
             expiresAt: components["schemas"]["Timestamp"];
+        };
+        ImportLimits: {
+            /** Format: int64 */
+            maxBytes: number;
+            /** @description Accepted file extensions; doc appears only when legacy conversion is enabled. */
+            formats: ("docx" | "doc")[];
+        };
+        ProcessWordImport: {
+            /** @description Replaying the same request returns the same run. */
+            requestId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            expectedRevision: number;
+            /** @description Paper number to read from an answer-key file that holds several papers. */
+            keyPaper?: number;
+        };
+        CancelWordImport: {
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        CommitWordImport: {
+            /** @description Replaying a committed request returns the same test. */
+            requestId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            draftRevision: number;
+        };
+        ImportCommitResult: {
+            testId: components["schemas"]["Uuid"];
+            import: components["schemas"]["WordImport"];
+        };
+        /** @description Unicode code point range of one extracted source block. */
+        ImportSourceRef: {
+            sourceId: string;
+            blockId: string;
+            start: number;
+            end: number;
+            generatedLabel?: boolean;
+        };
+        /** @enum {string} */
+        ImportOrigin: "source_explicit" | "inferred_structure" | "defaulted" | "teacher_entered";
+        /**
+         * @description One actionable observation. blocking must be fixed by an edit;
+         *     review_required needs a teacher decision (an edit or an acknowledgement);
+         *     informational needs nothing.
+         */
+        ImportFinding: {
+            id: string;
+            code: string;
+            /** @enum {string} */
+            severity: "blocking" | "review_required" | "informational";
+            target?: string;
+            field?: string;
+            count: number;
+            acknowledged?: boolean;
+            evidence: components["schemas"]["ImportSourceRef"][];
+        };
+        ImportKeyValue: {
+            value: string;
+            evidence: components["schemas"]["ImportSourceRef"][];
+        };
+        /**
+         * @description unknown means the source has no key; it is never a set of false options.
+         *     Choice keys are optionIds, a short answer's sample is text, fill-blank
+         *     keys live on blanks. conflict keeps every source value in candidates.
+         */
+        ImportDraftAnswer: {
+            /** @enum {string} */
+            state: "known" | "unknown" | "conflict";
+            optionIds: string[];
+            text?: string;
+            evidence: components["schemas"]["ImportSourceRef"][];
+            candidates?: components["schemas"]["ImportKeyValue"][];
+        };
+        ImportDraftOption: {
+            id: string;
+            label: string;
+            content: components["schemas"]["ContentDocument"];
+        };
+        ImportDraftBlank: {
+            gapId: string;
+            label?: string;
+            accepted: string[];
+            caseSensitive: boolean;
+        };
+        ImportFieldOrigins: {
+            type: components["schemas"]["ImportOrigin"];
+            prompt: components["schemas"]["ImportOrigin"];
+            options: components["schemas"]["ImportOrigin"];
+            answer: components["schemas"]["ImportOrigin"];
+            points: components["schemas"]["ImportOrigin"];
+        };
+        /** @description unsupported marks content no interaction can represent; it must be retyped or excluded. */
+        ImportDraftQuestion: {
+            id: string;
+            label: string;
+            task?: string;
+            /** @enum {string} */
+            type: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "unsupported";
+            prompt: components["schemas"]["ContentDocument"];
+            options: components["schemas"]["ImportDraftOption"][];
+            blanks: components["schemas"]["ImportDraftBlank"][];
+            answer: components["schemas"]["ImportDraftAnswer"];
+            points: string;
+            excluded?: {
+                reason: string;
+            };
+            origins: components["schemas"]["ImportFieldOrigins"];
+            source: components["schemas"]["ImportSourceRef"][];
+        };
+        /** @description Binds a passage gap to a choice question, or to one blank of a fill-blank question. */
+        ImportGapLink: {
+            gapId: string;
+            questionId: string;
+            blankGapId?: string;
+        };
+        /** @description Questions sharing one passage; the passage gaps bind to members by stable IDs. */
+        ImportDraftGroup: {
+            id: string;
+            label?: string;
+            instructions?: string;
+            stimulus?: components["schemas"]["ContentDocument"];
+            gaps: components["schemas"]["ImportGapLink"][];
+            questions: components["schemas"]["ImportDraftQuestion"][];
+            source: components["schemas"]["ImportSourceRef"][];
+        };
+        /** @description Exactly one of question or group. */
+        ImportDraftItem: {
+            question?: components["schemas"]["ImportDraftQuestion"];
+            group?: components["schemas"]["ImportDraftGroup"];
+        };
+        ImportDraftSection: {
+            id: string;
+            title: string;
+            instructions?: string;
+            origin: components["schemas"]["ImportOrigin"];
+            items: components["schemas"]["ImportDraftItem"][];
+            source: components["schemas"]["ImportSourceRef"][];
+        };
+        /** @description The reviewable exam. Notices are source observations and are kept by the server; edits never change them. */
+        ImportDraft: {
+            /** @enum {string} */
+            version: "word-draft-v1";
+            title: string;
+            sections: components["schemas"]["ImportDraftSection"][];
+            notices: components["schemas"]["ImportFinding"][];
+            acknowledged: string[];
+        };
+        ImportReviewSummary: {
+            sections: number;
+            groups: number;
+            questions: number;
+            included: number;
+            excluded: number;
+            totalPoints: string;
+            answersKnown: number;
+            answersMissing: number;
+            answersConflicting: number;
+            blocking: number;
+            needsDecision: number;
+        };
+        /**
+         * @description The draft with every current finding. ready is true only when nothing blocks
+         *     and every review_required finding has a decision. reprocessed means a newer
+         *     machine draft exists that has not replaced the teacher's edits.
+         */
+        ImportReview: {
+            importId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            revision: number;
+            draft: components["schemas"]["ImportDraft"];
+            findings: components["schemas"]["ImportFinding"][];
+            summary: components["schemas"]["ImportReviewSummary"];
+            ready: boolean;
+            reprocessed: boolean;
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        SaveImportReview: {
+            /** Format: int64 */
+            expectedRevision: number;
+            title: string;
+            sections: components["schemas"]["ImportDraftSection"][];
+            acknowledged: string[];
+        };
+        ImportSourceSpan: {
+            start: number;
+            end: number;
+            marks: components["schemas"]["ContentMark"][];
+            colored?: boolean;
+        };
+        ImportSourceBlock: {
+            id: string;
+            text: string;
+            spans: components["schemas"]["ImportSourceSpan"][];
+            tableId?: string;
+            row?: number;
+            column?: number;
+        };
+        /** @description The extracted main-body text of one source, in document order, for side-by-side review. */
+        ImportSourceView: {
+            sourceId: string;
+            role: components["schemas"]["ImportSourceRole"];
+            filename: string;
+            blocks: components["schemas"]["ImportSourceBlock"][];
         };
         /**
          * @description Guards are written so a third role (`teacher`, limited admin) can be
@@ -5056,6 +5444,338 @@ export interface operations {
             };
             /** @description Completed source not found in this import. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getWordImportLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportLimits"];
+                };
+            };
+        };
+    };
+    processWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessWordImport"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WordImport"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision, no exam source, or a run already active. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED — processing capacity reached. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelWordImport"];
+            };
+        };
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WordImport"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision or already committed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getWordImportReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReview"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    saveWordImportReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveImportReview"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReview"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STALE_WRITE — saved elsewhere since expectedRevision; IMPORT_CONFLICT — the import is no longer under review. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED — the draft is structurally invalid (unknown IDs, duplicate IDs, invalid content). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adoptWordImportReprocessed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelWordImport"];
+            };
+        };
+        responses: {
+            /** @description Adopted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReview"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STALE_WRITE — the draft changed since expectedRevision; IMPORT_CONFLICT — nothing newer to adopt, or the import is no longer under review. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getWordImportSource: {
+        parameters: {
+            query: {
+                role: components["schemas"]["ImportSourceRole"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSourceView"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    commitWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitWordImport"];
+            };
+        };
+        responses: {
+            /** @description Committed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCommitResult"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STALE_WRITE — the draft changed since draftRevision; IMPORT_CONFLICT — already committed by another request, or cancelled. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_NOT_READY — blocking findings remain or decisions are missing. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

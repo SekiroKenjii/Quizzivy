@@ -102,7 +102,9 @@ func hydrateImport(ctx context.Context, q db.Querier, v domain.Import) (domain.I
 	if err := q.QueryRow(ctx, `SELECT count(*) FROM app.word_import_sources WHERE import_id=$1 AND NOT ready`, v.ID).Scan(&v.PendingUploads); err != nil {
 		return v, err
 	}
-	return v, nil
+	items := []domain.Import{v}
+	err = attachProgress(ctx, q, items)
+	return items[0], err
 }
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Import, error) {
 	var out domain.Import

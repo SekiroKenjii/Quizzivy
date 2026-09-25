@@ -97,7 +97,8 @@ func insertArtifacts(ctx context.Context, tx pgx.Tx, c domain.Claim, p domain.Ar
 func artifactQuota(ctx context.Context, tx pgx.Tx, importID string, total int64, q domain.ArtifactQuotas) error {
 	var actorBytes, globalBytes int64
 	var sets int
-	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(a.bytes) FILTER(WHERE i.created_by=(SELECT created_by FROM app.word_imports WHERE id=$1)),0),coalesce(sum(a.bytes),0),count(*) FILTER(WHERE a.import_id=$1)
+	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(a.bytes) FILTER(WHERE i.created_by=(SELECT created_by FROM app.word_imports WHERE id=$1) AND i.status NOT IN ('committed','cancelled')),0),
+ coalesce(sum(a.bytes) FILTER(WHERE i.status NOT IN ('committed','cancelled')),0),count(*) FILTER(WHERE a.import_id=$1)
  FROM app.word_import_artifact_sets a JOIN app.word_imports i ON i.id=a.import_id`, importID).Scan(&actorBytes, &globalBytes, &sets); err != nil {
 		return err
 	}

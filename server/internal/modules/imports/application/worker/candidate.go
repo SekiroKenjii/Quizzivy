@@ -15,8 +15,11 @@ import (
 
 const candidateFilename = "candidate.json"
 
-func addRenditionFindings(candidate *domain.Candidate, sources []pipelineSource) error {
+func addRenditionFindings(draft *domain.Draft, sources []pipelineSource) error {
 	for _, s := range sources {
+		if s.normalization.ID == "" {
+			continue
+		}
 		var manifest struct {
 			Findings []string `json:"findings"`
 		}
@@ -25,13 +28,17 @@ func addRenditionFindings(candidate *domain.Candidate, sources []pipelineSource)
 		}
 		for _, code := range manifest.Findings {
 			id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(s.identity+"/"+code)).String()
-			candidate.Issues = append(candidate.Issues, domain.CandidateIssue{ID: id, Code: code, Severity: "review_required", EntityID: s.identity, Field: "source", Evidence: []domain.SourceRef{{SourceID: s.identity}}})
+			severity := domain.ReviewRequired
+			if code == "RENDERER_LAYOUT_REQUIRES_REVIEW" {
+				severity = domain.Informational
+			}
+			draft.Notices = append(draft.Notices, domain.Finding{ID: id, Code: domain.CodeSourceObject, Severity: severity, Target: s.identity, Field: code, Count: 1, Evidence: []domain.SourceRef{}})
 		}
 	}
 	return nil
 }
 
-func (p Pipeline) saveCandidate(ctx context.Context, c domain.Claim, candidate domain.Candidate, sources []pipelineSource) (json.RawMessage, error) {
+func (p Pipeline) saveCandidate(ctx context.Context, c domain.Claim, candidate domain.Draft, sources []pipelineSource) (domain.Outcome, error) {
 	result := domain.ProcessingResult{Version: "word-run-result-v1", Sources: []domain.ProcessedSource{}}
 	lineage := []string{}
 	var exam domain.Source
@@ -43,18 +50,23 @@ func (p Pipeline) saveCandidate(ctx context.Context, c domain.Claim, candidate d
 		}
 	}
 	if exam.ID == "" {
-		return nil, domain.ErrInvalidResult
+		return domain.Outcome{}, domain.ErrInvalidResult
 	}
 	version := componentIdentity(recognition.Version, strings.Join(lineage, "/"))
 	set, err := p.stage(ctx, c, exam, "recognition", version, func() (ports.StageOutput, error) { return p.candidateOutput(exam, candidate) })
 	if err != nil {
-		return nil, err
+		return domain.Outcome{}, err
 	}
 	result.CandidateSetID = set.ID
-	return json.Marshal(result)
+	envelope, err := json.Marshal(result)
+	if err != nil {
+		return domain.Outcome{}, err
+	}
+	draft, err := json.Marshal(candidate)
+	return domain.Outcome{Result: envelope, Draft: draft}, err
 }
 
-func (p Pipeline) candidateOutput(source domain.Source, candidate domain.Candidate) (ports.StageOutput, error) {
+func (p Pipeline) candidateOutput(source domain.Source, candidate domain.Draft) (ports.StageOutput, error) {
 	raw, err := json.Marshal(candidate)
 	if err != nil {
 		return ports.StageOutput{}, err
@@ -76,7 +88,7 @@ func (p Pipeline) candidateOutput(source domain.Source, candidate domain.Candida
 		return ports.StageOutput{}, closeErr
 	}
 	digest := sha256.Sum256(raw)
-	manifest, err := json.Marshal(map[string]string{"version": domain.CandidateVersion, "candidateFile": candidateFilename})
+	manifest, err := json.Marshal(map[string]string{"version": domain.DraftVersion, "candidateFile": candidateFilename})
 	if err != nil {
 		_ = os.Remove(f.Name())
 		return ports.StageOutput{}, err
