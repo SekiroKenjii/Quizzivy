@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
  * One dialog shape for every action that asks first; destructive confirms are
  * the app's only red (§12). Without `onConfirm` it is a notice: one button
  * that closes it, for a refusal that has nothing left to ask (A-06a, A-07).
+ * Closing returns focus to the element that had it when the dialog opened,
+ * when that element is still on the page.
  */
 export function ConfirmDialog({
   open,
@@ -46,9 +48,25 @@ export function ConfirmDialog({
   onConfirm?: () => void;
 }>) {
   const { t } = useTranslation();
+  const opener = useRef<HTMLElement | null>(null);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("gap-4 p-5 sm:max-w-md", className)}>
+      <DialogContent
+        className={cn("gap-4 p-5 sm:max-w-md", className)}
+        onOpenAutoFocus={() => {
+          opener.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          const target = opener.current;
+          opener.current = null;
+          if (target === null || !target.isConnected) return;
+          event.preventDefault();
+          target.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description === undefined ? null : (
