@@ -7,7 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { TableKit } from "@tiptap/extension-table";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
-import { fromEditorJSON, toEditorJSON } from "./adapter";
+import { fromEditorDoc, toEditorJSON } from "./adapter";
 import { isOptionContent, plainOptionContent } from "../optionContent";
 import { validEditorProfile } from "./profile";
 import { safeContentURL } from "../validation";
@@ -84,7 +84,7 @@ export function contentExtensions(
           },
           filterTransaction(transaction) {
             if (!transaction.docChanged) return true;
-            const parsed = fromEditorJSON(transaction.doc.toJSON());
+            const parsed = fromEditorDoc(transaction.doc);
             if (parsed.ok && validEditorProfile(parsed.value, profile)) return true;
             queueMicrotask(() => notify("editBlocked"));
             return false;
