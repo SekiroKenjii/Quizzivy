@@ -8,12 +8,13 @@ import TestDetailPage from "@/features/tests/pages/TestDetailPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import "@/lib/i18n";
+import type { components } from "@/lib/api/schema";
 
 const BASE = "http://localhost:8080";
 const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
 
 /** The DRAFT holds the teacher's latest edit. */
-let draft = {
+let draft: components["schemas"]["Test"] = {
   id: TEST_ID,
   title: "Unit 5",
   description: null,
@@ -125,6 +126,21 @@ function renderDetail() {
 }
 
 describe("the test detail preview", () => {
+  it("keeps archived version preview available and explains why restoring a draft is disabled", async () => {
+    draft = { ...draft, status: "archived" };
+    renderDetail();
+    await screen.findByText(publishedPrompt);
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Lịch sử phiên bản" }));
+    expect(
+      await screen.findByText(
+        "Khôi phục đề đã lưu trữ để tạo bản nháp hoặc đổi phiên bản mặc định.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sửa từ phiên bản này" })).toBeDisabled();
+  });
+
   it("renders the published version, not the draft", async () => {
     renderDetail();
 

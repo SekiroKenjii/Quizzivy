@@ -48,6 +48,7 @@ type Session struct {
 	BeaconToken       string
 	ServerTime        time.Time
 	AudioPlays        map[string]int
+	GroupAudioPlays   map[string]int
 	Answers           map[string][]byte
 	Integrity         Integrity
 }

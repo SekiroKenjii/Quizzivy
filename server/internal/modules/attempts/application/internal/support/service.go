@@ -166,6 +166,14 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	if err != nil {
 		return domain.Session{}, err
 	}
+	version, err := s.Store.DeliveryVersion(ctx, a.TestVersionID)
+	if err != nil {
+		return domain.Session{}, err
+	}
+	questions, err = domain.Deal.PresentVersion(version, a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions)
+	if err != nil {
+		return domain.Session{}, err
+	}
 	groups := []testsdomain.PreviewGroup{}
 	if slices.ContainsFunc(questions, func(q domain.Question) bool { return q.GroupID != "" }) {
 		if s.Groups == nil {
@@ -184,6 +192,13 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 	if err != nil {
 		return domain.Session{}, err
 	}
+	groupPlays := map[string]int{}
+	if len(groups) > 0 {
+		groupPlays, err = s.Store.GroupAudioPlays(ctx, a.ID)
+		if err != nil {
+			return domain.Session{}, err
+		}
+	}
 	tally, err := s.Store.Tally(ctx, a.AssignmentID, a.StudentID)
 	if err != nil {
 		return domain.Session{}, err
@@ -193,14 +208,15 @@ func (s *Service) Session(ctx context.Context, a domain.AttemptRecord, beacon st
 		Attempt:           a.Attempt,
 		TestTitle:         r.TestTitle,
 		Sections:          sections,
-		Questions:         domain.Deal.Present(a.Seed, r.ShuffleQuestions, r.ShuffleOptions, sections, questions),
+		Questions:         questions,
 		Groups:            groups,
 		SessionID:         a.SessionID,
 		BeaconToken:       beacon,
 		ServerTime:        s.Now(),
 
-		AudioPlays: plays,
-		Answers:    answers,
-		Integrity:  r.Integrity,
+		AudioPlays:      plays,
+		GroupAudioPlays: groupPlays,
+		Answers:         answers,
+		Integrity:       r.Integrity,
 	}, nil
 }

@@ -26,6 +26,7 @@ func (s *Reviews) AnswersForQuestion(ctx context.Context, assignmentID, question
 	if err != nil {
 		return domain.ByQuestion{}, fmt.Errorf("review: read assignment: %w", err)
 	}
+	out.VersionID = versionID
 
 	questions, err := s.questions(ctx, versionID)
 	if err != nil {

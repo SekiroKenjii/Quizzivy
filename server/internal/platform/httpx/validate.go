@@ -12,22 +12,29 @@ import (
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 )
 
-// ValidateRequests checks every incoming request against api/openapi.yaml.
+// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
 	stripped := *spec
 	stripped.Servers = nil
+	stripped.Paths = openapi3.NewPaths()
+	for path, item := range spec.Paths.Map() {
+		copyItem := *item
+		for method, op := range item.Operations() {
+			if streamingOperation(op) {
+				copyOperation := *op
+				copyOperation.RequestBody = nil
+				copyOperation.Security = &openapi3.SecurityRequirements{}
+				copyItem.SetOperation(method, &copyOperation)
+			}
+		}
+		stripped.Paths.Set(path, &copyItem)
+	}
 	if _, err := gorillamux.NewRouter(&stripped); err != nil {
 		return nil, err
 	}
 
-	streaming := StreamingBodyRoutes(&stripped)
-
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(&stripped,
 		&nethttpmiddleware.Options{
-			Skipper: func(r *http.Request) bool {
-				_, isStreaming := streaming[r.Pattern]
-				return isStreaming
-			},
 			Options: openapi3filter.Options{
 				AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error {
 					return nil
@@ -82,23 +89,28 @@ func failingField(reqErr *openapi3filter.RequestError) string {
 }
 
 // StreamingBodyRoutes lists the file-upload operations, keyed by the
-// `METHOD /path` pattern the mux matches on. The validator skips them: it
-// buffers and decodes the whole body, which defeats the handler's streaming,
-// and it would gate on a Content-Type the endpoint must not trust.
+// `METHOD /path` pattern the mux matches on. The validator checks their parameters
+// while leaving their bodies to bounded streaming handlers and content inspection.
 func StreamingBodyRoutes(spec *openapi3.T) map[string]struct{} {
 	streaming := map[string]struct{}{}
 	for path, item := range spec.Paths.Map() {
 		for method, op := range item.Operations() {
-			if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
-				continue
-			}
-			for mediaType := range op.RequestBody.Value.Content {
-				if strings.HasPrefix(mediaType, "multipart/") {
-					streaming[method+" "+path] = struct{}{}
-					break
-				}
+			if streamingOperation(op) {
+				streaming[method+" "+path] = struct{}{}
 			}
 		}
 	}
 	return streaming
+}
+
+func streamingOperation(op *openapi3.Operation) bool {
+	if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+		return false
+	}
+	for mediaType := range op.RequestBody.Value.Content {
+		if strings.HasPrefix(mediaType, "multipart/") {
+			return true
+		}
+	}
+	return false
 }

@@ -2,25 +2,28 @@ package domain
 
 import (
 	"encoding/json"
+	testsdomain "quizzivy/internal/modules/tests/domain"
 	"strings"
 	"time"
 )
 
 type Result struct {
-	Attempt     Attempt
-	Score       *Score
-	Review      ReviewPolicy
-	TestTitle   string
-	MaxAttempts int
-	Questions   []ResultQuestion
+	SharedContext *SharedReviewContext
+	Attempt       Attempt
+	Score         *Score
+	Review        ReviewPolicy
+	TestTitle     string
+	MaxAttempts   int
+	Questions     []ResultQuestion
 }
 
 // Review is G-03's data in one read.
 type Review struct {
-	Attempt     Attempt
-	Score       Score
-	TestTitle   string
-	MaxAttempts int
+	SharedContext *SharedReviewContext
+	Attempt       Attempt
+	Score         Score
+	TestTitle     string
+	MaxAttempts   int
 	// PublishedAt is when the version froze; the questions carry no clock of their own.
 	PublishedAt time.Time
 	// TeacherNote is G-05's private note: the teacher's, never the student's.
@@ -32,6 +35,7 @@ type Review struct {
 
 // ReviewQuestion is a frozen version question with everything the grader may see.
 type ReviewQuestion struct {
+	GroupID            string
 	PromptContent      json.RawMessage
 	ExplanationContent json.RawMessage
 	ID                 string
@@ -116,12 +120,21 @@ type GradeValidationError struct{ Items []GradeItemError }
 // ByQuestion is G-04's read: one question with its place on the paper, the
 // paper's other manual questions to walk to, and every handed-in answer.
 type ByQuestion struct {
-	Question    ReviewQuestion
-	PublishedAt time.Time
-	Number      int
-	Count       int
-	ManualIDs   []string
-	Items       []QuestionAnswer
+	VersionID     string
+	SharedContext *SharedReviewContext
+	Question      ReviewQuestion
+	PublishedAt   time.Time
+	Number        int
+	Count         int
+	ManualIDs     []string
+	Items         []QuestionAnswer
+}
+
+// SharedReviewContext carries frozen material and transcripts allowed for this review surface.
+type SharedReviewContext struct {
+	Groups      []testsdomain.PreviewGroup
+	Transcripts map[string]string
+	AudioPlays  map[string]int
 }
 
 // QuestionAnswer is one paper's answer to the question being graded.

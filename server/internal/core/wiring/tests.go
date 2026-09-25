@@ -11,8 +11,9 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-func tests(dbx db.Context, questions *questionsrepo.Postgres, media *mediarepo.Postgres) *testsapp.Application {
-	return testsapp.New(testsrepo.NewPostgres(dbx, questions, media).WithGroupQuestions(adapters.GroupQuestions{}))
+func tests(dbx db.Context, questions *questionsrepo.Postgres, media *mediarepo.Postgres, mediaApp *mediaapp.Application) *testsapp.Application {
+	return testsapp.New(testsrepo.NewPostgres(dbx, questions, media).WithGroupQuestions(adapters.GroupQuestions{})).WithGroups(
+		testsrepo.NewGroupsPostgres(dbx, adapters.GroupQuestions{}, media), adapters.MediaKinds{Media: mediaApp})
 }
 
 func testsTransport(app *testsapp.Application, media *mediaapp.Application) testshttp.Tests {

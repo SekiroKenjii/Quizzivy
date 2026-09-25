@@ -12,6 +12,11 @@ import (
 
 // Update replaces a complete group under its aggregate revision and parent lock; stale writes and invalid graphs leave no partial changes.
 func (s *GroupsPostgres) Update(ctx context.Context, in domain.UpdateGroupInput) (domain.StoredGroup, error) {
+	stored, err := s.update(ctx, in)
+	return stored, groupWriteError(err)
+}
+
+func (s *GroupsPostgres) update(ctx context.Context, in domain.UpdateGroupInput) (domain.StoredGroup, error) {
 	if s.questions == nil {
 		return domain.StoredGroup{}, fmt.Errorf("groups: question store unavailable")
 	}
