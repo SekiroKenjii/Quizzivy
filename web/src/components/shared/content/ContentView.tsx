@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
 import { cn } from "@/lib/utils";
@@ -7,10 +7,20 @@ import { validateContent } from "./validation";
 import "./content.css";
 import { ContentInlineView, type GapRenderer } from "./ContentInlineView";
 
+/** AssetRenderer resolves validated asset nodes only from the caller's authorized bindings. */
+export type AssetRenderer = (
+  node: Extract<ContentBlock, { type: "image" | "audio" }>,
+) => ReactNode;
+
 function Block({
   node,
   renderGap,
-}: Readonly<{ node: ContentBlock; renderGap?: GapRenderer | undefined }>) {
+  renderAsset,
+}: Readonly<{
+  node: ContentBlock;
+  renderGap?: GapRenderer | undefined;
+  renderAsset?: AssetRenderer | undefined;
+}>) {
   const { t } = useTranslation();
   switch (node.type) {
     case "paragraph":
@@ -38,7 +48,12 @@ function Block({
           {node.items.map((item, i) => (
             <li key={i}>
               {item.map((block, j) => (
-                <Block key={j} node={block} renderGap={renderGap} />
+                <Block
+                  key={j}
+                  node={block}
+                  renderGap={renderGap}
+                  renderAsset={renderAsset}
+                />
               ))}
             </li>
           ))}
@@ -63,7 +78,12 @@ function Block({
                     return (
                       <Cell key={j} colSpan={cell.colSpan} rowSpan={cell.rowSpan}>
                         {cell.content.map((block, k) => (
-                          <Block key={k} node={block} renderGap={renderGap} />
+                          <Block
+                            key={k}
+                            node={block}
+                            renderGap={renderGap}
+                            renderAsset={renderAsset}
+                          />
                         ))}
                       </Cell>
                     );
@@ -76,6 +96,7 @@ function Block({
       );
     case "image":
     case "audio":
+      if (renderAsset) return <>{renderAsset(node)}</>;
       return (
         <div className="content-asset" role="note">
           <span>{node.type === "image" ? node.alt : node.label}</span>
@@ -92,10 +113,12 @@ export function ContentView({
   document,
   className,
   renderGap,
+  renderAsset,
 }: Readonly<{
   document: unknown;
   className?: string;
   renderGap?: GapRenderer | undefined;
+  renderAsset?: AssetRenderer | undefined;
 }>) {
   const { t } = useTranslation();
   const parsed = useMemo(() => validateContent(document), [document]);
@@ -112,7 +135,7 @@ export function ContentView({
   return (
     <div className={cn("semantic-content", className)}>
       {parsed.value.blocks.map((node, i) => (
-        <Block key={i} node={node} renderGap={renderGap} />
+        <Block key={i} node={node} renderGap={renderGap} renderAsset={renderAsset} />
       ))}
     </div>
   );

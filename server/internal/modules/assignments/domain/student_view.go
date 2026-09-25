@@ -39,11 +39,12 @@ type StudentCard struct {
 type StudentDetail struct {
 	StudentCard
 	// TeacherName is the assignment's author.
-	TeacherName *string
-	Review      Review
-	Integrity   Integrity
-	HasAudio    bool
-	// ShowsTranscript is true when any listening question releases one.
+	TeacherName    *string
+	Review         Review
+	Integrity      Integrity
+	HasAudio       bool
+	HasSharedAudio bool
+	// ShowsTranscript is true when any question or shared recording releases one.
 	ShowsTranscript bool
 	AudioMaxPlays   *int
 }

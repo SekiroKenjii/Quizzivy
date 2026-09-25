@@ -254,7 +254,7 @@ jobs:
       # its job. `run --rm` gives its exit code back directly instead.
       - name: Start MinIO
         run: |
-          docker compose up -d --wait minio
+          docker compose up -d --build --wait minio
           docker compose run --rm minio-init
 
       - name: Provision roles and database

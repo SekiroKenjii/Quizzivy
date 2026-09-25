@@ -11,16 +11,12 @@ type Preview struct {
 	Version int
 }
 
-type PreviewResult struct {
-	Total     int
-	Questions []domain.PreviewQuestion
-}
+type PreviewResult = domain.PreviewPaper
 
 type PreviewHandler struct {
 	*support.Service
 }
 
 func (s PreviewHandler) Handle(ctx context.Context, q Preview) (PreviewResult, error) {
-	r0, r1, err := s.Repo.Preview(ctx, q.TestID, q.Version)
-	return PreviewResult{Total: r0, Questions: r1}, err
+	return s.Repo.Preview(ctx, q.TestID, q.Version)
 }

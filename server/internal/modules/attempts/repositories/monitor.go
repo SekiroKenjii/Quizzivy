@@ -90,7 +90,11 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 		         SELECT 1 FROM app.attempt_audio_plays p
 		           JOIN app.test_version_questions q ON q.id = p.question_id
 		          WHERE p.attempt_id = at.id
-		            AND q.audio_max_plays IS NOT NULL AND p.plays > q.audio_max_plays)
+		            AND q.audio_max_plays IS NOT NULL AND p.plays > q.audio_max_plays
+		         UNION ALL
+		         SELECT 1 FROM app.attempt_group_audio_plays p
+		           JOIN app.test_version_group_recordings r ON r.id=p.recording_id
+		          WHERE p.attempt_id=at.id AND r.max_plays IS NOT NULL AND p.plays>r.max_plays)
 		  FROM app.attempts at
 		 WHERE at.assignment_id = $1::uuid
 		 ORDER BY at.student_id, (at.status <> 'voided') DESC, at.attempt_no DESC`, assignmentID)

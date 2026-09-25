@@ -16,5 +16,9 @@ type AnswersForQuestionHandler struct {
 }
 
 func (r AnswersForQuestionHandler) Handle(ctx context.Context, q AnswersForQuestion) (domain.ByQuestion, error) {
-	return r.Repo.AnswersForQuestion(ctx, q.AssignmentID, q.QuestionID)
+	question, err := r.Repo.AnswersForQuestion(ctx, q.AssignmentID, q.QuestionID)
+	if err != nil {
+		return domain.ByQuestion{}, err
+	}
+	return r.QuestionContext(ctx, question)
 }

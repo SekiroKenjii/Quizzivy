@@ -145,3 +145,37 @@ func FuzzInspectionNeverPanicsOrReadsOutsideThePackage(f *testing.F) {
 		}
 	})
 }
+
+func TestInertCustomXMLDoesNotRejectAnOrdinaryExam(t *testing.T) {
+	entries := append(baseEntries(`<w:p><w:r><w:t>Question 1</w:t></w:r></w:p>`),
+		entry{"customXml/item1.xml", `<?xml version="1.0"?><?mso-contentType ?><FormTemplates xmlns="http://schemas.microsoft.com/sharepoint/v3/contenttype/forms"/>`},
+		entry{"customXml/item2.xml", `<?xml version="1.0" encoding="UTF-16"?><b:Sources xmlns:b="urn:bibliography"/>`},
+	)
+	data := pack(t, entries)
+	got, err := word.Inspect(context.Background(), bytes.NewReader(data), int64(len(data)), word.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !finding(got, "UNSUPPORTED_SOURCE_PART") {
+		t.Fatalf("unreadable custom XML not recorded: %+v", got.Findings)
+	}
+}
+
+func TestAMisplacedXMLDeclarationIsStillMalformed(t *testing.T) {
+	entries := baseEntries(`<w:p><w:r><w:t>Text</w:t></w:r></w:p><?xml version="1.0"?>`)
+	data := pack(t, entries)
+	if _, err := word.Inspect(context.Background(), bytes.NewReader(data), int64(len(data)), word.DefaultLimits()); !errors.Is(err, word.ErrInvalidPackage) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestAnArchiveDeclaringTooManyEntriesIsRejectedBeforeReadingThem(t *testing.T) {
+	data := pack(t, baseEntries(`<w:p><w:r><w:t>Text</w:t></w:r></w:p>`))
+	eocd := bytes.LastIndex(data, []byte{0x50, 0x4b, 0x05, 0x06})
+	forged := bytes.Clone(data)
+	forged[eocd+8], forged[eocd+9], forged[eocd+10], forged[eocd+11] = 0x30, 0x75, 0x30, 0x75
+	_, err := word.Inspect(context.Background(), bytes.NewReader(forged), int64(len(forged)), word.DefaultLimits())
+	if !errors.Is(err, word.ErrLimit) {
+		t.Fatalf("err %v", err)
+	}
+}

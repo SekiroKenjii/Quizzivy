@@ -16,7 +16,13 @@ type snapshotSection struct {
 	Instructions *string
 }
 
-func (s *Postgres) copyVersionDraft(ctx context.Context, tx pgx.Tx, versionID, actorID string) ([]domain.SectionInput, error) {
+type copiedSnapshotSection struct {
+	SourceID  string
+	Input     domain.SectionInput
+	Questions map[string]string
+}
+
+func (s *Postgres) copyVersionDraft(ctx context.Context, tx pgx.Tx, versionID, actorID string) ([]copiedSnapshotSection, error) {
 	rows, err := tx.Query(ctx, `SELECT id::text, title, instructions FROM app.test_version_sections WHERE test_version_id = $1 ORDER BY ordinal`, versionID)
 	if err != nil {
 		return nil, err
@@ -25,35 +31,38 @@ func (s *Postgres) copyVersionDraft(ctx context.Context, tx pgx.Tx, versionID, a
 	if err != nil {
 		return nil, err
 	}
-	out := make([]domain.SectionInput, 0, len(sections))
+	out := make([]copiedSnapshotSection, 0, len(sections))
 	for _, section := range sections {
-		ids, err := s.copySectionQuestions(ctx, tx, section.ID, actorID)
+		ids, bySource, err := copySectionQuestions(ctx, tx, section.ID, actorID)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, domain.SectionInput{Title: section.Title, Instructions: section.Instructions, QuestionIDs: ids})
+		out = append(out, copiedSnapshotSection{SourceID: section.ID, Input: domain.SectionInput{Title: section.Title, Instructions: section.Instructions, QuestionIDs: ids}, Questions: bySource})
 	}
 	return out, nil
 }
 
-func (s *Postgres) copySectionQuestions(ctx context.Context, tx pgx.Tx, sectionID, actorID string) ([]string, error) {
-	rows, err := tx.Query(ctx, `SELECT id::text FROM app.test_version_questions WHERE test_version_section_id = $1 ORDER BY ordinal`, sectionID)
+func copySectionQuestions(ctx context.Context, tx pgx.Tx, sectionID, actorID string) ([]string, map[string]string, error) {
+	rows, err := tx.Query(ctx, `SELECT q.id::text FROM app.test_version_questions q WHERE q.test_version_section_id=$1
+		AND NOT EXISTS (SELECT 1 FROM app.test_version_group_members m WHERE m.question_id=q.id) ORDER BY q.ordinal`, sectionID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sources, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ids := make([]string, 0, len(sources))
+	bySource := make(map[string]string, len(sources))
 	for _, source := range sources {
 		id, err := copySnapshotQuestion(ctx, tx, source, actorID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		ids = append(ids, id)
+		bySource[source] = id
 	}
-	return ids, nil
+	return ids, bySource, nil
 }
 
 func copySnapshotQuestion(ctx context.Context, tx pgx.Tx, sourceID, actorID string) (string, error) {

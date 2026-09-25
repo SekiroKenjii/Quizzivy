@@ -14,6 +14,7 @@ import {
 } from "@/features/question-bank/api";
 import {
   emptyQuestion,
+  issueKey,
   questionSchema,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
@@ -99,7 +100,7 @@ function Editor({
     setError(null);
     const parsed = questionSchema.safeParse(values);
     if (!parsed.success) {
-      setError(t(parsed.error.issues[0]?.message ?? "questionEditor.saveFailed"));
+      setError(t(issueKey(parsed.error, "questionEditor.saveFailed")));
       return;
     }
     save.mutate(parsed.data);
@@ -153,7 +154,5 @@ function Editor({
 
 function blockingIssue(values: QuestionValues): string | null {
   const parsed = questionSchema.safeParse(values);
-  return parsed.success
-    ? null
-    : (parsed.error.issues[0]?.message ?? "questionEditor.saveFailed");
+  return parsed.success ? null : issueKey(parsed.error, "questionEditor.saveFailed");
 }

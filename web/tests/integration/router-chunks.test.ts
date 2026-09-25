@@ -68,9 +68,10 @@ describe("route-level code splitting (§2)", () => {
       const chunk = pending.pop()!;
       if (visited.has(chunk.fileName)) continue;
       visited.add(chunk.fileName);
-      expect(matches(chunk.moduleIds, /@tiptap|prosemirror/), chunk.fileName).toEqual(
-        [],
-      );
+      expect(
+        matches(chunk.moduleIds, /@tiptap|prosemirror|parse5/),
+        chunk.fileName,
+      ).toEqual([]);
       for (const name of chunk.imports) {
         const dependency = byName.get(name);
         if (dependency) pending.push(dependency);
