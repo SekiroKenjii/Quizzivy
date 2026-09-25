@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.35 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.38 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.37**
+
+- W-11b connects private storage, isolated conversion, chunked source extraction
+  and deterministic recognition in a separate worker process. Completed stages
+  survive retries; source/artifact checksums are verified before parsing. Run
+  envelopes contain lineage IDs, with source and answer content in private artifacts.
+  Public processing controls and full review/domain validation remain subsequent work.
 
 **Changes since v0.34**
 
@@ -1460,7 +1468,18 @@ and artifact identities accompany the rendition. Layout and legacy conversion
 require explicit review; visual source pages do not imply a question-coordinate map.
 A single Docker slot prevents orphan/retry overlap, and the container's independent
 deadline remains active after worker failure. This tool is not yet public legacy
-intake, durable artifact storage or production activation.
+intake or production activation.
+
+Private stage artifacts have a durable reservation before object storage, pinned
+by source revision, role, run, claim and component configuration. Pending bytes
+count towards separate actor/global limits. A set becomes readable only when all
+its declared files are stored; completed files and sets are immutable. Current
+claims may reuse completed evidence for the same source, pipeline and component,
+including after an explicit retry. Incomplete evidence from an older claim is
+retained for accounting but cannot be adopted by a newer worker. Conditional,
+checksum-verified writes prevent changed replay from replacing stored bytes.
+Source blocks and page files stay outside the bounded run-result JSON. There is
+no automatic artifact retention policy or learner access through these objects.
 
 Processing requests retain their source-set revision, pipeline version and replay
 identity. One queued/running request per import is permitted, with at most 50
@@ -1470,12 +1489,36 @@ expire after a configured 1 second–5 minutes; every state/result write checks 
 worker identity, fencing token, lease and source revision. Exhausted crashes become
 failed runs. Retrying a failed import creates a new immutable run identity.
 
+The offline deterministic recognizer produces `word-candidate-v1` proposals from
+source-linked text, never bank questions. It distinguishes unknown, known and
+conflicting choice keys; explicit option IDs survive reordering. Numbering,
+sections/papers, same-line options, continuation paragraphs and explicit inline,
+final or companion choice keys retain Unicode source ranges. Restarted labels and
+ambiguous table associations do not authorize a guessed match. Bold/underline only
+become answer evidence under an explicitly teacher-confirmed convention; key-only
+marks are removed from the proposed learner prose.
+
+Every meaningful block remains in the coverage ledger. Unassigned ranges, private
+branches, uncertain structure, default points and unresolved fidelity are findings.
+Source comments, hidden/revised text and fields are never automatically copied into
+learner prose. This initial recognizer handles labeled choice structures; grouped
+cloze, typed/written keys, saved profiles and assisted free-form recognition remain
+open. A proposal is not a reviewed draft or approval to commit an assessment.
+
 An internal runner stops cooperating processors on timeout, lease loss or shutdown.
 Processing runs outside transactions. Only a current claim can store a bounded
-private JSON object and transition to `needs_review`; semantic validation belongs
-to the forthcoming processor. Terminal runs cannot be changed. Run events retain
-actor/worker/stage/failure codes without document contents. This queue foundation
-has no public enqueue route, concrete recognizer or production supervisor yet.
+private JSON object and transition to `needs_review`. Terminal runs cannot be
+changed. Run events retain actor/worker/stage/failure codes without document contents.
+The standalone `import-worker` assembles source verification, private rendition,
+chunked raw extraction and deterministic recognition. It verifies object lengths
+and SHA-256 before parsing, reuses completed stages pinned to source/configuration,
+and stores candidate content privately. Its bounded result contains only lineage
+and artifact-set identities. The API does not start this worker or require Docker.
+One synchronous job per process, database lease limits, a 512 MiB Go soft-memory
+target, a five-minute job deadline and the converter's separate hard limits are
+conservative development defaults, not the approved production capacity envelope.
+Full domain validation, public processing controls and production supervision
+remain required before release.
 
 Thuong approved two ownership/recovery policies for this milestone:
 

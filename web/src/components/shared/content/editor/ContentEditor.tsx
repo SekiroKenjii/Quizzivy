@@ -5,7 +5,7 @@ import type { SemanticContent } from "../model";
 import { isQuestionContent, isQuestionPromptContent } from "../questionContent";
 import { isOptionContent } from "../optionContent";
 import { validateContent } from "../validation";
-import { fromEditorJSON, toEditorJSON } from "./adapter";
+import { fromEditorDoc, toEditorJSON } from "./adapter";
 import { contentExtensions, type EditorNotice } from "./extensions";
 import { ContentToolbar } from "./ContentToolbar";
 import { useContentPaste } from "./useContentPaste";
@@ -57,7 +57,7 @@ function ActiveEditor({
       },
     },
     onUpdate: ({ editor }) => {
-      const parsed = fromEditorJSON(editor.getJSON());
+      const parsed = fromEditorDoc(editor.state.doc);
       if (parsed.ok && parsed.value.format === "semantic_v1") {
         setNotice(undefined);
         onChange(parsed.value);

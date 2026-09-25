@@ -46,7 +46,7 @@ type Result struct {
 	closeErr              error
 }
 
-func (r *Result) Open(name string) (io.ReadCloser, error) {
+func (r *Result) Open(name string) (io.ReadSeekCloser, error) {
 	if !r.allowed[name] {
 		return nil, ErrSource
 	}
@@ -66,7 +66,12 @@ func (r *Result) Close() error {
 var pageName = regexp.MustCompile(`^page-[0-9]{1,2}\.png$`)
 
 func readResult(ctx context.Context, job, image, checksum, format string) (*Result, error) {
-	root, err := os.OpenRoot(filepath.Join(job, "work", "output"))
+	jobRoot, err := os.OpenRoot(job)
+	if err != nil {
+		return nil, ErrConversion
+	}
+	root, err := jobRoot.OpenRoot(filepath.Join("work", "output"))
+	_ = jobRoot.Close()
 	if err != nil {
 		return nil, ErrConversion
 	}

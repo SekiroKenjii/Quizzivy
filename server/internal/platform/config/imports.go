@@ -21,6 +21,13 @@ func loadImports(cfg *Config) error {
 	if !filepath.IsAbs(cfg.ImportWorkDir) {
 		return fmt.Errorf("IMPORT_WORK_DIR must be an absolute path on persistent disk")
 	}
+	switch os.Getenv("IMPORT_LEGACY_DOC") {
+	case "", "false":
+	case "true":
+		cfg.ImportLegacyDoc = true
+	default:
+		return fmt.Errorf("IMPORT_LEGACY_DOC must be true or false")
+	}
 	for _, v := range []struct {
 		name          string
 		value         *int

@@ -45,7 +45,7 @@ func (h harness) rejectLateWrites(t *testing.T, c domain.Claim) {
 	for _, err := range []error{
 		h.repo.Heartbeat(ctx, c, time.Minute),
 		h.repo.Progress(ctx, c, "recognition"),
-		h.repo.Complete(ctx, c, json.RawMessage(`{"schemaVersion":1,"candidate":"late"}`)),
+		h.repo.Complete(ctx, c, outcome(json.RawMessage(`{"schemaVersion":1,"candidate":"late"}`))),
 		h.repo.Fail(ctx, domain.RunFailure{Claim: c, Code: "LATE_FAILURE", Retryable: true}),
 	} {
 		if !errors.Is(err, domain.ErrLeaseLost) {
@@ -107,7 +107,7 @@ func TestLeaseExpiryAndTakeoverFenceEveryWorkerWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := json.RawMessage(`{"schemaVersion":1,"candidate":"synthetic"}`)
-	if err := h.repo.Complete(ctx, second.Claim(), result); err != nil {
+	if err := h.repo.Complete(ctx, second.Claim(), outcome(result)); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := h.repo.Run(ctx, second.ImportID, second.ID)
@@ -207,7 +207,10 @@ func TestCancellationAndCompletionHaveOnlyOneWinner(t *testing.T) {
 		}
 		start := make(chan struct{})
 		done := make(chan error, 2)
-		go func() { <-start; done <- h.repo.Complete(ctx, run.Claim(), json.RawMessage(`{"schemaVersion":1}`)) }()
+		go func() {
+			<-start
+			done <- h.repo.Complete(ctx, run.Claim(), outcome(json.RawMessage(`{"schemaVersion":1}`)))
+		}()
 		go func() {
 			<-start
 			_, err := h.repo.Cancel(ctx, domain.Cancel{ImportID: parent.ID, ExpectedRevision: parent.Revision, Actor: h.actor})
@@ -249,7 +252,7 @@ func TestRunHistoryKeepsActorWorkerAndFailuresWithoutMutableEvents(t *testing.T)
 		t.Fatal(err)
 	}
 	next := h.claim(t, policy(version))
-	if err := h.repo.Complete(ctx, next.Claim(), json.RawMessage(`{"schemaVersion":1}`)); err != nil {
+	if err := h.repo.Complete(ctx, next.Claim(), outcome(json.RawMessage(`{"schemaVersion":1}`))); err != nil {
 		t.Fatal(err)
 	}
 	events, err := h.repo.Events(ctx, scheduled.ImportID, scheduled.ID)
@@ -266,4 +269,8 @@ func TestRunHistoryKeepsActorWorkerAndFailuresWithoutMutableEvents(t *testing.T)
 	if _, err := h.repo.Events(ctx, uuid.NewString(), scheduled.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatal("history escaped parent scope")
 	}
+}
+
+func outcome(result json.RawMessage) domain.Outcome {
+	return domain.Outcome{Result: result, Draft: json.RawMessage(`{"version":"word-draft-v1","title":"","sections":[],"notices":[],"acknowledged":[]}`)}
 }

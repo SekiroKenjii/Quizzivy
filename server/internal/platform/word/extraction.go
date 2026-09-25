@@ -132,9 +132,9 @@ func partBlocks(part Part, resolved map[Locator]ResolvedParagraph) []SourceBlock
 	for _, o := range part.Objects {
 		if i, found := indexed[o.Locator]; found {
 			blocks[i].Object = &o.Content
-			blocks[i].Meaningful = true
+			blocks[i].Meaningful = !inertObject(o.Content)
 		} else {
-			blocks = append(blocks, SourceBlock{Locator: o.Locator, SourceRange: o.SourceRange, Kind: elementObject, Object: &o.Content, Meaningful: true})
+			blocks = append(blocks, SourceBlock{Locator: o.Locator, SourceRange: o.SourceRange, Kind: elementObject, Object: &o.Content, Meaningful: !inertObject(o.Content)})
 		}
 	}
 	for _, f := range part.Unassigned {
@@ -144,6 +144,15 @@ func partBlocks(part Part, resolved map[Locator]ResolvedParagraph) []SourceBlock
 		blocks = append(blocks, SourceBlock{Locator: Locator{Part: part.Name, Path: ""}, Kind: "part_metadata", Properties: part.Properties, Meaningful: part.Kind == partUnknownXML})
 	}
 	return blocks
+}
+
+func markEnclosingParagraph(blocks []SourceBlock, stack []int) {
+	for i := len(stack) - 1; i >= 0; i-- {
+		if p := &blocks[stack[i]]; p.Kind == "paragraph" {
+			p.ReviewReasons = appendReasons(p.ReviewReasons, "INLINE_OBJECT_REQUIRES_REVIEW")
+			return
+		}
+	}
 }
 
 func linkBlocks(sourceID, mainPart string, part Part, blocks []SourceBlock) {
@@ -158,6 +167,9 @@ func linkBlocks(sourceID, mainPart string, part Part, blocks []SourceBlock) {
 			parent := &blocks[stack[len(stack)-1]]
 			b.ParentID = parent.ID
 			b.ReviewReasons = slices.Clone(parent.ReviewReasons)
+		}
+		if b.Object != nil && !inertObject(*b.Object) {
+			markEnclosingParagraph(blocks, stack)
 		}
 		b.ReviewReasons = appendReasons(b.ReviewReasons, blockReasons(*b)...)
 		if part.Name != mainPart {

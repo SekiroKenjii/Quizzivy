@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/imports/application"
 	"quizzivy/internal/modules/imports/application/command"
@@ -140,12 +141,29 @@ func bodyError(err error) error {
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return errMultipart
 	}
+	if errors.Is(err, os.ErrDeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
+		return domain.ErrBusy
+	}
 	return err
 }
 func toImport(v domain.Import) openapi.WordImport {
 	out := openapi.WordImport{Id: httpapi.ParseUUID(v.ID), Title: v.Title, Status: openapi.ImportStatus(v.Status), Revision: v.Revision, SourceRevision: v.SourceRevision, CreatedBy: httpapi.ParseUUID(v.CreatedBy), CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt, PendingUploads: v.PendingUploads, Sources: make([]openapi.ImportSource, len(v.Sources))}
 	for i, s := range v.Sources {
 		out.Sources[i] = toSource(s)
+	}
+	if v.DraftRevision > 0 {
+		revision := v.DraftRevision
+		out.DraftRevision = &revision
+	}
+	if v.TestID != nil {
+		id := httpapi.ParseUUID(*v.TestID)
+		out.TestId = &id
+	}
+	if r := v.Run; r != nil {
+		out.Run = &openapi.ImportRun{Id: httpapi.ParseUUID(r.ID), Status: openapi.ImportRunStatus(r.Status), Stage: openapi.ImportRunStage(r.Stage), Attempt: r.Attempt, MaxAttempts: r.MaxAttempts, ErrorCode: r.ErrorCode, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		if r.Profile.KeyPaper > 0 {
+			out.Run.KeyPaper = &r.Profile.KeyPaper
+		}
 	}
 	return out
 }

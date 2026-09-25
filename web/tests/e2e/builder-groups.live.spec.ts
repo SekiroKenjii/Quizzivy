@@ -130,16 +130,14 @@ test("mixed builder saves new sections, moves complete groups, copies context an
       .getByText("Câu lạc bộ mở cửa vào thứ Bảy.", { exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
+  const beforeRemoval = await sections.count();
   await sections
     .last()
     .getByRole("button", { name: "Thao tác với phần", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "Xoá phần", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Xoá", exact: true })
-    .click();
   await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(sections).toHaveCount(beforeRemoval - 1);
   await saved(page);
   const published = page.waitForResponse(
     (response) =>
