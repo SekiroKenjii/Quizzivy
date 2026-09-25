@@ -541,6 +541,41 @@ async function choosePaper(user: ReturnType<typeof userEvent.setup>) {
   return box;
 }
 
+describe("a review that retention removed", () => {
+  it("says so instead of failing to load", async () => {
+    server.use(
+      capabilities(),
+      http.get(`${BASE}/admin/imports/:id`, () =>
+        contractJson(
+          "/admin/imports/{id}",
+          "get",
+          200,
+          wordImport({ status: "committed", filesRemovedAt: "2026-10-26T00:00:00Z" }),
+        ),
+      ),
+      http.get(`${BASE}/admin/imports/:id/review`, () =>
+        contractJson(
+          "/admin/imports/{id}/review",
+          "get",
+          410,
+          errorBody("IMPORT_FILES_REMOVED", "Bản rà soát đã được xoá."),
+        ),
+      ),
+    );
+    renderWithDetail();
+
+    expect(
+      await screen.findByText(
+        "Bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Xem lượt nhập" })).toHaveAttribute(
+      "href",
+      `/admin/imports/${IMPORT_ID}`,
+    );
+  });
+});
+
 describe("reprocessing with a chosen key paper", () => {
   it("is not offered while processing is switched off, and the finding says how to finish instead", async () => {
     serveReview(withPaperFinding(), state);
@@ -572,6 +607,7 @@ describe("reprocessing with a chosen key paper", () => {
         contractJson("/admin/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
+          retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
         }),
       ),
       http.get(`${BASE}/admin/imports/:id`, () =>

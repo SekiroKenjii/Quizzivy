@@ -2068,7 +2068,14 @@
       "cancelledTitle": "This import is closed",
       "cancelledBody": "The original files are kept under the retention policy.",
       "cancelledBodyReview": "The review and the original files stay viewable under the retention policy.",
-      "startOver": "Start a new import"
+      "startOver": "Start a new import",
+      "closedIdleBody": "This import closed itself after {{days}} days without changes.",
+      "closedIdleBodyPlain": "This import closed itself after a long time without changes.",
+      "cancelledBodyDays": "The original files are kept for {{days}} days after closing, then removed.",
+      "cancelledBodyReviewDays": "The review and the original files stay viewable for {{days}} days after closing, then are removed.",
+      "closeBodyDays": "The import will be closed and cannot continue. The original files stay viewable for {{days}} more days, then are removed.",
+      "closeBodyReviewDays": "The import will be closed and you won't be able to create a draft test from this review. The review and the original files stay viewable for {{days}} more days, then are removed.",
+      "cancelBodyDays": "Processing will stop and the import will be closed; it cannot be continued. The original files are kept for {{days}} more days, then removed."
     },
     "sources": {
       "title": "Original files",
@@ -2386,6 +2393,14 @@
       "queuedOff": "Word processing is switched off on this server. The import will start when it is back on; you can cancel if you would rather not wait.",
       "reprocessOff": "Word processing is switched off on this server, so the import cannot be processed again. The current review still works.",
       "startOverOff": "Word processing is switched off on this server, so no new import can start."
+    },
+    "retention": {
+      "policy": "Original files and the review are kept for {{afterCommit}} days after the test is created and {{afterCancel}} days after cancelling. An import with no changes for {{idle}} days is closed automatically.",
+      "removed": "The original files and the review were removed on {{date}} under the retention policy. The import's history is kept.",
+      "idleWarning": "An import with no changes for {{days}} days is closed and its files removed.",
+      "reviewRemoved": "This import's review was removed under the retention policy.",
+      "viewImport": "View the import",
+      "sourceRemoved": "The original file was removed under the retention policy, so its extracted text is no longer available."
     }
   }
 }

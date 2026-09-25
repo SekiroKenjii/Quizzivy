@@ -51,7 +51,7 @@ func (s *Postgres) SaveDraft(ctx context.Context, in domain.SaveDraft) (domain.S
 	}
 	var out domain.StoredDraft
 	err = s.InTx(ctx, "save import draft", func(tx pgx.Tx) error {
-		if err := lockUnderReview(ctx, tx, in.ImportID); err != nil {
+		if err := touchUnderReview(ctx, tx, in.ImportID); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, `UPDATE app.word_import_drafts SET body=$2, revision=revision+1, edited_by=$3 WHERE import_id=$1 AND revision=$4`, in.ImportID, body, in.Actor.ID, in.ExpectedRevision)
@@ -73,7 +73,7 @@ func (s *Postgres) SaveDraft(ctx context.Context, in domain.SaveDraft) (domain.S
 func (s *Postgres) AdoptCandidate(ctx context.Context, in domain.AdoptCandidate) (domain.StoredDraft, error) {
 	var out domain.StoredDraft
 	err := s.InTx(ctx, "adopt reprocessed draft", func(tx pgx.Tx) error {
-		if err := lockUnderReview(ctx, tx, in.ImportID); err != nil {
+		if err := touchUnderReview(ctx, tx, in.ImportID); err != nil {
 			return err
 		}
 		var revision int64
@@ -102,7 +102,7 @@ func (s *Postgres) AdoptCandidate(ctx context.Context, in domain.AdoptCandidate)
 	return out, err
 }
 
-func lockUnderReview(ctx context.Context, tx pgx.Tx, importID string) error {
+func touchUnderReview(ctx context.Context, tx pgx.Tx, importID string) error {
 	var status string
 	err := tx.QueryRow(ctx, `SELECT status FROM app.word_imports WHERE id=$1 FOR UPDATE`, importID).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -114,7 +114,7 @@ func lockUnderReview(ctx context.Context, tx pgx.Tx, importID string) error {
 	if status != "needs_review" {
 		return domain.ErrConflict
 	}
-	return nil
+	return touchImport(ctx, tx, importID)
 }
 
 func storeMachineDraft(ctx context.Context, tx pgx.Tx, c domain.Claim, draft json.RawMessage) error {
@@ -143,7 +143,7 @@ func (s *Postgres) Commit(ctx context.Context, importID string) (domain.Commit, 
 
 func (s *Postgres) RecordCommit(ctx context.Context, in domain.CommitRecord) error {
 	return s.InTx(ctx, "record import commit", func(tx pgx.Tx) error {
-		if err := lockUnderReview(ctx, tx, in.ImportID); err != nil {
+		if err := touchUnderReview(ctx, tx, in.ImportID); err != nil {
 			return err
 		}
 		var revision int64

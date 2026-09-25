@@ -426,6 +426,7 @@ components:
         - IMPORT_NOT_READY
         - IMPORT_NOT_PROCESSED
         - IMPORT_PROCESSING_UNAVAILABLE
+        - IMPORT_FILES_REMOVED
         # attempts
         - ASSIGNMENT_NOT_OPEN
         - ASSIGNMENT_NOT_CLOSED
@@ -540,6 +541,18 @@ components:
         testId:
           $ref: '#/components/schemas/Uuid'
           description: The draft test created by commit.
+        filesRemovedAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: |
+            When retention removed this import's original files and review draft.
+            Set only on committed or cancelled imports. Afterwards the history row
+            and source metadata remain, but downloads, the source view and the
+            review answer 410 IMPORT_FILES_REMOVED.
+        closedIdle:
+          type: boolean
+          description: |
+            Present and true when retention closed this import because nobody
+            touched it for the idle period, rather than a teacher cancelling it.
     ImportRun:
       type: object
       additionalProperties: false
@@ -583,8 +596,9 @@ components:
     ImportCapabilities:
       type: object
       additionalProperties: false
-      required: [intakeEnabled, processingEnabled]
+      required: [intakeEnabled, processingEnabled, retention]
       properties:
+        retention: { $ref: '#/components/schemas/ImportRetention' }
         intakeEnabled:
           type: boolean
           description: |
@@ -598,6 +612,18 @@ components:
             accepts work. When false it answers 503
             IMPORT_PROCESSING_UNAVAILABLE instead of queueing a run nothing will
             claim. Never true while intakeEnabled is false.
+    ImportRetention:
+      type: object
+      additionalProperties: false
+      required: [afterCommitDays, afterCancelDays, idleDays]
+      description: |
+        How long an import keeps its original files and review draft. After
+        the test is created, after cancellation, and an import untouched for
+        idleDays is closed and its files removed. History rows are kept.
+      properties:
+        afterCommitDays: { type: integer, minimum: 1 }
+        afterCancelDays: { type: integer, minimum: 1 }
+        idleDays: { type: integer, minimum: 1 }
     ImportLimits:
       type: object
       additionalProperties: false
@@ -4294,6 +4320,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '410':
+          description: IMPORT_FILES_REMOVED — retention removed this import's files.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/imports/capabilities:
     get:
@@ -4416,6 +4447,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '410':
+          description: IMPORT_FILES_REMOVED — retention removed this import's files.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     put:
       operationId: saveWordImportReview
       tags: [admin-imports]
@@ -4500,6 +4536,11 @@ paths:
               schema: { $ref: '#/components/schemas/ImportSourceView' }
         '404':
           description: IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '410':
+          description: IMPORT_FILES_REMOVED — retention removed this import's files.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

@@ -17,12 +17,12 @@ type Postgres struct{ db.Repository }
 
 func NewPostgres(ctx db.Context) *Postgres { return &Postgres{db.NewRepository(ctx)} }
 
-const importColumns = `id::text, title, status, revision, coalesce(source_revision,0), created_by::text, created_at, updated_at`
+const importColumns = `id::text, title, status, revision, coalesce(source_revision,0), created_by::text, created_at, updated_at, files_removed_at, closed_idle`
 const sourceColumns = `id::text, import_id::text, upload_id::text, expected_revision, role, filename, format, bytes, checksum_sha256, storage_key, uploaded_by::text, ready, coalesce(source_revision,0), created_at`
 
 func scanImport(row pgx.Row) (domain.Import, error) {
 	var v domain.Import
-	err := row.Scan(&v.ID, &v.Title, &v.Status, &v.Revision, &v.SourceRevision, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt)
+	err := row.Scan(&v.ID, &v.Title, &v.Status, &v.Revision, &v.SourceRevision, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &v.FilesRemovedAt, &v.ClosedIdle)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, domain.ErrNotFound
 	}

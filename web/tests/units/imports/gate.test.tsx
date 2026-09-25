@@ -41,6 +41,7 @@ describe("the Word import routes", () => {
       contractJson("/admin/imports/capabilities", "get", 200, {
         intakeEnabled: false,
         processingEnabled: false,
+        retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
       }),
     );
     const user = renderGate();
@@ -58,6 +59,7 @@ describe("the Word import routes", () => {
       contractJson("/admin/imports/capabilities", "get", 200, {
         intakeEnabled: true,
         processingEnabled: false,
+        retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
       }),
     );
     renderGate();
@@ -73,6 +75,7 @@ describe("the Word import routes", () => {
         : contractJson("/admin/imports/capabilities", "get", 200, {
             intakeEnabled: true,
             processingEnabled: true,
+            retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
           }),
     );
     const user = renderGate();

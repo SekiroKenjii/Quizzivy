@@ -164,7 +164,7 @@ func TestACommitIsRecordedOnceAndClosesTheImport(t *testing.T) {
 func TestTheApplicationCannotRewriteCommitHistory(t *testing.T) {
 	h := setup(t)
 	ctx := context.Background()
-	for table, want := range map[string][2]bool{"word_import_commits": {false, false}, "word_import_drafts": {true, false}} {
+	for table, want := range map[string][2]bool{"word_import_commits": {false, false}, "word_import_drafts": {true, true}, "word_import_run_events": {false, false}} {
 		var canUpdate, canDelete bool
 		if err := h.pool.QueryRow(ctx, `SELECT has_table_privilege('quizzivy_app',$1,'UPDATE'),has_table_privilege('quizzivy_app',$1,'DELETE')`, "app."+table).Scan(&canUpdate, &canDelete); err != nil {
 			t.Fatal(err)

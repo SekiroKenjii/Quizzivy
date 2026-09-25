@@ -1,7 +1,20 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.40 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.41 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.40**
+
+- §16 Word import has a retention policy (D-08, approved 2026-09-25):
+  - Original files and the review draft are kept 30 days after the test is
+    created and 7 days after cancellation.
+  - An import untouched for 60 days is closed and its files removed.
+  - History rows stay.
+  - The API applies the policy at start-up and then daily. It exists wherever
+    import storage does, with or without a worker.
+  - `WordImport.filesRemovedAt` records the removal. The source download, the
+    source view and the review then answer 410 `IMPORT_FILES_REMOVED`.
+  - `GET /admin/imports/capabilities` states the three periods.
 
 **Changes since v0.39**
 
@@ -1492,9 +1505,31 @@ import revision while `awaiting_sources`. Exact retries reuse their upload ident
 changed input conflicts. A durable reservation precedes each object write, and both
 pending and completed bytes count towards actor/global quotas. No database transaction
 is held during upload or inspection. The API admits one expanded inspection per
-process. Interrupted reservations remain observable; automatic retention is not yet
-implemented or authorized. Only completed sources can receive a 60-second download
+process. Interrupted reservations remain observable until retention removes the
+import's files. Only completed sources can receive a 60-second download
 URL, forced to attachment/octet-stream. Source identifiers are never media asset IDs.
+
+Retention keeps an import's original files, artifacts and review draft as follows:
+
+- **After commit:** 30 days, counted from the commit.
+- **After cancellation:** 7 days.
+- **Idle imports:** an import waiting on a teacher (`awaiting_sources`, `failed`,
+  `needs_review`) that nobody has touched for 60 days, draft saves included, is
+  closed as `cancelled`, flagged `closedIdle`, and its files are removed at once.
+  An upload, a reservation or a draft save counts as a touch.
+
+The API sweeps at start-up and then daily, and retries a failed sweep after an
+hour. It exists wherever import storage does, with or without a worker. Each
+sweep works through everything due, a batch at a time, within a five-minute
+budget. An import whose removal fails is passed over for the rest of that sweep.
+
+For each import the sweep deletes the objects first, then the draft, then sets
+`files_removed_at`, and it audits the closure and the removal. Removal applies
+only to committed or cancelled imports, which can never be processed again.
+
+The history row, the source metadata, the runs and the commit record remain.
+Downloads, the source view and the review answer 410 `IMPORT_FILES_REMOVED`, and
+the client says the files were removed under the policy.
 
 Native extraction retains XML order and source-bound identities for paragraph,
 container, object and unassigned-content blocks. Source fragment offsets use
@@ -1524,7 +1559,8 @@ including after an explicit retry. Incomplete evidence from an older claim is
 retained for accounting but cannot be adopted by a newer worker. Conditional,
 checksum-verified writes prevent changed replay from replacing stored bytes.
 Source blocks and page files stay outside the bounded run-result JSON. There is
-no automatic artifact retention policy or learner access through these objects.
+no learner access through these objects; they are removed with the import's other
+files under the retention policy.
 
 Processing requests retain their source-set revision, pipeline version and replay
 identity. One queued/running request per import is permitted, with at most 50

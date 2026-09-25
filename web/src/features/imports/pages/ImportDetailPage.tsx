@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,13 +20,16 @@ import {
   cancelWordImport,
   getWordImport,
   processWordImport,
+  type ImportRetention,
   type WordImport,
 } from "../api";
 import {
   CAPABILITIES_POLL_MS,
   refreshAvailability,
   useImportAvailability,
+  useImportRetention,
 } from "../availability";
+import { FilesRemovedNotice } from "../components/FilesRemovedNotice";
 import { ImportStatusBadge } from "../components/ImportStatusBadge";
 import { ProcessingOffNotice } from "../components/ProcessingOffNotice";
 import { ProcessingPanel } from "../components/ProcessingPanel";
@@ -112,6 +116,9 @@ export default function ImportDetailPage() {
         </p>
         {query.isError ? <StaleNotice onRetry={() => void query.refetch()} /> : null}
         <StatePanel value={value} onChange={store} processing={processing} />
+        {value.filesRemovedAt === undefined ? null : (
+          <FilesRemovedNotice at={value.filesRemovedAt} />
+        )}
         {value.status === "awaiting_sources" && processing ? null : (
           <section aria-labelledby="import-sources" className="space-y-2">
             <h2 id="import-sources" className="text-sm font-medium">
@@ -121,6 +128,7 @@ export default function ImportDetailPage() {
               importId={value.id}
               sources={value.sources}
               pendingUploads={value.pendingUploads}
+              removed={value.filesRemovedAt !== undefined}
             />
           </section>
         )}
@@ -195,6 +203,17 @@ function StatePanel({
   }
 }
 
+function IdleWarning() {
+  const { t } = useTranslation();
+  const retention = useImportRetention();
+  if (retention === undefined) return null;
+  return (
+    <p className="text-muted-foreground text-xs">
+      {t("imports.retention.idleWarning", { days: retention.idleDays })}
+    </p>
+  );
+}
+
 function ReadyPanel({
   value,
   onChange,
@@ -229,8 +248,50 @@ function ReadyPanel({
         </Button>
         <CloseImport value={value} onChange={onChange} />
       </div>
+      <IdleWarning />
     </Panel>
   );
+}
+
+function closedBody(
+  t: TFunction,
+  value: WordImport,
+  retention: ImportRetention | undefined,
+): string | undefined {
+  if (value.filesRemovedAt !== undefined) return undefined;
+  if (value.closedIdle === true)
+    return retention === undefined
+      ? t("imports.detail.closedIdleBodyPlain")
+      : t("imports.detail.closedIdleBody", { days: retention.idleDays });
+  const days = retention?.afterCancelDays;
+  if (hasDraft(value))
+    return days === undefined
+      ? t("imports.detail.cancelledBodyReview")
+      : t("imports.detail.cancelledBodyReviewDays", { days });
+  return days === undefined
+    ? t("imports.detail.cancelledBody")
+    : t("imports.detail.cancelledBodyDays", { days });
+}
+
+function closeBody(
+  t: TFunction,
+  value: WordImport,
+  retention: ImportRetention | undefined,
+): string {
+  const days = retention?.afterCancelDays;
+  if (hasDraft(value))
+    return days === undefined
+      ? t("imports.detail.closeBodyReview")
+      : t("imports.detail.closeBodyReviewDays", { days });
+  return days === undefined
+    ? t("imports.detail.closeBody")
+    : t("imports.detail.closeBodyDays", { days });
+}
+
+function cancelBody(t: TFunction, retention: ImportRetention | undefined): string {
+  return retention === undefined
+    ? t("imports.detail.cancelBody")
+    : t("imports.detail.cancelBodyDays", { days: retention.afterCancelDays });
 }
 
 function ClosedPanel({
@@ -238,21 +299,20 @@ function ClosedPanel({
   processing,
 }: Readonly<{ value: WordImport; processing: boolean }>) {
   const { t } = useTranslation();
-  const reviewLink = hasDraft(value) ? (
-    <Button asChild variant="outline">
-      <Link to={`/admin/imports/${value.id}/review`}>
-        {t("imports.detail.viewReview")}
-      </Link>
-    </Button>
-  ) : null;
+  const retention = useImportRetention();
+  const removed = value.filesRemovedAt !== undefined;
+  const reviewLink =
+    hasDraft(value) && !removed ? (
+      <Button asChild variant="outline">
+        <Link to={`/admin/imports/${value.id}/review`}>
+          {t("imports.detail.viewReview")}
+        </Link>
+      </Button>
+    ) : null;
   return (
     <Panel
       title={t("imports.detail.cancelledTitle")}
-      description={
-        hasDraft(value)
-          ? t("imports.detail.cancelledBodyReview")
-          : t("imports.detail.cancelledBody")
-      }
+      description={closedBody(t, value, retention)}
     >
       {processing ? null : (
         <ProcessingOffNotice>
@@ -299,6 +359,7 @@ function CloseImport({
   onChange,
 }: Readonly<{ value: WordImport; onChange: Store }>) {
   const { t } = useTranslation();
+  const retention = useImportRetention();
   const close = useCancel(value, onChange, t("imports.detail.closeFailed"));
   return (
     <>
@@ -319,11 +380,7 @@ function CloseImport({
         open={close.open}
         onOpenChange={close.setOpen}
         title={t("imports.detail.closeTitle")}
-        description={
-          hasDraft(value)
-            ? t("imports.detail.closeBodyReview")
-            : t("imports.detail.closeBody")
-        }
+        description={closeBody(t, value, retention)}
         confirmLabel={t("imports.detail.closeConfirm")}
         cancelLabel={t("imports.detail.closeKeep")}
         destructive
@@ -339,6 +396,7 @@ function ProcessingState({
   onChange,
 }: Readonly<{ value: WordImport; onChange: Store }>) {
   const { t } = useTranslation();
+  const retention = useImportRetention();
   const waitingForWorker =
     useImportAvailability(CAPABILITIES_POLL_MS) === "reviewOnly" &&
     value.status === "queued";
@@ -394,9 +452,7 @@ function ProcessingState({
             : t("imports.detail.cancelTitle")
         }
         description={
-          reprocess
-            ? t("imports.detail.stopReprocessBody")
-            : t("imports.detail.cancelBody")
+          reprocess ? t("imports.detail.stopReprocessBody") : cancelBody(t, retention)
         }
         confirmLabel={
           reprocess
@@ -535,6 +591,7 @@ function IntakePanel({
         </section>
       ) : null}
       <CloseImport value={value} onChange={onChange} />
+      <IdleWarning />
     </Panel>
   );
 }

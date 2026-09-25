@@ -1,6 +1,6 @@
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/errors";
-import type { ImportCapabilities } from "./api";
+import type { ImportCapabilities, ImportRetention } from "./api";
 import { importCapabilitiesQuery } from "./queries";
 
 /**
@@ -34,6 +34,13 @@ export function useImportAvailability(
     refetchInterval,
   });
   return data ?? "unknown";
+}
+
+const retentionOf = (capabilities: ImportCapabilities) => capabilities.retention;
+
+/** useImportRetention subscribes to how long this deployment keeps an import's files; undefined until the server answers. */
+export function useImportRetention(): ImportRetention | undefined {
+  return useQuery({ ...importCapabilitiesQuery(), select: retentionOf }).data;
 }
 
 /** refreshAvailability re-reads the capabilities when the server refused processing as switched off. */

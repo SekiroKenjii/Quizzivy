@@ -1292,6 +1292,8 @@ the file it adds.
 | `00047_add_word_import_run_profile.sql` | Recognition profile a run was scheduled with | Word W-14 |
 | `00048_allow_legacy_word_sources.sql` | Legacy `.doc` sources | Word W-13 |
 | `00049_index_question_group_bank_recency.sql` | Bank group listing ordered by recency | Word W-07 |
+| `00050_add_word_import_files_removed_at.sql` | When retention removed an import's files, and the index its sweep reads | Word D-08 |
+| `00051_grant_word_import_draft_delete.sql` | Lets the worker delete a review draft when retention removes it | Word D-08 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1809,3 +1811,35 @@ so rows written meanwhile do not block the rollback.
 
 `00049` replaces the bank group index on `id DESC` with `(updated_at DESC, id DESC)`
 under the same predicate, which is the order the listing actually uses.
+
+Retention (D-08), in `00050` and `00051`, works in three steps. The API runs
+the sweep daily with the application role, so nothing waits for a manual job:
+
+- **Close idle imports.** An import left in `awaiting_sources`, `failed` or
+  `needs_review` with `updated_at` older than 60 days becomes `cancelled` with
+  `closed_idle`. Reservations, draft saves, adoptions and commits all touch
+  `updated_at` under the row lock, so the idle test needs no join.
+- **Remove the files.** A terminal import's objects are removed 30 days after
+  `word_import_commits.committed_at`, 7 days after cancellation (`updated_at`),
+  or at once when `closed_idle` is set. That covers every source and artifact
+  `storage_key` the import owns.
+- **Delete the draft, which holds the exam content, and set `files_removed_at`.**
+  This happens only after the objects are gone.
+
+What stays:
+- The source and artifact rows stay. They hold no content, and the history shows
+  their filenames.
+- `runs`, `run_events`, `commits` and `audit_log` stay untouched and append-only.
+
+Enforcement:
+- `word_imports_files_removed_terminal` allows `files_removed_at` only on
+  committed or cancelled imports, which can never be processed again, so stage
+  reuse never meets a missing object.
+- `word_imports_closed_idle_cancelled` allows `closed_idle` only on cancelled
+  imports. The column has a constant default, so adding it is metadata-only on
+  PG18.
+- The partial index `word_imports_retention (status, updated_at, id) WHERE
+  files_removed_at IS NULL` serves both queries. Both name the predicate and
+  filter by status, and the removal sweep's keyset order is `(updated_at, id)`.
+- `00051` grants DELETE on `word_import_drafts` only. No other table gains a
+  delete grant.

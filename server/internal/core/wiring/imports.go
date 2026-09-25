@@ -7,6 +7,7 @@ import (
 	"os"
 	"quizzivy/internal/core/adapters"
 	importsapp "quizzivy/internal/modules/imports/application"
+	importsworker "quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
 	importshttp "quizzivy/internal/modules/imports/http"
 	importsrepo "quizzivy/internal/modules/imports/repositories"
@@ -20,20 +21,20 @@ import (
 	"quizzivy/internal/platform/storage"
 )
 
-func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, mediaApp *mediaapp.Application) (importshttp.Imports, error) {
+func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, mediaApp *mediaapp.Application) (importshttp.Imports, *importsworker.Sweeper, error) {
 	if cfg.ImportBucket == "" {
-		return importshttp.New(nil), nil
+		return importshttp.New(nil), nil, nil
 	}
 	if err := os.MkdirAll(cfg.ImportWorkDir, 0700); err != nil {
-		return importshttp.Imports{}, fmt.Errorf("imports: prepare private work directory: %w", err)
+		return importshttp.Imports{}, nil, fmt.Errorf("imports: prepare private work directory: %w", err)
 	}
 	info, err := os.Lstat(cfg.ImportWorkDir)
 	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
-		return importshttp.Imports{}, fmt.Errorf("IMPORT_WORK_DIR must be a private directory with mode 0700")
+		return importshttp.Imports{}, nil, fmt.Errorf("IMPORT_WORK_DIR must be a private directory with mode 0700")
 	}
 	store, err := storage.New(ctx, storage.Config{Endpoint: cfg.S3Endpoint, Region: cfg.S3Region, Bucket: cfg.ImportBucket, AccessKeyID: cfg.S3AccessKeyID, SecretAccessKey: cfg.S3SecretAccessKey, ForcePathStyle: cfg.S3ForcePathStyle})
 	if err != nil {
-		return importshttp.Imports{}, err
+		return importshttp.Imports{}, nil, err
 	}
 	quotas := domain.Quotas{ActorImports: cfg.ImportActorCount, GlobalImports: cfg.ImportGlobalCount, SourcesPerImport: cfg.ImportSourcesPerItem, ActorBytes: int64(cfg.ImportActorMiB) << 20, GlobalBytes: int64(cfg.ImportGlobalMiB) << 20}
 	repo := importsrepo.NewPostgres(dbx)
@@ -52,5 +53,6 @@ func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db
 	if cfg.ImportProcessing {
 		deps.Worker = adapters.NewWorkerWake(context.WithoutCancel(ctx), cfg.ImportWorkerWakeURL, logger)
 	}
-	return importshttp.New(importsapp.New(deps)), nil
+	sweeper := &importsworker.Sweeper{Repo: repo, Store: store, Policy: domain.DefaultRetention(), Batch: 50}
+	return importshttp.New(importsapp.New(deps)), sweeper, nil
 }

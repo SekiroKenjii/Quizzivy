@@ -9,16 +9,18 @@ import (
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
+	importsworker "quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 )
 
 // Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, and the identity application the background jobs drive.
 type Assembly struct {
-	Modules  router.Modules
-	Tokens   *identitytoken.Issuer
-	Docs     *identitytoken.Issuer
-	Identity *identityapp.Application
+	Modules       router.Modules
+	Tokens        *identitytoken.Issuer
+	Docs          *identitytoken.Issuer
+	Identity      *identityapp.Application
+	ImportSweeper *importsworker.Sweeper
 }
 
 // Build assembles every module against the pool, in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
@@ -39,7 +41,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
-	importsTransport, err := imports(ctx, cfg, logger, dbx, mediaApp)
+	importsTransport, sweeper, err := imports(ctx, cfg, logger, dbx, mediaApp)
 	if err != nil {
 		return Assembly{}, err
 	}
@@ -59,8 +61,9 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Assignments: assignments(dbx),
 			Attempts:    attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 		},
-		Tokens:   tokens,
-		Docs:     docs,
-		Identity: identityApp,
+		ImportSweeper: sweeper,
+		Tokens:        tokens,
+		Docs:          docs,
+		Identity:      identityApp,
 	}, nil
 }

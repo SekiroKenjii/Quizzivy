@@ -11,6 +11,7 @@ export type ImportRun = Schemas["ImportRun"];
 export type ImportUploadReceipt = Schemas["ImportUploadReceipt"];
 export type ImportLimits = Schemas["ImportLimits"];
 export type ImportCapabilities = Schemas["ImportCapabilities"];
+export type ImportRetention = Schemas["ImportRetention"];
 export type ImportReview = Schemas["ImportReview"];
 export type ImportReviewSummary = Schemas["ImportReviewSummary"];
 export type ImportDraft = Schemas["ImportDraft"];

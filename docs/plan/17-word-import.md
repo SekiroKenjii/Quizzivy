@@ -1012,6 +1012,64 @@ The worker's SHA-256 check on every read is unchanged. `make verify-r2-imports`
 
 
 
+
+### 1.38 Retention (D-08)
+
+Thuong approved the policy on 2026-09-25:
+
+- **After commit:** original files, artifacts and the review draft are kept 30
+  days.
+- **After cancellation:** kept 7 days.
+- **Idle imports:** an import waiting on a teacher that nobody has touched for 60
+  days is closed, and its files are removed at once.
+- **What stays:** history rows (title, status, actors, times, source filenames).
+
+**How it runs.** `worker.Sweeper` runs in the API as `jobs.SweepImportFiles`,
+at start-up and then every 24 hours, and an hour after a failed sweep. The API
+exists wherever import storage does, including a review-only deployment with
+no worker. Each sweep has a five-minute budget:
+
+- It closes idle imports in batches of 50 until none are left.
+- It walks the due imports in `(updated_at, id)` order with a cursor, so an
+  import that fails is passed over and cannot hold back the rest.
+- It logs counts only, and at Warn when anything failed.
+
+For each import it does four things, in order:
+
+1. Deletes every object (`storage.Client.Delete` treats a missing key as done).
+2. Deletes the draft, the only place exam content lives outside the test.
+3. Sets `files_removed_at`.
+4. Audits `import.files_removed`.
+
+A failure leaves the import unmarked for the next pass.
+
+**Idle closure.** It is audited as `import.closed_idle` and sets `closed_idle`.
+That makes the import due at once, even if a pass is interrupted before its files
+go. "Untouched" is the import's `updated_at`. A source reservation (so an upload
+in progress), a draft save, an adoption and a commit all touch it while holding
+the row lock. So a sweep can neither close an import mid-upload nor delete a
+draft a teacher has just saved.
+
+**Late uploads.** An upload whose object lands after its import closed deletes
+that object when `Finish` refuses it.
+
+**Schema.** Migrations `00050` and `00051` (`20-data-model.md`):
+
+- A CHECK allows `files_removed_at` only on committed or cancelled imports.
+  Those can never be processed again, so stage reuse never meets a missing
+  object.
+- The application role gains DELETE on `word_import_drafts` only.
+
+**Readers.**
+
+- The source download, the source view and the review answer 410
+  `IMPORT_FILES_REMOVED`.
+- `WordImport.filesRemovedAt` drives a calm note on the detail and review pages.
+  Downloads and the review link disappear there.
+- `ImportCapabilities.retention` carries the three periods for the policy line
+  on the upload page and the idle warning, so the copy never drifts from the
+  code.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -1424,7 +1482,7 @@ deploy and verify backup/restore before enabling production writes.
 | D-05 | Converter/extractor dependencies | Benchmark structured OOXML extraction and isolated LibreOffice normalization; Mammoth is a comparison candidate only | Engineering; W-03 before dependency addition |
 | D-06 | Cloud/private model and data policy | Evaluate both, no silent provider fallback or external upload | Thuong + engineering; before real external benchmark/assisted processing |
 | D-07 | Limits/SLOs/cost | Measure §9.2 hypotheses and approve supported envelope and spending cap | Thuong + engineering; W-21 before release |
-| D-08 | Retention/cleanup | Separate source/evidence/transient classes; reference-safe deletion | Thuong; before cleanup implementation and W-21 |
+| D-08 | Retention/cleanup | **Decided 2026-09-25:** files and draft kept 30 days after commit and 7 after cancel; imports idle 60 days are closed and their files removed; history rows kept (§1.38) | Thuong |
 | D-09 | Quality and pilot | Verified real corpus, holdout, matched manual baseline and explicit release thresholds | Thuong + pilot teachers; W-01 baseline, thresholds before holdout |
 
 First checkpoint deliverables are W-01–04: source family/coverage inventory,

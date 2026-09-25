@@ -63,6 +63,7 @@ func importFailure(ctx context.Context, err error) (*failure, error) {
 		{domain.ErrUnsupported, 415, openapi.IMPORTSOURCEUNSUPPORTED, "Hãy dùng tệp Word (.docx, hoặc .doc khi máy chủ hỗ trợ) không có mật khẩu, macro hoặc đối tượng thực thi.", "Use an unprotected Word file (.docx, or .doc where the server supports it) without macros or active objects."},
 		{domain.ErrInvalid, 415, openapi.IMPORTSOURCEINVALID, "Không đọc được cấu trúc Word. Hãy mở tệp trong Word và lưu lại dưới dạng .docx.", "The Word package is invalid. Open it in Word and save a new .docx copy."},
 		{domain.ErrProcessingOff, 503, openapi.IMPORTPROCESSINGUNAVAILABLE, "Máy chủ này chưa bật xử lý tài liệu Word nên chưa thể xử lý lượt nhập. Các lượt nhập đã xử lý xong vẫn rà soát và tạo đề được.", "Word processing is not enabled on this server, so the import cannot be processed. Imports that already finished processing can still be reviewed and turned into tests."},
+		{domain.ErrFilesRemoved, 410, openapi.IMPORTFILESREMOVED, "Tệp gốc và bản rà soát của lượt nhập này đã được xoá theo chính sách lưu trữ.", "This import's original files and review were removed under the retention policy."},
 		{errMultipart, 400, openapi.VALIDATIONFAILED, "Yêu cầu phải chứa đúng một tệp trong trường file.", "The request must contain exactly one file part named file."},
 	}
 	for _, m := range messages {

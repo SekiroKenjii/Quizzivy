@@ -20,6 +20,7 @@ function serve(intakeEnabled: boolean, processingEnabled: boolean) {
       return contractJson("/admin/imports/capabilities", "get", 200, {
         intakeEnabled,
         processingEnabled,
+        retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
       });
     }),
   );

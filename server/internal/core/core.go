@@ -90,6 +90,9 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 
 	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
+	if sweeper := a.assembly.ImportSweeper; sweeper != nil {
+		go jobs.SweepImportFiles(ctx, a.logger, sweeper.Sweep, jobs.ImportRetention{Every: 24 * time.Hour, Retry: time.Hour, Budget: 5 * time.Minute})
+	}
 
 	return httpserver.Serve(ctx, a.logger, a.cfg, handler)
 }

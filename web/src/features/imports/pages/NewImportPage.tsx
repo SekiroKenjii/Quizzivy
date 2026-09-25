@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/ListState";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { useImportAvailability } from "../availability";
+import { useImportAvailability, useImportRetention } from "../availability";
 import { SourceIntake } from "../components/SourceIntake";
 import { storeImport } from "../queries";
 
@@ -20,6 +20,7 @@ export default function NewImportPage() {
   const navigate = useNavigate();
   const client = useQueryClient();
   const processing = useImportAvailability() !== "reviewOnly";
+  const retention = useImportRetention();
   const header = (
     <PageHeader
       title={t("imports.newTitle")}
@@ -51,6 +52,15 @@ export default function NewImportPage() {
           <CardHeader>
             <CardTitle>{t("imports.newHeading")}</CardTitle>
             <CardDescription>{t("imports.newHint")}</CardDescription>
+            {retention === undefined ? null : (
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                {t("imports.retention.policy", {
+                  afterCommit: retention.afterCommitDays,
+                  afterCancel: retention.afterCancelDays,
+                  idle: retention.idleDays,
+                })}
+              </p>
+            )}
           </CardHeader>
           <CardContent className="pt-1">
             <SourceIntake

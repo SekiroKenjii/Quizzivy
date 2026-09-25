@@ -29,6 +29,7 @@ export function capabilities(processingEnabled = true) {
     contractJson("/admin/imports/capabilities", "get", 200, {
       intakeEnabled: true,
       processingEnabled,
+      retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
     }),
   );
 }

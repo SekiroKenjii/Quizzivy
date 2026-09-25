@@ -260,8 +260,8 @@ Turning it on needs three things only Thuong can do or decide:
 - **W-21 gates.** W-21 is in `17-word-import.md` §6, and decisions D-07 and
   D-08 are in §10:
   - D-07, capacity: the quotas are still development defaults.
-  - D-08, retention: there is no cleanup yet, so every uploaded exam and its
-    artifacts are kept.
+  - D-08, retention: decided and built (30/7/60 days, `17-word-import.md`
+    §1.38).
 - **Storage support.** R2 rejects full-object SHA-256 checksums, so the import
   store checks the digest itself and sends it as metadata with Content-MD5.
   `make verify-r2-imports` proves the bucket accepts that before release.

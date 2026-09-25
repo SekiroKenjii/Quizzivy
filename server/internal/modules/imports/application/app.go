@@ -76,10 +76,10 @@ func New(d Dependencies) *Application {
 			Get:          query.GetHandler{Repo: d.Repo},
 			List:         query.ListHandler{Repo: d.Repo},
 			Download:     query.DownloadHandler{Repo: d.Repo, Store: d.Store},
-			Review:       query.ReviewHandler{Drafts: d.Drafts},
+			Review:       query.ReviewHandler{Repo: d.Repo, Drafts: d.Drafts},
 			SourceView:   query.SourceViewHandler{Repo: d.Repo, Runs: d.Runs, Reader: reader},
 			Limits:       query.LimitsHandler{Legacy: d.Legacy},
-			Capabilities: query.CapabilitiesHandler{Processing: d.Processing},
+			Capabilities: query.CapabilitiesHandler{Processing: d.Processing, Retention: domain.DefaultRetention()},
 		},
 	}
 }
