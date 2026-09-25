@@ -1,3 +1,5 @@
+import { BlankPromptField } from "./BlankPromptField";
+import { questionGaps } from "@/components/shared/content/gaps";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { PageAside } from "@/components/shared/PageAside";
@@ -63,9 +65,17 @@ export function QuestionEditor({
   const { t } = useTranslation();
   const isChoice = CHOICE_TYPES.has(value.type);
   const isAudio = asset?.kind === "audio";
+  const hasGaps =
+    value.promptContent != null && questionGaps(value.promptContent).length > 0;
+
+  const hasBlankBindings =
+    hasGaps ||
+    (value.promptContent != null &&
+      value.type === "fill_blank" &&
+      value.blanks.length > 0);
 
   function switchType(type: QuestionType) {
-    if (type === "fill_blank" && value.promptContent != null) return;
+    if (type !== "fill_blank" && hasBlankBindings) return;
     onChange({
       ...value,
       type,
@@ -95,7 +105,7 @@ export function QuestionEditor({
                 <TabsTrigger
                   key={type}
                   value={type}
-                  disabled={type === "fill_blank" && value.promptContent != null}
+                  disabled={type !== "fill_blank" && hasBlankBindings}
                 >
                   {t(`questionEditor.type.${type}`)}
                 </TabsTrigger>
@@ -104,9 +114,9 @@ export function QuestionEditor({
           </Tabs>
         </div>
 
-        {value.promptContent != null && (
+        {hasBlankBindings && (
           <p className="text-muted-foreground text-xs">
-            {t("questionEditor.fillBlankMarkdownSwitch")}
+            {t("questionEditor.richBlankSwitch")}
           </p>
         )}
         <div>
@@ -116,18 +126,21 @@ export function QuestionEditor({
           >
             {t("questionEditor.prompt")}
           </label>
-          <QuestionProseField
-            id="question-prompt"
-            text={value.prompt}
-            content={value.promptContent}
-            label={t("questionEditor.prompt")}
-            prompt
-            canFormat={value.type !== "fill_blank"}
-            clearOnFocus={clearPromptOnFocus}
-            onChange={(prompt, promptContent) =>
-              onChange({ ...value, prompt, promptContent })
-            }
-          />
+          {value.type === "fill_blank" ? (
+            <BlankPromptField value={value} onChange={onChange} />
+          ) : (
+            <QuestionProseField
+              id="question-prompt"
+              text={value.prompt}
+              content={value.promptContent}
+              label={t("questionEditor.prompt")}
+              prompt
+              clearOnFocus={clearPromptOnFocus}
+              onChange={(prompt, promptContent) =>
+                onChange({ ...value, prompt, promptContent })
+              }
+            />
+          )}
         </div>
 
         {isChoice ? (
@@ -143,6 +156,7 @@ export function QuestionEditor({
         {value.type === "fill_blank" ? (
           <BlanksEditor
             prompt={value.prompt}
+            content={value.promptContent}
             blanks={value.blanks}
             onChange={(blanks) => onChange({ ...value, blanks })}
           />

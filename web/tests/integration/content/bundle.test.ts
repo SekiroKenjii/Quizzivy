@@ -13,7 +13,11 @@ type Chunk = {
 };
 type Output = { output: (Chunk | { type: "asset" })[] };
 
-function closure(entry: Chunk, chunks: Map<string, Chunk>): Chunk[] {
+function closure(
+  entry: Chunk,
+  chunks: Map<string, Chunk>,
+  includeDynamic = true,
+): Chunk[] {
   const seen = new Set<string>();
   const pending = [entry];
   const result: Chunk[] = [];
@@ -22,7 +26,10 @@ function closure(entry: Chunk, chunks: Map<string, Chunk>): Chunk[] {
     if (seen.has(chunk.fileName)) continue;
     seen.add(chunk.fileName);
     result.push(chunk);
-    for (const name of [...chunk.imports, ...chunk.dynamicImports]) {
+    for (const name of [
+      ...chunk.imports,
+      ...(includeDynamic ? chunk.dynamicImports : []),
+    ]) {
       const dependency = chunks.get(name);
       if (dependency) pending.push(dependency);
     }
@@ -49,15 +56,34 @@ test("keeps editor modules out of the reader and pins prototype transfer budgets
   const editor = closure(
     chunks.find((chunk) => chunk.name === "editor")!,
     byName,
+    false,
   );
   expect(
     reader
       .flatMap((chunk) => chunk.moduleIds)
-      .filter((id) => /@tiptap|prosemirror/.test(id)),
+      .filter((id) => /@tiptap|prosemirror|parse5/.test(id)),
   ).toEqual([]);
   expect(
     editor.flatMap((chunk) => chunk.moduleIds).some((id) => id.includes("@tiptap")),
   ).toBe(true);
+  expect(
+    editor.flatMap((chunk) => chunk.moduleIds).some((id) => id.includes("parse5")),
+  ).toBe(false);
+  const clipboard = closure(
+    chunks.find((chunk) =>
+      chunk.moduleIds.some((id) => id.endsWith("/editor/clipboardHTML.ts")),
+    )!,
+    byName,
+  );
+  expect(
+    clipboard.flatMap((chunk) => chunk.moduleIds).some((id) => id.includes("parse5")),
+  ).toBe(true);
+  const initial = new Set([...reader, ...editor].map((chunk) => chunk.fileName));
+  expect(
+    clipboard
+      .filter((chunk) => !initial.has(chunk.fileName))
+      .reduce((total, chunk) => total + gzipSync(chunk.code).byteLength, 0),
+  ).toBeLessThan(64 * 1024);
   const shared = new Set(reader.map((chunk) => chunk.fileName));
   expect(
     editor

@@ -16,9 +16,12 @@ const (
 	strictWordNamespace = "http://purl.oclc.org/ooxml/wordprocessingml/main"
 	contentNamespace    = "http://schemas.openxmlformats.org/package/2006/content-types"
 	relationNamespace   = "http://schemas.openxmlformats.org/package/2006/relationships"
+	wordPrefix          = "{" + wordNamespace + "}"
+	strictWordPrefix    = "{" + strictWordNamespace + "}"
 )
 
 type element struct {
+	SourceRange
 	name     xml.Name
 	attrs    []xml.Attr
 	text     strings.Builder
@@ -34,6 +37,7 @@ type xmlBudget struct {
 }
 
 type xmlParser struct {
+	ordinal    int
 	root       *element
 	stack      []*element
 	budget     *xmlBudget
@@ -72,6 +76,7 @@ func (p *xmlParser) consume(token xml.Token) error {
 		if len(p.stack) == 0 {
 			return fmt.Errorf("%w: XML nesting", ErrInvalidPackage)
 		}
+		p.stack[len(p.stack)-1].End = p.ordinal
 		p.stack = p.stack[:len(p.stack)-1]
 	case xml.CharData:
 		if len(p.stack) > 0 {
@@ -82,8 +87,8 @@ func (p *xmlParser) consume(token xml.Token) error {
 	case xml.Directive:
 		return fmt.Errorf("%w: XML directives are not permitted", ErrInvalidPackage)
 	case xml.ProcInst:
-		if token.Target != "xml" || p.root != nil {
-			return fmt.Errorf("%w: XML processing instruction", ErrInvalidPackage)
+		if token.Target == "xml" && p.root != nil {
+			return fmt.Errorf("%w: misplaced XML declaration", ErrInvalidPackage)
 		}
 	}
 	return nil
@@ -94,6 +99,8 @@ func (p *xmlParser) start(token xml.StartElement) error {
 	if err != nil {
 		return err
 	}
+	p.ordinal++
+	n.Order = p.ordinal
 	if len(p.stack) == 0 {
 		if p.root != nil {
 			return fmt.Errorf("%w: multiple XML roots", ErrInvalidPackage)
@@ -116,12 +123,15 @@ func pushElement(token xml.StartElement, stack []*element, budget *xmlBudget, de
 		}
 		seen[attr.Name] = struct{}{}
 	}
-	n := &element{name: token.Name, attrs: token.Attr, counts: make(map[xml.Name]int)}
+	n := &element{name: token.Name, attrs: token.Attr}
 	length := int64(len(token.Name.Space)) + int64(len(token.Name.Local)) + 6
 	var parent *element
 	ordinal := "1"
 	if len(stack) > 0 {
 		parent = stack[len(stack)-1]
+		if parent.counts == nil {
+			parent.counts = make(map[xml.Name]int)
+		}
 		parent.counts[token.Name]++
 		ordinal = strconv.Itoa(parent.counts[token.Name])
 		length += int64(len(parent.path)) + int64(len(ordinal)) - 1
@@ -130,12 +140,11 @@ func pushElement(token xml.StartElement, stack []*element, budget *xmlBudget, de
 	if budget.locators < 0 {
 		return nil, fmt.Errorf("%w: locator bytes", ErrLimit)
 	}
-	identity := "{" + token.Name.Space + "}" + token.Name.Local
 	if len(stack) == 0 {
-		n.path = "/" + identity + "[1]"
+		n.path = "/{" + token.Name.Space + "}" + token.Name.Local + "[1]"
 		return n, nil
 	}
-	n.path = parent.path + "/" + identity + "[" + ordinal + "]"
+	n.path = parent.path + "/{" + token.Name.Space + "}" + token.Name.Local + "[" + ordinal + "]"
 	parent.children = append(parent.children, n)
 	return n, nil
 }

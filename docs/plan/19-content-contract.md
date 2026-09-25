@@ -1,7 +1,9 @@
 # Versioned content contract — W-02 foundation
 
 Status: content foundation plus W-05a options and W-05b question prose, with
-pilot authoring affordances. Groups, gap bindings and import endpoints remain pending.
+pilot authoring affordances, stable blank bindings and bounded clipboard conversion.
+Group graph validation/copy foundations are additive; group persistence and import
+endpoints remain pending.
 `api/openapi.yaml` is the structural authority. Go's `shared/content.Parse` and
 the frontend validator enforce the cross-node rules below. They share synthetic
 accept/reject fixtures; generated TS types are the frontend model. Go's domain
@@ -138,6 +140,49 @@ and unchanged legacy deal/audio/leak canaries. This is an approved product polic
 not an enabled player, new ledger schema or implemented group endpoint.
 
 
+## W-07a — independent group graph
+
+`QuestionGroup` is an additive admin contract; current section/test writes do not
+accept it. The tests domain resolves a `GroupBundle` against exactly its member
+questions, validates existing question invariants and rejects missing, duplicate
+or foreign members. The catalog's fetch order and UUID letter case do not define
+authored member order. Empty drafts are allowed; publication rejects emptiness.
+Fixed option order applies only to choice members and rejects a conflicting
+shuffle configuration rather than silently changing the assignment policy.
+
+A stimulus owns a content document plus one binding per gap. `question` targets
+a choice member; `blank` targets a rich fill-blank member's stable prompt gap.
+Printed labels may repeat. Binding IDs are local to a document, while response
+targets are unique across the group's materials. Blank row IDs are not stable
+targets because ordinary question writes may replace those rows. Unsupported
+targets, orphan gaps, missing keys, invalid content and mixed asset kinds fail
+before copy. These are graph checks in addition to the structural OpenAPI schema.
+
+Each audio asset appearing in materials has exactly one explicit recording
+binding, even when repeated across materials. It cannot also carry a member-level
+allowance in that group. Other member audio retains its own policy. Different
+groups may reuse the same file under independent recording identities. Group
+recording transcripts are teacher metadata: future learner/review projections
+must be explicit and disclosure-policy gated, never JSON casts of this graph.
+
+The complete resolved group is limited to 4 MiB, 200 members, 16 materials and
+16 recordings. Titles allow 200 Unicode scalars and recording transcripts
+100,000; the content-document limits still apply independently. Persistence must
+validate original bounded raw input, authorized media kinds and relational
+references, not treat successful domain validation as an access grant.
+
+`GroupBundle.Copy` first validates and deep-copies all data, then generates fresh
+group, member, option/blank, material, local-gap and recording identities. Both
+ends of cloze links are remapped together; exact text, keys, scores, order and
+audio policy remain unchanged. Asset IDs stay stable; future storage creates
+independent protected bindings. An invalid/repeated ID provider returns no
+partial copy and cannot mutate its source. Source provenance is not a live link.
+
+Relational ownership, group-only bank insertion, deletion races, optimistic
+revisions, snapshot/restore and learner delivery are not supplied by this value
+model. Keep new writes disabled until those lifecycle paths and readers ship;
+do not claim W-07 complete from these foundation tests.
+
 ## W-05a — inline option integration
 
 `OptionContent` is a deliberately smaller semantic document: exactly one
@@ -203,3 +248,65 @@ The lazy authoring affordance is controlled by `VITE_RICH_QUESTION_EDITOR`
 is explicit and refuses unsupported nodes rather than dropping them. Media,
 gap bindings, structured clipboard import, IME/teacher acceptance and full
 five-type rich prompt authoring remain later gates.
+
+
+## W-06b — stable question gap bindings
+
+`QuestionPromptContent` extends the prose profile with gaps inside paragraphs,
+headings, lists and table cells. `QuestionContent` remains gap-free for explanations.
+A rich fill-blank prompt needs at least one gap, and its gap IDs must match the
+non-null `gapId` set on blank metadata one-to-one. No inference from labels,
+ordinals or plain projection is permitted. Other interaction types reject gaps;
+legacy Markdown rejects non-null gap IDs. All document budgets remain unchanged.
+
+Migration 00034 stores nullable `gap_id` on bank and snapshot blanks, with format
+checks and uniqueness scoped to the parent question. Legacy rows stay null.
+A gap identity survives draft edits even though normalized answer-row UUIDs may
+be replaced. Publication freezes identities and answers together. Learner answers
+continue to use frozen blank UUIDs, and existing grading logic remains unchanged.
+Duplication and version restoration allocate fresh local gap IDs and replace both
+AST references and metadata in the same write transaction. Source edits do not
+mutate a copied graph or snapshot. Student payloads contain no new grading keys.
+
+Explicit Markdown conversion accepts only unique supported markers with matching
+answer rows and previews before applying. Repeated/unsupported markers block
+conversion. In rich authoring, newly inserted gaps receive empty answer rows;
+moving a node preserves its key. Removing a node retains orphaned answers for
+undo and blocks save until they are restored or explicitly discarded. Removing
+formatting restores ordinal markers before escaping the prose projection.
+New authoring uses the existing opt-in flag; stored rich blank prompts stay
+editable when disabled. This is not structured clipboard import or pilot acceptance.
+
+Migration Down first restores the old prompt restriction. It therefore refuses
+rich fill-blank rows without losing data. After such writes, retain the schema
+and these readers as the rollback floor and disable only new authoring.
+
+## W-06c — structured clipboard conversion
+
+The editor intercepts formatted/file paste at the DOM-event boundary, before
+ProseMirror's HTML parser runs. `parse5` 8.0.1, MIT, is an explicit dependency for
+inert standards-based HTML parsing. Raw clipboard HTML is never mounted, saved,
+sent to a service, or included in diagnostics. The converter loads on demand.
+
+The accepted subset maps paragraphs, headings 1–3, ordinary lists with explicit
+starts, tables/spans, six marks and safe HTTPS links to the existing semantic AST.
+Allowlisted inline CSS supplies marks. Fonts, size, color and layout decoration
+are replaced by the product design; the preview explains that normalization.
+Unknown tags/attributes, active content, images/files, unbound gap metadata,
+stylesheets, conditional Word markup, tracked changes, ambiguous CSS/list rules,
+nested/malformed tables and unsafe URLs cause whole-paste refusal. Parsed source
+locations must cover the input: HTML tree repair cannot silently discard unknown
+source tags. This is deliberately narrower than arbitrary Word clipboard HTML.
+
+Input is at most 256 KiB UTF-8, with valid Unicode and no NUL. Parse inspection
+allows at most 6,144 source nodes and 48 tree levels before semantic conversion;
+existing content limits and the narrower field profile apply to both the candidate
+and the complete replacement. No mark implies an answer key or gap binding.
+
+Preview renders only the validated resulting semantic document, with accessible
+cancel/apply controls and focus restoration. The original document/selection is
+captured before opening it. Cancellation and a late cancelled conversion do not
+change content. If the document changes before confirmation, the user must paste
+again. Applying uses one validated transaction with history boundaries on both
+sides; undo restores the previous content and answer bindings remain governed by
+W-06b. Existing autosave/server rules apply after the confirmed edit.

@@ -1,7 +1,178 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.11 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.38 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.37**
+
+- W-11b connects private storage, isolated conversion, chunked source extraction
+  and deterministic recognition in a separate worker process. Completed stages
+  survive retries; source/artifact checksums are verified before parsing. Run
+  envelopes contain lineage IDs, with source and answer content in private artifacts.
+  Public processing controls and full review/domain validation remain subsequent work.
+
+**Changes since v0.34**
+
+- W-13a adds an internal isolated legacy Word converter and private source-page
+  rendition. One physical container slot, offline safe document loading, resource
+  limits, cancellation and independent timeout protect processing capacity. Outputs
+  retain conversion lineage and require review. Public legacy intake and durable
+  processing integration remain disabled pending the complete pipeline.
+
+**Changes since v0.33**
+
+- W-12a adds ordered, source-bound extraction with Unicode fragment locations,
+  nested/merged table evidence and explicit review reasons for private/ambiguous
+  content. Bounded raster normalization retains images privately. These internal
+  tools do not yet enable recognition, review or draft creation; original evidence
+  is never a learner payload.
+
+**Changes since v0.32**
+
+- W-11 adds an internal durable processing queue with immutable source/pipeline
+  identity, bounded attempts, leases, fenced writes and append-only run events.
+  Cancellation and completion serialize on the import. A context-aware runner
+  records safe operational metadata and preserves retryable work after shutdown.
+  The production processor, supervisor and public processing controls are not
+  wired yet; this checkpoint does not enable recognition or review.
+
+**Changes since v0.31**
+
+- W-10a adds disabled-by-default private native DOCX intake, teacher-only history,
+  immutable source sets and retry identities. Storage writes have durable reservations,
+  quota accounting and revision guards. Original downloads require teacher access and
+  short-lived attachment URLs from a separate private bucket. Legacy conversion,
+  processing, review, commit, retention and production acceptance remain later work.
+
+**Changes since v0.30**
+
+- W-07h integrates section → group → question authoring into the test builder.
+  Outline and group writes share a serialized enclosing-test revision; acknowledged
+  moves update only the editor's own revision baseline. Whole-group bank insertion,
+  independent bank copies, complete learner preview and local recovery are available.
+  The import pipeline and pilot acceptance remain release gates.
+
+**Changes since v0.29**
+
+- W-07g adds the independent group bank and a complete-group editor: shared
+  materials, authorized image/audio insertion, stable gap links, learner preview,
+  revision-checked autosave and explicit local recovery. Archived groups support
+  bulk restoration/deletion; copies remain on the list with an indicator.
+  Mixed builder editing and the import pipeline remain release gates.
+
+**Changes since v0.28**
+
+- W-07f saves complete mixed outlines under the test revision, moving whole owned
+  groups between sections while retaining every existing group exactly once.
+  Group removal remains explicit. Legacy saves clear obsolete unit rows after
+  the last group is removed. Builder integration remains a release gate.
+
+**Changes since v0.27**
+
+- W-07e exposes teacher-only complete-group read/write/copy/archive operations,
+  bounded bank summaries and ordered draft units. Writes check aggregate and
+  enclosing-test revisions. Media-link outages return a retryable asset state
+  without obscuring committed content. Builder integration remains a release gate.
+
+**Changes since v0.26**
+
+- Draft totals/tag filters include group members. Legacy question-only outline
+  writes refuse grouped drafts atomically. Archived tests must be restored before
+  draft restoration/default-version changes. Assignment introductions include
+  shared recording policies from the assigned version and explain their scope.
+
+**Changes since v0.25**
+
+- W-09f supplies frozen shared context in learner results and both teacher
+  grading modes. Transcript release follows each recording's policy independently
+  of score/key/explanation flags. Review playback does not add attempt plays.
+
+**Changes since v0.24**
+
+- W-09e renders shared learner materials beside the question on wide screens and
+  above it on phones with remembered collapse state. Stable recording players and
+  idempotent gesture recovery preserve shared counts across member navigation,
+  reload and takeover. Result/review context and authoring remain gated.
+
+**Changes since v0.23**
+
+- W-09d freezes the delivery algorithm on each published version. Historical
+  standalone papers keep `section_v1`; group-aware snapshots use `group_v1`.
+  Attempt reload, takeover and results select the frozen marker, never the
+  current test default. Unsupported formats fail closed.
+
+**Changes since v0.22**
+
+- W-09c persists shared-recording counters and gesture receipts, deduplicates
+  retries atomically with timeline events, and includes shared excess plays in
+  teacher monitoring. Group authoring/player/result UI remain gated.
+
+**Changes since v0.21**
+
+- W-09b adds learner-safe shared context to start/resume/read attempt responses.
+  Frozen media bindings require an attempt owned by the learner. Shared playback,
+  result/review context and group authoring remain gated.
+
+**Changes since v0.20**
+
+- W-08c previews frozen group context and authorized assets without grading keys,
+  follows the selected default version, and offers a 320px learner preview inside
+  the supported admin shell. Group authoring and live learner delivery stay gated.
+
+**Changes since v0.19**
+
+- W-08b restores and duplicates complete independent context graphs, preserves
+  mixed unit order and removes owned draft graphs when an unreferenced archived
+  test is deleted. Grouped preview/draft UI and delivery remain gated.
+
+**Changes since v0.18**
+
+- W-08 defines independent frozen group membership, materials, gap targets and
+  recording policies alongside existing version questions. Historical snapshots
+  are not backfilled; group authoring stays unavailable until readers are ready.
+
+**Changes since v0.17**
+
+- W-07d adds revision-checked full-group editing, independent copy materialization,
+  bank archive/restore/delete and section removal. These remain internal operations
+  until complete draft, snapshot and learner readers are available.
+
+**Changes since v0.16**
+
+- W-07c adds atomic internal group persistence, owned-member barriers and protected
+  media references. No group endpoint or authoring affordance is enabled yet.
+
+**Changes since v0.15**
+
+- W-07b adds relational group ownership, ordered units, stable cloze targets and
+  protected material/recording bindings. Existing question ownership remains
+  null; new group authoring is still unavailable until lifecycle and readers ship.
+
+**Changes since v0.14**
+
+- W-07a defines the bounded, independent group graph: ordered members, rich
+  materials, explicit choice/blank gap targets and shared recording identities.
+  Validation and detached copying precede persistence and delivery; group writes
+  remain unavailable until snapshots, protected references and readers are ready.
+
+**Changes since v0.13**
+
+- Rich authoring supports bounded structured clipboard conversion with an explicit
+  preview, atomic insertion and undo. Unsupported source content is refused in full;
+  it is never silently reduced to plain text. Original clipboard HTML stays local.
+
+**Changes since v0.12**
+
+- Rich fill-blank prompts bind stable gap identities to answer rows. Moving gaps
+  keeps answers attached; copies remap both ends; published versions preserve the
+  frozen graph. Legacy Markdown and answer payloads remain compatible.
+
+**Changes since v0.11**
+
+- Manual/internal question writes and publication share interaction validation.
+  Single-choice and true/false require one key; true/false requires two options.
+  Question points are positive exact hundredths within numeric(8,2); publication
+  sums exact hundredths and rejects empty exams or an overflowing total.
 
 **Changes since v0.10**
 
@@ -387,6 +558,15 @@ type Answer =
 
 ### 7.1 Word milestone content contract (foundation)
 
+Every question write and publication uses the same interaction invariants:
+nonempty prompt and option text, supported type, choice/key cardinality,
+nonempty accepted blank answers, unique blank ordinals matching the prompt,
+media/audio consistency and content projection validity. Single-choice and
+true/false require exactly one correct option; true/false has exactly two options.
+Points must be greater than zero, no greater than 999999.99 and have no more than
+two decimal places. Do not silently round source or teacher-entered points.
+Publication requires a nonempty exam and an exact total within numeric(8,2).
+
 `ContentDocument` is an application-owned discriminated union: `legacy_markdown_v1`
 retains the exact historical Markdown string; `semantic_v1` contains typed
 paragraphs, three heading levels, lists, tables, asset references and inline
@@ -420,12 +600,13 @@ editor acceptance. Grouped content and shared audio remain on their existing pat
 separate integration gates pass.
 
 **Question prose rollout (W-05b).** Optional `promptContent` and
-`explanationContent` use `QuestionContent`: semantic paragraphs, headings, lists
-and tables with text marks, breaks and safe links. Assets and gaps are rejected
-recursively until their binding lifecycle is implemented. `prompt`/`explanation`
+`explanationContent` support semantic paragraphs, headings, lists and tables with
+text marks, breaks and safe links. `QuestionContent` excludes assets and gaps;
+`QuestionPromptContent` additionally allows bound gaps for fill-blank questions. `prompt`/`explanation`
 are exact plain projections when their document exists; otherwise they retain
-legacy Markdown semantics. Rich prompts are refused for `fill_blank` while its
-existing `{{n}}` path remains active; rich explanations support all five types.
+legacy Markdown semantics. Rich fill-blank prompts require a bijection between gap node IDs and blank
+`gapId` values. Labels never bind answers. Legacy `{{n}}` prompts retain ordinal
+binding; rich explanations support all five types.
 Snapshots, restoration, bank duplication and all relevant readers preserve these
 fields. Active attempts and learner previews never contain explanations; results
 release both explanation fields only when `review.showExplanations` permits it.
@@ -434,6 +615,16 @@ otherwise the update fails atomically. Explicit null clears a document. New
 rich authoring is opt-in via `VITE_RICH_QUESTION_EDITOR`; existing documents stay
 editable. Conversion from Markdown is explicit, validates the supported subset
 and refuses unsupported structures without changing the original.
+
+Formatted clipboard content follows the same principle: parse locally into the
+allowlisted semantic vocabulary, preview the complete resulting field, and apply
+only after confirmation. Preserve supported marks, list starts, table spans and
+safe links; adapt fonts, colors and spacing to the application's design. Reject
+files, active/hidden content, unbound gaps, unsupported styles or incomplete
+structure as one paste. No fallback to text without the teacher explicitly using
+plain-text paste. The converter cannot infer answer keys from visual formatting.
+Cancel/stale preview leaves current edits unchanged; one undo reverses insertion.
+Field profiles and aggregate budgets apply to the whole resulting document.
 
 ### 7.2 Word milestone group ordering (approved, not yet enabled)
 
@@ -447,8 +638,133 @@ Snapshot group membership and member order at publication. Persist the delivery
 algorithm version with the assigned snapshot/attempt so reload, takeover and
 restoration cannot choose a new deal; preserve stable answer IDs. Historical
 versions/attempts continue using their existing section-scoped algorithm and
-seeds. Option-label references must be validated against option shuffling before
-assignment; their exact reference representation remains part of the group API.
+seeds. `test_versions.delivery_version` stores this marker: existing standalone
+versions default to `section_v1`; prerelease group snapshots are classified as
+`group_v1` without changing their content or identities. New publications
+explicitly write `group_v1`, whose standalone ordering matches `section_v1`.
+Rollback refuses to remove the marker while group-aware snapshots exist.
+A choice member with semantic references to its option labels declares
+`optionOrder: fixed`; assignment with option shuffling is rejected for that member.
+Other members use `shuffle`; this never changes the member order inside a group.
+
+### 7.3 Word milestone group graph (contract foundation, not yet enabled)
+
+`QuestionGroup` owns ordered members and materials, optional rich instructions,
+and explicit recording bindings. A material's gap targets either a choice member
+or the stable `blankGapId` of a rich fill-blank member. Printed labels and mutable
+answer-row IDs cannot bind responses. Each material gap has exactly one target;
+a response appears only once across that group's material gaps. Gap names are
+local to their material or question. Empty groups are valid drafts but cannot
+publish; existing sections are not reinterpreted as groups.
+
+The complete resolved context is bounded to 200 members, 16 materials, 16 shared
+recordings and 4 MiB, with per-document content limits still enforced. Materials
+may repeat an audio asset but resolve it to one recording binding in the group;
+the same asset cannot also grant a per-question allowance inside that group.
+Distinct member recordings can keep their existing per-question policy. Asset
+kind, existence, authorization and deletion locks remain required at persistence.
+
+Copying remaps group, question, material, answer, gap and recording identities,
+preserving all grading data, labels, order and content. Immutable media IDs are
+reused through new protected bindings. The teacher-only group API and independent
+bank editor and mixed builder are available on the milestone branch; release
+still requires import and pilot acceptance gates. Relational ownership uses a nullable section owner for each group
+(null means an independent bank group) and explicit ownership/order on its member questions.
+Section units distinguish standalone questions from groups. Material gaps and
+media references have relational bindings; cross-group response/playback links
+are rejected. Owned children cannot be archived separately. Restrictive owner
+foreign keys require explicit whole-graph cleanup; existing section deletion
+cannot leave questions detached from their context. Internal graph creation and
+copy materialization are atomic with their audits. Legacy question operations
+hide or refuse owned children; active and archived groups protect referenced
+media under the same asset lock used by deletion. Full-group editing checks an
+aggregate revision; section groups also check the enclosing test revision. Edits
+replace content and member order atomically. Bank archive/restore/delete checks
+the same revision; permanent deletion requires archival and keeps audit history.
+Removing a section-owned group deletes its complete draft graph and compacts unit
+order. Copy materialization checks an observed source revision and creates new
+editable identities. Draft/snapshot/delivery readers preserve the complete graph.
+The builder inserts bank groups as complete independent copies into an explicitly
+chosen section, and can save the current group graph as an independent bank copy.
+
+Draft totals and tag filters include owned members alongside standalone questions.
+Listening counts count each question once when it has its own audio or a shared
+group recording. Independent bank groups are not part of a test's totals. The
+legacy question-only whole-outline writer refuses a draft containing groups with
+`GROUP_OUTLINE_REQUIRED` before changing metadata or structure; metadata-only
+updates remain supported. The group-aware writer accepts complete mixed units and
+moves whole groups transactionally. The builder keeps new section client identities
+until server IDs arrive, preserving edits and order during acknowledgement. The
+outline distinguishes group and standalone IDs, moves empty groups as units and
+keeps continuous learner numbering across member questions. Group and outline
+writes share a serialized enclosing-test revision. Only acknowledged own moves
+advance the active group's revision baseline; external conflicts remain visible.
+Preview and publication flush pending content and outline writes. Group findings
+open the owning group editor instead of the standalone question endpoint.
+
+The independent group bank supports search, remembered URL filters, newest-first
+updates, inline/menu duplication and bulk archive/restore/permanent deletion.
+Copies keep the teacher on the list with a small indicator. The group editor has
+one active rich editor, ordered materials/members, explicit gap-target selectors,
+authorized image/audio picking and upload, HTTPS links and shared recording policy.
+Historical Markdown material remains editable. Material preview preserves undo
+history; full desktop/phone preview uses the learner renderer without answer keys,
+explanations or transcripts. Archived groups must be restored before editing.
+
+Full-group autosave serializes writes with the observed revision, keeps newer
+keystrokes when an earlier write is acknowledged, and flushes before route exit.
+Incomplete edits remain locally recoverable. Quota/storage errors are visible;
+only a server acknowledgement marks the matching revision saved. Recovery from a
+stale revision never overwrites current data: the teacher can edit the recovered
+content and save a fully remapped independent bank copy.
+
+Publication freezes the entire group into version-owned rows, including ordered
+units, member order, materials, stable gap targets and explicit recording policy.
+Frozen context points only to frozen question/blank identities and immutable media;
+editing or deleting a source group cannot alter it. The app role cannot update
+these new snapshot graph rows. Deleting an unreferenced version removes its owned
+graph together. Restoring a version replaces the current owned draft graph with
+fresh editable copies and remaps both ends of material/blank gap links. Duplicating
+a draft preserves mixed unit order and independently copies every group; standalone
+bank references retain their existing duplication semantics. Permanent test deletion
+removes its owned draft groups after the assigned-version reference checks pass.
+Published previews resolve the selected default when no version is specified,
+read one coherent frozen version, and expose ordered sections/groups plus safe
+material bindings. Their projection never selects answer keys or transcripts;
+media URLs come only from relational bindings on that version. Group material
+appears before its first member, and material gaps link to the corresponding
+question. Teacher playback consumes no student allowance. Desktop and 320px phone
+preview modes run inside the existing admin shell (minimum supported width 768px).
+Existing version questions and historical attempts are unchanged.
+
+Archived tests must be restored before creating a draft from a version or changing
+their default version. Both flat and grouped tests return `TEST_ARCHIVED` without
+rewriting content. An unused, non-current version may still be deleted while its
+parent is archived; existing reference checks continue protecting assigned history.
+
+Start, resume and read-attempt responses include the same safe frozen group
+projection. Membership comes from the attempt's version, regardless of the test's
+current default. The tests module owns the reader, invoked through an application
+port after attempt authorization. Shared media is reachable only through protected
+relational bindings on a version the learner has an attempt on; assignment
+targeting alone grants no media access. A missing context reader fails explicitly
+instead of serving grouped questions without their materials. Learner material
+uses the preview renderer: side-by-side with answers when space permits, above
+answers on phones with remembered collapse state. Shared audio controls remain
+available while material text is collapsed. Stable gap targets navigate to the
+question or blank input without losing pending answers. Group players stay mounted
+across child navigation.
+
+Learner results retain the frozen material when filtering questions and expose
+only transcripts released by each recording's `showTranscriptAfterSubmit` flag.
+The score, answer-key and explanation flags do not override that release policy.
+Teacher paper review includes the complete shared transcript and that attempt's
+recording counts. Grading by question includes only the selected question's
+group, without an aggregate playback count across students. Material links focus
+the matching question where navigation is available. Review playback is unlimited
+and does not append attempt playback events or change recorded counts. Legacy
+flat results/reviews keep their existing payload and require no group reader.
+
 
 ---
 
@@ -463,6 +779,7 @@ assignment; their exact reference representation remains part of the group API.
 | `/admin/tests/new`, `/admin/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **audio attach** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. |
 | `/admin/tests/:id` | Test detail | Student-eye preview of any version, with history in the shared right sidebar. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
 | `/admin/question-bank` | Question bank | Type/tag filters + full-text search. CRUD. Audio badge + inline preview. CSV import (P1). |
+| `/admin/question-bank/groups`, `/admin/question-bank/groups/:id` | Group bank/editor | Independent complete-group copies, materials and member editing, shared recording policies, revision-safe autosave and account-scoped local recovery. |
 | `/admin/media` | Media library | Uploaded audio/images: filename, duration, size, where used. Delete blocked if referenced by any published version. |
 | `/admin/assignments` | Assignments list | Test, targets, window, status, `submitted/total`, flagged count. |
 | `/admin/assignments/new` | Create assignment | Published test, targets, window, duration, attempts, shuffle, review policy, integrity policy (§10.3). |
@@ -632,6 +949,33 @@ navigation, event writes and state reconciliation. Its API, relational reference
 concurrency tests and student-payload tests must precede enabling shared audio.
 Existing per-question audio remains a separately supported historical contract.
 
+W-09c adds a separate shared-play endpoint with `recordingId`, current `sessionId`
+and a stable per-gesture `playId`. It follows the existing autosave writable-session
+checks and verifies the recording's material binding belongs to the attempt's
+version before writing. Retrying the same gesture/recording returns its current
+counter; reusing the gesture ID for another recording is a conflict. The counter,
+append-only receipt and server `audio_play` event commit together. Counts survive
+reload/takeover and are returned as `groupAudioPlays`, keyed by recording ID.
+Teacher monitor and timeline excess-play totals include this ledger. New attempts
+start with their own allowance. Network acknowledgements and `maxPlays` never gate
+the actual browser play call. The browser persists unconfirmed gesture IDs per
+learner/attempt until the attempt deadline, clears them on logout and serializes
+bounded retries. Confirmed extensions update the recovery deadline. A pending
+sync label is distinct from answer save state. A response lost after commit does
+not consume a second allowance on retry; late responses cannot mutate another
+session. Counts remain monotonic during refetch. Submission attempts a bounded
+three-second telemetry flush but remains available during network accounting
+failure. Closed/expired attempts reject late telemetry; offline closure cannot
+guarantee complete listening evidence. Results and teacher paper review report
+the confirmed counts without creating new playback receipts.
+
+The assignment introduction derives listening presence, transcript permission and
+the strictest finite allowance from both question audio and shared recordings on
+the assigned version. A newer default does not change these facts. The displayed
+minimum is not presented as every recording's allowance; individual players show
+their own limits. A shared-audio notice explains that member navigation and reload
+do not grant a new allowance.
+
 ---
 
 ## 12. Design guidelines
@@ -799,8 +1143,13 @@ formatting and is only a pre-rollout development operation.
 Migration `00033_add_question_content.sql` adds nullable `prompt_content jsonb`
 and `explanation_content jsonb` to `questions` and `test_version_questions`.
 These columns hold the bounded prose AST from §7.1; companion strings remain
-exact plain projections. Rich prompts exclude `fill_blank`. No legacy rows are
-rewritten, no grading keys move, and the same read-compatible rollback floor
+exact plain projections. Migration `00034_add_question_gap_bindings.sql` enables
+rich fill-blank prompts and adds nullable, question-scoped unique `gap_id` to
+`question_blanks` and `test_version_blanks`. Null identifies legacy Markdown.
+Bank copies and restored drafts remap gap identities and answer bindings together;
+snapshots freeze them. Answer submissions remain keyed by frozen blank UUID.
+Down refuses existing rich fill-blank rows instead of silently discarding bindings.
+No legacy rows are rewritten, no grading keys move, and the same read-compatible rollback floor
 applies after prose writes.
 
 ```sql
@@ -1080,6 +1429,97 @@ grading contracts. Missing answers remain unknown; PDF input, OCR, answer
 generation and automatic publication are excluded. Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
 
+The native source intake checkpoint is configured separately from learner media.
+`IMPORT_S3_BUCKET` names a separate private bucket; `IMPORT_WORK_DIR` is an absolute,
+private disk directory. Both are required to enable intake. The existing S3 endpoint
+and credentials are reused, with no public bucket or CDN fallback. Teacher scope is
+shared within this installation; creator and modifying actors are retained.
+
+`/admin/imports` creates an empty record idempotently and lists history by status,
+title or current filename. A source upload accepts exactly one native `.docx`, with
+bounded package/content inspection, a maximum 25 MiB compressed body and the Word
+inspector's expansion/XML limits. `.doc` remains disabled until isolated conversion
+is implemented. A successful upload only acknowledges stored source bytes.
+
+Each accepted exam/key addition or replacement creates an immutable source set,
+retaining its unchanged companion and prior originals. Uploads require the current
+import revision while `awaiting_sources`. Exact retries reuse their upload identity;
+changed input conflicts. A durable reservation precedes each object write, and both
+pending and completed bytes count towards actor/global quotas. No database transaction
+is held during upload or inspection. The API admits one expanded inspection per
+process. Interrupted reservations remain observable; automatic retention is not yet
+implemented or authorized. Only completed sources can receive a 60-second download
+URL, forced to attachment/octet-stream. Source identifiers are never media asset IDs.
+
+Native extraction retains XML order and source-bound identities for paragraph,
+container, object and unassigned-content blocks. Source fragment offsets use
+Unicode code points and exclude generated labels. Hidden/revised text, fields,
+ancillary parts and unsupported objects remain review evidence. No formatting is
+interpreted as correctness without a confirmed convention. Nested table coordinates
+retain merge evidence; ambiguous grids are flagged. Selected PNG/JPEG assets may
+be normalized under bounded decoding limits, but remain private until explicitly
+reviewed and bound to learner content. Source blocks are separate from machine
+candidate JSON and must not be exposed on student endpoints.
+
+An internal offline converter can normalize binary DOC and render private source
+pages under fixed development resource limits. Native originals remain unchanged;
+converted DOCX and raster output are revalidated. Source, renderer, immutable image
+and artifact identities accompany the rendition. Layout and legacy conversion
+require explicit review; visual source pages do not imply a question-coordinate map.
+A single Docker slot prevents orphan/retry overlap, and the container's independent
+deadline remains active after worker failure. This tool is not yet public legacy
+intake or production activation.
+
+Private stage artifacts have a durable reservation before object storage, pinned
+by source revision, role, run, claim and component configuration. Pending bytes
+count towards separate actor/global limits. A set becomes readable only when all
+its declared files are stored; completed files and sets are immutable. Current
+claims may reuse completed evidence for the same source, pipeline and component,
+including after an explicit retry. Incomplete evidence from an older claim is
+retained for accounting but cannot be adopted by a newer worker. Conditional,
+checksum-verified writes prevent changed replay from replacing stored bytes.
+Source blocks and page files stay outside the bounded run-result JSON. There is
+no automatic artifact retention policy or learner access through these objects.
+
+Processing requests retain their source-set revision, pipeline version and replay
+identity. One queued/running request per import is permitted, with at most 50
+retained requests per import and 1–10 automatic attempts per request. Claims and
+heartbeats serialize capacity accounting across worker processes. Live leases
+expire after a configured 1 second–5 minutes; every state/result write checks the
+worker identity, fencing token, lease and source revision. Exhausted crashes become
+failed runs. Retrying a failed import creates a new immutable run identity.
+
+The offline deterministic recognizer produces `word-candidate-v1` proposals from
+source-linked text, never bank questions. It distinguishes unknown, known and
+conflicting choice keys; explicit option IDs survive reordering. Numbering,
+sections/papers, same-line options, continuation paragraphs and explicit inline,
+final or companion choice keys retain Unicode source ranges. Restarted labels and
+ambiguous table associations do not authorize a guessed match. Bold/underline only
+become answer evidence under an explicitly teacher-confirmed convention; key-only
+marks are removed from the proposed learner prose.
+
+Every meaningful block remains in the coverage ledger. Unassigned ranges, private
+branches, uncertain structure, default points and unresolved fidelity are findings.
+Source comments, hidden/revised text and fields are never automatically copied into
+learner prose. This initial recognizer handles labeled choice structures; grouped
+cloze, typed/written keys, saved profiles and assisted free-form recognition remain
+open. A proposal is not a reviewed draft or approval to commit an assessment.
+
+An internal runner stops cooperating processors on timeout, lease loss or shutdown.
+Processing runs outside transactions. Only a current claim can store a bounded
+private JSON object and transition to `needs_review`. Terminal runs cannot be
+changed. Run events retain actor/worker/stage/failure codes without document contents.
+The standalone `import-worker` assembles source verification, private rendition,
+chunked raw extraction and deterministic recognition. It verifies object lengths
+and SHA-256 before parsing, reuses completed stages pinned to source/configuration,
+and stores candidate content privately. Its bounded result contains only lineage
+and artifact-set identities. The API does not start this worker or require Docker.
+One synchronous job per process, database lease limits, a 512 MiB Go soft-memory
+target, a five-minute job deadline and the converter's separate hard limits are
+conservative development defaults, not the approved production capacity envelope.
+Full domain validation, public processing controls and production supervision
+remain required before release.
+
 Thuong approved two ownership/recovery policies for this milestone:
 
 - Groups and shared materials belong to independent editable copies. Saving a
@@ -1092,7 +1532,14 @@ Thuong approved two ownership/recovery policies for this milestone:
   and revision-aware; local-only changes never display as server-saved. Local
   storage failure or quota exhaustion must remain visible and cannot silently
   discard unsent changes. Source/answer files are not stored in this recovery
-  outbox. This is approved policy, not an implemented durability guarantee yet.
+  outbox. The group editor implements this through IndexedDB, with expiry checked
+  before recovery, explicit restore/discard and a global logout fence that rejects
+  older writers in other tabs. Opening a newer editor of the same item fences the
+  previous local writer; it cannot overwrite or clear the newer editor's outbox.
+  Section-owned group editing uses the same recovery gate and outbox. An explicit
+  route exit first confirms local persistence; save-and-leave flushes both content
+  and outline. Test title/outline and standalone questions are not stored locally.
+  Import review and standalone authoring recovery still require integration.
 
 ---
 

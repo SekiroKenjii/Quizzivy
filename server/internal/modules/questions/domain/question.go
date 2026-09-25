@@ -42,6 +42,7 @@ type Option struct {
 }
 
 type Blank struct {
+	GapID           *string
 	ID              string
 	Ordinal         int
 	AcceptedAnswers []string

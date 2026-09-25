@@ -22,7 +22,10 @@ func (s *Postgres) ListVersions(ctx context.Context, testID string) ([]domain.Ve
 		          JOIN app.test_version_questions vq
 		            ON vq.test_version_section_id = vs.id
 		         WHERE vs.test_version_id = v.id
-		           AND vq.media_asset_kind = 'audio'),
+		           AND (vq.media_asset_kind = 'audio' OR EXISTS (
+		             SELECT 1 FROM app.test_version_group_members gm
+		             JOIN app.test_version_group_recordings gr ON gr.group_id=gm.group_id
+		             WHERE gm.question_id=vq.id))),
 		       (SELECT count(*)
 		          FROM app.test_version_sections vs
 		          JOIN app.test_version_questions vq

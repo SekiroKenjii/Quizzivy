@@ -4,6 +4,8 @@ import (
 	"context"
 	"quizzivy/internal/modules/questions/application/internal/support"
 	"quizzivy/internal/modules/questions/domain"
+
+	"github.com/google/uuid"
 )
 
 // Duplicate is A-06a's "Nhân bản": the same question again as a new bank row
@@ -25,5 +27,8 @@ func (s DuplicateHandler) Handle(ctx context.Context, cmd Duplicate) (domain.Que
 	}
 	cmd.Request.ID = ""
 	cmd.Request.Input = support.InputOf(source)
+	if err := cmd.Request.Input.RebindGaps(uuid.NewString); err != nil {
+		return domain.Question{}, err
+	}
 	return s.Write(ctx, cmd.Request, false)
 }

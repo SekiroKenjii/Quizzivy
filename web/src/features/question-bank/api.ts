@@ -65,6 +65,7 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
     blanks: (question.blanks ?? []).map((blank) => ({
       id: blank.id,
       ordinal: blank.ordinal,
+      gapId: blank.gapId ?? null,
       acceptedAnswers: blank.acceptedAnswers,
       caseSensitive: blank.caseSensitive ?? false,
     })),

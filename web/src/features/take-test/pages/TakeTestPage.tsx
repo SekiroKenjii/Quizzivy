@@ -1,6 +1,7 @@
 import { useIntegrityAutoSubmit } from "@/features/integrity/useIntegrityAutoSubmit";
 import { AutoSubmitNotice } from "@/features/integrity/components/AutoSubmitNotice";
 import {
+  useCallback,
   useEffect,
   useEffectEvent,
   useMemo,
@@ -21,6 +22,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { EngineHeader } from "../components/EngineHeader";
 import { NavigatorRail, NavigatorSheet, type DotState } from "../components/Navigator";
+import { GroupContext } from "../components/GroupContext";
+import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviewScreen } from "../components/ReviewScreen";
 import { SaveStrip } from "../components/SaveState";
@@ -198,6 +201,12 @@ export default function TakeTestPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const jump = useCallback((i: number) => {
+    setIndex(i);
+    setNavOpen(false);
+    setView("question");
+  }, []);
+
   if (status === "loading") {
     return <Notice>{t("takeTest.loading")}</Notice>;
   }
@@ -222,11 +231,6 @@ export default function TakeTestPage() {
     answered: answered(q, answers[q.id]),
     flagged: flags.has(q.id),
   }));
-  const jump = (i: number) => {
-    setIndex(i);
-    setNavOpen(false);
-    setView("question");
-  };
 
   if (submitState === "done" && submittedAt !== null) {
     return (
@@ -369,11 +373,64 @@ function Paper({
   const last = index >= total - 1;
   const choice = (question.options?.length ?? 0) > 0;
   const paper = useRef<HTMLElement>(null);
+  const answerPanel = useRef<HTMLDivElement>(null);
+  const sharedGroups = useTakeTestStore((state) => state.groups);
+  const questions = useTakeTestStore((state) => state.questions);
+  const contexts = useMemo(
+    () =>
+      new Map(
+        sharedGroups.flatMap((context) =>
+          context.questionIds.map((id) => [id, context] as const),
+        ),
+      ),
+    [sharedGroups],
+  );
+  const numbers = useMemo(
+    () => new Map(questions.map((item, i) => [item.id, i + 1])),
+    [questions],
+  );
+  const context = contexts.get(question.id);
+  const contextClasses = paperColumns(context !== undefined);
+  const previousContext = useRef<string | undefined>(undefined);
+  const focusTarget = useRef<string | null>(null);
+  const [focusRequest, requestFocus] = useReducer((n: number) => n + 1, 0);
+  const revealAnswerPanel = useEffectEvent(() => {
+    if (!wide) answerPanel.current?.scrollIntoView?.({ block: "start" });
+  });
   useEffect(() => {
-    if (paper.current === null) return;
-    paper.current.scrollTop = 0;
-    paper.current.focus({ preventScroll: true });
-  }, [question.id]);
+    const target = focusTarget.current;
+    focusTarget.current = null;
+    if (target !== null) {
+      const element = document.getElementById(target) ?? answerPanel.current;
+      element?.focus({ preventScroll: true });
+      element?.scrollIntoView?.({ block: "nearest" });
+    } else if (context?.id && previousContext.current === context.id) {
+      answerPanel.current?.focus({ preventScroll: true });
+      revealAnswerPanel();
+    } else if (paper.current) {
+      paper.current.scrollTop = 0;
+      paper.current.focus({ preventScroll: true });
+    }
+    previousContext.current = context?.id;
+  }, [question.id, context?.id, focusRequest]);
+
+  const jumpToGap = useCallback(
+    (gap: MaterialGap) => {
+      const number = numbers.get(gap.questionId);
+      if (number === undefined) return;
+      const targetQuestion = questions[number - 1];
+      const blank =
+        gap.kind === "blank"
+          ? targetQuestion?.blanks?.find((item) => item.gapId === gap.blankGapId)
+          : undefined;
+      focusTarget.current = blank
+        ? `answer-blank-${blank.id}`
+        : `answer-question-${gap.questionId}`;
+      requestFocus();
+      onJump(number - 1);
+    },
+    [numbers, questions, onJump],
+  );
 
   const flag = (
     <Button
@@ -448,11 +505,13 @@ function Paper({
           aria-label={t("takeTest.dotLabel", { n: index + 1 })}
           data-resize-middle
           className={cn(
-            "min-w-0 flex-1 overflow-y-auto outline-none",
+            "@container/paper min-w-0 flex-1 overflow-y-auto outline-none",
             wide ? "p-8" : "p-4",
           )}
         >
-          <div className="mx-auto w-full max-w-[720px] space-y-5">
+          <div
+            className={cn("mx-auto flex w-full flex-col gap-5", contextClasses.width)}
+          >
             {wide && (
               <div className="flex items-center justify-between gap-3">
                 <p className="text-muted-foreground text-xs">
@@ -467,31 +526,51 @@ function Paper({
                 audio={question.media?.kind === "audio"}
               />
             )}
-            <QuestionCard
-              question={question}
-              onAudioExpired={onReload}
-              action={wide ? undefined : flag}
-            />
-            {wide && (
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                {previous}
-                {next}
-                <p className="text-muted-foreground ml-3 flex items-center gap-1 text-xs">
-                  {t("takeTest.shortcuts")}
-                  {choice && (
-                    <>
-                      {" "}
-                      <Kbd>{KEY.a}</Kbd>
-                      {KEY.dash}
-                      <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
-                    </>
-                  )}{" "}
-                  <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd>{" "}
-                  {t("takeTest.shortcutMove")} {KEY.dot} <Kbd>{KEY.f}</Kbd>{" "}
-                  {t("takeTest.shortcutFlag")}
-                </p>
+            <div className={contextClasses.grid}>
+              {context && (
+                <GroupContext
+                  key={context.id}
+                  group={context}
+                  numbers={numbers}
+                  onGap={jumpToGap}
+                  onRetryMedia={onReload}
+                  wide={wide}
+                />
+              )}
+              <div
+                ref={answerPanel}
+                id={`answer-question-${question.id}`}
+                tabIndex={-1}
+                aria-label={t("takeTest.dotLabel", { n: index + 1 })}
+                className="flex min-w-0 flex-col gap-5 outline-none"
+              >
+                <QuestionCard
+                  question={question}
+                  onAudioExpired={onReload}
+                  action={wide ? undefined : flag}
+                />
+                {wide && (
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
+                    {previous}
+                    {next}
+                    <p className="text-muted-foreground ml-3 flex items-center gap-1 text-xs">
+                      {t("takeTest.shortcuts")}
+                      {choice && (
+                        <>
+                          {" "}
+                          <Kbd>{KEY.a}</Kbd>
+                          {KEY.dash}
+                          <Kbd>{KEY.d}</Kbd> {t("takeTest.shortcutPick")} {KEY.dot}
+                        </>
+                      )}{" "}
+                      <Kbd>{KEY.left}</Kbd> <Kbd>{KEY.right}</Kbd>{" "}
+                      {t("takeTest.shortcutMove")} {KEY.dot} <Kbd>{KEY.f}</Kbd>{" "}
+                      {t("takeTest.shortcutFlag")}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </main>
         {wide && (
@@ -610,4 +689,13 @@ function Notice({ children }: Readonly<{ children: string }>) {
       <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
     </main>
   );
+}
+
+function paperColumns(shared: boolean) {
+  return shared
+    ? {
+        width: "max-w-none",
+        grid: "grid min-w-0 items-start gap-6 @min-[800px]/paper:grid-cols-2",
+      }
+    : { width: "max-w-[720px]", grid: undefined };
 }

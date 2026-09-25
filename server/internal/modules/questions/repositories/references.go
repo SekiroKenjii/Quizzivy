@@ -40,7 +40,7 @@ func DraftReferences(ctx context.Context, q db.Querier, questionID string) ([]do
 func LockForDraftUse(ctx context.Context, q db.Querier, questionID string) error {
 	var deleted bool
 	err := q.QueryRow(ctx,
-		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 FOR UPDATE`,
+		`SELECT deleted_at IS NOT NULL FROM app.questions WHERE id = $1 AND context_group_id IS NULL FOR UPDATE`,
 		questionID).Scan(&deleted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
