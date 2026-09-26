@@ -7,6 +7,7 @@ import { router } from "./router";
 import { setSessionLostHandler } from "@/lib/api/client";
 import { useBootstrapSession } from "@/features/auth/useSession";
 import { useAuthStore } from "@/stores/auth";
+import { useResolvedTheme } from "@/lib/theme";
 
 /**
  * Wires the API client's "the session is gone" signal into the router and the
@@ -14,6 +15,7 @@ import { useAuthStore } from "@/stores/auth";
  */
 export function AppProviders() {
   useBootstrapSession();
+  useResolvedTheme();
 
   useEffect(() => {
     setSessionLostHandler(() => {

@@ -25,6 +25,7 @@ import {
   useCommandPalette,
 } from "@/features/search/useCommandPalette";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useForcedLightTheme } from "@/lib/theme";
 import { useQuery } from "@tanstack/react-query";
 import { getDashboard } from "@/features/dashboard/api";
 import { NotificationsButton } from "@/features/dashboard/NotificationsButton";
@@ -84,6 +85,7 @@ const itemClass = ({ isActive }: { isActive: boolean }) =>
   );
 
 export default function AdminLayout() {
+  useForcedLightTheme();
   const { t } = useTranslation();
   // §8's breakpoint: at or below 1280px the sidebar collapses by default.
   const isNarrow = useMediaQuery("(max-width: 1280px)");
