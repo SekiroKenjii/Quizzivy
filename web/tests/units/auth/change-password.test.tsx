@@ -5,7 +5,9 @@ import { http } from "msw";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import ChangePasswordPage from "@/features/auth/pages/ChangePasswordPage";
 import { PasswordSection } from "@/features/auth/components/SettingsSections";
+import { saveJoinContext } from "@/features/join/context";
 import { server } from "@tests/support/server";
+import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
 
@@ -58,6 +60,38 @@ describe("the forced password change", () => {
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(field).toHaveFocus();
     expect(posts()).toBe(0);
+  });
+});
+
+describe("the forced password change during a join", () => {
+  it("goes back to finish the join once the password is changed", async () => {
+    sessionStorage.clear();
+    saveJoinContext({
+      code: "K7QM2PXA",
+      className: "TOEIC 600 Weekend",
+      teacherName: "Hoàng Thương",
+    });
+    countPosts();
+    server.use(
+      http.get(`${BASE}/auth/me`, () =>
+        contractJson("/auth/me", "get", 200, { ...USER, mustChangePassword: false }),
+      ),
+    );
+    const user = userEvent.setup();
+    const router = createMemoryRouter(
+      [
+        { path: "/change-password", element: <ChangePasswordPage /> },
+        { path: "/join/:code", element: <p>join page</p> },
+      ],
+      { initialEntries: ["/change-password"] },
+    );
+    render(<RouterProvider router={router} />);
+
+    await user.type(screen.getByLabelText("Mật khẩu mới"), "một-mật-khẩu-mới-9");
+    await user.click(screen.getByRole("button", { name: "Đổi mật khẩu" }));
+
+    expect(await screen.findByText("join page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/join/K7QM2PXA");
   });
 });
 

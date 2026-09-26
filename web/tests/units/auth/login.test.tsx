@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider, type RouteObject } from "react-rout
 import LoginPage from "@/features/auth/pages/LoginPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { saveJoinContext } from "@/features/join/context";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
 
@@ -16,6 +17,7 @@ function renderLogin(initialEntry = "/login") {
     { path: "/login", element: <LoginPage /> },
     { path: "/admin", element: <p>admin home</p> },
     { path: "/app", element: <p>student home</p> },
+    { path: "/join/:code", element: <p>join page</p> },
   ];
   const router = createMemoryRouter(routes, { initialEntries: [initialEntry] });
   render(<RouterProvider router={router} />);
@@ -24,6 +26,7 @@ function renderLogin(initialEntry = "/login") {
 
 afterEach(() => {
   useAuthStore.getState().clearSession();
+  sessionStorage.clear();
 });
 
 describe("/login", () => {
@@ -185,5 +188,27 @@ describe("/login", () => {
     renderLogin();
     expect(screen.queryByRole("button", { name: /đăng ký|tạo tài khoản/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /đăng ký|tạo tài khoản/i })).toBeNull();
+  });
+
+  it("names the class a visitor came to join, and goes back to finish it", async () => {
+    saveJoinContext({
+      code: "K7QM2PXA",
+      className: "TOEIC 600 Weekend",
+      teacherName: "Hoàng Thương",
+    });
+    const user = userEvent.setup();
+    const router = renderLogin();
+    expect(screen.getByText("Đăng nhập để tham gia TOEIC 600 Weekend.")).toBeVisible();
+
+    await user.type(screen.getByLabelText("Email"), "thuong@example.com");
+    await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
+    await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/join/K7QM2PXA"));
+  });
+
+  it("welcomes back a visitor who is not joining anything", () => {
+    renderLogin();
+    expect(screen.getByText("Chào mừng bạn trở lại.")).toBeVisible();
   });
 });

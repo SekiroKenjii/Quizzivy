@@ -14,6 +14,7 @@ import {
 } from "@/features/auth/changePasswordSchema";
 import { ApiError } from "@/lib/api/errors";
 import { homePathFor } from "@/features/auth/home";
+import { readJoinContext } from "@/features/join/context";
 import { useAuthStore } from "@/stores/auth";
 
 /** The forced password change (§5.4). */
@@ -36,7 +37,10 @@ export default function ChangePasswordPage() {
       await changePassword(values.currentPassword, values.newPassword);
       const user = await fetchCurrentUser();
       setUser(user);
-      await navigate(homePathFor(user), { replace: true });
+      const joining = readJoinContext();
+      await navigate(joining ? `/join/${joining.code}` : homePathFor(user), {
+        replace: true,
+      });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : t("error.body"));
     }

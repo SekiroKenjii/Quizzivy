@@ -175,14 +175,14 @@ describe("losing the session", () => {
   it("leaves a visitor on a public screen where they are", async () => {
     const routes: RouteObject[] = [
       { path: "/login", element: <p>login page</p> },
-      { path: "/join/:code/confirm", element: <p>confirm page</p> },
+      { path: "/join/:code", element: <p>join page</p> },
       {
         element: <RequireSession />,
         children: [{ path: "/app", element: <p>student home</p> }],
       },
     ];
     const router = createMemoryRouter(routes, {
-      initialEntries: ["/join/K7M3P9QR/confirm"],
+      initialEntries: ["/join/K7M3P9QR"],
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -190,12 +190,12 @@ describe("losing the session", () => {
         <RouterProvider router={router} />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText("confirm page")).toBeInTheDocument();
+    expect(await screen.findByText("join page")).toBeInTheDocument();
 
     // What the API client does when a session turns out not to exist.
     useAuthStore.getState().clearSession();
 
-    expect(router.state.location.pathname).toBe("/join/K7M3P9QR/confirm");
-    expect(screen.getByText("confirm page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/join/K7M3P9QR");
+    expect(screen.getByText("join page")).toBeInTheDocument();
   });
 });

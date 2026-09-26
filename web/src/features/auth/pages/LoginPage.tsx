@@ -19,10 +19,15 @@ import {
 } from "@/features/auth/google/useGoogleSignIn";
 import { destinationAfterSignIn } from "@/features/auth/home";
 import { loginSchema, type LoginValues } from "@/features/auth/loginSchema";
+import { readJoinContext } from "@/features/join/context";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 
-/** LoginPage is §5.1's password sign-in and §5.3's Google entry point. */
+/**
+ * LoginPage is §5.1's password sign-in and §5.3's Google entry point. When a
+ * visitor arrives from joining a class, it names the class and hands the
+ * signed-in user back to `/join/:code` to finish.
+ */
 export default function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -30,6 +35,7 @@ export default function LoginPage() {
   const setSession = useAuthStore((s) => s.setSession);
   const google = useGoogleSignIn();
   const [error, setError] = useState<string | null>(null);
+  const [joining] = useState(readJoinContext);
 
   const next = params.get("next") ?? undefined;
 
@@ -45,7 +51,10 @@ export default function LoginPage() {
     try {
       const result = await login(values.email, values.password);
       setSession(result.accessToken, result.user);
-      await navigate(destinationAfterSignIn(next, result.user), { replace: true });
+      await navigate(
+        joining ? `/join/${joining.code}` : destinationAfterSignIn(next, result.user),
+        { replace: true },
+      );
     } catch (cause) {
       setError(messageFor(cause));
     }
@@ -82,7 +91,11 @@ export default function LoginPage() {
     >
       <div>
         <h1 className="text-h1">{t("login.title")}</h1>
-        <p className="text-muted-fg mt-1">{t("login.subtitle")}</p>
+        <p className="text-muted-fg mt-1">
+          {joining
+            ? t("login.joinSubtitle", { className: joining.className })
+            : t("login.subtitle")}
+        </p>
       </div>
 
       {googleSignInAvailable() && (
@@ -94,7 +107,7 @@ export default function LoginPage() {
             className="bg-card shadow-card hover:bg-muted text-body w-full gap-2.5 font-medium"
             aria-busy={google.pending || undefined}
             onClick={() => {
-              if (!google.pending) void google.start({ next });
+              if (!google.pending) void google.start({ next, joinCode: joining?.code });
             }}
           >
             {google.pending ? (
