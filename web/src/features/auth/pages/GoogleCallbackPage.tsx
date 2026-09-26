@@ -10,6 +10,11 @@ import { useAuthStore } from "@/stores/auth";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AuthLayout } from "@/features/auth/AuthLayout";
+import {
+  clearJoinContext,
+  joinOutcomeState,
+  readJoinContext,
+} from "@/features/join/context";
 
 /** Where Google sends the browser back (§5.3 step 2). */
 export default function GoogleCallbackPage() {
@@ -64,9 +69,26 @@ export default function GoogleCallbackPage() {
           },
         });
         setSession(result.accessToken, result.user);
-        await navigate(destinationAfterSignIn(pending.next, result.user), {
-          replace: true,
-        });
+        if (pending.joinCode && result.enrolledClass) {
+          const className = result.enrolledClass.name;
+          const teacherName = readJoinContext()?.teacherName ?? "";
+          clearJoinContext();
+          await navigate(`/join/${pending.joinCode}`, {
+            replace: true,
+            state: joinOutcomeState({
+              kind: "joined",
+              className,
+              teacherName,
+            }),
+          });
+          return;
+        }
+        await navigate(
+          pending.joinCode
+            ? `/join/${pending.joinCode}`
+            : destinationAfterSignIn(pending.next, result.user),
+          { replace: true },
+        );
       } catch (cause) {
         setError(cause instanceof ApiError ? cause.message : t("login.googleFailed"));
       }

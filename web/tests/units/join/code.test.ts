@@ -3,8 +3,12 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ALPHABET,
+  clean,
   CODE_LENGTH,
+  EXAMPLE_CODE,
   format,
+  group,
+  hasExcluded,
   isComplete,
   normalize,
 } from "@/features/join/code";
@@ -98,5 +102,46 @@ describe("isComplete", () => {
 
   it("agrees with the server's code length", () => {
     expect(CODE_LENGTH).toBe(8);
+  });
+});
+
+describe("clean", () => {
+  it("upper-cases and drops everything but letters and digits", () => {
+    expect(clean("k7qm-2pxa")).toBe("K7QM2PXA");
+    expect(clean(" k7qm – 2pxa ")).toBe("K7QM2PXA");
+  });
+
+  it("keeps the characters no code uses, so the field can say so", () => {
+    expect(clean("k7q0-2pxi")).toBe("K7Q02PXI");
+  });
+
+  it("stops at the code length", () => {
+    expect(clean("K7QM2PXAZZZZ")).toBe("K7QM2PXA");
+  });
+});
+
+describe("hasExcluded", () => {
+  it("finds each of 0, O, 1 and I", () => {
+    for (const ch of "0O1I") expect(hasExcluded(`K7Q${ch}`), ch).toBe(true);
+  });
+
+  it("passes a code spelt from the alphabet", () => {
+    expect(hasExcluded("K7QM2PXA")).toBe(false);
+    expect(hasExcluded("")).toBe(false);
+  });
+});
+
+describe("group", () => {
+  it("adds the dash with the fifth character", () => {
+    expect(group("K7QM")).toBe("K7QM");
+    expect(group("K7QM2")).toBe("K7QM-2");
+    expect(group("K7Q02PXA")).toBe("K7Q0-2PXA");
+  });
+});
+
+describe("EXAMPLE_CODE", () => {
+  it("is a code the alphabet could produce", () => {
+    expect(isComplete(EXAMPLE_CODE)).toBe(true);
+    expect(format(EXAMPLE_CODE)).toBe(EXAMPLE_CODE);
   });
 });

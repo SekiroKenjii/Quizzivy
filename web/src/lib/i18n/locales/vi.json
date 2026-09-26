@@ -219,6 +219,7 @@
   "login": {
     "title": "Đăng nhập",
     "subtitle": "Chào mừng bạn trở lại.",
+    "joinSubtitle": "Đăng nhập để tham gia {{className}}.",
     "email": "Email",
     "password": "Mật khẩu",
     "submit": "Đăng nhập",
@@ -245,28 +246,27 @@
   },
   "join": {
     "title": "Tham gia lớp học",
-    "subtitle": "Nhập mã lớp giáo viên đã gửi cho bạn.",
+    "subtitle": "Nhập mã 8 ký tự giáo viên gửi cho bạn.",
     "codeLabel": "Mã lớp",
-    "codeHint": "8 ký tự, ví dụ K7M3-P9QR. Không phân biệt hoa thường.",
-    "continue": "Tiếp tục",
-    "youAreJoining": "Bạn đang tham gia lớp",
-    "teacher": "Giáo viên: {{name}}",
-    "confirmWithGoogle": "Tiếp tục với Google",
-    "confirmSignedIn": "Tham gia lớp này",
-    "googleExplainer": "Tài khoản của bạn sẽ được tạo bằng Google. Chúng tôi chỉ dùng tên và email của bạn.",
-    "cannotJoin": "Không thể tham gia lớp",
-    "tryAnotherCode": "Thử mã khác",
-    "enrolling": "Đang thêm bạn vào lớp…",
-    "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
-    "errors": {
-      "incomplete": "Mã lớp phải có đủ 8 ký tự."
-    },
-    "haveAccount": "Đã có tài khoản?",
+    "excluded": "Mã lớp không bao giờ có 0, O, 1 hoặc I.",
+    "notFound": "Không có lớp nào dùng mã này. Hãy kiểm tra lại với giáo viên.",
+    "lookupFailed": "Chưa kiểm tra được mã. Vui lòng thử lại.",
+    "checking": "Đang tìm lớp…",
+    "found": "Đã tìm thấy lớp",
+    "joinClass": "Tham gia {{className}}",
+    "nextStep": "Tiếp theo, bạn sẽ đăng nhập hoặc tạo tài khoản.",
+    "alreadyInClass": "Đã ở trong một lớp?",
     "signIn": "Đăng nhập",
-    "anotherCode": "Nhập mã khác",
-    "panelNote": "Bạn sẽ thấy tên lớp và giáo viên trước khi xác nhận tham gia.",
-    "signedInAs": "Bạn đang đăng nhập với tên {{name}}.",
-    "backToClasses": "Quay lại lớp của tôi"
+    "studentsOnly": "Chỉ tài khoản học viên mới tham gia lớp được.",
+    "goHome": "Về trang chủ của tôi",
+    "joining": "Đang thêm bạn vào {{className}}…",
+    "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
+    "goToClasses": "Đến lớp của tôi",
+    "joined": {
+      "title": "Bạn đã vào lớp {{className}}",
+      "body": "{{teacherName}} sẽ thấy bạn trong danh sách lớp.",
+      "failedTitle": "Chưa thể thêm bạn vào {{className}}"
+    }
   },
   "classDetail": {
     "joinCode": "Mã tham gia lớp",
