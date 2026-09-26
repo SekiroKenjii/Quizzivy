@@ -2,7 +2,10 @@ import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Kbd } from "@/components/ui/kbd";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,5 +70,40 @@ describe("deck geometry applies only on a deck surface", () => {
   it("never passes the deck size to the input element", () => {
     const { container } = render(<Input aria-label="Email" size="xl" />);
     expect(container.querySelector("input")).not.toHaveAttribute("size");
+  });
+
+  it("turns a status badge into the deck's soft pill only on a deck surface", () => {
+    const { unscoped, scoped } = classesOf(<Badge variant="success">Đã nộp</Badge>);
+    expect(unscoped).toContain("rounded-sm");
+    expect(scoped).toEqual(
+      expect.arrayContaining(["rounded-full", "bg-success-soft", "text-success-ink"]),
+    );
+    expect(classesOf(<Badge variant="count-brand">3</Badge>).unscoped).toContain(
+      "bg-brand",
+    );
+  });
+
+  it("draws the status dot only when asked", () => {
+    const { container } = render(
+      <Badge variant="info" dot>
+        Đang làm
+      </Badge>,
+    );
+    expect(container.querySelector('[aria-hidden="true"]')).toHaveClass(
+      "size-1.5",
+      "rounded-full",
+    );
+    expect(
+      render(<Badge variant="info">Đang làm</Badge>).container.querySelector(
+        '[aria-hidden="true"]',
+      ),
+    ).toBeNull();
+  });
+
+  it("gives cards and key caps the deck's radius and type only on a deck surface", () => {
+    expect(classesOf(<Card />).scoped).toEqual(
+      expect.arrayContaining(["shadow-card", "rounded-xl"]),
+    );
+    expect(classesOf(<Kbd>K</Kbd>).scoped).toContain("text-caption");
   });
 });

@@ -381,6 +381,17 @@
   animation: qz-shimmer 1.4s linear infinite;
 }
 
+[data-scale="deck"] [data-slot="skeleton"] {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0,
+    var(--hover) 50%,
+    var(--muted) 100%
+  );
+  background-size: 800px 100%;
+  animation: qz-shimmer 1.4s linear infinite;
+}
+
 .qz-breath {
   animation: qz-breath 1.8s ease-in-out infinite;
 }
@@ -395,7 +406,8 @@
   .qz-breath {
     animation: none;
   }
-  .qz-shimmer {
+  .qz-shimmer,
+  [data-scale="deck"] [data-slot="skeleton"] {
     animation: none;
     background: var(--muted);
   }

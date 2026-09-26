@@ -13,8 +13,8 @@ function Card({
     <Comp
       data-slot="card"
       className={cn(
-        // The deck's `.card`: radius-lg and the lighter of the two shadows.
         "bg-card text-card-foreground flex flex-col gap-6 rounded-lg border py-6 shadow-xs",
+        "in-data-[scale=deck]:shadow-card in-data-[scale=deck]:rounded-xl",
         className,
       )}
       {...props}
