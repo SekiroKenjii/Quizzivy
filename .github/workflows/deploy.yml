@@ -321,6 +321,9 @@ jobs:
           VITE_API_BASE_URL: ${{ env.API_ORIGIN }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_DEFAULT_LOCALE: vi
+          VITE_ORG_NAME: ${{ vars.VITE_ORG_NAME }}
+          VITE_ORG_FRONT_DESK_PHONE: ${{ vars.VITE_ORG_FRONT_DESK_PHONE }}
+          VITE_ORG_FRONT_DESK_HOURS: ${{ vars.VITE_ORG_FRONT_DESK_HOURS }}
         run: pnpm build
 
       # The check that stops the whole point of the deploy going wrong quietly.

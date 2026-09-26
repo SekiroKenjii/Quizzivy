@@ -2420,5 +2420,11 @@
   "toast": {
     "region": "Notifications",
     "close": "Close notification"
+  },
+  "auth": {
+    "panel": {
+      "headline": "Tests, lessons and practice for your English classes.",
+      "help": "Need help signing in? Ask your teacher or the front desk."
+    }
   }
 }

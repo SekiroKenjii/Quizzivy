@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { AuthLayout } from "@/features/auth/AuthLayout";
+import { SystemFrame } from "@/app/pages/SystemFrame";
 
 /**
- * The shape all three failure screens share (E-01..E-03): the same two-panel
- * layout login uses, with the drawing in the panel and the answer in the card.
+ * The shape the failure screens share: the system frame with the drawing in
+ * the panel and the page's title, body, evidence and footnote in the column.
  */
 export function ErrorScreen({
   art,
@@ -22,11 +22,14 @@ export function ErrorScreen({
   children?: ReactNode;
 }>) {
   return (
-    <AuthLayout art={art} footer={footer}>
-      <h1 className="text-lg font-semibold tracking-tight lg:text-xl">{title}</h1>
-      <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{body}</p>
+    <SystemFrame art={art}>
+      <h1 className="text-h1 text-balance">{title}</h1>
+      <p className="text-muted-fg text-body mt-2 text-pretty">{body}</p>
       {children}
-    </AuthLayout>
+      {footer && (
+        <p className="text-muted-fg mt-6 text-center text-sm text-pretty">{footer}</p>
+      )}
+    </SystemFrame>
   );
 }
 
