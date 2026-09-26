@@ -31,6 +31,14 @@ export default [
   // the project service below.
   sonarjs.configs.recommended,
   {
+    files: ["public/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: globals.browser,
+    },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2022,

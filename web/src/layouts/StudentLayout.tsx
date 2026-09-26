@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BrandLockup, BrandMark } from "@/components/shared/Brand";
 import { AccountMenu } from "@/features/auth/AccountMenu";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useForcedLightTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import type { DetailShell } from "@/layouts/detailShell";
 
@@ -16,6 +17,7 @@ interface StudentHandle {
 
 /** StudentLayout keeps the route mounted while adapting navigation at 1024px. */
 export default function StudentLayout() {
+  useForcedLightTheme();
   const { t } = useTranslation();
   const wide = useMediaQuery("(min-width: 1024px)");
   const matches = useMatches();

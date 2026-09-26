@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
+import { useResolvedTheme } from "@/lib/theme";
 
 /**
  * The brand kit on screen. Files are Thuong's, served from `public/brand/`
@@ -23,6 +24,11 @@ const ART = {
     floor: 120,
   },
   mark: { src: "/brand/quizzivy-mark-color.svg", ratio: 601.5 / 429.75, floor: 24 },
+  markOnDark: {
+    src: "/brand/quizzivy-mark-on-dark.svg",
+    ratio: 601.5 / 429.75,
+    floor: 24,
+  },
 } as const;
 
 type Art = keyof typeof ART;
@@ -30,7 +36,7 @@ type Art = keyof typeof ART;
 function box(art: Art, height: number) {
   const { ratio, floor } = ART[art];
   const width = Math.round(height * ratio);
-  const measured = art === "mark" ? height : width;
+  const measured = art === "mark" || art === "markOnDark" ? height : width;
   if (import.meta.env.DEV && measured < floor) {
     // A warning, never a throw.
     console.warn(
@@ -44,21 +50,25 @@ function box(art: Art, height: number) {
 /**
  * The horizontal lockup — the mark and the wordmark together.
  *
- * `onDark` picks the variant drawn for a dark surface. It is not a theme
- * switch: the kit forbids putting `color` on a dark background at all, so this
- * follows the surface the caller is painting, not the user's theme.
+ * `onDark` picks the variant drawn for a surface that is dark in both themes.
+ * `theme="auto"` follows the theme on screen instead, for surfaces painted
+ * with the page background. The kit forbids `color` on a dark ground.
  */
 export function BrandLockup({
   height,
   onDark = false,
+  theme,
   className,
 }: Readonly<{
   height: number;
   onDark?: boolean;
+  theme?: "auto";
   className?: string;
 }>) {
   const { t } = useTranslation();
-  const art = onDark ? "lockupOnDark" : "lockup";
+  const resolved = useResolvedTheme();
+  const dark = onDark || (theme === "auto" && resolved === "dark");
+  const art = dark ? "lockupOnDark" : "lockup";
   return (
     <img
       src={ART[art].src}
@@ -75,18 +85,22 @@ export function BrandMark({
   height = 22,
   className,
   label = true,
+  theme,
 }: Readonly<{
   height?: number;
   className?: string;
   label?: boolean;
+  theme?: "auto";
 }>) {
   const { t } = useTranslation();
+  const resolved = useResolvedTheme();
+  const art = theme === "auto" && resolved === "dark" ? "markOnDark" : "mark";
   const mark = (
     <img
-      src={ART.mark.src}
+      src={ART[art].src}
       // Decorative when the name follows it as text; the identifier otherwise.
       alt={label ? "" : t("app.name")}
-      {...box("mark", height)}
+      {...box(art, height)}
       className="select-none"
       draggable={false}
     />
