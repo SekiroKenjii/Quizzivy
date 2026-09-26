@@ -439,6 +439,8 @@ components:
         - DEADLINE_PASSED
         - GRADING_INCOMPLETE
         - VERSION_LOCKED
+        # availability
+        - MAINTENANCE
         # generic
         - VALIDATION_FAILED
         - NOT_FOUND
