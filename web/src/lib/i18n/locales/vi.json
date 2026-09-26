@@ -2416,5 +2416,9 @@
       "viewImport": "Xem lượt nhập",
       "sourceRemoved": "Tệp gốc đã được xoá theo chính sách lưu trữ nên không còn xem được nội dung trích ra."
     }
+  },
+  "toast": {
+    "region": "Thông báo",
+    "close": "Đóng thông báo"
   }
 }

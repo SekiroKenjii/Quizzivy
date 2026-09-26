@@ -35,7 +35,7 @@ export function Segmented({
             aria-pressed={on}
             onClick={() => onChange(option.value)}
             className={cn(
-              "focus-visible:ring-ring inline-flex h-7 items-center gap-1.5 rounded-md border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+              "inline-flex h-7 items-center gap-1.5 rounded-md border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors",
               on
                 ? "bg-background text-foreground shadow-card"
                 : "text-muted-foreground",

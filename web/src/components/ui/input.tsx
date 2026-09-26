@@ -19,7 +19,7 @@ function Input({
       data-slot="input"
       className={cn(
         "border-input selection:bg-primary selection:text-primary-foreground file:text-foreground placeholder:text-muted-foreground dark:bg-input/30 h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-[length:var(--text-input)] shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 lg:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "focus-visible:border-ring",
         "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
         "in-data-[scale=deck]:lg:text-ui in-data-[scale=deck]:aria-invalid:border-danger in-data-[scale=deck]:h-9.5 in-data-[scale=deck]:px-3 in-data-[scale=deck]:shadow-none in-data-[scale=deck]:focus-visible:ring-0",
         size === "lg" &&

@@ -56,7 +56,7 @@ export default function LoginPage() {
           <p>{t("login.noSignup")}</p>
           <Link
             to="/join"
-            className="focus-visible:ring-ring mt-2 inline-flex min-h-11 items-center rounded-sm underline focus-visible:ring-2"
+            className="mt-2 inline-flex min-h-11 items-center rounded-sm underline"
           >
             {t("student.joinClass")}
           </Link>

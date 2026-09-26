@@ -48,7 +48,7 @@ export function SettingsPage({
                 to={path(id)}
                 end
                 className={cn(
-                  "focus-visible:ring-ring flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:ring-2 motion-reduce:transition-none",
+                  "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 motion-reduce:transition-none",
                   active === id
                     ? "bg-muted text-foreground"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -67,7 +67,7 @@ export function SettingsPage({
               id="settings-section"
               value={active}
               onChange={(event) => void navigate(path(event.target.value))}
-              className="bg-background focus-visible:ring-ring min-h-11 w-full rounded-md border px-3 text-base focus-visible:ring-2"
+              className="bg-background min-h-11 w-full rounded-md border px-3 text-base"
             >
               {sections.map(({ id }) => (
                 <option key={id} value={id}>

@@ -38,8 +38,8 @@ export function AccountMenu({
         aria-label={t("nav.account", { name: user.fullName })}
         className={
           named
-            ? "hover:bg-accent focus-visible:ring-ring inline-flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            : "focus-visible:ring-ring rounded-full focus-visible:ring-2 focus-visible:outline-none"
+            ? "hover:bg-accent inline-flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors"
+            : "rounded-full"
         }
       >
         <Avatar name={user.fullName} size="sm" />

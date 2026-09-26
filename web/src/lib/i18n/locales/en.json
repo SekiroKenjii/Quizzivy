@@ -2416,5 +2416,9 @@
       "viewImport": "View the import",
       "sourceRemoved": "The original file was removed under the retention policy, so its extracted text is no longer available."
     }
+  },
+  "toast": {
+    "region": "Notifications",
+    "close": "Close notification"
   }
 }
