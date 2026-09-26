@@ -218,24 +218,30 @@
   },
   "login": {
     "title": "Sign in",
-    "subtitle": "Enter the email and password your teacher gave you.",
+    "subtitle": "Welcome back.",
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
-    "or": "or",
     "continueWithGoogle": "Continue with Google",
     "failed": "Could not sign in. Please try again.",
     "googleUnavailable": "Google sign-in is not available right now.",
     "googleFailed": "Google sign-in did not work. Please try again.",
     "completingGoogle": "Finishing sign-in…",
     "backToSignIn": "Back to sign in",
-    "noSignup": "Accounts are created by your teacher. If you have a class code, use the join link they sent you.",
     "errors": {
       "emailRequired": "Enter your email.",
       "emailInvalid": "That email is not valid.",
       "passwordRequired": "Enter your password."
     },
-    "panelBlurb": "An English practice platform built for your class."
+    "orWithEmail": "or with email",
+    "emailPlaceholder": "you@example.com",
+    "forgot": "Forgot password?",
+    "submitting": "Signing in…",
+    "missingFields": "Enter your email and password.",
+    "invalidCredentials": "That email and password do not match. Check for typos, or ask your teacher to reset your password.",
+    "haveCode": "Have a class code?",
+    "joinClass": "Join a class",
+    "googleFailedTitle": "Couldn't sign you in with Google"
   },
   "join": {
     "title": "Join a class",
@@ -2426,5 +2432,12 @@
       "headline": "Tests, lessons and practice for your English classes.",
       "help": "Need help signing in? Ask your teacher or the front desk."
     }
+  },
+  "forgot": {
+    "title": "Forgot your password?",
+    "body": "Your teacher or the centre can reset it for you. You will get a temporary password and choose a new one when you sign in.",
+    "googleTitle": "Signed up with Google?",
+    "googleBody": "You do not need a password. Use Continue with Google.",
+    "frontDesk": "Front desk"
   }
 }

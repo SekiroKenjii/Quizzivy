@@ -37,7 +37,7 @@ describe("/login", () => {
     expect(useAuthStore.getState().accessToken).toBeNull();
   });
 
-  it("renders the server's message verbatim on a failure", async () => {
+  it("says the credentials do not match in the product's words", async () => {
     server.use(
       http.post(`${BASE}/auth/login`, () =>
         contractJson("/auth/login", "post", 401, {
@@ -57,7 +57,68 @@ describe("/login", () => {
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Email hoặc mật khẩu không đúng.");
+    expect(alert).toHaveTextContent(
+      "Email và mật khẩu không khớp. Hãy kiểm tra lỗi gõ, hoặc nhờ giáo viên đặt lại mật khẩu.",
+    );
+  });
+
+  it("shows any other server message as written, and clears it on the next edit", async () => {
+    server.use(
+      http.post(`${BASE}/auth/login`, () =>
+        contractJson("/auth/login", "post", 429, {
+          error: {
+            code: "RATE_LIMITED",
+            message: "Bạn thử quá nhiều lần. Hãy chờ một phút.",
+            requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+          },
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderLogin();
+    await user.type(screen.getByLabelText("Email"), "ai-do@example.com");
+    await user.type(screen.getByLabelText("Mật khẩu"), "mat-khau");
+    await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Bạn thử quá nhiều lần. Hãy chờ một phút.",
+    );
+    await user.type(screen.getByLabelText("Mật khẩu"), "x");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("asks for both fields before sending anything", async () => {
+    const user = userEvent.setup();
+    renderLogin();
+    await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Hãy nhập email và mật khẩu.",
+    );
+    expect(useAuthStore.getState().accessToken).toBeNull();
+  });
+
+  it("marks the button busy while signing in rather than disabling it", async () => {
+    let release = () => {};
+    server.use(
+      http.post(
+        `${BASE}/auth/login`,
+        () =>
+          new Promise<Response>((resolve) => {
+            release = () => resolve(new Response(null, { status: 503 }));
+          }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLogin();
+    await user.type(screen.getByLabelText("Email"), "thuong@example.com");
+    await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
+    await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
+
+    const busy = await screen.findByRole("button", { name: "Đang đăng nhập…" });
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    expect(busy).toBeEnabled();
+    release();
   });
 
   it("sends a teacher to the admin tree and a student to their own", async () => {
@@ -85,18 +146,39 @@ describe("/login", () => {
     expect(router.state.location.pathname).not.toContain("evil.test");
   });
 
-  it("keeps the Google button reachable from the keyboard", async () => {
+  it("walks from Google through the form in the order the deck draws it", async () => {
     const user = userEvent.setup();
     renderLogin();
 
-    const google = screen.getByRole("button", { name: "Tiếp tục với Google" });
-    screen.getByLabelText("Mật khẩu").focus();
+    screen.getByRole("button", { name: "Tiếp tục với Google" }).focus();
+    await user.tab();
+    expect(screen.getByLabelText("Email")).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "Quên mật khẩu?" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByLabelText("Mật khẩu")).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "Hiện mật khẩu" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "Đăng nhập" })).toHaveFocus();
     await user.tab();
-    expect(google).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Tham gia lớp" })).toHaveFocus();
+  });
+
+  it("uses the autocomplete tokens password managers need", () => {
+    renderLogin();
+    expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "username");
+    expect(screen.getByLabelText("Mật khẩu")).toHaveAttribute(
+      "autocomplete",
+      "current-password",
+    );
+  });
+
+  it("never renders the deck's prototype chrome", () => {
+    renderLogin();
+    expect(
+      screen.queryByText(/demo accounts|tài khoản dùng thử|T6NB-4WLQ/i),
+    ).toBeNull();
   });
 
   it("offers no way to create an account", () => {
