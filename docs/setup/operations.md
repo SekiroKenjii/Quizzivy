@@ -104,14 +104,19 @@ remain forbidden.
 
 Build `server/cmd/maintenance` and provide `MAINTENANCE_DATABASE_URL` only to that
 manual process using an owner/maintenance credential. Never set it on the API.
-Flags must precede the command:
+The shape is `maintenance <command> [flags]`, each command with its own flags:
 
 ```sh
-maintenance -batch 1000 retain-integrity
-maintenance -apply -batch 1000 retain-integrity
-maintenance -student STUDENT_UUID anonymize-student
-maintenance -apply -student STUDENT_UUID anonymize-student
+maintenance retain-integrity -batch 1000
+maintenance retain-integrity -batch 1000 -apply
+maintenance anonymize-student -student STUDENT_UUID
+maintenance anonymize-student -student STUDENT_UUID -apply
 ```
+
+The older order, flags before the command (`maintenance -apply -batch 1000
+retain-integrity`), is still accepted for these two commands. Every command takes
+`-timeout <duration>` (default `1m`); an unknown command or flag prints the usage
+line and changes nothing.
 
 Omitting `-apply` is a dry-run. Retention processes only one bounded batch per
 invocation; repeat after review until it reports zero rows. Set a monthly
@@ -128,6 +133,42 @@ backups may retain identifying material. Review free text separately under an
 explicit request. The approved policy retains audit entries unchanged. Restrict
 access to backups and record how a restore will reapply later anonymizations
 before allowing the restored system to serve users.
+
+## Maintenance windows
+
+A maintenance window is a period during which the API answers every request
+except `/livez`, `/healthz` and `GET /public/status` with 503 `MAINTENANCE`, so a
+migration or a provider change can run without users working against it. Plan
+one for anything that could fail half-way under live traffic. A window lasts at
+most 12 hours, starts no earlier than a minute ago, and never overlaps another.
+
+```sh
+maintenance window-schedule -start 2026-10-01T15:00:00Z -end 2026-10-01T16:00:00Z
+maintenance window-schedule -start 2026-10-01T15:00:00Z -end 2026-10-01T16:00:00Z -apply
+maintenance window-list
+maintenance window-cancel -window WINDOW_UUID -apply
+maintenance window-end -window WINDOW_UUID -apply
+```
+
+Scheduling is a dry run until `-apply`. The dry run reports how many attempts and
+assignments would move; read it before applying.
+
+What moves when a window is scheduled, in the same transaction, audited as
+System (no actor, `reason: "maintenance"`, the window id and the database role):
+- every attempt still in progress whose deadline is after the window's start
+  gets the window's length added to its deadline (`attempt.extended`);
+- every open assignment that would close inside the window closes that much
+  later (`assignment.extended`).
+
+`window-cancel` cancels a window that has not ended; `window-end` ends an active
+window now. Both keep the extensions already granted: a deadline that moved does
+not move back. `window-list` prints the upcoming and active windows.
+
+A window takes effect within 30 seconds of being written, which is how long the
+API may serve its cached answer to "is there a window?". Schedule the start at
+least a minute ahead of the work. The import worker is not gated: it keeps
+processing the imports it already holds (O-R1.1). If a window is needed for work
+that must not race imports, stop the worker's process group for its length.
 
 ## Evidence still required in production
 

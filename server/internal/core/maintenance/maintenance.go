@@ -1,4 +1,4 @@
-// Package maintenance implements explicit privileged retention operations outside the API process.
+// Package maintenance implements the operator's privileged commands, run outside the API process: integrity retention, student anonymization and maintenance windows.
 package maintenance
 
 import (
