@@ -171,6 +171,7 @@ func TestProductionProcessesWordImportsOnlyBesideADeployedWorker(t *testing.T) {
 	if worker {
 		assertTheWorkerCanBeWoken(t)
 		assertTheWorkerHasItsOwnMachine(t)
+		assertTheDeployCreatesOneWorker(t)
 	}
 	if cfg.ImportLegacyDoc {
 		t.Fatal("production accepts .doc uploads, but the converter .doc needs is a Docker container, and the production image has no Docker daemon")
@@ -234,6 +235,22 @@ func assertTheWorkerHasItsOwnMachine(t *testing.T) {
 	}
 	if !sized {
 		t.Fatal("the worker needs its own [[vm]] with at least 1gb: a 512 MiB Go target plus up to 256 MiB of PDF sandbox")
+	}
+}
+
+func assertTheDeployCreatesOneWorker(t *testing.T) {
+	t.Helper()
+	deploys := 0
+	for _, line := range strings.Split(repoFile(t, ".github/workflows/deploy.yml"), "\n") {
+		if strings.Contains(line, "flyctl deploy") && !strings.HasPrefix(strings.TrimSpace(line), "#") {
+			deploys++
+			if !strings.Contains(line, "--ha=false") {
+				t.Fatalf("deploy.yml runs %q: without --ha=false flyctl gives the new worker group a standby, which the next step starts as a second worker", strings.TrimSpace(line))
+			}
+		}
+	}
+	if deploys == 0 {
+		t.Fatal("deploy.yml runs no flyctl deploy; this test is not reading what it thinks it is")
 	}
 }
 
