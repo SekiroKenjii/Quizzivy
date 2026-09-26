@@ -21,6 +21,10 @@ students, one developer — not for a product with a support rota.
 | R-11 | Client clock skew corrupts the timer | Medium | Moderate | Phase 3 |
 | R-12 | Beacon flush unauthenticated or dropped | Medium | Minor | Phase 3 |
 
+Phase R, the redesign, adds programme risks PR-1 … PR-10 in
+`70-redesign-overview.md` §9. Multi-teacher ownership changes the radius of
+several risks above; each release file says which.
+
 ---
 
 ## R-01 — The take-test engine loses student work
