@@ -170,13 +170,21 @@ deploy, which is fine for scratch files.
    wrangler r2 bucket dev-url get quizzivy-imports    # "disabled"
    wrangler r2 bucket domain list quizzivy-imports    # no custom domains
    ```
-2. **Deploy.** Deploy as usual. `flyctl deploy` creates the worker Machine the
-   first time the `worker` group appears. Check it with
-   `flyctl machines list -a quizzivy-api`: one `app` and one `worker`, both
-   `started`. The worker logs `import worker started` with the pipeline version.
+2. **Deploy.** Deploy as usual. `flyctl deploy --ha=false` creates exactly one
+   worker Machine the first time the `worker` group appears; without the flag it
+   would add a standby that the deploy's start step turns into a second worker.
+   The deploy fails unless every process group ends with a started machine.
+   Check it with `flyctl machines list -a quizzivy-api`: one `app` and one
+   `worker`, both `started`. The worker logs `import worker started` with the
+   pipeline version.
 3. **Acceptance.** Take one small `.docx` and one text-layer PDF through upload,
    review and draft. Then check `/healthz` and the Neon console: compute should
    suspend again after the worker's last query.
+
+**Monitoring.** Only the deploy checks that the worker runs. The production
+monitor probes `/healthz` and the web app, not the worker. A worker that later
+exhausts its restart budget shows as imports that stay queued, so check
+`flyctl machines list` when that happens.
 
 **Turning it off.** Remove `IMPORT_PROCESSING_ENABLED` and the `worker` process
 together; `deployment_test.go` refuses one without the other. Finished imports

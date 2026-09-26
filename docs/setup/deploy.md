@@ -148,6 +148,41 @@ shows one of each afterwards. Before that deploy, the R2 token must reach
 `quizzivy-imports` and `make verify-r2-imports` must pass. The steps, and how to
 turn import off again, are in `word-import-worker.md` § Production.
 
+The deploy runs `flyctl deploy --ha=false`. Without the flag, flyctl gives a
+group that has no machine yet a stopped standby, and the next step would start
+it as a second worker. That step now starts only non-standby machines, and fails
+unless every group in `[processes]` has a started machine.
+
+## Rolling back from v0.6.0: roll forward instead
+
+Migrations 00032–00052 only add columns, tables and constraints, so the v0.5.0
+image still boots on a v0.6.0 database, and goose reports nothing to apply.
+Once v0.6.0 has written shared-context groups, gap bindings or rich content,
+for example by committing a Word import, v0.5.0 no longer handles them:
+
+- Its question edit rewrites blanks without `gap_id`. On a grouped fill-blank
+  question the deferred gap-binding foreign key then fails with a 500, and on a
+  standalone one the bindings are dropped.
+- Its soft delete of a group member violates `questions_context_complete`.
+- Its readers skip group passages and shared recordings.
+- Its media delete does not see group references.
+
+So recover from a v0.6.0 problem with a hotfix, not by redeploying v0.5.0. The
+down migrations for the group graph refuse to run once group data exists.
+
+Two migrations, `00036` and `00038`, build indexes `CONCURRENTLY` outside a
+transaction. If one is interrupted, drop the index it left behind before
+redeploying, as `quizzivy_migrate`:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.questions_context_ordinal_key;
+DROP INDEX CONCURRENTLY IF EXISTS app.questions_context_identity_key;
+DROP INDEX CONCURRENTLY IF EXISTS app.tvq_section_identity_key;
+```
+
+Deploy outside active assignment windows. The other new migrations hold brief
+ACCESS EXCLUSIVE locks on test-version tables while they validate new CHECKs.
+
 ## Backups and operational verification
 
 See [operations](operations.md) for the recovery rehearsal, retention commands,
