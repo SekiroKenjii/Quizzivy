@@ -437,6 +437,7 @@ components:
         - ATTEMPT_VOIDED
         - SESSION_SUPERSEDED
         - DEADLINE_PASSED
+        - DEADLINE_NOT_REACHED
         - GRADING_INCOMPLETE
         - VERSION_LOCKED
         # availability
@@ -5928,16 +5929,21 @@ paths:
                   maxItems: 500
       responses:
         '200':
-          description: Saved. `serverTime` is returned every time so the client's clock offset self-corrects.
+          description: |
+            Saved. `serverTime` is returned every time so the client's clock
+            offset self-corrects, and `deadlineAt` is the attempt's deadline as
+            it stands now, so a teacher's extension or a maintenance window
+            reaches an open attempt on its next autosave.
           content:
             application/json:
               schema:
                 type: object
-                required: [serverTime, savedAt]
+                required: [serverTime, savedAt, deadlineAt]
                 additionalProperties: false
                 properties:
                   serverTime: { $ref: '#/components/schemas/Timestamp' }
                   savedAt: { $ref: '#/components/schemas/Timestamp' }
+                  deadlineAt: { $ref: '#/components/schemas/Timestamp' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: |
@@ -6101,7 +6107,13 @@ paths:
               schema: { $ref: '#/components/schemas/Attempt' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
-          description: '`ATTEMPT_CLOSED`.'
+          description: |
+            `ATTEMPT_CLOSED`.
+
+            `DEADLINE_NOT_REACHED` — `reason` was `timer_expired` while the
+            attempt's deadline is still more than five seconds away, which
+            happens when the deadline moved after the client last saved.
+            `details.deadlineAt` is the deadline to wait for; nothing changed.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
