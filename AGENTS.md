@@ -4,10 +4,29 @@ Read this file at the start of every session. Read `docs/quizzivy-spec-v0.3.md`
 before touching any area you have not worked on before, and
 `docs/plan/00-overview.md` before touching architecture.
 
+## Redesign in progress (Phase R)
+
+The product is being rebuilt to a new design deck, release by release
+(`docs/plan/70-redesign-overview.md`). Until the programme ends, some rules in
+this file describe the code as it is and name the release that changes them.
+
+- **In effect now:** `docs/design/deck/` is the single source of truth for the
+  UI. The old mockups and their board ids (A-, F-, G-, S-, E-, B-) are gone; do
+  not cite them. Deliberate departures from the deck are in
+  `docs/design/gaps.md`.
+- **R1** replaces the zinc tokens, the font and the primitives. Until then, do
+  not restyle screens ad hoc.
+- **R2** replaces the `/admin/` prefix gate with per-operation permissions and
+  moves teaching operations to `/teacher/*`.
+- **R3** replaces the student layout rules in "Design" below with the deck's.
+- **R4** moves the teacher web routes from `/admin/*` to `/teacher/*`.
+
 ## Sources of truth, in order
 
 1. `docs/quizzivy-spec-v0.3.md` — product and engineering spec
 2. `docs/plan/` — the implementation plan derived from it
+   (`docs/design/deck/` is the UI; spec §12 records the rules drawn from it,
+   and `docs/design/gaps.md` the decided departures)
 3. `api/openapi.yaml` — the API contract; spec §15 is documentation of it
 4. Neon `postgres-best-practices` skill — all DDL and SQL
 5. <https://www.postgresql.org/docs/18/index.html> — anything PG-version-specific
@@ -147,7 +166,8 @@ server/            Go module `quizzivy`: a modular monolith
   gen/openapi/       generated, committed, never hand-edited
 migrations/        goose, forward-only, 00001…
 seed/              seed data — never in a migration
-docs/plan/         the plan; 20-data-model.md is the schema authority
+docs/plan/         the plan; 20-data-model.md is the schema authority; 70–81 are Phase R
+docs/design/deck/  the design deck, pinned by MANIFEST.sha256 (scripts/check-design-deck.mjs)
 ```
 
 A vertical slice is one `web/src/features/<name>/`, one
@@ -161,13 +181,21 @@ unit, integration and end-to-end in that order.
 
 ## Authentication and authorization
 
-- **`/admin/*` is gated on the path prefix**, in `httpx.RequireRole`. Adding an
-  admin endpoint requires nothing: put it under `/admin/` and it is teacher-only.
-  Putting a teacher-only endpoint anywhere else silently makes it student-
-  reachable.
+- **Until R2, `/admin/*` is gated on the path prefix**, in `httpx.RequireRole`.
+  Adding an admin endpoint requires nothing: put it under `/admin/` and it is
+  teacher-only. Putting a teacher-only endpoint anywhere else silently makes it
+  student-reachable.
+- **From R2, every operation declares `x-permission`** in `api/openapi.yaml`, and
+  `httpx.RequirePermission` enforces it on every request; the path is no longer
+  the gate. The catalogue, the pseudo-keys and the guards that are not
+  permissions (the subset rule, strict student targets, the last admin, sign-in
+  lockout) are in `docs/plan/70-redesign-overview.md` §4.
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Five operations are open; the
-  list is pinned by a test so a sixth takes an argument.
+  derived from `api/openapi.yaml`'s `security`. Six operations are open —
+  login, Google sign-in, refresh, logout, `POST /join/preview` and the integrity
+  beacon `POST /app/attempts/{id}/events` — and the list is pinned by
+  `theOpenSix` in `core/router/tests/auth_middleware_test.go`, so a seventh
+  takes an argument.
 
 ## `pnpm typecheck`, never `tsc --noEmit`
 
@@ -275,7 +303,11 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
 
 - One task from a phase file = one branch = one PR: `feature/t-<phase>-<n>-<slug>`
   off `develop`.
-- Phase completion is `release/phase-<n>` → `main` → back-merge to `develop`.
+- Phase R tasks are `T-R<k>.<n>` on `feature/t-r<k>-<nn>-<slug>`, off the
+  release's integration branch `work/redesign-r<k>`, which is cut from `develop`
+  and merged back `--no-ff` when the release is complete.
+- A release is `release/<version>` → `main` → back-merge to `develop`. Merging to
+  `main` deploys to production.
 - `hotfix/<slug>` off `main`, merged to both.
 - Never commit directly to `main` or `develop`.
 
@@ -287,43 +319,54 @@ commit on the same branch, so the diff for it is the size of the change.
 
 ## Design
 
-Follow spec §12 exactly. Neutral zinc palette, charcoal primary buttons,
-semantic color only where it carries meaning. No gradients, no
-glassmorphism, no pulse rings, no glow, no emoji in UI chrome. If a
-design choice feels like it needs a new color, it probably needs a
-different layout instead.
+Build the UI from the deck in `docs/design/deck/`, and follow spec §12, which
+records the rules drawn from it. Read a page's script, not only its markup: the
+option sets, labels, defaults and breakpoints live there. The prototype chrome
+never ships (the screen-switcher pills, demo accounts, "Try" hints, the canvas
+theme buttons, the "Coming next" screen). Where the deck and a decision
+disagree, `docs/design/gaps.md` says which wins and what to build meanwhile.
 
-Colors come from CSS variables / Tailwind tokens, never hard-coded. The one
-exception is `GoogleMark` — a provider's identifying mark on a button that hands
-the user to that provider. It is not decorative colour and not theme-aware on
-purpose. Do not add a second exception without the same argument. Dark mode is
-not in v1 but must remain addable without touching components.
+Colours come from CSS variables / Tailwind tokens, never hard-coded. The deck's
+palette is a teal-grey neutral scale, a charcoal primary, the lime brand accent
+(`--accent-c`, with soft and ink tones) for progress, counts and current
+states, and semantic success, warning, danger and info tones. Dark mode is in
+scope from R1: components read tokens and never branch on the theme. The
+exceptions to "no hard-coded colour" are provider marks that identify the
+provider: `GoogleMark` on a button that hands the user to Google, and the
+deck's Google G that marks a Google sign-in in the admin Users table. Do not
+add another without the same argument.
 
-Integrity UI is calm: plain dialogs, plain text, no alarm iconography, no red
-banners, no shame. The teacher judges; the app reports.
+Every control has a visible `:focus-visible` ring, although the deck draws none.
+Continuous motion (the marquee on overflowing titles, the live dot) pauses on
+hover and focus and is static under `prefers-reduced-motion`.
 
-The student's navigation branches at 1024px in code
+Integrity UI follows the deck (decided 2026-09-26): flags and "Flagged" in the
+teacher's roster, the red timer in the last five minutes, and "Your teacher has
+been told" once the allowance is used. The teacher judges; the app reports —
+the product never concludes that a student cheated.
+
+**Until R3**, the student's navigation branches at 1024px in code
 (`useMediaQuery("(min-width: 1024px)")`), with one stable `StudentLayout`
 outlet so forms and filters survive resizing. A detail route declares
 `handle.detail` for the phone's back arrow. Home and classes use fluid grids;
 intro and results are centred at 720px without a right panel. Settings shares
 the teacher section navigation and preserves forms across section routes.
-The approved independent review (`docs/plan/92-student-ux.md`) supersedes
-S-13–S-17's ordinary-page panels. The take-test engine keeps `FocusLayout`
-and its `PageAside` navigator, with the separate `studentNavigator` width
-preference. Unit tests of a phone board pin `viewport("phone")`
+The take-test engine keeps `FocusLayout` and its `PageAside` navigator, with
+the separate `studentNavigator` width preference. From R3 the deck's student
+shell replaces these rules. Unit tests of a phone board pin `viewport("phone")`
 (`tests/support/viewport.ts`); jsdom answers "wide" by default.
 
 A paper's questions are dealt inside their section: `DealManager.Present`
 keeps section order and shuffles within each, so the navigator can group by
-part (S-06, S-08). A single-section paper deals exactly as it did before
-sections reached the payload.
+part. A single-section paper deals exactly as it did before sections reached
+the payload.
 
 ## Language
 
 Vietnamese first. Write the `vi` string, then `en`. No English-only
 user-facing text ever reaches a commit. Code, comments, commit messages,
-and docs are English.
+and docs are English. The deck is English except the Landing and Splash
+pages: its English is the `en` string, and the `vi` string is ours to write.
 
 Design for longer Vietnamese strings; avoid fixed-width labels.
 
@@ -342,6 +385,10 @@ Design for longer Vietnamese strings; avoid fixed-width labels.
 - [ ] `make gen` run and generated files committed if the contract changed
 - [ ] `.env.example` updated if config changed
 - [ ] New dependencies listed with reasons
+- [ ] Screens compared with the deck at 360, 768, 1024, 1280 and 1440, light
+      and dark, in the browser — not from code
+- [ ] From R2: every new or changed operation declares `x-permission`, and a
+      second-teacher test proves the caller cannot reach another teacher's data
 
 ## High-risk areas — extra care
 
@@ -405,4 +452,5 @@ a stated default, in which case build the default and move on.
 
 When a decision changes, edit the spec section and bump its version at the top
 (§18), then correct the affected plan file. A plan that disagrees with what was
-built is worse than no plan.
+built is worse than no plan. In Phase R, the spec, this file and the plan
+change in the release that changes the behaviour, never batched at the end.
