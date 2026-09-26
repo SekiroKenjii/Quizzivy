@@ -2420,5 +2420,11 @@
   "toast": {
     "region": "Thông báo",
     "close": "Đóng thông báo"
+  },
+  "auth": {
+    "panel": {
+      "headline": "Bài kiểm tra, bài học và luyện tập cho lớp tiếng Anh của bạn.",
+      "help": "Cần hỗ trợ đăng nhập? Hãy hỏi giáo viên hoặc quầy lễ tân."
+    }
   }
 }

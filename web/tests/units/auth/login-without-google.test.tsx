@@ -41,6 +41,6 @@ describe("/login without Google configured", () => {
     renderLogin();
 
     expect(screen.queryByRole("button", { name: "Tiếp tục với Google" })).toBeNull();
-    expect(screen.queryByText(/hoặc/i)).toBeNull();
+    expect(screen.queryByText("hoặc")).toBeNull();
   });
 });

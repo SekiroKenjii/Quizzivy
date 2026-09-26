@@ -1,52 +1,39 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Card } from "@/components/ui/card";
-import { BrandLockup } from "@/components/shared/Brand";
+
+import { BrandFrame } from "@/components/shared/BrandFrame";
+import { config } from "@/lib/config";
 
 /**
- * The shell for /login and for the three failure screens: a brand panel on the
- * left, one card on the right.
+ * AuthLayout is the frame of the sign-in pages: the brand panel from 900px
+ * with the product line and the organisation's name, then the form column.
+ * Join and its confirmation pass `panel={false}` and stay one column at every
+ * width, as the deck draws them. `footer` sits under the form.
  */
 export function AuthLayout({
   children,
+  panel = true,
   footer,
-  art,
-}: Readonly<{
-  children: ReactNode;
-  /** Sits below the card, per the deck: it is about the product, not the form. */
-  footer?: ReactNode;
-  // The panel drawing the failure screens pass (E-01..E-03).
-  art?: ReactNode;
-}>) {
+}: Readonly<{ children: ReactNode; panel?: boolean; footer?: ReactNode }>) {
   const { t } = useTranslation();
-
   return (
-    <div className="student-surface grid min-h-svh lg:grid-cols-2">
-      <aside className="bg-primary text-primary-foreground hidden flex-col justify-between p-10 lg:flex">
-        <BrandLockup height={44} onDark />
-        {art === undefined ? null : (
-          <div className="flex justify-center py-6" aria-hidden="true">
-            {art}
-          </div>
-        )}
-        <p className="max-w-sm text-sm leading-relaxed opacity-80">
-          {t("login.panelBlurb")}
-        </p>
-      </aside>
-
-      <main className="flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="mb-6 flex justify-center lg:hidden">
-            <BrandLockup height={35} />
-          </div>
-          <Card className="gap-0 p-5 lg:p-6">{children}</Card>
-          {footer === undefined ? null : (
-            <div className="text-muted-foreground mt-5 px-2 text-center text-xs leading-relaxed">
-              {footer}
-            </div>
+    <BrandFrame
+      from="auth"
+      showPanel={panel}
+      panel={
+        <div className="flex max-w-[420px] flex-col gap-3.5">
+          <p className="text-kpi leading-tight font-semibold tracking-[-0.02em] text-balance">
+            {t("auth.panel.headline")}
+          </p>
+          {config.orgName && (
+            <p className="text-muted-fg text-md leading-relaxed">{config.orgName}</p>
           )}
         </div>
-      </main>
-    </div>
+      }
+      caption={t("auth.panel.help")}
+    >
+      <div className="flex flex-col gap-5">{children}</div>
+      {footer && <div className="text-muted-fg text-ui mt-5 text-center">{footer}</div>}
+    </BrandFrame>
   );
 }
