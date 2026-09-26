@@ -7,7 +7,11 @@ local development. Phase task lists are in `10-` … `15-`; the schema is in
 
 Spec sections are referenced by number and never restated.
 
-Accepted next milestone: [Word exam import](17-word-import.md), with a separate
+**Current programme: Phase R, the redesign** — [overview](70-redesign-overview.md),
+releases R1–R11 in `71-r1.md` … `81-r11.md`, design gaps in
+[`docs/design/gaps.md`](../design/gaps.md).
+
+Previous milestone: [Word exam import](17-word-import.md), with a separate
 [teacher UX plan](18-word-import-ux.md) and the supplied
 [production target specification](../quizzivy-word-import-spec.md). These are
 planning documents; implementation progress and remaining contract decisions are
