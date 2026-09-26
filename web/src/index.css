@@ -291,6 +291,120 @@
   }
 }
 
+@keyframes qz-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - 16px));
+  }
+}
+
+@keyframes qz-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes qz-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes qz-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@keyframes qz-breath {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.94);
+    opacity: 0.82;
+  }
+}
+
+@keyframes qz-indet {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.qz-marquee-track {
+  animation: qz-marquee 8s linear infinite;
+}
+
+.qz-marquee:hover .qz-marquee-track,
+.qz-marquee:focus-within .qz-marquee-track,
+:focus-visible .qz-marquee-track {
+  animation-play-state: paused;
+}
+
+.qz-marquee-masked {
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    black 10px,
+    black calc(100% - 10px),
+    transparent
+  );
+}
+
+.qz-live-dot {
+  animation: qz-pulse 1.6s infinite;
+}
+
+.qz-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0,
+    var(--hover) 50%,
+    var(--muted) 100%
+  );
+  background-size: 800px 100%;
+  animation: qz-shimmer 1.4s linear infinite;
+}
+
+.qz-breath {
+  animation: qz-breath 1.8s ease-in-out infinite;
+}
+
+.qz-indet {
+  animation: qz-indet 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qz-marquee-track,
+  .qz-live-dot,
+  .qz-breath {
+    animation: none;
+  }
+  .qz-shimmer {
+    animation: none;
+    background: var(--muted);
+  }
+  .qz-indet {
+    animation: none;
+    transform: none;
+  }
+}
+
 @keyframes settings-enter {
   from {
     opacity: 0;
