@@ -3,8 +3,6 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-// The deck's `.avatar`: initials on the secondary surface, never a photo. There
-// is no avatar upload in v1 and a broken image is worse than two letters.
 const avatarVariants = cva(
   "inline-grid flex-none place-content-center rounded-full bg-secondary text-secondary-foreground font-semibold",
   {
@@ -13,9 +11,27 @@ const avatarVariants = cva(
         sm: "size-6 text-[0.625rem]",
         default: "size-8 text-xs",
         lg: "size-10 text-sm",
+        "26": "size-6.5 text-2xs",
+        "28": "size-7 text-2xs",
+        "30": "size-7.5 text-2xs",
+        "36": "size-9 text-xs",
+        "44": "size-11 text-sm",
+        "56": "size-14 text-lg",
+      },
+      shape: {
+        circle: "",
+        square: "rounded-lg",
+      },
+      tone: {
+        muted: "",
+        self: "bg-brand-soft text-brand-ink",
       },
     },
-    defaultVariants: { size: "default" },
+    compoundVariants: [
+      { shape: "square", size: "56", className: "rounded-2xl" },
+      { shape: "square", size: ["sm", "26", "28"], className: "rounded-md" },
+    ],
+    defaultVariants: { size: "default", shape: "circle", tone: "muted" },
   },
 );
 
@@ -26,12 +42,18 @@ interface AvatarProps
   name: string;
 }
 
-export function Avatar({ name, size, className, ...props }: AvatarProps) {
+/**
+ * Avatar shows a person's initials, never a photo: there is no avatar upload
+ * yet, and a broken image is worse than two letters. It is hidden from
+ * assistive technology because the name is always written beside it. `self`
+ * marks the signed-in user, in the deck's lime.
+ */
+export function Avatar({ name, size, shape, tone, className, ...props }: AvatarProps) {
   return (
     <span
       data-slot="avatar"
       aria-hidden="true"
-      className={cn(avatarVariants({ size }), className)}
+      className={cn(avatarVariants({ size, shape, tone }), className)}
       {...props}
     >
       {initials(name)}
@@ -40,14 +62,14 @@ export function Avatar({ name, size, className, ...props }: AvatarProps) {
 }
 
 /**
- * Family name then given name, which is the deck's rule: "Nguyễn Đức Minh" is
- * NM. Vietnamese middle names are the least distinguishing part of a name, so
- * taking the first and last words keeps both halves a teacher actually uses.
+ * initials takes the given name, then the family name — the deck's rule
+ * (docs/design/gaps.md DG-22): "Hoàng Thương" is TH, "Nguyễn Gia Bảo" is BN.
+ * A Vietnamese name ends with the given name, which is what people are called.
  */
-function initials(name: string): string {
+export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
-  const first = words.at(0);
-  if (first === undefined) return "";
-  if (words.length === 1) return first.slice(0, 2).toLocaleUpperCase("vi");
-  return (first.charAt(0) + words.at(-1)!.charAt(0)).toLocaleUpperCase("vi");
+  const family = words.at(0);
+  if (family === undefined) return "";
+  if (words.length === 1) return family.slice(0, 2).toLocaleUpperCase("vi");
+  return (words.at(-1)!.charAt(0) + family.charAt(0)).toLocaleUpperCase("vi");
 }
