@@ -11,6 +11,11 @@ var ErrUserNotFound = errors.New("user not found")
 // password.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
+// ErrPasswordUnchanged means the new password is the one it would replace: the
+// verified current password, or, while the account must change its password,
+// the temporary one.
+var ErrPasswordUnchanged = errors.New("new password is the current one")
+
 var (
 	ErrAccountDisabled  = errors.New("account disabled")
 	ErrNoPasswordSet    = errors.New("account has no password")
