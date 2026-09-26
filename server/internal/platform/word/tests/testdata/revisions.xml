@@ -1,0 +1,2 @@
+<w:p><w:del w:id="1" w:author="Teacher"><w:r><w:delText>Old answer</w:delText></w:r></w:del><w:ins w:id="2" w:author="Teacher"><w:r><w:t>New answer</w:t></w:r></w:ins></w:p>
+<w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>Teacher only</w:t></w:r></w:p>

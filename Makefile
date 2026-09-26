@@ -4,6 +4,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
+.PHONY: import-worker
+import-worker: ## Run the separately configured private Word worker
+	cd server && GOMAXPROCS=2 go run ./cmd/import-worker
+
 # Loaded from .env if present; every value has a dev default in docker-compose.
 -include .env
 export
@@ -20,7 +24,7 @@ MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),mig
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
-        seed gen contract verify-google verify-r2 dev dev-web dev-api test test-web test-api \
+        seed gen contract verify-google verify-r2 verify-r2-imports dev dev-web dev-api test test-web test-api \
         test-api-unit test-api-integration test-api-e2e test-api-all e2e lint
 
 help: ## Show this help
@@ -46,8 +50,13 @@ verify-google: ## T-0.2 -- check the Google OAuth client works
 verify-r2: ## T-0.3 -- check the R2 bucket, credentials and privacy
 	@./scripts/verify-r2.sh
 
+R2_IMPORT_BUCKET ?= quizzivy-imports
+
+verify-r2-imports: ## check the private Word import bucket on R2 (R2_IMPORT_BUCKET, the same as IMPORT_S3_BUCKET on Fly)
+	@cd server && go run ./cmd/verify-import-storage -bucket "$(R2_IMPORT_BUCKET)"
+
 up: ## Start postgres:18 + MinIO
-	docker compose up -d --wait db minio
+	docker compose up -d --build --wait db minio
 	docker compose up minio-init
 
 down: ## Stop the stack (keeps volumes)
@@ -94,11 +103,14 @@ gen-check: gen ## Fail if generated output drifts from the contract (what CI run
 		    exit 1)
 	@echo "generated code matches api/openapi.yaml"
 
-dev: ## Run web and api together
-	$(MAKE) -j2 dev-api dev-web
+dev: ## Run web and api together, plus the Word import worker when imports are configured
+	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker IMPORT_PROCESSING_ENABLED=true IMPORT_WORKER_WAKE_URL=http://localhost:8091/wake)
 
 dev-api: ## Go API on :8080
 	cd server && DATABASE_URL="$(APP_DSN)" go run ./cmd/api
+
+dev-worker: ## Word import worker against the local database and bucket
+	cd server && DATABASE_URL="$(APP_DSN)" GOMAXPROCS=2 go run ./cmd/import-worker
 
 dev-web: ## Vite on :5173
 	cd web && pnpm dev

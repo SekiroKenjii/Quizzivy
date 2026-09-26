@@ -11,10 +11,8 @@ var (
 	ErrTooLong         = errors.New("media: audio is longer than the limit")
 )
 
-// ErrReferenced is a delete refused because a published version still uses the
-// asset (§8, §15). Answered 409, not 403: the caller has every right to the
-// asset, the asset is simply not deletable while something depends on it.
-var ErrReferenced = errors.New("media: asset is referenced by a published version")
+// ErrReferenced rejects deletion while a published version or independent group still depends on the asset.
+var ErrReferenced = errors.New("media: asset is referenced by assessment content")
 
 var ErrNoID = errors.New("media: could not generate an asset id")
 

@@ -23,6 +23,9 @@ func (s *Postgres) SetCurrentVersion(ctx context.Context, req domain.VersionRequ
 	if err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt); err != nil {
 		return domain.Test{}, err
 	}
+	if err := requireActiveTest(ctx, tx, req.ID); err != nil {
+		return domain.Test{}, err
+	}
 	if _, err := lockVersion(ctx, tx, req); err != nil {
 		return domain.Test{}, err
 	}
@@ -42,13 +45,26 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 	if err := checkVersion(ctx, tx, req.ID, req.ExpectedUpdatedAt); err != nil {
 		return domain.Test{}, err
 	}
+	if err := requireActiveTest(ctx, tx, req.ID); err != nil {
+		return domain.Test{}, err
+	}
 	versionID, err := lockVersion(ctx, tx, req)
 	if err != nil {
 		return domain.Test{}, err
 	}
-	sections, err := s.copyVersionDraft(ctx, tx, versionID, req.ActorID)
+	if err := clearTestGroups(ctx, tx, req.ID); err != nil {
+		return domain.Test{}, err
+	}
+	if err := s.lockVersionAssets(ctx, tx, versionID); err != nil {
+		return domain.Test{}, err
+	}
+	copies, err := s.copyVersionDraft(ctx, tx, versionID, req.ActorID)
 	if err != nil {
 		return domain.Test{}, err
+	}
+	sections := make([]domain.SectionInput, len(copies))
+	for i, section := range copies {
+		sections[i] = section.Input
 	}
 	if err := s.lockQuestions(ctx, tx, sections); err != nil {
 		return domain.Test{}, err
@@ -56,10 +72,24 @@ func (s *Postgres) CreateDraftFromVersion(ctx context.Context, req domain.Versio
 	if err := replaceOutline(ctx, tx, req.ID, sections); err != nil {
 		return domain.Test{}, err
 	}
+	if err := s.restoreSnapshotGroups(ctx, tx, req, now, copies); err != nil {
+		return domain.Test{}, err
+	}
 	if _, err := tx.Exec(ctx, `UPDATE app.tests SET updated_at = now() WHERE id = $1`, req.ID); err != nil {
 		return domain.Test{}, err
 	}
 	return s.finishVersionChange(ctx, tx, req, now, "test.draft_restored")
+}
+
+func requireActiveTest(ctx context.Context, tx pgx.Tx, testID string) error {
+	var archived bool
+	if err := tx.QueryRow(ctx, `SELECT status='archived' FROM app.tests WHERE id=$1`, testID).Scan(&archived); err != nil {
+		return err
+	}
+	if archived {
+		return domain.ErrArchived
+	}
+	return nil
 }
 
 func lockVersion(ctx context.Context, tx pgx.Tx, req domain.VersionRequest) (string, error) {

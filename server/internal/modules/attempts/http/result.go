@@ -32,6 +32,8 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTINPROGRESS, "Bài chưa được nộp.")), nil
 	case errors.Is(err, domain.ErrAttemptVoided):
 		return openapi.GetAttemptResult409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTVOIDED, "Lượt làm này đã bị huỷ.")), nil
+	case errors.Is(err, domain.ErrUnsupportedDeliveryVersion), errors.Is(err, domain.ErrGroupContextUnavailable):
+		return nil, httpx.ErrNotImplemented
 	case err != nil:
 		return nil, err
 	}
@@ -45,11 +47,18 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 		questions[i] = converted
 	}
 	attempt := toAPIAttempt(result.Attempt)
+	shared, err := sharedReviewContext(ctx, result.SharedContext, func(ctx context.Context, id string) (*openapi.MediaAsset, error) {
+		return h.groupAsset(ctx, principal.UserID, id)
+	})
+	if err != nil {
+		return nil, err
+	}
 	if result.Score != nil {
 		attempt.Score = toAPIScore(*result.Score)
 	}
 	return openapi.GetAttemptResult200JSONResponse{
-		Attempt: attempt,
+		SharedContext: shared,
+		Attempt:       attempt,
 		Review: openapi.ReviewPolicy{
 			ShowScore:          result.Review.ShowScore,
 			ShowCorrectAnswers: result.Review.ShowCorrectAnswers,
@@ -67,14 +76,15 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 		return openapi.ResultQuestion{}, err
 	}
 	out := openapi.ResultQuestion{
-		Id: base.Id, Type: base.Type, Prompt: base.Prompt, Points: base.Points,
+		Id: base.Id, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
 		Media: base.Media, Options: base.Options, Blanks: base.Blanks,
-		Earned:         q.Earned,
-		PendingManual:  httpapi.Ptr(q.PendingManual),
-		GraderComment:  q.GraderComment,
-		Explanation:    q.Explanation,
-		Transcript:     q.Transcript,
-		AudioPlaysUsed: q.AudioPlaysUsed,
+		Earned:             q.Earned,
+		PendingManual:      httpapi.Ptr(q.PendingManual),
+		GraderComment:      q.GraderComment,
+		Explanation:        q.Explanation,
+		ExplanationContent: q.ExplanationContent,
+		Transcript:         q.Transcript,
+		AudioPlaysUsed:     q.AudioPlaysUsed,
 	}
 	if len(q.Answer) > 0 {
 		var decoded openapi.Answer

@@ -77,7 +77,7 @@ func (a *App) Close() {
 // Handler is the assembled HTTP surface, for the server and for tests that
 // drive the whole application in-process.
 func (a *App) Handler() (http.Handler, error) {
-	deps := router.Deps{Modules: a.assembly.Modules, DB: a.pool, Tokens: a.assembly.Tokens}
+	deps := router.Deps{Modules: a.assembly.Modules, DB: a.pool, Tokens: a.assembly.Tokens, Docs: a.assembly.Docs, DocsPublic: a.cfg.DocsPublic}
 	return router.New(deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
 }
 
@@ -90,6 +90,9 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 
 	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
+	if sweeper := a.assembly.ImportSweeper; sweeper != nil {
+		go jobs.SweepImportFiles(ctx, a.logger, sweeper.Sweep, jobs.ImportRetention{Every: 24 * time.Hour, Retry: time.Hour, Budget: 5 * time.Minute})
+	}
 
 	return httpserver.Serve(ctx, a.logger, a.cfg, handler)
 }

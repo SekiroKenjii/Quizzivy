@@ -28,6 +28,13 @@ export const handlers = [
     }),
   ),
   http.get(`${BASE}/auth/me`, () => contractJson("/auth/me", "get", 200, studentUser)),
+  http.get(`${BASE}/admin/imports/capabilities`, () =>
+    contractJson("/admin/imports/capabilities", "get", 200, {
+      intakeEnabled: true,
+      processingEnabled: true,
+      retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
+    }),
+  ),
 
   http.post(`${BASE}/auth/login`, () =>
     contractJson("/auth/login", "post", 200, {

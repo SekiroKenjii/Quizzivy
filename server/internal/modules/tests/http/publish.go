@@ -8,7 +8,6 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
-	"strconv"
 )
 
 // PublishTest validates the draft and freezes it as a new version.
@@ -46,18 +45,11 @@ func (h Tests) PublishTest(ctx context.Context, request openapi.PublishTestReque
 		return nil, err
 	}
 
-	points, err := strconv.ParseFloat(version.TotalPoints, 64)
+	out, err := testVersion(version)
 	if err != nil {
 		return nil, err
 	}
-	return openapi.PublishTest201JSONResponse{
-		Id:            httpapi.ParseUUID(version.ID),
-		Version:       version.Version,
-		TotalPoints:   points,
-		QuestionCount: version.QuestionCount,
-		PublishedAt:   version.PublishedAt,
-		PublishedBy:   version.PublishedBy,
-	}, nil
+	return openapi.PublishTest201JSONResponse(out), nil
 }
 
 func publishViolations(ctx context.Context, violations []domain.Violation) openapi.PublishTest409JSONResponse {
@@ -73,6 +65,10 @@ func publishViolations(ctx context.Context, violations []domain.Violation) opena
 		if v.SectionID != "" {
 			id := httpapi.ParseUUID(v.SectionID)
 			out[i].SectionId = &id
+		}
+		if v.GroupID != "" {
+			id := httpapi.ParseUUID(v.GroupID)
+			out[i].GroupId = &id
 		}
 		if v.QuestionID != "" {
 			id := httpapi.ParseUUID(v.QuestionID)

@@ -20,6 +20,7 @@ type Repository interface {
 	SetCurrentVersion(ctx context.Context, req VersionRequest, now time.Time) (Test, error)
 	CreateDraftFromVersion(ctx context.Context, req VersionRequest, now time.Time) (Test, error)
 	ListVersions(ctx context.Context, testID string) ([]Version, error)
-	Preview(ctx context.Context, testID string, version int) (int, []PreviewQuestion, error)
-	Publish(ctx context.Context, req PublishRequest, now time.Time, validate func(DraftContent) error) (PublishedVersion, error)
+	Preview(ctx context.Context, testID string, version int) (PreviewPaper, error)
+	GroupContexts(ctx context.Context, versionID string) ([]PreviewGroup, error)
+	Publish(ctx context.Context, req PublishRequest, now time.Time, validate func(DraftContent) error) (Version, error)
 }

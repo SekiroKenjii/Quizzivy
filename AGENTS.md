@@ -117,7 +117,7 @@ module:
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
 | `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order; returns the `Assembly` (transports, token issuer, identity application) |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`) and one module's handlers behind another's port (`Media`, `MediaKinds`) |
-| `core/router` | `Deps`, `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/healthz`, `/docs`), `RateLimits` |
+| `core/router` | `Deps`, `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`), `RateLimits` for contract operations and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 

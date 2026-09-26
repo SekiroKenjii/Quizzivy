@@ -10,6 +10,7 @@ type OutputChunk = {
   isEntry: boolean;
   fileName: string;
   moduleIds: readonly string[];
+  imports: string[];
 };
 type BuildOutput = { output: ({ type: "asset" } | OutputChunk)[] };
 
@@ -53,6 +54,30 @@ const STUDENT =
 const FOCUS = /\/layouts\/FocusLayout\./;
 
 describe("route-level code splitting (§2)", () => {
+  it("keeps rich editors out of the entry and learner routes' static dependencies", () => {
+    const byName = new Map(chunks().map((chunk) => [chunk.fileName, chunk]));
+    const roots = chunks().filter(
+      (chunk) =>
+        chunk.isEntry ||
+        matches(chunk.moduleIds, /\/features\/(take-test|results|assignments)\//)
+          .length > 0,
+    );
+    const visited = new Set<string>();
+    const pending = [...roots];
+    while (pending.length) {
+      const chunk = pending.pop()!;
+      if (visited.has(chunk.fileName)) continue;
+      visited.add(chunk.fileName);
+      expect(
+        matches(chunk.moduleIds, /@tiptap|prosemirror|parse5/),
+        chunk.fileName,
+      ).toEqual([]);
+      for (const name of chunk.imports) {
+        const dependency = byName.get(name);
+        if (dependency) pending.push(dependency);
+      }
+    }
+  });
   it("produces more than one chunk", () => {
     expect(chunks().length).toBeGreaterThan(3);
   });

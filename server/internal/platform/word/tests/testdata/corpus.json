@@ -1,0 +1,11 @@
+[
+  {"id":"pronunciation", "source":"pronunciation.xml", "paragraphs":["1. Choose the different sound.","A. book  B. food  C. moon  D. room"], "findings":[]},
+  {"id":"table-options", "source":"table-options.xml", "paragraphs":["2. Select two answers.","A. North","B. South","C. East","D. West"], "findings":[]},
+  {"id":"cloze-context", "source":"cloze-context.xml", "paragraphs":["Read the passage for questions 3–4.","Mai has (3) _____ books. She reads (4) _____ night.","3. A. two B. too", "4. A. at B. in"], "findings":[]},
+  {"id":"revisions-and-hidden", "source":"revisions.xml", "paragraphs":["Old answerNew answer","Teacher only"], "findings":["TRACKED_CHANGE_REQUIRES_REVIEW","HIDDEN_TEXT_REQUIRES_REVIEW"]},
+  {"id":"numbering-and-styles", "source":"numbering.xml", "paragraphs":["A numbered question without a typed number"], "findings":["NUMBERING_RESOLUTION_REQUIRED","STYLE_RESOLUTION_REQUIRED"]},
+  {"id":"textbox-reading-order", "source":"textbox.xml", "paragraphs":["Outer before. Outer after.","Inside box"], "findings":["TEXTBOX_ORDER_REQUIRES_REVIEW","DRAWING_REQUIRES_RESOLUTION"]},
+  {"id":"fields-and-equations", "source":"fields.xml", "paragraphs":["PAGE1",""], "findings":["FIELD_REQUIRES_REVIEW","EQUATION_REQUIRES_RESOLUTION"]},
+  {"id":"manual-corrections", "source":"corrections.xml", "paragraphs":["Rewrite in the negative.","They work here.","=> They does not work here. => They do not work here.","Fill (1) _____ and (2) _____."], "findings":[]},
+  {"id":"compact-key", "source":"compact-key.xml", "paragraphs":["TEST 1", "I.1.C2.A3.B", "II.4.True5.False", "TEST 2", "I.1.A2.C3.D"], "findings":[]}
+]

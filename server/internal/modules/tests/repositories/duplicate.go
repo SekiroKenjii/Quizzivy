@@ -2,7 +2,9 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
@@ -16,6 +18,9 @@ func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (dom
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := lockDuplicateSource(ctx, tx, in.ID); err != nil {
+		return domain.Test{}, err
+	}
 	source, err := s.get(ctx, tx, in.ID)
 	if err != nil {
 		return domain.Test{}, err
@@ -29,15 +34,12 @@ func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (dom
 		return domain.Test{}, fmt.Errorf("tests: copy test row: %w", err)
 	}
 
-	for _, sec := range source.Sections {
-		var sectionID string
-		if err := tx.QueryRow(ctx,
-			`INSERT INTO app.test_sections (test_id, ordinal, title, instructions)
-			 VALUES ($1, $2, $3, $4) RETURNING id::text`,
-			copyID, sec.Ordinal, sec.Title, sec.Instructions).Scan(&sectionID); err != nil {
-			return domain.Test{}, fmt.Errorf("tests: copy section: %w", err)
+	if len(source.Sections) > 0 {
+		draft, err := s.loadDraft(ctx, tx, in.ID, true)
+		if err != nil {
+			return domain.Test{}, err
 		}
-		if err := writeSectionQuestions(ctx, tx, sectionID, sec.QuestionIDs); err != nil {
+		if err := s.copyDraftGraph(ctx, tx, copyID, draft, in); err != nil {
 			return domain.Test{}, err
 		}
 	}
@@ -62,4 +64,13 @@ func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (dom
 		return domain.Test{}, fmt.Errorf("tests: commit duplicate: %w", err)
 	}
 	return created, nil
+}
+
+func lockDuplicateSource(ctx context.Context, tx pgx.Tx, id string) error {
+	var locked string
+	err := tx.QueryRow(ctx, `SELECT id::text FROM app.tests WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrNotFound
+	}
+	return err
 }

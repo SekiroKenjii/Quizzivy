@@ -66,4 +66,8 @@ exports. A test that needs a private function is a test of the wrong thing.
 
 The server serves its own Scalar reference at `/docs`, loading the contract it
 was built from at `/docs/openapi.json`. The page is `platform/apidocs`; no
-package wraps it, and the Scalar version is pinned there.
+package wraps it, and the Scalar version is pinned there beside its SRI hash.
+Both routes are admin only (spec §5.5): open them from the web app's
+Settings → Preferences → "Tài liệu API", which mints a fifteen-minute docs
+cookie. For local development, `DOCS_PUBLIC=true` in `.env` skips that check;
+the server refuses it in production.

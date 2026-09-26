@@ -5,9 +5,9 @@ the "one package per feature" layout AGENTS.md described until then.
 
 ## Shape
 
-- **One process, one database, eight bounded contexts** under
+- **One process, one database, nine bounded contexts** under
   `server/internal/modules/`: identity, classes, questions, media, tests,
-  assignments, attempts, dashboard. Each is one aggregate (dashboard is read
+  assignments, attempts, dashboard, imports. Each is one aggregate (dashboard is read
   models only) and exposes its operations through its own `http/` package,
   which core embeds into the generated strict server.
 - **Four layers per module** — `domain/`, `application/`, `repositories/`,
@@ -49,16 +49,16 @@ the "one package per feature" layout AGENTS.md described until then.
 - **core is four packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware
-  order, `/healthz`, `/docs` and the rate limits; `core/adapters` translates
+  order, `/livez`, `/healthz`, `/docs` and the rate limits; `core/adapters` translates
   platform errors into domain errors and one module's handlers into another's
   port; `core/jobs` runs background commands. `platform/httpserver` owns the
   listener and its shutdown.
 - **Tests in three tiers** (unit, integration, e2e — see server/README.md),
   every test file in a `<layer>/tests/` directory as an external package,
   none reaching a private identifier.
-- **Self-served API reference**: `/docs` is our page loading Scalar's pinned
-  bundle against `/docs/openapi.json`, served by the API from the contract
-  it was generated from.
+- **Self-served API reference**: `/docs` is our page loading Scalar's pinned,
+  SRI-checked bundle against `/docs/openapi.json`, served by the API from the
+  contract it was generated from, behind an admin docs session (spec §5.5).
 - **Comments state contracts, code states the rest**: no comment inside a
   function body, no doc comment on an unexported identifier, one paragraph
   on an exported one, and a package comment naming the context's model.

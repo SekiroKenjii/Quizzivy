@@ -1,0 +1,4 @@
+<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Rewrite in the negative.</w:t></w:r></w:p>
+<w:p><w:r><w:t>They work here.</w:t></w:r></w:p>
+<w:p><w:r><w:t xml:space="preserve">=&gt; They does not work here. </w:t></w:r><w:r><w:rPr><w:color w:val="FF0000"/></w:rPr><w:t>=&gt; They do not work here.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Fill (1) _____ and (2) _____.</w:t></w:r></w:p>

@@ -47,3 +47,8 @@ export function changePassword(currentPassword: string, newPassword: string) {
     },
   });
 }
+
+/** openDocsSession sets the fifteen-minute cookie that opens the API reference on the API origin; admins only. */
+export function openDocsSession() {
+  return api("post", "/admin/docs-session");
+}

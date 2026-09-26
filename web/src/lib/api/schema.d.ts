@@ -219,6 +219,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/question-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Independent groups in the question bank
+         * @description Lists bank-owned groups only, without member keys or transcripts. Search matches group titles and member prompts without accents.
+         */
+        get: operations["listQuestionGroups"];
+        put?: never;
+        /**
+         * Create a complete independent draft group
+         * @description Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination.
+         */
+        post: operations["createQuestionGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/question-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a complete editable group including answer keys
+         * @description Reads one coherent independent graph and its revisions. Teacher-only; asset links never grant access to an unrelated source document.
+         */
+        get: operations["getQuestionGroup"];
+        /** @description Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first. */
+        put: operations["updateQuestionGroup"];
+        post?: never;
+        /** @description Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision. */
+        delete: operations["deleteQuestionGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/question-groups/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section. */
+        post: operations["copyQuestionGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/question-groups/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Archives/restores an independent bank group; section-owned groups follow the test lifecycle. */
+        patch: operations["archiveQuestionGroup"];
+        trace?: never;
+    };
     "/admin/tests": {
         parameters: {
             query?: never;
@@ -503,6 +589,297 @@ export interface paths {
          *     tags into a new bank row that no test references yet.
          */
         post: operations["duplicateQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search private import history
+         * @description Paginated shared teacher history with accent-insensitive title and current filename search.
+         */
+        get: operations["listWordImports"];
+        put?: never;
+        /**
+         * Create an empty private import idempotently
+         * @description Creates a persistent intake identity without uploading files or starting recognition.
+         */
+        post: operations["createWordImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read an import and its current completed sources
+         * @description Returns a consistent source-set snapshot and the number of incomplete upload reservations.
+         */
+        get: operations["getWordImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a private Word or PDF source and create an immutable source set
+         * @description One multipart file part named file, at most 25 MiB. The filename ends in
+         *     .docx or .pdf, or in .doc when legacy conversion is enabled (see limits), and
+         *     the detected content must agree with it. A PDF is read from its text layer
+         *     only; a scanned PDF fails processing with PDF_NO_TEXT.
+         *     The body Content-Type is not evidence of the detected document type.
+         *     Retry with identical uploadId, role, expectedRevision, filename and bytes.
+         *     A changed replay conflicts. Completion creates exactly one source revision;
+         *     replay returns its receipt even when later uploads advanced the import.
+         *     Uploads are accepted while the import awaits sources, has failed or is under
+         *     review; a new source set returns it to awaiting_sources, and processing again
+         *     keeps teacher edits. Every storage write first has a durable reservation;
+         *     interruptions remain inspectable and quota-counted.
+         *     Source bytes and storage keys never enter ordinary logs or student payloads.
+         */
+        post: operations["uploadImportSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/sources/{sourceId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                sourceId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Authorize a short-lived original-file download
+         * @description The completed source must belong to the requested import. Historical
+         *     completed sources remain accessible to teachers. A 60-second bearer URL
+         *     forces attachment download as application/octet-stream. Response is no-store.
+         *     Pending storage reservations are never downloadable.
+         */
+        get: operations["downloadImportSource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read what this deployment can do with Word imports
+         * @description Answers on every deployment, including one where Word import is not
+         *     configured, so the client can hide or explain the feature instead of
+         *     failing on it. The values come from configuration and change only with
+         *     a redeploy.
+         */
+        get: operations["getWordImportCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the accepted formats and size limit before uploading
+         * @description Lets the upload page state its limits before a file is chosen.
+         */
+        get: operations["getWordImportLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue recognition of the current source set
+         * @description Starts processing an import awaiting sources, retries a failed one, or
+         *     reprocesses one under review. Reprocessing never replaces teacher edits;
+         *     the new result is offered in the review instead.
+         */
+        post: operations["processWordImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop processing, or close an uncommitted import
+         * @description Stopping a reprocess of an import that already has a draft returns it to needs_review with that draft intact; otherwise the import is closed. A failed reprocess likewise leaves the draft under review. Sources and the review stay readable. A commit that finished first wins.
+         */
+        post: operations["cancelWordImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the reviewable draft with its current findings
+         * @description Findings are recomputed on every read, so they always describe the saved revision.
+         */
+        get: operations["getWordImportReview"];
+        /**
+         * Save the teacher's edits to the draft
+         * @description Replaces the editable draft at expectedRevision. Notices are kept from
+         *     the server copy. Findings are recomputed from the saved draft.
+         */
+        put: operations["saveWordImportReview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/review/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the edited draft with the newer machine draft
+         * @description Only when the review reports reprocessed. The teacher's edits and
+         *     acknowledgements are discarded in favour of the newer recognition.
+         */
+        post: operations["adoptWordImportReprocessed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the extracted text of one source for comparison
+         * @description Private teacher evidence; the response is never cached and never reaches students.
+         */
+        get: operations["getWordImportSource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/imports/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create one draft test from the reviewed import
+         * @description Creates the test, its sections, groups and bank questions in one
+         *     transaction; nothing persists on failure. Excluded questions are left out.
+         *     Replaying the same request after success returns the same test.
+         */
+        post: operations["commitWordImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1005,6 +1382,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/docs-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open the API reference for fifteen minutes
+         * @description Sets `quizzivy_docs`, a docs-only session cookie. `/docs` and
+         *     `/docs/openapi.json` answer only to it: 401 without a valid one, 403 for
+         *     a role other than admin. The cookie carries a token for the `docs`
+         *     audience signed with its own key, so it is never an access token and an
+         *     access token never opens the docs. `Path=/docs` keeps it off every API
+         *     request, and `SameSite=Strict` still travels on the SPA's same-site
+         *     navigation to the API origin. Admin only, like every `/admin/` path, and
+         *     rate-limited as an operation that mints a credential.
+         */
+        post: operations["openDocsSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/classes": {
         parameters: {
             query?: never;
@@ -1373,6 +1777,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/app/attempts/{id}/group-audio-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record one shared listening gesture, deduplicating retries
+         * @description Counts a frozen recording bound to this attempt's version. Every distinct
+         *     playId increments its shared counter and appends one server audio_play
+         *     event in the same transaction. Retrying the same playId and recording
+         *     returns the current count without another increment/event. Reusing a
+         *     playId for another recording is PLAY_ID_CONFLICT.
+         *
+         *     Requires the current writable session, like answer autosave. Playback
+         *     remains synchronous and optimistic; no network round trip gates audio.
+         *     Counts may exceed maxPlays and never block playback or submission.
+         *     Legacy per-question playback uses the existing audio-play endpoint.
+         */
+        post: operations["recordGroupAudioPlay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/app/attempts/{id}/submit": {
         parameters: {
             query?: never;
@@ -1413,9 +1848,10 @@ export interface paths {
          * @description Honours the assignment's review policy. Suppressed fields are **absent**,
          *     not nulled-and-hidden, so no client fallback can surface them.
          *
-         *     `transcript` appears here and only here, gated on the question's
+         *     Question `transcript` and shared-context transcripts appear here only
+         *     after submission, gated by each question/recording's own
          *     `showTranscriptAfterSubmit` (§11.3, §13.5). `sampleAnswer` never appears
-         *     at all.
+         *     at all. Material and shared play counts do not depend on score/key flags.
          */
         get: operations["getAttemptResult"];
         put?: never;
@@ -1459,6 +1895,136 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * @description Versioned learner content, independent of editor JSON. This additive contract
+         *     is not yet accepted by question writes. Validate with the content domain
+         *     validator as well as JSON Schema: unique gaps, rectangular non-overlapping
+         *     table spans, no nested tables, list-leading paragraphs, unordered start=1,
+         *     no simultaneous super/subscript, consistent asset kinds, Unicode scalar strings
+         *     without NUL, and aggregate budgets. Unknown fields are errors, never silently stripped.
+         *     Asset IDs are references only; authorization, existence, kind and deletion
+         *     locks belong to the enclosing write. This schema grants no asset access.
+         */
+        ContentDocument: components["schemas"]["LegacyMarkdownContent"] | components["schemas"]["SemanticContent"];
+        LegacyMarkdownContent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            format: "legacy_markdown_v1";
+            markdown: string;
+        };
+        SemanticContent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            format: "semantic_v1";
+            blocks: components["schemas"]["ContentBlocks"];
+        };
+        ContentBlocks: components["schemas"]["ContentBlock"][];
+        ContentBlock: components["schemas"]["ContentParagraph"] | components["schemas"]["ContentHeading"] | components["schemas"]["ContentList"] | components["schemas"]["ContentTable"] | components["schemas"]["ContentImage"] | components["schemas"]["ContentAudio"];
+        ContentInlines: components["schemas"]["ContentInline"][];
+        ContentInline: components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"] | components["schemas"]["ContentGap"] | components["schemas"]["ContentLink"];
+        /** @enum {string} */
+        ContentMark: "bold" | "italic" | "underline" | "strike" | "superscript" | "subscript";
+        ContentText: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "text";
+            text: string;
+            marks: components["schemas"]["ContentMark"][];
+        };
+        ContentBreak: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "break";
+        };
+        ContentGap: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "gap";
+            id: string;
+            label: string;
+        };
+        ContentLink: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "link";
+            /** @description Explicit HTTPS navigation with ASCII DNS-style host labels and optional port 1–65535. International hosts must be punycoded; IPv6 literals are not supported in this version. No credentials, whitespace, controls, backslashes or malformed percent escapes. Never fetched during parsing or rendering. */
+            href: string;
+            content: components["schemas"]["ContentText"][];
+        };
+        ContentParagraph: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "paragraph";
+            content: components["schemas"]["ContentInlines"];
+        };
+        ContentHeading: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "heading";
+            /** @enum {integer} */
+            level: 1 | 2 | 3;
+            content: components["schemas"]["ContentInlines"];
+        };
+        ContentList: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "list";
+            ordered: boolean;
+            start: number;
+            items: components["schemas"]["ContentBlocks"][];
+        };
+        ContentTable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "table";
+            rows: components["schemas"]["ContentCell"][][];
+        };
+        ContentCell: {
+            header: boolean;
+            rowSpan: number;
+            colSpan: number;
+            content: components["schemas"]["ContentBlocks"];
+        };
+        ContentImage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "image";
+            /** Format: uuid */
+            assetId: string;
+            alt: string;
+        };
+        ContentAudio: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "audio";
+            /** Format: uuid */
+            assetId: string;
+            label: string;
+        };
+        /**
          * Format: uuid
          * @description uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
          * @example 019535d9-3df7-79fb-b466-fa907fa17f9e
@@ -1489,7 +2055,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -1524,6 +2090,320 @@ export interface components {
             page: number;
             pageSize: number;
             total: number;
+        };
+        /** @enum {string} */
+        ImportStatus: "awaiting_sources" | "queued" | "processing" | "needs_review" | "committing" | "committed" | "failed" | "cancelled";
+        /** @enum {string} */
+        ImportSourceRole: "exam" | "answer_key";
+        ImportSource: {
+            id: components["schemas"]["Uuid"];
+            role: components["schemas"]["ImportSourceRole"];
+            filename: string;
+            /** @enum {string} */
+            format: "docx" | "doc" | "pdf";
+            /** Format: int64 */
+            bytes: number;
+            sha256: string;
+            uploadedBy: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description Shared teacher scope within this installation, with creator attribution.
+         *     Sources are private originals, never learner media. Source revision zero
+         *     means no completed source set. Upload completion does not mean recognition.
+         *     Pending uploads are durable reservations and cannot be downloaded or processed.
+         */
+        WordImport: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            status: components["schemas"]["ImportStatus"];
+            /** Format: int64 */
+            revision: number;
+            /** Format: int64 */
+            sourceRevision: number;
+            sources: components["schemas"]["ImportSource"][];
+            pendingUploads: number;
+            createdBy: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            run?: components["schemas"]["ImportRun"];
+            /**
+             * Format: int64
+             * @description Zero until processing has produced a reviewable draft.
+             */
+            draftRevision?: number;
+            /** @description The draft test created by commit. */
+            testId?: components["schemas"]["Uuid"];
+            /**
+             * @description When retention removed this import's original files and review draft.
+             *     Set only on committed or cancelled imports. Afterwards the history row
+             *     and source metadata remain, but downloads, the source view and the
+             *     review answer 410 IMPORT_FILES_REMOVED.
+             */
+            filesRemovedAt?: components["schemas"]["Timestamp"];
+            /**
+             * @description Present and true when retention closed this import because nobody
+             *     touched it for the idle period, rather than a teacher cancelling it.
+             */
+            closedIdle?: boolean;
+        };
+        /** @description The latest processing run. errorCode names why a failed run stopped; keyPaper is the answer-key paper the teacher chose for it, absent when recognition picked one. */
+        ImportRun: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+            /** @enum {string} */
+            stage: "queued" | "source_validation" | "normalization" | "extraction" | "recognition" | "validation" | "ready";
+            attempt: number;
+            maxAttempts: number;
+            errorCode?: string;
+            keyPaper?: number;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        CreateWordImport: {
+            /** @description Scoped to the actor; replay with the same title returns the same import, changed title conflicts. */
+            requestId: components["schemas"]["Uuid"];
+            title: string;
+        };
+        ImportUploadReceipt: {
+            import: components["schemas"]["WordImport"];
+            source: components["schemas"]["ImportSource"];
+            /** Format: int64 */
+            sourceRevision: number;
+        };
+        ImportSourceDownload: {
+            /** Format: uri */
+            url: string;
+            expiresAt: components["schemas"]["Timestamp"];
+        };
+        ImportCapabilities: {
+            retention: components["schemas"]["ImportRetention"];
+            /**
+             * @description Private import storage is configured, so imports can be created,
+             *     listed, reviewed and committed. When false, every other
+             *     /admin/imports operation answers 501.
+             */
+            intakeEnabled: boolean;
+            /**
+             * @description A worker is deployed to process the queue, so processWordImport
+             *     accepts work. When false it answers 503
+             *     IMPORT_PROCESSING_UNAVAILABLE instead of queueing a run nothing will
+             *     claim. Never true while intakeEnabled is false.
+             */
+            processingEnabled: boolean;
+        };
+        /**
+         * @description How long an import keeps its original files and review draft. After
+         *     the test is created, after cancellation, and an import untouched for
+         *     idleDays is closed and its files removed. History rows are kept.
+         */
+        ImportRetention: {
+            afterCommitDays: number;
+            afterCancelDays: number;
+            idleDays: number;
+        };
+        ImportLimits: {
+            /** Format: int64 */
+            maxBytes: number;
+            /** @description Accepted file extensions; doc appears only when legacy conversion is enabled. */
+            formats: ("docx" | "doc" | "pdf")[];
+        };
+        ProcessWordImport: {
+            /** @description Replaying the same request returns the same run. */
+            requestId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            expectedRevision: number;
+            /** @description Paper number to read from an answer-key file that holds several papers. */
+            keyPaper?: number;
+        };
+        CancelWordImport: {
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        CommitWordImport: {
+            /** @description Replaying a committed request returns the same test. */
+            requestId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            draftRevision: number;
+        };
+        ImportCommitResult: {
+            testId: components["schemas"]["Uuid"];
+            import: components["schemas"]["WordImport"];
+        };
+        /** @description Unicode code point range of one extracted source block. */
+        ImportSourceRef: {
+            sourceId: string;
+            blockId: string;
+            start: number;
+            end: number;
+            generatedLabel?: boolean;
+        };
+        /** @enum {string} */
+        ImportOrigin: "source_explicit" | "inferred_structure" | "defaulted" | "teacher_entered";
+        /**
+         * @description One actionable observation. blocking must be fixed by an edit;
+         *     review_required needs a teacher decision (an edit or an acknowledgement);
+         *     informational needs nothing.
+         */
+        ImportFinding: {
+            id: string;
+            code: string;
+            /** @enum {string} */
+            severity: "blocking" | "review_required" | "informational";
+            target?: string;
+            field?: string;
+            count: number;
+            acknowledged?: boolean;
+            evidence: components["schemas"]["ImportSourceRef"][];
+        };
+        ImportKeyValue: {
+            value: string;
+            evidence: components["schemas"]["ImportSourceRef"][];
+        };
+        /**
+         * @description unknown means the source has no key; it is never a set of false options.
+         *     Choice keys are optionIds, a short answer's sample is text, fill-blank
+         *     keys live on blanks. conflict keeps every source value in candidates.
+         */
+        ImportDraftAnswer: {
+            /** @enum {string} */
+            state: "known" | "unknown" | "conflict";
+            optionIds: string[];
+            text?: string;
+            evidence: components["schemas"]["ImportSourceRef"][];
+            candidates?: components["schemas"]["ImportKeyValue"][];
+        };
+        ImportDraftOption: {
+            id: string;
+            label: string;
+            content: components["schemas"]["ContentDocument"];
+        };
+        ImportDraftBlank: {
+            gapId: string;
+            label?: string;
+            accepted: string[];
+            caseSensitive: boolean;
+        };
+        ImportFieldOrigins: {
+            type: components["schemas"]["ImportOrigin"];
+            prompt: components["schemas"]["ImportOrigin"];
+            options: components["schemas"]["ImportOrigin"];
+            answer: components["schemas"]["ImportOrigin"];
+            points: components["schemas"]["ImportOrigin"];
+        };
+        /** @description unsupported marks content no interaction can represent; it must be retyped or excluded. */
+        ImportDraftQuestion: {
+            id: string;
+            label: string;
+            task?: string;
+            /** @enum {string} */
+            type: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "unsupported";
+            prompt: components["schemas"]["ContentDocument"];
+            options: components["schemas"]["ImportDraftOption"][];
+            blanks: components["schemas"]["ImportDraftBlank"][];
+            answer: components["schemas"]["ImportDraftAnswer"];
+            points: string;
+            excluded?: {
+                reason: string;
+            };
+            origins: components["schemas"]["ImportFieldOrigins"];
+            source: components["schemas"]["ImportSourceRef"][];
+        };
+        /** @description Binds a passage gap to a choice question, or to one blank of a fill-blank question. */
+        ImportGapLink: {
+            gapId: string;
+            questionId: string;
+            blankGapId?: string;
+        };
+        /** @description Questions sharing one passage; the passage gaps bind to members by stable IDs. */
+        ImportDraftGroup: {
+            id: string;
+            label?: string;
+            instructions?: string;
+            stimulus?: components["schemas"]["ContentDocument"];
+            gaps: components["schemas"]["ImportGapLink"][];
+            questions: components["schemas"]["ImportDraftQuestion"][];
+            source: components["schemas"]["ImportSourceRef"][];
+        };
+        /** @description Exactly one of question or group. */
+        ImportDraftItem: {
+            question?: components["schemas"]["ImportDraftQuestion"];
+            group?: components["schemas"]["ImportDraftGroup"];
+        };
+        ImportDraftSection: {
+            id: string;
+            title: string;
+            instructions?: string;
+            origin: components["schemas"]["ImportOrigin"];
+            items: components["schemas"]["ImportDraftItem"][];
+            source: components["schemas"]["ImportSourceRef"][];
+        };
+        /** @description The reviewable exam. Notices are source observations and are kept by the server; edits never change them. */
+        ImportDraft: {
+            /** @enum {string} */
+            version: "word-draft-v1";
+            title: string;
+            sections: components["schemas"]["ImportDraftSection"][];
+            notices: components["schemas"]["ImportFinding"][];
+            acknowledged: string[];
+        };
+        ImportReviewSummary: {
+            sections: number;
+            groups: number;
+            questions: number;
+            included: number;
+            excluded: number;
+            totalPoints: string;
+            answersKnown: number;
+            answersMissing: number;
+            answersConflicting: number;
+            blocking: number;
+            needsDecision: number;
+        };
+        /**
+         * @description The draft with every current finding. ready is true only when nothing blocks
+         *     and every review_required finding has a decision. reprocessed means a newer
+         *     machine draft exists that has not replaced the teacher's edits.
+         */
+        ImportReview: {
+            importId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            revision: number;
+            draft: components["schemas"]["ImportDraft"];
+            findings: components["schemas"]["ImportFinding"][];
+            summary: components["schemas"]["ImportReviewSummary"];
+            ready: boolean;
+            reprocessed: boolean;
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        SaveImportReview: {
+            /** Format: int64 */
+            expectedRevision: number;
+            title: string;
+            sections: components["schemas"]["ImportDraftSection"][];
+            acknowledged: string[];
+        };
+        ImportSourceSpan: {
+            start: number;
+            end: number;
+            marks: components["schemas"]["ContentMark"][];
+            colored?: boolean;
+        };
+        ImportSourceBlock: {
+            id: string;
+            text: string;
+            spans: components["schemas"]["ImportSourceSpan"][];
+            tableId?: string;
+            row?: number;
+            column?: number;
+        };
+        /** @description The extracted main-body text of one source, in document order, for side-by-side review. */
+        ImportSourceView: {
+            sourceId: string;
+            role: components["schemas"]["ImportSourceRole"];
+            filename: string;
+            blocks: components["schemas"]["ImportSourceBlock"][];
         };
         /**
          * @description Guards are written so a third role (`teacher`, limited admin) can be
@@ -1594,6 +2474,16 @@ export interface components {
              */
             version?: number;
         };
+        /** @description Admin-only shared context that protects an immutable media asset, including archived bank groups. */
+        ReferencingGroup: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /**
+             * Format: uuid
+             * @description Owning test, absent for an independent bank group.
+             */
+            testId?: string | null;
+        };
         /**
          * @description A MediaAsset as the admin library lists it, with how many published
          *     versions reference it. Flat for the same reason (issue #41) -- this is
@@ -1648,10 +2538,13 @@ export interface components {
             score?: components["schemas"]["AttemptScore"] | null;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
+            /** @description Any question audio or shared recording on the assigned frozen version. */
             hasAudio: boolean;
-            /** @description True when any listening question releases its transcript after submitting. */
+            /** @description A shared recording has one allowance across its group's questions; absent means false for legacy readers. */
+            hasSharedAudio?: boolean;
+            /** @description True when any question audio or shared recording releases its transcript after submitting. */
             showsTranscript: boolean;
-            /** @description The strictest `maxPlays` across the test, for the intro copy. */
+            /** @description The strictest finite `maxPlays` across question audio and shared recordings on the assigned version; null when all are unlimited. Individual recordings can have higher limits. */
             audioMaxPlays?: number | null;
         };
         /** @description A class the student is in, with how they got there (§6.4's D-10). */
@@ -1857,15 +2750,152 @@ export interface components {
             allowSeek: boolean;
             showTranscriptAfterSubmit: boolean;
         };
+        /**
+         * @description Bounded semantic prose for prompts and explanations: paragraphs, headings,
+         *     lists and tables with marked text, breaks and safe links. No media, gaps,
+         *     source metadata or answer-key properties. ContentDocument aggregate budgets
+         *     and cross-node validation apply to original raw JSON. The companion string
+         *     must equal the exact plain projection. Explanations never contain gaps.
+         *     On question updates, omitting a rich field preserves its stored document
+         *     only if the companion string is unchanged; otherwise the whole write is
+         *     rejected. Explicit null removes the document.
+         */
+        QuestionContent: {
+            /** @constant */
+            format: "semantic_v1";
+            blocks: components["schemas"]["QuestionContentBlocks"];
+        };
+        QuestionContentBlocks: components["schemas"]["QuestionContentBlock"][];
+        QuestionContentBlock: components["schemas"]["QuestionContentParagraph"] | components["schemas"]["QuestionContentHeading"] | components["schemas"]["QuestionContentList"] | components["schemas"]["QuestionContentTable"];
+        QuestionContentInlines: (components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"] | components["schemas"]["ContentLink"])[];
+        QuestionContentParagraph: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "paragraph";
+            content: components["schemas"]["QuestionContentInlines"];
+        };
+        QuestionContentHeading: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "heading";
+            /** @enum {integer} */
+            level: 1 | 2 | 3;
+            content: components["schemas"]["QuestionContentInlines"];
+        };
+        QuestionContentList: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "list";
+            ordered: boolean;
+            start: number;
+            items: components["schemas"]["QuestionContentBlocks"][];
+        };
+        QuestionContentTable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "table";
+            rows: components["schemas"]["QuestionContentCell"][][];
+        };
+        QuestionContentCell: {
+            header: boolean;
+            rowSpan: number;
+            colSpan: number;
+            content: components["schemas"]["QuestionContentBlocks"];
+        };
+        /**
+         * @description Bounded semantic question prompt without media or answer keys. Gaps are
+         *     supported only for fill_blank and must match blank gapId values exactly.
+         *     Gap identity is stable within this question; labels never select answers.
+         *     The companion prompt equals the exact plain projection. Omitted content
+         *     on update preserves the stored document only when prompt is unchanged.
+         */
+        QuestionPromptContent: {
+            /** @constant */
+            format: "semantic_v1";
+            blocks: components["schemas"]["QuestionPromptContentBlocks"];
+        };
+        QuestionPromptContentBlocks: components["schemas"]["QuestionPromptContentBlock"][];
+        QuestionPromptContentBlock: components["schemas"]["QuestionPromptContentParagraph"] | components["schemas"]["QuestionPromptContentHeading"] | components["schemas"]["QuestionPromptContentList"] | components["schemas"]["QuestionPromptContentTable"];
+        QuestionPromptContentInlines: (components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"] | components["schemas"]["ContentLink"] | components["schemas"]["ContentGap"])[];
+        QuestionPromptContentParagraph: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "paragraph";
+            content: components["schemas"]["QuestionPromptContentInlines"];
+        };
+        QuestionPromptContentHeading: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "heading";
+            /** @enum {integer} */
+            level: 1 | 2 | 3;
+            content: components["schemas"]["QuestionPromptContentInlines"];
+        };
+        QuestionPromptContentList: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "list";
+            ordered: boolean;
+            start: number;
+            items: components["schemas"]["QuestionPromptContentBlocks"][];
+        };
+        QuestionPromptContentTable: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "table";
+            rows: components["schemas"]["QuestionPromptContentCell"][][];
+        };
+        QuestionPromptContentCell: {
+            header: boolean;
+            rowSpan: number;
+            colSpan: number;
+            content: components["schemas"]["QuestionPromptContentBlocks"];
+        };
+        /**
+         * @description Versioned inline option text: one paragraph of marked text and line breaks.
+         *     No links, gaps, media, tables, source metadata or answer keys. The server
+         *     validates the original JSON and requires text to equal its plain projection.
+         *     Omitted content preserves rich formatting only when the current option id and
+         *     text match; stale or changed legacy writes are rejected. Explicit null
+         *     removes formatting. Options without rich content remain plain text.
+         */
+        OptionContent: {
+            /** @constant */
+            format: "semantic_v1";
+            blocks: {
+                /** @constant */
+                type: "paragraph";
+                content: (components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"])[];
+            }[];
+        };
         AdminQuestionOption: {
             id: components["schemas"]["Uuid"];
             ordinal: number;
+            content?: components["schemas"]["OptionContent"] | null;
             text: string;
             isCorrect: boolean;
         };
         AdminQuestionBlank: {
+            /** @description Stable identity of the rich prompt gap; null for legacy Markdown. */
+            gapId?: string | null;
             id: components["schemas"]["Uuid"];
-            /** @description 1-indexed, matching the `{{1}}` placeholders in the prompt. */
+            /** @description Stable 1-indexed answer label; matches `{{1}}` only for legacy Markdown. */
             ordinal: number;
             acceptedAnswers: string[];
             caseSensitive: boolean;
@@ -1908,8 +2938,9 @@ export interface components {
         AdminQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             /**
-             * @description Markdown, rendered with rehype-sanitize — never
+             * @description Legacy Markdown, or exact plain projection when promptContent is present. Markdown is rendered with rehype-sanitize — never
              *     `dangerouslySetInnerHTML` (§2). For `fill_blank`, blanks are marked
              *     `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
              */
@@ -1920,6 +2951,7 @@ export interface components {
             options?: components["schemas"]["AdminQuestionOption"][];
             blanks?: components["schemas"]["AdminQuestionBlank"][];
             points: components["schemas"]["Points"];
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
             /**
              * @description `short_answer` only. **Admin-only, shown during grading.** Never
@@ -1943,6 +2975,7 @@ export interface components {
         /** @description No `isCorrect`. Deliberately not a subset-by-omission of AdminQuestionOption. */
         StudentOption: {
             id: components["schemas"]["Uuid"];
+            content?: components["schemas"]["OptionContent"] | null;
             text: string;
         };
         /**
@@ -1952,6 +2985,8 @@ export interface components {
          *     are graded on blind.
          */
         StudentBlank: {
+            /** @description Stable identity of the rich prompt gap; null for legacy Markdown. */
+            gapId?: string | null;
             id: components["schemas"]["Uuid"];
             ordinal: number;
             caseSensitive: boolean;
@@ -1983,12 +3018,51 @@ export interface components {
             /** @description The `AttemptSession.sections` entry this question belongs to. */
             sectionId: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
             points: components["schemas"]["Points"];
+        };
+        /**
+         * @description Frozen shared context with ordered version-question identities. Contains
+         *     no answer keys or transcripts. Assets are explicitly authorized by the
+         *     containing preview/session, never by an arbitrary content assetId.
+         */
+        StudentGroup: {
+            id: components["schemas"]["Uuid"];
+            sectionId: components["schemas"]["Uuid"];
+            title: string;
+            instructions?: components["schemas"]["QuestionContent"] | null;
+            questionIds: components["schemas"]["Uuid"][];
+            stimuli: components["schemas"]["GroupStimulus"][];
+            recordings: components["schemas"]["StudentGroupRecording"][];
+            assets: components["schemas"]["MediaAsset"][];
+        };
+        /** @description One versioned group playback scope, independent of other groups using the same file. */
+        StudentGroupRecording: {
+            id: components["schemas"]["Uuid"];
+            assetId: components["schemas"]["Uuid"];
+            policy: components["schemas"]["AudioPolicy"];
+        };
+        /**
+         * @description Frozen material for completed-attempt results and teacher grading.
+         *     Learner transcripts contain only recordings whose own policy releases
+         *     them after submission; teacher grading includes all available transcripts.
+         *     No grading key is added to groups. Listening here never consumes a play.
+         */
+        SharedReviewContext: {
+            groups: components["schemas"]["StudentGroup"][];
+            /** @description Released transcript text keyed by frozen recording ID; suppressed entries are absent. */
+            transcripts: {
+                [key: string]: string;
+            };
+            /** @description Used plays by recording for a single attempt; omitted when grading across attempts. */
+            audioPlays?: {
+                [key: string]: number;
+            };
         };
         /**
          * @description The post-submission view. Every revealing field is gated by the
@@ -1998,6 +3072,7 @@ export interface components {
         ResultQuestion: {
             id: components["schemas"]["Uuid"];
             type: components["schemas"]["QuestionType"];
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
             options?: components["schemas"]["StudentOption"][];
@@ -2023,6 +3098,8 @@ export interface components {
                  */
                 answer: string;
             }[] | null;
+            /** @description Absent unless review.showExplanations permits the frozen explanation. */
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
             /** @description Only when `review.showExplanations`. */
             explanation?: string | null;
             /**
@@ -2035,12 +3112,161 @@ export interface components {
         };
         /** @enum {string} */
         TestStatus: "draft" | "published" | "archived";
+        /**
+         * @description Independent shared-context draft graph, written through the group endpoints.
+         *     Array order defines member/material order. Empty draft groups are allowed;
+         *     publication requires a member. Members belong to one group in one section.
+         *     Copy with context creates fresh group, member, material, gap and recording
+         *     identities. Immutable asset bytes may be reused through protected bindings.
+         *     Validate graph references and aggregate limits in addition to JSON Schema.
+         *     The byte budget includes resolved question content/keys; a transport must
+         *     also bound original input before decoding. This is an admin authoring
+         *     shape, never a learner payload or an asset access grant.
+         */
+        QuestionGroup: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            instructions?: components["schemas"]["QuestionContent"] | null;
+            members: components["schemas"]["GroupMember"][];
+            stimuli: components["schemas"]["GroupStimulus"][];
+            recordings: components["schemas"]["GroupRecording"][];
+        };
+        GroupMember: {
+            questionId: components["schemas"]["Uuid"];
+            /**
+             * @description Fixed is for choice members whose text depends on authored option labels and forbids option shuffling; other members use shuffle. Neither changes member order.
+             * @enum {string}
+             */
+            optionOrder: "shuffle" | "fixed";
+        };
+        GroupStimulus: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            content: components["schemas"]["ContentDocument"];
+            /** @description Exactly one binding per material gap; targets must be distinct within the group and refer to its members. */
+            gaps: components["schemas"]["GroupGapBinding"][];
+        };
+        GroupGapBinding: components["schemas"]["GroupQuestionGap"] | components["schemas"]["GroupBlankGap"];
+        /** @description A material gap targets a choice member; display labels never determine identity. */
+        GroupQuestionGap: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "question";
+            gapId: string;
+            questionId: components["schemas"]["Uuid"];
+        };
+        /** @description A material gap targets the stable prompt gap of a rich fill-blank member, never a mutable answer-row ID. */
+        GroupBlankGap: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "blank";
+            gapId: string;
+            questionId: components["schemas"]["Uuid"];
+            blankGapId: string;
+        };
+        /**
+         * @description Admin-only authoring shape. One explicit playback binding per audio asset
+         *     used in the group's materials. All member questions share its allowance;
+         *     another group using the same asset has a different binding. Transcripts
+         *     require a separate policy-gated review projection, never a learner cast.
+         */
+        GroupRecording: {
+            id: components["schemas"]["Uuid"];
+            assetId: components["schemas"]["Uuid"];
+            policy: components["schemas"]["AudioPolicy"];
+            transcript?: string | null;
+        };
+        QuestionGroupBundle: {
+            group: components["schemas"]["QuestionGroup"];
+            questions: components["schemas"]["GroupQuestionInput"][];
+        };
+        GroupQuestionInput: {
+            id: components["schemas"]["Uuid"];
+            input: components["schemas"]["QuestionInput"];
+        };
+        StoredQuestionGroup: {
+            bundle: components["schemas"]["QuestionGroupBundle"];
+            /** Format: uuid */
+            ownerSectionId: string | null;
+            /** Format: int64 */
+            revision: number;
+            /**
+             * Format: date-time
+             * @description Enclosing test revision for section-owned groups; absent for bank groups.
+             */
+            testUpdatedAt?: string | null;
+            /** Format: date-time */
+            archivedAt: string | null;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            /** @description Authorized media referenced by members or shared materials. */
+            assets: components["schemas"]["MediaAsset"][];
+            /** @description Bound assets whose metadata or signed link could not be loaded. A media outage does not turn a committed edit into an ambiguous save failure; clients show a retryable material state. */
+            unavailableAssetIds: components["schemas"]["Uuid"][];
+        };
+        QuestionGroupSummary: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            /** Format: int64 */
+            revision: number;
+            questionCount: number;
+            recordingCount: number;
+            totalPoints: components["schemas"]["Points"];
+            tags: string[];
+            /** Format: date-time */
+            archivedAt: string | null;
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        GroupCreateInput: {
+            bundle: components["schemas"]["QuestionGroupBundle"];
+            /** Format: uuid */
+            ownerSectionId?: string | null;
+            /**
+             * Format: date-time
+             * @description Required when ownerSectionId identifies a section; no ownerSectionId means an independent bank group.
+             */
+            expectedTestUpdatedAt?: string | null;
+        };
+        GroupUpdateInput: {
+            bundle: components["schemas"]["QuestionGroupBundle"];
+            /** Format: int64 */
+            expectedRevision: number;
+            /**
+             * Format: date-time
+             * @description Required for a section-owned group; owner cannot change through this operation.
+             */
+            expectedTestUpdatedAt?: string | null;
+        };
+        GroupCopyInput: {
+            /** Format: int64 */
+            expectedRevision: number;
+            /** Format: uuid */
+            ownerSectionId?: string | null;
+            /**
+             * Format: date-time
+             * @description Required when copying into a section; omitted destination creates an independent bank group.
+             */
+            expectedTestUpdatedAt?: string | null;
+        };
+        DraftSectionUnit: {
+            /** @enum {string} */
+            kind: "question" | "group";
+            /** @description Standalone question ID or owned group ID, according to kind. */
+            id: components["schemas"]["Uuid"];
+        };
         TestSection: {
             id: components["schemas"]["Uuid"];
             ordinal: number;
             title: string;
             instructions?: string | null;
+            /** @description Legacy standalone references; group members belong to their group and are excluded here. */
             questionIds: components["schemas"]["Uuid"][];
+            /** @description Complete mixed order when the section has shared groups; absent on historical standalone outlines. */
+            units?: components["schemas"]["DraftSectionUnit"][];
         };
         Test: {
             id: components["schemas"]["Uuid"];
@@ -2051,7 +3277,7 @@ export interface components {
             currentVersion: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
-            /** @description Questions carrying an audio asset. Backs A-03's headphone badge. */
+            /** @description Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge. */
             audioCount: number;
             /** @description The **draft** outline. Published content lives in versions. */
             sections: components["schemas"]["TestSection"][];
@@ -2066,7 +3292,7 @@ export interface components {
             version: number;
             totalPoints: components["schemas"]["Points"];
             questionCount: number;
-            /** @description Listening questions, shown when picking a version to assign (G-01). */
+            /** @description Questions with their own audio or a shared group recording, counted once per question; shown when picking a version to assign (G-01). */
             audioCount: number;
             /**
              * @description Questions needing manual grading. G-01 multiplies it by the roster to
@@ -2084,12 +3310,14 @@ export interface components {
          */
         PublishValidationError: {
             /** @enum {string} */
-            rule: "points_positive" | "choice_has_correct_option" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
+            rule: "points_positive" | "choice_has_correct_option" | "option_content_valid" | "question_content_valid" | "question_valid" | "group_valid" | "total_points_valid" | "blank_has_accepted_answer" | "blank_placeholders_match" | "audio_question_has_asset" | "section_not_empty";
             message: string;
             /** Format: uuid */
             sectionId?: string | null;
             /** Format: uuid */
             questionId?: string | null;
+            /** Format: uuid */
+            groupId?: string | null;
         };
         /**
          * @description **Derived**, never stored (D-18). A pure function of `publishedAt`,
@@ -2277,6 +3505,14 @@ export interface components {
              */
             questions: components["schemas"]["StudentQuestion"][];
             /**
+             * @description Frozen shared context for this attempt's version. Member IDs name
+             *     questions in this session; presentation order comes from questions.
+             *     No answer keys or recording transcripts. Only version-bound assets
+             *     reachable through this student's own attempt receive signed URLs.
+             *     Empty for historical standalone papers; optional for compatibility.
+             */
+            groups?: components["schemas"]["StudentGroup"][];
+            /**
              * @description Identifies this device/tab. Every write carries it; a superseded
              *     session gets `SESSION_SUPERSEDED`, which is how the first tab learns
              *     it lost (§10.1, E2E 7).
@@ -2299,11 +3535,30 @@ export interface components {
             audioPlays: {
                 [key: string]: number;
             };
+            /**
+             * @description Server counts keyed by frozen group recording ID, shared across all
+             *     members and sessions of this attempt. Different groups using the same
+             *     file have independent counts. Optional for historical clients.
+             */
+            groupAudioPlays?: {
+                [key: string]: number;
+            };
             /** @description Keyed by question id. The base for the resume merge. */
             answers: {
                 [key: string]: components["schemas"]["Answer"];
             };
             integrity: components["schemas"]["IntegrityPolicy"];
+        };
+        GroupAudioPlayInput: {
+            recordingId: components["schemas"]["Uuid"];
+            /** @description Stable random ID for one gesture, reused unchanged by retries; unique within the attempt. */
+            playId: components["schemas"]["Uuid"];
+            sessionId: components["schemas"]["Uuid"];
+        };
+        GroupAudioPlayResult: {
+            playId: components["schemas"]["Uuid"];
+            plays: number;
+            maxPlays: number | null;
         };
         IntegrityEventInput: {
             /**
@@ -2467,15 +3722,17 @@ export interface components {
         };
         /**
          * @description Create/update body for a bank question. Cross-field rules that a single
-         *     schema cannot express — a choice question needs at least one correct
-         *     option, a `fill_blank` needs its `{{n}}` placeholders to match its blank
-         *     ordinals, an audio policy requires an audio asset — are validated by the
+         *     schema cannot express — single_choice and true_false need exactly one correct
+         *     option (true_false has exactly two options), multiple_choice needs at least one correct
+         *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
         QuestionInput: {
             type: components["schemas"]["QuestionType"];
-            /** @description Markdown. `fill_blank` marks blanks `{{1}}`, `{{2}}`, 1-indexed. */
+            promptContent?: components["schemas"]["QuestionPromptContent"] | null;
+            /** @description Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown. */
             prompt: string;
             /** Format: uuid */
             mediaAssetId?: string | null;
@@ -2490,18 +3747,21 @@ export interface components {
                  * @description Omit to create.
                  */
                 id?: string | null;
+                content?: components["schemas"]["OptionContent"] | null;
                 text: string;
                 isCorrect: boolean;
             }[];
             blanks?: {
                 /** Format: uuid */
                 id?: string | null;
+                gapId?: string | null;
                 ordinal: number;
                 acceptedAnswers: string[];
                 /** @default false */
                 caseSensitive: boolean;
             }[];
             points: components["schemas"]["Points"];
+            explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
             /** @description `short_answer` only. Rejected on any other type. */
             sampleAnswer?: string | null;
@@ -2521,9 +3781,15 @@ export interface components {
             durationMinutes: number;
             /** @default 1 */
             maxAttempts: number;
-            /** @default false */
+            /**
+             * @description Shuffle standalone questions and complete groups as units inside each section; preserve member order.
+             * @default false
+             */
             shuffleQuestions: boolean;
-            /** @default false */
+            /**
+             * @description Rejected with VALIDATION_FAILED on shuffleOptions when the selected version contains a group member with fixed option-label dependencies.
+             * @default false
+             */
             shuffleOptions: boolean;
             review: components["schemas"]["ReviewPolicy"];
             integrity: components["schemas"]["IntegrityPolicy"];
@@ -2930,7 +4196,11 @@ export interface operations {
              */
             204: {
                 headers: {
-                    /** @description `quizzivy_refresh=; Max-Age=0` — same Path and flags, or the browser keeps the old cookie. */
+                    /**
+                     * @description Two headers. `quizzivy_refresh=; Max-Age=0` with the same Path and flags,
+                     *     or the browser keeps the old cookie; and `quizzivy_docs=; Path=/docs;
+                     *     Max-Age=0`, so signing out also ends an open API reference session (§5.5).
+                     */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
@@ -3096,6 +4366,298 @@ export interface operations {
             };
         };
     };
+    listQuestionGroups: {
+        parameters: {
+            query?: {
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                limit?: number;
+                status?: "active" | "archived" | "all";
+                tag?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest updated groups first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["QuestionGroupSummary"][];
+                    };
+                };
+            };
+        };
+    };
+    createQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created, with canonical member option/blank identities and media bindings. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision, archived owner or duplicate graph identity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Input exceeds the 4 MiB group transport budget. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Group content, binding or media validation failed; no partial graph was created. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One coherent group revision, including archived groups. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Saved complete graph and current revisions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision, archived group/test or identity conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Input exceeds the 4 MiB group transport budget. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Group content, binding or media validation failed; no partial edit was saved. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteQuestionGroup: {
+        parameters: {
+            query: {
+                expectedRevision: number;
+                expectedTestUpdatedAt?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision, archived enclosing test, or bank group not archived. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    copyQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupCopyInput"];
+            };
+        };
+        responses: {
+            /** @description Independent copy; source edits/deletion cannot affect it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale source/destination revision or archived enclosing test. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A copied media binding is no longer available; no destination graph was created. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archiveQuestionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    archived: boolean;
+                    /** Format: int64 */
+                    expectedRevision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Current graph and archive state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredQuestionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Stale revision or a section-owned group that follows its test lifecycle. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listTests: {
         parameters: {
             query?: {
@@ -3245,6 +4807,11 @@ export interface operations {
                     title?: string;
                     description?: string | null;
                     status?: components["schemas"]["TestStatus"];
+                    /**
+                     * @description Complete mixed-unit outline. Every section must include units and every existing owned group exactly once. Group deletion uses its dedicated revision-checked endpoint.
+                     * @enum {string}
+                     */
+                    outlineFormat?: "group_v1";
                     sections?: {
                         /**
                          * Format: uuid
@@ -3253,7 +4820,10 @@ export interface operations {
                         id?: string | null;
                         title: string;
                         instructions?: string | null;
+                        /** @description Standalone question projection, in the same order as question units when outlineFormat is group_v1. */
                         questionIds: components["schemas"]["Uuid"][];
+                        /** @description Required in every section with group_v1. Moves complete groups only within this test; cross-test reuse requires an independent copy. */
+                        units?: components["schemas"]["DraftSectionUnit"][];
                     }[];
                 };
             };
@@ -3270,7 +4840,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`. */
+            /** @description `STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`; `GROUP_OUTLINE_REQUIRED` — a legacy question-only outline cannot replace a draft containing shared groups. Metadata-only updates remain supported. `TEST_ARCHIVED` — restore the test before a mixed-outline edit. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3384,7 +4954,7 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
-            /** @description The version is referenced/current, the test is archived, or the expected update time is stale. */
+            /** @description The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3496,6 +5066,8 @@ export interface operations {
                     "application/json": {
                         version: number;
                         questions: components["schemas"]["StudentQuestion"][];
+                        sections?: components["schemas"]["StudentSection"][];
+                        groups?: components["schemas"]["StudentGroup"][];
                     };
                 };
             };
@@ -3742,6 +5314,629 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listWordImports: {
+        parameters: {
+            query?: {
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the admin
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                status?: components["schemas"]["ImportStatus"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest imports first, stable ID tie-breaker. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["WordImport"][];
+                    };
+                };
+            };
+        };
+    };
+    createWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWordImport"];
+            };
+        };
+        responses: {
+            /** @description OK. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WordImport"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — request identity already used with different input. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED — configured actor or installation quota reached. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WordImport"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadImportSource: {
+        parameters: {
+            query: {
+                role: components["schemas"]["ImportSourceRole"];
+                uploadId: components["schemas"]["Uuid"];
+                expectedRevision: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Stored and associated with one source revision. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportUploadReceipt"];
+                };
+            };
+            /** @description Malformed upload; exactly one file part is required. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_TOO_LARGE — compressed, expanded or XML resource limit exceeded. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — unsupported, active, encrypted or invalid source. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    downloadImportSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                sourceId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSourceDownload"];
+                };
+            };
+            /** @description Completed source not found in this import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_FILES_REMOVED — retention removed this import's files. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getWordImportCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCapabilities"];
+                };
+            };
+        };
+    };
+    getWordImportLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportLimits"];
+                };
+            };
+        };
+    };
+    processWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessWordImport"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WordImport"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision, no exam source, or a run already active. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_QUOTA_EXCEEDED — processing capacity reached. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description IMPORT_PROCESSING_UNAVAILABLE — no worker is deployed
+             *     (`processingEnabled` is false). Nothing is queued.
+             */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelWordImport"];
+            };
+        };
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WordImport"];
+                };
+            };
+            /** @description Import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_CONFLICT — stale revision or already committed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getWordImportReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReview"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_FILES_REMOVED — retention removed this import's files. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    saveWordImportReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveImportReview"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReview"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STALE_WRITE — saved elsewhere since expectedRevision; IMPORT_CONFLICT — the import is no longer under review. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED — the draft is structurally invalid (unknown IDs, duplicate IDs, invalid content). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adoptWordImportReprocessed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelWordImport"];
+            };
+        };
+        responses: {
+            /** @description Adopted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReview"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STALE_WRITE — the draft changed since expectedRevision; IMPORT_CONFLICT — nothing newer to adopt, or the import is no longer under review. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getWordImportSource: {
+        parameters: {
+            query: {
+                role: components["schemas"]["ImportSourceRole"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportSourceView"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_FILES_REMOVED — retention removed this import's files. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    commitWordImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitWordImport"];
+            };
+        };
+        responses: {
+            /** @description Committed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCommitResult"];
+                };
+            };
+            /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description STALE_WRITE — the draft changed since draftRevision; IMPORT_CONFLICT — already committed by another request, or cancelled. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description IMPORT_NOT_READY — blocking findings remain or decisions are missing. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listMedia: {
         parameters: {
             query?: {
@@ -3856,9 +6051,10 @@ export interface operations {
             204: components["responses"]["NoContent"];
             404: components["responses"]["NotFound"];
             /**
-             * @description `MEDIA_REFERENCED` — a published version still uses it (§8, §15).
+             * @description `MEDIA_REFERENCED` — a published version or independent question group still uses it (§8, §15).
              *     `details.tests` names those versions as `ReferencingTest[]`,
-             *     sorted by title then version (A-07).
+             *     sorted by title then version (A-07). `details.groups` names protected
+             *     draft/bank context as `ReferencingGroup[]`, sorted by title then ID.
              */
             409: {
                 headers: {
@@ -4055,6 +6251,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         question: components["schemas"]["AdminQuestion"];
+                        sharedContext?: components["schemas"]["SharedReviewContext"];
                         /** @description 1-based position on the paper. */
                         questionNumber: number;
                         questionCount: number;
@@ -4207,6 +6404,7 @@ export interface operations {
                         /** @description For "lượt 1/2" in the header (G-03). */
                         maxAttempts: number;
                         questions: components["schemas"]["AdminQuestion"][];
+                        sharedContext?: components["schemas"]["SharedReviewContext"];
                         answers: {
                             [key: string]: {
                                 answer: components["schemas"]["Answer"] | null;
@@ -4749,6 +6947,26 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    openDocsSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The docs session is open for fifteen minutes. */
+            204: {
+                headers: {
+                    /** @description `quizzivy_docs=<token>; Path=/docs; Max-Age=900; HttpOnly; Secure; SameSite=Strict` */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listClasses: {
@@ -5341,6 +7559,42 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    recordGroupAudioPlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupAudioPlayInput"];
+            };
+        };
+        responses: {
+            /** @description Current server count, including any plays beyond the configured allowance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupAudioPlayResult"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            /** @description SESSION_SUPERSEDED, ATTEMPT_CLOSED, DEADLINE_PASSED or PLAY_ID_CONFLICT. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     submitAttempt: {
         parameters: {
             query?: never;
@@ -5408,6 +7662,7 @@ export interface operations {
                         /** @description For "Lượt 1/2" under the score (S-09). */
                         maxAttempts: number;
                         questions: components["schemas"]["ResultQuestion"][];
+                        sharedContext?: components["schemas"]["SharedReviewContext"];
                     };
                 };
             };

@@ -1,3 +1,5 @@
+import { BlankPromptField } from "./BlankPromptField";
+import { questionGaps } from "@/components/shared/content/gaps";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { PageAside } from "@/components/shared/PageAside";
@@ -10,7 +12,7 @@ import { AudioPolicyPanel } from "@/features/question-bank/components/AudioPolic
 import { BlanksEditor } from "@/features/question-bank/components/BlanksEditor";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
 import { OptionsEditor } from "@/features/question-bank/components/OptionsEditor";
-import { PromptField } from "@/features/question-bank/components/PromptField";
+import { QuestionProseField } from "@/features/question-bank/components/QuestionProseField";
 import { TagsField } from "@/features/question-bank/components/TagsField";
 import type {
   QuestionType,
@@ -63,8 +65,17 @@ export function QuestionEditor({
   const { t } = useTranslation();
   const isChoice = CHOICE_TYPES.has(value.type);
   const isAudio = asset?.kind === "audio";
+  const hasGaps =
+    value.promptContent != null && questionGaps(value.promptContent).length > 0;
+
+  const hasBlankBindings =
+    hasGaps ||
+    (value.promptContent != null &&
+      value.type === "fill_blank" &&
+      value.blanks.length > 0);
 
   function switchType(type: QuestionType) {
+    if (type !== "fill_blank" && hasBlankBindings) return;
     onChange({
       ...value,
       type,
@@ -77,18 +88,25 @@ export function QuestionEditor({
   return (
     <>
       <div className="space-y-5">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {contextLabel === null ? null : (
             <span className="text-muted-foreground text-xs">{contextLabel}</span>
           )}
           <Tabs
-            className="ml-auto"
+            className="ml-auto max-w-full"
             value={value.type}
             onValueChange={(next) => switchType(next as QuestionType)}
           >
-            <TabsList aria-label={t("questionEditor.typeLabel")}>
+            <TabsList
+              className="h-auto flex-wrap justify-start"
+              aria-label={t("questionEditor.typeLabel")}
+            >
               {TYPES.map((type) => (
-                <TabsTrigger key={type} value={type}>
+                <TabsTrigger
+                  key={type}
+                  value={type}
+                  disabled={type !== "fill_blank" && hasBlankBindings}
+                >
                   {t(`questionEditor.type.${type}`)}
                 </TabsTrigger>
               ))}
@@ -96,6 +114,11 @@ export function QuestionEditor({
           </Tabs>
         </div>
 
+        {hasBlankBindings && (
+          <p className="text-muted-foreground text-xs">
+            {t("questionEditor.richBlankSwitch")}
+          </p>
+        )}
         <div>
           <label
             className="mb-1.5 block text-[0.8125rem] font-medium"
@@ -103,16 +126,26 @@ export function QuestionEditor({
           >
             {t("questionEditor.prompt")}
           </label>
-          <PromptField
-            id="question-prompt"
-            value={value.prompt}
-            clearOnFocus={clearPromptOnFocus}
-            onChange={(prompt) => onChange({ ...value, prompt })}
-          />
+          {value.type === "fill_blank" ? (
+            <BlankPromptField value={value} onChange={onChange} />
+          ) : (
+            <QuestionProseField
+              id="question-prompt"
+              text={value.prompt}
+              content={value.promptContent}
+              label={t("questionEditor.prompt")}
+              prompt
+              clearOnFocus={clearPromptOnFocus}
+              onChange={(prompt, promptContent) =>
+                onChange({ ...value, prompt, promptContent })
+              }
+            />
+          )}
         </div>
 
         {isChoice ? (
           <OptionsEditor
+            key={value.type}
             options={value.options}
             multiple={value.type === "multiple_choice"}
             fixed={value.type === "true_false"}
@@ -123,6 +156,7 @@ export function QuestionEditor({
         {value.type === "fill_blank" ? (
           <BlanksEditor
             prompt={value.prompt}
+            content={value.promptContent}
             blanks={value.blanks}
             onChange={(blanks) => onChange({ ...value, blanks })}
           />
@@ -160,12 +194,13 @@ export function QuestionEditor({
               {t("questionEditor.explanationHint")}
             </span>
           </label>
-          <Textarea
+          <QuestionProseField
             id="question-explanation"
-            value={value.explanation ?? ""}
-            className="min-h-14"
-            onChange={(event) =>
-              onChange({ ...value, explanation: event.target.value })
+            text={value.explanation ?? ""}
+            content={value.explanationContent}
+            label={t("questionEditor.explanation")}
+            onChange={(explanation, explanationContent) =>
+              onChange({ ...value, explanation, explanationContent })
             }
           />
         </div>

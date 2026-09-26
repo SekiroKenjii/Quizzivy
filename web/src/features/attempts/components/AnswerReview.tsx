@@ -1,5 +1,6 @@
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
+import { OptionText } from "@/components/shared/content/OptionText";
 import { useTranslation } from "react-i18next";
-import { Markdown } from "@/components/shared/Markdown";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { Answer } from "@/features/take-test/api";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,11 @@ export function AnswerReview({
   const given = answer?.answer ?? null;
   return (
     <div className="space-y-4">
-      <Markdown className="text-sm">{question.prompt}</Markdown>
+      <QuestionProse
+        className="text-sm"
+        text={question.prompt}
+        content={question.promptContent}
+      />
       {question.media?.kind === "audio" && (
         <AudioPlayer
           src={question.media.url}
@@ -106,7 +111,9 @@ function Body({
                 )}
               >
                 <span className={OPTION.key}>{optionKey(index)}</span>
-                <span className="text-sm">{option.text}</span>
+                <span className="text-sm">
+                  <OptionText text={option.text} content={option.content} />
+                </span>
                 <span className="text-muted-foreground ml-auto self-center text-xs">
                   {optionNote(picked, option.isCorrect, t)}
                 </span>

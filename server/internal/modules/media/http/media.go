@@ -183,7 +183,12 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 		var blocked *domain.ReferencedError
 		if errors.As(err, &blocked) {
 			refs := ToAPIReferencingTests(blocked.Tests)
-			resp.Error.Details = &map[string]interface{}{"tests": refs}
+			details := map[string]interface{}{"tests": refs}
+			if len(blocked.Groups) > 0 {
+				resp.Error.Message = "Tệp đang được dùng trong nhóm câu hỏi hoặc đề đã xuất bản nên không thể xoá."
+				details["groups"] = groupReferences(blocked.Groups)
+			}
+			resp.Error.Details = &details
 		}
 		return openapi.DeleteMedia409JSONResponse(resp), nil
 
@@ -194,6 +199,18 @@ func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaReque
 	default:
 		return nil, err
 	}
+}
+
+func groupReferences(refs []domain.GroupRef) []openapi.ReferencingGroup {
+	out := make([]openapi.ReferencingGroup, len(refs))
+	for i, ref := range refs {
+		out[i] = openapi.ReferencingGroup{Id: httpapi.ParseUUID(ref.ID), Title: ref.Title}
+		if ref.TestID != nil {
+			id := httpapi.ParseUUID(*ref.TestID)
+			out[i].TestId = &id
+		}
+	}
+	return out
 }
 
 // GetMediaUrl implements GET /app/media/{assetId}/url -- a student minting a

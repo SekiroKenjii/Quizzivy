@@ -5,8 +5,8 @@ import (
 	"quizzivy/internal/platform/ratelimit"
 )
 
-// RateLimits declares the policy for every public operation, plus the one
-// authenticated operation that mints a credential.
+// RateLimits declares the policy for every public operation, plus the
+// authenticated operations that mint a credential.
 func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
@@ -25,6 +25,19 @@ func RateLimits() *ratelimit.Registry {
 
 	reg.Add("POST /admin/students/{id}/reset-password", capacity,
 		ratelimit.PerMinute(5), ratelimit.PerHour(30))
+	reg.Add("POST /admin/docs-session", capacity, ratelimit.PerMinute(5), ratelimit.PerHour(30))
 
+	return reg
+}
+
+// ServiceRateLimits declares the policy for the routes served beside the
+// contract, which the generated middleware chain never sees.
+func ServiceRateLimits() *ratelimit.Registry {
+	reg := ratelimit.NewRegistry()
+	const capacity = 10_000
+	reg.Add("GET /livez", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(900))
+	reg.Add("GET /healthz", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(120))
+	reg.Add("GET /docs", capacity, ratelimit.PerMinute(20), ratelimit.PerHour(200))
+	reg.Add("GET /docs/openapi.json", capacity, ratelimit.PerMinute(20), ratelimit.PerHour(200))
 	return reg
 }

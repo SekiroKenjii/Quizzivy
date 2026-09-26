@@ -65,6 +65,33 @@ func TestListVersionsIsNewestFirstAndCountsFrozenRows(t *testing.T) {
 	}
 }
 
+func TestThePublishResultCountsWhatTheVersionHistoryCounts(t *testing.T) {
+	pool := newPool(t)
+	author := pubMakeAuthor(t, pool)
+	b := newBuilder(t, pool, author)
+	svc := application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
+
+	listening := b.listeningQuestion("Nghe rồi trả lời", audioAsset(t, pool, author, "publish-counts"))
+	written := b.shortAnswer("Viết câu trả lời", "1.00")
+	draft := b.draft("Đếm khi xuất bản", listening, written)
+
+	published, err := b.publish(draft.ID)
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if published.QuestionCount != 2 || published.AudioCount != 1 || published.ManualCount != 2 {
+		t.Fatalf("publish result counts %d questions, %d audio, %d manual; want 2, 1, 2",
+			published.QuestionCount, published.AudioCount, published.ManualCount)
+	}
+	versions, err := svc.Queries.ListVersions.Handle(context.Background(), query.ListVersions{TestID: draft.ID})
+	if err != nil {
+		t.Fatalf("list versions: %v", err)
+	}
+	if len(versions) != 1 || versions[0] != published {
+		t.Fatalf("history %+v disagrees with the publish result %+v", versions, published)
+	}
+}
+
 func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	pool := newPool(t)
 	author := pubMakeAuthor(t, pool)
@@ -106,7 +133,7 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 	}
 
 	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
-	version, questionsOut := previewResult.Total, previewResult.Questions
+	version, questionsOut := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview: %v", err)
 	}
@@ -174,7 +201,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	}
 
 	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 1})
-	v1, questionsV1 := previewResult.Total, previewResult.Questions
+	v1, questionsV1 := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview v1: %v", err)
 	}
@@ -183,7 +210,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	}
 
 	previewResult, err = svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
-	v2, questionsV2 := previewResult.Total, previewResult.Questions
+	v2, questionsV2 := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview current: %v", err)
 	}

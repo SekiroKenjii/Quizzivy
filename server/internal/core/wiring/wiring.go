@@ -9,15 +9,18 @@ import (
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
+	importsworker "quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifier the auth middleware needs, and the identity application the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, and the identity application the background jobs drive.
 type Assembly struct {
-	Modules  router.Modules
-	Tokens   *identitytoken.Issuer
-	Identity *identityapp.Application
+	Modules       router.Modules
+	Tokens        *identitytoken.Issuer
+	Docs          *identitytoken.Issuer
+	Identity      *identityapp.Application
+	ImportSweeper *importsworker.Sweeper
 }
 
 // Build assembles every module against the pool, in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
@@ -30,26 +33,37 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
+	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)
+	if err != nil {
+		return Assembly{}, err
+	}
 	mediaApp, mediaRepo, err := media(ctx, cfg, logger, dbx)
 	if err != nil {
 		return Assembly{}, err
 	}
+	importsTransport, sweeper, err := imports(ctx, cfg, logger, dbx, mediaApp)
+	if err != nil {
+		return Assembly{}, err
+	}
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
-	testsApp := tests(dbx, questionsRepo, mediaRepo)
-	attemptsApp := attempts(dbx)
+	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
+	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts)
 
 	return Assembly{
 		Modules: router.Modules{
+			Imports:     importsTransport,
 			Dashboard:   dashboard(dbx),
 			Classes:     classesTransport(classesApp),
-			Identity:    identityTransport(cfg, identityApp),
+			Identity:    identityTransport(cfg, identityApp, docs),
 			Questions:   questionsTransport(questionsApp, mediaApp),
 			Media:       mediaTransport(mediaApp),
 			Tests:       testsTransport(testsApp, mediaApp),
 			Assignments: assignments(dbx),
 			Attempts:    attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 		},
-		Tokens:   tokens,
-		Identity: identityApp,
+		ImportSweeper: sweeper,
+		Tokens:        tokens,
+		Docs:          docs,
+		Identity:      identityApp,
 	}, nil
 }

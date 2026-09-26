@@ -14,13 +14,11 @@ import {
 } from "@/features/question-bank/api";
 import {
   emptyQuestion,
+  issueKey,
   questionSchema,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
-import {
-  comparePlaceholders,
-  hasMismatch,
-} from "@/features/question-bank/placeholders";
+
 import type { MediaAsset } from "@/features/media/api";
 import { ApiError } from "@/lib/api/errors";
 import { toast } from "@/components/ui/sonner";
@@ -102,7 +100,7 @@ function Editor({
     setError(null);
     const parsed = questionSchema.safeParse(values);
     if (!parsed.success) {
-      setError(t(parsed.error.issues[0]?.message ?? "questionEditor.saveFailed"));
+      setError(t(issueKey(parsed.error, "questionEditor.saveFailed")));
       return;
     }
     save.mutate(parsed.data);
@@ -154,32 +152,7 @@ function Editor({
   );
 }
 
-// The same rules the server applies, named as translation keys so the reason a
-// Save is disabled is on screen rather than discovered by clicking it.
 function blockingIssue(values: QuestionValues): string | null {
-  if (values.prompt.trim() === "") return "questionEditor.errors.promptRequired";
-  if (values.points <= 0) return "questionEditor.pointsError";
-
-  if (values.type === "fill_blank") {
-    const ordinals = values.blanks.map((blank) => blank.ordinal);
-    if (values.blanks.length === 0) return "questionEditor.errors.blankRequired";
-    if (hasMismatch(comparePlaceholders(values.prompt, ordinals))) {
-      return "questionEditor.errors.placeholderMismatch";
-    }
-    if (values.blanks.some((blank) => blank.acceptedAnswers.length === 0)) {
-      return "questionEditor.errors.answerRequired";
-    }
-    return null;
-  }
-
-  if (values.type === "short_answer") return null;
-
-  if (values.options.length < 2) return "questionEditor.errors.twoOptions";
-  if (values.options.some((option) => option.text.trim() === "")) {
-    return "questionEditor.errors.optionRequired";
-  }
-  if (!values.options.some((option) => option.isCorrect)) {
-    return "questionEditor.errors.correctRequired";
-  }
-  return null;
+  const parsed = questionSchema.safeParse(values);
+  return parsed.success ? null : issueKey(parsed.error, "questionEditor.saveFailed");
 }

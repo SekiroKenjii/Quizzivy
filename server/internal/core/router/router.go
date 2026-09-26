@@ -1,4 +1,4 @@
-// Package router assembles the HTTP surface: the generated strict handler over every module transport, the middleware in execution order, the health and docs endpoints, and the rate-limit policy.
+// Package router assembles the HTTP surface: the generated strict handler over every module transport, the middleware in execution order, the liveness, health and docs endpoints, and the rate-limit policy.
 package router
 
 import (
@@ -34,7 +34,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		return nil, err
 	}
 
-	server := &Server{Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Deps: deps, Logger: logger}
+	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
@@ -51,10 +51,17 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		},
 	})
 
+	limited := httpx.RateLimit(ServiceRateLimits(), ratelimit.ClientIP(clientIPHeader))
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", healthz(deps.DB))
-	mux.Handle("GET /docs", apidocs.Reference("/docs/openapi.json"))
-	mux.Handle("GET /docs/openapi.json", apidocs.Spec(openapi.GetSpecJSON))
+	mux.Handle("GET /livez", limited(http.HandlerFunc(livez)))
+	mux.Handle("GET /healthz", limited(healthz(deps.DB)))
+	docs := limited
+	if !deps.DocsPublic {
+		gate := identityhttp.RequireDocsSession(deps.Docs)
+		docs = func(next http.Handler) http.Handler { return limited(gate(next)) }
+	}
+	mux.Handle("GET /docs", docs(apidocs.Reference("/docs/openapi.json")))
+	mux.Handle("GET /docs/openapi.json", docs(apidocs.Spec(openapi.GetSpecJSON)))
 
 	handler := openapi.HandlerWithOptions(strict, openapi.StdHTTPServerOptions{
 		BaseRouter: mux,
@@ -64,7 +71,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			identityhttp.WithRefreshCookie,
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
 			httpx.RequireRole,
-			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20),
+			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, httpx.RequestBodyLimits(spec)),
 			validate,
 		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -75,22 +82,32 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(handler)))), nil
 }
 
+type health struct {
+	Status   string `json:"status"`
+	Database string `json:"database,omitempty"`
+}
+
+func livez(w http.ResponseWriter, _ *http.Request) {
+	writeHealth(w, http.StatusOK, health{Status: "ok"})
+}
+
 func healthz(database DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		status := http.StatusOK
-		body := map[string]string{"status": "ok", "database": "ok"}
-		if database != nil {
-			if err := database.Ping(r.Context()); err != nil {
-				status = http.StatusServiceUnavailable
-				body = map[string]string{"status": "degraded", "database": "unreachable"}
-			}
-		} else {
-			body["database"] = "not configured"
+		switch {
+		case database == nil:
+			writeHealth(w, http.StatusOK, health{Status: "ok", Database: "not configured"})
+		case database.Ping(r.Context()) != nil:
+			writeHealth(w, http.StatusServiceUnavailable, health{Status: "degraded", Database: "unreachable"})
+		default:
+			writeHealth(w, http.StatusOK, health{Status: "ok", Database: "ok"})
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(body)
 	}
+}
+
+func writeHealth(w http.ResponseWriter, status int, body health) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 func inExecutionOrder(mw ...openapi.MiddlewareFunc) []openapi.MiddlewareFunc {
