@@ -86,6 +86,32 @@ func TestTrueFalseReadsTheKeyByOrdinalNotByText(t *testing.T) {
 	}
 }
 
+func TestTrueFalseGradesTheOptionTheEngineSends(t *testing.T) {
+	trueIsCorrect := domain.GradableQuestion{Type: "true_false", Points: 2, Options: choice(true, false)}
+	falseIsCorrect := domain.GradableQuestion{Type: "true_false", Points: 2, Options: choice(false, true)}
+
+	for _, c := range []struct {
+		name    string
+		q       domain.GradableQuestion
+		payload string
+		want    float64
+	}{
+		{"choosing true when true is correct", trueIsCorrect, `{"type":"choice","optionIds":["a"]}`, 2},
+		{"choosing false when true is correct", trueIsCorrect, `{"type":"choice","optionIds":["b"]}`, 0},
+		{"choosing false when false is correct", falseIsCorrect, `{"type":"choice","optionIds":["b"]}`, 2},
+		{"choosing true when false is correct", falseIsCorrect, `{"type":"choice","optionIds":["a"]}`, 0},
+		{"choosing both", trueIsCorrect, `{"type":"choice","optionIds":["a","b"]}`, 0},
+		{"choosing nothing", trueIsCorrect, `{"type":"choice","optionIds":[]}`, 0},
+		{"an option from another question", trueIsCorrect, `{"type":"choice","optionIds":["zz"]}`, 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := domain.Grading.Grade(c.q, []byte(c.payload)).Score; got != c.want {
+				t.Errorf("score %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
 func TestFillBlankForgivesTypingAndNotTheAnswer(t *testing.T) {
 	q := domain.GradableQuestion{
 		Type: "fill_blank", Points: 3,
