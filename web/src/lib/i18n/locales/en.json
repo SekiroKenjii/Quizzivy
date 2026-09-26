@@ -67,6 +67,10 @@
     "view": "View",
     "delete": "Delete"
   },
+  "api": {
+    "unavailable": "Can't reach the server. Try again.",
+    "failed": "Something went wrong. Try again."
+  },
   "error": {
     "title": "Something went wrong",
     "body": "An unexpected error occurred. Reloading the page should let you continue.",

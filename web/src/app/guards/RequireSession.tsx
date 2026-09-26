@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useAppState } from "@/stores/appState";
 import { useAuthStore } from "@/stores/auth";
 
 /** Where the forced password change lives. */
@@ -17,6 +18,9 @@ export function RequireSession() {
   const location = useLocation();
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
   const user = useAuthStore((s) => s.user);
+  const bootError = useAppState((s) => (s.bootPhase === "failed" ? s.bootError : null));
+
+  if (bootError) throw bootError;
 
   if (isBootstrapping) {
     return (
