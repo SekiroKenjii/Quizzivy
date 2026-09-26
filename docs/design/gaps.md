@@ -16,7 +16,7 @@ redrawn to match. **Answered** — resolved by a later export.
 | ID | Where | What changes | Status | Needed by |
 |---|---|---|---|---|
 | DG-01 | Teacher › Class detail, join code card | Codes are stored encrypted and **always shown in full** to their teacher and to admins. Redraw the card without "The full code is shown only once" and the "Copy it now… only the last 4" dialog: full code, copy code, copy link, QR and download always available. Pick one link format (`/join/K7QM-2PXA` keeps the dash on cards but not in the new-code dialog). | Decided | R4 |
-| DG-02 | Sign in › Join, Student › Join dialog, Landing | The public preview **never shows a student count** ("{n} students" goes); schedule and room may stay. Sample codes must use the §6 alphabet, which has no 0, O, 1, I or L: `ABCD-1234` and `T6NB-4WLQ` become e.g. `K7QM-2PXA`. Draw the invalid-format state (the Landing input silently does nothing today). | Decided | R1, R8 |
+| DG-02 | Sign in › Join, Student › Join dialog, Landing | The public preview **never shows a student count** ("{n} students" goes); schedule and room may stay. Sample codes must use the §6 alphabet (`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, which has no 0, O, 1 or I): `ABCD-1234` becomes e.g. `K7QM-2PXA`. Draw the invalid-format state (the Landing input silently does nothing today). | Decided | R1, R8 |
 | DG-03 | Admin › Roles & permissions | Add the row **"Create student accounts"** (Admin and Teacher on). The Teacher Students page has "Add student", but "Add and disable users" is Admin-only. | Decided | R2 |
 | DG-04 | Admin › Users, Roles | **Assistants are attached per class** (class staff). Draw where a teacher or admin adds an assistant to a class, and what an assistant's sidebar shows. Until then Assistant is hidden from role pickers. | Decided | R5 |
 | DG-05 | Admin › Users import, password resets | Emails carry a **one-time set-password link**, never a temporary password. Draw the set-password page (signed out, from the link) and reword "Email sign-in details". | Decided | R5 |
@@ -70,8 +70,9 @@ redrawn to match. **Answered** — resolved by a later export.
 | DG-54 | Users: status precedence (disabled / must change password / never signed in / active), what the sidebar badge "4" counts, and what "active" means for Last active and the daily chart. | Disabled > must change > never signed in > active; the badge counts must-change; active = an authenticated request that day. | R5 |
 | DG-55 | Plan & usage shows a plan, seats (400) and a teacher limit (15). Billing is a non-goal. | Values are configuration, shown but not enforced. "Attempts kept 18,420 · 46%" needs a denominator. | R5 |
 | DG-56 | No ownership transfer when a teacher leaves, and no view of a disabled teacher's content. | An Admin "Transfer content" action in the user sheet. | R5 |
-| DG-57 | No leads inbox, no field for who is notified of new leads, and no maintenance or term management in the Admin console. | Leads list under Admin (built from deck parts); recipients in Organization settings. | R5, R11 |
+| DG-57 | No leads inbox, no field for who is notified of new leads, and no maintenance or term management in the Admin console. | Terms in Admin settings (T-R8.13); the leads list and its recipients field under Admin, built from deck parts (T-R11.9); maintenance windows from the command line (DG-42). | R8, R11 |
 | DG-58 | "Signed-in devices" shows "MacBook Air" and a city. A user agent does not give the device model. | "Mac · Chrome · Ho Chi Minh City". | R4 |
+| DG-59 | The Admin console has no language control, so a user whose only workspace is the console cannot change language or profile. | An interim "Language" item in the Admin account menu writing the user's locale preference. | R5 |
 
 ### Teaching
 
@@ -84,10 +85,12 @@ redrawn to match. **Answered** — resolved by a later export.
 | DG-64 | Grading: does "Save & next" follow the grouping or global order? Does grading the last item release scores, or is there a release action? | Follows the grouping; scores release when the last answer is graded, as today. | R4 |
 | DG-65 | Assignment settings: which groups stay editable while live; results visibility disagrees (wizard: after submitting, live Results group: after the window closes); what "Save draft" persists. | Only Test & timing locks; release follows the stored rule; drafts persist every wizard field. | R4 |
 | DG-66 | Test detail draws a per-version diff and change notes with no model. | Diff = questions added, removed and changed between versions; the note is free text at publish. | R4 |
-| DG-67 | Imports: current behaviours not drawn (elapsed time, retries, stale reload, "Use the new result", the committed banner, the leave guard, the no-imports empty state); the audio slot, saved profiles, source conventions and template download have no backend. | Current behaviour kept with deck styling; the four new controls wait for their backend. Entering review no longer collapses the sidebar permanently. | R4 |
+| DG-67 | Imports: current behaviours not drawn (elapsed time, retries, stale reload, "Use the new result", the committed banner, the leave guard, the no-imports empty state); the audio slot, saved profiles, source conventions, template download, Move / Split / Merge, the processing history, "Create another test from this file", "Delete import" and "Process again" have no backend. | R4 keeps current behaviour with deck styling and gates the controls without a backend; their backend and UI are built in R6 beside T-R6.13. Entering review no longer collapses the sidebar permanently. | R4, R6 |
 | DG-68 | The existing question-group (passage/cloze) bank screens and the full attempt review page are not in the deck. | Restyled with deck primitives. | R4 |
 | DG-69 | Media card "Play limit" against the per-question "Plays allowed": which wins? | The question's setting wins; the card's value is the default for new questions. | R4 |
 | DG-70 | Dashboard and Reports range selectors are cosmetic. | They drive the data: 7 days, 30 days, this term. | R4, R9 |
+| DG-71 | The Student deck's Test intro draws a note from the teacher ("Note from Ms Thương"); the Teacher deck has no field to write it. | `assignments.student_note` (≤500 characters) with a plain "Note to students (optional)" field in the wizard's Rules step and the Settings tab. | R4 |
+| DG-72 | The Question bank's Import dialog (CSV / XLSX) is drawn, but no import of bank questions exists. | Built in R6 after T-R6.3. | R6 |
 
 ### Take test and student
 
@@ -97,6 +100,9 @@ redrawn to match. **Answered** — resolved by a later export.
 | DG-81 | Student routes have no URLs. | `/app`, `/app/classes`, `/app/assignments/:id`, `/app/attempts/:id(/result)`, `/app/settings/:section`, `/app/messages/:id`, `/app/week`, `/app/grades`, `/app/learn/…`. | R3 |
 | DG-82 | What the Home badge "3" counts; the bell's red dot is always on; no "Mark all read" or full list for student notifications; student notification switches have one channel while teachers have In app / Email. | Badge = due within 7 days; dot only when unread; mark all read in the popover; student switches control both channels. | R3, R4 |
 | DG-83 | Missing empty, loading and error states on most new screens (Messages, Calendar, Attendance, Gradebook, Reports, Courses, Vocabulary, Shared with me, Admin Users, Roles, Audit, Overview). | One sentence + one action, from deck primitives. | Each release |
+| DG-84 | The result page draws a "Comment" callout from the teacher with no model behind it. | Only per-answer comments show; a single-essay result shows its comment. | R3 |
+| DG-85 | Result variant 2 draws topic tiles (Present perfect 4/5, Past simple 4/5) for a one-part, one-skill paper; nothing models topics. | Not built: a one-part, one-skill paper shows no tiles. | R6 |
+| DG-86 | Essay grading draws scores 3–8 in nine values; bands run 3–9 in half steps. | 3–9 in half steps; please redraw the score row. | R6 |
 
 ### Collaboration, schedule, insights, learn
 
@@ -104,6 +110,8 @@ redrawn to match. **Answered** — resolved by a later export.
 |---|---|---|---|
 | DG-90 | Sharing entry points are drawn for tests only; Shared with me lists four kinds. Draw sharing for question sets, word lists and courses, and what a "question set" is in the bank. Also: what a Can-use view allows, who is shown as author when a Can-edit recipient publishes, and where the share message appears. | Question set = a named selection made from the bank's bulk bar; Can use = read-only + make a copy; the owner stays the author, the publisher is recorded; the message appears in-app and by email. | R7 |
 | DG-91 | Messages: is the attempt-event card in a DM teacher-only? Class-thread attachments render as a "me" bubble. No teacher-to-teacher messaging. | Teacher-only; attachment bubbles follow the sender; no staff DMs. | R7 |
+| DG-96 | Data & privacy has no row for how long messages are kept; no screen shows an address that bounced or complained. | Messages are kept; anonymising an account deletes its direct messages. A suppressed address shows in the Admin user sheet from deck parts. | R7 |
+| DG-97 | Student Grades draws one "Grammar & vocab" tile; skills are tagged separately. The command palette omits Reports. | Skills shown separately; the palette follows the deck. | R9 |
 | DG-92 | Schedule: are sessions generated from the class schedule, from "Repeat every week", or both? Is an Excused or Unmarked attendance status needed? Per-date exceptions on the teacher side. | Sessions come from a weekly series; statuses present / late / absent, plus unmarked. | R8 |
 | DG-93 | Gradebook: no place to set an assignment's category and weight, "homework" is undefined, terms have no management screen. | Category and weight in the wizard's Schedule step; terms managed in Admin settings. | R8, R9 |
 | DG-94 | Courses: no lesson editor for reading, video or listening; video source undefined; reorder grips have no behaviour; unit "On a date" prints a raw ISO date. | Lessons edited with the existing rich editor; video by upload; reorder by drag; dates formatted per locale. | R10 |
