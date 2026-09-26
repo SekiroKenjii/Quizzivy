@@ -1,5 +1,6 @@
 import { createBrowserRouter, redirect, type RouteObject } from "react-router";
-import { ErrorBoundary, NotFound } from "@/app/ErrorBoundary";
+import { ErrorBoundary } from "@/app/ErrorBoundary";
+import NotFoundPage from "@/app/pages/NotFoundPage";
 import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
@@ -240,7 +241,7 @@ export const router = createBrowserRouter([
       protectedTree,
       // Eager, like the guard that also renders it.
       { path: "403", element: <ForbiddenPage /> },
-      { path: "*", element: <NotFound /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

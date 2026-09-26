@@ -97,6 +97,22 @@ describe("route-level code splitting (§2)", () => {
     expect(matches(entry().moduleIds, FOCUS)).toEqual([]);
   });
 
+  it("ships the system pages in the entry, so they render when a lazy chunk cannot load", () => {
+    const ids = entry().moduleIds.map((i) => i.replace(/\\/g, "/"));
+    for (const page of [
+      "app/pages/NotFoundPage.tsx",
+      "app/pages/ForbiddenPage.tsx",
+      "app/pages/MaintenancePage.tsx",
+      "app/ErrorBoundary.tsx",
+      "app/pages/SystemFrame.tsx",
+    ]) {
+      expect(
+        ids.some((id) => id.endsWith(`/src/${page}`)),
+        page,
+      ).toBe(true);
+    }
+  });
+
   it("still builds the admin tree, in non-entry chunks", () => {
     const owning = chunks().filter((c) => matches(c.moduleIds, ADMIN).length > 0);
     expect(owning.length, "admin modules must be built somewhere").toBeGreaterThan(0);

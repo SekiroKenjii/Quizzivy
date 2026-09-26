@@ -1,11 +1,12 @@
 /**
- * The panel drawings for the three failure screens (E-01..E-03), transcribed
- * from the deck rather than redrawn.
+ * The system pages' drawings, copied from the deck's System pages file. Each
+ * draws in `currentColor`, so it follows the panel's ink in either theme, and
+ * is hidden from assistive technology: the page's heading says what it shows.
  */
 
-const SIZE = { viewBox: "0 0 260 260", width: 260, height: 260 } as const;
+const SIZE = { viewBox: "0 0 260 260", width: 300, height: 300 } as const;
 
-/** Pages that exist, and the route running past the last one to a page that does not. */
+/** NotFoundArt is two pages that exist and a dashed one at the end of the route. */
 export function NotFoundArt() {
   return (
     <svg {...SIZE} fill="none" stroke="currentColor" aria-hidden="true">
@@ -21,7 +22,6 @@ export function NotFoundArt() {
         <rect x="111" y="117" width="24" height="5" rx="2.5" />
         <rect x="111" y="130" width="32" height="5" rx="2.5" />
       </g>
-      {/* The destination, dashed: the link was real, the page is not. */}
       <rect
         x="180"
         y="86"
@@ -54,31 +54,7 @@ export function NotFoundArt() {
   );
 }
 
-/** Ordered rows, one of which has come apart and slipped out of line. */
-export function UnexpectedErrorArt() {
-  return (
-    <svg {...SIZE} aria-hidden="true">
-      <g fill="currentColor" fillOpacity="0.3">
-        <rect x="40" y="52" width="180" height="12" rx="6" />
-        <rect x="40" y="76" width="150" height="12" rx="6" />
-        <rect x="40" y="100" width="172" height="12" rx="6" />
-      </g>
-      {/* The break is the one element at full opacity, and it is still not red. */}
-      <g fill="currentColor">
-        <rect x="40" y="124" width="74" height="12" rx="6" />
-        <rect x="136" y="132" width="62" height="12" rx="6" />
-        <circle cx="125" cy="135" r="3.5" />
-      </g>
-      <g fill="currentColor" fillOpacity="0.3">
-        <rect x="40" y="162" width="164" height="12" rx="6" />
-        <rect x="40" y="186" width="132" height="12" rx="6" />
-        <rect x="40" y="210" width="176" height="12" rx="6" />
-      </g>
-    </svg>
-  );
-}
-
-/** The same dotted path, arriving at a boundary that is simply closed. */
+/** ForbiddenArt is a closed door with a lock where the path meets it. */
 export function ForbiddenArt() {
   return (
     <svg {...SIZE} fill="none" stroke="currentColor" aria-hidden="true">
@@ -115,6 +91,65 @@ export function ForbiddenArt() {
         stroke="none"
       />
       <path d="M120.5 122 v-6 a7.5 7.5 0 0 1 15 0 v6" strokeWidth="2.6" />
+    </svg>
+  );
+}
+
+/** UnexpectedErrorArt is ordered rows with one that has come apart. */
+export function UnexpectedErrorArt() {
+  return (
+    <svg {...SIZE} aria-hidden="true">
+      <g fill="currentColor" fillOpacity="0.3">
+        <rect x="40" y="52" width="180" height="12" rx="6" />
+        <rect x="40" y="76" width="150" height="12" rx="6" />
+        <rect x="40" y="100" width="172" height="12" rx="6" />
+      </g>
+      <g fill="currentColor">
+        <rect x="40" y="124" width="74" height="12" rx="6" />
+        <rect x="136" y="132" width="62" height="12" rx="6" />
+        <circle cx="125" cy="135" r="3.5" />
+      </g>
+      <g fill="currentColor" fillOpacity="0.3">
+        <rect x="40" y="162" width="164" height="12" rx="6" />
+        <rect x="40" y="186" width="132" height="12" rx="6" />
+        <rect x="40" y="210" width="176" height="12" rx="6" />
+      </g>
+    </svg>
+  );
+}
+
+/** MaintenanceArt is the same rows with one being put back in place. */
+export function MaintenanceArt() {
+  return (
+    <svg {...SIZE} fill="none" stroke="currentColor" aria-hidden="true">
+      <g fill="currentColor" fillOpacity="0.3" stroke="none">
+        <rect x="40" y="52" width="180" height="12" rx="6" />
+        <rect x="40" y="76" width="150" height="12" rx="6" />
+        <rect x="40" y="100" width="172" height="12" rx="6" />
+      </g>
+      <rect
+        x="40"
+        y="124"
+        width="158"
+        height="12"
+        rx="6"
+        strokeWidth="2"
+        strokeDasharray="6 6"
+        strokeOpacity="0.8"
+      />
+      <g fill="currentColor" fillOpacity="0.3" stroke="none">
+        <rect x="40" y="162" width="164" height="12" rx="6" />
+        <rect x="40" y="186" width="132" height="12" rx="6" />
+        <rect x="40" y="210" width="176" height="12" rx="6" />
+      </g>
+      <path
+        d="M212 130 H228"
+        strokeWidth="2"
+        strokeOpacity="0.55"
+        strokeDasharray="2 6"
+        strokeLinecap="round"
+      />
+      <circle cx="236" cy="130" r="5.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }

@@ -23,7 +23,7 @@ test("an unknown path renders the 404 page, not a blank screen", async ({ page }
   await stubApi(page, anonymous);
   await page.goto("/duong-dan-khong-ton-tai");
   await expect(
-    page.getByRole("heading", { name: "Không tìm thấy trang" }),
+    page.getByRole("heading", { name: "Trang này không tồn tại" }),
   ).toBeVisible();
 });
 
