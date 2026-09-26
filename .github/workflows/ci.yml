@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [develop, main, "work/word-import-*"]
+    branches: [develop, main, "work/word-import-*", "work/redesign-*"]
   push:
     branches: [develop, main]
 
@@ -24,7 +24,7 @@ env:
   GO_VERSION: "1.27"
 
 jobs:
-  mockups:
+  deck:
     name: Deck
     runs-on: ubuntu-latest
     steps:
@@ -32,12 +32,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - run: node docs/design/mockups/check.mjs
-      - run: node docs/design/mockups/build-artifact.mjs /tmp/quizzivy-mockups.html
-      - uses: actions/upload-artifact@v7
-        with:
-          name: quizzivy-mockups
-          path: /tmp/quizzivy-mockups.html
+      - run: node scripts/check-design-deck.mjs
 
   # ---------------------------------------------------------------- contract
   # api/openapi.yaml is the single source of truth (T-0.7/T-0.8). This job is

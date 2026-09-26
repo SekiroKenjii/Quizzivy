@@ -1,117 +1,126 @@
-# Design deck
+# Design
 
-High-fidelity mockups for every screen in the v1 spec, plus the shape the product takes as it
-grows into an LMS. Static HTML, no build step, no dependency on the app.
+`deck/` is the product design: seven Claude Design pages that draw every screen of the three
+consoles, the front door and the public site. **It is the single source of truth for the UI.**
+It replaced the earlier hand-built mockups (`docs/design/mockups`, removed with T-R0.1) and every
+rule that came with them. Where the product deliberately departs from the deck, the departure is
+listed below, and the reason is in the plan (`docs/plan/70-redesign-overview.md`).
 
-The deck is a **design document that happens to render**. It is not a prototype, it is not
-importable, and no file under `web/` reads anything from here. Its job is to settle layout,
-density, copy and interaction questions before they are settled by accident during
-implementation.
+`brand/` is Thuong's brand kit and stays the kit of record for every logo, icon and brand colour.
 
-## Viewing it
+## Viewing the deck
 
 ```bash
-python3 -m http.server 5175 --directory docs/design/mockups
+python3 -m http.server 5175 --directory docs/design/deck
 ```
 
-Then open <http://localhost:5175>. The `design-deck` entry in `.claude/launch.json` runs the
-same thing.
+Open <http://localhost:5175/Quizzivy%20Teacher.dc.html> (or any other page). The `design-deck`
+entry in `.claude/launch.json` runs the same server.
 
-Opening `mockups/index.html` from the filesystem also works; only the Inter webfont needs the
-network, and there is a system-stack fallback.
+The pages need the network: `support.js` loads React, ReactDOM and Babel from unpkg, and each
+page loads Be Vietnam Pro from Google Fonts and the lucide icon font from unpkg. Opening a page
+from the filesystem does not work, because the pages link to each other and to their assets by
+relative name.
 
-## Layout
+## The pages
 
-| | |
-|---|---|
-| `mockups/index.html` | Entry point — the five sheets, the rules, and the proposals |
-| `mockups/sheets/00-foundations.html` | Tokens, type, density, every component and its states |
-| `mockups/sheets/10-student.html` | Join, login, home, intro, the test engine, integrity, results, failures |
-| `mockups/sheets/20-teacher-authoring.html` | Navigation, dashboard, palette, tests, builder, publish gate, audio, bank, media |
-| `mockups/sheets/30-teacher-assign-grade.html` | Assignment creation, monitor, grading, integrity timeline, classes, students |
-| `mockups/sheets/40-lms-future.html` | Test → activity, navigation over three releases, course/lesson/vocabulary/gradebook, sequencing |
-| `mockups/sheets/50-brand-and-errors.html` | The brand kit placed on this product's surfaces; 404 / unexpected error / no-access on the two-panel login shape |
-| `brand/` | **Thuong's brand kit, copied verbatim.** Source of truth for every logo, icon and colour |
-| `mockups/assets/brand.js` | The kit's SVGs as an injected sprite, generated from `brand/svg/` — do not hand-edit |
-| `mockups/sheets/_head.html`, `_foot.html`, `_sidebar.html` | Templates for a new sheet — `__TITLE__`, `__N0__`…`__N4__` (nav active state), `__A_*__` (sidebar active state) |
-| `mockups/assets/kit.css` | The design kit — see below |
-| `mockups/assets/icons.js` | Lucide sprite; `assets/README.md` has the regeneration recipe |
-| `mockups/check.mjs` | `node docs/design/mockups/check.mjs` — fails on an undefined class or a missing icon |
-| `mockups/build-artifact.mjs` | `node docs/design/mockups/build-artifact.mjs out.html` — bundles all five sheets into one self-contained page for sharing |
-
-## The kit
-
-`assets/kit.css` copies the tokens from `web/src/index.css` **verbatim** and names its utilities
-after their Tailwind equivalents. Two consequences worth knowing:
-
-- A mockup cannot drift from the app's palette without the copy being noticed. If a token
-  changes in `index.css`, change it here in the same commit.
-- Markup transfers. `<div class="flex items-center gap-2 text-sm text-muted-foreground">` means
-  the same thing in both places, so translating a board into a component is mostly deleting the
-  static content, not re-deriving the layout.
-
-The kit is a **subset**, not a Tailwind clone. It has the utilities these screens use and
-nothing else; `check.mjs` fails the moment a sheet reaches for one that does not exist, which
-is the signal to add it deliberately rather than silently rendering wrong.
-
-Dark mode is present in the kit as a `.dark` block and a toggle in the deck header. It is
-**not** v1 scope (§12, §16 P1). It is there because it is the only way to prove the claim that
-dark mode "can be added without touching components" — every screen in the deck reads its
-colours through tokens, and the toggle demonstrates that no rule needs changing.
-
-## What the deck implements as specified
-
-Every board carries the route it implements. §8 and §9 are covered screen for screen, including
-the parts easy to skip: the restricted-review result page, the `timed_out` state, the offline
-banner, the session-takeover dialog, `mustChangePassword`, 403, and the error boundary with a
-copyable error id.
-
-The §12 guidelines are treated as constraints, not suggestions. No gradients, no backdrop blur,
-no glow, no radius above `rounded-lg`, no emoji in chrome, no colour that is not carrying
-meaning, no entrance animation. The audio player is monochrome. Admin tables are 40px rows;
-the student's question column is 720px with relaxed leading and 44px targets.
-
-## What the deck proposes that the spec does not have
-
-Six additions. Each is small, each has a stated reason on its board, and none of them changes a
-data model.
-
-| Proposal | Board | Suggested phase | Note |
+| Page | Audience | Console / route tree | What it draws |
 |---|---|---|---|
-| Command palette (⌘K) | A-02 | 2 | The only navigation model that survives an LMS-sized sidebar. Needs the accent-insensitive search that §13.8 and `pg_trgm` already imply. |
-| "Chờ chấm" as a nav item with a count | A-00 | 4 | §8 reaches grading only through a monitor screen. One route; the count is the teacher's daily queue. |
-| Grade by question | G-04 | 4 | Same endpoints plus one query — "all pending answers for question X in assignment Y". Decides a rubric once instead of per student. |
-| Live "học viên sẽ đọc" preview on the assignment form | G-01 | 3 | Renders the exact sentences the student will see next to the switches that produce them. Makes §10.2 true rather than aspirational. |
-| Manual-grading cost estimate | G-01 | 3 | `students × manual questions`, shown at the moment of commitment. |
-| Saveable comment snippets | G-03 | 4 | One small table, one chip row. The same four sentences get typed all term. |
+| `Quizzivy Landing.dc.html` | Anyone | `/` on quizzivy.com | Marketing page, join by code, role tabs, consultation form, FAQ; en + vi copy |
+| `Quizzivy Sign in.dc.html` | Signed out | `/login`, `/forgot-password`, `/join`, `/change-password` | Sign in, forgot password, join a class, joined, first sign-in password change |
+| `Quizzivy Splash.dc.html` | Everyone | App boot | Loading steps, skeleton hand-off per shell, slow, offline, new version, session expired; en + vi copy |
+| `Quizzivy System pages.dc.html` | Everyone | `*`, `/403`, error boundary, maintenance | 404, no access, unexpected error, maintenance |
+| `Quizzivy Student.dc.html` | Student | `/app/*` | Home, classes, join dialog, test intro, take test, result, learn, course, lesson, flashcards, grades, messages, this week, settings |
+| `Quizzivy Teacher.dc.html` | Teacher (and Admin) | `/teacher/*` | Dashboard, calendar, messages, assignments, grading, classes, students, attendance, tests, shared with me, question bank, media, courses, vocabulary, gradebook, reports, imports, settings |
+| `Quizzivy Admin.dc.html` | Admin | `/admin/*` | Overview, users, roles and permissions, all classes, audit log, API reference, system settings |
 
-Two of these — the palette and grade-by-question — are the ones worth arguing about. The other
-four are a few hours each.
+Supporting files: `support.js` is the Claude Design canvas runtime (nothing in it is product
+behaviour); `qz-controls.js` draws the select popover and the date and time picker the pages use;
+`github.md` is Claude Design's own sync log and its screen-to-repo map; the SVGs are the assets
+the pages reference by name. `MANIFEST.sha256` pins every file.
 
-## Open questions for Thuong
+## Reading a page
 
-These came out of drawing the screens and cannot be answered from the spec.
+Each `.dc.html` is one `<x-dc>` template followed by one `<script type="text/x-dc">`:
 
-1. **Does the teacher ever grade on a tablet?** §1.1 says desktop/tablet, and the grading
-   screen is the only admin screen where 768px is genuinely tight. If tablet grading is real,
-   the sample-answer panel needs to collapse rather than sit beside the answer.
-2. **Should a student see the class average after grading?** The result page currently shows
-   only their own score. A cohort comparison is one number and a real motivational lever, but it
-   is also the kind of thing that lands badly in a small class where everyone knows everyone.
-3. **What happens to a flagged attempt the teacher decides is fine?** The deck adds "Bỏ đánh
-   dấu" and a private note field (G-05). If that clearing should be recorded in the audit log —
-   and it probably should — that is a schema question, not a design one.
-4. **How does the teacher send the join code in practice?** The deck assumes a projector and a
-   Zalo message, which is why the QR is downloadable. If it is usually a printed sheet, the QR
-   needs a print layout instead.
+- The template holds the markup. `data-screen-label` names each screen; `{{ bindings }}`,
+  `<sc-if>` and `<sc-for>` carry the logic; `style-hover="…"` is the hover state.
+- The script holds the fixtures (which show the data model), the state, every handler and
+  `renderVals()`. Most option sets, labels, defaults and breakpoints live here, not in the
+  template. The Teacher page builds its screens in layers (`renderValsInner → wire → … →
+  shareVals`); the last layer wins, so a dialog is built from the layer that overrides the
+  `toast*` stub beneath it.
+- Breakpoints are measured from the page's own width with a ResizeObserver: `< 768` is mobile,
+  `>= 1024` is wide, and most tables drop columns by the content width
+  (`width − sidebar − padding`).
+
+**Prototype chrome never ships:** the floating screen-switcher pills, the demo accounts box and
+the "Try T6NB-4WLQ" hint on Sign in, the canvas theme buttons, the `frame: mobile` prop, the
+Teacher page's "Coming next" screen, `RULES_UNUSED`, and the Word-import "Use a sample" slot.
+
+## Where the product departs from the deck
+
+Decided with Thuong on 2026-09-26. The design team has these as requests
+(`docs/design/gaps.md`), so later exports should converge.
+
+- **Join codes are always shown in full** to their teacher and to admins (card, class detail,
+  admin table, copy link, QR). The deck's "shown only once" and "only the last 4 characters"
+  copy is rewritten. Codes keep the §6 alphabet, so the `ABCD-1234` placeholder changes.
+- **The public join preview never shows a student count.** It may show schedule and room.
+- **Every control has a visible `:focus-visible` ring.** The deck draws none.
+- **"Create student accounts" is a permission row** (Admin and Teacher), because the Teacher page
+  has "Add student" while the matrix gives "Add and disable users" to Admin only.
+- **Assistant** stays hidden from role pickers until the deck draws how an assistant joins a
+  class.
+- **Emails carry a one-time set-password link, never a temporary password.**
+- **The consultation form gets a consent checkbox and a privacy notice.**
+- **Media replace and delete follow the publish snapshot:** a replaced file reaches drafts and
+  bank questions only, and a file in use cannot be deleted. The deck's copy says otherwise.
+
+## Updating the deck
+
+A new export from Claude Design (project `49cb45cb-7a21-441e-bb39-4261e0f38372`) replaces the
+files in `deck/` byte for byte:
+
+1. Copy the pages, `support.js`, `qz-controls.js`, `github.md`, the SVGs and `brand/` over the
+   old ones. Do not import `screenshots/`, `uploads/` or `.thumbnail` (see below).
+2. Regenerate the manifest:
+   `cd docs/design/deck && find . -type f ! -name MANIFEST.sha256 | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r f; do sha256sum "$f"; done > MANIFEST.sha256`
+3. `node scripts/check-design-deck.mjs` — it checks the manifest, that every page is one
+   template and one script, and that every file a page references is in the deck.
+4. Add a line to the log below, and say in the PR which screens changed.
+
+## Not imported
+
+- `screenshots/` holds Claude Design's own before-and-after captures at about 924px, several of
+  them broken intermediate renders. They are not a reference.
+- `uploads/` holds eight red-pen markups on an earlier revision. All eight are resolved in the
+  deck as imported:
+
+  | Markup | Resolved as |
+  |---|---|
+  | Assignment detail, Settings tab: a cramped key/value table | Grouped sections (test and time, window, integrity, results), locked while live |
+  | Test builder: narrow, truncating outline | A draggable "Resize outline" splitter; double-click resets it |
+  | Student join dialog: "6-character" copy and `ABC-123` | "8-character" copy, `XXXX-XXXX` |
+  | Roles and permissions: the Teacher column | "Edit permissions" scrolls to the matrix and highlights that role's column |
+  | Calendar: the sticky day header clipped 08:00 | The first hour is fully visible |
+  | Test builder under a very long title | Marquee titles, points never wrap, "Drag questions here" in an empty group |
+  | New assignment stepper: truncated summaries | Four steps (test, students, schedule, rules) with marquee summaries |
+  | Test builder title row: badges drifted right | Status and save state sit beside the title |
+
+## Log
+
+- 2026-09-26 — First import (T-R0.1), from Thuong's 18:06 export. Teacher page sha256
+  `93ded9aa…`. The inventories behind `docs/plan/70-*` were read from the 10:02 export the same
+  day; the 18:06 export differs by a few hundred bytes in the Admin and Student pages and about
+  3 KB in the Teacher page, so each release re-reads its screens from this deck, not from the
+  inventories.
 
 ## The brand
 
-`docs/design/brand/` is Thuong's kit, copied byte-for-byte from
-`~/Developer/designs/quizzivy-brand`. **Nothing in the deck redraws it.** Every logo on every
-sheet is a `<use>` of a symbol in `mockups/assets/brand.js`, which is generated from
-`brand/svg/` — so a change to the kit reaches the whole deck by regenerating one file, and the
-deck can never quietly diverge from the kit.
+`brand/` is Thuong's kit, copied byte for byte from `~/Developer/designs/quizzivy-brand`. The
+deck's own SVGs are re-serialised copies of it (the same geometry; only `<path/>` against
+`<path></path>` and the trailing newline differ). If the two ever disagree, `brand/` wins.
 
 | | |
 |---|---|
@@ -122,24 +131,7 @@ deck can never quietly diverge from the kit.
 | `brand/svg/quizzivy-favicon.svg` | Square favicon; copy to `web/public/favicon.svg` |
 | `brand/png/` | Pre-exported PNGs, and `brand/README.md` is the kit's own documentation |
 
-Rules that come from the kit itself: light ground → `color`, dark ground → `on-dark` or
-`white`, one-colour printing → `black` / `white`; symbol never below 24px tall, horizontal
-lockup never below 120px wide. The wordmark is Quicksand Bold converted to paths — **never
-re-set it in Inter**; Inter is the interface's typeface, not the logo's.
-
-One decision the deck surfaces but does not make (board B-04): in the teacher's top bar the
-`color` lockup sits about 40px from a green "Đã phát hành" badge, and green means "đúng" inside
-this product (§12). The board draws that top bar both ways — `color` per the kit's rule, and
-`black` — so the trade-off is visible. Both are the kit's own variants; neither recolours
-anything.
-
-## Maintenance
-
-- After changing anything in `brand/svg/`, regenerate the sprite so the deck follows:
-  `node docs/design/mockups/build-brand-sprite.mjs docs/design/brand/svg docs/design/mockups/assets/brand.js`
-- `node docs/design/mockups/check.mjs` after any edit. It fails on an undefined class or a
-  missing icon, which are the two ways a static mockup silently renders wrong.
-- New screens go on the sheet for their audience, with an id, a name, and the route. A board
-  without a route is a proposal, and should say so.
-- If a component is needed that is not on the foundations sheet, add it there first. That is
-  what keeps five sheets looking like one product.
+Rules that come from the kit itself: light ground → `color`, dark ground → `on-dark` or `white`,
+one-colour printing → `black` / `white`; symbol never below 24px tall, horizontal lockup never
+below 120px wide. The wordmark is Quicksand Bold converted to paths — never re-set it in the
+interface typeface (Be Vietnam Pro).

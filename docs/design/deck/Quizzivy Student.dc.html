@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+:root{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--ring:#9aa3a5;--shadow:0 1px 2px rgba(20,28,30,.05);--shadow-lg:0 12px 32px -8px rgba(20,28,30,.18),0 2px 6px rgba(20,28,30,.06);--accent-c:#a4ca3e;--accent-soft:#f1f7e0;--accent-ink:#4f6c12;--success:oklch(0.62 0.14 155);--success-soft:oklch(0.96 0.03 155);--success-ink:oklch(0.42 0.1 155);--warning:oklch(0.74 0.15 70);--warning-soft:oklch(0.96 0.04 80);--warning-ink:oklch(0.48 0.11 60);--danger:oklch(0.59 0.2 27);--danger-soft:oklch(0.96 0.03 27);--danger-ink:oklch(0.48 0.17 27);--info:oklch(0.6 0.1 230);--info-soft:oklch(0.96 0.02 230);--info-ink:oklch(0.45 0.09 235);--overlay:rgba(15,20,22,.4)}
+:root.dark,[data-qz-theme="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--ring:#5d6769;--shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);--accent-soft:rgba(164,202,62,.13);--accent-ink:#c2e070;--success-soft:oklch(0.3 0.05 155);--success-ink:oklch(0.8 0.12 155);--warning-soft:oklch(0.32 0.06 70);--warning-ink:oklch(0.85 0.12 80);--danger-soft:oklch(0.3 0.08 27);--danger-ink:oklch(0.78 0.13 27);--info-soft:oklch(0.3 0.05 235);--info-ink:oklch(0.8 0.08 230);--overlay:rgba(0,0,0,.6)}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+[class^="icon-"],[class*=" icon-"]{line-height:1;display:inline-flex;align-items:center;justify-content:center}
+[class^="icon-"]::before,[class*=" icon-"]::before{line-height:1}
+a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+a:hover{color:var(--muted-fg)}
+button,input,textarea,select{font-family:inherit;color:inherit}
+input::placeholder,textarea::placeholder{color:var(--muted-fg)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+</style>
+<script src="qz-controls.js"></script>
+</helmet>
+<div ref="{{ rootRef }}" style="height:100vh;display:flex;flex-direction:column;background:var(--bg);font-size:14px;line-height:1.5;position:relative;overflow:hidden">
+
+<sc-if value="{{ appShell }}" hint-placeholder-val="{{ true }}">
+<header style="flex:none;height:60px;display:flex;align-items:center;gap:14px;padding:0 {{ padX }};border-bottom:1px solid var(--border);background:var(--bg)">
+<sc-if value="{{ showBack }}" hint-placeholder-val="{{ false }}"><button onClick="{{ back }}" aria-label="Back" style="width:36px;height:36px;margin-left:-6px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-arrow-left" style="font-size:18px"></i></button><span style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ backTitle }}</span></sc-if>
+<sc-if value="{{ showLogo }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ goHome }}" aria-label="Quizzivy home" style="display:flex;align-items:center;gap:8px;border:0;background:transparent;cursor:pointer;padding:0"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="quizzivy-mark-color.svg" alt="" style="height:24px"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="quizzivy-mark-on-dark.svg" alt="" style="height:24px"></sc-if><span style="font-weight:700;font-size:16px;letter-spacing:-0.01em">Quizzivy</span></button>
+</sc-if>
+<sc-if value="{{ topNav }}" hint-placeholder-val="{{ true }}">
+<nav style="display:flex;align-items:center;gap:2px;margin-left:14px">
+<sc-for list="{{ nav }}" as="n" hint-placeholder-count="4"><button onClick="{{ n.go }}" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 12px;border:0;border-radius:8px;cursor:pointer;font-size:14px;white-space:nowrap;background:{{ n.bg }};color:{{ n.fg }};font-weight:{{ n.weight }}" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-{{ n.icon }}" style="font-size:16px"></i>{{ n.label }}<sc-if value="{{ n.count }}" hint-placeholder-val="{{ false }}"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--accent-c);color:#1b2123;font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center">{{ n.count }}</span></sc-if></button></sc-for>
+</nav>
+</sc-if>
+<div style="margin-left:auto;display:flex;align-items:center;gap:4px">
+<button onClick="{{ goMessages }}" aria-label="Messages" style="width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:8px;background:{{ msgBtnBg }};cursor:pointer;position:relative" style-hover="background:var(--hover)"><i class="icon-message-square" style="font-size:18px"></i><sc-if value="{{ msgUnread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:5px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent-c);color:#1b2123;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center">{{ msgUnread }}</span></sc-if></button>
+<button onClick="{{ toggleNotif }}" aria-label="Notifications" style="width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;cursor:pointer;position:relative" style-hover="background:var(--hover)"><i class="icon-bell" style="font-size:18px"></i><span style="position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:1.5px solid var(--bg)"></span></button>
+<div style="position:relative">
+<button onClick="{{ toggleUser }}" aria-label="Account menu" style="display:flex;align-items:center;gap:8px;height:40px;padding:4px;border:0;border-radius:10px;background:{{ userBtnBg }};cursor:pointer" style-hover="background:var(--hover)"><span style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;font-size:12px;font-weight:600">BN</span></button>
+<sc-if value="{{ userMenuOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ toggleUser }}" style="position:fixed;inset:0;z-index:59"></div>
+<div style="position:absolute;right:0;top:46px;width:240px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:6px;z-index:60">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 10px;border-bottom:1px solid var(--border);margin-bottom:4px"><span style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;font-size:12px;font-weight:600">BN</span><span style="min-width:0"><span style="display:block;font-size:13px;font-weight:600">Nguyễn Gia Bảo</span><span style="display:block;font-size:12px;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">giabao.ng@gmail.com</span></span></div>
+<sc-for list="{{ userMenu }}" as="um" hint-placeholder-count="3"><button onClick="{{ um.go }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px;border:0;border-radius:6px;background:transparent;cursor:pointer;font-size:13px;text-align:left;color:{{ um.color }};border-top:{{ um.border }}" style-hover="background:var(--hover)"><i class="icon-{{ um.icon }}" style="font-size:15px"></i><span style="flex:1">{{ um.label }}</span></button></sc-for>
+</div>
+</sc-if>
+</div>
+</div>
+<sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ toggleNotif }}" style="position:fixed;inset:0;z-index:59"></div>
+<div style="position:absolute;right:{{ padX }};top:56px;width:min(340px,calc(100% - 24px));background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:60;overflow:hidden">
+<div style="padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600">Notifications</div>
+<sc-for list="{{ notifications }}" as="nt" hint-placeholder-count="3"><button onClick="{{ nt.go }}" style="width:100%;display:flex;gap:10px;padding:12px 14px;border:0;border-bottom:1px solid var(--border);background:transparent;cursor:pointer;text-align:left" style-hover="background:var(--muted)"><span style="width:30px;height:30px;flex:none;border-radius:8px;display:grid;place-items:center;background:{{ nt.bg }};color:{{ nt.fg }}"><i class="icon-{{ nt.icon }}" style="font-size:15px"></i></span><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;line-height:1.4">{{ nt.text }}</span><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ nt.time }}</span></span></button></sc-for>
+</div>
+</sc-if>
+</header>
+
+<main style="flex:1;min-height:0;overflow-y:auto;padding:{{ mainPad }}">
+
+<sc-if value="{{ r.home }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Student home" style="max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+<div><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25">Good evening, Bảo</h1><p style="margin:4px 0 0;color:var(--muted-fg);font-size:14.5px">{{ homeSub }}</p></div>
+
+<sc-if value="{{ hasResume }}" hint-placeholder-val="{{ true }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:20px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+<span style="flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:6px">
+<span style="display:inline-flex;align-self:flex-start;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;background:var(--info-soft);color:var(--info-ink);font-size:12.5px;font-weight:500"><i class="icon-timer" style="font-size:13px"></i>In progress · {{ timeLeftLabel }} left</span>
+<span style="font-size:19px;font-weight:600;letter-spacing:-0.01em;line-height:1.3">{{ resume.title }}</span>
+<span style="font-size:13.5px;color:var(--muted-fg)">{{ resume.cls }} · {{ answeredCount }} of {{ totalQ }} answered · closes {{ resume.due }}</span>
+<span style="height:6px;border-radius:6px;background:var(--muted);overflow:hidden;margin-top:6px;max-width:420px"><span style="display:block;height:100%;width:{{ answeredPct }};background:var(--accent-c)"></span></span>
+</span>
+<button onClick="{{ resumeTest }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 22px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:15px;font-weight:600;white-space:nowrap;flex:{{ ctaFlex }}" style-hover="opacity:.9">Continue test<i class="icon-arrow-right" style="font-size:17px"></i></button>
+</section>
+</sc-if>
+
+<section style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="margin:0;font-size:16px;font-weight:600">Coming up</h2><span style="font-size:13px;color:var(--muted-fg)">{{ upcomingCount }} tests</span></div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden">
+<sc-for list="{{ upcoming }}" as="a" hint-placeholder-count="3">
+<button onClick="{{ a.open }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;border-top:{{ a.border }};background:transparent;cursor:pointer;text-align:left" style-hover="background:var(--muted)">
+<span style="width:44px;flex:none;display:flex;flex-direction:column;align-items:center;padding:4px 0;border-radius:9px;background:{{ a.dateBg }};color:{{ a.dateFg }}"><span style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">{{ a.dow }}</span><span style="font-size:17px;font-weight:600;line-height:1.1">{{ a.day }}</span></span>
+<span style="flex:1;min-width:0"><span style="display:block;font-size:14.5px;font-weight:500;line-height:1.35">{{ a.title }}</span><span style="display:block;font-size:13px;color:var(--muted-fg)">{{ a.meta }}</span></span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12.5px;font-weight:500;white-space:nowrap;background:{{ a.st.bg }};color:{{ a.st.fg }}">{{ a.st.label }}</span>
+<i class="icon-chevron-right" style="font-size:16px;color:var(--muted-fg)"></i>
+</button>
+</sc-for>
+</div>
+</section>
+
+<div style="display:grid;grid-template-columns:{{ homeCols }};gap:14px">
+<section style="display:flex;flex-direction:column;gap:10px;min-width:0">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="margin:0;font-size:16px;font-weight:600">Recent results</h2></div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden">
+<sc-for list="{{ results }}" as="rs" hint-placeholder-count="3">
+<button onClick="{{ rs.open }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;border-top:{{ rs.border }};background:transparent;cursor:pointer;text-align:left" style-hover="background:var(--muted)">
+<span style="flex:1;min-width:0"><span style="display:block;font-size:14.5px;font-weight:500;line-height:1.35">{{ rs.title }}</span><span style="display:block;font-size:13px;color:var(--muted-fg)">{{ rs.meta }}</span></span>
+<sc-if value="{{ rs.graded }}" hint-placeholder-val="{{ true }}"><span style="font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap">{{ rs.score }}</span></sc-if>
+<sc-if value="{{ rs.pending }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--warning-ink);background:var(--warning-soft);border-radius:999px;padding:2px 9px;white-space:nowrap"><i class="icon-hourglass" style="font-size:12px"></i>Being graded</span></sc-if>
+</button>
+</sc-for>
+</div>
+</section>
+<section style="display:flex;flex-direction:column;gap:10px;min-width:0">
+<h2 style="margin:0;font-size:16px;font-weight:600">Practice</h2>
+<button onClick="{{ goLearnCards }}" style="text-align:left;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;cursor:pointer" style-hover="border-color:var(--ring)">
+<span style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center"><i class="icon-layers" style="font-size:18px"></i></span><span><span style="display:block;font-size:14.5px;font-weight:600">12 words to review</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">Travel &amp; transport · about 4 min</span></span></span>
+<span style="display:flex;gap:4px"><sc-for list="{{ streak }}" as="d" hint-placeholder-count="7"><span title="{{ d.tip }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:6px;border-radius:6px;background:{{ d.bg }}"></span><span style="font-size:10.5px;color:var(--muted-fg)">{{ d.label }}</span></span></sc-for></span>
+</button>
+</section>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.classes }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Student classes" style="max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em">Classes</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">Your teachers and what's next in each class.</p></div>
+<div style="display:flex;gap:8px"><button onClick="{{ goSchedule }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:14px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)"><i class="icon-calendar-days" style="font-size:16px"></i>This week</button><button onClick="{{ openJoin }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:9px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:14px;font-weight:500;white-space:nowrap" style-hover="opacity:.9"><i class="icon-plus" style="font-size:16px"></i>Join a class</button></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+<sc-for list="{{ myClasses }}" as="c" hint-placeholder-count="2">
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+<div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+<div><div style="font-size:16px;font-weight:600">{{ c.name }}</div><div style="font-size:13px;color:var(--muted-fg)">{{ c.schedule }}</div></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">{{ c.tInit }}</span><span><span style="display:block;font-size:13.5px;font-weight:500">{{ c.teacher }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">Teacher</span></span><button onClick="{{ c.message }}" aria-label="Message teacher" style="margin-left:auto;width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--border);border-radius:8px;background:var(--card);cursor:pointer" style-hover="background:var(--muted)"><i class="icon-message-square" style="font-size:16px"></i></button></div>
+</div>
+<div style="margin-top:auto;padding:12px 18px;border-top:1px solid var(--border);background:var(--sidebar);display:flex;flex-direction:column;gap:4px">
+<span style="font-size:12px;color:var(--muted-fg)">Next</span>
+<span style="font-size:13.5px;font-weight:500">{{ c.next }}</span>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.intro }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Test intro" style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goHome }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;font-size:13.5px;color:var(--muted-fg)" style-hover="color:var(--fg)"><i class="icon-arrow-left" style="font-size:15px"></i>Home</button></sc-if>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:13px;color:var(--muted-fg)">{{ ia.cls }}</span>
+<h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25;text-wrap:balance">{{ ia.title }}</h1>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+<sc-for list="{{ ia.facts }}" as="f" hint-placeholder-count="3"><div style="background:var(--card);padding:14px 16px"><div style="font-size:12.5px;color:var(--muted-fg)">{{ f.label }}</div><div style="font-size:17px;font-weight:600;margin-top:2px">{{ f.value }}</div></div></sc-for>
+</div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<div style="padding:14px 16px;font-size:14.5px;font-weight:600;border-bottom:1px solid var(--border)">Before you start</div>
+<sc-for list="{{ ia.rules }}" as="ru" hint-placeholder-count="4"><div style="display:flex;gap:12px;padding:12px 16px;border-top:{{ ru.border }};align-items:flex-start"><span style="width:28px;height:28px;flex:none;border-radius:8px;background:var(--muted);display:grid;place-items:center"><i class="icon-{{ ru.icon }}" style="font-size:15px"></i></span><span style="font-size:14px;line-height:1.55;padding-top:3px;text-wrap:pretty">{{ ru.text }}</span></div></sc-for>
+</div>
+<sc-if value="{{ ia.teacherNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:12px;padding:14px 16px;border-radius:12px;background:var(--muted)"><span style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:11px;font-weight:600">TH</span><span style="font-size:13.5px;line-height:1.55"><span style="display:block;font-weight:500;margin-bottom:2px">Note from Ms Thương</span>{{ ia.teacherNote }}</span></div></sc-if>
+<div style="display:flex;flex-direction:column;gap:8px;position:sticky;bottom:0;padding:12px 0 4px;background:linear-gradient(transparent,var(--bg) 30%)">
+<button onClick="{{ ia.start }}" style="display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:11px;border:0;background:{{ ia.ctaBg }};color:{{ ia.ctaFg }};cursor:{{ ia.ctaCursor }};font-size:16px;font-weight:600" style-hover="opacity:.92">{{ ia.cta }}<i class="icon-arrow-right" style="font-size:18px"></i></button>
+<span style="text-align:center;font-size:12.5px;color:var(--muted-fg)">{{ ia.ctaHint }}</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.result }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Result" style="max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goHome }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;font-size:13.5px;color:var(--muted-fg)" style-hover="color:var(--fg)"><i class="icon-arrow-left" style="font-size:15px"></i>Home</button></sc-if>
+<section style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:22px;display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+<span style="width:112px;height:112px;flex:none;border-radius:50%;background:conic-gradient({{ rz.ringColor }} {{ rz.deg }}, var(--muted) 0);display:grid;place-items:center"><span style="width:90px;height:90px;flex:none;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1"><span style="font-size:24px;font-weight:700;font-variant-numeric:tabular-nums">{{ rz.big }}</span><span style="font-size:12px;color:var(--muted-fg)">{{ rz.small }}</span></span></span>
+<span style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:6px">
+<span style="font-size:13px;color:var(--muted-fg)">{{ rz.cls }} · submitted {{ rz.when }}</span>
+<span style="font-size:20px;font-weight:600;letter-spacing:-0.01em;line-height:1.3">{{ rz.title }}</span>
+<span style="font-size:14px;color:var(--muted-fg);text-wrap:pretty">{{ rz.summary }}</span>
+</span>
+</section>
+<sc-if value="{{ rz.hasComment }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:12px;padding:14px 16px;border-radius:12px;background:var(--accent-soft)"><span style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:11px;font-weight:600">TH</span><span style="font-size:14px;line-height:1.55"><span style="display:block;font-weight:600;margin-bottom:2px">Ms Thương</span>{{ rz.comment }}</span></div></sc-if>
+<div style="display:grid;grid-template-columns:{{ rzCols }};gap:12px">
+<sc-for list="{{ rz.parts }}" as="p" hint-placeholder-count="3"><div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;color:var(--muted-fg)">{{ p.label }}</span><span style="font-size:18px;font-weight:600;font-variant-numeric:tabular-nums">{{ p.value }}</span><span style="height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ p.pct }};background:{{ p.color }}"></span></span></div></sc-for>
+</div>
+<section style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px;font-weight:600">Your answers</h2>
+<div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px"><sc-for list="{{ reviewTabs }}" as="tb" hint-placeholder-count="3"><button onClick="{{ tb.go }}" style="border:0;border-radius:7px;height:30px;padding:0 12px;font-size:13px;cursor:pointer;white-space:nowrap;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.shadow }};font-weight:500">{{ tb.label }}</button></sc-for></div>
+</div>
+<sc-if value="{{ rz.locked }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:12px;border:1px dashed var(--border);font-size:13.5px;color:var(--muted-fg)"><i class="icon-lock" style="font-size:16px"></i>{{ rz.lockText }}</div></sc-if>
+<sc-for list="{{ rz.review }}" as="q" hint-placeholder-count="4">
+<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;gap:12px">
+<span style="width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;background:{{ q.bg }};color:{{ q.fg }}"><i class="icon-{{ q.icon }}" style="font-size:14px"></i></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+<span style="display:flex;justify-content:space-between;gap:10px"><span style="font-size:14px;font-weight:500;line-height:1.5;text-wrap:pretty">{{ q.no }}. {{ q.prompt }}</span><span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ q.pts }}</span></span>
+<span style="font-size:13.5px"><span style="color:var(--muted-fg)">You answered </span><span style="font-weight:500;color:{{ q.ansColor }};text-decoration:{{ q.ansDeco }}">{{ q.answer }}</span></span>
+<sc-if value="{{ q.showCorrect }}" hint-placeholder-val="{{ false }}"><span style="font-size:13.5px"><span style="color:var(--muted-fg)">Correct answer </span><span style="font-weight:500;color:var(--success-ink)">{{ q.correct }}</span></span></sc-if>
+<sc-if value="{{ q.explain }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted-fg);background:var(--muted);border-radius:8px;padding:8px 10px;line-height:1.5">{{ q.explain }}</span></sc-if>
+</span>
+</div>
+</sc-for>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.settings }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Student settings" style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em">Settings</h1></sc-if>
+<div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px;overflow-x:auto;align-self:flex-start;max-width:100%"><sc-for list="{{ setTabs }}" as="tb" hint-placeholder-count="4"><button onClick="{{ tb.go }}" style="border:0;border-radius:7px;height:32px;padding:0 12px;font-size:13px;cursor:pointer;white-space:nowrap;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.shadow }};font-weight:500">{{ tb.label }}</button></sc-for></div>
+
+<sc-if value="{{ sProfile }}" hint-placeholder-val="{{ true }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:14px"><span style="width:56px;height:56px;flex:none;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;font-size:18px;font-weight:600">BN</span><button onClick="{{ toastPhoto }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500" style-hover="background:var(--muted)">Change photo</button></div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">Full name<input value="{{ prof.name }}" onChange="{{ onName }}" style="height:42px;border:1px solid var(--border);border-radius:9px;padding:0 12px;font-size:14.5px;font-weight:400;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"><span style="font-weight:400;font-size:12px;color:var(--muted-fg)">Your teacher sees this name.</span></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">Email<input value="giabao.ng@gmail.com" disabled style="height:42px;border:1px solid var(--border);border-radius:9px;padding:0 12px;font-size:14.5px;font-weight:400;background:var(--muted);color:var(--muted-fg);outline:0"><span style="font-weight:400;font-size:12px;color:var(--muted-fg)">Ask your teacher to change your email.</span></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">Language<span style="position:relative;display:flex;align-items:center"><select style="width:100%;appearance:none;-webkit-appearance:none;height:42px;border:1px solid var(--border);border-radius:9px;padding:0 34px 0 12px;font-size:14.5px;font-weight:400;background:var(--bg);outline:0;cursor:pointer"><option>English</option><option>Tiếng Việt</option></select><i class="icon-chevrons-up-down" style="position:absolute;right:12px;font-size:14px;color:var(--muted-fg);pointer-events:none"></i></span></label>
+</section>
+</sc-if>
+
+<sc-if value="{{ sSignin }}" hint-placeholder-val="{{ false }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<div style="display:flex;align-items:center;gap:12px;padding:14px 16px"><span style="width:36px;height:36px;border-radius:9px;background:var(--muted);display:grid;place-items:center"><i class="icon-key-round" style="font-size:17px"></i></span><span style="flex:1"><span style="display:block;font-size:14px;font-weight:500">Password</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">Changed 2 weeks ago</span></span><button onClick="{{ togglePw }}" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)">{{ pwBtn }}</button></div>
+<sc-if value="{{ pwOpen }}" hint-placeholder-val="{{ false }}">
+<div style="padding:4px 16px 16px;display:flex;flex-direction:column;gap:12px">
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">Current password<input type="password" style="height:42px;border:1px solid var(--border);border-radius:9px;padding:0 12px;font-size:14.5px;background:var(--bg);outline:0"></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">New password<input type="password" value="{{ pw }}" onChange="{{ onPw }}" style="height:42px;border:1px solid var(--border);border-radius:9px;padding:0 12px;font-size:14.5px;background:var(--bg);outline:0"></label>
+<span style="display:flex;gap:4px"><sc-for list="{{ pwBars }}" as="pb" hint-placeholder-count="4"><span style="flex:1;height:4px;border-radius:4px;background:{{ pb }}"></span></sc-for></span>
+<span style="font-size:12.5px;color:var(--muted-fg)">{{ pwHint }}</span>
+<button onClick="{{ savePw }}" style="align-self:flex-start;height:38px;padding:0 16px;border-radius:9px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:500;opacity:{{ pwOp }}">Update password</button>
+</div>
+</sc-if>
+<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--border)"><span style="width:36px;height:36px;border-radius:9px;background:var(--muted);display:grid;place-items:center"><img src="google-g.svg" alt="" style="width:18px;height:18px;flex:none"></span><span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:500">Google</span><span style="display:block;font-size:12.5px;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ googleText }}</span></span><button onClick="{{ toggleGoogle }}" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)">{{ googleBtn }}</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{ sNotif }}" hint-placeholder-val="{{ false }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<sc-for list="{{ notifRules }}" as="nr" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-top:{{ nr.border }}"><span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:500">{{ nr.label }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ nr.hint }}</span></span><button onClick="{{ nr.go }}" role="switch" aria-label="{{ nr.label }}" style="width:42px;height:24px;flex:none;border-radius:999px;border:0;padding:2px;cursor:pointer;background:{{ nr.track }};display:flex;justify-content:{{ nr.side }}"><span style="width:20px;height:20px;flex:none;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></span></button></div></sc-for>
+</section>
+</sc-if>
+
+<sc-if value="{{ sLook }}" hint-placeholder-val="{{ false }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:14px">
+<span style="font-size:14px;font-weight:500">Theme</span>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px"><sc-for list="{{ themeOpts }}" as="to" hint-placeholder-count="3"><button onClick="{{ to.go }}" style="display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:10px;border:1px solid {{ to.border }};box-shadow:{{ to.ring }};background:var(--card);cursor:pointer;text-align:left"><span style="height:56px;border-radius:7px;background:{{ to.preview }};border:1px solid var(--border)"></span><span style="font-size:13px;font-weight:500">{{ to.label }}</span></button></sc-for></div>
+<div style="display:flex;align-items:center;gap:14px;padding-top:6px;border-top:1px solid var(--border)"><span style="flex:1"><span style="display:block;font-size:14px;font-weight:500">Larger text in tests</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">Reading passages and questions at 18px</span></span><button onClick="{{ toggleBig }}" role="switch" aria-label="Larger text in tests" style="width:42px;height:24px;flex:none;border-radius:999px;border:0;padding:2px;cursor:pointer;background:{{ bigTrack }};display:flex;justify-content:{{ bigSide }}"><span style="width:20px;height:20px;flex:none;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></span></button></div>
+</section>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.learn }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Learn" style="max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25">Learn</h1><p style="margin:4px 0 0;color:var(--muted-fg);font-size:14px">Courses from your teachers and words to practise.</p></div>
+<div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px;align-self:flex-start;max-width:100%;overflow-x:auto"><sc-for list="{{ learnTabs }}" as="tb" hint-placeholder-count="2"><button onClick="{{ tb.go }}" style="border:0;border-radius:7px;height:32px;padding:0 14px;font-size:13.5px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.shadow }};font-weight:500">{{ tb.label }}<sc-if value="{{ tb.count }}" hint-placeholder-val="{{ false }}"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center">{{ tb.count }}</span></sc-if></button></sc-for></div>
+<sc-if value="{{ lCourses }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ courses }}" as="c" hint-placeholder-count="2">
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+<span style="flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12.5px;color:var(--muted-fg)">{{ c.cls }} · {{ c.level }}</span>
+<span style="font-size:17px;font-weight:600;line-height:1.3">{{ c.title }}</span>
+<span style="font-size:13.5px;color:var(--muted-fg)">{{ c.where }}</span>
+<span style="display:flex;align-items:center;gap:10px;margin-top:4px;max-width:420px"><span style="flex:1"><span style="display:block;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ c.pct }};background:var(--accent-c)"></span></span></span><span style="font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--muted-fg)">{{ c.pct }}</span></span>
+</span>
+<button onClick="{{ c.open }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;flex:{{ ctaFlex }}" style-hover="opacity:.9">{{ c.cta }}<i class="icon-arrow-right" style="font-size:16px"></i></button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ lCards }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:20px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+<span style="width:48px;height:48px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;flex:none"><i class="icon-layers" style="font-size:22px"></i></span>
+<span style="flex:1 1 240px;min-width:0"><span style="display:block;font-size:17px;font-weight:600">{{ dueTotal }} words due today</span><span style="display:block;font-size:13.5px;color:var(--muted-fg)">About {{ dueMins }} minutes · from {{ dueDecks }} lists</span></span>
+<button onClick="{{ startReviewAll }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;flex:{{ ctaFlex }};opacity:{{ reviewOp }}" style-hover="opacity:.9">Start review<i class="icon-arrow-right" style="font-size:16px"></i></button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+<sc-for list="{{ decks }}" as="d" hint-placeholder-count="3">
+<button onClick="{{ d.open }}" style="text-align:left;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;cursor:pointer" style-hover="border-color:var(--ring)">
+<span style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span style="font-size:12px;color:var(--muted-fg)">{{ d.cls }}</span><sc-if value="{{ d.due }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:1px 8px">{{ d.due }} due</span></sc-if></span>
+<span style="font-size:15px;font-weight:600">{{ d.name }}</span>
+<span style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted-fg)"><span style="flex:1"><span style="display:block;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ d.pct }};background:var(--accent-c)"></span></span></span>{{ d.known }} of {{ d.words }} known</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.course }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Student course" style="max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goLearn }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;font-size:13.5px;color:var(--muted-fg)" style-hover="color:var(--fg)"><i class="icon-arrow-left" style="font-size:15px"></i>Learn</button></sc-if>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--muted-fg)">{{ crs.cls }} · Ms Thương</span><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25">{{ crs.title }}</h1>
+<span style="display:flex;align-items:center;gap:10px;margin-top:6px"><span style="flex:1;max-width:420px"><span style="display:block;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ crs.pct }};background:var(--accent-c)"></span></span></span><span style="font-size:13px;color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ crs.done }} of {{ crs.total }} lessons</span></span></div>
+<sc-for list="{{ crsUnits }}" as="u" hint-placeholder-count="3">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;opacity:{{ u.op }}">
+<div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+<span style="width:30px;height:30px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:600;background:{{ u.badgeBg }};color:{{ u.badgeFg }}"><sc-if value="{{ u.locked }}" hint-placeholder-val="{{ false }}"><i class="icon-lock" style="font-size:14px"></i></sc-if><sc-if value="{{ u.unlocked }}" hint-placeholder-val="{{ true }}">{{ u.no }}</sc-if></span>
+<span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:600">{{ u.title }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ u.meta }}</span></span>
+</div>
+<sc-if value="{{ u.unlocked }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ u.lessons }}" as="l" hint-placeholder-count="3">
+<button onClick="{{ l.open }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;border:0;border-top:1px solid var(--border);background:{{ l.bg }};cursor:pointer;text-align:left" style-hover="background:var(--muted)">
+<span style="width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;border:1.5px solid {{ l.ring }};background:{{ l.dotBg }};color:{{ l.dotFg }}"><i class="icon-{{ l.stateIcon }}" style="font-size:13px"></i></span>
+<span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:{{ l.weight }}">{{ l.title }}</span><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted-fg)"><i class="icon-{{ l.icon }}" style="font-size:13px"></i>{{ l.kind }} · {{ l.meta }}</span></span>
+<sc-if value="{{ l.current }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:2px 9px;white-space:nowrap">Up next</span></sc-if>
+</button>
+</sc-for>
+</sc-if>
+</section>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.lesson }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Lesson" style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goCourse }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:0;cursor:pointer;font-size:13.5px;color:var(--muted-fg)" style-hover="color:var(--fg)"><i class="icon-arrow-left" style="font-size:15px"></i>{{ crs.title }}</button></sc-if>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="display:inline-flex;align-self:flex-start;align-items:center;gap:6px;font-size:12.5px;color:var(--info-ink);background:var(--info-soft);border-radius:999px;padding:2px 9px"><i class="icon-book-open-text" style="font-size:13px"></i>Reading · 10 min</span><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25">How True / False / Not Given questions work</h1><span style="font-size:13px;color:var(--muted-fg)">Unit 2 · lesson 1 of 4</span></div>
+<div style="display:flex;flex-direction:column;gap:14px;font-size:{{ readSize }};line-height:1.75">
+<p style="margin:0;text-wrap:pretty">Each statement is about what the writer says, not about what is true in the real world. Your job is to find the part of the passage that talks about the same idea, then compare the two carefully.</p>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:0;overflow:hidden"><sc-for list="{{ lessonRules }}" as="lr" hint-placeholder-count="3"><div style="display:flex;gap:14px;padding:14px 16px;border-top:{{ lr.border }}"><span style="min-width:108px;font-size:14px;font-weight:600;color:{{ lr.color }}">{{ lr.k }}</span><span style="font-size:14.5px;line-height:1.6">{{ lr.v }}</span></div></sc-for></div>
+<p style="margin:0;text-wrap:pretty">The hardest choice is usually between False and Not Given. Ask yourself: does the passage say the opposite? If yes, it is False. If the passage simply does not mention it, it is Not Given.</p>
+<div style="padding:14px 16px;border-radius:12px;background:var(--accent-soft);font-size:14.5px;line-height:1.6"><span style="display:block;font-weight:600;margin-bottom:4px">Try it</span>Passage: "Most shop owners now support the scheme." Statement: "All shop owners support the scheme." The answer is <b>False</b>, because "most" contradicts "all".</div>
+</div>
+<div style="position:sticky;bottom:0;padding:12px 0 4px;background:linear-gradient(transparent,var(--bg) 30%);display:flex;gap:10px">
+<button onClick="{{ completeLesson }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;flex:1;height:48px;font-size:15px" style-hover="opacity:.92">{{ lessonCta }}<i class="icon-arrow-right" style="font-size:17px"></i></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.flash }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Flashcards" style="max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px;min-height:100%">
+<sc-if value="{{ fcActive }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:12px"><span style="flex:1"><span style="display:block;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ fcPct }};background:var(--accent-c)"></span></span></span><span style="font-size:13px;color:var(--muted-fg);font-variant-numeric:tabular-nums;white-space:nowrap">{{ fcPos }}</span></div>
+<button onClick="{{ flip }}" aria-label="Flip card" style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);min-height:{{ cardH }};padding:28px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;text-align:center;border-radius:18px">
+<span style="font-size:12px;color:var(--muted-fg);font-style:italic">{{ fc.pos }}</span>
+<span style="font-size:34px;font-weight:600;letter-spacing:-0.02em;line-height:1.2">{{ fc.term }}</span>
+<sc-if value="{{ fcBack }}" hint-placeholder-val="{{ false }}">
+<span style="width:48px;height:1px;background:var(--border);margin:6px 0"></span>
+<span style="font-size:19px;font-weight:500">{{ fc.meaning }}</span>
+<span style="font-size:15px;color:var(--muted-fg);line-height:1.55;max-width:400px;text-wrap:pretty">“{{ fc.example }}”</span>
+</sc-if>
+<sc-if value="{{ fcFront }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg);margin-top:10px">Tap to see the meaning{{ spaceHint }}</span></sc-if>
+</button>
+<sc-if value="{{ fcBack }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+<sc-for list="{{ grades }}" as="g" hint-placeholder-count="4"><button onClick="{{ g.go }}" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:12px;border:1px solid var(--border);background:{{ g.bg }};color:{{ g.fg }};cursor:pointer" style-hover="border-color:var(--ring)"><span style="font-size:14px;font-weight:600">{{ g.label }}</span><span style="font-size:11.5px;opacity:.75">{{ g.when }}</span></button></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ fcFront }}" hint-placeholder-val="{{ true }}"><button onClick="{{ speak }}" style="align-self:center;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500" style-hover="background:var(--muted)"><i class="icon-volume-2" style="font-size:15px"></i>Listen</button></sc-if>
+</sc-if>
+<sc-if value="{{ fcDone }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:28px 22px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;margin-top:6vh">
+<span style="width:52px;height:52px;border-radius:14px;background:var(--success-soft);color:var(--success-ink);display:grid;place-items:center"><i class="icon-check" style="font-size:26px"></i></span>
+<span style="font-size:20px;font-weight:600">Done for today</span>
+<span style="font-size:14px;color:var(--muted-fg);text-wrap:pretty">{{ fcSummary }}</span>
+<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center"><button onClick="{{ goLearnCards }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">Back to Learn</button></div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.grades }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Grades" style="max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25">Grades</h1><p style="margin:4px 0 0;color:var(--muted-fg);font-size:14px">Every result, by class.</p></div>
+<div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px;align-self:flex-start;max-width:100%;overflow-x:auto"><sc-for list="{{ gradeTabs }}" as="tb" hint-placeholder-count="2"><button onClick="{{ tb.go }}" style="border:0;border-radius:7px;height:32px;padding:0 14px;font-size:13.5px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.shadow }};font-weight:500">{{ tb.label }}<sc-if value="{{ tb.count }}" hint-placeholder-val="{{ false }}"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center">{{ tb.count }}</span></sc-if></button></sc-for></div>
+<div style="display:grid;grid-template-columns:{{ gradeCols }};gap:12px">
+<sc-for list="{{ skills }}" as="sk" hint-placeholder-count="4"><div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;color:var(--muted-fg)">{{ sk.label }}</span><span style="font-size:22px;font-weight:600;font-variant-numeric:tabular-nums">{{ sk.value }}</span><span style="display:block;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ sk.pct }};background:{{ sk.color }}"></span></span></div></sc-for>
+</div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden">
+<sc-for list="{{ gradeRows }}" as="g" hint-placeholder-count="5">
+<button onClick="{{ g.open }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;border-top:{{ g.border }};background:transparent;cursor:pointer;text-align:left" style-hover="background:var(--muted)">
+<span style="flex:1;min-width:0"><span style="display:block;font-size:14.5px;font-weight:500;line-height:1.35">{{ g.title }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ g.meta }}</span></span>
+<sc-if value="{{ g.graded }}" hint-placeholder-val="{{ true }}"><span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:84px"><span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">{{ g.score }}</span><span style="width:84px"><span style="display:block;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ g.pct }};background:{{ g.color }}"></span></span></span></span></sc-if>
+<sc-if value="{{ g.pending }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--warning-ink);background:var(--warning-soft);border-radius:999px;padding:2px 9px;white-space:nowrap"><i class="icon-hourglass" style="font-size:12px"></i>Being graded</span></sc-if>
+<i class="icon-chevron-right" style="font-size:16px;color:var(--muted-fg)"></i>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.messages }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Student messages" style="max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:14px;height:100%;min-height:480px">
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><div><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25">Messages</h1></div></sc-if>
+<div style="flex:1;min-height:0;display:flex;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden">
+<sc-if value="{{ mShowList }}" hint-placeholder-val="{{ true }}">
+<aside style="width:{{ mListW }};flex:none;border-right:{{ mListBorder }};overflow-y:auto">
+<sc-for list="{{ mConvs }}" as="cv" hint-placeholder-count="3"><button onClick="{{ cv.go }}" style="width:100%;display:flex;gap:10px;padding:14px;border:0;border-bottom:1px solid var(--border);cursor:pointer;text-align:left;background:{{ cv.bg }}" style-hover="background:var(--muted)"><span style="width:38px;height:38px;flex:none;border-radius:{{ cv.radius }};background:{{ cv.avBg }};color:{{ cv.avFg }};display:grid;place-items:center;font-size:12px;font-weight:600"><i class="icon-{{ cv.icon }}" style="font-size:16px"></i></span><span style="flex:1;min-width:0"><span style="display:flex;gap:8px;align-items:baseline"><span style="flex:1;min-width:0;font-size:14px;font-weight:{{ cv.weight }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cv.name }}</span><span style="font-size:11.5px;color:var(--muted-fg)">{{ cv.time }}</span></span><span style="display:block;font-size:13px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cv.preview }}</span></span></button></sc-for>
+</aside>
+</sc-if>
+<sc-if value="{{ mShowThread }}" hint-placeholder-val="{{ true }}">
+<section style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);min-height:58px">
+<sc-if value="{{ mSingle }}" hint-placeholder-val="{{ false }}"><button onClick="{{ mBack }}" aria-label="Back to conversations" style="width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-arrow-left" style="font-size:17px"></i></button></sc-if>
+<span style="flex:1;min-width:0"><span style="display:block;font-weight:600;font-size:14.5px">{{ mTh.name }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ mTh.sub }}</span></span>
+</div>
+<div style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--sidebar)">
+<sc-for list="{{ mMsgs }}" as="m" hint-placeholder-count="3">
+<sc-if value="{{ m.isPost }}" hint-placeholder-val="{{ false }}"><div style="background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:6px;border-radius:12px"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-fg)"><i class="icon-megaphone" style="font-size:13px"></i>Announcement · {{ m.time }}</span><span style="font-size:14.5px;line-height:1.6;text-wrap:pretty">{{ m.text }}</span></div></sc-if>
+<sc-if value="{{ m.isBubble }}" hint-placeholder-val="{{ true }}"><div style="align-self:{{ m.align }};max-width:min(520px,85%);display:flex;flex-direction:column;gap:3px;align-items:{{ m.align }}"><div style="padding:10px 14px;border-radius:16px;font-size:14.5px;line-height:1.5;background:{{ m.bg }};color:{{ m.fg }};border:{{ m.border }};text-wrap:pretty">{{ m.text }}</div><span style="font-size:11.5px;color:var(--muted-fg);padding:0 4px">{{ m.time }}</span></div></sc-if>
+</sc-for>
+</div>
+<sc-if value="{{ mCanReply }}" hint-placeholder-val="{{ true }}">
+<div style="padding:10px 12px;border-top:1px solid var(--border)"><div style="display:flex;align-items:flex-end;gap:8px;border:1px solid var(--border);border-radius:12px;padding:6px 6px 6px 12px;background:var(--bg)"><textarea value="{{ mDraft }}" onChange="{{ onMDraft }}" onKeyDown="{{ onMKey }}" rows="1" placeholder="Message Ms Thương…" style="flex:1;min-width:0;border:0;outline:0;background:transparent;resize:none;font-size:14.5px;line-height:1.5;padding:6px 0"></textarea><button onClick="{{ mSend }}" aria-label="Send" style="width:36px;height:36px;flex:none;display:grid;place-items:center;border:0;border-radius:9px;background:var(--primary);color:var(--primary-fg);cursor:pointer;opacity:{{ mSendOp }}"><i class="icon-arrow-up" style="font-size:17px"></i></button></div></div>
+</sc-if>
+<sc-if value="{{ mReadOnly }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 16px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted-fg);text-align:center">Only your teacher can post here. Reply to Ms Thương directly.</div></sc-if>
+</section>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.schedule }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Schedule" style="max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font-size:{{ h1Size }};font-weight:600;letter-spacing:-0.02em;line-height:1.25">This week</h1><p style="margin:4px 0 0;color:var(--muted-fg);font-size:14px">Classes and test deadlines, 22 – 28 September.</p></div>
+<sc-for list="{{ agenda }}" as="dy" hint-placeholder-count="4">
+<section style="display:flex;gap:14px">
+<span style="width:48px;flex:none;display:flex;flex-direction:column;align-items:center;padding-top:4px"><span style="font-size:11.5px;font-weight:600;color:{{ dy.dowColor }};text-transform:uppercase">{{ dy.dow }}</span><span style="width:36px;height:36px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:16px;font-weight:600;background:{{ dy.numBg }};color:{{ dy.numFg }}">{{ dy.num }}</span></span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-bottom:6px">
+<sc-for list="{{ dy.items }}" as="it" hint-placeholder-count="2"><button onClick="{{ it.go }}" style="text-align:left;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:{{ it.bg }};cursor:pointer" style-hover="border-color:var(--ring)"><i class="icon-{{ it.icon }}" style="font-size:17px;color:{{ it.iconColor }}"></i><span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:500">{{ it.title }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ it.meta }}</span></span><span style="font-size:13px;font-variant-numeric:tabular-nums;color:var(--muted-fg);white-space:nowrap">{{ it.time }}</span></button></sc-for>
+<sc-if value="{{ dy.empty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted-fg);padding:10px 0">Nothing scheduled</span></sc-if>
+</div>
+</section>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.soon }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Coming next" style="max-width:480px;margin:10vh auto 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px">
+<span style="width:48px;height:48px;border-radius:12px;background:var(--muted);display:grid;place-items:center"><i class="icon-{{ soon.icon }}" style="font-size:22px"></i></span>
+<h1 style="margin:0;font-size:20px;font-weight:600">{{ soon.label }}</h1>
+<p style="margin:0;color:var(--muted-fg);font-size:14px;text-wrap:pretty">{{ soon.desc }}</p>
+</div>
+</sc-if>
+</main>
+
+<sc-if value="{{ bottomNav }}" hint-placeholder-val="{{ false }}">
+<nav style="flex:none;display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--border);background:var(--bg);padding:4px 4px 8px">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button onClick="{{ t.go }}" style="display:flex;flex-direction:column;align-items:center;gap:2px;height:52px;justify-content:center;border:0;background:transparent;cursor:pointer;color:{{ t.fg }};font-size:11px;font-weight:{{ t.weight }};position:relative"><span style="position:relative;width:48px;height:28px;border-radius:999px;display:grid;place-items:center;background:{{ t.pill }}"><i class="icon-{{ t.icon }}" style="font-size:19px"></i><sc-if value="{{ t.count }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-2px;right:6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent-c);color:#1b2123;font-size:10px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center">{{ t.count }}</span></sc-if></span>{{ t.label }}</button></sc-for>
+</nav>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{ r.take }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Take test" style="flex:1;min-height:0;display:flex;flex-direction:column;background:var(--bg)">
+<header style="flex:none;height:60px;display:flex;align-items:center;gap:12px;padding:0 {{ padX }};border-bottom:1px solid var(--border)">
+<button onClick="{{ askExit }}" aria-label="Leave test" style="width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-x" style="font-size:18px"></i></button>
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><span style="min-width:0;display:flex;flex-direction:column;line-height:1.3"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ resume.title }}</span><span style="font-size:12px;color:var(--muted-fg);display:flex;align-items:center;gap:5px"><i class="icon-{{ saveIcon }}" style="font-size:12px"></i>{{ saveLabel }}</span></span></sc-if>
+<span style="margin:0 auto;display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:999px;font-variant-numeric:tabular-nums;font-size:15px;font-weight:600;background:{{ timerBg }};color:{{ timerFg }}"><i class="icon-timer" style="font-size:16px"></i>{{ timerText }}</span>
+<button onClick="{{ askSubmit }}" style="height:38px;padding:0 16px;border-radius:9px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap" style-hover="opacity:.9">Submit</button>
+</header>
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+<div style="flex:none;display:flex;padding:8px 14px;gap:6px;border-bottom:1px solid var(--border)"><sc-for list="{{ paneTabs }}" as="pt" hint-placeholder-count="2"><button onClick="{{ pt.go }}" style="flex:1;height:34px;border-radius:8px;border:0;cursor:pointer;font-size:13.5px;font-weight:500;background:{{ pt.bg }};color:{{ pt.fg }}">{{ pt.label }}</button></sc-for></div>
+</sc-if>
+<div style="flex:1;min-height:0;display:flex">
+<sc-if value="{{ showPassage }}" hint-placeholder-val="{{ true }}">
+<article onCopy="{{ blockCopy }}" style="flex:1 1 0;min-width:0;overflow-y:auto;padding:{{ paneP }};border-right:{{ passBorder }};user-select:none">
+<div style="max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px">
+<span style="font-size:12.5px;font-weight:600;color:var(--muted-fg);letter-spacing:.02em">READING PASSAGE 1</span>
+<h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.01em;line-height:1.3">Why cities need green space</h2>
+<sc-for list="{{ passage }}" as="pa" hint-placeholder-count="4"><p style="margin:0;font-size:{{ readSize }};line-height:1.75;text-wrap:pretty"><span style="font-weight:700;margin-right:8px">{{ pa.k }}</span>{{ pa.t }}</p></sc-for>
+</div>
+</article>
+</sc-if>
+<sc-if value="{{ showQuestion }}" hint-placeholder-val="{{ true }}">
+<section style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--sidebar)">
+<div style="flex:1;min-height:0;overflow-y:auto;padding:{{ paneP }}">
+<div style="max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:13px;color:var(--muted-fg);font-weight:500">Question {{ cq.no }} of {{ totalQ }} · {{ cq.typeLabel }}</span><button onClick="{{ toggleFlag }}" style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;border:1px solid {{ flagBorder }};background:{{ flagBg }};color:{{ flagFg }};cursor:pointer;font-size:12.5px;font-weight:500;white-space:nowrap"><i class="icon-flag" style="font-size:14px"></i>{{ flagLabel }}</button></div>
+<div style="font-size:{{ qSize }};line-height:1.6;font-weight:500;text-wrap:pretty">{{ cq.prompt }}</div>
+<sc-if value="{{ cq.hint }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--muted-fg);margin-top:-8px">{{ cq.hint }}</div></sc-if>
+<sc-if value="{{ cq.isChoice }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ cq.opts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.go }}" style="display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 14px;border-radius:11px;border:1.5px solid {{ o.border }};background:{{ o.bg }};cursor:pointer;text-align:left;font-size:{{ optSize }};line-height:1.45;color:var(--fg)" style-hover="border-color:var(--ring)"><span style="width:26px;height:26px;flex:none;border-radius:{{ o.radius }};border:1.5px solid {{ o.mark }};background:{{ o.markBg }};display:grid;place-items:center;color:var(--primary-fg);font-size:12px;font-weight:600"><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:14px"></i></sc-if><sc-if value="{{ o.off }}" hint-placeholder-val="{{ true }}"><span style="color:var(--muted-fg)">{{ o.letter }}</span></sc-if></span><span style="flex:1">{{ o.text }}</span></button></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ cq.isText }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:6px"><input value="{{ cq.value }}" onChange="{{ cq.onText }}" onPaste="{{ blockCopy }}" placeholder="Type your answer" aria-label="Your answer" style="height:52px;border:1.5px solid var(--border);border-radius:11px;padding:0 14px;font-size:{{ optSize }};background:var(--card);outline:0" style-focus="border-color:var(--primary)"><span style="font-size:12.5px;color:{{ cq.countColor }}">{{ cq.countText }}</span></div>
+</sc-if>
+</div>
+</div>
+<div style="flex:none;border-top:1px solid var(--border);background:var(--bg);padding:10px {{ padX }};display:flex;align-items:center;gap:10px">
+<button onClick="{{ prevQ }}" aria-label="Previous question" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;opacity:{{ prevOp }}" style-hover="background:var(--muted)"><i class="icon-arrow-left" style="font-size:16px"></i><sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}">Previous</sc-if></button>
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;min-width:0;display:flex;gap:5px;justify-content:center;flex-wrap:wrap">
+<sc-for list="{{ navDots }}" as="d" hint-placeholder-count="8"><button onClick="{{ d.go }}" aria-label="{{ d.aria }}" style="width:34px;height:34px;border-radius:8px;border:1.5px solid {{ d.border }};background:{{ d.bg }};color:{{ d.fg }};cursor:pointer;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;position:relative">{{ d.no }}<sc-if value="{{ d.flag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--warning);border:2px solid var(--bg)"></span></sc-if></button></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openSheet }}" style="flex:1;height:44px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:8px"><i class="icon-layout-grid" style="font-size:16px"></i>{{ cq.no }} / {{ totalQ }} · {{ answeredCount }} answered</button></sc-if>
+<button onClick="{{ nextQ }}" style="height:44px;padding:0 16px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;white-space:nowrap" style-hover="opacity:.9">{{ nextLabel }}<i class="icon-arrow-right" style="font-size:16px"></i></button>
+</div>
+</section>
+</sc-if>
+</div>
+</div>
+
+<sc-if value="{{ qSheet }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:var(--overlay);z-index:70"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:71;background:var(--card);border-radius:16px 16px 0 0;padding:10px 16px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow-lg)">
+<span style="align-self:center;width:40px;height:4px;border-radius:4px;background:var(--border)"></span>
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:600">Questions</span><span style="font-size:12.5px;color:var(--muted-fg)">{{ answeredCount }} of {{ totalQ }} answered</span></div>
+<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px"><sc-for list="{{ navDots }}" as="d" hint-placeholder-count="8"><button onClick="{{ d.goClose }}" aria-label="{{ d.aria }}" style="height:44px;border-radius:9px;border:1.5px solid {{ d.border }};background:{{ d.bg }};color:{{ d.fg }};cursor:pointer;font-size:14px;font-weight:600;position:relative">{{ d.no }}<sc-if value="{{ d.flag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--warning);border:2px solid var(--card)"></span></sc-if></button></sc-for></div>
+<div style="display:flex;gap:14px;font-size:12px;color:var(--muted-fg)"><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;flex:none;border-radius:3px;background:var(--primary)"></span>Answered</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;flex:none;border-radius:50%;background:var(--warning)"></span>Flagged</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ focusWarn }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:var(--overlay);z-index:80"></div>
+<div role="alertdialog" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100% - 24px));background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);z-index:81;padding:22px;display:flex;flex-direction:column;gap:12px;align-items:flex-start;max-height:calc(100% - 32px);overflow-y:auto">
+<span style="width:40px;height:40px;border-radius:10px;background:var(--warning-soft);color:var(--warning-ink);display:grid;place-items:center"><i class="icon-eye-off" style="font-size:20px"></i></span>
+<div style="font-size:17px;font-weight:600">You left the test</div>
+<div style="font-size:14px;color:var(--muted-fg);line-height:1.55;text-wrap:pretty">{{ focusText }}</div>
+<button onClick="{{ closeFocus }}" style="align-self:stretch;height:46px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:15px;font-weight:600">Back to the test</button>
+</div>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{ dialog }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeDialog }}" style="position:absolute;inset:0;background:var(--overlay);z-index:85"></div>
+<div role="dialog" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 24px));background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);z-index:86;padding:22px;display:flex;flex-direction:column;gap:14px;max-height:calc(100% - 32px);overflow-y:auto">
+<div><div style="font-size:17px;font-weight:600">{{ dlg.title }}</div><div style="font-size:14px;color:var(--muted-fg);margin-top:4px;line-height:1.55;text-wrap:pretty">{{ dlg.body }}</div></div>
+<sc-if value="{{ dlg.isSubmit }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden"><sc-for list="{{ submitStats }}" as="ss" hint-placeholder-count="3"><div style="background:var(--card);padding:10px 12px"><div style="font-size:12px;color:var(--muted-fg)">{{ ss.label }}</div><div style="font-size:18px;font-weight:600;color:{{ ss.color }}">{{ ss.value }}</div></div></sc-for></div>
+<sc-if value="{{ hasUnanswered }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="font-size:12.5px;color:var(--muted-fg)">Go to</span><sc-for list="{{ unansweredBtns }}" as="ub" hint-placeholder-count="2"><button onClick="{{ ub.go }}" style="min-width:32px;height:30px;padding:0 8px;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:600" style-hover="background:var(--muted)">{{ ub.no }}</button></sc-for></div></sc-if>
+</sc-if>
+<sc-if value="{{ dlg.isJoin }}" hint-placeholder-val="{{ false }}">
+<input value="{{ joinCode }}" onChange="{{ onJoinCode }}" placeholder="ABCD-1234" aria-label="Class code" maxlength="9" style="height:52px;border:1.5px solid {{ joinBorder }};border-radius:11px;padding:0 14px;font-size:20px;font-weight:600;letter-spacing:.14em;text-align:center;font-family:ui-monospace,Menlo,monospace;background:var(--bg);outline:0;text-transform:uppercase">
+<sc-if value="{{ joinErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--danger-ink);margin-top:-6px">{{ joinErr }}</span></sc-if>
+<sc-if value="{{ joinFound }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;background:var(--success-soft)"><i class="icon-circle-check" style="font-size:20px;color:var(--success-ink)"></i><span><span style="display:block;font-size:14px;font-weight:600">{{ joinClass.name }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ joinClass.teacher }} · {{ joinClass.schedule }}</span></span></div></sc-if>
+</sc-if>
+<div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+<button onClick="{{ closeDialog }}" style="height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:14px;font-weight:500;white-space:nowrap">{{ dlg.cancel }}</button>
+<button onClick="{{ dlg.go }}" style="height:42px;padding:0 16px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;opacity:{{ dlg.op }}">{{ dlg.label }}</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:50%;transform:translateX(-50%);bottom:{{ toastBottom }};z-index:90;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);font-size:13.5px;max-width:calc(100% - 32px)"><i class="icon-{{ toastIcon }}" style="font-size:16px;color:{{ toastColor }}"></i>{{ toast }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+const initials = n => { const p = n.split(' '); return (p[p.length - 1][0] + p[0][0]).toUpperCase(); };
+const SEG = on => ({ bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', shadow: on ? 'var(--shadow), 0 0 0 1px var(--border)' : 'none' });
+const PILL = { todo: ['Due tomorrow', 'var(--warning-soft)', 'var(--warning-ink)'], upcoming: ['Opens Mon', 'var(--muted)', 'var(--muted-fg)'], ready: ['Open now', 'var(--success-soft)', 'var(--success-ink)'] };
+const TESTS = {
+  s1: { title: 'Reading · Why cities need green space', cls: 'IELTS 6.5 Evening', due: 'today 21:00', mins: 45, q: 8, attempts: '1 of 1' },
+  s2: { title: 'Unit 4 · Listening: Directions', cls: 'IELTS Foundation A', due: 'Thu 25 Sep, 08:00', mins: 30, q: 20, attempts: '0 of 2', dow: 'Thu', day: '25', status: 'todo', note: 'Wear headphones. The audio plays twice, and you can pause once.' },
+  s3: { title: 'Present Perfect vs Past Simple', cls: 'IELTS Foundation A', due: 'Mon 29 Sep – Wed 1 Oct', mins: 40, q: 30, attempts: '0 of 1', dow: 'Mon', day: '29', status: 'upcoming' },
+  s7: { title: 'Vocabulary check · Environment', cls: 'IELTS Foundation A', due: 'Fri 26 Sep, 22:00', mins: 15, q: 15, attempts: '0 of 3', dow: 'Fri', day: '26', status: 'ready' },
+};
+const PASSAGE = [
+  ['A', 'Planners once treated parks as a luxury, something to add only after housing and roads were finished. That view has changed. Research across forty European cities found that residents who lived within 300 metres of a park reported better sleep and visited their doctor less often.'],
+  ['B', 'Green space also pays for itself. Homes that overlook a park sell for up to 15 per cent more than similar homes a few streets away, and the extra property tax often covers the cost of maintenance within a decade. Trees along busy streets cool the pavement by several degrees in summer.'],
+  ['C', 'For this reason, the report argues that cities should prioritise public green space when they plan new districts, rather than leaving small leftover plots between buildings. It points to Copenhagen, where every new neighbourhood must place a park within a five-minute walk of each home.'],
+  ['D', 'Some councils have gone further. On Sundays, a number of streets in Bogotá and Seoul are closed to traffic and handed to walkers and cyclists. Locals call them play streets, and surveys show that most shop owners on these streets now support the scheme they once opposed.'],
+];
+const QS = [
+  { type: 'single', prompt: 'What is the main purpose of the passage?', opts: ['To compare parks in European and Asian cities', 'To argue that green space is worth planning for', 'To describe the history of city parks', 'To criticise councils that close streets'] },
+  { type: 'single', prompt: 'According to paragraph A, people who live near a park…', opts: ['move house less often', 'sleep better and see the doctor less', 'spend more time outside at night', 'pay less for their homes'] },
+  { type: 'tfng', prompt: 'Homes near parks always sell for 15 per cent more.', opts: ['True', 'False', 'Not given'] },
+  { type: 'multi', prompt: 'Which TWO benefits of trees and parks does paragraph B mention?', hint: 'Choose two answers.', opts: ['Lower street temperatures', 'Less traffic noise', 'Higher property values', 'Cleaner rivers', 'More tourists'] },
+  { type: 'text', prompt: 'What should cities prioritise when they plan new districts?', hint: 'Write NO MORE THAN THREE WORDS.', limit: 3 },
+  { type: 'single', prompt: 'What rule does Copenhagen follow?', opts: ['Parks must be larger than five hectares', 'Every home must be a five-minute walk from a park', 'New districts must have no cars', 'Trees must line every street'] },
+  { type: 'text', prompt: 'What do locals call the streets closed to traffic on Sundays?', hint: 'Write NO MORE THAN TWO WORDS.', limit: 2 },
+  { type: 'tfng', prompt: 'Shop owners on play streets were against the idea at first.', opts: ['True', 'False', 'Not given'] },
+];
+const RESULTS = {
+  r4: { title: 'Writing Task 1 Practice', cls: 'IELTS 6.5 Evening', when: 'Sun 21 Sep', big: '6.0', small: 'band', pct: 67, summary: 'Graded by Ms Thương. Task achievement was your strongest area.', comment: 'Good overview sentence. Next time compare the two highest values directly, and watch past tense in the second paragraph.', parts: [['Task achievement', '6.5', 72], ['Coherence', '6.0', 67], ['Vocabulary', '6.0', 67], ['Grammar', '5.5', 61]], locked: false, review: [] },
+  r5: { title: 'Unit 3 · Grammar check', cls: 'IELTS Foundation A', when: 'Fri 19 Sep', big: '8', small: 'of 10', pct: 80, summary: 'You answered 8 of 10 correctly. Correct answers are shown below.', parts: [['Present perfect', '4 / 5', 80], ['Past simple', '4 / 5', 80]], locked: false, review: [
+    [1, 'She ___ in Hanoi since 2019.', 'has lived', 'has lived', true, null],
+    [2, 'I ___ him yesterday at the station.', 'have seen', 'saw', false, 'Yesterday is a finished time, so use the past simple.'],
+    [3, 'They ___ the report yet.', "haven't finished", "haven't finished", true, null],
+    [4, 'We ___ to Da Nang last summer.', 'went', 'went', true, null],
+    [5, 'How long ___ you known each other?', 'did', 'have', false, 'How long + present perfect asks about time up to now.'],
+  ] },
+  r6: { title: 'Reading · TFNG Practice A', cls: 'IELTS 6.5 Evening', when: 'Wed 17 Sep', pending: true },
+};
+const CLASSES = [
+  { name: 'IELTS 6.5 Evening', schedule: 'Mon · Wed · Fri, 18:00 · Room 2', teacher: 'Hoàng Thương', next: 'Reading test closes today at 21:00' },
+  { name: 'IELTS Foundation A', schedule: 'Tue · Thu, 17:30 · Room 1', teacher: 'Hoàng Thương', next: 'Unit 4 Listening · due Thu 25 Sep' },
+];
+const JOINABLE = { 'T6NB4WLQ': { name: 'TOEIC 600 Weekend', teacher: 'Hoàng Thương', schedule: 'Sat · Sun, 09:00' }, 'W3RT8KDZ': { name: 'IELTS Writing Clinic', teacher: 'Phan Minh Đức', schedule: 'Thu, 19:30' } };
+const SOON = {};
+const COURSES = [
+  { id: 'k1', title: 'IELTS Reading Foundations', cls: 'IELTS 6.5 Evening', level: 'B1–B2', done: 6, total: 24, where: 'Unit 2 · True / False / Not Given · lesson 1 of 4' },
+  { id: 'k2', title: 'IELTS Listening Essentials', cls: 'IELTS Foundation A', level: 'B1', done: 11, total: 18, where: 'Unit 4 · Directions and maps · lesson 2 of 3' },
+];
+const UNITS = [
+  ['Skimming and scanning', 'done', [['reading', 'What skimming is for', '8 min'], ['video', 'Scanning for numbers and names', '6 min'], ['vocab', 'Unit 1 word list', '18 words'], ['test', 'Check: skim a short article', '10 questions']]],
+  ['True / False / Not Given', 'open', [['reading', 'How TFNG questions work', '10 min'], ['video', 'Worked example: urban parks', '9 min'], ['test', 'Practice set A', '14 questions'], ['test', 'Practice set B', '14 questions']]],
+  ['Matching headings', 'locked', [], 'Opens after Unit 2'],
+  ['Summary completion', 'locked', [], 'Opens Mon 6 Oct'],
+];
+const LT = { reading: ['book-open-text', 'Reading'], video: ['circle-play', 'Video'], vocab: ['layers', 'Flashcards'], test: ['file-text', 'Test'] };
+const DECKS = [
+  { id: 'v1', name: 'Environment', cls: 'IELTS Foundation A', words: 28, known: 15, due: 8 },
+  { id: 'v2', name: 'Academic Word List · Sublist 1', cls: 'IELTS 6.5 Evening', words: 60, known: 22, due: 4 },
+  { id: 'v3', name: 'Phrasal verbs with get', cls: 'IELTS Foundation A', words: 20, known: 20, due: 0 },
+];
+const CARDS = [['sustainable', 'adjective', 'bền vững', 'Cities need more sustainable ways to travel.'], ['emission', 'noun', 'khí thải', 'Car emissions are the main cause of smog here.'], ['habitat', 'noun', 'môi trường sống', 'The new dam destroyed the birds\' habitat.'], ['drought', 'noun', 'hạn hán', 'The drought lasted for most of the summer.'], ['renewable', 'adjective', 'tái tạo được', 'Wind is a renewable source of energy.'], ['deforestation', 'noun', 'nạn phá rừng', 'Deforestation is changing the local climate.']];
+const GRADES = [
+  ['r5', 'Unit 3 · Grammar check', 'IELTS Foundation A', 'Fri 19 Sep', '8 / 10', 80],
+  ['r4', 'Writing Task 1 Practice', 'IELTS 6.5 Evening', 'Sun 21 Sep', '6.0 band', 67],
+  ['r6', 'Reading · TFNG Practice A', 'IELTS 6.5 Evening', 'Wed 17 Sep', null, null],
+  ['r5', 'Unit 2 · Listening: Numbers', 'IELTS Foundation A', 'Tue 16 Sep', '17 / 20', 85],
+  ['r5', 'Vocabulary check · Unit 1', 'IELTS Foundation A', 'Thu 11 Sep', '13 / 15', 87],
+  ['r4', 'Reading · Skimming check', 'IELTS 6.5 Evening', 'Mon 8 Sep', '7 / 10', 70],
+];
+const SCONVS = [
+  { id: 't1', name: 'Ms Thương', sub: 'Your teacher · IELTS 6.5 Evening, IELTS Foundation A', icon: 'user', time: 'Mon', unread: 1, direct: true, msgs: [['them', 'Hi Bảo, great progress on the grammar check this week.', 'Mon 10:02'], ['them', 'For Unit 4 on Thursday, please wear headphones. The audio plays twice.', 'Mon 10:03']] },
+  { id: 'c1', name: 'IELTS 6.5 Evening', sub: 'Class announcements', icon: 'megaphone', time: '17:30', unread: 0, msgs: [['post', 'Reminder: the Reading test closes tonight at 21:00. Use a laptop if you can.', 'Today 17:30'], ['post', 'Class moves to Room 3 on Friday because of the fire drill.', 'Mon 09:12']] },
+  { id: 'c2', name: 'IELTS Foundation A', sub: 'Class announcements', icon: 'megaphone', time: 'Yesterday', unread: 0, msgs: [['post', 'Unit 4 listening is open until Thursday 22:00.', 'Yesterday 16:40']] },
+];
+const AGENDA = [
+  ['Mon', '22', [['users', 'IELTS 6.5 Evening', 'Room 2 · 90 min', '18:00', 'class']]],
+  ['Tue', '23', [['users', 'IELTS Foundation A', 'Room 1 · 90 min', '17:30', 'class']]],
+  ['Wed', '24', [['file-text', 'Reading · Why cities need green space', 'Closes today · in progress', '21:00', 'due'], ['users', 'IELTS 6.5 Evening', 'Room 2 · 90 min', '18:00', 'class']], true],
+  ['Thu', '25', [['headphones', 'Unit 4 · Listening: Directions', 'Due · 30 min test', '08:00', 'due'], ['users', 'IELTS Foundation A', 'Room 1 · 90 min', '17:30', 'class']]],
+  ['Fri', '26', [['layers', 'Vocabulary check · Environment', 'Due · 15 min', '22:00', 'due'], ['users', 'IELTS 6.5 Evening', 'Room 3 this week', '18:00', 'class']]],
+  ['Sat', '27', []],
+  ['Sun', '28', []],
+];
+const FOCUS_ALLOWED = 2;
+
+class Component extends DCLogic {
+  state = { route: 'home', dark: false, w: 1200, user: false, notif: false, testId: 's1', resultId: 'r5', answers: { 0: 1, 1: 1, 2: 1 }, flags: {}, cur: 3, secsLeft: 38 * 60 + 12, saving: false, pane: 'q', sheet: false, focusCount: 0, focusWarn: false, dialog: null, joinCode: '', justJoined: [], submitted: false, reviewTab: 'all', setTab: 'profile', prof: { name: 'Nguyễn Gia Bảo' }, pwOpen: false, pw: '', google: true, notif2: { due: 1, graded: 1, msg: 1, daily: 0 }, themePref: null, big: false, toast: null };
+  rootRef = React.createRef();
+
+  componentDidMount() {
+    try { const a = JSON.parse(localStorage.getItem('qz-student') || 'null'); const t = JSON.parse(localStorage.getItem('qz-teacher') || '{}'); this.setState({ route: (a && a.route) || 'home', dark: a && a.dark != null ? a.dark : !!t.dark, secsLeft: (a && a.secsLeft) || this.state.secsLeft }); } catch (e) {}
+    const el = this.rootRef.current;
+    if (el && window.ResizeObserver) { this.ro = new ResizeObserver(() => requestAnimationFrame(() => { const w = el.getBoundingClientRect().width; if (Math.abs(w - this.state.w) > 1) this.setState({ w }); })); this.ro.observe(el); }
+    this.tick = setInterval(() => { if (this.state.route === 'take' && !this.state.submitted) this.setState(s => ({ secsLeft: Math.max(0, s.secsLeft - 1) })); }, 1000);
+    this.onVis = () => { if (document.hidden && this.state.route === 'take') this.setState(s => ({ focusCount: s.focusCount + 1, pendingWarn: true })); else if (!document.hidden && this.state.pendingWarn) this.setState({ focusWarn: true, pendingWarn: false }); };
+    document.addEventListener('visibilitychange', this.onVis);
+    this.onKey = e => {
+      if (e.key === 'Escape') { this.setState({ user: false, notif: false, sheet: false, dialog: null }); return; }
+      if (this.state.route === 'flash' && !/input|textarea/i.test(e.target.tagName || '')) { if (e.key === ' ') { e.preventDefault(); this.setState(s => ({ fcFlip: !s.fcFlip })); } const g = '1234'.indexOf(e.key); if (g >= 0 && this.state.fcFlip) this.gradeCard(g); return; }
+      if (this.state.route !== 'take' || this.state.dialog || /input|textarea/i.test(e.target.tagName || '')) return;
+      if (e.key === 'ArrowRight') this.move(1); if (e.key === 'ArrowLeft') this.move(-1);
+      const q = QS[this.state.cur]; const n = 'abcde'.indexOf(e.key.toLowerCase()); if (q && q.opts && n >= 0 && n < q.opts.length) this.pick(n);
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { this.ro && this.ro.disconnect(); clearInterval(this.tick); document.removeEventListener('visibilitychange', this.onVis); window.removeEventListener('keydown', this.onKey); clearTimeout(this.tt); clearTimeout(this.st); clearTimeout(this._ar); }
+  afterRender() {
+    const s = this.state;
+    document.documentElement.classList.toggle('dark', s.dark); document.documentElement.style.colorScheme = s.dark ? 'dark' : 'light';
+    if (this.rootRef.current) this.rootRef.current.setAttribute('data-qz-theme', s.dark ? 'dark' : 'light');
+    const p = JSON.stringify({ route: s.route, dark: s.dark, secsLeft: Math.floor(s.secsLeft / 10) * 10 });
+    if (this._p !== p) { this._p = p; try { localStorage.setItem('qz-student', p); } catch (e) {} }
+  }
+  go(route, extra) { this.setState({ route, user: false, notif: false, dialog: null, ...(extra || {}) }); const m = this.rootRef.current && this.rootRef.current.querySelector('main'); if (m) m.scrollTop = 0; }
+  toast(msg, icon, color) { clearTimeout(this.tt); this.setState({ toast: msg, toastIcon: icon || 'circle-check', toastColor: color || 'var(--success)' }); this.tt = setTimeout(() => this.setState({ toast: null }), 2600); }
+  saved() { clearTimeout(this.st); this.setState({ saving: true }); this.st = setTimeout(() => this.setState({ saving: false }), 600); }
+  move(d) { this.setState(s => ({ cur: Math.max(0, Math.min(QS.length - 1, s.cur + d)) })); }
+  isAnswered(i, a) { const v = (a || this.state.answers)[i]; return Array.isArray(v) ? v.length > 0 : typeof v === 'string' ? v.trim().length > 0 : v != null; }
+  pick(n) {
+    const q = QS[this.state.cur], i = this.state.cur;
+    if (q.type === 'multi') this.setState(s => { const cur = Array.isArray(s.answers[i]) ? s.answers[i] : []; const next = cur.includes(n) ? cur.filter(x => x !== n) : cur.length >= 2 ? [cur[1], n] : [...cur, n]; return { answers: { ...s.answers, [i]: next } }; });
+    else this.setState(s => ({ answers: { ...s.answers, [i]: n } }));
+    this.saved();
+  }
+  gradeCard(g) { this.setState(s => { const log = [...(s.fcLog || []), g]; const queue = [...(s.fcQueue || CARDS.map((_, i) => i))]; const cur = queue.shift(); if (g === 0) queue.push(cur); return { fcLog: log, fcQueue: queue, fcFlip: false }; }); }
+  b6(s, isMobile, w) {
+    const seg = on => SEG(on);
+    const lt = s.learnTab || 'courses';
+    const done = s.lessonDone || {};
+    const queue = s.fcQueue || CARDS.map((_, i) => i);
+    const log = s.fcLog || [];
+    const fc = CARDS[queue[0]] || CARDS[0];
+    const gt = s.gradeTab || 'all';
+    const rows = GRADES.filter(g => gt === 'all' || g[2] === gt);
+    const single = w < 760;
+    const thId = s.mThread === undefined ? (single ? null : 't1') : s.mThread;
+    const th = SCONVS.find(c => c.id === thId) || SCONVS[0];
+    const extra = (s.mExtra || {})[th.id] || [];
+    const read = s.mRead || {};
+    const draft = s.mDraft || '';
+    const send = () => { const t = draft.trim(); if (!t) return; this.setState(st => ({ mExtra: { ...(st.mExtra || {}), [th.id]: [...((st.mExtra || {})[th.id] || []), ['me', t, 'Just now']] }, mDraft: '' })); };
+    const unread = SCONVS.filter(c => !read[c.id]).reduce((a, c) => a + c.unread, 0);
+    const u2done = done.l0 ? 1 : 0;
+    return {
+      goLearnCards: () => this.go('learn', { learnTab: 'cards' }), goCourse: () => this.go('course'), goSchedule: () => this.go('schedule'),
+      goMessages: () => this.go('messages'), msgUnread: unread ? String(unread) : null, msgBtnBg: s.route === 'messages' ? 'var(--hover)' : 'transparent',
+      learnTabs: [['courses', 'Courses', null], ['cards', 'Flashcards', '12']].map(([id, label, count]) => ({ label, count, ...seg(lt === id), go: () => this.setState({ learnTab: id }) })),
+      lCourses: lt === 'courses', lCards: lt === 'cards',
+      courses: COURSES.map(c => { const d = c.id === 'k1' ? c.done + u2done : c.done; return { ...c, pct: Math.round(d / c.total * 100) + '%', cta: 'Continue', open: () => this.go('course', { courseId: c.id }) }; }),
+      dueTotal: '12', dueMins: '4', dueDecks: '2', reviewOp: 1,
+      startReviewAll: () => this.go('flash', { fcQueue: CARDS.map((_, i) => i), fcLog: [], fcFlip: false }),
+      decks: DECKS.map(d => ({ ...d, due: d.due ? String(d.due) : null, pct: Math.round(d.known / d.words * 100) + '%', open: () => d.due ? this.go('flash', { fcQueue: CARDS.map((_, i) => i).slice(0, Math.min(6, d.due)), fcLog: [], fcFlip: false }) : this.toast('All words in this list are known. Nothing due.', 'check', 'var(--success)') })),
+      crs: { title: COURSES[0].title, cls: COURSES[0].cls, done: COURSES[0].done + u2done, total: 24, pct: Math.round((COURSES[0].done + u2done) / 24 * 100) + '%' },
+      crsUnits: UNITS.map((u, i) => { const locked = u[1] === 'locked'; return { no: i + 1, title: u[0], locked, unlocked: !locked, op: locked ? 0.7 : 1, badgeBg: u[1] === 'done' ? 'var(--success-soft)' : locked ? 'var(--muted)' : 'var(--accent-soft)', badgeFg: u[1] === 'done' ? 'var(--success-ink)' : locked ? 'var(--muted-fg)' : 'var(--accent-ink)', meta: locked ? u[3] : u[1] === 'done' ? 'Completed' : (u2done) + ' of ' + u[2].length + ' lessons done',
+        lessons: u[2].map((l, j) => { const isDone = u[1] === 'done' || (i === 1 && j < u2done); const current = i === 1 && j === u2done; const t = LT[l[0]]; return { title: l[1], kind: t[1], icon: t[0], meta: l[2], current, weight: current ? 600 : 500, bg: current ? 'var(--accent-soft)' : 'transparent', stateIcon: isDone ? 'check' : current ? 'play' : 'circle', ring: isDone ? 'var(--success)' : current ? 'var(--accent-ink)' : 'var(--border)', dotBg: isDone ? 'var(--success)' : 'transparent', dotFg: isDone ? '#fff' : current ? 'var(--accent-ink)' : 'var(--border)', open: () => (isDone || current) ? this.go('lesson') : this.toast('Finish the lessons before this one first', 'lock', 'var(--muted-fg)') }; }) }; }),
+      lessonRules: [['True', 'The passage says the same thing, maybe in other words.', 'var(--success-ink)'], ['False', 'The passage says the opposite.', 'var(--danger-ink)'], ['Not given', 'The passage does not say anything about it.', 'var(--muted-fg)']].map((x, i) => ({ k: x[0], v: x[1], color: x[2], border: i ? '1px solid var(--border)' : '0' })),
+      lessonCta: done.l0 ? 'Next: Worked example' : 'Mark as done',
+      completeLesson: () => { if (!done.l0) { this.setState({ lessonDone: { ...done, l0: true } }); this.toast('Lesson done · 7 of 24'); } else this.go('course'); },
+      fcActive: queue.length > 0, fcDone: queue.length === 0, fcFront: !s.fcFlip, fcBack: !!s.fcFlip,
+      fcPct: Math.round(log.filter(g => g > 0).length / (log.filter(g => g > 0).length + queue.length || 1) * 100) + '%',
+      fcPos: log.filter(g => g > 0).length + ' done · ' + queue.length + ' left',
+      fc: { term: fc[0], pos: fc[1], meaning: fc[2], example: fc[3] }, cardH: isMobile ? '300px' : '340px', spaceHint: isMobile ? '' : ' · or press Space',
+      flip: () => this.setState({ fcFlip: !s.fcFlip }), speak: () => this.toast('Playing “' + fc[0] + '”', 'volume-2', 'var(--info)'),
+      grades: [['Again', '< 1 min', 'var(--danger-soft)', 'var(--danger-ink)'], ['Hard', '1 day', 'var(--card)', 'var(--fg)'], ['Good', '3 days', 'var(--card)', 'var(--fg)'], ['Easy', '1 week', 'var(--success-soft)', 'var(--success-ink)']].map((x, i) => ({ label: x[0], when: x[1] + (isMobile ? '' : ' · ' + (i + 1)), bg: x[2], fg: x[3], go: () => this.gradeCard(i) })),
+      fcSummary: log.filter(g => g > 0).length + ' words reviewed. ' + log.filter(g => g === 0).length + ' needed another look. Next review tomorrow.',
+      gradeTabs: [['all', 'All classes'], ['IELTS 6.5 Evening', 'IELTS 6.5 Evening'], ['IELTS Foundation A', 'IELTS Foundation A']].map(([id, label]) => ({ label, count: null, ...seg(gt === id), go: () => this.setState({ gradeTab: id }) })),
+      gradeCols: w >= 760 ? 'repeat(4,minmax(0,1fr))' : 'repeat(2,minmax(0,1fr))',
+      skills: [['Average', '78%', 78], ['Reading', '70%', 70], ['Listening', '85%', 85], ['Grammar & vocab', '83%', 83]].map(x => ({ label: x[0], value: x[1], pct: x[2] + '%', color: x[2] >= 80 ? 'var(--success)' : 'var(--accent-c)' })),
+      gradeRows: rows.map((g, i) => ({ title: g[1], meta: g[2] + ' · ' + g[3], score: g[4] || '', pct: (g[5] || 0) + '%', color: (g[5] || 0) >= 80 ? 'var(--success)' : (g[5] || 0) >= 60 ? 'var(--accent-c)' : 'var(--warning)', graded: !!g[4], pending: !g[4], border: i ? '1px solid var(--border)' : '0', open: () => this.go('result', { resultId: g[0], reviewTab: 'all' }) })),
+      mSingle: single, mShowList: !single || !thId, mShowThread: !single || !!thId, mListW: single ? '100%' : '300px', mListBorder: single ? '0' : '1px solid var(--border)',
+      mBack: () => this.setState({ mThread: null }),
+      mConvs: SCONVS.map(c => { const u = read[c.id] ? 0 : c.unread; const all = [...c.msgs, ...(((s.mExtra || {})[c.id]) || [])]; const last = all[all.length - 1]; return { name: c.name, icon: c.icon, time: c.time, preview: (last[0] === 'me' ? 'You: ' : '') + last[1], weight: u ? 600 : 500, radius: c.direct ? '50%' : '10px', avBg: c.direct ? 'var(--muted)' : 'var(--accent-soft)', avFg: c.direct ? 'var(--fg)' : 'var(--accent-ink)', bg: !single && c.id === th.id ? 'var(--muted)' : 'transparent', go: () => this.setState(st => ({ mThread: c.id, mRead: { ...(st.mRead || {}), [c.id]: true } })) }; }),
+      mTh: { name: th.name, sub: th.sub },
+      mMsgs: [...th.msgs, ...extra].map(m => ({ isPost: m[0] === 'post', isBubble: m[0] !== 'post', text: m[1], time: m[2], align: m[0] === 'me' ? 'flex-end' : 'flex-start', bg: m[0] === 'me' ? 'var(--primary)' : 'var(--card)', fg: m[0] === 'me' ? 'var(--primary-fg)' : 'var(--fg)', border: m[0] === 'me' ? '0' : '1px solid var(--border)' })),
+      mCanReply: !!th.direct, mReadOnly: !th.direct,
+      mDraft: draft, onMDraft: e => this.setState({ mDraft: e.target.value }), onMKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }, mSend: send, mSendOp: draft.trim() ? 1 : 0.45,
+      agenda: AGENDA.map(d => ({ dow: d[0], num: d[1], empty: !d[2].length, numBg: d[3] ? 'var(--primary)' : 'transparent', numFg: d[3] ? 'var(--primary-fg)' : 'var(--fg)', dowColor: d[3] ? 'var(--fg)' : 'var(--muted-fg)', items: d[2].map(it => ({ icon: it[0], title: it[1], meta: it[2], time: it[3], bg: it[4] === 'due' ? 'var(--warning-soft)' : 'var(--card)', iconColor: it[4] === 'due' ? 'var(--warning-ink)' : 'var(--muted-fg)', go: () => it[4] === 'due' ? (it[1].startsWith('Reading') ? this.go('take', { testId: 's1' }) : this.go('intro', { testId: it[1].startsWith('Unit 4') ? 's2' : 's7' })) : this.go('classes') })) })),
+    };
+  }
+  submit() { this.setState({ submitted: true, dialog: null, route: 'result', resultId: 'r1' }); }
+  renderVals() {
+    clearTimeout(this._ar); this._ar = setTimeout(() => this.afterRender(), 0);
+    const s = this.state, w = s.w, isMobile = w < 768;
+    const route = s.route;
+    const detail = ['intro', 'result', 'settings', 'course', 'lesson', 'flash', 'messages', 'schedule'].includes(route);
+    const answeredCount = QS.filter((_, i) => this.isAnswered(i)).length;
+    const nav = [['home', 'Home', 'house'], ['classes', 'Classes', 'users'], ['learn', 'Learn', 'book-open'], ['grades', 'Grades', 'chart-column']];
+    const t = TESTS[s.testId] || TESTS.s1;
+    const mm = Math.floor(s.secsLeft / 60), ss = s.secsLeft % 60;
+    const low = s.secsLeft < 5 * 60;
+    const q = QS[s.cur];
+    const ans = s.answers[s.cur];
+    const words = typeof ans === 'string' ? ans.trim().split(/\s+/).filter(Boolean).length : 0;
+    const unanswered = QS.map((_, i) => i).filter(i => !this.isAnswered(i));
+    const flagged = Object.keys(s.flags).filter(k => s.flags[k]).length;
+    const joinNorm = s.joinCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const joinClass = joinNorm.length === 8 ? JOINABLE[joinNorm] : null;
+    const alreadyIn = joinClass && s.justJoined.includes(joinClass.name);
+    const joinErr = joinNorm.length === 8 && !joinClass ? 'No class uses this code. Check it with your teacher.' : alreadyIn ? 'You are already in this class.' : null;
+    const dlgs = {
+      submit: { title: unanswered.length ? 'Submit with ' + unanswered.length + ' unanswered?' : 'Submit your test?', body: unanswered.length ? 'Unanswered questions score zero. You still have ' + mm + ' minutes.' : 'You cannot change your answers after submitting.', label: 'Submit test', cancel: 'Keep working', isSubmit: true, go: () => this.submit(), op: 1 },
+      exit: { title: 'Leave the test?', body: 'Your answers are saved, but the timer keeps running. Come back before it reaches zero.', label: 'Leave', cancel: 'Stay', go: () => this.go('home'), op: 1 },
+      start: { title: 'Start now?', body: 'The ' + t.mins + '-minute timer starts as soon as you press Start and does not pause.', label: 'Start', cancel: 'Not yet', go: () => this.setState({ route: 'take', dialog: null, cur: 0, answers: {}, flags: {}, secsLeft: t.mins * 60, submitted: false }), op: 1 },
+      join: { title: 'Join a class', body: 'Enter the 8-character code from your teacher.', label: 'Join class', cancel: 'Cancel', isJoin: true, op: joinClass && !alreadyIn ? 1 : 0.5, go: () => { if (!joinClass || alreadyIn) return; this.setState(st => ({ justJoined: [...st.justJoined, joinClass.name], dialog: null, joinCode: '' })); this.toast('You joined ' + joinClass.name); } },
+    };
+    const dlg = s.dialog ? dlgs[s.dialog] : { title: '', body: '', label: '', cancel: '', go: () => {}, op: 1 };
+    const res = s.resultId === 'r1' ? null : RESULTS[s.resultId];
+    const autoCorrect = [s.answers[0] === 1, s.answers[1] === 1, s.answers[2] === 1, Array.isArray(s.answers[3]) && s.answers[3].includes(0) && s.answers[3].includes(2) && s.answers[3].length === 2, null, s.answers[5] === 1, null, s.answers[7] === 0];
+    const autoScore = autoCorrect.filter(x => x === true).length;
+    const rz = s.resultId === 'r1'
+      ? { title: TESTS.s1.title, cls: TESTS.s1.cls, when: 'just now', big: autoScore + '', small: 'of 6 so far', deg: Math.round(autoScore / 6 * 360) + 'deg', ringColor: 'var(--accent-c)', summary: '6 questions were marked automatically. Ms Thương will grade the 2 written answers.', hasComment: false, comment: '', parts: [['Marked automatically', autoScore + ' / 6', Math.round(autoScore / 6 * 100) + '%', 'var(--accent-c)'], ['Waiting for teacher', '2 answers', '0%', 'var(--warning)'], ['Time used', (45 - mm) + ' min', Math.round((45 - mm) / 45 * 100) + '%', 'var(--info)']].map(p => ({ label: p[0], value: p[1], pct: p[2], color: p[3] })), locked: true, lockText: 'Correct answers appear after the test closes today at 21:00.', review: QS.map((qq, i) => { const a = s.answers[i]; const txt = a == null || (Array.isArray(a) && !a.length) || a === '' ? 'No answer' : Array.isArray(a) ? a.map(x => qq.opts[x]).join(', ') : typeof a === 'string' ? a : qq.opts[a]; const c = autoCorrect[i]; return { no: i + 1, prompt: qq.prompt, pts: c === null ? 'Waiting' : '', answer: txt, ansColor: 'var(--fg)', ansDeco: 'none', showCorrect: false, icon: c === null ? 'hourglass' : 'minus', bg: c === null ? 'var(--warning-soft)' : 'var(--muted)', fg: c === null ? 'var(--warning-ink)' : 'var(--muted-fg)', explain: null }; }).filter(x => s.reviewTab === 'all' || (s.reviewTab === 'wrong' ? false : x.icon === 'hourglass')) }
+      : res && !res.pending
+        ? { title: res.title, cls: res.cls, when: res.when, big: res.big, small: res.small, deg: Math.round(res.pct / 100 * 360) + 'deg', ringColor: res.pct >= 80 ? 'var(--success)' : res.pct >= 60 ? 'var(--accent-c)' : 'var(--warning)', summary: res.summary, hasComment: !!res.comment, comment: res.comment || '', parts: res.parts.map(p => ({ label: p[0], value: p[1], pct: p[2] + '%', color: p[2] >= 70 ? 'var(--success)' : 'var(--warning)' })), locked: !res.review.length, lockText: 'Your teacher graded this by hand. See the comment above.', review: res.review.filter(x => s.reviewTab === 'all' || (s.reviewTab === 'wrong' ? !x[4] : false)).map(x => ({ no: x[0], prompt: x[1], answer: x[2], correct: x[3], showCorrect: !x[4], pts: x[4] ? '1 / 1' : '0 / 1', icon: x[4] ? 'check' : 'x', bg: x[4] ? 'var(--success-soft)' : 'var(--danger-soft)', fg: x[4] ? 'var(--success-ink)' : 'var(--danger-ink)', ansColor: x[4] ? 'var(--fg)' : 'var(--danger-ink)', ansDeco: x[4] ? 'none' : 'line-through', explain: x[5] })) }
+        : { title: 'Reading · TFNG Practice A', cls: 'IELTS 6.5 Evening', when: 'Wed 17 Sep', big: '…', small: 'grading', deg: '0deg', ringColor: 'var(--warning)', summary: 'Ms Thương is grading your written answers. You will get a notification when your score is ready.', hasComment: false, comment: '', parts: [], locked: true, lockText: 'Answers appear once grading is finished.', review: [] };
+    const themeNow = s.themePref || (s.dark ? 'dark' : 'light');
+    const pwScore = Math.min(4, [s.pw.length >= 8, /[A-Z]/.test(s.pw), /[0-9]/.test(s.pw), /[^A-Za-z0-9]/.test(s.pw)].filter(Boolean).length);
+    return {
+      ...this.b6(s, isMobile, w),
+      rootRef: this.rootRef, isMobile, notMobile: !isMobile, isDark: s.dark, isLight: !s.dark,
+      appShell: route !== 'take', r: { learn: route === 'learn', course: route === 'course', lesson: route === 'lesson', flash: route === 'flash', grades: route === 'grades', messages: route === 'messages', schedule: route === 'schedule', home: route === 'home', classes: route === 'classes', intro: route === 'intro', result: route === 'result', settings: route === 'settings', take: route === 'take', soon: !!SOON[route] },
+      padX: isMobile ? '14px' : '24px', mainPad: isMobile ? '18px 16px 28px' : '32px 24px 48px', h1Size: isMobile ? '22px' : '26px',
+      showBack: isMobile && detail, backTitle: { intro: 'Test', result: 'Result', settings: 'Settings', course: 'Course', lesson: 'Lesson', flash: 'Flashcards', messages: 'Messages', schedule: 'This week' }[route] || '', back: () => this.go({ lesson: 'course', course: 'learn', flash: 'learn', schedule: 'classes' }[route] || 'home'),
+      showLogo: !(isMobile && detail), topNav: !isMobile, bottomNav: isMobile && !detail,
+      goHome: () => this.go('home'), goLearn: () => this.go('learn', { learnTab: 'courses' }),
+      nav: nav.map(([id, label, icon]) => { const on = route === id; return { label, icon, count: id === 'home' ? '3' : null, bg: on ? 'var(--hover)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', weight: on ? 500 : 400, go: () => this.go(id) }; }),
+      tabs: [...nav, ['settings', 'Me', 'circle-user']].map(([id, label, icon]) => { const on = route === id; return { label, icon, count: id === 'home' ? '3' : null, fg: on ? 'var(--fg)' : 'var(--muted-fg)', weight: on ? 600 : 500, pill: on ? 'var(--accent-soft)' : 'transparent', go: () => this.go(id) }; }),
+      userMenuOpen: s.user, toggleUser: () => this.setState({ user: !s.user, notif: false }), userBtnBg: s.user ? 'var(--hover)' : 'transparent',
+      userMenu: [
+        { icon: 'settings', label: 'Settings', color: 'var(--fg)', border: '0', go: () => this.go('settings') },
+        { icon: s.dark ? 'sun' : 'moon', label: s.dark ? 'Light mode' : 'Dark mode', color: 'var(--fg)', border: '0', go: () => this.setState({ dark: !s.dark, user: false, themePref: null }) },
+        { icon: 'log-out', label: 'Sign out', color: 'var(--danger-ink)', border: '1px solid var(--border)', go: () => { this.setState({ user: false }); this.toast('Signed out'); } },
+      ],
+      notifOpen: s.notif, toggleNotif: () => this.setState({ notif: !s.notif, user: false }),
+      notifications: [
+        { icon: 'circle-check', bg: 'var(--success-soft)', fg: 'var(--success-ink)', text: 'Your Unit 3 grammar check is graded: 8 / 10', time: 'Yesterday', go: () => this.go('result', { resultId: 'r5' }) },
+        { icon: 'clock', bg: 'var(--warning-soft)', fg: 'var(--warning-ink)', text: 'Reading test closes today at 21:00', time: '2 hours ago', go: () => this.go('home') },
+        { icon: 'message-square', bg: 'var(--muted)', fg: 'var(--muted-fg)', text: 'Ms Thương: "Wear headphones for Unit 4."', time: 'Mon', go: () => this.go('classes') },
+      ],
+      homeSub: s.submitted ? 'Nothing due today. Next up: Unit 4 Listening on Thursday.' : 'You have a test in progress. It closes at 21:00.',
+      hasResume: !s.submitted, resume: { ...TESTS.s1 }, answeredCount, totalQ: QS.length, answeredPct: Math.round(answeredCount / QS.length * 100) + '%', timeLeftLabel: mm + ' min',
+      ctaFlex: isMobile ? '1 1 100%' : '0 0 auto',
+      resumeTest: () => this.go('take', { testId: 's1' }),
+      upcomingCount: '3',
+      upcoming: ['s2', 's7', 's3'].map((id, i) => { const x = TESTS[id]; const p = PILL[x.status]; return { title: x.title, meta: x.cls + ' · ' + x.mins + ' min · ' + x.q + ' questions', dow: x.dow, day: x.day, dateBg: x.status === 'todo' ? 'var(--warning-soft)' : 'var(--muted)', dateFg: x.status === 'todo' ? 'var(--warning-ink)' : 'var(--fg)', st: { label: p[0], bg: p[1], fg: p[2] }, border: i ? '1px solid var(--border)' : '0', open: () => this.go('intro', { testId: id }) }; }),
+      homeCols: w >= 820 ? 'minmax(0,1.4fr) minmax(0,1fr)' : 'minmax(0,1fr)',
+      results: [...(s.submitted ? [['r1', TESTS.s1.title, 'Just now', null, true]] : []), ['r5', 'Unit 3 · Grammar check', 'Fri 19 Sep', '8 / 10'], ['r4', 'Writing Task 1 Practice', 'Sun 21 Sep', '6.0'], ['r6', 'Reading · TFNG Practice A', 'Wed 17 Sep', null, true]].slice(0, 3).map((x, i) => ({ title: x[1], meta: x[2], score: x[3] || '', graded: !x[4], pending: !!x[4], border: i ? '1px solid var(--border)' : '0', open: () => this.go('result', { resultId: x[0], reviewTab: 'all' }) })),
+      streak: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => ({ label: d, bg: i < 2 ? 'var(--accent-c)' : i === 2 ? 'var(--border)' : 'var(--muted)', tip: i < 2 ? 'Practised' : i === 2 ? 'Today' : '' })),
+      openJoin: () => this.setState({ dialog: 'join', joinCode: '' }),
+      myClasses: [...CLASSES, ...s.justJoined.map(n => { const c = Object.values(JOINABLE).find(x => x.name === n); return { name: c.name, schedule: c.schedule, teacher: c.teacher, next: 'Nothing assigned yet' }; })].map(c => ({ ...c, tInit: initials(c.teacher), message: () => this.go('messages', { mThread: 't1', mRead: { ...(s.mRead || {}), t1: true } }) })),
+      ia: {
+        title: t.title, cls: t.cls, teacherNote: t.note || null,
+        facts: [['Time limit', t.mins + ' min'], ['Questions', String(t.q)], ['Attempts', t.attempts]].map(x => ({ label: x[0], value: x[1] })),
+        rules: [['calendar-clock', t.status === 'upcoming' ? 'Opens ' + t.due + '.' : 'Available until ' + t.due + '.'], ['timer', 'The timer starts when you press Start and does not pause, even if you close the page.'], ['clipboard-x', 'Copy and paste are turned off.'], ['eye', 'You can leave the test 2 times. After that, your teacher is told.'], ['circle-check', 'You will see your score after submitting.']].map((x, i) => ({ icon: x[0], text: x[1], border: i ? '1px solid var(--border)' : '0' })),
+        cta: t.status === 'upcoming' ? 'Opens Monday' : 'Start test', ctaHint: t.status === 'upcoming' ? 'We will notify you when it opens.' : 'Your answers save automatically.',
+        ctaBg: t.status === 'upcoming' ? 'var(--muted)' : 'var(--primary)', ctaFg: t.status === 'upcoming' ? 'var(--muted-fg)' : 'var(--primary-fg)', ctaCursor: t.status === 'upcoming' ? 'default' : 'pointer',
+        start: () => { if (t.status !== 'upcoming') this.setState({ dialog: 'start' }); },
+      },
+      dialog: !!s.dialog, dlg, closeDialog: () => this.setState({ dialog: null }), dlgTop: isMobile ? '12%' : '18%',
+      submitStats: [['Answered', answeredCount + ' / ' + QS.length, 'var(--fg)'], ['Flagged', String(flagged), flagged ? 'var(--warning-ink)' : 'var(--fg)'], ['Time left', mm + ':' + String(ss).padStart(2, '0'), low ? 'var(--danger-ink)' : 'var(--fg)']].map(x => ({ label: x[0], value: x[1], color: x[2] })),
+      hasUnanswered: unanswered.length > 0, unansweredBtns: unanswered.map(i => ({ no: i + 1, go: () => this.setState({ cur: i, dialog: null, pane: 'q' }) })),
+      joinCode: s.joinCode, onJoinCode: e => { let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4); this.setState({ joinCode: v }); },
+      joinErr, joinFound: !!joinClass && !alreadyIn, joinClass: joinClass || { name: '', teacher: '', schedule: '' }, joinBorder: joinErr ? 'var(--danger)' : joinClass ? 'var(--success)' : 'var(--border)',
+      askExit: () => this.setState({ dialog: 'exit' }), askSubmit: () => this.setState({ dialog: 'submit' }),
+      timerText: mm + ':' + String(ss).padStart(2, '0'), timerBg: low ? 'var(--danger-soft)' : 'var(--muted)', timerFg: low ? 'var(--danger-ink)' : 'var(--fg)',
+      saveIcon: s.saving ? 'loader' : 'cloud-check', saveLabel: s.saving ? 'Saving…' : 'All answers saved',
+      paneTabs: [['p', 'Passage'], ['q', 'Question ' + (s.cur + 1)]].map(([id, label]) => ({ label, bg: s.pane === id ? 'var(--primary)' : 'var(--muted)', fg: s.pane === id ? 'var(--primary-fg)' : 'var(--fg)', go: () => this.setState({ pane: id }) })),
+      showPassage: !isMobile || s.pane === 'p', showQuestion: !isMobile || s.pane === 'q', passBorder: isMobile ? '0' : '1px solid var(--border)',
+      paneP: isMobile ? '18px 16px' : '28px 32px', readSize: s.big ? '18px' : '16px', qSize: s.big ? '19px' : '17px', optSize: s.big ? '17px' : '15px',
+      passage: PASSAGE.map(p => ({ k: p[0], t: p[1] })),
+      blockCopy: e => { e.preventDefault(); this.toast('Copy and paste are turned off in this test', 'ban', 'var(--danger)'); },
+      cq: {
+        no: s.cur + 1, prompt: q.prompt, hint: q.hint || null, typeLabel: { single: 'Choose one', tfng: 'True, false or not given', multi: 'Choose two', text: 'Short answer' }[q.type],
+        isChoice: q.type !== 'text', isText: q.type === 'text',
+        opts: (q.opts || []).map((o, n) => { const on = q.type === 'multi' ? Array.isArray(ans) && ans.includes(n) : ans === n; return { text: o, letter: 'ABCDE'[n], on, off: !on, radius: q.type === 'multi' ? '6px' : '50%', border: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--card)' : 'var(--card)', mark: on ? 'var(--primary)' : 'var(--ring)', markBg: on ? 'var(--primary)' : 'transparent', go: () => this.pick(n) }; }),
+        value: typeof ans === 'string' ? ans : '', onText: e => { const v = e.target.value; const i = s.cur; this.setState(st => ({ answers: { ...st.answers, [i]: v } })); this.saved(); },
+        countText: q.limit ? words + ' of ' + q.limit + ' words' + (words > q.limit ? ' · too many' : '') : '', countColor: q.limit && words > q.limit ? 'var(--danger-ink)' : 'var(--muted-fg)',
+      },
+      toggleFlag: () => this.setState(st => ({ flags: { ...st.flags, [st.cur]: !st.flags[st.cur] } })),
+      flagLabel: s.flags[s.cur] ? 'Flagged' : 'Flag for review', flagBorder: s.flags[s.cur] ? 'var(--warning)' : 'var(--border)', flagBg: s.flags[s.cur] ? 'var(--warning-soft)' : 'var(--card)', flagFg: s.flags[s.cur] ? 'var(--warning-ink)' : 'var(--fg)',
+      prevQ: () => this.move(-1), prevOp: s.cur === 0 ? 0.4 : 1,
+      nextQ: () => s.cur === QS.length - 1 ? this.setState({ dialog: 'submit' }) : this.move(1), nextLabel: s.cur === QS.length - 1 ? 'Finish' : 'Next',
+      navDots: QS.map((_, i) => { const a = this.isAnswered(i), c = i === s.cur; return { no: i + 1, aria: 'Question ' + (i + 1) + (a ? ', answered' : ''), flag: !!s.flags[i], bg: a ? 'var(--primary)' : 'var(--card)', fg: a ? 'var(--primary-fg)' : 'var(--fg)', border: c ? 'var(--accent-c)' : a ? 'var(--primary)' : 'var(--border)', go: () => this.setState({ cur: i }), goClose: () => this.setState({ cur: i, sheet: false, pane: 'q' }) }; }),
+      qSheet: s.sheet, openSheet: () => this.setState({ sheet: true }), closeSheet: () => this.setState({ sheet: false }),
+      focusWarn: s.focusWarn, closeFocus: () => this.setState({ focusWarn: false }),
+      focusText: s.focusCount > FOCUS_ALLOWED ? 'You have left ' + s.focusCount + ' times, more than the ' + FOCUS_ALLOWED + ' allowed. Your teacher has been told. Your answers are safe.' : 'That counts as ' + s.focusCount + ' of ' + FOCUS_ALLOWED + ' times allowed. Stay on this page until you submit.',
+      rz, rzCols: isMobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(' + Math.max(1, Math.min(4, rz.parts.length || 1)) + ',minmax(0,1fr))',
+      reviewTabs: [['all', 'All'], ['wrong', 'Wrong'], ['pending', 'Waiting']].map(([id, label]) => ({ label, ...SEG(s.reviewTab === id), go: () => this.setState({ reviewTab: id }) })),
+      setTabs: [['profile', 'Profile'], ['signin', 'Sign-in'], ['notif', 'Notifications'], ['look', 'Appearance']].map(([id, label]) => ({ label, ...SEG(s.setTab === id), go: () => this.setState({ setTab: id }) })),
+      sProfile: s.setTab === 'profile', sSignin: s.setTab === 'signin', sNotif: s.setTab === 'notif', sLook: s.setTab === 'look',
+      prof: s.prof, onName: e => { const v = e.target.value; this.setState({ prof: { name: v } }); }, toastPhoto: () => this.toast('Choose a photo'),
+      pwOpen: s.pwOpen, togglePw: () => this.setState({ pwOpen: !s.pwOpen, pw: '' }), pwBtn: s.pwOpen ? 'Cancel' : 'Change',
+      pw: s.pw, onPw: e => this.setState({ pw: e.target.value }),
+      pwBars: [0, 1, 2, 3].map(i => i < pwScore ? (pwScore <= 1 ? 'var(--danger)' : pwScore <= 2 ? 'var(--warning)' : 'var(--success)') : 'var(--muted)'),
+      pwHint: s.pw.length < 8 ? 'At least 8 characters.' : ['Weak', 'Weak', 'Okay', 'Strong', 'Very strong'][pwScore] + '. Add a number or symbol to make it stronger.',
+      pwOp: s.pw.length >= 8 ? 1 : 0.5, savePw: () => { if (s.pw.length < 8) return; this.setState({ pwOpen: false, pw: '' }); this.toast('Password updated'); },
+      googleText: s.google ? 'Linked · giabao.ng@gmail.com' : 'Not linked. Link it to sign in with one tap.', googleBtn: s.google ? 'Unlink' : 'Link Google',
+      toggleGoogle: () => { this.setState({ google: !s.google }); this.toast(s.google ? 'Google unlinked. Use your password to sign in.' : 'Google linked'); },
+      notifRules: [['due', 'Test due soon', 'The day before and 1 hour before it closes'], ['graded', 'Result ready', 'When your teacher finishes grading'], ['msg', 'Messages from teachers', 'Announcements and direct messages'], ['daily', 'Daily practice reminder', 'At 19:00 if you have words to review']].map(([k, label, hint], i) => ({ label, hint, border: i ? '1px solid var(--border)' : '0', track: s.notif2[k] ? 'var(--primary)' : 'var(--border)', side: s.notif2[k] ? 'flex-end' : 'flex-start', go: () => this.setState(st => ({ notif2: { ...st.notif2, [k]: st.notif2[k] ? 0 : 1 } })) })),
+      themeOpts: [['light', 'Light', '#ffffff'], ['dark', 'Dark', '#0e1213'], ['system', 'Device', 'linear-gradient(90deg,#ffffff 50%,#0e1213 50%)']].map(([id, label, preview]) => { const on = themeNow === id; return { label, preview, border: on ? 'var(--primary)' : 'var(--border)', ring: on ? '0 0 0 1px var(--primary)' : 'none', go: () => this.setState({ themePref: id, dark: id === 'dark' ? true : id === 'light' ? false : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) }) }; }),
+      toggleBig: () => this.setState({ big: !s.big }), bigTrack: s.big ? 'var(--primary)' : 'var(--border)', bigSide: s.big ? 'flex-end' : 'flex-start',
+      soon: SOON[route] ? { label: SOON[route][0], icon: SOON[route][1], desc: SOON[route][2] } : { label: '', icon: 'circle', desc: '' },
+      toast: s.toast, toastIcon: s.toastIcon || 'circle-check', toastColor: s.toastColor || 'var(--success)', toastBottom: isMobile && !detail && route !== 'take' ? '84px' : '20px',
+    };
+  }
+}
+</script>
+</body>
+</html>

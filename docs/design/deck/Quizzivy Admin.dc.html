@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+:root{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--ring:#9aa3a5;--shadow:0 1px 2px rgba(20,28,30,.05);--shadow-lg:0 12px 32px -8px rgba(20,28,30,.18),0 2px 6px rgba(20,28,30,.06);--accent-c:#a4ca3e;--accent-soft:#f1f7e0;--accent-ink:#4f6c12;--success:oklch(0.62 0.14 155);--success-soft:oklch(0.96 0.03 155);--success-ink:oklch(0.42 0.1 155);--warning:oklch(0.74 0.15 70);--warning-soft:oklch(0.96 0.04 80);--warning-ink:oklch(0.48 0.11 60);--danger:oklch(0.59 0.2 27);--danger-soft:oklch(0.96 0.03 27);--danger-ink:oklch(0.48 0.17 27);--info:oklch(0.6 0.1 230);--info-soft:oklch(0.96 0.02 230);--info-ink:oklch(0.45 0.09 235);--overlay:rgba(15,20,22,.4)}
+:root.dark,[data-qz-theme="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--ring:#5d6769;--shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);--accent-soft:rgba(164,202,62,.13);--accent-ink:#c2e070;--success-soft:oklch(0.3 0.05 155);--success-ink:oklch(0.8 0.12 155);--warning-soft:oklch(0.32 0.06 70);--warning-ink:oklch(0.85 0.12 80);--danger-soft:oklch(0.3 0.08 27);--danger-ink:oklch(0.78 0.13 27);--info-soft:oklch(0.3 0.05 235);--info-ink:oklch(0.8 0.08 230);--overlay:rgba(0,0,0,.6)}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+[class^="icon-"],[class*=" icon-"]{line-height:1;display:inline-flex;align-items:center;justify-content:center}
+[class^="icon-"]::before,[class*=" icon-"]::before{line-height:1}
+a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+a:hover{color:var(--muted-fg)}
+button,input,textarea,select{font-family:inherit;color:inherit}
+input::placeholder,textarea::placeholder{color:var(--muted-fg)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+</style>
+<script src="qz-controls.js"></script>
+</helmet>
+<div ref="{{ rootRef }}" style="height:100vh;display:flex;justify-content:center;background:var(--muted);font-size:14px;line-height:1.5">
+<div style="position:relative;display:flex;width:100%;height:100%;background:var(--bg);overflow:hidden">
+
+<sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:var(--overlay);z-index:40"></div></sc-if>
+
+<aside data-screen-label="Admin sidebar" style="position:{{ sbPos }};left:0;top:0;bottom:0;z-index:50;transform:{{ sbTransform }};transition:transform .2s ease-out,width .2s ease-out;width:{{ sbW }};flex:none;display:flex;flex-direction:column;background:var(--sidebar);border-right:1px solid var(--border)">
+<div style="padding:10px 8px 6px;position:relative">
+<button onClick="{{ toggleWs }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:6px;border:0;background:transparent;border-radius:8px;cursor:pointer;text-align:left" style-hover="background:var(--hover)">
+<span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);display:grid;place-items:center"><i class="icon-shield" style="font-size:16px"></i></span>
+<sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}">
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25"><span style="font-weight:600;font-size:13.5px">Quizzivy</span><span style="font-size:12px;color:var(--muted-fg)">Admin console</span></span>
+<i class="icon-chevrons-up-down" style="font-size:15px;color:var(--muted-fg)"></i>
+</sc-if>
+</button>
+<sc-if value="{{ wsOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ toggleWs }}" style="position:fixed;inset:0;z-index:59"></div>
+<div style="position:absolute;left:8px;top:54px;width:240px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:6px;z-index:60">
+<div style="font-size:11.5px;color:var(--muted-fg);padding:4px 8px 6px">Switch workspace</div>
+<a href="Quizzivy Teacher.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;text-decoration:none;color:var(--fg);font-size:13px" style-hover="background:var(--hover)"><i class="icon-graduation-cap" style="font-size:16px"></i><span style="flex:1">Teacher workspace</span></a>
+<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;background:var(--muted);font-size:13px;font-weight:500"><i class="icon-shield" style="font-size:16px"></i><span style="flex:1">Admin console</span><i class="icon-check" style="font-size:15px"></i></div>
+</div>
+</sc-if>
+</div>
+<nav style="flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 8px;display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:1px">
+<sc-if value="{{ g.showLabel }}" hint-placeholder-val="{{ true }}"><div style="font-size:11.5px;font-weight:500;color:var(--muted-fg);padding:4px 10px">{{ g.label }}</div></sc-if>
+<sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+<button onClick="{{ it.go }}" title="{{ it.label }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border:0;border-radius:7px;cursor:pointer;text-align:left;background:{{ it.bg }};color:{{ it.fg }};font-weight:{{ it.weight }};font-size:13.5px;justify-content:{{ it.justify }}" style-hover="background:var(--hover);color:var(--fg)">
+<i class="icon-{{ it.icon }}" style="font-size:16px;flex:none"></i>
+<sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}"><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span><sc-if value="{{ it.count }}" hint-placeholder-val="{{ false }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:grid;place-items:center;background:var(--warning-soft);color:var(--warning-ink);font-size:11.5px;font-weight:600">{{ it.count }}</span></sc-if></sc-if>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</nav>
+<div style="padding:8px;border-top:1px solid var(--border);position:relative">
+<sc-if value="{{ userMenuOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ toggleUser }}" style="position:fixed;inset:0;z-index:59"></div>
+<div style="position:absolute;left:8px;bottom:60px;width:240px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:6px;z-index:60">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 10px;border-bottom:1px solid var(--border);margin-bottom:4px"><span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">TQ</span><span style="min-width:0"><span style="display:block;font-size:13px;font-weight:600">Trần Quang</span><span style="display:block;font-size:12px;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">quang.tran@quizzivy.com</span></span></div>
+<sc-for list="{{ userMenu }}" as="um" hint-placeholder-count="4"><button onClick="{{ um.go }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px;border:0;border-radius:6px;background:transparent;cursor:pointer;font-size:13px;text-align:left;color:{{ um.color }};border-top:{{ um.border }}" style-hover="background:var(--hover)"><i class="icon-{{ um.icon }}" style="font-size:15px"></i><span style="flex:1">{{ um.label }}</span><sc-if value="{{ um.ext }}" hint-placeholder-val="{{ false }}"><i class="icon-arrow-up-right" style="font-size:13px;color:var(--muted-fg)"></i></sc-if></button></sc-for>
+</div>
+</sc-if>
+<button onClick="{{ toggleUser }}" aria-label="Account menu" style="width:100%;display:flex;align-items:center;gap:10px;padding:6px;border:0;background:{{ userBtnBg }};border-radius:8px;cursor:pointer;text-align:left;justify-content:{{ userJustify }}" style-hover="background:var(--hover)">
+<span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">TQ</span>
+<sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25"><span style="font-weight:500;font-size:13px">Trần Quang</span><span style="font-size:12px;color:var(--muted-fg)">Administrator</span></span><i class="icon-chevrons-up-down" style="font-size:15px;color:var(--muted-fg)"></i></sc-if>
+</button>
+</div>
+</aside>
+
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%">
+<header style="flex:none;height:56px;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg)">
+<button onClick="{{ toggleSidebar }}" aria-label="Toggle sidebar" style="width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-{{ sbIcon }}" style="font-size:17px"></i></button>
+<span style="width:1px;height:18px;background:var(--border);margin:0 4px"></span>
+<nav style="display:flex;align-items:center;gap:6px;min-width:0;font-size:13.5px">
+<span style="color:var(--muted-fg);white-space:nowrap">Admin</span><i class="icon-chevron-right" style="font-size:14px;color:var(--muted-fg)"></i><span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pageTitle }}</span>
+</nav>
+<div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+<button onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-{{ themeIcon }}" style="font-size:17px"></i></button>
+<a href="Quizzivy Teacher.dc.html" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);text-decoration:none;color:var(--fg);font-size:13px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)"><i class="icon-graduation-cap" style="font-size:15px"></i><sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}">Teacher view</sc-if></a>
+</div>
+</header>
+
+<main style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:{{ mainPad }}">
+
+<sc-if value="{{ r.overview }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Admin overview" style="max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Overview</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">Quizzivy English Centre · 312 people</p></div>
+<button onClick="{{ openAddUser }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap" style-hover="opacity:.9"><i class="icon-user-plus" style="font-size:15px"></i>Add user</button>
+</div>
+<div style="display:grid;grid-template-columns:{{ kpiCols }};gap:12px">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+<button onClick="{{ k.go }}" style="text-align:left;display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:12px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);cursor:pointer" style-hover="border-color:var(--ring)">
+<span style="display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted-fg);font-weight:500;white-space:nowrap">{{ k.label }}<i class="icon-{{ k.icon }}" style="font-size:16px"></i></span>
+<span style="font-size:30px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;line-height:1.15">{{ k.value }}</span>
+<span style="font-size:12.5px;color:var(--muted-fg)">{{ k.hint }}</span>
+</button>
+</sc-for>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+<section style="flex:2 1 520px;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 18px 14px">
+<h2 style="margin:0;font-size:15px;font-weight:600">Daily active people</h2>
+<p style="margin:2px 0 0;font-size:13px;color:var(--muted-fg)">Last 14 days · <span style="color:var(--fg);font-weight:600">184</span> on average</p>
+<div style="display:flex;align-items:flex-end;gap:6px;height:170px;margin-top:18px;border-bottom:1px solid var(--border);padding-bottom:4px">
+<sc-for list="{{ chart }}" as="b" hint-placeholder-count="14"><div title="{{ b.tip }}" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:2px"><div style="height:{{ b.t }};background:var(--info);border-radius:4px 4px 0 0;opacity:.85"></div><div style="height:{{ b.s }};background:var(--accent-c);border-radius:0 0 2px 2px"></div></div></sc-for>
+</div>
+<div style="display:flex;gap:6px;margin-top:6px"><sc-for list="{{ chart }}" as="b" hint-placeholder-count="14"><span style="flex:1;min-width:0;text-align:center;font-size:11px;color:var(--muted-fg);overflow:hidden">{{ b.label }}</span></sc-for></div>
+<div style="display:flex;gap:16px;margin-top:10px;font-size:12.5px;color:var(--muted-fg)"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;flex:none;border-radius:3px;background:var(--accent-c)"></span>Students</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;flex:none;border-radius:3px;background:var(--info)"></span>Teachers</span></div>
+</section>
+<section style="flex:1 1 300px;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<div style="padding:16px 18px 10px"><h2 style="margin:0;font-size:15px;font-weight:600">Needs attention</h2></div>
+<sc-for list="{{ attention }}" as="at" hint-placeholder-count="4">
+<button onClick="{{ at.go }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 18px;border:0;border-top:1px solid var(--border);background:transparent;cursor:pointer;text-align:left" style-hover="background:var(--muted)">
+<span style="width:30px;height:30px;flex:none;border-radius:8px;display:grid;place-items:center;background:{{ at.bg }};color:{{ at.fg }}"><i class="icon-{{ at.icon }}" style="font-size:15px"></i></span>
+<span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ at.title }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ at.hint }}</span></span>
+<i class="icon-chevron-right" style="font-size:15px;color:var(--muted-fg)"></i>
+</button>
+</sc-for>
+</section>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+<section style="flex:2 1 520px;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px"><h2 style="margin:0;font-size:15px;font-weight:600">Recent changes</h2><button onClick="{{ goAudit }}" style="border:0;background:transparent;font-size:13px;color:var(--muted-fg);cursor:pointer;display:flex;align-items:center;gap:4px" style-hover="color:var(--fg)">Audit log<i class="icon-arrow-right" style="font-size:13px"></i></button></div>
+<sc-for list="{{ recentAudit }}" as="ra" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid var(--border)">
+<span style="width:28px;height:28px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11px;font-weight:600">{{ ra.initials }}</span>
+<span style="flex:1;min-width:0;font-size:13px;line-height:1.45"><span style="font-weight:500">{{ ra.actor }}</span> {{ ra.text }}</span>
+<span style="font-size:12px;color:var(--muted-fg);white-space:nowrap">{{ ra.time }}</span>
+</div>
+</sc-for>
+</section>
+<section style="flex:1 1 300px;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font-size:15px;font-weight:600">Storage</h2>
+<sc-for list="{{ storage }}" as="sg" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>{{ sg.label }}</span><span style="color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ sg.value }}</span></div><div style="height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><div style="height:100%;width:{{ sg.pct }};background:{{ sg.color }}"></div></div></div>
+</sc-for>
+</section>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.users }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Users" style="max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Users</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">Everyone who can sign in to Quizzivy.</p></div>
+<div style="display:flex;gap:8px">
+<button onClick="{{ toastImport }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap;box-shadow:var(--shadow)" style-hover="background:var(--muted)"><i class="icon-upload" style="font-size:15px"></i>Import CSV</button>
+<button onClick="{{ openAddUser }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap" style-hover="opacity:.9"><i class="icon-user-plus" style="font-size:15px"></i>Add user</button>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+<div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px;overflow-x:auto;max-width:100%">
+<sc-for list="{{ userTabs }}" as="tb" hint-placeholder-count="5"><button onClick="{{ tb.go }}" style="border:0;border-radius:7px;height:30px;padding:0 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.shadow }};font-weight:500">{{ tb.label }}<span style="min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums">{{ tb.count }}</span></button></sc-for>
+</div>
+<label style="flex:0 1 300px;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card)"><i class="icon-search" style="font-size:15px;color:var(--muted-fg)"></i><input size="1" value="{{ userQ }}" onChange="{{ onUserQ }}" placeholder="Search name or email" style="border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:13px"></label>
+</div>
+
+<sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px 8px 14px;border-radius:10px;background:var(--primary);color:var(--primary-fg)">
+<span style="font-size:13px;font-weight:500;margin-right:auto">{{ selCount }} selected</span>
+<sc-for list="{{ bulkActions }}" as="ba" hint-placeholder-count="3"><button onClick="{{ ba.go }}" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:7px;border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;cursor:pointer;font-size:12.5px;font-weight:500;white-space:nowrap"><i class="icon-{{ ba.icon }}" style="font-size:14px"></i>{{ ba.label }}</button></sc-for>
+<button onClick="{{ clearSel }}" aria-label="Clear selection" style="width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;color:inherit;cursor:pointer"><i class="icon-x" style="font-size:15px"></i></button>
+</div>
+</sc-if>
+
+<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<sc-if value="{{ uTable }}" hint-placeholder-val="{{ true }}">
+<div>
+<div style="display:grid;grid-template-columns:{{ uCols }};gap:12px;padding:0 16px;height:40px;align-items:center;font-size:12.5px;color:var(--muted-fg);font-weight:500;background:var(--muted)">
+<button onClick="{{ toggleAll }}" aria-label="Select all on page" style="width:16px;height:16px;border-radius:4px;border:1px solid {{ allBorder }};background:{{ allBg }};display:grid;place-items:center;cursor:pointer;padding:0;color:var(--primary-fg)"><sc-if value="{{ allOn }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:11px"></i></sc-if><sc-if value="{{ allSome }}" hint-placeholder-val="{{ false }}"><i class="icon-minus" style="font-size:11px"></i></sc-if></button>
+<span>User</span><sc-if value="{{ uc.role }}" hint-placeholder-val="{{ true }}"><span>Role</span></sc-if><sc-if value="{{ uc.signin }}" hint-placeholder-val="{{ true }}"><span>Sign-in</span></sc-if><sc-if value="{{ uc.classes }}" hint-placeholder-val="{{ true }}"><span>Classes</span></sc-if><sc-if value="{{ uc.last }}" hint-placeholder-val="{{ true }}"><span>Last active</span></sc-if><sc-if value="{{ uc.status }}" hint-placeholder-val="{{ true }}"><span>Status</span></sc-if><span></span>
+</div>
+<sc-for list="{{ userRows }}" as="u" hint-placeholder-count="8">
+<div onClick="{{ u.open }}" style="display:grid;grid-template-columns:{{ uCols }};gap:12px;padding:0 16px;height:58px;align-items:center;border-top:1px solid var(--border);font-size:13.5px;cursor:pointer;background:{{ u.rowBg }}" style-hover="background:var(--muted)">
+<button onClick="{{ u.toggle }}" aria-label="Select user" style="width:16px;height:16px;border-radius:4px;border:1px solid {{ u.cbBorder }};background:{{ u.cbBg }};display:grid;place-items:center;cursor:pointer;padding:0;color:var(--primary-fg)"><sc-if value="{{ u.sel }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:11px"></i></sc-if></button>
+<span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11.5px;font-weight:600">{{ u.initials }}</span><span style="min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.name }}</span><span style="display:block;font-size:12px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.subline }}</span></span></span>
+<sc-if value="{{ uc.role }}" hint-placeholder-val="{{ true }}"><span><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;border:1px solid var(--border);white-space:nowrap"><i class="icon-{{ u.roleIcon }}" style="font-size:12px"></i>{{ u.role }}</span></span></sc-if>
+<sc-if value="{{ uc.signin }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted-fg);white-space:nowrap;min-width:0;overflow:hidden"><sc-for list="{{ u.methods }}" as="mt" hint-placeholder-count="1"><span style="display:inline-flex;align-items:center;gap:4px"><sc-if value="{{ mt.isGoogle }}" hint-placeholder-val="{{ false }}"><img src="google-g.svg" alt="" style="width:13px;height:13px"></sc-if><sc-if value="{{ mt.isIcon }}" hint-placeholder-val="{{ true }}"><i class="icon-{{ mt.icon }}" style="font-size:13px"></i></sc-if>{{ mt.label }}</span></sc-for></span></sc-if>
+<sc-if value="{{ uc.classes }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ u.classes }}</span></sc-if>
+<sc-if value="{{ uc.last }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ u.last }}</span></sc-if>
+<sc-if value="{{ uc.status }}" hint-placeholder-val="{{ true }}"><span style="min-width:0"><span title="{{ u.st.label }}" style="display:inline-flex;align-items:center;gap:6px;max-width:100%;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;background:{{ u.st.bg }};color:{{ u.st.fg }}"><span style="width:6px;height:6px;flex:none;border-radius:50%;flex:none;background:{{ u.st.dot }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ u.st.short }}</span></span></span></sc-if>
+<button onClick="{{ u.open }}" aria-label="Open user" style="width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-ellipsis" style="font-size:16px"></i></button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ uCards }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--muted);font-size:12.5px;color:var(--muted-fg);font-weight:500"><button onClick="{{ toggleAll }}" aria-label="Select all on page" style="width:16px;height:16px;border-radius:4px;border:1px solid {{ allBorder }};background:{{ allBg }};display:grid;place-items:center;cursor:pointer;padding:0;color:var(--primary-fg)"><sc-if value="{{ allOn }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:11px"></i></sc-if><sc-if value="{{ allSome }}" hint-placeholder-val="{{ false }}"><i class="icon-minus" style="font-size:11px"></i></sc-if></button>Select page</div>
+<sc-for list="{{ userRows }}" as="u" hint-placeholder-count="6">
+<div onClick="{{ u.open }}" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-top:1px solid var(--border);cursor:pointer;background:{{ u.rowBg }}" style-hover="background:var(--muted)">
+<button onClick="{{ u.toggle }}" aria-label="Select user" style="width:16px;height:16px;margin-top:9px;flex:none;border-radius:4px;border:1px solid {{ u.cbBorder }};background:{{ u.cbBg }};display:grid;place-items:center;cursor:pointer;padding:0;color:var(--primary-fg)"><sc-if value="{{ u.sel }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:11px"></i></sc-if></button>
+<span style="width:34px;height:34px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11.5px;font-weight:600">{{ u.initials }}</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+<span style="display:block;font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ u.name }}</span>
+<span style="display:block;font-size:12.5px;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ u.email }}</span>
+<span style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:2px">
+<span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;border:1px solid var(--border);white-space:nowrap"><i class="icon-{{ u.roleIcon }}" style="font-size:12px"></i>{{ u.role }}</span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:{{ u.st.bg }};color:{{ u.st.fg }}"><span style="width:6px;height:6px;flex:none;border-radius:50%;background:{{ u.st.dot }}"></span>{{ u.st.label }}</span>
+<span style="font-size:12px;color:var(--muted-fg)">{{ u.last }}</span>
+</span>
+</span>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{ usersEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:40px 16px;text-align:center;font-size:13.5px;color:var(--muted-fg);border-top:1px solid var(--border)">No users match.</div></sc-if>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--border);position:sticky;left:0;font-size:13px;color:var(--muted-fg)">
+<span style="font-variant-numeric:tabular-nums;white-space:nowrap">{{ pgUsers.range }}</span>
+<span style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+<sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><label style="display:flex;align-items:center;gap:8px;white-space:nowrap;color:var(--fg);font-weight:500">Rows per page<span style="position:relative;display:inline-flex;align-items:center"><select value="{{ pgUsers.size }}" onChange="{{ pgUsers.onSize }}" style="appearance:none;-webkit-appearance:none;height:32px;padding:0 28px 0 10px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-size:13px;cursor:pointer;outline:0"><sc-for list="{{ pgUsers.sizes }}" as="sz" hint-placeholder-count="4"><option value="{{ sz }}">{{ sz }}</option></sc-for></select><i class="icon-chevrons-up-down" style="position:absolute;right:8px;font-size:13px;color:var(--muted-fg);pointer-events:none"></i></span></label></sc-if>
+<span style="white-space:nowrap;color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums">Page {{ pgUsers.page }} of {{ pgUsers.pages }}</span>
+<span style="display:flex;gap:6px">
+<button onClick="{{ pgUsers.prev }}" aria-label="Previous page" style="width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;padding:0;opacity:{{ pgUsers.prevOp }}" style-hover="background:var(--muted)"><i class="icon-chevron-left" style="font-size:15px"></i></button>
+<button onClick="{{ pgUsers.next }}" aria-label="Next page" style="width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;padding:0;opacity:{{ pgUsers.nextOp }}" style-hover="background:var(--muted)"><i class="icon-chevron-right" style="font-size:15px"></i></button>
+</span></span>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.roles }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Roles and permissions" style="max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Roles &amp; permissions</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">What each role can do. Administrators can always do everything.</p></div>
+<button onClick="{{ toastRole }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap;box-shadow:var(--shadow)" style-hover="background:var(--muted)"><i class="icon-plus" style="font-size:15px"></i>New role</button>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="position:relative">
+<div ref="{{ roleTrack }}" onScroll="{{ onRoleScroll }}" style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;scroll-behavior:smooth;border-radius:16px">
+<sc-for list="{{ roleCards }}" as="rc" hint-placeholder-count="3">
+<div style="flex:0 0 {{ slideW }};scroll-snap-align:start;min-height:196px;border-radius:16px;border:1px solid {{ rc.border }};background:{{ rc.bg }};color:{{ rc.fg }};padding:22px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:{{ rc.iconBg }}"><i class="icon-{{ rc.icon }}" style="font-size:19px"></i></span><sc-if value="{{ rc.custom }}" hint-placeholder-val="{{ false }}"><span style="font-size:11.5px;font-weight:600;border:1px solid currentColor;border-radius:999px;padding:1px 8px;opacity:.8">Custom</span></sc-if><button onClick="{{ rc.editRole }}" aria-label="Edit role" title="Edit role" style="margin-left:auto;width:34px;height:34px;border-radius:9px;border:1px solid {{ rc.btnBorder }};background:{{ rc.btnBg }};color:inherit;cursor:pointer;display:grid;place-items:center" style-hover="opacity:.85"><i class="icon-pencil" style="font-size:15px"></i></button></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:22px;font-weight:600;letter-spacing:-0.02em;line-height:1.2">{{ rc.name }}</span><span style="font-size:13.5px;line-height:1.5;opacity:.8;text-wrap:pretty">{{ rc.desc }}</span></div>
+<div style="margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap">
+<span style="display:flex;gap:18px"><span><span style="display:block;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1">{{ rc.count }}</span><span style="font-size:12px;opacity:.75">people</span></span><span><span style="display:block;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1">{{ rc.perms }}</span><span style="font-size:12px;opacity:.75">permissions</span></span></span>
+<button onClick="{{ rc.edit }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px solid {{ rc.btnBorder }};background:{{ rc.btnBg }};color:inherit;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap">Edit permissions<i class="icon-arrow-down" style="font-size:14px"></i></button>
+</div>
+</div>
+</sc-for>
+</div>
+<button onClick="{{ rolePrev }}" aria-label="Previous roles" style="position:absolute;left:-6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--fg);box-shadow:var(--shadow-lg);display:grid;place-items:center;cursor:pointer;z-index:2;opacity:{{ prevOp }};pointer-events:{{ prevOpPe }};transition:opacity .15s" style-hover="background:var(--muted)"><i class="icon-chevron-left" style="font-size:18px"></i></button>
+<button onClick="{{ roleNext }}" aria-label="Next roles" style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--fg);box-shadow:var(--shadow-lg);display:grid;place-items:center;cursor:pointer;z-index:2;opacity:{{ nextOp }};pointer-events:{{ nextOpPe }};transition:opacity .15s" style-hover="background:var(--muted)"><i class="icon-chevron-right" style="font-size:18px"></i></button>
+</div>
+<div style="display:flex;justify-content:center;gap:6px"><sc-for list="{{ roleDots }}" as="dt" hint-placeholder-count="4"><button onClick="{{ dt.go }}" aria-label="{{ dt.label }}" style="width:{{ dt.w }};height:6px;border-radius:6px;border:0;padding:0;background:{{ dt.bg }};cursor:pointer;transition:width .2s"></button></sc-for></div>
+</div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
+<div data-perm-matrix="1" style="min-width:{{ permMinW }};position:relative">
+<sc-if value="{{ hlOn }}" hint-placeholder-val="{{ false }}"><div aria-hidden="true" style="position:absolute;top:4px;bottom:4px;left:{{ hlLeft }};width:{{ hlW }};border:2px solid var(--primary);border-radius:10px;background:rgba(127,127,127,.06);pointer-events:none;z-index:2;transition:left .2s,width .2s"></div></sc-if>
+<div style="display:grid;grid-template-columns:{{ permCols }};gap:8px;padding:0 16px;height:44px;align-items:center;font-size:12.5px;font-weight:600;background:var(--muted)"><span style="color:var(--muted-fg);font-weight:500">Permission</span><sc-for list="{{ roleHeads }}" as="rh" hint-placeholder-count="4"><button onClick="{{ rh.go }}" data-role-col="{{ rh.label }}" style="text-align:center;padding:4px 0;border:0;border-radius:6px;background:transparent;cursor:pointer;font:inherit;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="background:var(--hover)">{{ rh.label }}</button></sc-for></div>
+<sc-for list="{{ permGroups }}" as="pg" hint-placeholder-count="4">
+<div style="padding:10px 16px 6px;font-size:12px;font-weight:600;color:var(--muted-fg);border-top:1px solid var(--border);background:var(--sidebar)">{{ pg.label }}</div>
+<sc-for list="{{ pg.rows }}" as="pr" hint-placeholder-count="3">
+<div style="display:grid;grid-template-columns:{{ permCols }};gap:8px;padding:0 16px;min-height:46px;align-items:center;border-top:1px solid var(--border);font-size:13.5px">
+<span style="min-width:0;padding:6px 0"><span style="display:block">{{ pr.label }}</span><sc-if value="{{ pr.hint }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ pr.hint }}</span></sc-if></span>
+<sc-for list="{{ pr.cells }}" as="pc" hint-placeholder-count="4"><span style="display:flex;justify-content:center"><button onClick="{{ pc.go }}" aria-label="{{ pc.label }}" title="{{ pc.title }}" style="width:18px;height:18px;border-radius:5px;border:1px solid {{ pc.border }};background:{{ pc.bg }};display:grid;place-items:center;cursor:{{ pc.cursor }};padding:0;color:var(--primary-fg);opacity:{{ pc.op }}"><sc-if value="{{ pc.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:12px"></i></sc-if></button></span></sc-for>
+</div>
+</sc-for>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{ rolesDirty }}" hint-placeholder-val="{{ false }}">
+<div style="position:sticky;bottom:12px;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg)"><span style="flex:1;font-size:13px;color:var(--muted-fg)">{{ rolesDirtyText }}</span><button onClick="{{ rolesDiscard }}" style="height:34px;padding:0 12px;border-radius:8px;border:0;background:transparent;cursor:pointer;font-size:13px;font-weight:500" style-hover="background:var(--muted)">Discard</button><button onClick="{{ rolesSave }}" style="height:34px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13px;font-weight:500">Save changes</button></div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.classes }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="All classes" style="max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Classes</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">Every class across teachers.</p></div>
+<button onClick="{{ toastClass }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap" style-hover="opacity:.9"><i class="icon-plus" style="font-size:15px"></i>New class</button>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+<div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px">
+<sc-for list="{{ classTabs }}" as="tb" hint-placeholder-count="2"><button onClick="{{ tb.go }}" style="border:0;border-radius:7px;height:30px;padding:0 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;background:{{ tb.bg }};color:{{ tb.fg }};box-shadow:{{ tb.shadow }};font-weight:500">{{ tb.label }}<span style="min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center">{{ tb.count }}</span></button></sc-for>
+</div>
+<label style="flex:0 1 280px;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card)"><i class="icon-search" style="font-size:15px;color:var(--muted-fg)"></i><input size="1" placeholder="Search classes or teachers" style="border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:13px"></label>
+</div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
+<div>
+<div style="display:grid;grid-template-columns:{{ cCols }};gap:12px;padding:0 16px;height:40px;align-items:center;font-size:12.5px;color:var(--muted-fg);font-weight:500;background:var(--muted)"><span>Class</span><sc-if value="{{ cc.teacher }}" hint-placeholder-val="{{ true }}"><span>Teacher</span></sc-if><span style="text-align:right">Students</span><sc-if value="{{ cc.code }}" hint-placeholder-val="{{ true }}"><span>Join code</span></sc-if><sc-if value="{{ cc.created }}" hint-placeholder-val="{{ true }}"><span>Created</span></sc-if><span></span></div>
+<sc-for list="{{ classRows }}" as="c" hint-placeholder-count="6">
+<div style="display:grid;grid-template-columns:{{ cCols }};gap:12px;padding:0 16px;height:54px;align-items:center;border-top:1px solid var(--border);font-size:13.5px" style-hover="background:var(--muted)">
+<span style="min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span><span style="display:block;font-size:12px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.subline }}</span></span>
+<sc-if value="{{ cc.teacher }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:26px;height:26px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:10.5px;font-weight:600">{{ c.tInit }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.teacher }}</span></span></sc-if>
+<span style="font-variant-numeric:tabular-nums;text-align:right">{{ c.students }}</span>
+<sc-if value="{{ cc.code }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:600;letter-spacing:.06em">{{ c.code }}</span><button onClick="{{ c.rotate }}" aria-label="Rotate join code" title="Rotate join code" style="width:26px;height:26px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;cursor:pointer;color:var(--muted-fg)" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-refresh-cw" style="font-size:13px"></i></button></span></sc-if>
+<sc-if value="{{ cc.created }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg);white-space:nowrap">{{ c.created }}</span></sc-if>
+<button onClick="{{ c.menu }}" aria-label="Class actions" style="width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-ellipsis" style="font-size:16px"></i></button>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.audit }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Audit log" style="max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Audit log</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">A record of sensitive changes. Entries cannot be edited or deleted.</p></div>
+<button onClick="{{ toastExport }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap;box-shadow:var(--shadow)" style-hover="background:var(--muted)"><i class="icon-download" style="font-size:15px"></i>Export CSV</button>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<label style="flex:0 1 260px;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card)"><i class="icon-search" style="font-size:15px;color:var(--muted-fg)"></i><input size="1" placeholder="Search person or entity" style="border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:13px"></label>
+<sc-for list="{{ auditFilters }}" as="af" hint-placeholder-count="4"><button onClick="{{ af.go }}" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:999px;border:1px solid {{ af.border }};background:{{ af.bg }};color:{{ af.fg }};cursor:pointer;font-size:12.5px;font-weight:500;white-space:nowrap">{{ af.label }}</button></sc-for>
+<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;white-space:nowrap"><i class="icon-calendar" style="font-size:14px;color:var(--muted-fg)"></i>Last 7 days</span>
+</div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
+<div>
+<div style="display:grid;grid-template-columns:{{ aCols }};gap:12px;padding:0 16px;height:40px;align-items:center;font-size:12.5px;color:var(--muted-fg);font-weight:500;background:var(--muted)"><sc-if value="{{ ac.when }}" hint-placeholder-val="{{ true }}"><span>When</span></sc-if><span>Who</span><span>Action</span><sc-if value="{{ ac.entity }}" hint-placeholder-val="{{ true }}"><span>Entity</span></sc-if><sc-if value="{{ ac.ip }}" hint-placeholder-val="{{ true }}"><span>IP address</span></sc-if><span></span></div>
+<sc-for list="{{ auditRows }}" as="a" hint-placeholder-count="8">
+<div onClick="{{ a.toggle }}" style="display:grid;grid-template-columns:{{ aCols }};gap:12px;padding:0 16px;min-height:50px;align-items:center;border-top:1px solid var(--border);font-size:13.5px;cursor:pointer;background:{{ a.bg }}" style-hover="background:var(--muted)">
+<sc-if value="{{ ac.when }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg);font-variant-numeric:tabular-nums;white-space:nowrap">{{ a.when }}</span></sc-if>
+<span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:26px;height:26px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:10.5px;font-weight:600">{{ a.initials }}</span><span style="min-width:0"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.actor }}</span><sc-if value="{{ ac.whenInline }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;color:var(--muted-fg);white-space:nowrap">{{ a.when }}</span></sc-if></span></span>
+<span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:8px;height:8px;flex:none;border-radius:50%;flex:none;background:{{ a.dot }}"></span><span style="min-width:0"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.action }}</span><sc-if value="{{ ac.entityInline }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.entity }}</span></sc-if></span></span>
+<sc-if value="{{ ac.entity }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ a.entity }}</span></sc-if>
+<sc-if value="{{ ac.ip }}" hint-placeholder-val="{{ true }}"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted-fg)">{{ a.ip }}</span></sc-if>
+<i class="icon-{{ a.chev }}" style="font-size:15px;color:var(--muted-fg)"></i>
+</div>
+<sc-if value="{{ a.open }}" hint-placeholder-val="{{ false }}">
+<div style="padding:{{ ac.diffPad }};background:var(--muted);display:flex;flex-direction:column;gap:6px">
+<sc-for list="{{ a.diff }}" as="d" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:{{ ac.diffCols }};gap:4px 12px;font-size:12.5px;align-items:baseline"><span style="color:var(--muted-fg)">{{ d.field }}</span><span style="font-family:ui-monospace,Menlo,monospace;color:var(--danger-ink);text-decoration:line-through;overflow-wrap:anywhere">{{ d.from }}</span><span style="font-family:ui-monospace,Menlo,monospace;color:var(--success-ink);overflow-wrap:anywhere">{{ d.to }}</span></div></sc-for>
+<span style="font-size:12px;color:var(--muted-fg)">{{ a.agent }}</span>
+</div>
+</sc-if>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--border);position:sticky;left:0;font-size:13px;color:var(--muted-fg)">
+<span style="font-variant-numeric:tabular-nums">{{ pgAudit.range }}</span>
+<span style="display:flex;align-items:center;gap:16px"><span style="color:var(--fg);font-weight:500;white-space:nowrap">Page {{ pgAudit.page }} of {{ pgAudit.pages }}</span><span style="display:flex;gap:6px">
+<button onClick="{{ pgAudit.prev }}" aria-label="Previous page" style="width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;padding:0;opacity:{{ pgAudit.prevOp }}" style-hover="background:var(--muted)"><i class="icon-chevron-left" style="font-size:15px"></i></button>
+<button onClick="{{ pgAudit.next }}" aria-label="Next page" style="width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;padding:0;opacity:{{ pgAudit.nextOp }}" style-hover="background:var(--muted)"><i class="icon-chevron-right" style="font-size:15px"></i></button>
+</span></span>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.apiref }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="API reference" style="max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">API reference</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px;text-wrap:pretty">Every Quizzivy endpoint, generated from the same contract the app uses. Only admins can open it.</p></div>
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+<span style="width:44px;height:44px;flex:none;border-radius:11px;background:var(--primary);color:var(--primary-fg);display:grid;place-items:center"><i class="icon-book-open-text" style="font-size:21px"></i></span>
+<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="font-size:16px;font-weight:600">Quizzivy API</span><span style="display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted-fg)"><span>OpenAPI 3.1</span><span aria-hidden="true">·</span><span>{{ api.version }}</span><span aria-hidden="true">·</span><span>{{ api.count }} endpoints</span></span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button onClick="{{ api.download }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)"><i class="icon-download" style="font-size:15px"></i>openapi.yaml</button>
+<button onClick="{{ api.open }}" disabled="{{ api.pending }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:600;white-space:nowrap;opacity:{{ api.op }}" style-hover="opacity:.9"><i class="icon-{{ api.icon }}" style="font-size:15px"></i>{{ api.label }}</button>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:9px;background:var(--muted)"><span style="font-size:12.5px;color:var(--muted-fg)">Base URL</span><code style="flex:1 1 200px;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ api.base }}</code><button onClick="{{ api.copyBase }}" aria-label="Copy base URL" style="height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:5px;white-space:nowrap"><i class="icon-{{ api.copyIcon }}" style="font-size:13px"></i>{{ api.copyLabel }}</button></div>
+<sc-if value="{{ api.problem }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:9px;background:var(--danger-soft);color:var(--danger-ink);font-size:13px;line-height:1.5"><i class="icon-circle-alert" style="font-size:15px;margin-top:2px;flex:none"></i><span style="flex:1">{{ api.problemText }}</span><button onClick="{{ api.open }}" style="border:0;background:transparent;padding:0;cursor:pointer;font-size:13px;font-weight:600;color:inherit;text-decoration:underline;text-underline-offset:2px;white-space:nowrap">Try again</button></div></sc-if>
+<div style="display:flex;gap:10px;font-size:12.5px;color:var(--muted-fg);line-height:1.55"><i class="icon-shield-check" style="font-size:15px;flex:none;margin-top:1px"></i><span>Opens in a new tab with a short docs session tied to your admin account. The link does not work for anyone else. Requests you try there run as you, so they are recorded in the audit log.</span></div>
+</section>
+<section style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0;font-size:15px;font-weight:600">What's in it</h2><span style="font-size:12.5px;color:var(--muted-fg)">Open a group to jump to it in the reference</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:10px">
+<sc-for list="{{ api.groups }}" as="ag" hint-placeholder-count="6"><button onClick="{{ ag.go }}" style="text-align:left;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;display:flex;gap:12px;align-items:flex-start;cursor:pointer" style-hover="border-color:var(--ring)"><span style="width:34px;height:34px;flex:none;border-radius:9px;background:var(--muted);display:grid;place-items:center"><i class="icon-{{ ag.icon }}" style="font-size:16px"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:14px;font-weight:600">{{ ag.name }}</span><span style="font-size:12px;color:var(--muted-fg);white-space:nowrap;font-variant-numeric:tabular-nums">{{ ag.n }} endpoints</span></span><span style="font-size:12.5px;color:var(--muted-fg);line-height:1.5;text-wrap:pretty">{{ ag.desc }}</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ag.path }}</code></span></button></sc-for>
+</div>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.settings }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="System settings" style="max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">System settings</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">Applies to everyone in Quizzivy English Centre.</p></div>
+<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+<nav style="flex:0 1 {{ setNavW }};min-width:0;display:flex;flex-direction:{{ setNavDir }};gap:2px;overflow-x:auto;max-width:100%">
+<sc-for list="{{ setTabs }}" as="st" hint-placeholder-count="4"><button onClick="{{ st.go }}" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 12px;border:0;border-radius:8px;cursor:pointer;text-align:left;white-space:nowrap;font-size:13.5px;background:{{ st.bg }};color:{{ st.fg }};font-weight:{{ st.weight }}" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-{{ st.icon }}" style="font-size:16px"></i>{{ st.label }}</button></sc-for>
+</nav>
+<div style="flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:14px">
+
+<sc-if value="{{ sOrg }}" hint-placeholder-val="{{ true }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)">
+<div style="padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:15px;font-weight:600">Organization</div><div style="font-size:13px;color:var(--muted-fg)">Shown on sign-in, emails and printed results.</div></div>
+<div style="padding:18px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span style="width:56px;height:56px;border-radius:14px;border:1px solid var(--border);background:var(--card);display:grid;place-items:center"><img src="quizzivy-mark-color.svg" alt="Logo" style="height:28px"></span><button onClick="{{ toastLogo }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500" style-hover="background:var(--muted)">Replace logo</button><span style="font-size:12.5px;color:var(--muted-fg)">SVG or PNG, square</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+<sc-for list="{{ orgFields }}" as="f" hint-placeholder-count="3"><label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">{{ f.label }}<input value="{{ f.value }}" onChange="{{ f.onChange }}" style="height:38px;border:1px solid var(--border);border-radius:8px;padding:0 12px;font-size:13.5px;font-weight:400;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"><sc-if value="{{ f.hint }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:var(--muted-fg);font-size:12px">{{ f.hint }}</span></sc-if></label></sc-for>
+</div>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{ sSignin }}" hint-placeholder-val="{{ false }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<div style="padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:15px;font-weight:600">Sign-in</div><div style="font-size:13px;color:var(--muted-fg)">How people get into Quizzivy.</div></div>
+<sc-for list="{{ signinRules }}" as="sr" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-top:{{ sr.border }}"><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ sr.label }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ sr.hint }}</span></span><button onClick="{{ sr.go }}" role="switch" aria-label="{{ sr.label }}" style="width:38px;height:22px;flex:none;border-radius:999px;border:0;padding:2px;cursor:pointer;background:{{ sr.track }};display:flex;justify-content:{{ sr.side }}"><span style="width:18px;height:18px;flex:none;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></span></button></div></sc-for>
+<div style="padding:12px 18px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+<span><span style="display:block;font-size:13.5px;font-weight:500">Allowed Google domains</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">Only these email domains can sign in with Google. Leave empty to allow any.</span></span>
+<span style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-height:36px;padding:6px;border:1px solid var(--border);border-radius:8px;background:var(--bg)">
+<sc-for list="{{ domains }}" as="tg" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 3px 0 8px;border-radius:999px;border:1px solid var(--border);background:var(--muted);font-size:12px;font-weight:500;white-space:nowrap;line-height:1">{{ tg.label }}<button onClick="{{ tg.remove }}" aria-label="Remove domain" style="width:16px;height:16px;display:grid;place-items:center;border:0;border-radius:999px;background:transparent;cursor:pointer;color:var(--muted-fg);padding:0" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-x" style="font-size:11px"></i></button></span></sc-for>
+<input size="1" value="{{ domainDraft }}" onChange="{{ onDomainDraft }}" onKeyDown="{{ onDomainKey }}" placeholder="Add domain…" style="flex:1 1 100px;min-width:100px;height:22px;border:0;outline:0;background:transparent;font-size:13px;padding:0 4px">
+</span>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{ sPolicy }}" hint-placeholder-val="{{ false }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<div style="padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:15px;font-weight:600">Data & privacy</div><div style="font-size:13px;color:var(--muted-fg)">How long Quizzivy keeps things.</div></div>
+<sc-for list="{{ retention }}" as="rt" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-top:{{ rt.border }};flex-wrap:wrap"><span style="flex:1 1 240px;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ rt.label }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ rt.hint }}</span></span><span style="position:relative;display:inline-flex;align-items:center"><select style="appearance:none;-webkit-appearance:none;height:34px;padding:0 30px 0 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px;cursor:pointer;outline:0"><sc-for list="{{ rt.opts }}" as="o" hint-placeholder-count="3"><option>{{ o }}</option></sc-for></select><i class="icon-chevrons-up-down" style="position:absolute;right:9px;font-size:13px;color:var(--muted-fg);pointer-events:none"></i></span></div></sc-for>
+</section>
+<section style="background:var(--card);border:1px solid var(--danger-soft);border-radius:12px;box-shadow:var(--shadow)">
+<div style="padding:16px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span style="flex:1 1 240px"><span style="display:block;font-size:14px;font-weight:600;color:var(--danger-ink)">Export all data</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">Users, classes, tests and results as a ZIP. The link is emailed to you and expires in 24 hours.</span></span><button onClick="{{ toastExportAll }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)"><i class="icon-download" style="font-size:14px"></i>Request export</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{ sStorage }}" hint-placeholder-val="{{ false }}">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+<div><div style="font-size:15px;font-weight:600">Plan & usage</div><div style="font-size:13px;color:var(--muted-fg)">Centre plan · renews 1 Jan 2027</div></div>
+<sc-for list="{{ usage }}" as="sg" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>{{ sg.label }}</span><span style="color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ sg.value }}</span></div><div style="height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><div style="height:100%;width:{{ sg.pct }};background:{{ sg.color }}"></div></div></div></sc-for>
+</section>
+</sc-if>
+
+<sc-if value="{{ setDirty }}" hint-placeholder-val="{{ false }}">
+<div style="position:sticky;bottom:12px;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg)"><span style="flex:1;font-size:13px;color:var(--muted-fg)">You have unsaved changes.</span><button onClick="{{ setDiscard }}" style="height:34px;padding:0 12px;border-radius:8px;border:0;background:transparent;cursor:pointer;font-size:13px;font-weight:500" style-hover="background:var(--muted)">Discard</button><button onClick="{{ setSave }}" style="height:34px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13px;font-weight:500">Save changes</button></div>
+</sc-if>
+</div>
+</div>
+</div>
+</sc-if>
+
+</main>
+</div>
+
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:var(--overlay);z-index:70"></div>
+<aside style="position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--card);border-left:1px solid var(--border);z-index:71;display:flex;flex-direction:column;box-shadow:var(--shadow-lg)">
+<div style="display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border)">
+<span style="width:42px;height:42px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:13px;font-weight:600">{{ su.initials }}</span>
+<span style="flex:1;min-width:0"><span style="display:block;font-weight:600;font-size:15px">{{ su.name }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ su.email }}</span></span>
+<button onClick="{{ closeSheet }}" aria-label="Close" style="width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;cursor:pointer" style-hover="background:var(--hover)"><i class="icon-x" style="font-size:17px"></i></button>
+</div>
+<div style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12.5px;font-weight:600">Role</span>
+<div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px"><sc-for list="{{ su.roles }}" as="ro" hint-placeholder-count="3"><button onClick="{{ ro.go }}" style="flex:1;border:0;border-radius:7px;height:30px;padding:0 8px;font-size:12.5px;cursor:pointer;white-space:nowrap;background:{{ ro.bg }};color:{{ ro.fg }};box-shadow:{{ ro.shadow }};font-weight:500">{{ ro.label }}</button></sc-for></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+<sc-for list="{{ su.facts }}" as="fa" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-top:{{ fa.border }};font-size:13px"><span style="color:var(--muted-fg)">{{ fa.label }}</span><span style="font-weight:500;text-align:right">{{ fa.value }}</span></div></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12.5px;font-weight:600">Actions</span>
+<sc-for list="{{ su.actions }}" as="ac" hint-placeholder-count="3"><button onClick="{{ ac.go }}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--card);cursor:pointer;text-align:left;color:{{ ac.color }}" style-hover="background:var(--muted)"><i class="icon-{{ ac.icon }}" style="font-size:16px"></i><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ ac.label }}</span><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ ac.hint }}</span></span></button></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12.5px;font-weight:600">Recent activity</span>
+<sc-for list="{{ su.events }}" as="ev" hint-placeholder-count="3"><div style="display:flex;gap:10px;font-size:13px"><span style="width:8px;height:8px;flex:none;border-radius:50%;margin-top:6px;flex:none;background:{{ ev.dot }}"></span><span style="flex:1"><span style="display:block">{{ ev.text }}</span><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ ev.time }}</span></span></div></sc-for>
+</div>
+</div>
+</aside>
+</sc-if>
+
+<sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeAdd }}" style="position:absolute;inset:0;background:var(--overlay);z-index:80"></div>
+<div role="dialog" aria-label="Add user" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,calc(100% - 24px));background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:81;display:flex;flex-direction:column;max-height:calc(100% - 32px);overflow-y:auto">
+<div style="padding:18px 18px 4px"><div style="font-size:16px;font-weight:600">Add user</div><div style="font-size:13px;color:var(--muted-fg);margin-top:2px">They get a temporary password and must change it on first sign-in.</div></div>
+<div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px">
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">Full name<input value="{{ nu.name }}" onChange="{{ nu.onName }}" placeholder="Nguyễn Văn An" style="height:38px;border:1px solid var(--border);border-radius:8px;padding:0 12px;font-size:13.5px;font-weight:400;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">Email<input value="{{ nu.email }}" onChange="{{ nu.onEmail }}" placeholder="an.nguyen@example.com" style="height:38px;border:1px solid {{ nu.emailBorder }};border-radius:8px;padding:0 12px;font-size:13.5px;font-weight:400;background:var(--bg);outline:0"><sc-if value="{{ nu.emailErr }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;font-size:12px;color:var(--danger-ink)">{{ nu.emailErr }}</span></sc-if></label>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12.5px;font-weight:500">Role</span><div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px"><sc-for list="{{ nu.roles }}" as="ro" hint-placeholder-count="3"><button onClick="{{ ro.go }}" style="flex:1;border:0;border-radius:7px;height:30px;font-size:12.5px;cursor:pointer;background:{{ ro.bg }};color:{{ ro.fg }};box-shadow:{{ ro.shadow }};font-weight:500;white-space:nowrap">{{ ro.label }}</button></sc-for></div></div>
+<sc-if value="{{ nu.isStudent }}" hint-placeholder-val="{{ true }}"><label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500">Add to class <span style="font-weight:400;color:var(--muted-fg)">(optional)</span><span style="position:relative;display:flex;align-items:center"><select style="width:100%;appearance:none;-webkit-appearance:none;height:38px;border:1px solid var(--border);border-radius:8px;padding:0 32px 0 12px;font-size:13.5px;font-weight:400;background:var(--bg);outline:0;cursor:pointer"><option>No class yet</option><option>IELTS 6.5 Evening</option><option>IELTS Foundation A</option><option>TOEIC 600 Weekend</option><option>Kids Starters B</option></select><i class="icon-chevrons-up-down" style="position:absolute;right:10px;font-size:14px;color:var(--muted-fg);pointer-events:none"></i></span></label></sc-if>
+</div>
+<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border)">
+<button onClick="{{ closeAdd }}" style="height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500">Cancel</button>
+<button onClick="{{ createUser }}" style="height:36px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:500;opacity:{{ nu.op }}">Create account</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ confirm }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeConfirm }}" style="position:absolute;inset:0;background:var(--overlay);z-index:85"></div>
+<div role="dialog" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100% - 24px));background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:86;padding:18px;display:flex;flex-direction:column;gap:12px;max-height:calc(100% - 32px);overflow-y:auto">
+<div><div style="font-size:15px;font-weight:600">{{ cf.title }}</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px;text-wrap:pretty">{{ cf.body }}</div></div>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button onClick="{{ closeConfirm }}" style="height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500">Cancel</button><button onClick="{{ cf.go }}" style="height:36px;padding:0 14px;border-radius:8px;border:0;background:{{ cf.bg }};color:{{ cf.fg }};cursor:pointer;font-size:13.5px;font-weight:500">{{ cf.label }}</button></div>
+</div>
+</sc-if>
+
+
+<sc-if value="{{ mn.open }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:92"></div>
+<div role="menu" style="position:fixed;left:{{ mn.x }};top:{{ mn.y }};width:{{ mn.w }};background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:5px;z-index:93;max-height:60vh;overflow-y:auto;overflow-x:hidden">
+<sc-if value="{{ mn.title }}" hint-placeholder-val="{{ false }}"><div style="font-size:11.5px;color:var(--muted-fg);padding:4px 8px 6px">{{ mn.title }}</div></sc-if>
+<sc-for list="{{ mn.items }}" as="mi" hint-placeholder-count="3"><button onClick="{{ mi.go }}" role="menuitem" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border:0;border-radius:6px;background:transparent;cursor:pointer;font-size:13px;text-align:left;color:{{ mi.color }};border-top:{{ mi.border }};opacity:{{ mi.op }}" style-hover="background:var(--hover)"><sc-if value="{{ mi.hasIcon }}" hint-placeholder-val="{{ true }}"><i class="icon-{{ mi.icon }}" style="font-size:14px"></i></sc-if><sc-if value="{{ mi.isCheck }}" hint-placeholder-val="{{ false }}"><span style="width:16px;height:16px;flex:none;border-radius:4px;border:1px solid {{ mi.cbBorder }};background:{{ mi.cbBg }};display:grid;place-items:center;color:var(--primary-fg)"><sc-if value="{{ mi.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:11px"></i></sc-if></span></sc-if><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mi.label }}</span><sc-if value="{{ mi.meta }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ mi.meta }}</span></sc-if></button></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ fm.open }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ fm.cancel }}" style="position:fixed;inset:0;background:var(--overlay);z-index:95"></div>
+<div role="dialog" aria-label="{{ fm.title }}" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min({{ fm.w }},calc(100% - 24px));max-height:86vh;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:96">
+<div style="padding:18px 14px 4px 18px;display:flex;gap:12px;align-items:center">
+<sc-if value="{{ fm.hasIcon }}" hint-placeholder-val="{{ false }}"><span style="width:36px;height:36px;border-radius:10px;flex:none;display:grid;place-items:center;background:{{ fm.iconBg }};color:{{ fm.iconFg }}"><i class="icon-{{ fm.icon }}" style="font-size:18px"></i></span></sc-if>
+<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:600;line-height:1.35">{{ fm.title }}</div><sc-if value="{{ fm.desc }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--muted-fg);margin-top:3px;line-height:1.5;text-wrap:pretty">{{ fm.desc }}</div></sc-if></div>
+<button onClick="{{ fm.cancel }}" aria-label="Close" style="width:30px;height:30px;flex:none;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;cursor:pointer;color:var(--muted-fg)" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-x" style="font-size:16px"></i></button>
+</div>
+<sc-if value="{{ fm.hasFields }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 18px 16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;overflow-x:hidden">
+<sc-for list="{{ fm.fields }}" as="f" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:6px">
+<sc-if value="{{ f.showLabel }}" hint-placeholder-val="{{ true }}"><span style="font-size:12.5px;font-weight:500">{{ f.label }}<sc-if value="{{ f.optional }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:var(--muted-fg)"> (optional)</span></sc-if></span></sc-if>
+<sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}"><input type="{{ f.inputType }}" value="{{ f.value }}" onChange="{{ f.onChange }}" placeholder="{{ f.placeholder }}" aria-label="{{ f.label }}" style="height:38px;border:1px solid {{ f.border }};border-radius:8px;padding:0 12px;font-size:13.5px;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"></sc-if>
+<sc-if value="{{ f.isArea }}" hint-placeholder-val="{{ false }}"><textarea value="{{ f.value }}" onChange="{{ f.onChange }}" rows="3" placeholder="{{ f.placeholder }}" aria-label="{{ f.label }}" style="resize:vertical;border:1px solid {{ f.border }};border-radius:8px;padding:9px 12px;font-size:13.5px;line-height:1.5;background:var(--bg);outline:0"></textarea></sc-if>
+<sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}"><span style="position:relative;display:flex;align-items:center"><select value="{{ f.value }}" onChange="{{ f.onChange }}" aria-label="{{ f.label }}" style="width:100%;appearance:none;-webkit-appearance:none;height:38px;border:1px solid var(--border);border-radius:8px;padding:0 32px 0 12px;font-size:13.5px;background:var(--bg);outline:0;cursor:pointer"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="3"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></select><i class="icon-chevrons-up-down" style="position:absolute;right:10px;font-size:14px;color:var(--muted-fg);pointer-events:none"></i></span></sc-if>
+<sc-if value="{{ f.isSeg }}" hint-placeholder-val="{{ false }}"><div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px;flex-wrap:wrap"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="flex:1;border:0;border-radius:7px;height:30px;padding:0 10px;font-size:12.5px;cursor:pointer;white-space:nowrap;font-weight:500;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.shadow }}">{{ o.label }}</button></sc-for></div></sc-if>
+<sc-if value="{{ f.isChips }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;border:1px solid {{ o.border }};background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;font-size:12.5px;font-weight:500;white-space:nowrap"><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:13px"></i></sc-if>{{ o.label }}</button></sc-for></div></sc-if>
+<sc-if value="{{ f.hasSearch }}" hint-placeholder-val="{{ false }}"><label style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg)"><i class="icon-search" style="font-size:15px;color:var(--muted-fg)"></i><input size="1" value="{{ f.q }}" onChange="{{ f.onQ }}" placeholder="{{ f.searchPh }}" aria-label="{{ f.searchPh }}" style="flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:13.5px"><sc-if value="{{ f.selCount }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted-fg);white-space:nowrap">{{ f.selCount }} selected</span></sc-if></label></sc-if>
+<sc-if value="{{ f.isList }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:300px;overflow-y:auto"><sc-if value="{{ f.noMatch }}" hint-placeholder-val="{{ false }}"><div style="padding:18px 12px;text-align:center;font-size:13px;color:var(--muted-fg)">Nothing matches “{{ f.q }}”</div></sc-if><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.go }}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;border-top:{{ o.sep }};background:{{ o.rowBg }};cursor:pointer;text-align:left" style-hover="background:var(--muted)"><span style="width:16px;height:16px;flex:none;border-radius:4px;border:1px solid {{ o.border }};background:{{ o.box }};display:grid;place-items:center;color:var(--primary-fg)"><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:11px"></i></sc-if></span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.label }}</span><sc-if value="{{ o.meta }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ o.meta }}</span></sc-if></span></button></sc-for></div></sc-if>
+<sc-if value="{{ f.isToggle }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:12px"><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ f.text }}</span><sc-if value="{{ f.sub }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ f.sub }}</span></sc-if></span><button onClick="{{ f.toggle }}" role="switch" aria-label="{{ f.text }}" style="width:38px;height:22px;flex:none;border-radius:999px;border:0;padding:2px;cursor:pointer;background:{{ f.track }};display:flex;justify-content:{{ f.side }}"><span style="width:18px;height:18px;flex:none;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></span></button></div></sc-if>
+<sc-if value="{{ f.isFile }}" hint-placeholder-val="{{ false }}"><button onClick="{{ f.pick }}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 14px;border:1.5px dashed {{ f.border }};border-radius:10px;background:{{ f.fileBg }};cursor:pointer;text-align:center"><i class="icon-{{ f.fileIcon }}" style="font-size:22px;color:{{ f.fileIconColor }}"></i><span style="font-size:13.5px;font-weight:500">{{ f.fileTitle }}</span><span style="font-size:12px;color:var(--muted-fg)">{{ f.fileHint }}</span></button></sc-if>
+<sc-if value="{{ f.isInfo }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden"><sc-for list="{{ f.rows }}" as="rw" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:{{ rw.border }};font-size:13px"><i class="icon-{{ rw.icon }}" style="font-size:15px;flex:none;color:{{ rw.color }}"></i><span style="flex:1;min-width:0;line-height:1.45">{{ rw.text }}</span><sc-if value="{{ rw.action }}" hint-placeholder-val="{{ false }}"><button onClick="{{ rw.go }}" style="height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)">{{ rw.action }}</button></sc-if></div></sc-for></div></sc-if>
+<sc-if value="{{ f.isIcons }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="8"><button onClick="{{ o.go }}" aria-label="{{ o.label }}" title="{{ o.label }}" style="height:40px;border-radius:9px;border:1.5px solid {{ o.border }};background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;display:grid;place-items:center"><i class="icon-{{ o.value }}" style="font-size:18px"></i></button></sc-for></div></sc-if>
+<sc-if value="{{ f.isColors }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.go }}" aria-label="{{ o.label }}" title="{{ o.label }}" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:{{ o.value }};cursor:pointer;display:grid;place-items:center;box-shadow:{{ o.ring }};color:{{ o.fg }}"><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:15px"></i></sc-if></button></sc-for></div></sc-if>
+<sc-if value="{{ f.isQr }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0"><span style="width:200px;height:200px;border-radius:12px;border:1px solid var(--border);background:#fff;color:#1b2123;display:grid;place-items:center"><i class="icon-qr-code" style="font-size:150px;line-height:1"></i></span><span style="font-family:ui-monospace,Menlo,monospace;font-size:22px;font-weight:600;letter-spacing:.1em;white-space:nowrap">{{ f.value }}</span><span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ f.text }}</span></div></sc-if>
+<sc-if value="{{ f.isPreview }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--sidebar)"><div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg);font-size:12.5px;color:var(--muted-fg)"><i class="icon-eye" style="font-size:14px"></i><span style="flex:1">{{ f.text }}</span><span style="font-variant-numeric:tabular-nums">{{ f.pos }}</span></div><div style="padding:22px 20px;display:flex;flex-direction:column;gap:14px;min-height:260px"><span style="font-size:12.5px;color:var(--muted-fg)">{{ f.kicker }}</span><span style="font-size:17px;font-weight:500;line-height:1.55">{{ f.prompt }}</span><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:12px;min-height:46px;padding:8px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);font-size:14.5px"><span style="width:22px;height:22px;flex:none;border-radius:{{ o.radius }};border:1.5px solid var(--ring);display:grid;place-items:center;font-size:11px;color:var(--muted-fg)">{{ o.letter }}</span>{{ o.label }}</span></sc-for></div><div style="display:flex;justify-content:space-between;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--bg)"><button onClick="{{ f.prev }}" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500">Previous</button><button onClick="{{ f.next }}" style="height:34px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13px;font-weight:500">Next</button></div></div></sc-if>
+<sc-if value="{{ f.hint }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted-fg);line-height:1.45">{{ f.hint }}</span></sc-if>
+<sc-if value="{{ f.err }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--danger-ink)">{{ f.err }}</span></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border);flex-wrap:wrap">
+<sc-if value="{{ fm.hasCancel }}" hint-placeholder-val="{{ true }}"><button onClick="{{ fm.cancel }}" style="height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)">{{ fm.cancelLabel }}</button></sc-if>
+<button onClick="{{ fm.submit }}" style="height:36px;padding:0 16px;border-radius:8px;border:0;background:{{ fm.btnBg }};color:{{ fm.btnFg }};cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap;opacity:{{ fm.op }}">{{ fm.submitLabel }}</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;right:16px;bottom:16px;z-index:90;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);font-size:13.5px;max-width:calc(100% - 32px)"><i class="icon-circle-check" style="font-size:16px;color:var(--success)"></i>{{ toast }}</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const initials = n => { const p = n.split(' '); return (p[p.length - 1][0] + p[0][0]).toUpperCase(); };
+const SEGSTYLE = on => ({ bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', shadow: on ? 'var(--shadow), 0 0 0 1px var(--border)' : 'none' });
+const STATUS = {
+  active: { label: 'Active', bg: 'var(--success-soft)', fg: 'var(--success-ink)', dot: 'var(--success)' },
+  pending: { label: 'Must change password', bg: 'var(--warning-soft)', fg: 'var(--warning-ink)', dot: 'var(--warning)' },
+  invited: { label: 'Never signed in', bg: 'var(--muted)', fg: 'var(--muted-fg)', dot: 'var(--muted-fg)' },
+  disabled: { label: 'Disabled', bg: 'var(--danger-soft)', fg: 'var(--danger-ink)', dot: 'var(--danger)' },
+};
+const ROLE = { admin: ['Admin', 'shield'], teacher: ['Teacher', 'graduation-cap'], student: ['Student', 'user'] };
+const USERS = [
+  ['Trần Quang', 'quang.tran@quizzivy.com', 'admin', 'pg', '—', 'Now', 'active'],
+  ['Hoàng Thương', 'thuong@quizzivy.com', 'teacher', 'pg', '4 classes', '5 min ago', 'active'],
+  ['Phan Minh Đức', 'duc.phan@quizzivy.com', 'teacher', 'g', '2 classes', 'Yesterday', 'active'],
+  ['Trần Minh Anh', 'minhanh.tran@gmail.com', 'student', 'g', 'IELTS 6.5 Evening', '5 min ago', 'active'],
+  ['Lê Hoàng Nam', 'nam.le@gmail.com', 'student', 'p', 'IELTS 6.5 Evening', '12 min ago', 'active'],
+  ['Đặng Quốc Huy', 'quochuy.dang@gmail.com', 'student', 'p', 'IELTS 6.5 Evening', '3 days ago', 'pending'],
+  ['Hoàng Đức Minh', 'ducminh.h@gmail.com', 'student', 'p', 'Kids Starters B', 'Never', 'invited'],
+  ['Nguyễn Gia Bảo', 'giabao.ng@gmail.com', 'student', 'pg', 'IELTS Foundation A +1', '1 hour ago', 'active'],
+  ['Võ Khánh Linh', 'khanhlinh.vo@gmail.com', 'student', 'g', 'TOEIC 600 Weekend', 'Yesterday', 'active'],
+  ['Lý Thanh Vân', 'van.ly@quizzivy.com', 'teacher', 'p', '1 class', '2 weeks ago', 'disabled'],
+  ['Phạm Thu Hà', 'thuha.pham@gmail.com', 'student', 'g', 'IELTS Foundation A', 'Now', 'active'],
+  ['Bùi Ngọc Mai', 'ngocmai.bui@gmail.com', 'student', 'p', 'IELTS 6.5 Evening', '2 hours ago', 'active'],
+];
+const TOTALS = { all: 312, teacher: 9, student: 300, admin: 3, disabled: 6 };
+const CLASSES = [
+  ['IELTS 6.5 Evening', 'Mon · Wed · Fri, 18:00', 'Hoàng Thương', 24, 'K7QM-2PXA', 'Jun 2026', true],
+  ['IELTS Foundation A', 'Tue · Thu, 17:30', 'Hoàng Thương', 16, 'B4XN-9TRE', 'Jul 2026', true],
+  ['TOEIC 600 Weekend', 'Sat · Sun, 09:00', 'Hoàng Thương', 22, 'T6NB-4WLQ', 'Aug 2026', true],
+  ['Kids Starters B', 'Sat, 14:00', 'Hoàng Thương', 12, 'S2DK-7HQM', 'Aug 2026', true],
+  ['IELTS Writing Clinic', 'Thu, 19:30', 'Phan Minh Đức', 14, 'W3RT-8KDZ', 'Sep 2026', true],
+  ['Business English B1', 'Tue, 12:00', 'Phan Minh Đức', 10, 'E5MF-2PZR', 'Sep 2026', true],
+  ['Summer Camp 2026', 'Jul – Aug', 'Lý Thanh Vân', 30, '—', 'May 2026', false],
+];
+const AUDIT = [
+  ['24 Sep, 20:31', 'Hoàng Thương', 'attempt', 'Extended attempt by 10 minutes', 'Attempt · Lê Hoàng Nam', '14.161.22.8', [['ends_at', '21:00', '21:10']]],
+  ['24 Sep, 19:05', 'Trần Quang', 'password', 'Reset password', 'User · Đặng Quốc Huy', '113.22.4.19', [['must_change_password', 'false', 'true']]],
+  ['24 Sep, 16:40', 'Hoàng Thương', 'test', 'Published test', 'Test · Mid-term Reading Mock v3', '14.161.22.8', [['status', 'draft', 'published'], ['version', '2', '3']]],
+  ['24 Sep, 15:20', 'Hoàng Thương', 'test', 'Shared test with Phan Minh Đức', 'Test · Mid-term Reading Mock', '14.161.22.8', [['shared_with', '—', 'Phan Minh Đức (can edit)']]],
+  ['24 Sep, 11:12', 'Hoàng Thương', 'class', 'Rotated join code', 'Class · IELTS 6.5 Evening', '14.161.22.8', [['code', 'H2LV-5QNC', 'K7QM-2PXA']]],
+  ['23 Sep, 21:48', 'Phan Minh Đức', 'attempt', 'Voided attempt', 'Attempt · Ngô Thanh Tùng', '27.72.100.3', [['status', 'submitted', 'void'], ['reason', '—', 'Wrong test assigned']]],
+  ['23 Sep, 15:02', 'Trần Quang', 'user', 'Disabled account', 'User · Lý Thanh Vân', '113.22.4.19', [['disabled_at', 'null', '2026-09-23 15:02']]],
+  ['23 Sep, 09:30', 'Hoàng Thương', 'class', 'Enrolled 3 students', 'Class · IELTS Foundation A', '14.161.22.8', [['members', '13', '16']]],
+  ['22 Sep, 18:20', 'Hoàng Thương', 'media', 'Deleted media file', 'Media · old-listening-01.mp3', '14.161.22.8', [['used_in', '0 questions', 'deleted']]],
+  ['22 Sep, 03:00', 'System', 'import', 'Removed import files under retention', 'Import · Midterm Listening.docx', '—', [['files', '2 files · 3.4 MB', 'removed'], ['history', 'kept', 'kept']]],
+  ['22 Sep, 10:05', 'Trần Quang', 'user', 'Changed role', 'User · Phan Minh Đức', '113.22.4.19', [['role', 'student', 'teacher']]],
+];
+const AUDIT_DOT = { attempt: 'var(--warning)', password: 'var(--danger)', test: 'var(--success)', class: 'var(--info)', user: 'var(--danger)', media: 'var(--muted-fg)', import: 'var(--warning)' };
+const PERMS = [
+  ['Content', [['Create and edit tests', null, [1, 1, 1, 0]], ['Publish tests', 'Makes a test assignable', [1, 1, 0, 0]], ['Manage question bank', null, [1, 1, 1, 0]], ['Upload and delete media', null, [1, 1, 0, 0]], ['Share own content with other teachers', 'Tests, questions, word lists and courses. Owners always see only their own content otherwise.', [1, 1, 0, 0]]]],
+  ['Teaching', [['Create classes', null, [1, 1, 0, 0]], ['Assign tests to classes', null, [1, 1, 1, 0]], ['Grade answers', null, [1, 1, 1, 0]], ['Reset, void or extend attempts', 'Recorded in the audit log', [1, 1, 0, 0]], ['Take attendance', null, [1, 1, 1, 0]]]],
+  ['People', [['See students in own classes', null, [1, 1, 1, 0]], ['Reset student passwords', 'Recorded in the audit log', [1, 1, 0, 0]], ['Add and disable users', null, [1, 0, 0, 0]], ['Change roles', null, [1, 0, 0, 0]]]],
+  ['System', [['View audit log', null, [1, 0, 0, 0]], ['Change system settings', null, [1, 0, 0, 0]], ['Take tests and view own results', null, [0, 0, 0, 1]]]],
+];
+const ROLE_NAMES = ['Admin', 'Teacher', 'Assistant', 'Student'];
+
+class Component extends DCLogic {
+  state = { route: 'overview', dark: false, collapsed: false, drawer: false, w: 1280, ws: false, userTab: 'all', userQ: '', sel: {}, sheet: null, add: false, nu: { name: '', email: '', role: 'student' }, confirm: null, toast: null, pages: {}, perms: null, classTab: 'active', codes: {}, auditOpen: {}, auditF: 'all', setTab: 'org', setDirty: false, org: null, signin: null, domains: null, domainDraft: '', roleOver: {}, statusOver: {}, extraUsers: [] };
+  rootRef = React.createRef();
+  roleTrack = React.createRef();
+
+  componentDidMount() {
+    try {
+      const a = JSON.parse(localStorage.getItem('qz-admin') || 'null');
+      const t = JSON.parse(localStorage.getItem('qz-teacher') || '{}');
+      this.setState({ route: (a && a.route) || 'overview', dark: a && a.dark != null ? a.dark : !!t.dark });
+    } catch (e) {}
+    const el = this.rootRef.current;
+    if (el && window.ResizeObserver) { this.ro = new ResizeObserver(() => requestAnimationFrame(() => { const w = el.getBoundingClientRect().width; if (Math.abs(w - this.state.w) > 1) this.setState({ w }); })); this.ro.observe(el); }
+    this.onKey = e => { if (e.key === 'Escape') this.setState({ sheet: null, add: false, confirm: null, ws: false, drawer: false, user: false, menu: null, form: null }); };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { this.ro && this.ro.disconnect(); window.removeEventListener('keydown', this.onKey); clearTimeout(this.tt); clearTimeout(this._ar); }
+  afterRender() {
+    const s = this.state;
+    if (s.route === 'roles' && s.hlRole) { const root = this.rootRef.current; const mx = root && root.querySelector('[data-perm-matrix]'); const b = mx && [...mx.querySelectorAll('[data-role-col]')][[...ROLE_NAMES, ...(s.extraRoles || []).map(r => r.name)].indexOf(s.hlRole)]; if (mx && b) { const a = mx.getBoundingClientRect(), r = b.getBoundingClientRect(); const rect = { l: Math.round(r.left - a.left - 4), w: Math.round(r.width + 8) }; if (!s.hlRect || s.hlRect.l !== rect.l || s.hlRect.w !== rect.w) this.setState({ hlRect: rect }); } }
+    else if (s.hlRect && !s.hlRole) this.setState({ hlRect: null });
+    const r = document.documentElement;
+    r.classList.toggle('dark', s.dark); r.style.colorScheme = s.dark ? 'dark' : 'light';
+    if (this.rootRef.current) this.rootRef.current.setAttribute('data-qz-theme', s.dark ? 'dark' : 'light');
+    const p = JSON.stringify({ route: s.route, dark: s.dark });
+    if (this._p !== p) { this._p = p; try { localStorage.setItem('qz-admin', p); } catch (e) {} }
+  }
+  go(route) { this.setState({ route, drawer: false, ws: false, sheet: null }); const m = this.rootRef.current && this.rootRef.current.querySelector('main'); if (m) m.scrollTop = 0; }
+  toast(msg) { clearTimeout(this.tt); this.setState({ toast: msg }); this.tt = setTimeout(() => this.setState({ toast: null }), 2600); }
+  pager(key, total, rows, noun) {
+    const st = this.state.pages[key] || {}; const size = st.size || 10;
+    const nPages = Math.max(1, Math.ceil(total / size)); const page = Math.min(st.page || 1, nPages);
+    const start = (page - 1) * size; const end = Math.min(total, start + size);
+    const out = []; for (let i = start; i < end; i++) out.push(rows[i % rows.length]);
+    const set = patch => this.setState(ss => ({ pages: { ...ss.pages, [key]: { ...(ss.pages[key] || {}), ...patch } } }));
+    return { rows: out, pg: { range: total ? (start + 1) + '–' + end + ' of ' + total.toLocaleString('en-US') + ' ' + noun : 'No ' + noun, page, pages: nPages, size: String(size), sizes: ['10', '20', '50'], onSize: e => set({ size: +e.target.value, page: 1 }), prev: () => set({ page: Math.max(1, page - 1) }), next: () => set({ page: Math.min(nPages, page + 1) }), prevOp: page <= 1 ? 0.45 : 1, nextOp: page >= nPages ? 0.45 : 1 } };
+  }
+
+  openMenu(e, build, opts) {
+    e && e.stopPropagation && e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect(); const w = (opts && opts.w) || 220;
+    const n = build().length; const hgt = Math.min(n * 34 + 16 + ((opts && opts.title) ? 24 : 0), window.innerHeight * 0.6);
+    let x = r.right - w; if (x < 8) x = Math.max(8, r.left); if (x + w > window.innerWidth - 8) x = window.innerWidth - w - 8;
+    let y = r.bottom + 4; if (y + hgt > window.innerHeight - 8) y = Math.max(8, r.top - hgt - 4);
+    this.setState({ menu: { x, y, w, build, title: (opts && opts.title) || null } });
+  }
+  openForm(def) {
+    const values = {}; (def.fields || []).forEach(f => { values[f.name] = f.def !== undefined ? f.def : (f.type === 'chips' || f.type === 'list' ? [] : f.type === 'toggle' ? false : f.type === 'select' || f.type === 'seg' ? (Array.isArray(f.opts[0]) ? f.opts[0][0] : f.opts[0]) : ''); });
+    this.setState({ form: { def, values, touched: false }, menu: null });
+  }
+  confirmForm(title, desc, label, go, danger, icon) { this.openForm({ title, desc, submit: label, danger, icon: icon || (danger ? 'triangle-alert' : null), fields: [], onSubmit: go }); }
+  engineVals(s) {
+    const m = s.menu;
+    const mn = m ? { open: true, x: m.x + 'px', y: m.y + 'px', w: m.w + 'px', title: m.title, items: m.build().map(it => { const isCheck = it.check !== undefined; return { label: it.label, icon: it.icon || 'dot', hasIcon: !!it.icon && !isCheck, isCheck, on: !!it.check, cbBg: it.check ? 'var(--primary)' : 'var(--card)', cbBorder: it.check ? 'var(--primary)' : 'var(--ring)', meta: it.meta || null, color: it.danger ? 'var(--danger-ink)' : 'var(--fg)', border: it.sep ? '1px solid var(--border)' : '0', op: it.disabled ? 0.45 : 1, go: () => { if (it.disabled) return; if (!isCheck) this.setState({ menu: null }); it.go && it.go(); } }; }) } : { open: false, x: '0', y: '0', w: '0', title: null, items: [] };
+    const F = s.form;
+    let fm = { open: false, fields: [], title: '', desc: null, cancel: () => {}, submit: () => {} };
+    if (F) {
+      const def = F.def, v = F.values;
+      const setV = (k, val) => this.setState(st => ({ form: st.form ? { ...st.form, values: { ...st.form.values, [k]: val } } : null }));
+      const ov = o => Array.isArray(o) ? { value: o[0], label: o[1], meta: o[2] } : { value: o, label: o };
+      const missing = (def.fields || []).filter(f => f.req && (Array.isArray(v[f.name]) ? !v[f.name].length : !String(v[f.name] || '').trim()));
+      const extraErr = def.validate ? def.validate(v) : null;
+      const ok = !missing.length && !extraErr;
+      const fields = (def.fields || []).filter(f => !f.when || f.when(v)).map(f => {
+        const val = v[f.name]; const err = F.touched && missing.includes(f) ? (f.errText || 'Required') : (F.touched && extraErr && extraErr[f.name]) || null;
+        const t = f.type || 'text';
+        const base = { label: f.label || '', showLabel: !!f.label && t !== 'toggle', optional: !f.req && !f.noOptional && ['text', 'email', 'date', 'time', 'area', 'file'].includes(t), hint: f.hint || null, err, placeholder: f.placeholder || '', border: err ? 'var(--danger)' : 'var(--border)',
+          isText: ['text', 'email', 'date', 'time', 'number', 'password'].includes(t), isArea: t === 'area', isSelect: t === 'select', isSeg: t === 'seg', isChips: t === 'chips', isList: t === 'list', isToggle: t === 'toggle', isFile: t === 'file', isInfo: t === 'info', isQr: t === 'qr', isPreview: t === 'preview', isIcons: t === 'icons', isColors: t === 'colors',
+          inputType: t === 'text' ? 'text' : t, value: val == null ? '' : val, onChange: e => setV(f.name, e.target.value), opts: [], rows: [], text: f.text || '', sub: f.sub || null };
+        if (t === 'select') base.opts = f.opts.map(ov);
+        if (t === 'seg') base.opts = f.opts.map(o => { const x = ov(o); const on = val === x.value; return { label: x.label, bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', shadow: on ? 'var(--shadow), 0 0 0 1px var(--border)' : 'none', go: () => setV(f.name, x.value) }; });
+        if (t === 'list') { const q = String(v['_q_' + f.name] || ''); Object.assign(base, { hasSearch: f.search !== false && f.opts.length > 5, q, onQ: e => setV('_q_' + f.name, e.target.value), searchPh: f.searchPh || 'Search', selCount: (val || []).length ? String(val.length) : null }); }
+        if (t === 'chips' || t === 'list') base.opts = f.opts.filter(o => { if (t !== 'list') return true; const q = String(v['_q_' + f.name] || '').trim().toLowerCase(); if (!q) return true; const x = ov(o); return (String(x.label) + ' ' + (x.meta || '')).toLowerCase().includes(q); }).map((o, i) => { const x = ov(o); const on = (val || []).includes(x.value); const tog = () => setV(f.name, on ? val.filter(y => y !== x.value) : [...(val || []), x.value]); return { label: x.label, meta: x.meta || null, on, go: tog, border: on ? 'var(--primary)' : t === 'list' ? 'var(--ring)' : 'var(--border)', bg: on ? 'var(--primary)' : 'var(--card)', fg: on ? 'var(--primary-fg)' : 'var(--fg)', box: on ? 'var(--primary)' : 'var(--card)', rowBg: on ? 'var(--muted)' : 'transparent', sep: i ? '1px solid var(--border)' : '0' }; });
+        if (t === 'icons') base.opts = f.opts.map(o => { const x = ov(o); const on = val === x.value; return { value: x.value, label: x.label, border: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary)' : 'var(--card)', fg: on ? 'var(--primary-fg)' : 'var(--fg)', go: () => setV(f.name, x.value) }; });
+        if (t === 'colors') base.opts = f.opts.map(o => { const on = val === o[0]; return { value: o[1], label: o[2], on, fg: o[3] || 'var(--fg)', ring: on ? '0 0 0 2px var(--card), 0 0 0 4px var(--primary)' : 'none', go: () => setV(f.name, o[0]) }; });
+        if (t === 'toggle') Object.assign(base, { track: val ? 'var(--primary)' : 'var(--border)', side: val ? 'flex-end' : 'flex-start', toggle: () => setV(f.name, !val) });
+        if (t === 'file') Object.assign(base, { pick: () => setV(f.name, val ? '' : (f.sample || 'file.csv')), fileTitle: val ? val : (f.placeholder || 'Choose a file or drop it here'), fileHint: val ? 'Click to remove' : (f.accept || ''), fileIcon: val ? 'file-check' : 'upload', fileIconColor: val ? 'var(--success-ink)' : 'var(--muted-fg)', fileBg: val ? 'var(--muted)' : 'transparent' });
+        if (t === 'info') base.rows = (typeof f.rows === 'function' ? f.rows(v) : f.rows).map((r, i) => ({ icon: r.icon, color: r.color || 'var(--muted-fg)', text: r.text, action: r.action || null, go: r.go || (() => {}), border: i ? '1px solid var(--border)' : '0' }));
+        if (t === 'qr') Object.assign(base, { value: f.value, text: f.text });
+        if (t === 'preview') { const items = f.items; const i = Math.max(0, Math.min(items.length - 1, val || 0)); const it = items[i]; Object.assign(base, { text: f.text, pos: (i + 1) + ' / ' + items.length, kicker: it.kicker, prompt: it.prompt, opts: (it.opts || []).map((o, j) => ({ label: o, letter: 'ABCDE'[j], radius: it.multi ? '5px' : '50%' })), prev: () => setV(f.name, Math.max(0, i - 1)), next: () => setV(f.name, Math.min(items.length - 1, i + 1)) }); }
+        if (t === 'list') base.noMatch = base.opts.length === 0;
+        return base;
+      });
+      const close = () => this.setState({ form: null });
+      fm = { open: true, title: typeof def.title === 'function' ? def.title(v) : def.title, desc: (typeof def.desc === 'function' ? def.desc(v) : def.desc) || null, hasIcon: !!def.icon, icon: def.icon || 'dot', iconBg: def.danger ? 'var(--danger-soft)' : 'var(--muted)', iconFg: def.danger ? 'var(--danger-ink)' : 'var(--fg)', w: def.w || '480px', top: def.top || '8vh', hasFields: fields.length > 0, fields,
+        hasCancel: def.cancel !== false, cancelLabel: def.cancelLabel || 'Cancel', submitLabel: typeof def.submit === 'function' ? def.submit(v) : (def.submit || 'Save'), btnBg: def.danger ? 'var(--danger)' : 'var(--primary)', btnFg: def.danger ? '#fff' : 'var(--primary-fg)', op: ok ? 1 : 0.5,
+        cancel: close, submit: () => { if (!ok) { this.setState(st => ({ form: { ...st.form, touched: true } })); return; } const keep = def.onSubmit && def.onSubmit(v); if (keep !== false) close(); } };
+    }
+    return { mn, fm, closeMenu: () => this.setState({ menu: null }) };
+  }
+  apiVals(s) {
+    const a = s.api || {}; const set = p => this.setState(st => ({ api: { ...(st.api || {}), ...p } }));
+    const G = [['Auth & account', 'key-round', 12, 'Sign in, Google linking, sessions, password changes.', '/auth/*'], ['Users & roles', 'users', 14, 'Accounts, roles, permissions and password resets.', '/admin/users/*'], ['Classes', 'graduation-cap', 11, 'Classes, members and join codes.', '/admin/classes/*'], ['Tests & versions', 'file-text', 19, 'Drafts, groups, publishing, versions and preview.', '/admin/tests/{id}/versions/*'], ['Question bank', 'library', 16, 'Questions, groups, tags and search.', '/admin/questions/*'], ['Assignments', 'clipboard-list', 13, 'Assign versions to classes and students.', '/admin/assignments/*'], ['Attempts & grading', 'square-pen', 18, 'Student attempts, monitoring, grading and results.', '/attempts/*'], ['Word import', 'file-up', 14, 'Upload, processing, review and commit.', '/admin/imports/*'], ['Media', 'image', 7, 'Audio and image uploads and references.', '/admin/media/*'], ['Audit log', 'scroll-text', 3, 'Read-only history of sensitive changes.', '/admin/audit-log']];
+    const total = G.reduce((n, g) => n + g[2], 0);
+    const open = anchor => { if (a.pending) return; set({ pending: true, problem: null }); clearTimeout(this.apiT); this.apiT = setTimeout(() => { set({ pending: false }); this.toast('API reference opened in a new tab' + (anchor ? ' at ' + anchor : '')); }, 700); };
+    return { api: {
+      version: 'v0.6.0', count: String(total), base: 'https://api.quizzivy.com/v1',
+      open: () => open(null), pending: !!a.pending, op: a.pending ? 0.7 : 1, icon: a.pending ? 'loader' : 'external-link', label: a.pending ? 'Opening…' : 'Open reference',
+      download: () => this.toast('Downloading openapi.yaml'),
+      copyBase: () => { try { navigator.clipboard.writeText('https://api.quizzivy.com/v1'); } catch (e) {} set({ copied: true }); clearTimeout(this.apiC); this.apiC = setTimeout(() => set({ copied: false }), 1600); },
+      copyIcon: a.copied ? 'check' : 'copy', copyLabel: a.copied ? 'Copied' : 'Copy',
+      problem: !!a.problem, problemText: a.problem === 'blocked' ? 'Your browser blocked the new tab. Allow pop-ups for quizzivy.com, then try again.' : 'Couldn’t open the reference. Check your connection and try again.',
+      groups: G.map(g => ({ name: g[0], icon: g[1], n: g[2], desc: g[3], path: g[4], go: () => open(g[0]) })),
+    } };
+  }
+  renderVals() { return { ...this.renderValsA(), ...this.apiVals(this.state) }; }
+  renderValsA() { const v = this.renderValsInner(); return { ...v, ...this.engineVals(this.state), ...this.wireA(this.state, v) }; }
+  wireA(s, v) {
+    const F = d => this.openForm(d), T = m => this.toast(m);
+    const CLS = CLASSES.map(c => c[0]); const TEACH = [...new Set(CLASSES.map(c => c[2]))];
+    const selIds = Object.keys(s.sel || {}).filter(k => s.sel[k]);
+    const out = {};
+    out.userMenu = (v.userMenu || []).map(m => m.label === 'Sign out' ? { ...m, go: () => { window.location.href = 'Quizzivy Sign in.dc.html#login'; } } : m);
+    out.toastImport = () => F({ title: 'Import users', desc: 'Columns: full_name, email, role, class. Everyone gets a temporary password.', icon: 'upload', w: '520px', submit: x => x.f ? 'Import 28 people' : 'Import', fields: [{ name: 'f', type: 'file', label: 'File', req: true, accept: 'CSV or XLSX · up to 5 MB', sample: 'new-students-october.csv' }, { name: 'preview', type: 'info', label: 'Preview', when: x => !!x.f, rows: [{ icon: 'circle-check', color: 'var(--success-ink)', text: '26 new accounts' }, { icon: 'circle-alert', color: 'var(--warning-ink)', text: '2 emails already exist and will be skipped' }, { icon: 'graduation-cap', text: 'Adds them to TOEIC 600 Weekend and IELTS Foundation A' }] }, { name: 'role', type: 'seg', label: 'Role if the file has none', opts: ['Student', 'Teacher'] }, { name: 'mail', type: 'toggle', text: 'Email sign-in details', sub: 'Otherwise download a sheet to hand out', def: true }], onSubmit: () => { this.setState({ route: 'users' }); T('26 accounts created · 2 skipped'); } });
+    out.bulkActions = (v.bulkActions || []).map(b => b.label === 'Add to class' ? { ...b, go: () => F({ title: 'Add ' + selIds.length + ' people to a class', icon: 'graduation-cap', submit: 'Add to class', fields: [{ name: 'c', type: 'select', label: 'Class', opts: CLS }], onSubmit: x => { this.setState({ sel: {} }); T(selIds.length + ' added to ' + x.c); } }) } : b);
+    out.toastRole = () => F({ title: 'New role', desc: 'Starts with the permissions of the role you copy. Change them in the table after.', icon: 'key-round', submit: 'Create role', fields: [{ name: 'name', label: 'Role name', req: true, placeholder: 'Head teacher' }, { name: 'from', type: 'seg', label: 'Copy permissions from', opts: ['Teacher', 'Assistant', 'Student'] }, { name: 'desc', label: 'Description', placeholder: 'Leads the IELTS team' }], validate: x => [...ROLE_NAMES, ...(this.state.extraRoles || []).map(r => r.name)].some(n => n.toLowerCase() === (x.name || '').trim().toLowerCase()) ? { name: 'A role with this name already exists' } : null, onSubmit: x => { const ci = ROLE_NAMES.indexOf(x.from); const src = (this.state.perms || PERMS.map(g => g[1].map(p => [...p[2]]))); const copy = PERMS.map((g, gi) => g[1].map((p, pi) => src[gi][pi][ci] ? 1 : 0)); const nm = x.name.trim(); this.setState(st => ({ extraRoles: [...(st.extraRoles || []), { name: nm, desc: x.desc || 'Starts with the ' + x.from + ' permissions.' }], rolePerms: { ...(st.rolePerms || {}), [nm]: copy } })); T('Role created: ' + nm + '. Its column is in the table below.'); setTimeout(() => { const tr = this.roleTrack.current; if (tr) tr.scrollTo({ left: tr.scrollWidth, behavior: 'smooth' }); }, 60); } });
+    const extra = s.extraRoles || [];
+    const rp = s.rolePerms || {};
+    const baseCols = ROLE_NAMES.length;
+    const names = [...ROLE_NAMES, ...extra.map(r => r.name)];
+    const hl = s.hlRole;
+    const pg = (v.permGroups || []).map((g, gi) => ({ ...g, rows: g.rows.map((r, pi) => ({ ...r, cells: [...r.cells, ...extra.map(x => { const on = !!((rp[x.name] || [])[gi] || [])[pi]; return { on, label: x.name + ': ' + r.label, title: '', bg: on ? 'var(--primary)' : 'var(--card)', border: on ? 'var(--primary)' : 'var(--ring)', cursor: 'pointer', op: 1, go: () => this.setState(st => { const cur = (st.rolePerms || {})[x.name].map(a => [...a]); cur[gi][pi] = cur[gi][pi] ? 0 : 1; return { rolePerms: { ...st.rolePerms, [x.name]: cur }, extraDirty: true }; }) }; })] })) }));
+    out.permGroups = pg;
+    const meta = s.roleMeta || {};
+    out.roleHeads = names.map(n => ({ label: (meta[n] && meta[n].name) || n, go: () => this.setState({ hlRole: this.state.hlRole === n ? null : n }) }));
+    out.hlOn = !!hl && !!s.hlRect; out.hlLeft = s.hlRect ? s.hlRect.l + 'px' : '0'; out.hlW = s.hlRect ? s.hlRect.w + 'px' : '0';
+    out.permCols = 'minmax(240px,2fr) repeat(' + names.length + ',104px)';
+    out.permMinW = (272 + names.length * 112) + 'px';
+    const permCount = ci => pg.reduce((n, g) => n + g.rows.reduce((m, r) => m + (r.cells[ci] && r.cells[ci].on ? 1 : 0), 0), 0);
+    const PAL = { dark: ['var(--primary)', 'var(--primary-fg)', 'transparent', 'rgba(127,127,127,.22)', 'rgba(127,127,127,.4)', 'rgba(127,127,127,.12)'], lime: ['var(--accent-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], blue: ['var(--info-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], gray: ['var(--muted)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], amber: ['var(--warning-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], rose: ['var(--danger-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], green: ['var(--success-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'] };
+    const DEFC = ['dark', 'lime', 'blue', 'gray', 'amber'];
+    const THEME = [['var(--primary)', 'var(--primary-fg)', 'transparent', 'rgba(127,127,127,.22)', 'rgba(127,127,127,.4)', 'rgba(127,127,127,.12)'], ['var(--accent-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], ['var(--info-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], ['var(--muted)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)'], ['var(--warning-soft)', 'var(--fg)', 'var(--border)', 'var(--card)', 'var(--border)', 'var(--card)']];
+    const jump = n => { this.setState({ hlRole: n }); const main = this.rootRef.current && this.rootRef.current.querySelector('main'); const el = main && main.querySelector('[data-perm-matrix]'); if (main && el) main.scrollTo({ top: main.scrollTop + el.getBoundingClientRect().top - main.getBoundingClientRect().top - 16, behavior: 'smooth' }); };
+    const cards = [...(v.roleCards || []), ...extra.map(r => ({ name: r.name, icon: 'key-round', desc: r.desc, count: '0', custom: true }))];
+    const ICONS = ['shield', 'graduation-cap', 'hand-helping', 'user', 'key-round', 'crown', 'briefcase', 'book-open', 'users', 'clipboard-check', 'headset', 'star'];
+    const editRole = (c, ck, col) => F({ title: 'Edit role', desc: ck === 'Admin' ? 'Admins always keep every permission.' : 'Changes show everywhere this role appears.', icon: 'pencil', w: '500px', submit: 'Save role', fields: [{ name: 'icon', type: 'icons', label: 'Icon', opts: ICONS.map(x => [x, x.replace(/-/g, ' ')]), def: c.icon }, { name: 'name', label: 'Name', req: true, def: c.name }, { name: 'desc', type: 'area', label: 'Description', def: c.desc }, { name: 'color', type: 'colors', label: 'Card colour', opts: [['dark', 'var(--primary)', 'Dark', 'var(--primary-fg)'], ['lime', 'var(--accent-soft)', 'Lime'], ['blue', 'var(--info-soft)', 'Blue'], ['green', 'var(--success-soft)', 'Green'], ['amber', 'var(--warning-soft)', 'Amber'], ['rose', 'var(--danger-soft)', 'Rose'], ['gray', 'var(--muted)', 'Gray']], def: col }], validate: x => names.some(n => n !== ck && ((meta[n] && meta[n].name) || n).toLowerCase() === (x.name || '').trim().toLowerCase()) ? { name: 'Another role already uses this name' } : null, onSubmit: x => { this.setState(st => ({ roleMeta: { ...(st.roleMeta || {}), [ck]: { name: x.name.trim(), desc: x.desc, icon: x.icon, color: x.color } } })); T('Role saved'); } });
+    out.roleCards = cards.map((c0, i) => { const ck = c0.name; const m = meta[ck] || {}; const col = m.color || DEFC[Math.min(i, 4)]; const t = PAL[col]; const c = { ...c0, name: m.name || c0.name, desc: m.desc != null ? m.desc : c0.desc, icon: m.icon || c0.icon }; return { ...c, editRole: () => editRole(c, ck, col), custom: !!c.custom, perms: String(permCount(i)), bg: t[0], fg: t[1], border: t[2], iconBg: t[3], btnBorder: t[4], btnBg: t[5], edit: () => jump(ck) }; });
+    const tw = (s.w || 1200) - ((s.w || 1200) < 768 ? 28 : (s.collapsed ? 60 : 248) + 56);
+    const per = tw >= 1000 ? 3 : tw >= 640 ? 2 : 1;
+    out.slideW = per === 3 ? 'calc((100% - 24px) / 3)' : per === 2 ? 'calc((100% - 12px) / 2)' : '86%';
+    const pages = Math.max(1, cards.length - per + 1); const at = Math.min(s.roleAt || 0, pages - 1);
+    out.roleTrack = this.roleTrack;
+    const scrollTo = k => { const tr = this.roleTrack.current; if (!tr) return; const kid = tr.children[k]; if (kid) tr.scrollTo({ left: kid.offsetLeft - tr.offsetLeft, behavior: 'smooth' }); };
+    out.onRoleScroll = e => { const tr = e.currentTarget; const kids = [...tr.children]; let k = 0; kids.forEach((c, i) => { if (Math.abs(c.offsetLeft - tr.offsetLeft - tr.scrollLeft) < Math.abs(kids[k].offsetLeft - tr.offsetLeft - tr.scrollLeft)) k = i; }); const end = tr.scrollLeft + tr.clientWidth >= tr.scrollWidth - 4; const idx = end ? pages - 1 : Math.min(k, pages - 1); if (idx !== (this.state.roleAt || 0)) this.setState({ roleAt: idx }); };
+    out.rolePrev = () => scrollTo(Math.max(0, at - 1)); out.roleNext = () => scrollTo(Math.min(cards.length - 1, at + 1));
+    out.prevOp = at > 0 ? 1 : 0; out.prevOpPe = at > 0 ? 'auto' : 'none'; out.nextOp = at < pages - 1 ? 1 : 0; out.nextOpPe = at < pages - 1 ? 'auto' : 'none';
+    out.roleDots = Array.from({ length: pages }, (_, k) => ({ label: 'Go to slide ' + (k + 1), w: k === at ? '22px' : '6px', bg: k === at ? 'var(--fg)' : 'var(--border)', go: () => scrollTo(k) }));
+    if (s.extraDirty) { out.rolesDirty = true; out.rolesDirtyText = 'Custom role permissions changed. People get them on their next page load.'; out.rolesDiscard = () => this.setState({ perms: null, extraDirty: false }); out.rolesSave = () => { this.setState({ perms: null, extraDirty: false }); T('Permissions saved'); }; }
+    const classForm = (c) => F({ title: c ? 'Edit class' : 'New class', desc: c ? null : 'A join code is created for students.', icon: c ? 'pencil' : 'graduation-cap', submit: c ? 'Save changes' : 'Create class', fields: [{ name: 'name', label: 'Class name', req: true, def: c ? c.name : '', placeholder: 'IELTS 7.0 Morning' }, { name: 't', type: 'select', label: 'Teacher', opts: TEACH, def: c ? c.teacher : TEACH[0] }, { name: 'sch', label: 'Schedule', def: c ? c.schedule : '', placeholder: 'Mon · Wed, 09:00' }], onSubmit: x => { if (c) { T('Class updated'); return; } const r = () => Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'X'); this.setState(st => ({ extraCls: [{ name: x.name.trim(), teacher: x.t, schedule: x.sch || 'No schedule yet', code: r() + '-' + r() }, ...(st.extraCls || [])] })); T('Class created'); } });
+    out.toastClass = () => classForm(null);
+    const arch = s.archivedCls || [];
+    const exRows = (s.extraCls || []).map(c => ({ name: c.name, schedule: c.schedule, subline: c.schedule, teacher: c.teacher, tInit: initials(c.teacher), students: 0, code: c.code, created: 'Just now', rotate: () => T('New join code created') }));
+    out.classRows = [...(s.classTab === 'archived' ? [] : exRows), ...(v.classRows || [])].filter(c => s.classTab === 'archived' || !arch.includes(c.name)).map(c => ({ ...c, menu: e => this.openMenu(e, () => [{ label: 'Edit class', icon: 'pencil', go: () => classForm(c) }, { label: 'Change teacher', icon: 'user-round-cog', go: () => F({ title: 'Change teacher', desc: c.name, icon: 'user-round-cog', submit: 'Change', fields: [{ name: 't', type: 'select', label: 'New teacher', opts: TEACH, def: c.teacher }, { name: 'n', type: 'toggle', text: 'Tell both teachers', def: true }], onSubmit: x => T(c.name + ' now taught by ' + x.t) }) }, { label: 'Rotate join code', icon: 'refresh-cw', go: c.rotate }, arch.includes(c.name) || s.classTab === 'archived' ? { label: 'Restore class', icon: 'archive-restore', sep: true, go: () => this.setState(st => ({ archivedCls: (st.archivedCls || []).filter(n => n !== c.name) })) } : { label: 'Archive class', icon: 'archive', danger: true, sep: true, go: () => this.confirmForm('Archive ' + c.name + '?', 'Students can no longer join or start tests. Results are kept.', 'Archive', () => this.setState(st => ({ archivedCls: [...(st.archivedCls || []), c.name] })), true) }]) }));
+    out.toastExport = () => F({ title: 'Export audit log', icon: 'download', submit: 'Export', fields: [{ name: 'range', type: 'seg', label: 'Period', opts: ['Last 7 days', 'Last 30 days', 'This year'] }, { name: 'fmt', type: 'seg', label: 'Format', opts: ['CSV', 'JSON'] }, { name: 'f', type: 'toggle', text: 'Only the current filter', def: s.auditF !== 'all' }], onSubmit: x => T('Exporting ' + x.range.toLowerCase() + ' as ' + x.fmt) });
+    out.toastLogo = () => F({ title: 'Replace logo', icon: 'image', submit: 'Save logo', fields: [{ name: 'f', type: 'file', req: true, accept: 'Square SVG or PNG, at least 256 × 256', sample: 'centre-logo.svg' }, { name: 'dark', type: 'file', label: 'Version for dark mode', accept: 'Optional · light logo on transparent', sample: 'centre-logo-dark.svg' }], onSubmit: () => { this.setState({ setDirty: true }); T('Logo uploaded. Save settings to apply.'); } });
+    out.toastExportAll = () => F({ title: 'Export all data?', desc: 'Users, classes, tests and results as a ZIP. The download link expires after 24 hours.', icon: 'download', submit: 'Request export', fields: [{ name: 'email', type: 'email', label: 'Send the link to', def: 'quang.tran@quizzivy.com', req: true }, { name: 'ans', type: 'toggle', text: 'Include attempt answers', sub: 'Makes the file much larger', def: false }], onSubmit: x => T('Export requested. Link goes to ' + x.email) });
+    return out;
+  }
+  renderValsInner() {
+    clearTimeout(this._ar); this._ar = setTimeout(() => this.afterRender(), 0);
+    const s = this.state, w = s.w;
+    const isMobile = w < 768, collapsed = !isMobile && s.collapsed, showLabels = isMobile || !collapsed;
+    const avail = w - (isMobile ? 28 : (collapsed ? 60 : 248) + 56);
+    const route = s.route;
+    const item = (id, label, icon, count) => { const on = route === id; return { label, icon, showLabel: showLabels, count: count && showLabels ? String(count) : null, bg: on ? 'var(--hover)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', weight: on ? 500 : 400, justify: showLabels ? 'flex-start' : 'center', go: () => this.go(id) }; };
+    const navGroups = [
+      { label: '', showLabel: false, items: [item('overview', 'Overview', 'layout-dashboard')] },
+      { label: 'People', showLabel: showLabels, items: [item('users', 'Users', 'users', 4), item('roles', 'Roles & permissions', 'key-round')] },
+      { label: 'Teaching', showLabel: showLabels, items: [item('classes', 'Classes', 'graduation-cap')] },
+      { label: 'System', showLabel: showLabels, items: [item('audit', 'Audit log', 'scroll-text'), item('apiref', 'API reference', 'book-open-text'), item('settings', 'Settings', 'settings')] },
+    ];
+    const titles = { overview: 'Overview', users: 'Users', roles: 'Roles & permissions', classes: 'Classes', audit: 'Audit log', apiref: 'API reference', settings: 'Settings' };
+    const r = { overview: route === 'overview', users: route === 'users', roles: route === 'roles', classes: route === 'classes', audit: route === 'audit', apiref: route === 'apiref', settings: route === 'settings' };
+
+    // users
+    const allUsers = [...s.extraUsers, ...USERS].map((u, i) => ({ id: u[1], name: u[0], email: u[1], role: s.roleOver[u[1]] || u[2], methods: u[3], classes: u[4], last: u[5], status: s.statusOver[u[1]] || u[6] }));
+    const q = s.userQ.trim().toLowerCase();
+    const tabFilter = u => s.userTab === 'all' ? u.status !== 'disabled' || true : s.userTab === 'disabled' ? u.status === 'disabled' : u.role === s.userTab;
+    const filtered = allUsers.filter(u => tabFilter(u) && (!q || u.name.toLowerCase().includes(q) || u.email.includes(q)));
+    const fake = q ? filtered.length : (TOTALS[s.userTab] || filtered.length) + (s.userTab === 'all' || s.userTab === 'student' ? s.extraUsers.length : 0);
+    const up = this.pager('users', filtered.length ? fake : 0, filtered, 'users');
+    const pageIds = [...new Set(up.rows.map(u => u.id))];
+    const selIds = Object.keys(s.sel).filter(k => s.sel[k]);
+    const allOn = pageIds.length > 0 && pageIds.every(id => s.sel[id]);
+    const someOn = !allOn && pageIds.some(id => s.sel[id]);
+    const methodsOf = m => [m.includes('p') && { icon: 'key-round', label: 'Password', isIcon: true, isGoogle: false }, m.includes('g') && { icon: 'chrome', label: 'Google', isIcon: false, isGoogle: true }].filter(Boolean);
+    const su = allUsers.find(u => u.id === s.sheet) || allUsers[0];
+    const confirmSet = (title, body, label, go, danger) => this.setState({ confirm: { title, body, label, go, danger } });
+
+    // perms
+    const perms = s.perms || PERMS.map(g => g[1].map(p => [...p[2]]));
+    const permsDirtyN = s.perms ? PERMS.reduce((n, g, gi) => n + g[1].reduce((m, p, pi) => m + p[2].filter((v, ri) => v !== perms[gi][pi][ri]).length, 0), 0) : 0;
+
+    // classes
+    const cls = CLASSES.filter(c => s.classTab === 'active' ? c[6] : !c[6]);
+
+    // audit
+    const auditRows = AUDIT.filter(a => s.auditF === 'all' || a[2] === s.auditF || (s.auditF === 'user' && a[2] === 'password'));
+    const ap = this.pager('audit', s.auditF === 'all' ? 1248 : auditRows.length * 12, auditRows.length ? auditRows : AUDIT, 'entries');
+
+    // settings
+    const org = { name: 'Quizzivy English Centre', short: 'Quizzivy', site: 'quizzivy.com', ...(s.org || {}) };
+    const signin = { google: 1, password: 1, force: 1, selfJoin: 1, ...(s.signin || {}) };
+    const domains = s.domains || ['quizzivy.com', 'gmail.com'];
+    const addDomain = v => { v = (v || '').trim().toLowerCase().replace(/^@/, ''); if (!v) return; this.setState(st => { const d = st.domains || ['quizzivy.com', 'gmail.com']; return { domains: d.includes(v) ? d : [...d, v], domainDraft: '', setDirty: true }; }); };
+    const sw = (on, go) => ({ track: on ? 'var(--primary)' : 'var(--border)', side: on ? 'flex-end' : 'flex-start', go });
+
+    const nu = s.nu;
+    const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nu.email);
+    const emailTaken = allUsers.some(u => u.email.toLowerCase() === nu.email.trim().toLowerCase());
+    const cf = s.confirm || { title: '', body: '', label: '', go: () => {} };
+    const tw = avail; // table width
+    const uc = { role: tw >= 640, status: tw >= 560, last: tw >= 820, classes: tw >= 960, signin: tw >= 1080 };
+    const uCards = tw < 560;
+    const uCols = ['36px', 'minmax(200px,2.4fr)', uc.role && '112px', uc.signin && '150px', uc.classes && 'minmax(130px,1.3fr)', uc.last && '110px', uc.status && 'minmax(96px,150px)', '40px'].filter(Boolean).join(' ');
+    const cc = { teacher: tw >= 600, code: tw >= 760, created: tw >= 900 };
+    const cCols = ['minmax(180px,2fr)', cc.teacher && 'minmax(150px,1.4fr)', '80px', cc.code && '130px', cc.created && '100px', '40px'].filter(Boolean).join(' ');
+    const ac = { when: tw >= 700, whenInline: tw < 700, entity: tw >= 860, entityInline: tw < 860, ip: tw >= 1040 };
+    const aCols = [ac.when && '130px', 'minmax(150px,1.2fr)', 'minmax(200px,2fr)', ac.entity && 'minmax(150px,1.2fr)', ac.ip && '120px', '32px'].filter(Boolean).join(' ');
+
+    const pagesForChart = [132, 150, 171, 164, 188, 96, 88, 176, 190, 201, 214, 183, 197, 209];
+    return {
+      rootRef: this.rootRef, isMobile, notMobile: !isMobile, showLabels,
+      sbPos: isMobile ? 'absolute' : 'relative', sbTransform: isMobile && !s.drawer ? 'translateX(-100%)' : 'none', sbW: isMobile ? '272px' : (collapsed ? '60px' : '248px'),
+      sbIcon: isMobile ? 'menu' : 'panel-left', drawerOpen: isMobile && s.drawer,
+      toggleSidebar: () => isMobile ? this.setState({ drawer: !s.drawer }) : this.setState({ collapsed: !s.collapsed }), closeDrawer: () => this.setState({ drawer: false }),
+      wsOpen: s.ws, toggleWs: () => this.setState({ ws: !s.ws, user: false }),
+      userMenuOpen: !!s.user, toggleUser: () => this.setState({ user: !s.user, ws: false }),
+      userBtnBg: s.user ? 'var(--hover)' : 'transparent', userJustify: showLabels ? 'flex-start' : 'center',
+      userMenu: [
+        { icon: 'settings', label: 'System settings', color: 'var(--fg)', border: '0', go: () => this.setState({ user: false, route: 'settings', setTab: 'org' }) },
+        { icon: 'book-open-text', label: 'API reference', color: 'var(--fg)', border: '0', go: () => this.setState({ user: false, route: 'apiref' }) },
+        { icon: 'graduation-cap', label: 'Teacher workspace', color: 'var(--fg)', border: '0', ext: true, go: () => { window.location.href = 'Quizzivy Teacher.dc.html'; } },
+        { icon: s.dark ? 'sun' : 'moon', label: s.dark ? 'Light mode' : 'Dark mode', color: 'var(--fg)', border: '0', go: () => this.setState({ dark: !s.dark, user: false }) },
+        { icon: 'log-out', label: 'Sign out', color: 'var(--danger-ink)', border: '1px solid var(--border)', go: () => { this.setState({ user: false }); this.toast('Signed out'); } },
+      ],
+      navGroups, pageTitle: titles[route], r, mainPad: isMobile ? '16px 14px 32px' : '24px 28px 40px',
+      themeIcon: s.dark ? 'sun' : 'moon', toggleTheme: () => this.setState({ dark: !s.dark }),
+      kpiCols: avail >= 900 ? 'repeat(4,minmax(0,1fr))' : 'repeat(2,minmax(0,1fr))',
+      kpis: [
+        { label: 'Active this week', icon: 'activity', value: '264', hint: '85% of 312 people', go: () => this.go('users') },
+        { label: 'Teachers', icon: 'graduation-cap', value: '9', hint: '1 disabled', go: () => this.setState({ route: 'users', userTab: 'teacher' }) },
+        { label: 'Students', icon: 'users', value: '300', hint: '+18 this month', go: () => this.setState({ route: 'users', userTab: 'student' }) },
+        { label: 'Classes', icon: 'layout-grid', value: '14', hint: '1 archived', go: () => this.go('classes') },
+      ],
+      chart: pagesForChart.map((v, i) => ({ t: Math.round(12 / 220 * 100) + '%', s: Math.round((v - 12) / 220 * 100) + '%', label: isMobile && i % 2 ? '' : String(11 + i), tip: v + ' people · ' + (11 + i) + ' Sep' })),
+      attention: [
+        { icon: 'key-round', bg: 'var(--warning-soft)', fg: 'var(--warning-ink)', title: '4 people must change their password', hint: 'Temporary password not replaced yet', go: () => this.setState({ route: 'users', userTab: 'all', userQ: '' }) },
+        { icon: 'user-x', bg: 'var(--muted)', fg: 'var(--muted-fg)', title: '11 accounts never signed in', hint: 'Oldest created 5 weeks ago', go: () => this.go('users') },
+        { icon: 'graduation-cap', bg: 'var(--info-soft)', fg: 'var(--info-ink)', title: '1 class has a disabled teacher', hint: 'Summer Camp 2026 · Lý Thanh Vân', go: () => this.setState({ route: 'classes', classTab: 'archived' }) },
+        { icon: 'hard-drive', bg: 'var(--muted)', fg: 'var(--muted-fg)', title: 'Storage: media 25%, imports 30%', hint: 'Media 1.25 GB of 5 GB · Import documents 0.6 GB of 2 GB', go: () => this.setState({ route: 'settings', setTab: 'storage' }) },
+      ],
+      recentAudit: AUDIT.slice(0, 5).map(a => ({ actor: a[1], initials: initials(a[1]), text: a[3].charAt(0).toLowerCase() + a[3].slice(1) + ' · ' + a[4].split(' · ')[1], time: a[0].split(', ')[1] })),
+      storage: [['Media', '1.25 GB of 5 GB', 25, 'var(--accent-c)'], ['Import documents', '0.6 GB of 2 GB', 30, 'var(--warning)'], ['Seats', '312 of 400 people', 78, 'var(--info)'], ['Attempts kept', '18,420 attempts', 46, 'var(--muted-fg)']].map(x => ({ label: x[0], value: x[1], pct: x[2] + '%', color: x[3] })),
+      storage2: null,
+      goAudit: () => this.go('audit'),
+      openAddUser: () => this.setState({ add: true, nu: { name: '', email: '', role: 'student', touched: false } }),
+      toastImport: () => this.toast('Import CSV · columns: full_name, email, role, class'),
+      userTabs: [['all', 'All'], ['teacher', 'Teachers'], ['student', 'Students'], ['admin', 'Admins'], ['disabled', 'Disabled']].map(([id, label]) => ({ label, count: String(TOTALS[id] + ((id === 'all' || id === 'student') ? s.extraUsers.length : 0)), ...SEGSTYLE(s.userTab === id), go: () => this.setState(st => ({ userTab: id, pages: { ...st.pages, users: { ...(st.pages.users || {}), page: 1 } } })) })),
+      userQ: s.userQ, onUserQ: e => { const v = e.target.value; this.setState(st => ({ userQ: v, pages: { ...st.pages, users: { ...(st.pages.users || {}), page: 1 } } })); },
+      hasSel: selIds.length > 0, selCount: String(selIds.length),
+      clearSel: () => this.setState({ sel: {} }),
+      bulkActions: [
+        { label: 'Reset password', icon: 'key-round', go: () => confirmSet('Reset ' + selIds.length + ' passwords?', 'Each person gets a temporary password and must change it when they next sign in. This is recorded in the audit log.', 'Reset passwords', () => { this.setState({ sel: {}, confirm: null }); this.toast(selIds.length + ' passwords reset'); }) },
+        { label: 'Add to class', icon: 'graduation-cap', go: () => this.toast('Pick a class for ' + selIds.length + ' people') },
+        { label: 'Disable', icon: 'user-x', go: () => confirmSet('Disable ' + selIds.length + ' accounts?', 'They are signed out and cannot sign in. Their results are kept.', 'Disable', () => { this.setState(st => { const so = { ...st.statusOver }; selIds.forEach(id => so[id] = 'disabled'); return { statusOver: so, sel: {}, confirm: null }; }); this.toast('Accounts disabled'); }, true) },
+      ],
+      toggleAll: () => this.setState(st => { const sel = { ...st.sel }; pageIds.forEach(id => { sel[id] = !allOn; }); return { sel }; }),
+      allOn, allSome: someOn, allBg: allOn || someOn ? 'var(--primary)' : 'var(--card)', allBorder: allOn || someOn ? 'var(--primary)' : 'var(--ring)',
+      userRows: up.rows.map(u => { const on = !!s.sel[u.id]; const hidden = [!uc.role && ROLE[u.role][0], !uc.last && u.last !== '—' && u.last].filter(Boolean); return { ...u, subline: hidden.length ? u.email + ' · ' + hidden.join(' · ') : u.email, initials: initials(u.name), role: ROLE[u.role][0], roleIcon: ROLE[u.role][1], methods: methodsOf(u.methods), st: { ...STATUS[u.status], short: !uc.last && u.status === 'pending' ? 'Change password' : STATUS[u.status].label }, sel: on, cbBg: on ? 'var(--primary)' : 'var(--card)', cbBorder: on ? 'var(--primary)' : 'var(--ring)', rowBg: on ? 'var(--muted)' : 'transparent', toggle: e => { e.stopPropagation(); this.setState(st => ({ sel: { ...st.sel, [u.id]: !st.sel[u.id] } })); }, open: e => { e && e.stopPropagation && e.stopPropagation(); this.setState({ sheet: u.id }); } }; }),
+      usersEmpty: filtered.length === 0, pgUsers: up.pg,
+      uc, uCols, uTable: !uCards, uCards, cc, cCols,
+      ac: { ...ac, diffPad: ac.when ? '4px 16px 14px 158px' : '6px 16px 14px 16px', diffCols: tw >= 560 ? '140px minmax(0,1fr) minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr)' }, aCols,
+      sheetOpen: s.sheet != null, closeSheet: () => this.setState({ sheet: null }),
+      su: {
+        name: su.name, email: su.email, initials: initials(su.name),
+        roles: ['student', 'teacher', 'admin'].map(k => ({ label: ROLE[k][0], ...SEGSTYLE(su.role === k), go: () => { if (su.role === k) return; confirmSet('Make ' + su.name + ' ' + (k === 'admin' ? 'an ' : 'a ') + ROLE[k][0].toLowerCase() + '?', k === 'admin' ? 'Admins can change every setting and see the audit log.' : 'Their permissions change the next time they load a page. This is recorded in the audit log.', 'Change role', () => { this.setState(st => ({ roleOver: { ...st.roleOver, [su.id]: k }, confirm: null })); this.toast('Role changed to ' + ROLE[k][0]); }); } })),
+        facts: [['Status', STATUS[su.status].label], ['Sign-in', methodsOf(su.methods).map(m => m.label).join(' + ')], ['Classes', su.classes], ['Last active', su.last], ['Created', '12 Aug 2026']].map((x, i) => ({ label: x[0], value: x[1], border: i ? '1px solid var(--border)' : '0' })),
+        actions: [
+          { icon: 'key-round', label: 'Reset password', hint: 'Sets a temporary password to share with them', color: 'var(--fg)', go: () => confirmSet('Reset password for ' + su.name + '?', 'They must change it the next time they sign in.', 'Reset password', () => { this.setState(st => ({ statusOver: { ...st.statusOver, [su.id]: 'pending' }, confirm: null })); this.toast('Temporary password: tulip-42-river'); }) },
+          { icon: 'log-out', label: 'Sign out everywhere', hint: 'Ends every session on every device', color: 'var(--fg)', go: () => this.toast(su.name + ' signed out of all devices') },
+          su.status === 'disabled'
+            ? { icon: 'user-check', label: 'Enable account', hint: 'They can sign in again', color: 'var(--fg)', go: () => { this.setState(st => ({ statusOver: { ...st.statusOver, [su.id]: 'active' } })); this.toast('Account enabled'); } }
+            : { icon: 'user-x', label: 'Disable account', hint: 'Signs them out. Results are kept.', color: 'var(--danger-ink)', go: () => confirmSet('Disable ' + su.name + '?', 'They are signed out and cannot sign in. Their results are kept.', 'Disable', () => { this.setState(st => ({ statusOver: { ...st.statusOver, [su.id]: 'disabled' }, confirm: null })); this.toast('Account disabled'); }, true) },
+        ],
+        events: [['Signed in with ' + (su.methods.includes('g') ? 'Google' : 'password'), su.last, 'var(--success)'], ['Submitted Mid-term Reading Mock', 'Today 20:02', 'var(--info)'], ['Joined ' + (su.classes === '—' ? 'Quizzivy' : su.classes.split(' +')[0]), '12 Aug 2026', 'var(--muted-fg)']].map(x => ({ text: x[0], time: x[1], dot: x[2] })),
+      },
+      addOpen: s.add, closeAdd: () => this.setState({ add: false }),
+      nu: {
+        name: nu.name, email: nu.email, isStudent: nu.role === 'student',
+        onName: e => { const v = e.target.value; this.setState(st => ({ nu: { ...st.nu, name: v } })); },
+        onEmail: e => { const v = e.target.value; this.setState(st => ({ nu: { ...st.nu, email: v, touched: true } })); },
+        emailErr: nu.touched && nu.email && !emailOk ? 'Enter a full email address' : emailTaken ? 'Someone already uses this email' : null,
+        emailBorder: (nu.touched && nu.email && !emailOk) || emailTaken ? 'var(--danger)' : 'var(--border)',
+        roles: ['student', 'teacher', 'admin'].map(k => ({ label: ROLE[k][0], ...SEGSTYLE(nu.role === k), go: () => this.setState(st => ({ nu: { ...st.nu, role: k } })) })),
+        op: nu.name.trim() && emailOk && !emailTaken ? 1 : 0.5,
+      },
+      createUser: () => { if (!(nu.name.trim() && emailOk && !emailTaken)) { this.setState(st => ({ nu: { ...st.nu, touched: true } })); return; } this.setState(st => ({ add: false, extraUsers: [[nu.name.trim(), nu.email.trim(), nu.role, 'p', nu.role === 'student' ? 'No class yet' : '—', 'Never', 'pending'], ...st.extraUsers], route: 'users', userTab: 'all', userQ: '' })); this.toast('Account created · temporary password copied'); },
+      confirm: !!s.confirm, closeConfirm: () => this.setState({ confirm: null }),
+      cf: { title: cf.title, body: cf.body, label: cf.label, go: cf.go, bg: cf.danger ? 'var(--danger)' : 'var(--primary)', fg: cf.danger ? '#fff' : 'var(--primary-fg)' },
+      toastRole: () => this.toast('Custom roles start from a copy of Teacher or Assistant'),
+      roleCards: [['Admin', 'shield', 'Runs the centre. Manages people and settings.', 3], ['Teacher', 'graduation-cap', 'Builds tests, runs classes, grades.', 9], ['Assistant', 'hand-helping', 'Helps a teacher grade and take attendance.', 0], ['Student', 'user', 'Takes tests and sees their own results.', 300]].map(x => ({ name: x[0], icon: x[1], desc: x[2], count: String(x[3]) })),
+      roleHeads: ROLE_NAMES,
+      permGroups: PERMS.map((g, gi) => ({ label: g[0], rows: g[1].map((p, pi) => ({ label: p[0], hint: p[1], cells: ROLE_NAMES.map((rn, ri) => { const on = !!perms[gi][pi][ri]; const locked = ri === 0 && p[0] !== 'Take tests and view own results'; return { on, label: rn + ': ' + p[0], title: locked ? 'Admins always have this' : '', bg: on ? 'var(--primary)' : 'var(--card)', border: on ? 'var(--primary)' : 'var(--ring)', cursor: locked ? 'not-allowed' : 'pointer', op: locked ? 0.5 : 1, go: () => { if (locked) return; this.setState(st => { const cur = (st.perms || PERMS.map(g2 => g2[1].map(p2 => [...p2[2]]))).map(a => a.map(b => [...b])); cur[gi][pi][ri] = cur[gi][pi][ri] ? 0 : 1; return { perms: cur }; }); } }; }) })) })),
+      rolesDirty: permsDirtyN > 0, rolesDirtyText: permsDirtyN + ' permission' + (permsDirtyN > 1 ? 's' : '') + ' changed. People get the new permissions on their next page load.',
+      rolesDiscard: () => this.setState({ perms: null }), rolesSave: () => { this.setState({ perms: null }); this.toast('Permissions saved'); },
+      toastClass: () => this.toast('New class · pick a teacher, name and schedule'),
+      classTabs: [['active', 'Active', CLASSES.filter(c => c[6]).length], ['archived', 'Archived', CLASSES.filter(c => !c[6]).length]].map(([id, label, n]) => ({ label, count: String(n), ...SEGSTYLE(s.classTab === id), go: () => this.setState({ classTab: id }) })),
+      classRows: cls.map(c => ({ name: c[0], schedule: c[1], subline: cc.teacher ? c[1] : c[2] + ' · ' + c[1], teacher: c[2], tInit: initials(c[2]), students: c[3], code: s.codes[c[0]] || c[4], created: c[5], rotate: () => confirmSet('Rotate join code for ' + c[0] + '?', 'The old code and link stop working right away. Students already in the class are not affected.', 'Rotate code', () => { const code = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'X') + '-' + Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'Q'); this.setState(st => ({ codes: { ...st.codes, [c[0]]: code }, confirm: null })); this.toast('New join code: ' + code); }), menu: () => this.toast('Edit, change teacher, archive') })),
+      toastExport: () => this.toast('Exporting 1,248 entries as CSV'),
+      auditFilters: [['all', 'All'], ['user', 'Accounts'], ['class', 'Classes'], ['attempt', 'Attempts'], ['test', 'Tests'], ['media', 'Media'], ['import', 'Imports']].map(([id, label]) => { const on = s.auditF === id; return { label, bg: on ? 'var(--primary)' : 'var(--card)', fg: on ? 'var(--primary-fg)' : 'var(--fg)', border: on ? 'var(--primary)' : 'var(--border)', go: () => this.setState(st => ({ auditF: id, pages: { ...st.pages, audit: { page: 1 } } })) }; }),
+      auditRows: ap.rows.map((a, i) => { const key = (s.pages.audit ? s.pages.audit.page || 1 : 1) + '-' + i; const open = !!s.auditOpen[key]; return { when: a[0], actor: a[1], initials: initials(a[1]), action: a[3], entity: a[4], ip: a[5], dot: AUDIT_DOT[a[2]], open, chev: open ? 'chevron-up' : 'chevron-down', bg: open ? 'var(--muted)' : 'transparent', diff: a[6].map(d => ({ field: d[0], from: d[1], to: d[2] })), agent: 'Chrome 129 on macOS', toggle: () => this.setState(st => ({ auditOpen: { ...st.auditOpen, [key]: !open } })) }; }),
+      pgAudit: ap.pg,
+      setNavW: isMobile ? '100%' : '200px', setNavDir: isMobile ? 'row' : 'column',
+      setTabs: [['org', 'Organization', 'building-2'], ['signin', 'Sign-in', 'log-in'], ['policy', 'Data & privacy', 'shield-check'], ['storage', 'Plan & usage', 'hard-drive']].map(([id, label, icon]) => ({ label, icon, bg: s.setTab === id ? 'var(--hover)' : 'transparent', fg: s.setTab === id ? 'var(--fg)' : 'var(--muted-fg)', weight: s.setTab === id ? 500 : 400, go: () => this.setState({ setTab: id }) })),
+      sOrg: s.setTab === 'org', sSignin: s.setTab === 'signin', sPolicy: s.setTab === 'policy', sStorage: s.setTab === 'storage',
+      toastLogo: () => this.toast('Choose an SVG or PNG logo'),
+      orgFields: [['name', 'Organization name', null], ['short', 'Short name', 'Used in emails and the browser tab'], ['site', 'Website', null]].map(([k, label, hint]) => ({ label, hint, value: org[k], onChange: e => { const v = e.target.value; this.setState(st => ({ org: { ...(st.org || {}), [k]: v }, setDirty: true })); } })),
+      signinRules: [['google', 'Sign in with Google', 'Links to an existing account by verified email'], ['password', 'Sign in with email and password', 'Turn off only if everyone uses Google'], ['force', 'Force password change on first sign-in', 'Applies to accounts created with a temporary password'], ['selfJoin', 'Students can join classes with a code', 'Teachers share a code or link']].map(([k, label, hint], i) => ({ label, hint, border: i ? '1px solid var(--border)' : '0', ...sw(!!signin[k], () => this.setState(st => ({ signin: { ...(st.signin || {}), [k]: signin[k] ? 0 : 1 }, setDirty: true }))) })),
+      domains: domains.map(d => ({ label: d, remove: () => this.setState(st => ({ domains: (st.domains || ['quizzivy.com', 'gmail.com']).filter(x => x !== d), setDirty: true })) })),
+      domainDraft: s.domainDraft, onDomainDraft: e => { const v = e.target.value; if (v.endsWith(',') || v.endsWith(' ')) addDomain(v.slice(0, -1)); else this.setState({ domainDraft: v }); },
+      onDomainKey: e => { if (e.key === 'Enter') { e.preventDefault(); addDomain(e.target.value); } else if (e.key === 'Backspace' && !e.target.value && domains.length) this.setState({ domains: domains.slice(0, -1), setDirty: true }); },
+      retention: [['Keep attempt answers', 'Scores are kept forever. This only deletes the answers.', ['2 years', '1 year', 'Forever']], ['Keep focus-loss events', 'Used for flagged attempts', ['6 months', '1 year', '2 years']], ['Delete disabled accounts after', 'Their results become anonymous', ['Never', '1 year', '2 years']]].map((x, i) => ({ label: x[0], hint: x[1], opts: x[2], border: i ? '1px solid var(--border)' : '0' })),
+      toastExportAll: () => this.toast('Export requested. We will email you a link.'),
+      usage: [['Seats', '312 of 400 people', 78, 'var(--info)'], ['Media storage', '1.25 GB of 5 GB', 25, 'var(--accent-c)'], ['Import document storage', '0.6 GB of 2 GB · 38 imports', 30, 'var(--warning)'], ['Teachers', '9 of 15', 60, 'var(--muted-fg)']].map(x => ({ label: x[0], value: x[1], pct: x[2] + '%', color: x[3] })),
+      setDirty: s.setDirty, setDiscard: () => this.setState({ setDirty: false, org: null, signin: null, domains: null }), setSave: () => { this.setState({ setDirty: false }); this.toast('Settings saved'); },
+      toast: s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
