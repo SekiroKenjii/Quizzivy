@@ -387,6 +387,7 @@ components:
         - ACCOUNT_DISABLED
         - EMAIL_NOT_VERIFIED
         - PASSWORD_REQUIRED
+        - PASSWORD_UNCHANGED
         - IDENTITY_ALREADY_LINKED
         - LAST_LOGIN_METHOD
         - REFRESH_TOKEN_INVALID
@@ -3315,7 +3316,18 @@ paths:
                     strands the case G-07 is drawn for: a student whose password
                     was reset, who then signs in with Google and is redirected
                     here without ever having held the temporary one.
-                newPassword: { type: string, minLength: 8, maxLength: 512 }
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 512
+                  pattern: '[\p{N}\p{P}\p{S}]'
+                  description: |
+                    At least 8 characters, at least one of which is a digit, a
+                    punctuation mark or a symbol, in any script. It must also
+                    differ from the password it replaces, which only the server
+                    can check (`PASSWORD_UNCHANGED`). The rules apply to a new
+                    password only: existing passwords are never re-checked and
+                    sign-in does not change.
       responses:
         '204':
           description: Changed. The calling session survives; every other one is revoked.
@@ -3324,7 +3336,10 @@ paths:
             `INVALID_CREDENTIALS` — `currentPassword` is wrong.
             `PASSWORD_REQUIRED` — the account signs in with Google only and has
             no current password to verify; it needs a set-password flow, not this one.
-            `VALIDATION_FAILED` — `newPassword` is shorter than 8 characters.
+            `PASSWORD_UNCHANGED` — `newPassword` is the password it would replace:
+            the verified `currentPassword`, or, while `mustChangePassword` is set,
+            the temporary password on the account.
+            `VALIDATION_FAILED` — `newPassword` breaks a rule above.
 
             **A wrong current password is deliberately 400, not 401.** The SPA
             treats 401 as "the session died": it refreshes once and retries, and

@@ -26,7 +26,7 @@ import {
   useGoogleSignIn,
 } from "@/features/auth/google/useGoogleSignIn";
 import { api, BASE_URL } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, failureMessage } from "@/lib/api/errors";
 import { SUPPORTED_LOCALES, setLocale, type Locale } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth";
 
@@ -158,7 +158,11 @@ export function PasswordSection() {
       form.reset();
       toast(t("settings.passwordChanged"));
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : t("error.body"));
+      setError(
+        cause instanceof ApiError && cause.code === "PASSWORD_UNCHANGED"
+          ? t("changePassword.errors.unchanged")
+          : failureMessage(cause, t("error.body")),
+      );
     }
   });
 

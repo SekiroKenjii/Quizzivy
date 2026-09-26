@@ -108,6 +108,49 @@ func TestAWrongCurrentPasswordChangesNothing(t *testing.T) {
 	}
 }
 
+func TestTheCurrentPasswordCannotBeTheNewOne(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, email := makeUser(t, pool)
+	ctx := context.Background()
+
+	_, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: testPassword})
+	if !errors.Is(err, domain.ErrPasswordUnchanged) {
+		t.Fatalf("error = %v, want ErrPasswordUnchanged", err)
+	}
+	if _, err := svc.Commands.Login.Handle(ctx, command.Login{Email: email, Password: testPassword}); err != nil {
+		t.Errorf("a refused change altered the password: %v", err)
+	}
+}
+
+func TestTheTemporaryPasswordCannotBeKept(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, _ := makeUser(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.users SET must_change_password = true WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, NewPassword: testPassword})
+	if !errors.Is(err, domain.ErrPasswordUnchanged) {
+		t.Fatalf("error = %v, want ErrPasswordUnchanged", err)
+	}
+	user, err := svc.Queries.CurrentUser.Handle(ctx, query.CurrentUser{UserID: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !user.MustChangePassword {
+		t.Error("a refused change cleared mustChangePassword")
+	}
+
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, NewPassword: newPassword}); err != nil {
+		t.Fatalf("a different password was refused: %v", err)
+	}
+}
+
 func TestAGoogleOnlyAccountCannotChangeAPasswordItDoesNotHave(t *testing.T) {
 	pool := newPool(t)
 	svc := newService(t, pool)
