@@ -78,7 +78,7 @@ export function ProfileSection() {
       // that stays on the screen and pushes the button under the pointer.
       toast(t("settings.profileSaved"));
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : t("error.body"));
+      setError(cause instanceof ApiError ? cause.message : t("api.failed"));
     }
   });
 
@@ -161,7 +161,7 @@ export function PasswordSection() {
       setError(
         cause instanceof ApiError && cause.code === "PASSWORD_UNCHANGED"
           ? t("changePassword.errors.unchanged")
-          : failureMessage(cause, t("error.body")),
+          : failureMessage(cause, t("api.failed")),
       );
     }
   });
@@ -244,7 +244,7 @@ export function GoogleSection() {
       await api("delete", "/auth/google/link");
       setUser(await fetchCurrentUser());
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : t("error.body"));
+      setError(cause instanceof ApiError ? cause.message : t("api.failed"));
     } finally {
       setPending(false);
     }

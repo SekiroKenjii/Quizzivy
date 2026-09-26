@@ -69,7 +69,7 @@ export default function ChangePasswordPage() {
         setRefusal(t("changePassword.errors.unchanged"));
         passwordRef.current?.focus();
       } else {
-        setError(failureMessage(cause, t("error.body")));
+        setError(failureMessage(cause, t("api.failed")));
       }
       setBusy(false);
     }

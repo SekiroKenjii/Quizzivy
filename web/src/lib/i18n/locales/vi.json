@@ -73,28 +73,28 @@
   },
   "error": {
     "title": "Đã xảy ra lỗi",
-    "body": "Một lỗi ngoài dự kiến đã xảy ra. Bạn có thể tải lại trang để tiếp tục.",
+    "body": "Sự cố nằm ở phía chúng tôi, không phải do bạn. Nếu bạn đang làm bài kiểm tra, các câu trả lời đã lưu vẫn an toàn.",
     "reload": "Tải lại trang",
-    "errorId": "Mã lỗi",
-    "copyId": "Sao chép mã lỗi",
-    "copied": "Đã sao chép",
     "home": "Về trang chủ",
-    "footnote": "Nếu tải lại vẫn lỗi, gửi mã này cho giáo viên — mã cho biết chính xác yêu cầu nào đã hỏng."
+    "errorId": "Mã lỗi",
+    "copyFailed": "Không sao chép được. Hãy chọn mã lỗi rồi sao chép.",
+    "footnote": "Nếu lỗi cứ lặp lại, hãy gửi mã lỗi cho giáo viên."
   },
   "notFound": {
-    "title": "Không tìm thấy trang",
-    "body": "Đường dẫn này không tồn tại hoặc đã bị thay đổi.",
+    "title": "Trang này không tồn tại",
+    "body": "Đường dẫn có thể đã cũ, hoặc bài kiểm tra hay lớp học mà nó trỏ tới đã bị xoá.",
     "action": "Về trang chủ",
     "back": "Quay lại",
-    "footnote": "Nếu bạn tới đây từ đường dẫn giáo viên gửi, hãy báo lại để giáo viên gửi lại link mới."
+    "footnote": "Bạn đến đây từ đường dẫn của giáo viên? Hãy nhờ giáo viên gửi lại."
   },
   "forbidden": {
-    "title": "Bạn không có quyền truy cập",
-    "body": "Tài khoản của bạn không được phép xem trang này. Nếu bạn nghĩ đây là nhầm lẫn, hãy liên hệ giáo viên.",
-    "action": "Về trang của tôi",
-    "signedInAs": "Đang đăng nhập bằng",
+    "title": "Bạn không có quyền mở trang này",
+    "body": "Tài khoản của bạn không mở được trang này. Tài khoản của bạn không có vấn đề gì.",
+    "signedIn": "Đang đăng nhập",
+    "home": "Về trang chủ của tôi",
     "switchAccount": "Đăng nhập bằng tài khoản khác",
-    "footnote": "Học viên và giáo viên dùng hai khu vực khác nhau. Trang này thuộc khu vực của giáo viên."
+    "signIn": "Đăng nhập",
+    "footnote": "Bạn nghĩ mình cần được mở trang này? Hãy hỏi trung tâm."
   },
   "nav": {
     "dashboard": "Tổng quan",
@@ -2455,5 +2455,18 @@
     "googleTitle": "Bạn đăng ký bằng Google?",
     "googleBody": "Bạn không cần mật khẩu. Hãy dùng Tiếp tục với Google.",
     "frontDesk": "Quầy lễ tân"
+  },
+  "maintenance": {
+    "title": "Quizzivy đang được cập nhật",
+    "body": "Chúng tôi sẽ trở lại lúc {{time}}. Bài kiểm tra đóng trong lúc cập nhật sẽ được gia hạn.",
+    "started": "Bắt đầu lúc {{time}}",
+    "duration": "khoảng {{minutes}} phút",
+    "saved": "Bài làm và kết quả đã được lưu",
+    "check": "Kiểm tra lại",
+    "footnote": "Bài làm và kết quả của bạn vẫn được giữ nguyên. Không có gì bị mất."
+  },
+  "copy": {
+    "copy": "Sao chép",
+    "copied": "Đã sao chép"
   }
 }

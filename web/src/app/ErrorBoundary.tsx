@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isRouteErrorResponse, useLocation, useRouteError } from "react-router";
-import { Copy } from "lucide-react";
+import { isRouteErrorResponse, useRouteError } from "react-router";
+import { ErrorActions, ErrorScreen } from "@/app/pages/ErrorScreen";
+import { MaintenancePage } from "@/app/pages/MaintenancePage";
+import NotFoundPage from "@/app/pages/NotFoundPage";
+import { UnexpectedErrorArt } from "@/app/pages/errorArt";
+import { CopyButton } from "@/components/shared/CopyButton";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ErrorActions, ErrorScreen } from "@/app/pages/ErrorScreen";
-import { NotFoundArt, UnexpectedErrorArt } from "@/app/pages/errorArt";
+import { homePathFor } from "@/features/auth/home";
+import { maintenanceWindow } from "@/lib/api/errors";
+import { useAuthStore } from "@/stores/auth";
 
-/**
- * The global error boundary from §9: "global error boundary with reload +
- * copyable error ID".
- */
 function useErrorId(error: unknown): string {
   const [id] = useState(() => {
     // Prefer the server's requestId so client and server agree on the label.
@@ -26,30 +27,30 @@ function useErrorId(error: unknown): string {
   return id;
 }
 
+/**
+ * ErrorBoundary is §9's global error boundary. A router 404 renders the 404
+ * page and a 503 `MAINTENANCE` the maintenance page; anything else is the
+ * unexpected-error page, with the server's request id as the error ID when
+ * the error carries one.
+ */
 export function ErrorBoundary() {
   const error = useRouteError();
   const { t } = useTranslation();
   const errorId = useErrorId(error);
-  const [copied, setCopied] = useState(false);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
-    // Surfaced for the operator; a real reporter arrives with observability.
     console.error("[quizzivy] unhandled route error", { errorId, error });
   }, [error, errorId]);
 
-  // A 404 from the router is not an application failure; render the real page.
   if (isRouteErrorResponse(error) && error.status === 404) {
-    return <NotFound />;
+    return <NotFoundPage />;
   }
-
-  async function copyId() {
-    try {
-      await navigator.clipboard.writeText(errorId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
+  const maintenance = maintenanceWindow(error);
+  if (maintenance) {
+    return (
+      <MaintenancePage window={maintenance} onCheck={() => window.location.reload()} />
+    );
   }
 
   return (
@@ -62,51 +63,18 @@ export function ErrorBoundary() {
       <ErrorActions>
         <Button onClick={() => window.location.reload()}>{t("error.reload")}</Button>
         <Button variant="outline" asChild>
-          <a href="/">{t("error.home")}</a>
+          <a href={user ? homePathFor(user) : "/login"}>{t("error.home")}</a>
         </Button>
       </ErrorActions>
 
       <Separator className="my-5" />
-      <div className="flex items-center justify-center gap-2">
-        <span className="text-muted-foreground text-xs">{t("error.errorId")}</span>
-        <code className="rounded-sm border px-1.5 py-0.5 font-mono text-xs select-all">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <span className="text-muted-fg text-xs">{t("error.errorId")}</span>
+        <code className="rounded-[4px] border px-1.5 py-0.5 font-mono text-xs select-all">
           {errorId}
         </code>
-        <Button variant="ghost" size="xs" onClick={() => void copyId()}>
-          <Copy aria-hidden="true" />
-          {copied ? t("error.copied") : t("error.copyId")}
-        </Button>
+        <CopyButton value={errorId} failedMessage={t("error.copyFailed")} />
       </div>
-    </ErrorScreen>
-  );
-}
-
-export function NotFound() {
-  const { t } = useTranslation();
-  const location = useLocation();
-
-  return (
-    <ErrorScreen
-      art={<NotFoundArt />}
-      title={t("notFound.title")}
-      body={t("notFound.body")}
-      footer={t("notFound.footnote")}
-    >
-      {/* The path that failed, on screen. */}
-      <div className="bg-muted/50 mt-4 rounded-md px-3 py-2">
-        <code className="text-muted-foreground font-mono text-xs break-words">
-          {location.pathname}
-        </code>
-      </div>
-
-      <ErrorActions>
-        <Button asChild>
-          <a href="/">{t("notFound.action")}</a>
-        </Button>
-        <Button variant="outline" onClick={() => window.history.back()}>
-          {t("notFound.back")}
-        </Button>
-      </ErrorActions>
     </ErrorScreen>
   );
 }

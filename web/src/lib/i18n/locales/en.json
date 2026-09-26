@@ -73,28 +73,28 @@
   },
   "error": {
     "title": "Something went wrong",
-    "body": "An unexpected error occurred. Reloading the page should let you continue.",
+    "body": "The problem is on our side, not something you did. If you were taking a test, your saved answers are safe.",
     "reload": "Reload the page",
+    "home": "Go to home",
     "errorId": "Error ID",
-    "copyId": "Copy error ID",
-    "copied": "Copied",
-    "home": "Go home",
-    "footnote": "If reloading does not help, send this code to your teacher — it says exactly which request failed."
+    "copyFailed": "Couldn't copy. Select the ID and copy it.",
+    "footnote": "If it keeps happening, send the error ID to your teacher."
   },
   "notFound": {
-    "title": "Page not found",
-    "body": "This address does not exist, or it has changed.",
-    "action": "Go home",
+    "title": "This page doesn’t exist",
+    "body": "The link may be old, or the test or class it pointed to was removed.",
+    "action": "Go to home",
     "back": "Go back",
-    "footnote": "If you got here from a link your teacher sent, tell them so they can send a new one."
+    "footnote": "Got here from a teacher’s link? Ask them to send it again."
   },
   "forbidden": {
-    "title": "You do not have access",
-    "body": "Your account is not permitted to view this page. If you think this is a mistake, contact your teacher.",
-    "action": "Go to my page",
-    "signedInAs": "Signed in as",
-    "switchAccount": "Sign in with a different account",
-    "footnote": "Students and teachers use separate areas. This page belongs to the teacher area."
+    "title": "You don’t have access to this page",
+    "body": "Your account can’t open this page. Nothing is wrong with your account.",
+    "signedIn": "Signed in",
+    "home": "Go to my home",
+    "switchAccount": "Sign in with another account",
+    "signIn": "Sign in",
+    "footnote": "Think you should have access? Ask the centre."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -2455,5 +2455,18 @@
     "googleTitle": "Signed up with Google?",
     "googleBody": "You do not need a password. Use Continue with Google.",
     "frontDesk": "Front desk"
+  },
+  "maintenance": {
+    "title": "Quizzivy is being updated",
+    "body": "We’ll be back by {{time}}. Tests that close during the update are extended.",
+    "started": "Started {{time}}",
+    "duration": "about {{minutes}} min",
+    "saved": "Answers and results saved",
+    "check": "Check again",
+    "footnote": "Your answers and results are kept. Nothing is lost."
+  },
+  "copy": {
+    "copy": "Copy",
+    "copied": "Copied"
   }
 }
