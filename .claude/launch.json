@@ -28,7 +28,7 @@
         "http.server",
         "5175",
         "--directory",
-        "docs/design/mockups"
+        "docs/design/deck"
       ],
       "port": 5175
     }
