@@ -2,59 +2,131 @@
 @import "tw-animate-css";
 
 /*
-  Design tokens — spec §12. Read that section before changing anything here.
+  Design tokens: the deck's (docs/design/deck/, spec §12), under the deck's own
+  names so deck CSS diffs against this file. Every colour goes through a
+  variable; tokens.test.ts and no-raw-colours.test.ts enforce it, which is what
+  lets the dark set below replace the light one without touching a component.
 
-  Every colour goes through a variable. §12 says dark mode is not in v1 but must
-  be addable "without touching components", which only holds if no component
-  ever hard-codes a colour. A `bg-zinc-900` in a component is a bug even though
-  it renders correctly today.
-
-  Values are Tailwind v4's zinc scale in oklch. Zinc carries a very slight blue
-  tint (hue ~286) at negligible chroma (<= 0.017) — that is the neutral grey the
-  spec asks for, not a blue. tokens.test.ts enforces the distinction: it fails on
-  any token with chroma > 0.05 in the blue/indigo/purple hue band, which is what
-  §12's "not blue, not purple, not indigo" actually forbids.
+  Deck geometry (control heights, the sm/md/lg radii) applies only inside an
+  element carrying data-scale="deck", so a screen not yet rebuilt cannot shift.
+  Colours, the font and the focus ring are global.
 */
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --radius: 0.375rem; /* rounded-md — §12 caps controls here */
+  color-scheme: light;
+  --radius: 0.375rem;
 
-  /* surfaces: white, with the zinc scale for depth. no gradients (§12) */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.21 0.006 285.885); /* zinc-900 */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.006 285.885);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.006 285.885);
+  --bg: #ffffff;
+  --sidebar: #f7f8f8;
+  --card: #ffffff;
+  --muted: #f2f4f4;
+  --hover: #eceff0;
+  --fg: #1b2123;
+  --muted-fg: #646c6e;
+  --border: #e4e7e8;
+  --primary: #252c2e;
+  --primary-fg: #fafbfb;
+  --ring: #9aa3a5;
+  --qz-shadow: 0 1px 2px rgba(20, 28, 30, 0.05);
+  --qz-shadow-lg:
+    0 12px 32px -8px rgba(20, 28, 30, 0.18), 0 2px 6px rgba(20, 28, 30, 0.06);
+  --accent-c: #a4ca3e;
+  --accent-soft: #f1f7e0;
+  --accent-ink: #4f6c12;
+  --success: oklch(0.62 0.14 155);
+  --success-soft: oklch(0.96 0.03 155);
+  --success-ink: oklch(0.42 0.1 155);
+  --warning: oklch(0.74 0.15 70);
+  --warning-soft: oklch(0.96 0.04 80);
+  --warning-ink: oklch(0.48 0.11 60);
+  --danger: oklch(0.59 0.2 27);
+  --danger-soft: oklch(0.96 0.03 27);
+  --danger-ink: oklch(0.48 0.17 27);
+  --info: oklch(0.6 0.1 230);
+  --info-soft: oklch(0.96 0.02 230);
+  --info-ink: oklch(0.45 0.09 235);
+  --overlay: rgba(15, 20, 22, 0.4);
 
-  /* primary action: charcoal, white text. NOT blue/purple/indigo (§12) */
-  --primary: oklch(0.21 0.006 285.885); /* zinc-900 */
-  --primary-foreground: oklch(0.985 0 0);
+  /* Colours the deck hard-codes, made tokens (docs/design/gaps.md DG-34, DG-35). */
+  --accent-fg: #1b2123;
+  --switch-thumb: #ffffff;
+  --danger-solid-fg: #ffffff;
+  --paper: #ffffff;
+  --paper-fg: #1b2123;
+  --qr-bg: #ffffff;
+  --qr-fg: #1b2123;
 
-  --secondary: oklch(0.967 0.001 286.375); /* zinc-100 */
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938); /* zinc-500, §12 secondary text */
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  /* Beyond the deck, for contrast (DG-30, DG-31): the focus ring, input borders and destructive buttons. */
+  --focus: var(--muted-fg);
+  --input: #8a9395;
+  --danger-solid: oklch(0.55 0.2 27);
 
-  --border: oklch(0.92 0.004 286.32); /* zinc-200, 1px borders (§12) */
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.552 0.016 285.938); /* focus ring: neutral, never a glow (§12) */
+  /* shadcn's names, which the vendored primitives read. `accent` is the hover surface. */
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card-foreground: var(--fg);
+  --popover: var(--card);
+  --popover-foreground: var(--fg);
+  --primary-foreground: var(--primary-fg);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--fg);
+  --muted-foreground: var(--muted-fg);
+  --accent: var(--hover);
+  --accent-foreground: var(--fg);
+  --destructive: var(--danger);
 
-  /*
-    Semantic only where it carries meaning (§12). Never decorative.
-    green = correct/success · red = incorrect/error/destructive · amber = warning/time-low
-  */
-  --success: oklch(0.627 0.194 149.214);
-  --success-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --destructive-ink: color-mix(in oklch, var(--destructive) 82%, var(--foreground));
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.21 0.006 285.885);
+  /* Legacy names the old consoles still use; removed in R5. */
+  --destructive-foreground: var(--danger-solid-fg);
+  --destructive-ink: var(--danger-ink);
+  --success-foreground: #ffffff;
+  --warning-foreground: var(--accent-fg);
+
+  --z-sheet: 70;
+  --z-alert: 80;
+  --z-dialog: 85;
+  --z-toast: 90;
+  --z-popover: 100;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --bg: #0e1213;
+  --sidebar: #0a0d0e;
+  --card: #131819;
+  --muted: #1a2022;
+  --hover: #20282a;
+  --fg: #ecefef;
+  --muted-fg: #98a0a2;
+  --border: #252d2f;
+  --primary: #ecefef;
+  --primary-fg: #141a1b;
+  --ring: #5d6769;
+  --qz-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --qz-shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+  --accent-soft: rgba(164, 202, 62, 0.13);
+  --accent-ink: #c2e070;
+  --success-soft: oklch(0.3 0.05 155);
+  --success-ink: oklch(0.8 0.12 155);
+  --warning-soft: oklch(0.32 0.06 70);
+  --warning-ink: oklch(0.85 0.12 80);
+  --danger-soft: oklch(0.3 0.08 27);
+  --danger-ink: oklch(0.78 0.13 27);
+  --info-soft: oklch(0.3 0.05 235);
+  --info-ink: oklch(0.8 0.08 230);
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --input: #5d6769;
+}
+
+:root[data-accent="mono"] {
+  --accent-c: var(--fg);
+}
+
+[data-scale="deck"] {
+  --radius: 0.5rem;
 }
 
 @theme inline {
@@ -75,34 +147,108 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
+  --color-focus: var(--focus);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-ink: var(--destructive-ink);
+
+  --color-bg: var(--bg);
+  --color-sidebar: var(--sidebar);
+  --color-hover: var(--hover);
+  --color-fg: var(--fg);
+  --color-muted-fg: var(--muted-fg);
+  --color-primary-fg: var(--primary-fg);
+  --color-overlay: var(--overlay);
+  --color-brand: var(--accent-c);
+  --color-brand-soft: var(--accent-soft);
+  --color-brand-ink: var(--accent-ink);
+  --color-brand-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-ink: var(--success-ink);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-ink: var(--warning-ink);
   --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-fg: var(--danger-solid-fg);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
+  --color-switch-thumb: var(--switch-thumb);
+  --color-paper: var(--paper);
+  --color-paper-fg: var(--paper-fg);
+  --color-qr-bg: var(--qr-bg);
+  --color-qr-fg: var(--qr-fg);
+
+  --shadow-card: var(--qz-shadow);
+  --shadow-float: var(--qz-shadow-lg);
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
+  --radius-seg: 7px;
+  --radius-ctl: 9px;
+  --radius-2xl: 14px;
+  --radius-3xl: 16px;
+
+  --text-3xs: 0.65625rem;
+  --text-3xs--line-height: 1.4;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.4;
+  --text-caption: 0.71875rem;
+  --text-caption--line-height: 1.4;
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.4;
+  --text-meta: 0.78125rem;
+  --text-meta--line-height: 1.45;
   --text-sm: 0.8125rem;
   --text-sm--line-height: 1.5;
+  --text-ui: 0.84375rem;
+  --text-ui--line-height: 1.45;
   --text-base: 0.875rem;
   --text-base--line-height: 1.5;
+  --text-body: 0.90625rem;
+  --text-body--line-height: 1.6;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.5;
+  --text-title: 1rem;
+  --text-title--line-height: 1.4;
   --text-lg: 1.0625rem;
   --text-lg--line-height: 1.45;
+  --text-stat-sm: 1.125rem;
+  --text-stat-sm--line-height: 1.3;
   --text-xl: 1.25rem;
   --text-xl--line-height: 1.35;
+  --text-stat: 1.375rem;
+  --text-stat--line-height: 1.25;
+  --text-h1: 1.5rem;
+  --text-h1--line-height: 1.25;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h1--font-weight: 600;
+  --text-h1-student: 1.625rem;
+  --text-h1-student--line-height: 1.25;
+  --text-h1-student--letter-spacing: -0.02em;
+  --text-h1-student--font-weight: 600;
+  --text-kpi-sm: 1.75rem;
+  --text-kpi-sm--line-height: 1.15;
+  --text-kpi: 1.875rem;
+  --text-kpi--line-height: 1.2;
+  --text-display: 2.125rem;
+  --text-display--line-height: 1.15;
   --text-input: 1rem;
   --tracking-tight: -0.015em;
 
-  /* §12: system UI stack or Inter. Designed for longer Vietnamese strings. */
+  --breakpoint-auth: 56.25rem;
+
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
 }
 
 @layer base {
@@ -112,12 +258,13 @@
 
   body {
     @apply bg-background text-foreground font-sans;
+    background-color: var(--bg);
+    -webkit-font-smoothing: antialiased;
     /* §9: safe-area padding for notched devices on the student flow */
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
 
-  /* §12: 150ms ease-out on state change, no entrance animations */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
