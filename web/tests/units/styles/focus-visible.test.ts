@@ -31,3 +31,20 @@ describe("one focus ring everywhere (DG-30)", () => {
     expect(unlayered(CSS)).toMatch(rule);
   });
 });
+
+describe("no control draws its own focus ring beside the global one", () => {
+  it("has no focus-visible:ring or focus-visible:outline class in application code", async () => {
+    const { readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const root = resolve(import.meta.dirname, "../../../src");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) return walk(path);
+        return /\.tsx?$/.test(name) ? [path] : [];
+      });
+    const own = /(?:^|[\s"'`])(?:dark:)?focus-visible:(?:ring|outline)/;
+    const offenders = walk(root).filter((path) => own.test(readFileSync(path, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+});
