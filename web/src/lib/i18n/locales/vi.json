@@ -67,6 +67,10 @@
     "view": "Xem",
     "delete": "Xoá"
   },
+  "api": {
+    "unavailable": "Không kết nối được với máy chủ. Vui lòng thử lại.",
+    "failed": "Đã xảy ra lỗi. Vui lòng thử lại."
+  },
   "error": {
     "title": "Đã xảy ra lỗi",
     "body": "Một lỗi ngoài dự kiến đã xảy ra. Bạn có thể tải lại trang để tiếp tục.",

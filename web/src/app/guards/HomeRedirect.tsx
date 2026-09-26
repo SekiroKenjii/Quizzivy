@@ -1,6 +1,7 @@
 import { Navigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { homePathFor } from "@/features/auth/home";
+import { useAppState } from "@/stores/appState";
 import { useAuthStore } from "@/stores/auth";
 
 /**
@@ -14,6 +15,9 @@ export function HomeRedirect() {
   const { t } = useTranslation();
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
   const user = useAuthStore((s) => s.user);
+  const bootError = useAppState((s) => (s.bootPhase === "failed" ? s.bootError : null));
+
+  if (bootError) throw bootError;
 
   if (isBootstrapping) {
     return (

@@ -1,5 +1,6 @@
 import type { paths } from "./schema";
-import { ApiError, toApiError, type ApiErrorCode } from "./errors";
+import { ApiError, maintenanceWindow, toApiError, type ApiErrorCode } from "./errors";
+import i18n from "@/lib/i18n";
 import { authStore } from "@/stores/auth";
 
 /**
@@ -104,7 +105,12 @@ function buildUrl(
 
 // ------------------------------------------------------- single-flight refresh
 
-let inFlightRefresh: Promise<boolean> | null = null;
+type RefreshOutcome =
+  | { kind: "refreshed" }
+  | { kind: "refused" }
+  | { kind: "unavailable"; error: ApiError };
+
+let inFlightRefresh: Promise<RefreshOutcome> | null = null;
 
 /** Replaced in tests; in the app it sends the user to /login. */
 let onSessionLost: () => void = () => {
@@ -118,8 +124,20 @@ let onSessionLost: () => void = () => {
   if (!isPublic) window.location.assign("/login");
 };
 
+let onMaintenance: (window: { startsAt: string; endsAt: string }) => void = () => {};
+
 export function setSessionLostHandler(handler: () => void) {
   onSessionLost = handler;
+}
+
+/**
+ * setMaintenanceHandler registers what runs when any response is a 503
+ * `MAINTENANCE`, with the window it names, before the error is thrown.
+ */
+export function setMaintenanceHandler(
+  handler: (window: { startsAt: string; endsAt: string }) => void,
+) {
+  onMaintenance = handler;
 }
 
 /** Test seam. Never call this from application code. */
@@ -127,25 +145,56 @@ export function __resetRefreshStateForTests() {
   inFlightRefresh = null;
 }
 
-async function performRefresh(): Promise<boolean> {
-  const response = await fetch(buildUrl("/auth/refresh"), {
-    method: "POST",
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) return false;
-
-  const data = (await response.json()) as { accessToken?: string };
-  if (!data.accessToken) return false;
-
-  authStore.setAccessToken(data.accessToken);
-  return true;
+function language(): string {
+  return i18n.language?.startsWith("en") ? "en" : "vi";
 }
 
-/** **Single-flight.** Concurrent callers share one in-flight request. */
-function refreshSession(): Promise<boolean> {
+function unavailable(): ApiError {
+  return new ApiError({
+    status: 0,
+    code: "UNKNOWN",
+    message: i18n.t("api.unavailable"),
+  });
+}
+
+function noticed(error: ApiError): ApiError {
+  const window = maintenanceWindow(error);
+  if (window) onMaintenance(window);
+  return error;
+}
+
+async function performRefresh(): Promise<RefreshOutcome> {
+  let response: Response;
+  try {
+    response = await fetch(buildUrl("/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json", "Accept-Language": language() },
+    });
+  } catch {
+    return { kind: "unavailable", error: unavailable() };
+  }
+  if (response.status === 401 || response.status === 403) return { kind: "refused" };
+  if (!response.ok) {
+    const error = noticed(await toApiError(response));
+    return error.isRetryable ? { kind: "unavailable", error } : { kind: "refused" };
+  }
+
+  const data = (await response.json()) as { accessToken?: string };
+  if (!data.accessToken) return { kind: "refused" };
+
+  authStore.setAccessToken(data.accessToken);
+  return { kind: "refreshed" };
+}
+
+/**
+ * **Single-flight.** Concurrent callers share one in-flight request. A refused
+ * refresh is a lost session; an unavailable one is not, and says nothing about
+ * the session at all.
+ */
+function refreshSession(): Promise<RefreshOutcome> {
   inFlightRefresh ??= performRefresh()
-    .catch(() => false)
+    .catch((): RefreshOutcome => ({ kind: "unavailable", error: unavailable() }))
     .finally(() => {
       inFlightRefresh = null;
     });
@@ -173,7 +222,10 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
   const url = buildUrl(path as string, opts.path, opts.query);
 
   const send = async (): Promise<Response> => {
-    const headers: Record<string, string> = { Accept: "application/json" };
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "Accept-Language": language(),
+    };
     const token = authStore.getAccessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
@@ -190,8 +242,9 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
   let response = await send();
 
   if (response.status === 401 && !isAuthEntryPoint(path as string)) {
-    const refreshed = await refreshSession();
-    if (!refreshed) {
+    const outcome = await refreshSession();
+    if (outcome.kind === "unavailable") throw outcome.error;
+    if (outcome.kind === "refused") {
       authStore.clear();
       onSessionLost();
       throw await toApiError(response);
@@ -204,7 +257,7 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
     }
   }
 
-  if (!response.ok) throw await toApiError(response);
+  if (!response.ok) throw noticed(await toApiError(response));
 
   if (response.status === 204 || response.headers.get("Content-Length") === "0") {
     return undefined as SuccessOf<paths[P][M]>;
@@ -235,6 +288,7 @@ export async function uploadFile<T>(
       request.open("POST", url);
       request.withCredentials = true;
       request.setRequestHeader("Accept", "application/json");
+      request.setRequestHeader("Accept-Language", language());
       const token = authStore.getAccessToken();
       if (token) request.setRequestHeader("Authorization", `Bearer ${token}`);
 
@@ -245,14 +299,7 @@ export async function uploadFile<T>(
       }
       request.onload = () =>
         resolve({ status: request.status, body: request.responseText });
-      request.onerror = () =>
-        reject(
-          new ApiError({
-            status: 0,
-            code: "UNKNOWN",
-            message: "Không thể kết nối máy chủ.",
-          }),
-        );
+      request.onerror = () => reject(unavailable());
       request.onabort = () => reject(new DOMException("Aborted", "AbortError"));
 
       if (options.signal) {
@@ -270,8 +317,9 @@ export async function uploadFile<T>(
 
   let response = await send();
   if (response.status === 401) {
-    const refreshed = await refreshSession();
-    if (!refreshed) {
+    const outcome = await refreshSession();
+    if (outcome.kind === "unavailable") throw outcome.error;
+    if (outcome.kind === "refused") {
       authStore.clear();
       onSessionLost();
       throw toUploadError(response);
@@ -283,7 +331,8 @@ export async function uploadFile<T>(
       throw toUploadError(response);
     }
   }
-  if (response.status < 200 || response.status >= 300) throw toUploadError(response);
+  if (response.status < 200 || response.status >= 300)
+    throw noticed(toUploadError(response));
 
   return JSON.parse(response.body) as T;
 }
@@ -291,7 +340,12 @@ export async function uploadFile<T>(
 function toUploadError(response: { status: number; body: string }): ApiError {
   try {
     const parsed = JSON.parse(response.body) as {
-      error?: { code?: string; message?: string; requestId?: string };
+      error?: {
+        code?: string;
+        message?: string;
+        requestId?: string;
+        details?: Record<string, unknown>;
+      };
     };
     if (parsed.error?.code && parsed.error.message) {
       return new ApiError({
@@ -299,6 +353,7 @@ function toUploadError(response: { status: number; body: string }): ApiError {
         code: parsed.error.code as ApiErrorCode,
         message: parsed.error.message,
         requestId: parsed.error.requestId,
+        details: parsed.error.details,
       });
     }
   } catch {
@@ -307,7 +362,7 @@ function toUploadError(response: { status: number; body: string }): ApiError {
   return new ApiError({
     status: response.status,
     code: "UNKNOWN",
-    message: "Đã xảy ra lỗi. Vui lòng thử lại.",
+    message: i18n.t("api.failed"),
   });
 }
 
