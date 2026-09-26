@@ -28,6 +28,10 @@ const authTree: RouteObject = {
   children: [
     { path: "login", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
     {
+      path: "forgot-password",
+      lazy: page(() => import("@/features/auth/pages/ForgotPasswordPage")),
+    },
+    {
       path: "auth/google/callback",
       lazy: page(() => import("@/features/auth/pages/GoogleCallbackPage")),
     },

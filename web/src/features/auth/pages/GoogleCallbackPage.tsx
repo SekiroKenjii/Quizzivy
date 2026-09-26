@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { ArrowLeft, CircleAlert, LoaderCircle } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { callbackUrl, statesMatch, takePending } from "@/features/auth/google/pkce";
 import { destinationAfterSignIn, preloadStudentHome } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { AuthLayout } from "@/features/auth/AuthLayout";
 
 /** Where Google sends the browser back (§5.3 step 2). */
 export default function GoogleCallbackPage() {
@@ -72,24 +75,35 @@ export default function GoogleCallbackPage() {
 
   if (error) {
     return (
-      <main className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center">
-        <p role="alert" className="text-sm">
-          {error}
-        </p>
-        <Button onClick={() => void navigate("/login", { replace: true })}>
-          {t("login.backToSignIn")}
+      <AuthLayout>
+        <div>
+          <h1 className="text-h1">{t("login.googleFailedTitle")}</h1>
+        </div>
+        <Alert variant="danger" className="text-ui flex gap-2.5">
+          <CircleAlert aria-hidden="true" className="mt-px size-4 shrink-0" />
+          <span>{error}</span>
+        </Alert>
+        <Button
+          asChild
+          variant="outline"
+          size="xl"
+          className="bg-card hover:bg-muted w-full font-medium"
+        >
+          <Link to="/login" replace>
+            <ArrowLeft aria-hidden="true" className="size-[17px]" />
+            {t("login.backToSignIn")}
+          </Link>
         </Button>
-      </main>
+      </AuthLayout>
     );
   }
 
   return (
-    <main
-      className="text-muted-foreground flex min-h-svh items-center justify-center text-sm"
-      role="status"
-      aria-live="polite"
-    >
-      {t("login.completingGoogle")}
-    </main>
+    <AuthLayout>
+      <p role="status" className="text-muted-fg flex items-center gap-2.5">
+        <LoaderCircle aria-hidden="true" className="size-[17px] animate-spin" />
+        {t("login.completingGoogle")}
+      </p>
+    </AuthLayout>
   );
 }
