@@ -205,15 +205,27 @@
     "assignmentCountsFailed": "Assignment counts could not be loaded. You can still open the assignments."
   },
   "changePassword": {
-    "title": "Change your password",
-    "body": "You need to set a new password before continuing.",
+    "title": "Choose your password",
+    "body": "You signed in with a temporary password. Pick one only you know.",
     "current": "Current password",
     "new": "New password",
-    "hint": "At least 8 characters.",
+    "again": "Type it again",
+    "hint": "At least 8 characters, with a number or symbol.",
     "submit": "Change password",
-    "currentHint": "Leave blank if you signed in with Google, or do not have the temporary password.",
+    "save": "Save and continue",
+    "saving": "Saving…",
+    "rules": {
+      "length": "At least 8 characters",
+      "numberOrSymbol": "A number or symbol",
+      "different": "Different from the temporary password",
+      "met": "met",
+      "unmet": "not met"
+    },
     "errors": {
-      "tooShort": "The new password needs at least 8 characters."
+      "tooShort": "The new password needs at least 8 characters.",
+      "numberOrSymbol": "The new password needs a number or a symbol.",
+      "mismatch": "The two passwords are different.",
+      "unchanged": "The new password must be different from the current one."
     }
   },
   "login": {

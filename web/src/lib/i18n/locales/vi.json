@@ -205,15 +205,27 @@
     "assignmentCountsFailed": "Chưa tải được số bài của các lớp. Bạn vẫn có thể mở danh sách bài."
   },
   "changePassword": {
-    "title": "Đổi mật khẩu",
-    "body": "Bạn cần đặt mật khẩu mới trước khi tiếp tục.",
+    "title": "Chọn mật khẩu của bạn",
+    "body": "Bạn đã đăng nhập bằng mật khẩu tạm. Hãy chọn một mật khẩu chỉ mình bạn biết.",
     "current": "Mật khẩu hiện tại",
     "new": "Mật khẩu mới",
-    "hint": "Ít nhất 8 ký tự.",
+    "again": "Nhập lại mật khẩu",
+    "hint": "Ít nhất 8 ký tự, có số hoặc ký hiệu.",
     "submit": "Đổi mật khẩu",
-    "currentHint": "Bỏ trống nếu bạn đăng nhập bằng Google hoặc không nhớ mật khẩu tạm.",
+    "save": "Lưu và tiếp tục",
+    "saving": "Đang lưu…",
+    "rules": {
+      "length": "Ít nhất 8 ký tự",
+      "numberOrSymbol": "Có số hoặc ký hiệu",
+      "different": "Khác mật khẩu tạm",
+      "met": "đã đạt",
+      "unmet": "chưa đạt"
+    },
     "errors": {
-      "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự."
+      "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự.",
+      "numberOrSymbol": "Mật khẩu mới cần có số hoặc ký hiệu.",
+      "mismatch": "Hai mật khẩu không giống nhau.",
+      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại."
     }
   },
   "login": {
