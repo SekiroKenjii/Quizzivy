@@ -112,7 +112,7 @@ function BankList({
           <button
             type="button"
             onClick={() => onPick(question.id)}
-            className="hover:bg-accent focus-visible:ring-ring flex w-full items-center justify-between gap-4 rounded-md px-3 py-2 text-left text-sm focus-visible:ring-2 focus-visible:outline-none"
+            className="hover:bg-accent flex w-full items-center justify-between gap-4 rounded-md px-3 py-2 text-left text-sm"
           >
             <span className="truncate">{question.prompt}</span>
             <span className="flex shrink-0 items-center gap-2">

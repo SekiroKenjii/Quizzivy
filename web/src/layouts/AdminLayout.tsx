@@ -78,7 +78,7 @@ const SETTINGS = {
 
 const itemClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "focus-visible:ring-ring flex items-center gap-2.5 rounded-md px-3 py-[0.4375rem] text-[0.8125rem] transition-colors focus-visible:ring-2 focus-visible:outline-none",
+    "flex items-center gap-2.5 rounded-md px-3 py-[0.4375rem] text-[0.8125rem] transition-colors",
     isActive
       ? "bg-secondary text-secondary-foreground font-medium"
       : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
@@ -158,7 +158,7 @@ export default function AdminLayout() {
               aria-label={open ? t("nav.closeMenu") : t("nav.openMenu")}
               aria-expanded={open}
               aria-controls="admin-sidebar"
-              className="hover:bg-secondary focus-visible:ring-ring rounded-md p-2 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              className="hover:bg-secondary rounded-md p-2 transition-colors"
             >
               <PanelLeft className="size-5" aria-hidden="true" />
             </button>

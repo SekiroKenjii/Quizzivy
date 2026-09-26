@@ -173,10 +173,7 @@ const BlockView = memo(function BlockView({
       onClick={() => onSelect(owner)}
       onKeyDown={(event) => onRove(event, block.id)}
       onFocus={() => onFocusBlock(block.id)}
-      className={cn(
-        className,
-        "hover:bg-secondary/60 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-      )}
+      className={cn(className, "hover:bg-secondary/60")}
     >
       {content}
     </button>

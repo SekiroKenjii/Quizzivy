@@ -226,7 +226,7 @@ function Column({
             aria-selected={option === selected}
             ref={option === selected ? chosen : null}
             className={cn(
-              "hover:bg-accent focus-visible:ring-ring h-8 w-12 rounded-md text-sm tabular-nums outline-none focus-visible:ring-2",
+              "hover:bg-accent h-8 w-12 rounded-md text-sm tabular-nums outline-none",
               option === selected &&
                 "bg-primary text-primary-foreground hover:bg-primary/90",
             )}

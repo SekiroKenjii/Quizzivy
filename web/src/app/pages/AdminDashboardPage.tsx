@@ -335,7 +335,7 @@ function AssignmentRow({
       <TableCell className="min-w-48 font-medium whitespace-normal">
         <Link
           to={`/admin/assignments/${assignment.id}`}
-          className="focus-visible:ring-ring inline-flex items-center gap-2 rounded-sm hover:underline focus-visible:ring-2"
+          className="inline-flex items-center gap-2 rounded-sm hover:underline"
         >
           {assignment.testTitle}
           <ArrowUpRight className="size-3.5 shrink-0" aria-hidden="true" />

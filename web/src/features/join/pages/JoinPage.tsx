@@ -75,7 +75,7 @@ export default function JoinPage() {
             </p>
             <Link
               to={user.role === "student" ? "/app/classes" : "/admin/classes"}
-              className="focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm underline focus-visible:ring-2"
+              className="inline-flex min-h-11 items-center rounded-sm underline"
             >
               {t("join.backToClasses")}
             </Link>
@@ -85,7 +85,7 @@ export default function JoinPage() {
             {t("join.haveAccount")}{" "}
             <Link
               to="/login"
-              className="focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm underline focus-visible:ring-2"
+              className="inline-flex min-h-11 items-center rounded-sm underline"
             >
               {t("join.signIn")}
             </Link>
