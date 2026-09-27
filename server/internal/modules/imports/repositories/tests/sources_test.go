@@ -33,7 +33,7 @@ func setup(t *testing.T) harness {
 	}
 	t.Cleanup(pool.Close)
 	var id string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role) VALUES($1,'Import teacher','admin') RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users(email,full_name,role_id) VALUES($1,'Import teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, uuid.NewString()+"@example.test").Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	connection := pool

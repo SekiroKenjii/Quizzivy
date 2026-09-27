@@ -30,10 +30,10 @@ func setup(t *testing.T) (context.Context, pgx.Tx, string, string) {
 	var attempt string
 	err = tx.QueryRow(ctx, `
 	 WITH student AS (
-	   INSERT INTO app.users(id,email,full_name,role,password_hash,must_change_password)
-	   VALUES($1::uuid,$1::text || '@example.com','Private student','student','hash',true) RETURNING id
+	   INSERT INTO app.users(id,email,full_name,role_id,password_hash,must_change_password)
+	   VALUES($1::uuid,$1::text || '@example.com','Private student',(SELECT id FROM app.roles WHERE builtin_key = 'student'),'hash',true) RETURNING id
 	 ), teacher AS (
-	   INSERT INTO app.users(email,full_name,role) VALUES($1::text || '-teacher@example.com','Teacher','admin') RETURNING id
+	   INSERT INTO app.users(email,full_name,role_id) VALUES($1::text || '-teacher@example.com','Teacher',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id
 	 ), test AS (
 	   INSERT INTO app.tests(title,status,current_version,created_by)
 	   SELECT 'Maintenance fixture','published',1,id FROM teacher RETURNING id,created_by

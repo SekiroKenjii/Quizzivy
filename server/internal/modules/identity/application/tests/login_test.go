@@ -81,8 +81,8 @@ func makeUser(t *testing.T, pool *pgxpool.Pool, opts ...func(*userSpec)) (id, em
 
 	ctx := context.Background()
 	err = pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role, password_hash, disabled_at)
-		 VALUES ($1, $2, $3::app.user_role, $4, $5) RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id, password_hash, disabled_at)
+		 VALUES ($1, $2, (SELECT id FROM app.roles WHERE builtin_key = $3::text), $4, $5) RETURNING id::text`,
 		spec.email, spec.fullName, spec.role, spec.passwordHash, spec.disabledAt).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert user: %v", err)

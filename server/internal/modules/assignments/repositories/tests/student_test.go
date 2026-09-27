@@ -143,7 +143,7 @@ func TestAStudentOutsideTheTargetsSeesNothing(t *testing.T) {
 
 	var outsider string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Ngoài lớp','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Ngoài lớp',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"asg-o-"+nonce(t)+"@example.com").Scan(&outsider); err != nil {
 		t.Fatal(err)
 	}

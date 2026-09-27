@@ -44,10 +44,10 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, totalPoints string) world {
 		}
 	}
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'GV','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'GV',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"stat-a-"+id+"@example.com").Scan(&w.admin))
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học Viên Thống Kê','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Học Viên Thống Kê',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"stat-s-"+id+"@example.com").Scan(&w.student))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`, "Lop "+id, w.admin).Scan(&w.class))
@@ -332,8 +332,8 @@ func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 
 	var other string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1,'Nguyễn Văn Khác','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1,'Nguyễn Văn Khác',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"stat-other-"+nonce(t)+"@example.com").Scan(&other); err != nil {
 		t.Fatal(err)
 	}

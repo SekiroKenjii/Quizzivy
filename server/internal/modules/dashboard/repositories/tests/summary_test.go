@@ -74,12 +74,12 @@ func seed(t *testing.T, db db.Querier, opensAt, closesAt time.Time, flagged bool
 
 	var author, student string
 	if err := db.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"dash-a-"+id+"@example.com").Scan(&author); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học viên','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Học viên',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"dash-s-"+id+"@example.com").Scan(&student); err != nil {
 		t.Fatal(err)
 	}

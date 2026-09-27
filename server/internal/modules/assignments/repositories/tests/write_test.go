@@ -66,10 +66,10 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, status string) world {
 	}
 
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin'))
 		 RETURNING id::text`, "asg-a-"+id+"@example.com").Scan(&w.admin))
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học viên','student')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Học viên',(SELECT id FROM app.roles WHERE builtin_key = 'student'))
 		 RETURNING id::text`, "asg-s-"+id+"@example.com").Scan(&w.student))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
@@ -465,7 +465,7 @@ func TestADisabledStudentLeavesTheProgressDenominator(t *testing.T) {
 	// A second student in the same class, so the roster is two.
 	var other string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Người Thứ Hai','student')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Người Thứ Hai',(SELECT id FROM app.roles WHERE builtin_key = 'student'))
 		 RETURNING id::text`, "asg-x-"+nonce(t)+"@example.com").Scan(&other); err != nil {
 		t.Fatal(err)
 	}

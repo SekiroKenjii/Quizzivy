@@ -53,12 +53,12 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 	n := nonce(t)
 
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"t-"+n+"@example.com").Scan(&teacherID); err != nil {
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Nguyễn Văn A','student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Nguyễn Văn A',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 		"s-"+n+"@example.com").Scan(&studentID); err != nil {
 		t.Fatal(err)
 	}
@@ -439,7 +439,7 @@ func TestClassesPageAndSearchByName(t *testing.T) {
 	ctx := context.Background()
 	tag := nonce(t)
 	var teacher string
-	if err := pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1, 'Giáo viên', 'admin') RETURNING id::text`,
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id) VALUES ($1, 'Giáo viên', (SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"page-"+tag+"@example.com").Scan(&teacher); err != nil {
 		t.Fatal(err)
 	}
@@ -500,7 +500,7 @@ func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
 	for i := range 2 {
 		var id string
 		if err := pool.QueryRow(ctx,
-			`INSERT INTO app.users (email, full_name, role) VALUES ($1, $2, 'student') RETURNING id::text`,
+			`INSERT INTO app.users (email, full_name, role_id) VALUES ($1, $2, (SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
 			fmt.Sprintf("m-%s-%d@example.com", tag, i), fmt.Sprintf("Thành Viên %s", tag)).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
@@ -589,8 +589,8 @@ func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
 	)
 	var joined []string
 	rows, err := pool.Query(ctx, `
-		INSERT INTO app.users (email, full_name, role)
-		SELECT format('same-%s-%s@example.com', $1::text, i), 'Cùng lúc', 'student'
+		INSERT INTO app.users (email, full_name, role_id)
+		SELECT format('same-%s-%s@example.com', $1::text, i), 'Cùng lúc', (SELECT id FROM app.roles WHERE builtin_key = 'student')
 		  FROM generate_series(1, $2::int) AS i
 		RETURNING id::text`, tag, size)
 	if err != nil {

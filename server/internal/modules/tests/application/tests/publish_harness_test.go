@@ -31,8 +31,8 @@ func pubMakeAuthor(t *testing.T, pool *pgxpool.Pool) string {
 	}
 	var id string
 	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1,'Giáo viên','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"publish-"+hex.EncodeToString(nonce)+"@example.com").Scan(&id); err != nil {
 		t.Fatal(err)
 	}

@@ -31,7 +31,7 @@ func makeStudent(t *testing.T, pool *pgxpool.Pool, name string) string {
 	t.Helper()
 	var id string
 	if err := pool.QueryRow(context.Background(),
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,$2,'student')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,$2,(SELECT id FROM app.roles WHERE builtin_key = 'student'))
 		 RETURNING id::text`, "st-"+nonce(t)+"@example.com", name).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestAnAdminIsNeverAStudent(t *testing.T) {
 
 	var admin string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên Kiểm','admin')
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên Kiểm',(SELECT id FROM app.roles WHERE builtin_key = 'admin'))
 		 RETURNING id::text`, "adm-"+nonce(t)+"@example.com").Scan(&admin); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestTheClassFilterNarrowsToThatRoster(t *testing.T) {
 
 	var classID, teacher string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role) VALUES ($1,'GV','admin') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'GV',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
 		"cls-"+nonce(t)+"@example.com").Scan(&teacher); err != nil {
 		t.Fatal(err)
 	}

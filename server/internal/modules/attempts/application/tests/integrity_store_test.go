@@ -33,8 +33,8 @@ func seedAttempt(t *testing.T, pool *pgxpool.Pool, startedAt time.Time) (attempt
 	}
 
 	var admin, student, testID, versionID, sectionID, assetID, assignmentID string
-	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1,'Giáo viên','admin') RETURNING id::text`, "int-a-"+id+"@example.com").Scan(&admin))
-	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role) VALUES ($1,'Học viên','student') RETURNING id::text`, "int-s-"+id+"@example.com").Scan(&student))
+	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`, "int-a-"+id+"@example.com").Scan(&admin))
+	must(pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Học viên',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`, "int-s-"+id+"@example.com").Scan(&student))
 	// Registered timelineBefore the rest so a fixture that fails half-way still leaves nothing behind.
 	t.Cleanup(func() {
 		c := context.Background()

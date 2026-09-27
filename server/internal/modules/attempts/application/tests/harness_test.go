@@ -119,8 +119,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		role string
 	}{{&w.admin, "a", "admin"}, {&w.student, "s", "student"}, {&w.outsider, "o", "student"}} {
 		must(pool.QueryRow(ctx,
-			`INSERT INTO app.users (email, full_name, role)
-			 VALUES ($1, 'Người dùng', $2::app.user_role) RETURNING id::text`,
+			`INSERT INTO app.users (email, full_name, role_id)
+			 VALUES ($1, 'Người dùng', (SELECT id FROM app.roles WHERE builtin_key = $2::text)) RETURNING id::text`,
 			"att-"+u.tag+"-"+id+"@example.com", u.role).Scan(u.into))
 	}
 
