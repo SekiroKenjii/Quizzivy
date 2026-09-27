@@ -325,3 +325,17 @@ func TestPathsOutsideTheTablePassUntouched(t *testing.T) {
 		t.Errorf("requests outside the table were rewritten: %v", lines)
 	}
 }
+
+func TestAnEncodedSlashStaysInsideItsSegment(t *testing.T) {
+	issuer := testIssuer(t)
+	h := roleRouter(t, issuer, rolePrincipals())
+	id := "01935000-0000-7000-8000-0000000000e1"
+	old := sendAs(t, h, issuer, http.MethodDelete, "/admin/tests/"+id+"%2Fversions%2F3", adminUser, "")
+	current := sendAs(t, h, issuer, http.MethodDelete, "/teacher/tests/"+id+"%2Fversions%2F3", adminUser, "")
+	if old.Code != http.StatusBadRequest || current.Code != http.StatusBadRequest {
+		t.Fatalf("an id holding an encoded slash: %d on the old path, %d on the new, want 400 on both", old.Code, current.Code)
+	}
+	if errorCode(t, old) != errorCode(t, current) {
+		t.Errorf("error code %q on the old path, %q on the new", errorCode(t, old), errorCode(t, current))
+	}
+}
