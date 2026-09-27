@@ -18,7 +18,7 @@ func (s *Postgres) RecordGroupPlay(ctx context.Context, in domain.GroupPlayInput
 		return domain.GroupPlays{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	versionID, err := writable(ctx, tx, domain.SaveInput{AttemptID: in.AttemptID, StudentID: in.StudentID, SessionID: in.SessionID}, now)
+	versionID, _, err := writable(ctx, tx, domain.SaveInput{AttemptID: in.AttemptID, StudentID: in.StudentID, SessionID: in.SessionID}, now)
 	if err != nil {
 		return domain.GroupPlays{}, err
 	}

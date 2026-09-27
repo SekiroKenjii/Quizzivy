@@ -12,6 +12,7 @@ import (
 	testshttp "quizzivy/internal/modules/tests/http"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"time"
 )
 
 // StartOrResumeAttempt backs §9's "Bắt đầu": one call whether the student is
@@ -287,6 +288,7 @@ func (h Attempts) SaveAnswers(ctx context.Context, request openapi.SaveAnswersRe
 	return openapi.SaveAnswers200JSONResponse{
 		ServerTime: saved.SavedAt,
 		SavedAt:    saved.SavedAt,
+		DeadlineAt: saved.DeadlineAt,
 	}, nil
 }
 
@@ -435,7 +437,12 @@ func (h Attempts) SubmitAttempt(ctx context.Context, request openapi.SubmitAttem
 	}
 
 	closed, err := h.app.Commands.Submit.Handle(ctx, command.Submit{AttemptID: request.Id.String(), StudentID: principal.UserID, Reason: reason})
+	var early *domain.DeadlineNotReachedError
 	switch {
+	case errors.As(err, &early):
+		return openapi.SubmitAttempt409JSONResponse(httpapi.ErrorWithDetails(ctx, openapi.DEADLINENOTREACHED,
+			"Chưa hết giờ: thời gian làm bài đã được gia hạn.",
+			map[string]interface{}{"deadlineAt": early.DeadlineAt.UTC().Format(time.RFC3339Nano)})), nil
 	case errors.Is(err, domain.ErrForbidden):
 		return openapi.SubmitAttempt403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(

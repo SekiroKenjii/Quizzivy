@@ -48,6 +48,9 @@ func (s *Postgres) Submit(ctx context.Context, attemptID, studentID string, reas
 		}
 		return result, tx.Commit(ctx)
 	}
+	if reason == domain.TimerExpired && deadlineAt.Sub(now) > domain.TimerGrace {
+		return domain.AttemptRecord{}, &domain.DeadlineNotReachedError{DeadlineAt: deadlineAt}
+	}
 	if reason == domain.AutoSubmit {
 		reason = domain.Manual
 	}
