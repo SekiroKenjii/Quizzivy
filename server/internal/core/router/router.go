@@ -87,7 +87,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	})
 
 	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance)(handler), handler)
-	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(gated)))), nil
+	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(legacyAdmin(logger)(gated))))), nil
 }
 
 var probeMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
