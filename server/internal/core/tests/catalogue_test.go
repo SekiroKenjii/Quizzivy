@@ -13,6 +13,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/gen/openapi"
+	accessapp "quizzivy/internal/modules/access/application"
+	accessquery "quizzivy/internal/modules/access/application/query"
+	accessrepo "quizzivy/internal/modules/access/repositories"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
 )
@@ -146,26 +149,26 @@ func TestTheBuiltInGrantsAreTheMatrixCellByCell(t *testing.T) {
 	}
 	pool := cataloguePool(t)
 	ctx := context.Background()
-	for builtin, keys := range want {
-		rows, err := pool.Query(ctx, `
-			SELECT rp.permission_key
-			  FROM app.role_permissions rp
-			  JOIN app.roles r ON r.id = rp.role_id
-			 WHERE r.builtin_key = $1`, string(builtin))
-		if err != nil {
-			t.Fatal(err)
+	matrix, err := accessapp.New(accessrepo.NewPostgres(db.NewContext(pool))).Queries.Matrix.Handle(ctx, accessquery.Matrix{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[access.Builtin]bool{}
+	for _, role := range matrix {
+		keys, builtIn := want[role.Builtin]
+		if !builtIn || role.Builtin == "" {
+			continue
 		}
-		got, err := pgx.CollectRows(rows, pgx.RowTo[string])
-		if err != nil {
-			t.Fatal(err)
+		seen[role.Builtin] = true
+		if got, wantKeys := role.Grants.Keys(), access.NewSet(keys...).Keys(); !slices.Equal(got, wantKeys) {
+			t.Errorf("%s grants = %v, want %v", role.Builtin, got, wantKeys)
 		}
-		stored := make([]access.Key, 0, len(got))
-		for _, k := range got {
-			stored = append(stored, access.Key(k))
-		}
-		if gotKeys, wantKeys := access.NewSet(stored...).Keys(), access.NewSet(keys...).Keys(); !slices.Equal(gotKeys, wantKeys) || len(stored) != len(keys) {
-			t.Errorf("%s grants = %v, want %v", builtin, gotKeys, wantKeys)
-		}
+	}
+	if len(seen) != 4 {
+		t.Errorf("the matrix holds built-in roles %v, want all four", seen)
+	}
+	if admin := matrix[0]; admin.Builtin != access.BuiltinAdmin || !slices.Equal(admin.Effective.Keys(), access.NewSet(access.All()...).Without(access.LearningTakeTests).Keys()) {
+		t.Errorf("the matrix's first column is %s holding %v, want the Admin holding every key but learning.take_tests", admin.Builtin, admin.Effective.Keys())
 	}
 	rows, err := pool.Query(ctx, `SELECT name FROM app.roles WHERE builtin_key IS NOT NULL ORDER BY array_position(ARRAY['admin', 'teacher', 'assistant', 'student'], builtin_key)`)
 	if err != nil {

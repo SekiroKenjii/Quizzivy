@@ -7,6 +7,7 @@ import (
 
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/core/router"
+	accessapp "quizzivy/internal/modules/access/application"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
@@ -16,9 +17,10 @@ import (
 	"quizzivy/internal/platform/httpx"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, and the identity application the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity application the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
+	Principals    *accessapp.Application
 	Tokens        *identitytoken.Issuer
 	Docs          *identitytoken.Issuer
 	Identity      *identityapp.Application
@@ -26,9 +28,13 @@ type Assembly struct {
 	Maintenance   httpx.MaintenanceSource
 }
 
-// Build assembles every module against the pool, in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
+// Build refuses when app.permissions lacks a key this binary was compiled with, then assembles every module against the pool in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
 func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Assembly, error) {
 	dbx := db.NewContext(pool.Pool)
+	principals, err := accessModule(ctx, dbx)
+	if err != nil {
+		return Assembly{}, err
+	}
 	stats := attemptsrepo.NewStudentStats(dbx)
 
 	classesApp := classes(dbx, stats)
@@ -66,6 +72,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Attempts:     attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 			Availability: availabilityTransport,
 		},
+		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
 		ImportSweeper: sweeper,
 		Tokens:        tokens,
