@@ -1,5 +1,4 @@
 import { Navigate, Outlet, useLocation } from "react-router";
-import { useTranslation } from "react-i18next";
 import { useAppState } from "@/stores/appState";
 import { useAuthStore } from "@/stores/auth";
 
@@ -9,12 +8,12 @@ export const CHANGE_PASSWORD_PATH = "/change-password";
 /**
  * Pathless guard: renders the tree only for a signed-in user.
  *
- * Waits while the session is bootstrapping rather than redirecting, or a
+ * Renders nothing while the session is bootstrapping, under the boot splash,
+ * rather than redirecting, or a
  * reload would bounce every user to /login before `GET /auth/me` answers.
  * Carries the attempted path as `?next=` so sign-in can return to it.
  */
 export function RequireSession() {
-  const { t } = useTranslation();
   const location = useLocation();
   const isBootstrapping = useAuthStore((s) => s.isBootstrapping);
   const user = useAuthStore((s) => s.user);
@@ -22,17 +21,7 @@ export function RequireSession() {
 
   if (bootError) throw bootError;
 
-  if (isBootstrapping) {
-    return (
-      <div
-        className="text-muted-foreground flex min-h-svh items-center justify-center text-sm"
-        role="status"
-        aria-live="polite"
-      >
-        {t("common.loading")}
-      </div>
-    );
-  }
+  if (isBootstrapping) return null;
 
   if (!user) {
     const next = location.pathname + location.search;

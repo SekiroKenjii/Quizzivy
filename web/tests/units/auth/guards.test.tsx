@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryRouter,
@@ -64,9 +64,13 @@ afterEach(() => {
 describe("RequireSession", () => {
   it("waits while the session is still being restored", async () => {
     useAuthStore.setState({ isBootstrapping: true, user: null, accessToken: null });
-    renderAt("/app");
-    expect(await screen.findByRole("status")).toBeInTheDocument();
+    const router = renderAt("/app");
+    await waitFor(() => expect(router.state.initialized).toBe(true));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(router.state.location.pathname).toBe("/app");
     expect(screen.queryByText("login page")).not.toBeInTheDocument();
+    expect(screen.queryByText("student home")).not.toBeInTheDocument();
   });
 
   it("sends an anonymous visitor to /login with where they were going", async () => {

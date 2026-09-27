@@ -2465,6 +2465,30 @@
     "check": "Kiểm tra lại",
     "footnote": "Bài làm và kết quả của bạn vẫn được giữ nguyên. Không có gì bị mất."
   },
+  "splash": {
+    "steps": {
+      "session": "Đang kiểm tra phiên đăng nhập…",
+      "classes": "Đang tải lớp học của bạn…",
+      "ready": "Sắp xong rồi…"
+    },
+    "slowTitle": "Tải lâu hơn bình thường",
+    "slowBody": "Kết nối có thể đang chậm. Hãy giữ trang này hoặc tải lại.",
+    "reload": "Tải lại",
+    "offlinePill": "Mất kết nối",
+    "offlineTitle": "Không kết nối được Quizzivy",
+    "offlineBody": "Kiểm tra Wi-Fi hoặc dữ liệu di động. Các câu trả lời đã lưu vẫn an toàn.",
+    "tryAgain": "Thử lại",
+    "retryIn": "Tự thử lại sau {{seconds}}s",
+    "retrying": "Đang thử lại…",
+    "updatePill": "Phiên bản mới",
+    "updateTitle": "Quizzivy vừa được cập nhật",
+    "updateBody": "Tải lại để dùng phiên bản mới nhất. Chỉ mất vài giây.",
+    "updateNow": "Tải lại ngay",
+    "expiredTitle": "Vui lòng đăng nhập lại",
+    "expiredBody": "Bạn đã được đăng xuất để bảo mật tài khoản.",
+    "signIn": "Đăng nhập",
+    "version": "Quizzivy · v{{version}}"
+  },
   "copy": {
     "copy": "Sao chép",
     "copied": "Đã sao chép"

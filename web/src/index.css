@@ -92,6 +92,8 @@
   --z-dialog: 85;
   --z-toast: 90;
   --z-popover: 100;
+  --z-splash: 60;
+  --z-app-state: 110;
 }
 
 :root.dark {
