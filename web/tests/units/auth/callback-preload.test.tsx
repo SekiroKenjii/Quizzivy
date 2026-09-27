@@ -27,6 +27,8 @@ const STUDENT = {
   linkedProviders: ["google"],
   mustChangePassword: false,
   createdAt: "2026-01-01T00:00:00Z",
+  permissions: ["learning.take_tests" as const],
+  workspaces: ["app" as const],
 };
 
 /** Back from Google with a code, the way the redirect lands. */
