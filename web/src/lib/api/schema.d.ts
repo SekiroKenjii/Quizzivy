@@ -375,9 +375,9 @@ export interface paths {
          * @description Backs the builder's 1.5s-debounced autosave (§8). The whole outline —
          *     sections and question ordering — is written in one transaction.
          *
-         *     `expectedUpdatedAt` is a version guard. §1.3 says one admin edits at a
-         *     time; this makes a stale second tab fail loudly with `STALE_WRITE`
-         *     instead of silently reverting the outline.
+         *     `expectedUpdatedAt` is a version guard. §1.3 rules out real-time
+         *     collaborative authoring; this makes a stale second tab fail loudly with
+         *     `STALE_WRITE` instead of silently reverting the outline.
          */
         patch: operations["updateTest"];
         trace?: never;
