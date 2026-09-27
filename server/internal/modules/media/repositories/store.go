@@ -25,8 +25,8 @@ func (s *Postgres) Insert(ctx context.Context, in domain.InsertInput) (domain.As
 	const q = `
 		INSERT INTO app.media_assets
 		       (id, kind, storage_key, mime_type, bytes, duration_ms,
-		        original_filename, checksum_sha256, uploaded_by, created_at)
-		VALUES ($1, $2::app.media_kind, $3, $4, $5, $6, $7, $8, $9, $10)
+		        original_filename, checksum_sha256, uploaded_by, created_at, owner_id)
+		VALUES ($1, $2::app.media_kind, $3, $4, $5, $6, $7, $8, $9, $10, $9)
 		RETURNING id::text, created_at`
 
 	var a domain.Asset

@@ -46,6 +46,13 @@ func TestCreatingAStudentEnrolsThemAndForcesAChange(t *testing.T) {
 	if !created.MustChangePassword {
 		t.Error("an admin-created account did not force a password change")
 	}
+	var creator string
+	if err := pool.QueryRow(ctx, `SELECT coalesce(created_by::text, '') FROM app.users WHERE id = $1`, created.ID).Scan(&creator); err != nil {
+		t.Fatal(err)
+	}
+	if creator != w.admin {
+		t.Errorf("created_by = %q, want the staff member who created the account, %s", creator, w.admin)
+	}
 	if !created.HasPassword {
 		t.Error("no password was set")
 	}

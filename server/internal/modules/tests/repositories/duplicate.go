@@ -28,8 +28,8 @@ func (s *Postgres) Duplicate(ctx context.Context, in domain.DuplicateInput) (dom
 
 	var copyID string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO app.tests (title, description, created_by)
-		 SELECT title, description, $2 FROM app.tests WHERE id = $1
+		`INSERT INTO app.tests (title, description, created_by, owner_id)
+		 SELECT title, description, $2, owner_id FROM app.tests WHERE id = $1
 		 RETURNING id::text`, in.ID, in.ActorID).Scan(&copyID); err != nil {
 		return domain.Test{}, fmt.Errorf("tests: copy test row: %w", err)
 	}
