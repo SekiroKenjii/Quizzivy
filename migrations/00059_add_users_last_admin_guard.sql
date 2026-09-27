@@ -6,7 +6,11 @@
 -- KEY UPDATE on the Admin role row serialises concurrent departures without
 -- conflicting with the FOR KEY SHARE that foreign-key checks on users.role_id
 -- take, and the count after it runs on a fresh READ COMMITTED snapshot, so of
--- two transactions disabling the only two Admins exactly one commits.
+-- two transactions disabling the only two Admins exactly one commits. That
+-- holds under READ COMMITTED, which every writer in the app uses, and under
+-- SERIALIZABLE; two REPEATABLE READ transactions count on their own snapshots
+-- and could both pass. Locking the remaining Admins instead would make two
+-- departures that leave a third Admin deadlock, which is the likelier case.
 --
 -- SECURITY DEFINER, owned by quizzivy_migrate: the row lock needs UPDATE on
 -- app.roles, which 00054 revokes from the app role, and as the invoker a
