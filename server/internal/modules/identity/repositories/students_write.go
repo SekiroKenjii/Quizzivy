@@ -23,8 +23,8 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 
 	var id string
 	err = tx.QueryRow(ctx, `
-		INSERT INTO app.users (email, full_name, role, password_hash, must_change_password)
-		VALUES ($1, $2, 'student', $3, true)
+		INSERT INTO app.users (email, full_name, role_id, password_hash, must_change_password)
+		VALUES ($1, $2, (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'student'), $3, true)
 		RETURNING id::text`, in.Email, in.FullName, in.Hash).Scan(&id)
 	if db.IsUniqueViolation(err, "") {
 		return domain.Student{}, domain.ErrEmailTaken
