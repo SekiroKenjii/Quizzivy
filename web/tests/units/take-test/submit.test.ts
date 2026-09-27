@@ -22,7 +22,9 @@ function attemptRow(status: "submitted" | "in_progress" = "submitted") {
 }
 
 beforeEach(() => {
-  saved.mockReset().mockResolvedValue({ serverTime: now, savedAt: now });
+  saved
+    .mockReset()
+    .mockResolvedValue({ serverTime: now, savedAt: now, deadlineAt: deadline });
   submitted.mockReset().mockResolvedValue(attemptRow());
   useTakeTestStore.getState().reset();
 });
@@ -42,7 +44,8 @@ describe("submitting", () => {
     saved.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ serverTime: now, savedAt: now });
+          release = () =>
+            resolve({ serverTime: now, savedAt: now, deadlineAt: deadline });
         }),
     );
     useTakeTestStore.getState().setAnswer("q1", text("first"));
