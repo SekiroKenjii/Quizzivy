@@ -14,8 +14,13 @@ this file describe the code as it is and name the release that changes them.
   UI. The old mockups and their board ids (A-, F-, G-, S-, E-, B-) are gone; do
   not cite them. Deliberate departures from the deck are in
   `docs/design/gaps.md`.
-- **R1** replaces the zinc tokens, the font and the primitives. Until then, do
-  not restyle screens ad hoc.
+- **Since R1** (v0.7.0) the deck's tokens, Be Vietnam Pro and the primitives
+  are in. Deck geometry (sizes, radii, type scale) applies only inside
+  `data-scale="deck"`, which a rebuilt surface sets on its root; the old
+  consoles keep their layouts, force light (`useForcedLightTheme`), and move to
+  deck defaults when R5 retires the last of them. `web/public/boot.js` applies
+  the theme and language before paint, since the CSP allows no inline script.
+  Do not restyle an old console's screen ad hoc: its release rebuilds it.
 - **R2** replaces the `/admin/` prefix gate with per-operation permissions and
   moves teaching operations to `/teacher/*`.
 - **R3** replaces the student layout rules in "Design" below with the deck's.
@@ -191,11 +196,11 @@ unit, integration and end-to-end in that order.
   permissions (the subset rule, strict student targets, the last admin, sign-in
   lockout) are in `docs/plan/70-redesign-overview.md` §4.
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Six operations are open —
-  login, Google sign-in, refresh, logout, `POST /join/preview` and the integrity
-  beacon `POST /app/attempts/{id}/events` — and the list is pinned by
-  `theOpenSix` in `core/router/tests/auth_middleware_test.go`, so a seventh
-  takes an argument.
+  derived from `api/openapi.yaml`'s `security`. Seven operations are open —
+  login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
+  beacon `POST /app/attempts/{id}/events` and `GET /public/status` — and the
+  list is pinned by `theOpenSeven` in `core/router/tests/auth_middleware_test.go`,
+  so an eighth takes an argument.
 
 ## `pnpm typecheck`, never `tsc --noEmit`
 
@@ -212,7 +217,13 @@ time once: a type-level contract assertion was silently never evaluated.
   wraps outermost and therefore runs FIRST. `NewRouter` passes the list through
   `inExecutionOrder`, so what is written top-to-bottom is what a request
   actually travels. Add new middleware to that list in the position you want it
-  to RUN. `router_test.go` pins the direction.
+  to RUN. `TestAuthenticationIsDecidedBeforeValidation` (`validate_test.go`) and
+  `TestBodyLimitPrecedesJSONValidation` (`hardening_test.go`) pin the direction.
+- **The maintenance gate is outside that list.** `httpx.Maintenance` wraps the
+  mux inside CORS, `CORS(Maintenance(mux))`, so it runs before rate limiting and
+  authentication: during a window every route answers `503 MAINTENANCE`, an
+  expired token included, and only `GET`/`HEAD` `/livez`, `/healthz` and
+  `/public/status` pass. `maintenance_gate_test.go` pins its position.
 - **The contract is enforced at runtime, once, in `httpx.ValidateRequests`.**
   Do not hand-write `required` / length / format checks in a handler; put the
   constraint in `api/openapi.yaml` and it is enforced everywhere. Handlers still
@@ -336,7 +347,12 @@ provider: `GoogleMark` on a button that hands the user to Google, and the
 deck's Google G that marks a Google sign-in in the admin Users table. Do not
 add another without the same argument.
 
+`tests/units/styles/no-raw-colours.test.ts` refuses a literal colour or a
+Tailwind palette class anywhere in `src/`.
+
 Every control has a visible `:focus-visible` ring, although the deck draws none.
+Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on every
+surface in both themes.
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 
@@ -414,16 +430,21 @@ The same applies to `app.media_assets`: anything inserting into
 publish can freeze a reference to an asset a concurrent delete is removing.
 `TestLockForVersionUseSerialisesAgainstDelete` covers it.
 
-Four tests are canaries. If one starts failing, something load-bearing broke —
+Five tests are canaries. If one starts failing, something load-bearing broke —
 fix the cause, never the test:
 
-- `publish/snapshot_test.go` — editing a bank question after publish must not
-  change the published version. Without this, versioning is decorative.
-- `AudioPlayer.test.tsx` — `.play()` must be called in the same synchronous tick
-  as the click. Any `await` before it breaks iOS Safari silently.
-- `integrity/events_test.go` — the same `client_seq` from two `session_id`s must
-  both persist. This is what stops a resumed attempt's timeline vanishing.
-- `client.refresh.test.ts` — five concurrent 401s must issue exactly one refresh.
+- `server/internal/modules/tests/application/tests/publish_snapshot_test.go` —
+  editing a bank question after publish must not change the published version.
+  Without this, versioning is decorative.
+- `web/tests/units/media/audio-player.test.tsx` — `.play()` must be called in
+  the same synchronous tick as the click. Any `await` before it breaks iOS
+  Safari silently.
+- `TestTheSameClientSeqFromTwoSessionsBothPersist` in
+  `server/internal/modules/attempts/application/tests/events_test.go` — the same
+  `client_seq` from two `session_id`s must both persist. This is what stops a
+  resumed attempt's timeline vanishing.
+- `web/tests/units/api/client.refresh.test.ts` — five concurrent 401s must issue
+  exactly one refresh.
 - `tests/integration/router-chunks.test.ts` — the admin tree must stay out of
   the entry chunk. It runs a real build; reading the router and trusting `lazy`
   would not catch the regression that actually happens.
