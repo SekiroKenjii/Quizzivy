@@ -13,7 +13,7 @@ import (
 )
 
 func attempts(dbx db.Context) *attemptsapp.Application {
-	return attemptsapp.New(attemptsrepo.NewTimelines(dbx), attemptsrepo.NewReviews(dbx), attemptsrepo.NewPostgres(dbx))
+	return attemptsapp.New(attemptsrepo.NewTimelines(dbx), attemptsrepo.NewReviews(dbx), attemptsrepo.NewPostgres(dbx, adapters.AttemptStartGuard{}))
 }
 
 func attemptsTransport(app *attemptsapp.Application, media *mediaapp.Application, identity *identityapp.Application, logger *slog.Logger) attemptshttp.Attempts {
