@@ -1984,6 +1984,12 @@ The expand half of moving users from `users.role` to `users.role_id` (plan 70
   transactions disabling the only two Admins, exactly one commits. Any other
   change returns before locking, so disabling a student takes no lock on
   `roles`.
+  - The guarantee holds under READ COMMITTED, which every writer in the app
+    uses, and under SERIALIZABLE. Two REPEATABLE READ transactions count on
+    their own snapshots and could both pass; only a hand-written transaction
+    runs that way. Locking the remaining Admins `FOR SHARE` would close it, but
+    two departures that leave a third Admin would then deadlock, and that is
+    the likelier case.
   - `FOR NO KEY UPDATE`, not `FOR UPDATE`: it serialises the guard against
     itself without conflicting with the `FOR KEY SHARE` a foreign-key check on
     `users.role_id` takes, so promoting one user to Admin does not hold up
