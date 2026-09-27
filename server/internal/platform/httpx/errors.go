@@ -22,6 +22,7 @@ const (
 	CodeNotFound         ErrorCode = "NOT_FOUND"
 	CodeRateLimited      ErrorCode = "RATE_LIMITED"
 	CodeInternal         ErrorCode = "INTERNAL"
+	CodeMaintenance      ErrorCode = "MAINTENANCE"
 )
 
 // Error is the envelope from docs/plan/00-overview.md §7.
@@ -40,11 +41,18 @@ type ErrorBody struct {
 // context, so the id a user reads off the error screen is the same one in the
 // server logs for that request.
 func WriteError(w http.ResponseWriter, r *http.Request, status int, code ErrorCode, message string) {
+	WriteErrorWithDetails(w, r, status, code, message, nil)
+}
+
+// WriteErrorWithDetails renders the envelope with details, which a client may
+// read beside the code.
+func WriteErrorWithDetails(w http.ResponseWriter, r *http.Request, status int, code ErrorCode, message string, details map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(Error{Error: ErrorBody{
 		Code:      code,
 		Message:   message,
+		Details:   details,
 		RequestID: RequestIDFromContext(r.Context()),
 	}})
 }
