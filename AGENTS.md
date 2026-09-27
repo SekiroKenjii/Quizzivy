@@ -226,7 +226,10 @@ time once: a type-level contract assertion was silently never evaluated.
   mux inside CORS, `CORS(Maintenance(mux))`, so it runs before rate limiting and
   authentication: during a window every route answers `503 MAINTENANCE`, an
   expired token included, and only `GET`/`HEAD` `/livez`, `/healthz` and
-  `/public/status` pass. `maintenance_gate_test.go` pins its position.
+  `/public/status` pass. It runs only when the path matches a route under some
+  method (`routedOnly` in `router.go`): a path no route serves gets the mux's
+  404 without a read of the window snapshot, so scanners cannot wake Neon
+  through it. `maintenance_gate_test.go` pins its position.
 - **The contract is enforced at runtime, once, in `httpx.ValidateRequests`.**
   Do not hand-write `required` / length / format checks in a handler; put the
   constraint in `api/openapi.yaml` and it is enforced everywhere. Handlers still

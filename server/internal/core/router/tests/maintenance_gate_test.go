@@ -178,8 +178,15 @@ func TestAPathNoRouteServesIsNeverAskedAboutAWindow(t *testing.T) {
 	if n := window.asked.Load(); n != 0 {
 		t.Errorf("the gate asked about the window %d times for paths no route serves; each ask can wake the database", n)
 	}
-	if rec := send(h, http.MethodDelete, "/auth/me", nil); rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("DELETE /auth/me = %d during a window, want 503: a route's path stays gated under any method", rec.Code)
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodDelete, "/auth/me"},
+		{http.MethodGet, "/auth/login"},
+		{http.MethodGet, "/app/attempts/01935000-0000-7000-8000-0000000000b1/answers"},
+		{http.MethodGet, "/admin/media/01935000-0000-7000-8000-0000000000c1"},
+	} {
+		if rec := send(h, tc.method, tc.path, nil); rec.Code != http.StatusServiceUnavailable {
+			t.Errorf("%s %s = %d during a window, want 503: a route's path stays gated under any method", tc.method, tc.path, rec.Code)
+		}
 	}
 }
 
