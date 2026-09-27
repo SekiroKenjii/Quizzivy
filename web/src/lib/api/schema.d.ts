@@ -4089,7 +4089,7 @@ export interface operations {
                     codeVerifier: string;
                     /** Format: uri */
                     redirectUri: string;
-                    /** @description Present only when signing in from a join (the preview on `/join/:code`). Turns this into a signup. */
+                    /** @description Present only when signing in to join a class, after the class preview on `/join` or `/join/:code`. Turns this into a signup. */
                     joinCode?: string;
                 };
             };
