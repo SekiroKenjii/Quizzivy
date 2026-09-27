@@ -1150,6 +1150,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
   - `qz-pulse`, for the live dot.
   - `qz-marquee`, only when a title overflows, paused on hover and focus.
   - The vendored primitives' enter and exit (dialog, popover, select, dropdown menu), standing in for the deck's popover entrance.
+  - The test builder outline's drag-and-drop reorder slide (dnd-kit); the deck draws a drop line instead.
 
   Under `prefers-reduced-motion` the marquee, live dot, breath, shimmer and indeterminate bar each have a static state, not a shorter one: an ellipsis, a solid dot, a still mark, flat `--muted`, a fixed 40% bar. Everything else is cut to 0.01ms by the global reduced-motion block. Exam inputs remain stationary. The rebuilt consoles (R3–R5) replace the old consoles' motion with the deck's.
 - **Audio player:** monochrome. A filled `--primary` play button, a thin `--secondary` track with a `--primary` fill. No waveform visualisation, no equaliser animation, no colored accents.
