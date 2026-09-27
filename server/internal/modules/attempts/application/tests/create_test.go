@@ -231,8 +231,8 @@ func TestAVoidedAttemptDoesNotSpendTheStudentsLastTry(t *testing.T) {
 	}
 }
 
-func farFuture() time.Time {
-	return time.Now().Add(25*365*24*time.Hour + time.Duration(rand.IntN(80000))*time.Hour).Truncate(time.Second)
+func farPast() time.Time {
+	return time.Now().Add(-25*365*24*time.Hour - time.Duration(rand.IntN(80000))*time.Hour).Truncate(time.Second)
 }
 
 func maintenanceWindow(t *testing.T, pool *pgxpool.Pool, startsAt, endsAt time.Time) {
@@ -276,7 +276,7 @@ func attemptsOf(t *testing.T, pool *pgxpool.Pool, w world) int {
 func TestAStartThatWouldRunIntoMaintenanceIsRefused(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
-	start := farFuture()
+	start := farPast()
 	maintenanceWindow(t, pool, start.Add(30*time.Minute), start.Add(90*time.Minute))
 
 	_, err := createAt(pool, w, start, start.Add(time.Hour))
@@ -296,7 +296,7 @@ func TestAStartThatWouldRunIntoMaintenanceIsRefused(t *testing.T) {
 func TestAStartThatEndsBeforeMaintenanceGoesAhead(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
-	start := farFuture()
+	start := farPast()
 	maintenanceWindow(t, pool, start.Add(time.Hour), start.Add(2*time.Hour))
 
 	got, err := createAt(pool, w, start, start.Add(time.Hour))

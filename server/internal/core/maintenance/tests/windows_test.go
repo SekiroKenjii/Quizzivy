@@ -362,15 +362,20 @@ func commitAssignment(t *testing.T, base time.Time) *committed {
 	}
 	c := &committed{pool: pool}
 	t.Cleanup(func() {
-		for _, q := range []string{
-			`DELETE FROM app.maintenance_windows WHERE starts_at >= $1 AND starts_at < $1 + interval '30 days'`,
-			`DELETE FROM app.attempts WHERE assignment_id::text = $2`,
-			`DELETE FROM app.assignments WHERE id::text = $2`,
-			`DELETE FROM app.test_versions WHERE test_id::text = $3`,
-			`DELETE FROM app.tests WHERE id::text = $3`,
-			`DELETE FROM app.users WHERE id::text = ANY($4::text[])`,
+		for _, step := range []struct {
+			sql string
+			arg any
+		}{
+			{`DELETE FROM app.maintenance_windows WHERE starts_at >= $1 AND starts_at < $1 + interval '30 days'`, base},
+			{`DELETE FROM app.attempts WHERE assignment_id::text = $1`, c.assignment},
+			{`DELETE FROM app.assignments WHERE id::text = $1`, c.assignment},
+			{`DELETE FROM app.test_versions WHERE test_id::text = $1`, c.test},
+			{`DELETE FROM app.tests WHERE id::text = $1`, c.test},
+			{`DELETE FROM app.users WHERE id::text = ANY($1::text[])`, append([]string{c.teacher}, c.students...)},
 		} {
-			_, _ = pool.Exec(ctx, q, base, c.assignment, c.test, append([]string{c.teacher}, c.students...))
+			if _, err := pool.Exec(ctx, step.sql, step.arg); err != nil {
+				t.Errorf("cleanup %q: %v", step.sql, err)
+			}
 		}
 		pool.Close()
 	})
@@ -425,7 +430,7 @@ func TestWindowScheduleSerialisesAgainstAttemptStart(t *testing.T) {
 			SessionID:     uuid.NewString(),
 			Seed:          1,
 			BeaconHash:    hash[:],
-			StartedAt:     windowStart.Add(-10 * time.Minute),
+			StartedAt:     time.Now().Add(-10 * 365 * 24 * time.Hour),
 			DeadlineAt:    windowStart.Add(30 * time.Minute),
 		}
 
@@ -460,6 +465,12 @@ func TestWindowScheduleSerialisesAgainstAttemptStart(t *testing.T) {
 				t.Fatalf("attempt %d: an attempt started across a new window kept deadline %v, want %v; "+
 					"it will be cut off by the maintenance", attempt, deadline, want)
 			}
+		}
+		if _, err := c.pool.Exec(ctx, `DELETE FROM app.attempts WHERE student_id = $1::uuid`, in.StudentID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.pool.Exec(ctx, `DELETE FROM app.maintenance_windows WHERE starts_at = $1`, windowStart); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
