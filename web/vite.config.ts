@@ -1,12 +1,50 @@
 // defineConfig comes from vitest/config, not vite -- vite's own type does
 // not know about the `test` key.
 import { defineConfig } from "vitest/config";
+import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
+/**
+ * appVersion compiles the build id and web/package.json's version in as
+ * __APP_BUILD__ and __APP_VERSION__, writes the version into index.html's
+ * static splash, and publishes the pair as /version.json -- in the build output
+ * and from the dev server -- so an open tab can tell a newer deploy from its
+ * own. The deploy sets QUIZZIVY_BUILD to the commit it ships; any other build
+ * gets an id of its own.
+ */
+function appVersion(): Plugin {
+  const pkg = JSON.parse(
+    readFileSync(path.resolve(import.meta.dirname, "package.json"), "utf8"),
+  ) as { version: string };
+  const build = process.env["QUIZZIVY_BUILD"] || `local-${Date.now().toString(36)}`;
+  const body = JSON.stringify({ build, version: pkg.version });
+  return {
+    name: "quizzivy:app-version",
+    config: () => ({
+      define: {
+        __APP_BUILD__: JSON.stringify(build),
+        __APP_VERSION__: JSON.stringify(pkg.version),
+      },
+    }),
+    transformIndexHtml: (html) => html.replaceAll("%QUIZZIVY_VERSION%", pkg.version),
+    configureServer(server) {
+      server.middlewares.use("/version.json", (_request, response) => {
+        response.setHeader("Content-Type", "application/json");
+        response.setHeader("Cache-Control", "no-store");
+        response.end(body);
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "version.json", source: body });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), appVersion()],
   // One .env for the whole repository, at the root -- which is where
   // .env.example lives and where it documents BOTH halves of the config, the
   // server's and the VITE_ ones. Vite otherwise looks only in web/, so every

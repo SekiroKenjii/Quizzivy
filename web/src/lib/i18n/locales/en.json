@@ -2465,6 +2465,30 @@
     "check": "Check again",
     "footnote": "Your answers and results are kept. Nothing is lost."
   },
+  "splash": {
+    "steps": {
+      "session": "Checking your session…",
+      "classes": "Loading your classes…",
+      "ready": "Getting things ready…"
+    },
+    "slowTitle": "Taking longer than usual",
+    "slowBody": "Your connection may be slow. Keep this page open or reload.",
+    "reload": "Reload",
+    "offlinePill": "No connection",
+    "offlineTitle": "Can’t reach Quizzivy",
+    "offlineBody": "Check your Wi-Fi or mobile data. Answers you already saved are safe.",
+    "tryAgain": "Try again",
+    "retryIn": "Trying again in {{seconds}}s",
+    "retrying": "Trying again…",
+    "updatePill": "New version",
+    "updateTitle": "Quizzivy has been updated",
+    "updateBody": "Reload to get the latest version. It takes a few seconds.",
+    "updateNow": "Reload now",
+    "expiredTitle": "Please sign in again",
+    "expiredBody": "You were signed out for your security.",
+    "signIn": "Sign in",
+    "version": "Quizzivy · v{{version}}"
+  },
   "copy": {
     "copy": "Copy",
     "copied": "Copied"

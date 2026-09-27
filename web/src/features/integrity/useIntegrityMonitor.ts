@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { IntegrityPolicy } from "@/features/take-test/api";
+import { useAppState, type Overlay } from "@/stores/appState";
 import { beginSession, drain, pending, record } from "./buffer";
 import { sendBeaconFlush } from "./beacon";
 import { isFullscreen } from "./fullscreen";
@@ -13,7 +14,16 @@ export interface IntegrityStatus {
   fullscreen: boolean;
 }
 
-/** §10's signals, in one hook and one effect. */
+function pausing(overlay: Overlay): boolean {
+  return overlay.kind === "maintenance" || overlay.kind === "expired";
+}
+
+/**
+ * §10's signals, in one hook and one effect. No focus change is recorded
+ * while the maintenance or "sign in again" overlay stands over the page, and
+ * an away episode open when one appears is dropped, so time spent on the
+ * overlay never counts against the student.
+ */
 export function useIntegrityMonitor({
   attemptId,
   sessionId,
@@ -56,11 +66,16 @@ export function useIntegrityMonitor({
       });
 
     const leave = (kind: string) => {
+      if (pausing(useAppState.getState().overlay)) return;
       note(kind);
       if (awaySince === null) awaySince = Date.now();
     };
 
     const returned = (kind: string) => {
+      if (pausing(useAppState.getState().overlay)) {
+        awaySince = null;
+        return;
+      }
       if (awaySince === null) {
         note(kind);
         return;
@@ -110,6 +125,10 @@ export function useIntegrityMonitor({
       });
     };
 
+    const unsubscribe = useAppState.subscribe((state) => {
+      if (pausing(state.overlay)) awaySince = null;
+    });
+
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("blur", onBlur);
     window.addEventListener("focus", onFocus);
@@ -123,6 +142,7 @@ export function useIntegrityMonitor({
     window.addEventListener("pagehide", onPageHide);
 
     return () => {
+      unsubscribe();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);

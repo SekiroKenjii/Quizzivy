@@ -113,6 +113,21 @@ describe("route-level code splitting (§2)", () => {
     }
   });
 
+  it("ships the splash and the app states in the entry, so they cover a deep link while its route loads", () => {
+    const ids = entry().moduleIds.map((i) => i.replace(/\\/g, "/"));
+    for (const file of [
+      "app/AppFrame.tsx",
+      "app/boot/BootSplash.tsx",
+      "app/boot/AppStateLayer.tsx",
+      "app/boot/version.ts",
+    ]) {
+      expect(
+        ids.some((id) => id.endsWith(`/src/${file}`)),
+        file,
+      ).toBe(true);
+    }
+  });
+
   it("still builds the admin tree, in non-entry chunks", () => {
     const owning = chunks().filter((c) => matches(c.moduleIds, ADMIN).length > 0);
     expect(owning.length, "admin modules must be built somewhere").toBeGreaterThan(0);

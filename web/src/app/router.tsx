@@ -205,6 +205,7 @@ const studentTree: RouteObject = {
  */
 const takeTestTree: RouteObject = {
   path: "app/attempts/:attemptId",
+  handle: { focus: true },
   lazy: page(() => import("@/layouts/FocusLayout")),
   children: [
     {
@@ -235,6 +236,7 @@ const protectedTree: RouteObject = {
 export const router = createBrowserRouter([
   {
     ErrorBoundary,
+    HydrateFallback: () => null,
     children: [
       { index: true, element: <HomeRedirect /> },
       authTree,

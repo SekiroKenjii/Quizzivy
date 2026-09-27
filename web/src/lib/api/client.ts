@@ -67,7 +67,7 @@ type Optional<K extends string, T> = [T] extends [never]
 
 export type RequestOptions<O> = Optional<"path", PathParamsOf<O>> &
   Optional<"query", QueryParamsOf<O>> &
-  Optional<"body", BodyOf<O>> & { signal?: AbortSignal };
+  Optional<"body", BodyOf<O>> & { signal?: AbortSignal; cache?: RequestCache };
 
 // ------------------------------------------------------------ url building
 
@@ -126,8 +126,23 @@ let onSessionLost: () => void = () => {
 
 let onMaintenance: (window: { startsAt: string; endsAt: string }) => void = () => {};
 
+/**
+ * setSessionLostHandler registers what runs when the session is refused. A
+ * signed-in user is kept, with the token dropped and the session marked
+ * expired, so the page under the "sign in again" overlay stays mounted; anyone
+ * else is cleared.
+ */
 export function setSessionLostHandler(handler: () => void) {
   onSessionLost = handler;
+}
+
+function loseSession() {
+  if (authStore.isSignedIn()) {
+    authStore.expire();
+  } else {
+    authStore.clear();
+  }
+  onSessionLost();
 }
 
 /**
@@ -218,6 +233,7 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
     query?: Record<string, unknown>;
     body?: unknown;
     signal?: AbortSignal;
+    cache?: RequestCache;
   };
   const url = buildUrl(path as string, opts.path, opts.query);
 
@@ -236,23 +252,23 @@ export async function api<P extends keyof paths, M extends MethodsOf<P>>(
       credentials: "include",
       ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
       ...(opts.signal ? { signal: opts.signal } : {}),
+      ...(opts.cache ? { cache: opts.cache } : {}),
     });
   };
 
   let response = await send();
 
   if (response.status === 401 && !isAuthEntryPoint(path as string)) {
+    if (authStore.isExpired()) throw await toApiError(response);
     const outcome = await refreshSession();
     if (outcome.kind === "unavailable") throw outcome.error;
     if (outcome.kind === "refused") {
-      authStore.clear();
-      onSessionLost();
+      loseSession();
       throw await toApiError(response);
     }
     response = await send();
     if (response.status === 401) {
-      authStore.clear();
-      onSessionLost();
+      loseSession();
       throw await toApiError(response);
     }
   }
@@ -317,17 +333,16 @@ export async function uploadFile<T>(
 
   let response = await send();
   if (response.status === 401) {
+    if (authStore.isExpired()) throw toUploadError(response);
     const outcome = await refreshSession();
     if (outcome.kind === "unavailable") throw outcome.error;
     if (outcome.kind === "refused") {
-      authStore.clear();
-      onSessionLost();
+      loseSession();
       throw toUploadError(response);
     }
     response = await send();
     if (response.status === 401) {
-      authStore.clear();
-      onSessionLost();
+      loseSession();
       throw toUploadError(response);
     }
   }

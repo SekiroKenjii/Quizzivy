@@ -6,9 +6,116 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quizzivy</title>
     <script src="/boot.js"></script>
+    <style>
+      .qz-boot {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-splash);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 20px 100px;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 14px;
+        line-height: 1.5;
+        transition: opacity 0.35s ease;
+      }
+      .qz-boot-column {
+        width: 100%;
+        max-width: 340px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        text-align: center;
+      }
+      .qz-boot-mark {
+        display: flex;
+        width: 64px;
+        height: 64px;
+        transition:
+          filter 0.3s,
+          opacity 0.3s;
+      }
+      .qz-boot-mark img {
+        width: 64px;
+        height: 64px;
+      }
+      .qz-boot-mark .qz-boot-dark,
+      html.dark .qz-boot-mark .qz-boot-light {
+        display: none;
+      }
+      html.dark .qz-boot-mark .qz-boot-dark {
+        display: block;
+      }
+      .qz-boot-state {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      .qz-boot-track {
+        position: relative;
+        width: 180px;
+        height: 3px;
+        border-radius: 3px;
+        background: var(--muted);
+        overflow: hidden;
+      }
+      .qz-boot-fill {
+        height: 100%;
+        width: 12%;
+        border-radius: 3px;
+        background: var(--fg);
+        transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .qz-boot-label {
+        min-height: 20px;
+        font-size: 13px;
+        color: var(--muted-fg);
+      }
+      .qz-boot-version {
+        position: absolute;
+        bottom: 64px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 11.5px;
+        color: var(--muted-fg);
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="qz-boot" aria-hidden="true">
+        <div class="qz-boot-column">
+          <span class="qz-boot-mark">
+            <img
+              class="qz-boot-light"
+              src="/brand/quizzivy-mark-color.svg"
+              width="64"
+              height="64"
+              alt=""
+            />
+            <img
+              class="qz-boot-dark"
+              src="/brand/quizzivy-mark-on-dark.svg"
+              width="64"
+              height="64"
+              alt=""
+            />
+          </span>
+          <div class="qz-boot-state">
+            <div class="qz-boot-track"><div class="qz-boot-fill"></div></div>
+            <span class="qz-boot-label"></span>
+          </div>
+        </div>
+        <span class="qz-boot-version">Quizzivy · v%QUIZZIVY_VERSION%</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
