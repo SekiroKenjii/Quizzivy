@@ -26,7 +26,11 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	if err := httpx.AssertPublicRoutesLimited(spec, limits); err != nil {
 		return nil, err
 	}
-	if _, err := httpx.PermissionRequirements(spec, "bearerAuth"); err != nil {
+	if deps.Principals == nil {
+		return nil, errors.New("router: no principal resolver; every gated operation would be refused")
+	}
+	requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
+	if err != nil {
 		return nil, err
 	}
 
@@ -60,7 +64,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	mux.Handle("GET /healthz", limited(healthz(deps.DB)))
 	docs := limited
 	if !deps.DocsPublic {
-		gate := identityhttp.RequireDocsSession(deps.Docs)
+		gate := identityhttp.RequireDocsSession(deps.Docs, deps.Principals)
 		docs = func(next http.Handler) http.Handler { return limited(gate(next)) }
 	}
 	mux.Handle("GET /docs", docs(apidocs.Reference("/docs/openapi.json")))
@@ -73,7 +77,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			httpx.WithRequestMeta(ratelimit.ClientIP(clientIPHeader)),
 			identityhttp.WithRefreshCookie,
 			httpx.RequireAuth(openRoutes, deps.verifyAccessToken),
-			httpx.RequireRole,
+			httpx.RequirePermission(requirements, deps.Principals),
 			httpx.LimitRequestBody(httpx.StreamingBodyRoutes(spec), 1<<20, httpx.RequestBodyLimits(spec)),
 			validate,
 		),

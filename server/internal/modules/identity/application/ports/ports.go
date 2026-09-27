@@ -15,5 +15,12 @@ type GoogleProvider interface {
 	Verify(ctx context.Context, rawIDToken string) (model.GoogleIdentity, error)
 }
 
+// Principals is the access module's principal cache. A command that ends a
+// user's access forgets the user on this machine, so the next request reads
+// the moved session epoch.
+type Principals interface {
+	Forget(userID string)
+}
+
 // SelfEnroller creates an account from a join code and enrols it (§6.3): the classes module's EnrolNewMember command.
 type SelfEnroller = cqrs.CommandHandler[classescommand.EnrolNewMember, classesdomain.EnrolResult]

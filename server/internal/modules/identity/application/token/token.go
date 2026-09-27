@@ -16,9 +16,12 @@ var ErrTokenExpired = errors.New("access token has expired")
 
 // Claims is deliberately small. Anything put here is readable by anyone
 // holding the token and cannot be revoked before it expires, so it carries
-// identity and role only -- never email, name, or anything that changes.
+// identity, the legacy role a v0.7.0 machine still gates on, and the session
+// epoch -- never email, name, or anything that changes. A token without sep
+// reads as epoch 0.
 type Claims struct {
-	Role string `json:"role"`
+	Role  string `json:"role"`
+	Epoch int    `json:"sep,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -63,10 +66,13 @@ func (i *Issuer) SetClock(now func() time.Time) { i.now = now }
 
 func (i *Issuer) TTL() time.Duration { return i.ttl }
 
-func (i *Issuer) Issue(userID, role string) (string, error) {
+// Issue signs a token for userID carrying the legacy role, "student" or
+// "admin", and the user's session epoch.
+func (i *Issuer) Issue(userID, legacyRole string, epoch int) (string, error) {
 	now := i.now()
 	claims := Claims{
-		Role: role,
+		Role:  legacyRole,
+		Epoch: epoch,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			Issuer:    i.issuer,

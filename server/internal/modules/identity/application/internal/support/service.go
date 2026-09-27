@@ -111,7 +111,7 @@ func NewService(users domain.Users, tokens *token.Issuer, refreshTTL time.Durati
 func (s *Service) SetClock(now func() time.Time) { s.Now = now }
 
 func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent, ip string) (model.Session, error) {
-	access, err := s.Tokens.Issue(user.ID, user.Role)
+	access, err := s.Tokens.Issue(user.ID, user.Role, user.SessionEpoch)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("issue access token: %w", err)
 	}
