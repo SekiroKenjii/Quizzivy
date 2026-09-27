@@ -1,7 +1,7 @@
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 
-export type User = components["schemas"]["User"];
+export type User = components["schemas"]["CurrentUser"];
 
 /**
  * The session calls, in one place so the store and the pages agree on what a
