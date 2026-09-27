@@ -60,14 +60,15 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 		HasPassword: true, CreatedAt: disabledAt, DisabledAt: &disabledAt,
 	}}
 	handler, err := router.New(router.Deps{
-		DB:      fakeDB{},
-		Modules: router.Modules{Attempts: attemptshttp.NewAttempts(review.app(), nil, students.handler(), nil)},
-		Tokens:  issuer,
+		Principals: newFakePrincipals(),
+		DB:         fakeDB{},
+		Modules:    router.Modules{Attempts: attemptshttp.NewAttempts(review.app(), nil, students.handler(), nil)},
+		Tokens:     issuer,
 	}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
 	}
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

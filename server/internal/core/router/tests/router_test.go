@@ -20,7 +20,7 @@ func (f fakeDB) Ping(context.Context) error { return f.err }
 func newTestRouter(t *testing.T, database router.DB) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := router.New(router.Deps{DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
+	h, err := router.New(router.Deps{Principals: newFakePrincipals(), DB: database}, logger, []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestEveryServiceRateLimitNamesARouteTheRouterServes(t *testing.T) {
 
 func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 	issuer := testIssuer(t)
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

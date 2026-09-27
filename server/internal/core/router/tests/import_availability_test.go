@@ -17,12 +17,12 @@ import (
 func importRouter(t *testing.T, imports importshttp.Imports) func(method, path, body, language string) *httptest.ResponseRecorder {
 	t.Helper()
 	issuer := testIssuer(t)
-	handler, err := router.New(router.Deps{DB: fakeDB{}, Tokens: issuer, Modules: router.Modules{Imports: imports}},
+	handler, err := router.New(router.Deps{Principals: newFakePrincipals(), DB: fakeDB{}, Tokens: issuer, Modules: router.Modules{Imports: imports}},
 		slog.New(slog.NewTextHandler(io.Discard, nil)), []string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

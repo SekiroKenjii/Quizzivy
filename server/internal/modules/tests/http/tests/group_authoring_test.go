@@ -54,7 +54,7 @@ func TestGroupWriteRoundTripsPoliciesAndAcknowledgesSavedContentDuringMediaFailu
 			})}}
 			transport := testshttp.NewTests(app, authoringMedia{fail: offline})
 			handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-				return httpx.Principal{UserID: uuid.NewString(), Role: "admin"}, nil
+				return httpx.Principal{UserID: uuid.NewString()}, nil
 			})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				response, err := transport.CreateQuestionGroup(r.Context(), openapi.CreateQuestionGroupRequestObject{Body: &body})
 				if err != nil {

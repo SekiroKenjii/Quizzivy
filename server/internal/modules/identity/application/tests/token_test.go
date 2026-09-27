@@ -21,7 +21,7 @@ func issuer(t *testing.T) *token.Issuer {
 
 func TestIssueAndVerify(t *testing.T) {
 	i := issuer(t)
-	tok, err := i.Issue("user-1", "admin")
+	tok, err := i.Issue("user-1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestExpiredTokenIsRejected(t *testing.T) {
 	i := issuer(t)
 	base := time.Now()
 	i.SetClock(func() time.Time { return base })
-	tok, _ := i.Issue("user-1", "student")
+	tok, _ := i.Issue("user-1", "student", 0)
 
 	i.SetClock(func() time.Time { return base.Add(16 * time.Minute) })
 	_, err := i.Verify(tok)
@@ -56,7 +56,7 @@ func TestExpiredTokenIsRejected(t *testing.T) {
 func TestTokenFromADifferentKeyIsRejected(t *testing.T) {
 	a := issuer(t)
 	b, _ := token.NewIssuer([]byte(strings.Repeat("z", 32)), time.Minute)
-	tok, _ := a.Issue("user-1", "admin")
+	tok, _ := a.Issue("user-1", "admin", 0)
 	if _, err := b.Verify(tok); err == nil {
 		t.Error("a token signed with another key verified")
 	}
@@ -64,7 +64,7 @@ func TestTokenFromADifferentKeyIsRejected(t *testing.T) {
 
 func TestAlgNoneIsRejected(t *testing.T) {
 	i := issuer(t)
-	tok, _ := i.Issue("user-1", "student")
+	tok, _ := i.Issue("user-1", "student", 0)
 	parts := strings.Split(tok, ".")
 	if len(parts) != 3 {
 		t.Fatalf("unexpected token shape")
@@ -78,7 +78,7 @@ func TestAlgNoneIsRejected(t *testing.T) {
 
 func TestClaimsCarryNothingBeyondIdentityAndRole(t *testing.T) {
 	i := issuer(t)
-	tok, _ := i.Issue("user-1", "student")
+	tok, _ := i.Issue("user-1", "student", 0)
 	payload := strings.Split(tok, ".")[1]
 	for _, forbidden := range []string{"email", "full_name", "fullName", "@"} {
 		if strings.Contains(strings.ToLower(payload), strings.ToLower(forbidden)) {

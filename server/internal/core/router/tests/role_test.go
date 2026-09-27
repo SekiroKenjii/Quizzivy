@@ -16,12 +16,12 @@ import (
 // one hands out join codes.
 
 func requestAs(t *testing.T, handler http.Handler, issuer interface {
-	Issue(userID, role string) (string, error)
+	Issue(userID, role string, epoch int) (string, error)
 }, method, path, role string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
 	if role != "" {
-		token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", role)
+		token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", role, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

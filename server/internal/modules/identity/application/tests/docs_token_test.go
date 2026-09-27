@@ -28,7 +28,7 @@ func docsIssuers(t *testing.T) (access, docs *token.Issuer) {
 
 func TestADocsTokenOpensOnlyTheDocs(t *testing.T) {
 	access, docs := docsIssuers(t)
-	raw, err := docs.Issue("admin-1", "admin")
+	raw, err := docs.Issue("admin-1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestADocsTokenOpensOnlyTheDocs(t *testing.T) {
 
 func TestAnAccessTokenNeverOpensTheDocs(t *testing.T) {
 	access, docs := docsIssuers(t)
-	raw, err := access.Issue("admin-1", "admin")
+	raw, err := access.Issue("admin-1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestADocsTokenLastsFifteenMinutes(t *testing.T) {
 	_, docs := docsIssuers(t)
 	start := time.Date(2026, 9, 25, 8, 0, 0, 0, time.UTC)
 	docs.SetClock(func() time.Time { return start })
-	raw, err := docs.Issue("admin-1", "admin")
+	raw, err := docs.Issue("admin-1", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
