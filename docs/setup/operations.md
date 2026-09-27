@@ -136,10 +136,13 @@ before allowing the restored system to serve users.
 
 ## Maintenance windows
 
-A maintenance window is a period during which the API answers every request
-except `/livez`, `/healthz` and `GET /public/status` with 503 `MAINTENANCE`, so a
-migration or a provider change can run without users working against it. Plan
-one for anything that could fail half-way under live traffic. A window lasts at
+A maintenance window is a period during which the API answers every request to a
+path one of its routes serves, under any method, with 503 `MAINTENANCE`, except
+GET/HEAD `/livez`, `/healthz` and `/public/status`, so a migration or a provider
+change can run without users working against it. A path that no route serves gets
+its 404 without the gate asking about a window, so a scanner probing for `/.env`
+never makes the API read the database.
+Plan one for anything that could fail half-way under live traffic. A window lasts at
 most 12 hours, starts no earlier than a minute ago, and never overlaps another.
 
 ```sh
