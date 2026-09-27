@@ -15,6 +15,8 @@ import (
 // operation's permission in.
 const PermissionExtension = "x-permission"
 
+const adminTree = "/admin/"
+
 // PermissionRequirements reads every operation's x-permission into a map keyed
 // by route pattern ("POST /admin/tests"), the form r.Pattern takes. An
 // operation that requires scheme must declare one, and one that does not must
@@ -68,8 +70,8 @@ func declaredPermission(op *openapi3.Operation, path string, open bool) ([]acces
 			return nil, fmt.Errorf("repeats %q", k)
 		case !k.Known() && !k.Pseudo():
 			return nil, fmt.Errorf("%q is neither a catalogue key nor a pseudo-key", k)
-		case k.Hidden() && !strings.HasPrefix(path, AdminPathPrefix):
-			return nil, fmt.Errorf("the hidden key %q is declared outside %s", k, AdminPathPrefix)
+		case k.Hidden() && !strings.HasPrefix(path, adminTree):
+			return nil, fmt.Errorf("the hidden key %q is declared outside %s", k, adminTree)
 		}
 		seen[k] = true
 	}
