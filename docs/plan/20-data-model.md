@@ -1235,6 +1235,8 @@ listed here matches the spec.
 | D-19 | `attempt_answers`: add `requires_manual`, `graded_by`, `graded_at` | `final_score` is VIRTUAL and unindexable, so `pendingManual` needs a real-column predicate |
 | D-20 | Add `maintenance_windows`, read-only for the app role; written only through `cmd/maintenance`, whose extensions are audited as System | §13 has no maintenance state; the API must be able to answer 503 without being able to schedule, move or cancel a window itself (T-R1.12) |
 | D-21 | Reference data the app cannot run without is written by a migration, not `seed/`: the permission catalogue (`permissions`), the four built-in `roles` and their grants (`role_permissions`) | §13.7 keeps seed data out of migrations, but a production database with no roles cannot sign anyone in; plan 70 §3 (T-R2.1) |
+| D-22 | `tests`, `questions`, `question_groups` and `media_assets` gain `owner_id` beside `created_by` / `uploaded_by`; `users` gains a nullable `created_by` | Ownership is who a row belongs to and provenance is who made it. R5's ownership transfer and R7's co-editing move the first and must not rewrite the second (T-R2.9) |
+| D-23 | `classes.teacher_id` is backfilled from the oldest active Admin, with no `classes.created_by` | `app.classes` never recorded a creator, and the oldest active Admin is who v0.7.0 shows as every class's teacher, so no teacher changes; a class's creator from R2 on is its `class.created` audit row (Thuong, 2026-09-28; T-R2.9) |
 
 ---
 
@@ -1304,6 +1306,12 @@ the file it adds.
 | `00057_index_users_role_id.sql` | `users_role_id_active_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.2) |
 | `00058_add_users_session_epoch.sql` | `users.session_epoch` | R2 (T-R2.2) |
 | `00059_add_users_last_admin_guard.sql` | the `users_last_admin` trigger, the schema's first `SECURITY DEFINER` function | R2 (T-R2.2) |
+| `00060_add_tests_owner.sql` | `tests.owner_id`, backfilled from `created_by`, `NOT NULL NOT VALID`, with `app.fill_owner_from_created_by()` and its fill trigger | R2 (T-R2.9), D-22 |
+| `00061_add_questions_owner.sql` | `questions.owner_id`, the same way | R2 (T-R2.9), D-22 |
+| `00062_add_question_groups_owner.sql` | `question_groups.owner_id`, the same way | R2 (T-R2.9), D-22 |
+| `00063_add_media_assets_owner.sql` | `media_assets.owner_id` from `uploaded_by`, with `app.fill_owner_from_uploaded_by()` | R2 (T-R2.9), D-22 |
+| `00064_add_users_created_by.sql` | `users.created_by`, nullable, `ON DELETE SET NULL` | R2 (T-R2.9), D-22 |
+| `00065_add_classes_teacher.sql` | `classes.teacher_id` from the oldest active Admin, `NOT NULL NOT VALID`, with `classes_fill_teacher` | R2 (T-R2.9), D-23 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2018,3 +2026,66 @@ refusals and the two-transaction race, and it checks the definer's
 attributes and that a foreign-key check on the Admin role does not hold the
 guard up. It carries the `integration` tag and runs where `TEST_DESTRUCTIVE=1`
 is set, as CI does.
+
+## 31. Ownership (T-R2.9)
+
+The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). R3
+validates every constraint below and drops the fill triggers and their
+functions (73-r3.md T-R3.2).
+
+- `00060`–`00063` add `owner_id uuid REFERENCES app.users ON DELETE RESTRICT`
+  to `tests`, `questions`, `question_groups` and `media_assets`, beside the
+  provenance column each already has. Each file:
+  - backfills `owner_id` from `created_by` (`uploaded_by` for media) with the
+    table's `*_set_updated_at` trigger disabled, so no `updated_at` moves. An
+    open builder tab sends a test's `updated_at` back as `expectedUpdatedAt`,
+    and a moved value would fail its next autosave with `STALE_WRITE` during
+    the deploy. `media_assets` has no `updated_at`;
+  - raises if a row is still NULL;
+  - adds `<table>_owner_id_not_null NOT NULL owner_id NOT VALID` (PG18);
+  - adds a BEFORE INSERT trigger, `<table>_fill_owner`, that sets `owner_id`
+    from the provenance column when the v0.7.0 binary inserts without it.
+    `00060` creates `app.fill_owner_from_created_by()`, which `00061` and
+    `00062` reuse; `00063` creates `app.fill_owner_from_uploaded_by()`.
+- `00064` adds `users.created_by uuid REFERENCES app.users ON DELETE SET NULL`,
+  nullable and not backfilled. NULL means the creator is unknown: every account
+  that predates R2, and a Google self-join, which has none. Deleting the
+  creator clears it rather than taking the account with it.
+- `00065` adds `classes.teacher_id uuid REFERENCES app.users ON DELETE
+  RESTRICT`. `app.classes` has never had a `created_by`, so the backfill takes
+  the oldest active Admin (by `created_at`, then `id`), the teacher v0.7.0
+  shows for every class. It raises if no active Admin exists and a class does.
+  `classes_fill_teacher` (BEFORE INSERT) applies the same rule to the old
+  binary's inserts; it and its function `app.classes_fill_teacher()` share the
+  name. It reads `users.role_id`, not the legacy `role`, so R3's `DROP COLUMN
+  role` cannot break it before R3 drops it.
+- The new binary names every owner itself; the triggers exist only for the
+  deploy overlap:
+
+  | Row | Owner written |
+  |---|---|
+  | a class | `teacher_id` = the acting user |
+  | a new test, a bank question, a bank group | the acting user |
+  | a duplicated test | the source test's owner; `created_by` stays the actor |
+  | a section-owned group, a restored draft's question | the test's owner |
+  | a group member | the group's owner |
+  | a media asset | the uploader |
+  | a student created by staff | `created_by` = the actor |
+  | a Google self-join | `created_by` = NULL |
+
+- Test fixtures and `seed/01-dev.sql` that insert a class name `teacher_id`.
+  The class fill is the one that reads other rows: a committed fixture relying
+  on it would take whichever fixture Admin is oldest at that moment, and a
+  parallel package's cleanup of that user would then fail on the foreign key.
+  The one exception is the shared fixture in `constraints_test.go`: it also
+  runs on scratch databases migrated to versions before `00065`, and its
+  transaction never commits, so a concurrent delete only waits for it.
+
+`platform/db/tests/expand_r2_test.go` (`TestTheOwnershipExpandKeepsTheOldBinaryWorking`)
+writes a legacy dataset at v0.7.0's schema by two authors, with an older,
+disabled Admin, and migrates. It checks that every row went to its author and
+the class to the oldest active Admin, with `updated_at` unmoved. It also
+checks the old binary's inserts are filled, an explicit owner is kept, an
+account's creator is optional and cleared when the creator goes, and each
+constraint stays NOT VALID.
+

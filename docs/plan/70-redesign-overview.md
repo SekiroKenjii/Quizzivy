@@ -224,7 +224,7 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 |---|---|---|
 | The owner's account | `role='admin'` maps to the built-in Admin role: every permission, both workspaces. No manual step. | R2 |
 | Students | `role='student'` → built-in Student. Memberships, attempts, answers and events are untouched. | R2 |
-| Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from `classes.created_by`, which `00006` already declares `NOT NULL` (the oldest-admin rule in `classes/repositories/lookup.go` is not copied). Each backfill raises if a row would stay NULL. | R2 |
+| Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from the oldest active Admin, the teacher v0.7.0 shows, because `app.classes` has never recorded a creator (D-23, decided 2026-09-28). Each backfill raises if a row would stay NULL. | R2 |
 | Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. | R2, R4 |
 | Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped in R3. | R2, R3 |
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
