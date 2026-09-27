@@ -49,6 +49,9 @@ func newRevocation(t *testing.T) *revocation {
 	dbx := db.NewContext(pool)
 	r := &revocation{pool: pool, access: application.New(accessrepo.NewPostgres(dbx))}
 	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM app.audit_log WHERE entity_id = ANY($1::uuid[]) OR actor_user_id = ANY($1::uuid[])`, r.users); err != nil {
+			t.Errorf("cleanup audit: %v", err)
+		}
 		for _, id := range r.users {
 			if _, err := pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1`, id); err != nil {
 				t.Errorf("cleanup user: %v", err)
@@ -80,14 +83,38 @@ func newRevocation(t *testing.T) *revocation {
 
 func (r *revocation) user(t *testing.T, role string) string {
 	t.Helper()
+	id, _ := r.userWithPassword(t, role, "")
+	return id
+}
+
+func (r *revocation) userWithPassword(t *testing.T, role, password string) (string, string) {
+	t.Helper()
+	var hash *string
+	if password != "" {
+		h, err := identitydomain.Passwords.Hash(context.Background(), password)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hash = &h
+	}
+	email := uuid.NewString() + "@example.com"
 	var id string
 	if err := r.pool.QueryRow(context.Background(), `
-		INSERT INTO app.users (email, full_name, role_id) VALUES ($1, 'Revocation fixture', `+role+`)
-		RETURNING id::text`, uuid.NewString()+"@example.com").Scan(&id); err != nil {
+		INSERT INTO app.users (email, full_name, role_id, password_hash) VALUES ($1, 'Revocation fixture', `+role+`, $2)
+		RETURNING id::text`, email, hash).Scan(&id); err != nil {
 		t.Fatalf("user: %v", err)
 	}
 	r.users = append(r.users, id)
-	return id
+	return id, email
+}
+
+func (r *revocation) login(t *testing.T, email, password string) (string, string) {
+	t.Helper()
+	session, err := r.identity.Commands.Login.Handle(context.Background(), identitycommand.Login{Email: email, Password: password})
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	return session.AccessToken, session.RefreshToken
 }
 
 func (r *revocation) get(t *testing.T, userID, path string) int {
@@ -96,6 +123,11 @@ func (r *revocation) get(t *testing.T, userID, path string) int {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return r.getWith(t, token, path)
+}
+
+func (r *revocation) getWith(t *testing.T, token, path string) int {
+	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
@@ -105,42 +137,82 @@ func (r *revocation) get(t *testing.T, userID, path string) int {
 
 func reached(code int) bool { return code != http.StatusUnauthorized && code != http.StatusForbidden }
 
-func TestDisablingAStudentRefusesTheirLiveTokenOnTheNextRequest(t *testing.T) {
-	r := newRevocation(t)
-	student := r.user(t, `(SELECT id FROM app.roles WHERE builtin_key = 'student')`)
-	if code := r.get(t, student, "/app/assignments"); !reached(code) {
-		t.Fatalf("before the disable: %d, want the gate passed", code)
-	}
-	disabled := true
+func (r *revocation) setDisabled(t *testing.T, student string, disabled bool) {
+	t.Helper()
 	if _, err := r.identity.Commands.UpdateStudent.Handle(context.Background(), identitycommand.UpdateStudent{
 		Request: identitydomain.WriteRequest{ActorID: r.actor},
 		Input:   identitydomain.StudentPatch{ID: student, Disabled: &disabled},
 	}); err != nil {
-		t.Fatalf("disable: %v", err)
-	}
-	if code := r.get(t, student, "/app/assignments"); code != http.StatusUnauthorized {
-		t.Errorf("after the disable: %d, want 401", code)
+		t.Fatalf("set disabled %v: %v", disabled, err)
 	}
 }
 
-func TestResettingAPasswordRefusesTheLiveTokenOnTheNextRequest(t *testing.T) {
+func (r *revocation) epoch(t *testing.T, userID string) int {
+	t.Helper()
+	var epoch int
+	if err := r.pool.QueryRow(context.Background(), `SELECT session_epoch FROM app.users WHERE id = $1`, userID).Scan(&epoch); err != nil {
+		t.Fatal(err)
+	}
+	return epoch
+}
+
+func TestDisablingAStudentEndsEverySessionEvenAfterTheyAreEnabledAgain(t *testing.T) {
 	r := newRevocation(t)
-	student := r.user(t, `(SELECT id FROM app.roles WHERE builtin_key = 'student')`)
+	const password = "mat-khau-1"
+	student, email := r.userWithPassword(t, `(SELECT id FROM app.roles WHERE builtin_key = 'student')`, password)
+	access, refresh := r.login(t, email, password)
+	if code := r.getWith(t, access, "/app/assignments"); !reached(code) {
+		t.Fatalf("a signed-in student: %d, want the gate passed", code)
+	}
+	r.setDisabled(t, student, true)
+	if got := r.epoch(t, student); got != 1 {
+		t.Fatalf("session_epoch after the disable = %d, want 1", got)
+	}
+	if code := r.getWith(t, access, "/app/assignments"); code != http.StatusUnauthorized {
+		t.Errorf("while disabled: %d, want 401", code)
+	}
+	r.setDisabled(t, student, false)
+	if code := r.getWith(t, access, "/app/assignments"); code != http.StatusUnauthorized {
+		t.Errorf("the pre-disable access token after re-enabling: %d, want 401", code)
+	}
+	if _, err := r.identity.Commands.Refresh.Handle(context.Background(), identitycommand.Refresh{Token: refresh}); err == nil {
+		t.Error("the pre-disable refresh token still refreshes after the student is enabled again")
+	}
+	fresh, _ := r.login(t, email, password)
+	if code := r.getWith(t, fresh, "/app/assignments"); !reached(code) {
+		t.Errorf("a new sign-in after re-enabling: %d, want the gate passed", code)
+	}
+}
+
+func TestResettingAPasswordRefusesTheLiveTokenAndTheNewSessionCarriesTheEpoch(t *testing.T) {
+	r := newRevocation(t)
+	student, email := r.userWithPassword(t, `(SELECT id FROM app.roles WHERE builtin_key = 'student')`, "mat-khau-1")
 	if code := r.get(t, student, "/app/assignments"); !reached(code) {
 		t.Fatalf("before the reset: %d, want the gate passed", code)
 	}
-	if _, err := r.identity.Commands.ResetStudentPassword.Handle(context.Background(), identitycommand.ResetStudentPassword{
+	temporary, err := r.identity.Commands.ResetStudentPassword.Handle(context.Background(), identitycommand.ResetStudentPassword{
 		Request: identitydomain.WriteRequest{ActorID: r.actor},
 		ID:      student,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("reset: %v", err)
 	}
-	var epoch int
-	if err := r.pool.QueryRow(context.Background(), `SELECT session_epoch FROM app.users WHERE id = $1`, student).Scan(&epoch); err != nil || epoch != 1 {
-		t.Fatalf("session_epoch = %d (%v), want 1", epoch, err)
+	if got := r.epoch(t, student); got != 1 {
+		t.Fatalf("session_epoch = %d, want 1", got)
 	}
 	if code := r.get(t, student, "/app/assignments"); code != http.StatusUnauthorized {
 		t.Errorf("after the reset: %d, want 401 for a token at epoch 0", code)
+	}
+	access, refresh := r.login(t, email, temporary)
+	if code := r.getWith(t, access, "/app/assignments"); !reached(code) {
+		t.Errorf("signing in with the temporary password: %d, want the gate passed", code)
+	}
+	rotated, err := r.identity.Commands.Refresh.Handle(context.Background(), identitycommand.Refresh{Token: refresh})
+	if err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	if code := r.getWith(t, rotated.AccessToken, "/app/assignments"); !reached(code) {
+		t.Errorf("a refreshed token: %d, want the gate passed", code)
 	}
 }
 

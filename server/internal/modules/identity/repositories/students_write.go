@@ -60,8 +60,9 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 	return s.Get(ctx, id)
 }
 
-// Update edits profile fields, or disables the account; a disable moves the
-// session epoch, so the student's live access token stops working.
+// Update edits profile fields, or disables the account. A disable revokes every
+// refresh family the student has and moves the session epoch, so no session,
+// live or idle, survives it, including after the account is enabled again.
 func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domain.StudentPatch) (domain.Student, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -89,6 +90,14 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	}
 	if tag.RowsAffected() == 0 {
 		return domain.Student{}, domain.ErrStudentNotFound
+	}
+	if in.Disabled != nil && *in.Disabled {
+		if _, err := tx.Exec(ctx, `
+			UPDATE app.refresh_tokens
+			   SET revoked_at = $2
+			 WHERE user_id = $1::uuid AND revoked_at IS NULL`, in.ID, in.Now); err != nil {
+			return domain.Student{}, fmt.Errorf("students: revoke sessions: %w", err)
+		}
 	}
 
 	if err := audit.Write(ctx, tx, audit.Entry{

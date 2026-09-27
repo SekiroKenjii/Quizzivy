@@ -15,9 +15,9 @@ type GoogleProvider interface {
 	Verify(ctx context.Context, rawIDToken string) (model.GoogleIdentity, error)
 }
 
-// Principals is the access module's principal cache. A command that ends a
+// Principals is the access module's principal cache. A command that changes a
 // user's access forgets the user on this machine, so the next request reads
-// the moved session epoch.
+// the user's current state and session epoch.
 type Principals interface {
 	Forget(userID string)
 }

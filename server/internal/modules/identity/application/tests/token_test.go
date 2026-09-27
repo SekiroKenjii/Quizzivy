@@ -3,6 +3,7 @@
 package application_test
 
 import (
+	"encoding/base64"
 	"errors"
 	"quizzivy/internal/modules/identity/application/token"
 	"strings"
@@ -31,6 +32,47 @@ func TestIssueAndVerify(t *testing.T) {
 	}
 	if claims.Subject != "user-1" || claims.Role != "admin" {
 		t.Errorf("claims = %+v", claims)
+	}
+}
+
+func TestTheSessionEpochRoundTripsAsSep(t *testing.T) {
+	i := issuer(t)
+	tok, err := i.Issue("user-1", "student", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := i.Verify(tok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.Epoch != 3 {
+		t.Errorf("epoch = %d, want 3", claims.Epoch)
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(strings.Split(tok, ".")[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(payload), `"sep":3`) {
+		t.Errorf("payload %s carries no sep claim", payload)
+	}
+}
+
+func TestATokenWithoutSepReadsAsEpochZero(t *testing.T) {
+	i := issuer(t)
+	tok, err := i.Issue("user-1", "student", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(strings.Split(tok, ".")[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(payload), "sep") {
+		t.Errorf("an epoch-0 token carries sep: %s", payload)
+	}
+	claims, err := i.Verify(tok)
+	if err != nil || claims.Epoch != 0 {
+		t.Errorf("claims = %+v, err %v; want epoch 0", claims, err)
 	}
 }
 

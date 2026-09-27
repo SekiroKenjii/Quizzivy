@@ -317,6 +317,29 @@ func TestThePermissionGateRunsAfterAuthenticationAndBeforeTheBody(t *testing.T) 
 	}
 }
 
+func TestRateLimitsRunBeforeAuthenticationAndThePermissionGate(t *testing.T) {
+	issuer := testIssuer(t)
+	path := "/admin/students/01935000-0000-7000-8000-0000000000e1/reset-password"
+	for name, c := range map[string]struct {
+		user string
+		want int
+	}{
+		"anonymous": {"", http.StatusUnauthorized},
+		"student":   {studentUser, http.StatusForbidden},
+	} {
+		h := roleRouter(t, issuer, rolePrincipals())
+		for i := 1; i <= 5; i++ {
+			if rec := sendAs(t, h, issuer, http.MethodPost, path, c.user, ""); rec.Code != c.want {
+				t.Fatalf("%s request %d: %d, want %d within the budget", name, i, rec.Code, c.want)
+			}
+		}
+		rec := sendAs(t, h, issuer, http.MethodPost, path, c.user, "")
+		if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
+			t.Errorf("%s past the budget: %d (Retry-After %q), want 429 before %d", name, rec.Code, rec.Header().Get("Retry-After"), c.want)
+		}
+	}
+}
+
 func isolatedGate(t *testing.T, principals httpx.PrincipalResolver) (http.Handler, map[string]access.Requirement, map[string]struct{}) {
 	t.Helper()
 	spec := freshSpec(t)
@@ -380,11 +403,26 @@ func pick(refused bool, yes, no int) int {
 
 func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
+	sixRows := map[access.Key]bool{
+		"content.tests.write": true, "content.questions.write": true, "teaching.assignments.write": true,
+		"teaching.grading": true, "teaching.attendance": true, "people.students.read": true,
+		"self": true, "workspace.teacher": true,
+	}
+	refused := 0
 	for pattern, requirement := range requirements {
-		want := pick(requirement.SatisfiedBy(builtinGrants[access.BuiltinAssistant]), http.StatusNoContent, http.StatusForbidden)
+		want := http.StatusForbidden
+		if slices.ContainsFunc(requirement.Keys(), func(k access.Key) bool { return sixRows[k] }) {
+			want = http.StatusNoContent
+		}
+		if want == http.StatusForbidden {
+			refused++
+		}
 		if got := throughGate(h, pattern, assistantUser+"@0"); got != want {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
+	}
+	if refused != 32 {
+		t.Errorf("the Assistant is refused %d operations, want 32: twenty staff operations and the twelve /app ones", refused)
 	}
 }
 
