@@ -21,6 +21,8 @@ const BASE = {
   role: "student" as const,
   mustChangePassword: false,
   createdAt: "2026-01-01T00:00:00Z",
+  permissions: ["learning.take_tests" as const],
+  workspaces: ["app" as const],
 };
 
 function signedIn(over: { hasPassword: boolean; google: boolean }) {

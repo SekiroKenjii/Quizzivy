@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/stats"
 	"time"
 )
@@ -23,6 +24,10 @@ func NewStudents(repo domain.Students, stats stats.Source) *Students {
 type noPrincipals struct{}
 
 func (noPrincipals) Forget(string) {}
+
+func (noPrincipals) Resolve(_ context.Context, userID string) (access.Principal, error) {
+	return access.Principal{UserID: userID}, nil
+}
 
 func (s *Students) WithStats(ctx context.Context, student domain.Student) (domain.Student, error) {
 	list := []domain.Student{student}

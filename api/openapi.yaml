@@ -1110,6 +1110,57 @@ components:
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
 
+    Workspace:
+      type: string
+      enum: [teacher, admin, app]
+      description: |
+        A console the signed-in user may enter: `teacher` for any `content.*`,
+        `teaching.*` or `people.students.*` permission; `admin` for
+        `people.users.manage`, `people.roles.manage`, `system.audit.read`,
+        `system.settings.write` or `scope.all`; `app` for
+        `learning.take_tests`.
+
+    CurrentUser:
+      type: object
+      description: |
+        The signed-in user, as only the user sees it: `User`'s properties plus
+        the permissions the user's role holds, in catalogue order, and the
+        workspaces they open. Written flat, because a closed schema cannot be
+        extended with `allOf` (issue #41). `User` stays where a response
+        describes someone else, so a student's permissions never reach a
+        teacher's payload.
+
+        `role` keeps its two legacy values, derived from the role, so a tab
+        still open on v0.7.0 keeps routing.
+      required: [id, email, fullName, role, hasPassword, linkedProviders, mustChangePassword, createdAt, permissions, workspaces]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        email: { type: string, format: email, maxLength: 254 }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        role: { $ref: '#/components/schemas/Role' }
+        hasPassword:
+          type: boolean
+          description: false for Google-only accounts. Gates the unlink affordance.
+        linkedProviders:
+          type: array
+          items: { type: string, enum: [google] }
+          maxItems: 1
+        mustChangePassword:
+          type: boolean
+          description: Forces `/change-password`. Always false for Google-only users (§5.4).
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        permissions:
+          type: array
+          uniqueItems: true
+          maxItems: 64
+          items: { $ref: '#/components/schemas/PermissionKey' }
+        workspaces:
+          type: array
+          uniqueItems: true
+          maxItems: 3
+          items: { $ref: '#/components/schemas/Workspace' }
+
 
 
     GoogleSignInSuccess:
@@ -1126,7 +1177,7 @@ components:
       properties:
         accessToken: { type: string }
         expiresIn: { type: integer, description: Seconds. }
-        user: { $ref: '#/components/schemas/User' }
+        user: { $ref: '#/components/schemas/CurrentUser' }
         enrolledClass:
           description: Present only when a `joinCode` produced an enrolment.
           oneOf: [{ $ref: '#/components/schemas/Class' }, { type: 'null' }]
@@ -1397,7 +1448,7 @@ components:
           type: string
           description: Held in memory only (§5.2). The refresh token is set as a cookie, not returned here.
         expiresIn: { type: integer, description: Seconds. }
-        user: { $ref: '#/components/schemas/User' }
+        user: { $ref: '#/components/schemas/CurrentUser' }
 
     # ---------------------------------------------------------------- classes
 
@@ -3356,7 +3407,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/User' }
+              schema: { $ref: '#/components/schemas/CurrentUser' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/Maintenance' }
     patch:
@@ -3390,7 +3441,7 @@ paths:
           description: Saved. The whole user, so the client can replace its session copy.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/User' }
+              schema: { $ref: '#/components/schemas/CurrentUser' }
         '400':
           description: '`VALIDATION_FAILED` — the name is empty or too long.'
           content:
@@ -3529,7 +3580,7 @@ paths:
             is a no-op success rather than a conflict.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/User' }
+              schema: { $ref: '#/components/schemas/CurrentUser' }
         '401':
           description: |
             The session is invalid, or the exchange failed, or `email_verified`

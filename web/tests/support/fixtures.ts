@@ -6,7 +6,7 @@ import type { components } from "@/lib/api/schema";
  * shape at runtime. Vietnamese names throughout, since that is the product.
  */
 
-export const studentUser: components["schemas"]["User"] = {
+export const studentUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9e",
   email: "hocvien@example.com",
   fullName: "Nguyễn Văn An",
@@ -15,14 +15,40 @@ export const studentUser: components["schemas"]["User"] = {
   linkedProviders: [],
   mustChangePassword: false,
   createdAt: "2026-01-01T00:00:00Z",
+  permissions: ["learning.take_tests"],
+  workspaces: ["app"],
 };
 
-export const adminUser: components["schemas"]["User"] = {
+export const adminUser: components["schemas"]["CurrentUser"] = {
   ...studentUser,
   id: "019535d9-3df7-79fb-b466-fa907fa17f9f",
   email: "thuong@example.com",
   fullName: "Thuong",
   role: "admin",
+  permissions: [
+    "content.tests.write",
+    "content.tests.publish",
+    "content.questions.write",
+    "content.media.write",
+    "content.share",
+    "teaching.classes.write",
+    "teaching.assignments.write",
+    "teaching.grading",
+    "teaching.attempts.intervene",
+    "teaching.attendance",
+    "people.students.read",
+    "people.students.create",
+    "people.students.reset_password",
+    "people.users.manage",
+    "people.roles.manage",
+    "system.audit.read",
+    "system.settings.write",
+    "scope.all",
+    "system.api_reference",
+    "system.data_export",
+    "system.leads",
+  ],
+  workspaces: ["teacher", "admin"],
 };
 
 export const myClass: components["schemas"]["MyClass"] = {
