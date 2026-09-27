@@ -294,6 +294,21 @@ has the placement rule. `@/` is `src/`, `@tests/` is `tests/`.
 
 Go tests stay beside the code they cover, as is idiomatic.
 
+**A database test that commits rows owns their removal, and must not disturb
+anyone else's.** Most integration tests roll back one transaction; a test that
+needs two (a race, a start against a schedule) commits instead, and then:
+
+- registers `t.Cleanup` before its first insert, gives each cleanup statement
+  only the arguments it uses (pgx refuses one with unused ones), and fails the
+  test on a cleanup error rather than dropping it (`_, _ =` leaked a whole run's
+  fixtures once);
+- keeps its rows out of global views while they exist: packages run
+  concurrently, and a row started in the future sorts first in every
+  "recent" list another test reads.
+
+Verify on a database created for the purpose, as CI does, not on the dev
+database.
+
 **One E2E suite talks to a real API: `*.live.spec.ts`, the `live` Playwright
 project, run with `pnpm e2e:live`.** Everything else is stubbed on purpose --
 those tests are about what the browser does, and the server's behaviour is
