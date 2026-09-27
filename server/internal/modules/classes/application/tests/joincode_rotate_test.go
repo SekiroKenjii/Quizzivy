@@ -47,8 +47,8 @@ func makeClassRow(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, student
 		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1, $2)`, teacherID, studentID)
 	})
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp "+n).Scan(&classID); err != nil {
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp "+n, teacherID).Scan(&classID); err != nil {
 		t.Fatalf("insert class: %v", err)
 	}
 	if _, err := pool.Exec(ctx,

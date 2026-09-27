@@ -386,8 +386,9 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		}
 		return id
 	}
-	first := insertID(`INSERT INTO app.users (email, full_name, role) VALUES ('first@example.com', 'First', 'admin') RETURNING id::text`)
-	second := insertID(`INSERT INTO app.users (email, full_name, role) VALUES ('second@example.com', 'Second', 'admin') RETURNING id::text`)
+	insertID(`INSERT INTO app.users (email, full_name, role, created_at, disabled_at) VALUES ('gone@example.com', 'Gone', 'admin', now() - interval '60 days', now() - interval '1 day') RETURNING id::text`)
+	first := insertID(`INSERT INTO app.users (email, full_name, role, created_at) VALUES ('first@example.com', 'First', 'admin', now() - interval '50 days') RETURNING id::text`)
+	second := insertID(`INSERT INTO app.users (email, full_name, role, created_at) VALUES ('second@example.com', 'Second', 'admin', now() - interval '40 days') RETURNING id::text`)
 	const old = `now() - interval '30 days'`
 	firstTest := insertID(`INSERT INTO app.tests (title, created_by, created_at, updated_at) VALUES ('First test', $1, `+old+`, `+old+`) RETURNING id::text`, first)
 	secondTest := insertID(`INSERT INTO app.tests (title, created_by, created_at, updated_at) VALUES ('Second test', $1, `+old+`, `+old+`) RETURNING id::text`, second)
@@ -400,6 +401,11 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		{table: "question_groups", id: insertID(`INSERT INTO app.question_groups (title, created_by, created_at, updated_at) VALUES ('Bank group', $1, `+old+`, `+old+`) RETURNING id::text`, first), author: first},
 		{table: "question_groups", id: insertID(`INSERT INTO app.question_groups (owner_section_id, title, created_by, created_at, updated_at) VALUES ($1, 'Section group', $2, `+old+`, `+old+`) RETURNING id::text`, section, second), author: second},
 		{table: "media_assets", id: insertID(`INSERT INTO app.media_assets (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by) VALUES ('image', 'media/legacy.png', 'image/png', 10, 'legacy.png', sha256('legacy'::bytea), $1) RETURNING id::text`, second), author: second},
+	}
+	legacyClass := insertID(`INSERT INTO app.classes (name, created_at, updated_at) VALUES ('Legacy class', ` + old + `, ` + old + `) RETURNING id::text`)
+	var classUpdatedAt time.Time
+	if err := migrate.QueryRow(`SELECT updated_at FROM app.classes WHERE id = $1`, legacyClass).Scan(&classUpdatedAt); err != nil {
+		t.Fatal(err)
 	}
 	for i, row := range rows {
 		if row.table == "media_assets" {
@@ -434,7 +440,41 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		}
 	}
 
+	var classTeacher string
+	var classUpdated time.Time
+	if err := migrate.QueryRow(`SELECT teacher_id::text, updated_at FROM app.classes WHERE id = $1`, legacyClass).Scan(&classTeacher, &classUpdated); err != nil {
+		t.Fatal(err)
+	}
+	if classTeacher != first {
+		t.Errorf("the legacy class's teacher is %s, want the oldest active Admin %s", classTeacher, first)
+	}
+	if !classUpdated.Equal(classUpdatedAt) {
+		t.Errorf("the legacy class's updated_at moved from %v to %v", classUpdatedAt, classUpdated)
+	}
+
 	app := openAs(t, appRoleDSN(t, dsn))
+
+	t.Run("the old binary's class goes to the oldest active Admin", func(t *testing.T) {
+		tx, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		var teacher string
+		if err := tx.QueryRow(`INSERT INTO app.classes (name) VALUES ('Old binary') RETURNING teacher_id::text`).Scan(&teacher); err != nil {
+			t.Fatal(err)
+		}
+		if teacher != first {
+			t.Errorf("teacher_id %s, want the oldest active Admin %s", teacher, first)
+		}
+		var named string
+		if err := tx.QueryRow(`INSERT INTO app.classes (name, teacher_id) VALUES ('New binary', $1) RETURNING teacher_id::text`, second).Scan(&named); err != nil {
+			t.Fatal(err)
+		}
+		if named != second {
+			t.Errorf("teacher_id %s, want the named teacher %s", named, second)
+		}
+	})
 
 	t.Run("the old binary's inserts are given their author as owner", func(t *testing.T) {
 		tx, err := app.Begin()
@@ -513,6 +553,7 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 			"questions":       "questions_owner_id_not_null",
 			"question_groups": "question_groups_owner_id_not_null",
 			"media_assets":    "media_assets_owner_id_not_null",
+			"classes":         "classes_teacher_id_not_null",
 		} {
 			var validated bool
 			if err := migrate.QueryRow(`

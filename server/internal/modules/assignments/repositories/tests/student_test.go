@@ -479,8 +479,8 @@ func TestTheClassNameIsOmittedUnlessThereIsExactlyOne(t *testing.T) {
 
 	var second string
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.classes (name) VALUES ($1) RETURNING id::text`,
-		"Lớp hai "+nonce(t)).Scan(&second); err != nil {
+		`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`,
+		"Lớp hai "+nonce(t), w.admin).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
