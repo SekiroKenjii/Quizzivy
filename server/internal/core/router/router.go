@@ -79,8 +79,34 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		},
 	})
 
-	gated := httpx.Maintenance(deps.Maintenance)(handler)
+	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance)(handler), handler)
 	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(gated)))), nil
+}
+
+var probeMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
+
+func routedOnly(mux *http.ServeMux, gated, ungated http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if routed(mux, r) {
+			gated.ServeHTTP(w, r)
+			return
+		}
+		ungated.ServeHTTP(w, r)
+	})
+}
+
+func routed(mux *http.ServeMux, r *http.Request) bool {
+	if _, pattern := mux.Handler(r); pattern != "" {
+		return true
+	}
+	probe := r.Clone(r.Context())
+	for _, method := range probeMethods {
+		probe.Method = method
+		if _, pattern := mux.Handler(probe); pattern != "" {
+			return true
+		}
+	}
+	return false
 }
 
 type health struct {

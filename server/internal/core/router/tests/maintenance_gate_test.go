@@ -24,6 +24,7 @@ const allowedOrigin = "https://app.quizzivy.com"
 type maintenanceWindow struct {
 	startsAt, endsAt time.Time
 	over             atomic.Bool
+	asked            atomic.Int32
 }
 
 func underWay() *maintenanceWindow {
@@ -32,6 +33,7 @@ func underWay() *maintenanceWindow {
 }
 
 func (w *maintenanceWindow) ActiveWindow(context.Context) (time.Time, time.Time, bool) {
+	w.asked.Add(1)
 	return w.startsAt, w.endsAt, !w.over.Load()
 }
 
@@ -157,6 +159,27 @@ func TestNoRouteIsExemptBeyondTheThree(t *testing.T) {
 		if rec := send(h, tc.method, tc.path, nil); rec.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s %s = %d during a window, want 503", tc.method, tc.path, rec.Code)
 		}
+	}
+}
+
+func TestAPathNoRouteServesIsNeverAskedAboutAWindow(t *testing.T) {
+	window := underWay()
+	h := gatedRouter(t, window, testIssuer(t))
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodGet, "/.env"},
+		{http.MethodGet, "/wp-login.php"},
+		{http.MethodPost, "/xmlrpc.php"},
+		{http.MethodGet, "/auth/me/extra"},
+	} {
+		if rec := send(h, tc.method, tc.path, nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s %s = %d during a window, want the router's 404", tc.method, tc.path, rec.Code)
+		}
+	}
+	if n := window.asked.Load(); n != 0 {
+		t.Errorf("the gate asked about the window %d times for paths no route serves; each ask can wake the database", n)
+	}
+	if rec := send(h, http.MethodDelete, "/auth/me", nil); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("DELETE /auth/me = %d during a window, want 503: a route's path stays gated under any method", rec.Code)
 	}
 }
 
