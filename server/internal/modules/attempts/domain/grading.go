@@ -50,7 +50,8 @@ type GradableQuestion struct {
 	Blanks  []GradableBlank
 }
 
-// GradableOption carries the key. Ordinal matters for true_false and only there.
+// GradableOption carries the key. Ordinal matters only for a true_false answer
+// stored as a boolean.
 type GradableOption struct {
 	ID      string
 	Ordinal int
@@ -98,9 +99,16 @@ func gradeChoice(q GradableQuestion, payload []byte) bool {
 
 func gradeTrueFalse(q GradableQuestion, payload []byte) bool {
 	var answer struct {
-		Value *bool `json:"value"`
+		OptionIDs []string `json:"optionIds"`
+		Value     *bool    `json:"value"`
 	}
-	if json.Unmarshal(payload, &answer) != nil || answer.Value == nil {
+	if json.Unmarshal(payload, &answer) != nil {
+		return false
+	}
+	if answer.OptionIDs != nil {
+		return len(answer.OptionIDs) == 1 && gradeChoice(q, payload)
+	}
+	if answer.Value == nil {
 		return false
 	}
 
