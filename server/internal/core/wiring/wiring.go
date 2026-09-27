@@ -28,7 +28,7 @@ type Assembly struct {
 	Maintenance   httpx.MaintenanceSource
 }
 
-// Build assembles every module against the pool, in dependency order, and refuses when app.permissions lacks a key this binary was compiled with: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
+// Build refuses when app.permissions lacks a key this binary was compiled with, then assembles every module against the pool in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
 func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Assembly, error) {
 	dbx := db.NewContext(pool.Pool)
 	principals, err := accessModule(ctx, dbx)

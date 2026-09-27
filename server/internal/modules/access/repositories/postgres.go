@@ -1,6 +1,5 @@
 // Package repositories reads the access model from app.users, app.roles,
-// app.role_permissions and app.permissions. The app role may read them and,
-// until R5's role commands, nothing else.
+// app.role_permissions and app.permissions.
 package repositories
 
 import (

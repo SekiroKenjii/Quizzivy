@@ -198,6 +198,22 @@ func TestAResolveRacingAForgetDoesNotCacheWhatItRead(t *testing.T) {
 	}
 }
 
+func TestAResolveRacingAForgetAllDoesNotCacheWhatItRead(t *testing.T) {
+	repo := newRepo()
+	app := application.New(repo)
+	repo.duringRead = func() { app.ForgetAll() }
+	resolve(t, app, "teacher")
+	repo.duringRead = nil
+	if app.Cached() != 0 {
+		t.Fatal("a principal read before a ForgetAll was cached")
+	}
+	before, _ := repo.reads()
+	resolve(t, app, "teacher")
+	if after, _ := repo.reads(); after != before+1 {
+		t.Errorf("the next resolve did not read the user: %d reads, want %d", after, before+1)
+	}
+}
+
 func TestTheCacheKeepsItsBoundDroppingTheLeastRecentlyUsed(t *testing.T) {
 	repo := newRepo()
 	app := application.New(repo)
