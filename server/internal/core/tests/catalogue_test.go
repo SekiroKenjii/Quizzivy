@@ -292,6 +292,10 @@ func TestTheStudentLikeViewFollowsTheGrants(t *testing.T) {
 			}
 		}
 		admin := builtinRoleID(t, tx, access.BuiltinAdmin)
+		owned := []string{empty, takesTests, grades, admin}
+		for _, builtin := range []access.Builtin{access.BuiltinTeacher, access.BuiltinAssistant, access.BuiltinStudent} {
+			owned = append(owned, builtinRoleID(t, tx, builtin))
+		}
 		for _, grant := range [][2]string{
 			{takesTests, "learning.take_tests"},
 			{grades, "learning.take_tests"},
@@ -305,7 +309,8 @@ func TestTheStudentLikeViewFollowsTheGrants(t *testing.T) {
 		rows, err := tx.Query(ctx, `
 			SELECT coalesce(r.builtin_key, r.name)
 			  FROM app.student_like_roles s
-			  JOIN app.roles r ON r.id = s.id`)
+			  JOIN app.roles r ON r.id = s.id
+			 WHERE s.id = ANY($1::uuid[])`, owned)
 		if err != nil {
 			t.Fatal(err)
 		}
