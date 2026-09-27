@@ -7,7 +7,8 @@
 -- classes created from R2 on is the class.created audit row, and R5's transfer
 -- moves teacher_id alone (D-23). R3 validates the constraint and drops the fill
 -- trigger.
-ALTER TABLE app.classes ADD COLUMN teacher_id uuid REFERENCES app.users ON DELETE RESTRICT;
+-- No REFERENCES here: 00070 adds the foreign key in its own transaction.
+ALTER TABLE app.classes ADD COLUMN teacher_id uuid;
 
 -- The backfill is not a change a user made, so updated_at must not move.
 ALTER TABLE app.classes DISABLE TRIGGER classes_set_updated_at;

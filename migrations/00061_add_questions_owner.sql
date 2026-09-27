@@ -3,7 +3,8 @@
 -- questions.owner_id, the expand half (T-R2.9, plan 70 §3), as 00060 does for
 -- tests: created_by stays the provenance (D-22). R3 validates the constraint
 -- and drops the fill trigger.
-ALTER TABLE app.questions ADD COLUMN owner_id uuid REFERENCES app.users ON DELETE RESTRICT;
+-- No REFERENCES here: 00067 adds the foreign key in its own transaction.
+ALTER TABLE app.questions ADD COLUMN owner_id uuid;
 
 -- The backfill is not a change a user made, so updated_at, which the lists
 -- sort and show, must not move.

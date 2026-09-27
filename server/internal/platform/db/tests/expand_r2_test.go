@@ -527,7 +527,10 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		if creator != nil {
 			t.Errorf("a self-joined account has creator %s, want none", *creator)
 		}
-		staff := insertID(`INSERT INTO app.users (email, full_name, role) VALUES ('staff@example.com', 'Staff', 'admin') RETURNING id::text`)
+		var staff string
+		if err := migrate.QueryRow(`INSERT INTO app.users (email, full_name, role) VALUES ('staff@example.com', 'Staff', 'admin') RETURNING id::text`).Scan(&staff); err != nil {
+			t.Fatal(err)
+		}
 		t.Cleanup(func() {
 			if _, err := migrate.Exec(`DELETE FROM app.users WHERE id = $1`, staff); err != nil {
 				t.Errorf("cleanup staff: %v", err)
@@ -566,4 +569,76 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestAddingTheClassTeacherWaitsForTheOldStudentCreateInsteadOfDeadlocking(t *testing.T) {
+	dsn := expandScratch(t)
+	migrate := openAs(t, dsn)
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetLogger(goose.NopLogger())
+	dir := db.MigrationsDir(t)
+	if err := goose.UpTo(migrate, dir, versionBefore(t, dir, "_add_classes_teacher.sql")); err != nil {
+		t.Fatalf("up to the class teacher: %v", err)
+	}
+	var admin, class string
+	if err := migrate.QueryRow(`INSERT INTO app.users (email, full_name, role) VALUES ('owner@example.com', 'Owner', 'admin') RETURNING id::text`).Scan(&admin); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate.QueryRow(`INSERT INTO app.classes (name) VALUES ('Lớp') RETURNING id::text`).Scan(&class); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	app := openAs(t, appRoleDSN(t, dsn))
+	old, err := app.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = old.Rollback() }()
+	var student string
+	if err := old.QueryRowContext(ctx, `INSERT INTO app.users (email, full_name) VALUES ('new@example.com', 'New') RETURNING id::text`).Scan(&student); err != nil {
+		t.Fatalf("the old binary's student insert: %v", err)
+	}
+
+	column := make(chan error, 1)
+	go func() { column <- goose.UpByOne(migrate, dir) }()
+	select {
+	case err := <-column:
+		if err != nil {
+			t.Fatalf("the class teacher column: %v", err)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the class teacher column waited on the old binary's open student insert: it locks app.users while holding app.classes")
+	}
+	if _, err := old.ExecContext(ctx, `INSERT INTO app.class_members (class_id, user_id, joined_via, added_by) VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, class, student, admin); err != nil {
+		t.Fatalf("the old binary's enrolment after the column: %v", err)
+	}
+
+	keys := make(chan error, 1)
+	go func() { keys <- goose.Up(migrate, dir) }()
+	select {
+	case err := <-keys:
+		t.Fatalf("the foreign keys finished while the old binary still held app.users: %v", err)
+	case <-time.After(2 * time.Second):
+	}
+	if err := old.Commit(); err != nil {
+		t.Fatalf("the old binary's commit: %v", err)
+	}
+	if err := <-keys; err != nil {
+		t.Fatalf("the rest of the migrations after the old binary committed: %v", err)
+	}
+	var teacher string
+	var restrict bool
+	if err := migrate.QueryRow(`
+		SELECT c.teacher_id::text,
+		       (SELECT k.confdeltype = 'r' AND k.convalidated FROM pg_constraint k WHERE k.conname = 'classes_teacher_id_fkey')
+		  FROM app.classes c WHERE c.id = $1`, class).Scan(&teacher, &restrict); err != nil {
+		t.Fatal(err)
+	}
+	if teacher != admin || !restrict {
+		t.Errorf("the class's teacher is %s (want %s) and its key restricts: %v", teacher, admin, restrict)
+	}
 }

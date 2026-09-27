@@ -4,7 +4,8 @@
 -- provenance and owner_id is who the test belongs to, so R5's ownership
 -- transfer and R7's co-editing move a test without rewriting who wrote it
 -- (D-22). R3 validates the constraint and drops the fill trigger.
-ALTER TABLE app.tests ADD COLUMN owner_id uuid REFERENCES app.users ON DELETE RESTRICT;
+-- No REFERENCES here: 00066 adds the foreign key in its own transaction.
+ALTER TABLE app.tests ADD COLUMN owner_id uuid;
 
 -- The backfill is not a change a user made, so updated_at must not move: an
 -- open builder tab sends it back as expectedUpdatedAt, and a moved value would

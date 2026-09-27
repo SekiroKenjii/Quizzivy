@@ -4,7 +4,8 @@
 -- uploaded_by, which stays the provenance (D-22). The table has no updated_at,
 -- so the backfill has no trigger to hold off. R3 validates the constraint and
 -- drops the fill trigger.
-ALTER TABLE app.media_assets ADD COLUMN owner_id uuid REFERENCES app.users ON DELETE RESTRICT;
+-- No REFERENCES here: 00069 adds the foreign key in its own transaction.
+ALTER TABLE app.media_assets ADD COLUMN owner_id uuid;
 
 UPDATE app.media_assets SET owner_id = uploaded_by WHERE owner_id IS NULL;
 

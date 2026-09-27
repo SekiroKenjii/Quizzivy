@@ -1312,6 +1312,11 @@ the file it adds.
 | `00063_add_media_assets_owner.sql` | `media_assets.owner_id` from `uploaded_by`, with `app.fill_owner_from_uploaded_by()` | R2 (T-R2.9), D-22 |
 | `00064_add_users_created_by.sql` | `users.created_by`, nullable, `ON DELETE SET NULL` | R2 (T-R2.9), D-22 |
 | `00065_add_classes_teacher.sql` | `classes.teacher_id` from the oldest active Admin, `NOT NULL NOT VALID`, with `classes_fill_teacher` | R2 (T-R2.9), D-23 |
+| `00066_add_tests_owner_fkey.sql` | `tests_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00067_add_questions_owner_fkey.sql` | `questions_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00068_add_question_groups_owner_fkey.sql` | `question_groups_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00069_add_media_assets_owner_fkey.sql` | `media_assets_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00070_add_classes_teacher_fkey.sql` | `classes_teacher_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
 
 Notes on migration mechanics (§13.7):
 
@@ -2033,9 +2038,9 @@ The expand half of per-teacher ownership (plan 70 §3, D-22, D-23). R3
 validates every constraint below and drops the fill triggers and their
 functions (73-r3.md T-R3.2).
 
-- `00060`–`00063` add `owner_id uuid REFERENCES app.users ON DELETE RESTRICT`
-  to `tests`, `questions`, `question_groups` and `media_assets`, beside the
-  provenance column each already has. Each file:
+- `00060`–`00063` add `owner_id uuid` to `tests`, `questions`,
+  `question_groups` and `media_assets`, beside the provenance column each
+  already has. Each file:
   - backfills `owner_id` from `created_by` (`uploaded_by` for media) with the
     table's `*_set_updated_at` trigger disabled, so no `updated_at` moves. An
     open builder tab sends a test's `updated_at` back as `expectedUpdatedAt`,
@@ -2051,14 +2056,28 @@ functions (73-r3.md T-R3.2).
   nullable and not backfilled. NULL means the creator is unknown: every account
   that predates R2, and a Google self-join, which has none. Deleting the
   creator clears it rather than taking the account with it.
-- `00065` adds `classes.teacher_id uuid REFERENCES app.users ON DELETE
-  RESTRICT`. `app.classes` has never had a `created_by`, so the backfill takes
+- `00065` adds `classes.teacher_id uuid`. `app.classes` has never had a
+  `created_by`, so the backfill takes
   the oldest active Admin (by `created_at`, then `id`), the teacher v0.7.0
   shows for every class. It raises if no active Admin exists and a class does.
   `classes_fill_teacher` (BEFORE INSERT) applies the same rule to the old
   binary's inserts; it and its function `app.classes_fill_teacher()` share the
   name. It reads `users.role_id`, not the legacy `role`, so R3's `DROP COLUMN
   role` cannot break it before R3 drops it.
+- `00066`–`00070` add the foreign keys, `<table>_owner_id_fkey` and
+  `classes_teacher_id_fkey`, each `REFERENCES app.users ON DELETE RESTRICT`
+  and each in its own file after the columns. A column file holds ACCESS
+  EXCLUSIVE on its table until it commits; a reference inline would then ask
+  for SHARE ROW EXCLUSIVE on `users` while holding it. A v0.7.0 transaction
+  that has written `users` and next needs a lock on that table would then wait
+  on the migration while the migration waits on it: the student creation that
+  enrols into classes through `class_members`' foreign key, or a user delete
+  whose foreign-key checks read the referencing rows. The deadlock detector
+  would abort one side, most likely the release. Apart, a column file never
+  locks `users` beyond ACCESS SHARE, and a foreign-key file takes SHARE ROW
+  EXCLUSIVE on the referencing table, which reads and foreign-key checks do
+  not conflict with, so it simply waits for such a transaction to commit.
+  `00064` keeps its inline reference: it references its own table.
 - The new binary names every owner itself; the triggers exist only for the
   deploy overlap:
 
@@ -2074,12 +2093,12 @@ functions (73-r3.md T-R3.2).
   | a Google self-join | `created_by` = NULL |
 
 - Test fixtures and `seed/01-dev.sql` that insert a class name `teacher_id`.
-  The class fill is the one that reads other rows: a committed fixture relying
-  on it would take whichever fixture Admin is oldest at that moment, and a
-  parallel package's cleanup of that user would then fail on the foreign key.
-  The one exception is the shared fixture in `constraints_test.go`: it also
-  runs on scratch databases migrated to versions before `00065`, and its
-  transaction never commits, so a concurrent delete only waits for it.
+  The class fill is the one that reads other rows: a fixture relying on it
+  would take whichever fixture Admin is oldest at that moment, and a parallel
+  package's delete of that user would then fail one side on the foreign key.
+  The shared fixture in `constraints_test.go` also runs on scratch databases
+  migrated to versions before `00065`, so it names `teacher_id` only when the
+  column exists.
 
 `platform/db/tests/expand_r2_test.go` (`TestTheOwnershipExpandKeepsTheOldBinaryWorking`)
 writes a legacy dataset at v0.7.0's schema by two authors, with an older,
@@ -2088,4 +2107,8 @@ the class to the oldest active Admin, with `updated_at` unmoved. It also
 checks the old binary's inserts are filled, an explicit owner is kept, an
 account's creator is optional and cleared when the creator goes, and each
 constraint stays NOT VALID.
+`TestAddingTheClassTeacherWaitsForTheOldStudentCreateInsteadOfDeadlocking`
+holds a v0.7.0-style student insert open across `00065`, enrols the student
+into a class after it, and checks the foreign-key files wait for the commit
+instead of deadlocking.
 
