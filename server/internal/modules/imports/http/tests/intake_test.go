@@ -130,7 +130,7 @@ func (h intake) request(method, path, contentType string, body io.Reader, token 
 func (h intake) create(t *testing.T) openapi.WordImport {
 	t.Helper()
 	body := `{"requestId":"` + uuid.NewString() + `","title":"Đề kiểm tra"}`
-	rec := h.request(http.MethodPost, "/admin/imports", "application/json", strings.NewReader(body), h.token)
+	rec := h.request(http.MethodPost, "/teacher/imports", "application/json", strings.NewReader(body), h.token)
 	if rec.Code != 201 {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
@@ -189,7 +189,7 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	h := setup(t)
 	v := h.create(t)
 	data := docx(t)
-	path := "/admin/imports/" + v.Id.String() + "/sources?role=exam&uploadId=" + uuid.NewString() + "&expectedRevision=1"
+	path := "/teacher/imports/" + v.Id.String() + "/sources?role=exam&uploadId=" + uuid.NewString() + "&expectedRevision=1"
 	bad, kind := multipartBody(t, data, true)
 	invalid := h.request(http.MethodPost, path, kind, bad, h.token)
 	if invalid.Code != 400 {
@@ -216,7 +216,7 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	if replay.Source.Id != receipt.Source.Id || replay.Import.Revision != 2 || replay.SourceRevision != 1 {
 		t.Fatal("retry created another source")
 	}
-	downloadPath := "/admin/imports/" + v.Id.String() + "/sources/" + receipt.Source.Id.String() + "/download"
+	downloadPath := "/teacher/imports/" + v.Id.String() + "/sources/" + receipt.Source.Id.String() + "/download"
 	denied := h.request(http.MethodGet, downloadPath, "", nil, h.student)
 	if denied.Code != 403 {
 		t.Fatalf("student download: %d", denied.Code)

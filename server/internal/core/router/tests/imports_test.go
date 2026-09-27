@@ -16,7 +16,7 @@ func TestImportOperationsRequireTeacherBeforeReadingSourceBytes(t *testing.T) {
 	}
 	count := 0
 	for path, item := range spec.Paths.Map() {
-		if !strings.HasPrefix(path, "/admin/imports") {
+		if !strings.HasPrefix(path, "/teacher/imports") {
 			continue
 		}
 		path = strings.NewReplacer("{id}", "01935000-0000-7000-8000-000000000001", "{sourceId}", "01935000-0000-7000-8000-000000000002").Replace(path)
@@ -49,7 +49,7 @@ func TestImportUploadParametersRejectInvalidUUIDAndRoles(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := newAuthTestRouter(t, issuer)
 	for _, query := range []string{"role=exam&uploadId=bad&expectedRevision=1", "role=student&uploadId=01935000-0000-7000-8000-000000000001&expectedRevision=1", "role=exam&uploadId=01935000-0000-7000-8000-000000000001&expectedRevision=0"} {
-		response := sendAs(t, handler, issuer, http.MethodPost, "/admin/imports/01935000-0000-7000-8000-000000000001/sources?"+query, adminUser, "")
+		response := sendAs(t, handler, issuer, http.MethodPost, "/teacher/imports/01935000-0000-7000-8000-000000000001/sources?"+query, adminUser, "")
 		if response.Code != http.StatusBadRequest {
 			t.Fatalf("invalid upload accepted: %d %s", response.Code, response.Body.String())
 		}

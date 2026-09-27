@@ -43,7 +43,7 @@ func importRouter(t *testing.T, imports importshttp.Imports) func(method, path, 
 
 func capabilities(t *testing.T, send func(method, path, body, language string) *httptest.ResponseRecorder) (intake, processing bool) {
 	t.Helper()
-	rec := send(http.MethodGet, "/admin/imports/capabilities", "", "")
+	rec := send(http.MethodGet, "/teacher/imports/capabilities", "", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("capabilities status = %d: %s", rec.Code, rec.Body.String())
 	}
@@ -62,7 +62,7 @@ func TestImportCapabilitiesAnswerWhereWordImportIsNotConfigured(t *testing.T) {
 	if intake, processing := capabilities(t, send); intake || processing {
 		t.Fatalf("unconfigured import reported intake %v, processing %v", intake, processing)
 	}
-	if rec := send(http.MethodGet, "/admin/imports/limits", "", ""); rec.Code != http.StatusNotImplemented {
+	if rec := send(http.MethodGet, "/teacher/imports/limits", "", ""); rec.Code != http.StatusNotImplemented {
 		t.Fatalf("limits without import storage = %d, want 501", rec.Code)
 	}
 }
@@ -80,7 +80,7 @@ func TestProcessingWithoutAWorkerIsRefusedInTheEnvelope(t *testing.T) {
 	send := importRouter(t, importshttp.New(importsapp.New(importsapp.Dependencies{})))
 	body := `{"requestId":"01935000-0000-7000-8000-000000000009","expectedRevision":1}`
 	for language, want := range map[string]string{"": "Máy chủ này chưa bật xử lý tài liệu nên", "en": "Document processing is not enabled on this server"} {
-		rec := send(http.MethodPost, "/admin/imports/01935000-0000-7000-8000-000000000001/process", body, language)
+		rec := send(http.MethodPost, "/teacher/imports/01935000-0000-7000-8000-000000000001/process", body, language)
 		if rec.Code != http.StatusServiceUnavailable {
 			t.Fatalf("process without a worker = %d, want 503: %s", rec.Code, rec.Body.String())
 		}

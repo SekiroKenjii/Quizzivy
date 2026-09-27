@@ -15,7 +15,7 @@ import (
 // uploadPattern is the one streaming route in the contract today. Named here so
 // a change to the upload path fails these tests rather than silently skipping
 // nothing.
-const uploadPattern = "POST /admin/media"
+const uploadPattern = "POST /teacher/media"
 
 func TestStreamingBodyRoutesFindsTheUpload(t *testing.T) {
 	spec, err := gen.GetSpec()
@@ -40,8 +40,8 @@ func TestStreamingParametersRemainValidated(t *testing.T) {
 		t.Run(query, func(t *testing.T) {
 			reached := false
 			h := validatorUnderTest(t)(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { reached = true }))
-			req := httptest.NewRequest(http.MethodPost, "/admin/imports/01900000-0000-7000-8000-000000000001/sources?"+query, nil)
-			req.Pattern = "POST /admin/imports/{id}/sources"
+			req := httptest.NewRequest(http.MethodPost, "/teacher/imports/01900000-0000-7000-8000-000000000001/sources?"+query, nil)
+			req.Pattern = "POST /teacher/imports/{id}/sources"
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
 			if reached || rec.Code != http.StatusBadRequest {
@@ -69,7 +69,7 @@ func newUpload(t *testing.T, size int) (*http.Request, int) {
 		t.Fatal(err)
 	}
 	raw := body.Bytes()
-	req := httptest.NewRequest(http.MethodPost, "/admin/media", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/teacher/media", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	req.Pattern = uploadPattern
 	return req, len(raw)

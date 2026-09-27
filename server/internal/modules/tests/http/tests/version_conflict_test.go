@@ -65,7 +65,7 @@ func TestVersionAndLegacyOutlineConflictsAreActionableHTTPResponses(t *testing.T
 					t.Fatal(err)
 				}
 			}))
-			req := httptest.NewRequest(http.MethodPost, "/admin/tests", nil)
+			req := httptest.NewRequest(http.MethodPost, "/teacher/tests", nil)
 			req.Header.Set("Authorization", "Bearer synthetic")
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, req)

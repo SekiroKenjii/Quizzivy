@@ -43,7 +43,7 @@ func TestMixedOutlineTransportKeepsGroupOrderAndArchivedConflict(t *testing.T) {
 			t.Fatal(err)
 		}
 	}))
-	req := httptest.NewRequest(http.MethodPatch, "/admin/tests", nil)
+	req := httptest.NewRequest(http.MethodPatch, "/teacher/tests", nil)
 	req.Header.Set("Authorization", "Bearer synthetic")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)

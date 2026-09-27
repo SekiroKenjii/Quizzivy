@@ -18,7 +18,7 @@ func TestGroupAuthoringRemainsTeacherOnlyBeforeReadingContent(t *testing.T) {
 	}
 	count := 0
 	for path, item := range spec.Paths.Map() {
-		if !strings.HasPrefix(path, "/admin/question-groups") {
+		if !strings.HasPrefix(path, "/teacher/question-groups") {
 			continue
 		}
 		path = strings.ReplaceAll(path, "{id}", "01935000-0000-7000-8000-000000000001")
@@ -57,12 +57,12 @@ func TestGroupBodyBudgetIsBoundedBeforeJSONValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	limits := httpx.RequestBodyLimits(spec)
-	if len(limits) != 4 || limits["POST /admin/imports/{id}/sources"] != (25<<20)+(128<<10) || limits["PUT /admin/imports/{id}/review"] != 8<<20 || limits["POST /admin/question-groups"] != 4<<20 || limits["PUT /admin/question-groups/{id}"] != 4<<20 {
+	if len(limits) != 4 || limits["POST /teacher/imports/{id}/sources"] != (25<<20)+(128<<10) || limits["PUT /teacher/imports/{id}/review"] != 8<<20 || limits["POST /teacher/question-groups"] != 4<<20 || limits["PUT /teacher/question-groups/{id}"] != 4<<20 {
 		t.Fatalf("unexpected contract budgets: %v", limits)
 	}
 	for _, bytes := range []int{2 << 20, (4 << 20) + 1} {
 		for _, chunked := range []bool{false, true} {
-			request := httptest.NewRequest(http.MethodPost, "/admin/question-groups", strings.NewReader(strings.Repeat(" ", bytes)+"{}"))
+			request := httptest.NewRequest(http.MethodPost, "/teacher/question-groups", strings.NewReader(strings.Repeat(" ", bytes)+"{}"))
 			request.Header.Set("Content-Type", "application/json")
 			request.Header.Set("Authorization", "Bearer "+token)
 			if chunked {

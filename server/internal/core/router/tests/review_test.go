@@ -73,7 +73,7 @@ func TestAReviewOpensADisabledStudentsPaper(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/attempts/01935000-0000-7000-8000-00000000dd07", nil)
+	req := httptest.NewRequest(http.MethodGet, "/teacher/attempts/01935000-0000-7000-8000-00000000dd07", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
