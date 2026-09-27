@@ -104,7 +104,7 @@ Safari is the majority of those.
 
 **Cheapest mitigation.** T-3.12 calls `.play()` synchronously in the click
 handler with nothing awaited before it, and the signed URL is fetched **before**
-the button becomes enabled, not on click. `AudioPlayer.test.tsx` asserts the call
+the button becomes enabled, not on click. `audio-player.test.tsx` asserts the call
 happens in the same synchronous tick as the click, so the regression fails in
 CI rather than on a student's phone. T-5.6 verifies on real iOS Safari, not a
 simulator. AGENTS.md lists `features/media/` as high-risk: run its tests before
@@ -131,7 +131,7 @@ coupling, and it will look like a harmless optimization.
 **Cheapest mitigation.** Structural: `attempt_answers.question_id` references
 `test_version_questions` with `RESTRICT` (`20-data-model.md` §10), so an answer
 cannot point at a bank row even by accident. T-2.10's
-`publish/snapshot_test.go` — "editing the bank question's prompt after publish
+`publish_snapshot_test.go` — "editing the bank question's prompt after publish
 leaves the version's prompt unchanged" — is the canary; AGENTS.md marks it as
 never-delete. §7's rule that student test content is fetched **only** via
 `GET /app/attempts/:id` keeps the surface to one endpoint.
