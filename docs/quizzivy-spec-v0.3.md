@@ -450,7 +450,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - App load: `GET /auth/me`, under the boot splash (§9).
   - 401 → signed out.
   - A network failure (no HTTP response at all, on `/auth/me` or on the refresh it triggers) → the splash's offline state, which retries.
-  - Any other failure (a 5xx, or a 503 other than `MAINTENANCE`) → the unexpected-error page, with the server's `requestId`.
+  - Any other failure (a 5xx, a 503 other than `MAINTENANCE`, or a 4xx other than 401 and 403) → on `/` and the signed-in routes, the unexpected-error page with the server's `requestId`; on the public routes the splash fades out and the page renders as usual.
   - 503 `MAINTENANCE` → the maintenance overlay.
 - Every request sends `Accept-Language` set to the app's locale, so server messages match the UI rather than the browser.
 - Reuse detection: presenting an already-rotated token revokes the whole family and forces re-login.
@@ -1131,19 +1131,19 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Deck geometry that would change an existing primitive** (control heights, `--radius` and the sm/md/lg radii, the badge and card shapes) applies only inside `data-scale="deck"`, which rebuilt surfaces set on their root. The deck's type steps are global tokens, but the pre-R1 steps keep their values, so an old screen does not shift. Sizes that exist only in the deck have their geometry everywhere (button `md`, `xl` and `icon-xl`, the new avatar sizes, the toast).
 - **The old consoles** (the admin, student and focus layouts) keep their layouts and force light (`useForcedLightTheme`) until their release rebuilds them: R3 the student app and engine, R4 the teacher console. R5 makes the deck geometry the default and removes `data-scale` (T-R5.30).
 
-The rules below carry over from v0.43, restated in the deck's tokens. Typography, motion, the front door, dark mode and the lime accent are new in R1.
+The rules below carry over from v0.43, restated in the deck's tokens, except that the shadow and radius limits now follow the deck. Typography, motion, the front door, dark mode and the lime accent are new in R1.
 
-- **Neutral by default.** The deck's teal-grey scale (`--bg`, `--card`, `--muted`, `--border`, `--fg`, `--muted-fg`) and 1px borders. Resting cards and controls use `shadow-card` (the deck's 1px shadow); only floating surfaces go higher: the toast `shadow-float`, menus and popovers `shadow-md`, dialogs `shadow-lg`, and the card hover lift `shadow-md`.
+- **Neutral by default.** The deck's teal-grey scale (`--bg`, `--card`, `--muted`, `--border`, `--fg`, `--muted-fg`) and 1px borders. Deck surfaces use the deck's shadows (`shadow-card` at rest); floating surfaces go up to `shadow-lg`. The old consoles keep shadcn's shadows until their rebuild.
 - **Primary action: the deck's charcoal `--primary` with `--primary-fg`.** Not blue, not purple, not indigo. The lime `--accent-c` (with its soft and ink tones) marks progress, counts and current states, never a primary button.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
-- **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (controls `rounded-ctl` 9px, cards and tiles up to 14–16px on deck surfaces; the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
+- **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (on deck surfaces, controls up to 10px and cards and tiles up to 16px; the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
 - **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700; the CSP allows no font host). The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student phone buttons, icon controls and question navigation cells are at least 44px in both dimensions; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student discovery grids use one column on phones, two from 768px, three from 1536px. Reading pages are centred at 720px; settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows. Student test view stays spacious, one question centred at max-width ~720px beside the navigator. This approved review supersedes S-13–S-17's placement of ordinary page content in a right panel.
 - **Action hierarchy:** resume is primary; opening assignment details and entering a class are secondary. Deadline badges turn amber only within 24 hours. The 320px test footer has previous, an icon-only question-list control and a flexible next/review action. Review submission remains outside the scrolling summary. Submission confirmation offers the submitted paper directly.
 - **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. Restored answers say they were loaded; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
 - **Motion.** The deck's keyframes, and what the old consoles still carry:
-  - 150ms ease-out for control feedback, and the settings panels' 150ms `settings-enter` entrance.
+  - 150ms control feedback, and the settings panels' 150ms ease-out `settings-enter` entrance.
   - A 2px hover lift on cards, on pointer devices (ours; the deck changes the border instead).
   - The splash's .35s fade and its bar.
   - `qz-breath`, `qz-indet` and `qz-shimmer`: the splash, and skeletons on deck surfaces. Elsewhere the skeleton keeps shadcn's `animate-pulse`; spinners use Tailwind's `animate-spin` (`qz-spin` is defined and not yet used).
@@ -1157,7 +1157,7 @@ The rules below carry over from v0.43, restated in the deck's tokens. Typography
 - **Dark mode:** in scope from R1.
   - The preference is light, dark or system, stored in `localStorage['quizzivy.theme']`.
   - `web/public/boot.js` applies it before paint, since the CSP allows no inline script.
-  - Components read colour tokens rather than hard-coding colours. The exceptions are the brand art, which swaps to its on-dark files through `useResolvedTheme` because an image cannot read a token, and the vendored primitives in `components/ui/`, which keep their `dark:` variants.
+  - Components read colour tokens rather than hard-coding colours. The exceptions: the brand art, which shows its on-dark files in dark because an image cannot read a token; `GoogleMark`, in Google's own colours; and the vendored primitives in `components/ui/`, which keep their `dark:` variants.
   - Content surfaces keep a light `--paper` surface in dark mode (DG-35). The tokens exist, and each surface adopts them when it is rebuilt.
 - **Empty states:** one short sentence + one primary action. No illustrations.
 - **Vietnamese first.** Design for longer Vietnamese strings; avoid fixed-width labels.
