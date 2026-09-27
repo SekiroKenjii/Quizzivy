@@ -74,10 +74,10 @@ describe("deck geometry applies only on a deck surface", () => {
 
   it("turns a status badge into the deck's soft pill only on a deck surface", () => {
     const { unscoped, scoped } = classesOf(<Badge variant="success">Đã nộp</Badge>);
-    expect(unscoped).toContain("rounded-sm");
-    expect(scoped).toEqual(
-      expect.arrayContaining(["rounded-full", "bg-success-soft", "text-success-ink"]),
+    expect(unscoped).toEqual(
+      expect.arrayContaining(["rounded-sm", "text-success-ink"]),
     );
+    expect(scoped).toEqual(expect.arrayContaining(["rounded-full", "bg-success-soft"]));
     expect(classesOf(<Badge variant="count-brand">3</Badge>).unscoped).toContain(
       "bg-brand",
     );
