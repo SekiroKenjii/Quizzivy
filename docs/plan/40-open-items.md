@@ -11,6 +11,11 @@ Four decisions were already taken during planning and are recorded in
 `00-overview.md` rather than here: deployment topology, version snapshot shape,
 audio probe implementation, and build order.
 
+Phase R (the redesign) records its eighteen decisions in
+`70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
+questions that come up during a release go into that release's plan file under
+"Open items".
+
 ---
 
 ## BLOCKING
@@ -311,7 +316,14 @@ For the record, so a later session does not reopen them:
 | **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |
 | **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages | `docs/setup/dns.md` |
 
-### O-23 — Retention and requested anonymization · resolved 2026-09-22
+### O-23 — Retention and requested anonymization · resolved 2026-09-22 · **superseded 2026-09-26**
+
+Superseded by Phase R decision D16 (`70-redesign-overview.md` §1): the Admin
+console's retention settings drive a nightly `cmd/maintenance` sweep under its
+own database role, audited as System, and "delete disabled accounts after"
+anonymises by the method below. Until R5 ships those settings, the rules below
+still apply.
+
 
 Thuong approved thirteen-month integrity retention, retained audit logs, manual
 student anonymization and no automatic erasure of disabled accounts. Retention

@@ -4,8 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"quizzivy/gen/openapi"
+	"quizzivy/internal/modules/identity/domain"
 )
 
 // api/openapi.yaml is the source of truth, but oapi-codegen only generates
@@ -99,5 +104,60 @@ func TestPathParametersAreValidatedToo(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 for a malformed uuid path parameter", rec.Code)
+	}
+}
+
+func TestANewPasswordNeedsADigitPunctuationOrSymbol(t *testing.T) {
+	issuer := testIssuer(t)
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000b2", "student")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newAuthTestRouter(t, issuer)
+
+	for password, allowed := range map[string]bool{
+		"matkhau1":   true,
+		"mật khẩu!":  true,
+		"mậtkhẩuđẹp": false,
+	} {
+		t.Run(password, func(t *testing.T) {
+			body, err := json.Marshal(map[string]string{"newPassword": password})
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := httptest.NewRequest(http.MethodPost, "/auth/change-password", strings.NewReader(string(body)))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+token)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			refused := rec.Code == http.StatusBadRequest && errorCode(t, rec) == "VALIDATION_FAILED"
+			if refused == allowed {
+				t.Errorf("status = %d, refused = %t, want refused = %t", rec.Code, refused, !allowed)
+			}
+		})
+	}
+}
+
+func TestATemporaryPasswordMeetsTheNewPasswordRules(t *testing.T) {
+	spec, err := openapi.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := spec.Paths.Find("/auth/change-password").Post.RequestBody.Value
+	rule := body.Content.Get("application/json").Schema.Value.Properties["newPassword"].Value
+	pattern, err := regexp.Compile(rule.Pattern)
+	if err != nil {
+		t.Fatalf("newPassword pattern %q: %v", rule.Pattern, err)
+	}
+
+	for range 200 {
+		password, err := domain.Passwords.Temporary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !pattern.MatchString(password) || uint64(utf8.RuneCountInString(password)) < rule.MinLength {
+			t.Fatalf("temporary password %q breaks the rules a new password must meet", password)
+		}
 	}
 }

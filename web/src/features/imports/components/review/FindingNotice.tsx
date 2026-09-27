@@ -75,7 +75,7 @@ export const FindingNotice = memo(function FindingNotice({
       tabIndex={-1}
       data-current={current || undefined}
       className={cn(
-        "focus-visible:ring-ring rounded-md border px-3 py-2.5 text-sm outline-none focus-visible:ring-2",
+        "rounded-md border px-3 py-2.5 text-sm outline-none",
         current && "ring-ring/40 ring-2",
       )}
     >

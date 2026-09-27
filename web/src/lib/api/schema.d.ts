@@ -15,14 +15,44 @@ export interface paths {
         put?: never;
         /**
          * Look up a class by join code
-         * @description Backs the `/join/:code/confirm` step, which exists so the student sees
-         *     **which class they are joining** before authenticating. Never create an
-         *     account and enrol in one blind tap (§6.2).
+         * @description Backs the inline preview on `/join` and `/join/:code`, which exists so
+         *     the student sees **which class they are joining** before authenticating.
+         *     Never create an account and enrol in one blind tap (§6.2).
          *
          *     Lookup is by SHA-256 hash of the normalized code, compared in constant
          *     time. The plaintext is never stored (§6.5).
          */
         post: operations["previewJoinCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the API is down for maintenance, or soon will be
+         * @description The earliest maintenance window that was not cancelled and has not
+         *     ended, or `null`. `active` is true while it is under way. During an
+         *     active window every other operation answers `503 MAINTENANCE`, and this
+         *     one keeps answering, so the client can tell the student when to come
+         *     back.
+         *
+         *     **Leak review (§6.5).** The answer is identical for every caller and
+         *     never depends on a token: two timestamps and a flag. No id, no creator,
+         *     no count, no free text. It is served from a snapshot the server
+         *     refreshes at most every 30 s, so neither its content nor its timing
+         *     says anything about the database.
+         */
+        get: operations["getPublicStatus"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2050,12 +2080,23 @@ export interface components {
          *     number is already a float64.
          */
         Points: number;
+        /** @description What `GET /public/status` answers. */
+        PublicStatus: {
+            /** @description The next maintenance window that has not ended, or `null`. */
+            maintenance: components["schemas"]["MaintenanceWindow"] | null;
+        };
+        MaintenanceWindow: {
+            startsAt: components["schemas"]["Timestamp"];
+            endsAt: components["schemas"]["Timestamp"];
+            /** @description True while the window is under way. */
+            active: boolean;
+        };
         /**
          * @description Stable, machine-readable. **The only thing clients branch on.** Copy is
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -3858,6 +3899,22 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /**
+         * @description `MAINTENANCE` — a maintenance window is under way. `details.startsAt` and
+         *     `details.endsAt` name it, and `Retry-After` is the seconds until it ends.
+         *     Any operation except `GET /livez`, `GET /healthz` and `GET /public/status`
+         *     may answer this, whatever its authentication.
+         */
+        Maintenance: {
+            headers: {
+                /** @description Seconds until the window ends. */
+                "Retry-After": number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Success, no body. */
         NoContent: {
             headers: {
@@ -3949,6 +4006,29 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    getPublicStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description `public, max-age=30`, the snapshot's own refresh interval. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStatus"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -3992,6 +4072,7 @@ export interface operations {
                 };
             };
             429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Maintenance"];
         };
     };
     googleAuth: {
@@ -4008,7 +4089,7 @@ export interface operations {
                     codeVerifier: string;
                     /** Format: uri */
                     redirectUri: string;
-                    /** @description Present only from the `/join/:code/confirm` flow. Turns this into a signup. */
+                    /** @description Present only when signing in to join a class, after the class preview on `/join` or `/join/:code`. Turns this into a signup. */
                     joinCode?: string;
                 };
             };
@@ -4120,6 +4201,7 @@ export interface operations {
                 };
             };
             429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Maintenance"];
         };
     };
     getCurrentUser: {
@@ -4141,6 +4223,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Maintenance"];
         };
     };
     updateCurrentUser: {
@@ -4238,6 +4321,14 @@ export interface operations {
                      *     here without ever having held the temporary one.
                      */
                     currentPassword?: string;
+                    /**
+                     * @description At least 8 characters, at least one of which is a digit, a
+                     *     punctuation mark or a symbol, in any script. It must also
+                     *     differ from the password it replaces, which only the server
+                     *     can check (`PASSWORD_UNCHANGED`). The rules apply to a new
+                     *     password only: existing passwords are never re-checked and
+                     *     sign-in does not change.
+                     */
                     newPassword: string;
                 };
             };
@@ -4254,7 +4345,10 @@ export interface operations {
              * @description `INVALID_CREDENTIALS` — `currentPassword` is wrong.
              *     `PASSWORD_REQUIRED` — the account signs in with Google only and has
              *     no current password to verify; it needs a set-password flow, not this one.
-             *     `VALIDATION_FAILED` — `newPassword` is shorter than 8 characters.
+             *     `PASSWORD_UNCHANGED` — `newPassword` is the password it would replace:
+             *     the verified `currentPassword`, or, while `mustChangePassword` is set,
+             *     the temporary password on the account.
+             *     `VALIDATION_FAILED` — `newPassword` breaks a rule above.
              *
              *     **A wrong current password is deliberately 400, not 401.** The SPA
              *     treats 401 as "the session died": it refreshes once and retries, and
@@ -7412,7 +7506,13 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
-            /** @description `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`. */
+            /**
+             * @description `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
+             *
+             *     `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance
+             *     window. `details.startsAt` and `details.endsAt` name it. Resuming an
+             *     attempt never answers this.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7468,7 +7568,12 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Saved. `serverTime` is returned every time so the client's clock offset self-corrects. */
+            /**
+             * @description Saved. `serverTime` is returned every time so the client's clock
+             *     offset self-corrects, and `deadlineAt` is the attempt's deadline as
+             *     it stands now, so a teacher's extension or a maintenance window
+             *     reaches an open attempt on its next autosave.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7477,6 +7582,7 @@ export interface operations {
                     "application/json": {
                         serverTime: components["schemas"]["Timestamp"];
                         savedAt: components["schemas"]["Timestamp"];
+                        deadlineAt: components["schemas"]["Timestamp"];
                     };
                 };
             };
@@ -7495,6 +7601,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            503: components["responses"]["Maintenance"];
         };
     };
     flushEvents: {
@@ -7627,7 +7734,14 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
-            /** @description `ATTEMPT_CLOSED`. */
+            /**
+             * @description `ATTEMPT_CLOSED`.
+             *
+             *     `DEADLINE_NOT_REACHED` — `reason` was `timer_expired` while the
+             *     attempt's deadline is still more than five seconds away, which
+             *     happens when the deadline moved after the client last saved.
+             *     `details.deadlineAt` is the deadline to wait for; nothing changed.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

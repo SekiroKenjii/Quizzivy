@@ -38,6 +38,28 @@ export class ApiError extends Error {
   get isRateLimited() {
     return this.status === 429;
   }
+
+  /**
+   * isRetryable says the same request may succeed if sent again: it got no
+   * answer (status 0), was rate limited, or met a server-side fault.
+   */
+  get isRetryable() {
+    return this.status === 0 || this.status === 429 || this.status >= 500;
+  }
+}
+
+/**
+ * maintenanceWindow returns the period a 503 `MAINTENANCE` names in its
+ * details, or null for any other failure.
+ */
+export function maintenanceWindow(
+  cause: unknown,
+): { startsAt: string; endsAt: string } | null {
+  if (!(cause instanceof ApiError) || cause.code !== "MAINTENANCE") return null;
+  const startsAt = cause.details?.["startsAt"];
+  const endsAt = cause.details?.["endsAt"];
+  if (typeof startsAt !== "string" || typeof endsAt !== "string") return null;
+  return { startsAt, endsAt };
 }
 
 /**

@@ -436,7 +436,9 @@ function downloadQr(host: HTMLDivElement | null, filename: string) {
   const image = new Image();
   const url = URL.createObjectURL(svgBlob);
   image.onload = () => {
-    context.fillStyle = "#ffffff";
+    context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(
+      "--qr-bg",
+    );
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 32, 32, 448, 448);
     URL.revokeObjectURL(url);

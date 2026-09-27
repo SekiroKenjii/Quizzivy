@@ -113,7 +113,7 @@ export function TagsField({ tags, onChange }: Readonly<TagsFieldProps>) {
               <button
                 key={tag}
                 type="button"
-                className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="rounded-md"
                 onClick={() => add(tag)}
               >
                 <Badge variant="outline">{tag}</Badge>

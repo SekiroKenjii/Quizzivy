@@ -118,6 +118,10 @@ func (h Identity) ChangePassword(ctx context.Context, request openapi.ChangePass
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.PASSWORDREQUIRED,
 			"Tài khoản này đăng nhập bằng Google và chưa có mật khẩu.")), nil
 
+	case errors.Is(err, domain.ErrPasswordUnchanged):
+		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.PASSWORDUNCHANGED,
+			"Mật khẩu mới phải khác mật khẩu hiện tại.")), nil
+
 	case errors.Is(err, domain.ErrPasswordTooShort):
 		return openapi.ChangePassword400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
 			"Mật khẩu mới phải có ít nhất 8 ký tự.")), nil

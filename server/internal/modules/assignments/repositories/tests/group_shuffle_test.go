@@ -5,6 +5,7 @@ package repositories_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/modules/assignments/repositories"
 	attemptrepo "quizzivy/internal/modules/attempts/repositories"
@@ -65,7 +66,7 @@ func TestAssignmentRejectsFixedGroupOptionShuffleWithoutPartialWrites(t *testing
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	group, ids := frozenAssignmentGroup(t, tx, w.versionID, true)
-	attempts := attemptrepo.NewPostgres(db.NewContext(tx))
+	attempts := attemptrepo.NewPostgres(db.NewContext(tx), adapters.AttemptStartGuard{})
 	loaded, err := attempts.Questions(ctx, w.versionID)
 	if err != nil || len(loaded) != 3 {
 		t.Fatalf("paper load: %+v, %v", loaded, err)

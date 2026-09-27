@@ -12,9 +12,24 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type Postgres struct{ db.Repository }
+// StartGuard is the maintenance check an attempt start runs inside its own
+// transaction, before the insert. It returns the window an attempt from now
+// until deadline would run into, if any, and must hold whatever lock keeps a
+// window from being scheduled until that transaction ends.
+type StartGuard interface {
+	GuardAttemptStart(ctx context.Context, tx pgx.Tx, now, deadline time.Time) (*domain.MaintenanceWindow, error)
+}
 
-func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
+type Postgres struct {
+	db.Repository
+	guard StartGuard
+}
+
+// NewPostgres builds the attempts repository. Every attempt start passes
+// through guard.
+func NewPostgres(dbx db.Context, guard StartGuard) *Postgres {
+	return &Postgres{Repository: db.NewRepository(dbx), guard: guard}
+}
 
 const rulesQuery = `
 	SELECT a.test_version_id, a.opens_at, a.closes_at, a.closed_at, a.published_at,
@@ -108,20 +123,34 @@ func (s *Postgres) Tally(ctx context.Context, assignmentID, studentID string) (d
 }
 
 func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.AttemptRecord, error) {
-	q := `
-		INSERT INTO app.attempts
-		  (assignment_id, test_version_id, student_id, attempt_no, session_id,
-		   shuffle_seed, beacon_token_hash, started_at, deadline_at)
-		VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
-		RETURNING ` + attemptColumns
-	out, err := scanAttempt(s.QueryRow(ctx, q,
-		in.AssignmentID, in.TestVersionID, in.StudentID, in.AttemptNo, in.SessionID,
-		in.Seed, in.BeaconHash, in.StartedAt, in.DeadlineAt))
-	if db.IsUniqueViolation(err, "") {
-		return domain.AttemptRecord{}, domain.ErrRaceLost
-	}
+	var out domain.AttemptRecord
+	err := s.InTx(ctx, "attempts: create", func(tx pgx.Tx) error {
+		window, err := s.guard.GuardAttemptStart(ctx, tx, in.StartedAt, in.DeadlineAt)
+		if err != nil {
+			return fmt.Errorf("attempts: check maintenance: %w", err)
+		}
+		if window != nil {
+			return &domain.MaintenanceScheduledError{Window: *window}
+		}
+		q := `
+			INSERT INTO app.attempts
+			  (assignment_id, test_version_id, student_id, attempt_no, session_id,
+			   shuffle_seed, beacon_token_hash, started_at, deadline_at)
+			VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8, $9)
+			RETURNING ` + attemptColumns
+		out, err = scanAttempt(tx.QueryRow(ctx, q,
+			in.AssignmentID, in.TestVersionID, in.StudentID, in.AttemptNo, in.SessionID,
+			in.Seed, in.BeaconHash, in.StartedAt, in.DeadlineAt))
+		if db.IsUniqueViolation(err, "") {
+			return domain.ErrRaceLost
+		}
+		if err != nil {
+			return fmt.Errorf("attempts: create: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return domain.AttemptRecord{}, fmt.Errorf("attempts: create: %w", err)
+		return domain.AttemptRecord{}, err
 	}
 	return out, nil
 }

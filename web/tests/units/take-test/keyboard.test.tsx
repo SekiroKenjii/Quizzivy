@@ -18,11 +18,16 @@ vi.mock("@/features/take-test/api", () => ({
 beforeEach(() => {
   useTakeTestStore.getState().reset();
   const now = new Date().toISOString();
-  vi.mocked(saveAnswers).mockResolvedValue({ serverTime: now, savedAt: now });
+  const deadline = new Date(Date.now() + 3_600_000).toISOString();
+  vi.mocked(saveAnswers).mockResolvedValue({
+    serverTime: now,
+    savedAt: now,
+    deadlineAt: deadline,
+  });
   vi.mocked(getAttempt).mockResolvedValue({
     ...session({
       serverTime: now,
-      deadlineAt: new Date(Date.now() + 3_600_000).toISOString(),
+      deadlineAt: deadline,
     }),
     questions: [
       {

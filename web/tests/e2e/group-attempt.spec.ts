@@ -51,7 +51,7 @@ async function setup(page: Page) {
         json: { ...payload, groupAudioPlays: { [recordingId]: seen.size } },
       }),
     [`PATCH /app/attempts/${attemptId}/answers`]: {
-      body: { savedAt: now, serverTime: now },
+      body: { savedAt: now, serverTime: now, deadlineAt: payload.attempt.deadlineAt },
     },
     [`POST /app/attempts/${attemptId}/group-audio-play`]: async (route) => {
       const input = route

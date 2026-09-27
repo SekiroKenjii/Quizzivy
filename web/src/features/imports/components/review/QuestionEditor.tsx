@@ -136,7 +136,7 @@ export function QuestionEditor({
       data-question-id={question.id}
       aria-labelledby={headingId}
       tabIndex={-1}
-      className="ring-ring/30 bg-card focus-visible:ring-ring space-y-5 rounded-lg border p-5 shadow-sm ring-2 outline-none"
+      className="ring-ring/30 bg-card space-y-5 rounded-lg border p-5 shadow-sm ring-2 outline-none"
     >
       <header className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">

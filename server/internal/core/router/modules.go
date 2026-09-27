@@ -3,6 +3,7 @@ package router
 import (
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
+	availabilityhttp "quizzivy/internal/modules/availability/http"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 	identityhttp "quizzivy/internal/modules/identity/http"
@@ -14,13 +15,14 @@ import (
 
 // Modules is every module's transport, as core assembled it.
 type Modules struct {
-	Imports     importshttp.Imports
-	Dashboard   dashboardhttp.Dashboard
-	Classes     classeshttp.Classes
-	Identity    identityhttp.Identity
-	Questions   questionshttp.Questions
-	Media       mediahttp.Media
-	Tests       testshttp.Tests
-	Assignments assignmentshttp.Assignments
-	Attempts    attemptshttp.Attempts
+	Imports      importshttp.Imports
+	Dashboard    dashboardhttp.Dashboard
+	Classes      classeshttp.Classes
+	Identity     identityhttp.Identity
+	Questions    questionshttp.Questions
+	Media        mediahttp.Media
+	Tests        testshttp.Tests
+	Assignments  assignmentshttp.Assignments
+	Attempts     attemptshttp.Attempts
+	Availability availabilityhttp.Availability
 }

@@ -16,7 +16,9 @@ type SaveInput struct {
 // of answers submitted -- see Postgres.Save for why that is not an error.
 type SaveResult struct {
 	SavedAt time.Time
-	Saved   int
+	// DeadlineAt is the attempt's deadline as the save found it.
+	DeadlineAt time.Time
+	Saved      int
 	// Dropped names the answers that did not land.
 	Dropped []string
 }

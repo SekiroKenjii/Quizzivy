@@ -36,7 +36,9 @@ const flushed = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
   sessionStorage.clear();
-  saved.mockReset().mockResolvedValue({ serverTime: now, savedAt: now });
+  saved
+    .mockReset()
+    .mockResolvedValue({ serverTime: now, savedAt: now, deadlineAt: deadline });
   submitted
     .mockReset()
     .mockResolvedValue(session({ serverTime: now, deadlineAt: deadline }).attempt);

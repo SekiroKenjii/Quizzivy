@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BrandLockup, BrandMark } from "@/components/shared/Brand";
 import { AccountMenu } from "@/features/auth/AccountMenu";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useForcedLightTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import type { DetailShell } from "@/layouts/detailShell";
 
@@ -16,6 +17,7 @@ interface StudentHandle {
 
 /** StudentLayout keeps the route mounted while adapting navigation at 1024px. */
 export default function StudentLayout() {
+  useForcedLightTheme();
   const { t } = useTranslation();
   const wide = useMediaQuery("(min-width: 1024px)");
   const matches = useMatches();
@@ -51,7 +53,7 @@ export default function StudentLayout() {
               {!wide && (
                 <NavLink
                   to="/app/settings"
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-2"
+                  className="text-muted-foreground hover:text-foreground inline-flex size-11 shrink-0 items-center justify-center rounded-md"
                   aria-label={t("nav.settings")}
                 >
                   <User className="size-5" aria-hidden="true" />
@@ -78,7 +80,7 @@ export default function StudentLayout() {
 
 const link = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm whitespace-nowrap transition-colors focus-visible:ring-2 lg:min-h-8 lg:px-3",
+    "inline-flex min-h-11 items-center rounded-md px-2 text-sm whitespace-nowrap transition-colors lg:min-h-8 lg:px-3",
     isActive
       ? "bg-secondary text-secondary-foreground"
       : "text-muted-foreground hover:text-foreground",

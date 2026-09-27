@@ -111,7 +111,7 @@ export function PromptField({
           setCleared(false);
           onChange(event.target.value);
         }}
-        className="min-h-18 rounded-none border-0 shadow-none focus-visible:ring-0"
+        className="min-h-18 rounded-none border-0 shadow-none"
       />
     </div>
   );

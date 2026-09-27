@@ -63,7 +63,7 @@ export function StudentPreview({
                 <div
                   id={questionAnchor(question.id)}
                   tabIndex={-1}
-                  className="text-muted-foreground focus-visible:outline-ring flex scroll-mt-6 items-center gap-2 rounded-sm text-xs focus-visible:outline-2 focus-visible:outline-offset-4"
+                  className="text-muted-foreground flex scroll-mt-6 items-center gap-2 rounded-sm text-xs"
                 >
                   <span className="tabular-nums">
                     {t("preview.questionNumber", { n: index + 1 })}

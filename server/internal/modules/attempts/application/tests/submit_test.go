@@ -236,3 +236,61 @@ func TestSubmittingHalfAFillBlankEarnsHalfItsPoints(t *testing.T) {
 		t.Errorf("auto_score %v, want 2.5 — one of two blanks right", score)
 	}
 }
+
+func TestAnEarlyTimerIsRefusedWithTheDeadlineAndChangesNothing(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	_, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.TimerExpired})
+	var early *domain.DeadlineNotReachedError
+	if !errors.As(err, &early) {
+		t.Fatalf("an early timer_expired gave %v, want DeadlineNotReachedError", err)
+	}
+	if !early.DeadlineAt.Equal(session.Attempt.DeadlineAt) {
+		t.Errorf("refusal names %v, want the deadline %v", early.DeadlineAt, session.Attempt.DeadlineAt)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM app.attempts WHERE id = $1::uuid AND status = 'in_progress' AND submitted_at IS NULL`, session.Attempt.ID); n != 1 {
+		t.Error("the refused submission closed the attempt")
+	}
+
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
+		t.Errorf("a manual submission before the deadline was refused: %v", err)
+	}
+}
+
+func TestATimerWithinTheGraceStillCloses(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.attempts SET deadline_at = now() + interval '4 seconds' WHERE id = $1::uuid`,
+		session.Attempt.ID); err != nil {
+		t.Fatal(err)
+	}
+	closed, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.TimerExpired})
+	if err != nil {
+		t.Fatalf("a timer_expired four seconds early was refused: %v", err)
+	}
+	if closed.Status == domain.InProgress {
+		t.Errorf("status %s after a timer_expired inside the grace", closed.Status)
+	}
+}
+
+func TestATimerJustOutsideTheGraceIsRefused(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.attempts SET deadline_at = now() + interval '7 seconds' WHERE id = $1::uuid`,
+		session.Attempt.ID); err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.TimerExpired})
+	var early *domain.DeadlineNotReachedError
+	if !errors.As(err, &early) {
+		t.Fatalf("a timer_expired seven seconds early gave %v, want DeadlineNotReachedError", err)
+	}
+}

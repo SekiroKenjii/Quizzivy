@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+:root{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--ring:#9aa3a5;--shadow:0 1px 2px rgba(20,28,30,.05);--shadow-lg:0 12px 32px -8px rgba(20,28,30,.18),0 2px 6px rgba(20,28,30,.06);--accent-c:#a4ca3e;--accent-soft:#f1f7e0;--accent-ink:#4f6c12;--success:oklch(0.62 0.14 155);--success-soft:oklch(0.96 0.03 155);--success-ink:oklch(0.42 0.1 155);--warning:oklch(0.74 0.15 70);--warning-soft:oklch(0.96 0.04 80);--warning-ink:oklch(0.48 0.11 60);--danger:oklch(0.59 0.2 27);--danger-soft:oklch(0.96 0.03 27);--danger-ink:oklch(0.48 0.17 27)}
+:root.dark,[data-qz-theme="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--ring:#5d6769;--accent-soft:rgba(164,202,62,.13);--accent-ink:#c2e070;--success-soft:oklch(0.3 0.05 155);--success-ink:oklch(0.8 0.12 155);--warning-soft:oklch(0.32 0.06 70);--warning-ink:oklch(0.85 0.12 80);--danger-soft:oklch(0.3 0.08 27);--danger-ink:oklch(0.78 0.13 27)}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+[class^="icon-"],[class*=" icon-"]{line-height:1;display:inline-flex;align-items:center;justify-content:center}
+[class^="icon-"]::before,[class*=" icon-"]::before{line-height:1}
+a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+a:hover{color:var(--muted-fg)}
+button,input{font-family:inherit;color:inherit}
+input::placeholder{color:var(--muted-fg)}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="min-height:100vh;display:flex;background:var(--bg);font-size:14px;line-height:1.5">
+
+<sc-if value="{{ showPanel }}" hint-placeholder-val="{{ true }}">
+<aside data-screen-label="Brand panel" style="flex:0 0 44%;max-width:620px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;padding:40px 48px">
+<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="brand/quizzivy-logo-horizontal-color.svg" alt="Quizzivy" style="height:32px;align-self:flex-start"></sc-if>
+<sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="brand/quizzivy-logo-horizontal-on-dark.svg" alt="Quizzivy" style="height:32px;align-self:flex-start"></sc-if>
+<div style="display:flex;flex-direction:column;gap:14px;max-width:420px">
+<span style="font-size:30px;font-weight:600;letter-spacing:-0.02em;line-height:1.2;text-wrap:balance">Tests, lessons and practice for your English classes.</span>
+<span style="font-size:15px;color:var(--muted-fg);line-height:1.6">Quizzivy English Centre</span>
+</div>
+<span style="font-size:12.5px;color:var(--muted-fg)">Need help signing in? Ask your teacher or the front desk.</span>
+</aside>
+</sc-if>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:{{ mainPad }}">
+<sc-if value="{{ showSmallLogo }}" hint-placeholder-val="{{ false }}"><div style="margin-bottom:28px"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="brand/quizzivy-logo-horizontal-color.svg" alt="Quizzivy" style="height:28px"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="brand/quizzivy-logo-horizontal-on-dark.svg" alt="Quizzivy" style="height:28px"></sc-if></div></sc-if>
+<div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:20px">
+
+<sc-if value="{{ r.login }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Login" style="display:flex;flex-direction:column;gap:20px">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Sign in</h1><p style="margin:4px 0 0;color:var(--muted-fg);font-size:14px">{{ loginSub }}</p></div>
+<button onClick="{{ google }}" style="display:flex;align-items:center;justify-content:center;gap:10px;height:46px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:14.5px;font-weight:500;box-shadow:var(--shadow)" style-hover="background:var(--muted)"><img src="google-g.svg" alt="" style="width:18px;height:18px;flex:none">Continue with Google</button>
+<div style="display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--muted-fg)"><span style="flex:1;height:1px;background:var(--border)"></span>or with email<span style="flex:1;height:1px;background:var(--border)"></span></div>
+<sc-if value="{{ loginErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--danger-soft);color:var(--danger-ink);font-size:13.5px;line-height:1.45"><i class="icon-circle-alert" style="font-size:16px;margin-top:1px"></i>{{ loginErr }}</div></sc-if>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500">Email<input value="{{ email }}" onChange="{{ onEmail }}" onKeyDown="{{ onEnter }}" type="email" autocomplete="username" placeholder="you@example.com" style="height:46px;border:1px solid var(--border);border-radius:10px;padding:0 14px;font-size:15px;font-weight:400;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500"><span style="display:flex;justify-content:space-between">Password<button onClick="{{ goForgot }}" style="border:0;background:transparent;padding:0;font-size:13px;color:var(--muted-fg);cursor:pointer;font-weight:400" style-hover="color:var(--fg)">Forgot password?</button></span>
+<span style="position:relative;display:flex;align-items:center"><input value="{{ pw }}" onChange="{{ onPw }}" onKeyDown="{{ onEnter }}" type="{{ pwType }}" autocomplete="current-password" style="width:100%;height:46px;border:1px solid var(--border);border-radius:10px;padding:0 46px 0 14px;font-size:15px;font-weight:400;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"><button onClick="{{ togglePwShow }}" aria-label="{{ pwShowLabel }}" style="position:absolute;right:6px;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;cursor:pointer;color:var(--muted-fg)" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-{{ pwIcon }}" style="font-size:17px"></i></button></span>
+</label>
+<button onClick="{{ submitLogin }}" style="display:flex;align-items:center;justify-content:center;gap:8px;height:46px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:15px;font-weight:600;opacity:{{ loginOp }}" style-hover="opacity:.92"><sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><i class="icon-loader" style="font-size:17px"></i></sc-if>{{ loginLabel }}</button>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--muted);font-size:12.5px;color:var(--muted-fg)"><span style="font-weight:600;color:var(--fg)">Demo accounts</span><span>Student: giabao.ng@gmail.com · Teacher: thuong@quizzivy.com · Admin: quang.tran@quizzivy.com · any password with 6+ characters. <b>newstudent@gmail.com</b> shows the first sign-in flow.</span></div>
+<p style="margin:0;text-align:center;font-size:13.5px;color:var(--muted-fg)">Have a class code? <button onClick="{{ goJoin }}" style="border:0;background:transparent;padding:0;font-size:13.5px;color:var(--fg);font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Join a class</button></p>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.forgot }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Forgot password" style="display:flex;flex-direction:column;gap:18px">
+<span style="width:44px;height:44px;border-radius:12px;background:var(--muted);display:grid;place-items:center"><i class="icon-key-round" style="font-size:20px"></i></span>
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Forgot your password?</h1><p style="margin:6px 0 0;color:var(--muted-fg);font-size:14.5px;line-height:1.6;text-wrap:pretty">Your teacher or the centre can reset it for you. You will get a temporary password and choose a new one when you sign in.</p></div>
+<div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;overflow:hidden">
+<div style="display:flex;gap:12px;padding:12px 14px"><img src="google-g.svg" alt="" style="width:17px;height:17px;flex:none;margin-top:2px"><span style="font-size:13.5px;line-height:1.5"><b>Signed up with Google?</b> You do not need a password. Use Continue with Google.</span></div>
+<div style="display:flex;gap:12px;padding:12px 14px;border-top:1px solid var(--border)"><i class="icon-phone" style="font-size:17px;margin-top:2px"></i><span style="font-size:13.5px;line-height:1.5"><b>Front desk</b> · 028 3812 4567 · Mon–Sat, 8:00–20:00</span></div>
+</div>
+<button onClick="{{ goLogin }}" style="display:flex;align-items:center;justify-content:center;gap:8px;height:46px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:15px;font-weight:500" style-hover="background:var(--muted)"><i class="icon-arrow-left" style="font-size:17px"></i>Back to sign in</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.join }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Join class" style="display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Join a class</h1><p style="margin:4px 0 0;color:var(--muted-fg);font-size:14px">Enter the 8-character code from your teacher.</p></div>
+<input value="{{ code }}" onChange="{{ onCode }}" aria-label="Class code" placeholder="ABCD-1234" maxlength="9" autocomplete="off" style="height:58px;border:1.5px solid {{ codeBorder }};border-radius:12px;padding:0 14px;font-size:22px;font-weight:600;letter-spacing:.14em;text-align:center;font-family:ui-monospace,Menlo,monospace;background:var(--bg);outline:0">
+<sc-if value="{{ codeErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size:13.5px;color:var(--danger-ink);margin-top:-8px">{{ codeErr }}</span></sc-if>
+<sc-if value="{{ found }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)">
+<div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+<span style="display:inline-flex;align-self:flex-start;align-items:center;gap:6px;font-size:12.5px;color:var(--success-ink);background:var(--success-soft);border-radius:999px;padding:2px 9px"><i class="icon-circle-check" style="font-size:13px"></i>Class found</span>
+<div><div style="font-size:17px;font-weight:600">{{ cls.name }}</div><div style="font-size:13.5px;color:var(--muted-fg)">{{ cls.schedule }}</div></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:34px;height:34px;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">{{ cls.tInit }}</span><span><span style="display:block;font-size:14px;font-weight:500">{{ cls.teacher }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">{{ cls.count }} students</span></span></div>
+</div>
+</div>
+<button onClick="{{ confirmJoin }}" style="height:48px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:15px;font-weight:600" style-hover="opacity:.92">Join {{ cls.name }}</button>
+<span style="text-align:center;font-size:12.5px;color:var(--muted-fg);margin-top:-8px">You will sign in or create an account next.</span>
+</sc-if>
+<p style="margin:0;text-align:center;font-size:13.5px;color:var(--muted-fg)">Already in a class? <button onClick="{{ goLogin }}" style="border:0;background:transparent;padding:0;font-size:13.5px;color:var(--fg);font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Sign in</button></p>
+<span style="text-align:center;font-size:12px;color:var(--muted-fg)">Try T6NB-4WLQ</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.joined }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Joined" style="display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center">
+<span style="width:56px;height:56px;border-radius:16px;background:var(--success-soft);color:var(--success-ink);display:grid;place-items:center"><i class="icon-check" style="font-size:28px"></i></span>
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">You're in {{ cls.name }}</h1><p style="margin:6px 0 0;color:var(--muted-fg);font-size:14.5px">{{ cls.teacher }} will see you in the class list.</p></div>
+<a href="Quizzivy Student.dc.html" style="align-self:stretch;display:flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:10px;background:var(--primary);color:var(--primary-fg);text-decoration:none;font-size:15px;font-weight:600">Go to my classes<i class="icon-arrow-right" style="font-size:17px"></i></a>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.change }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Change password" style="display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Choose your password</h1><p style="margin:4px 0 0;color:var(--muted-fg);font-size:14px;line-height:1.55">You signed in with a temporary password. Pick one only you know.</p></div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500">New password<input value="{{ np }}" onChange="{{ onNp }}" type="password" autocomplete="new-password" style="height:46px;border:1px solid var(--border);border-radius:10px;padding:0 14px;font-size:15px;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"></label>
+<span style="display:flex;gap:4px;margin-top:-10px"><sc-for list="{{ bars }}" as="b" hint-placeholder-count="4"><span style="flex:1;height:4px;border-radius:4px;background:{{ b }}"></span></sc-for></span>
+<div style="display:flex;flex-direction:column;gap:6px;margin-top:-6px"><sc-for list="{{ checks }}" as="c" hint-placeholder-count="3"><span style="display:flex;align-items:center;gap:8px;font-size:13px;color:{{ c.color }}"><i class="icon-{{ c.icon }}" style="font-size:14px"></i>{{ c.label }}</span></sc-for></div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500">Type it again<input value="{{ np2 }}" onChange="{{ onNp2 }}" type="password" autocomplete="new-password" style="height:46px;border:1px solid {{ np2Border }};border-radius:10px;padding:0 14px;font-size:15px;background:var(--bg);outline:0"><sc-if value="{{ mismatch }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:var(--danger-ink);font-weight:400">The two passwords are different.</span></sc-if></label>
+<button onClick="{{ savePw }}" style="height:48px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:15px;font-weight:600;opacity:{{ saveOp }}" style-hover="opacity:.92">Save and continue</button>
+</div>
+</sc-if>
+
+</div>
+<div style="margin-top:32px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+<sc-for list="{{ screens }}" as="sc" hint-placeholder-count="5"><button onClick="{{ sc.go }}" style="height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:{{ sc.bg }};color:{{ sc.fg }};cursor:pointer;font-size:12px;font-weight:500">{{ sc.label }}</button></sc-for>
+<button onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="width:28px;height:28px;border-radius:999px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:grid;place-items:center"><i class="icon-{{ themeIcon }}" style="font-size:13px"></i></button>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const USERS = { 'giabao.ng@gmail.com': 'Quizzivy Student.dc.html', 'thuong@quizzivy.com': 'Quizzivy Teacher.dc.html', 'quang.tran@quizzivy.com': 'Quizzivy Admin.dc.html', 'newstudent@gmail.com': 'change' };
+const CLASSES = { T6NB4WLQ: { name: 'TOEIC 600 Weekend', teacher: 'Hoàng Thương', tInit: 'TH', schedule: 'Sat · Sun, 09:00 · Room 4', count: 22 }, W3RT8KDZ: { name: 'IELTS Writing Clinic', teacher: 'Phan Minh Đức', tInit: 'ĐP', schedule: 'Thu, 19:30 · Room 2', count: 14 } };
+
+class Component extends DCLogic {
+  state = { route: 'login', w: 1200, dark: false, email: '', pw: '', showPw: false, err: null, busy: false, code: '', np: '', np2: '', fromJoin: null };
+  rootRef = React.createRef();
+  componentDidMount() {
+    const hsh = (location.hash || '').replace('#', '');
+    let dark = false; try { dark = !!JSON.parse(localStorage.getItem('qz-student') || '{}').dark; } catch (e) {}
+    this.setState({ route: ['login', 'forgot', 'join', 'change', 'joined'].includes(hsh) ? hsh : 'login', dark });
+    const el = this.rootRef.current;
+    if (el && window.ResizeObserver) { this.ro = new ResizeObserver(() => requestAnimationFrame(() => { const w = el.getBoundingClientRect().width; if (Math.abs(w - this.state.w) > 1) this.setState({ w }); })); this.ro.observe(el); }
+  }
+  componentWillUnmount() { this.ro && this.ro.disconnect(); clearTimeout(this.bt); clearTimeout(this._ar); }
+  afterRender() {
+    document.documentElement.classList.toggle('dark', this.state.dark);
+    if (this.rootRef.current) this.rootRef.current.setAttribute('data-qz-theme', this.state.dark ? 'dark' : 'light');
+    if (location.hash !== '#' + this.state.route) history.replaceState(null, '', '#' + this.state.route);
+  }
+  go(route) { this.setState({ route, err: null, busy: false }); }
+  login() {
+    const e = this.state.email.trim().toLowerCase(), p = this.state.pw;
+    if (!e || !p) { this.setState({ err: 'Enter your email and password.' }); return; }
+    this.setState({ busy: true, err: null });
+    clearTimeout(this.bt);
+    this.bt = setTimeout(() => {
+      const dest = USERS[e];
+      if (!dest || p.length < 6) { this.setState({ busy: false, err: 'That email and password do not match. Check for typos, or ask your teacher to reset your password.' }); return; }
+      if (dest === 'change') { this.setState({ busy: false, route: 'change' }); return; }
+      if (this.state.fromJoin) { this.setState({ busy: false, route: 'joined' }); return; }
+      window.location.href = dest;
+    }, 700);
+  }
+  renderVals() {
+    clearTimeout(this._ar); this._ar = setTimeout(() => this.afterRender(), 0);
+    const s = this.state, wide = s.w >= 900;
+    const norm = s.code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cls = norm.length === 8 ? CLASSES[norm] : null;
+    const clsShown = cls || CLASSES[s.fromJoin] || { name: '', teacher: '', tInit: '', schedule: '', count: 0 };
+    const np = s.np;
+    const checks = [[np.length >= 8, 'At least 8 characters'], [/[0-9]/.test(np) || /[^A-Za-z0-9]/.test(np), 'A number or symbol'], [np && !/tulip|river|quizzivy/i.test(np), 'Different from the temporary password']];
+    const score = checks.filter(c => c[0]).length + (np.length >= 12 ? 1 : 0);
+    const ok = checks.every(c => c[0]) && np === s.np2;
+    return {
+      rootRef: this.rootRef, isDark: s.dark, isLight: !s.dark,
+      showPanel: wide && ['login', 'forgot', 'change'].includes(s.route), showSmallLogo: !(wide && ['login', 'forgot', 'change'].includes(s.route)),
+      mainPad: wide ? '48px' : '32px 20px',
+      r: { login: s.route === 'login', forgot: s.route === 'forgot', join: s.route === 'join', joined: s.route === 'joined', change: s.route === 'change' },
+      loginSub: s.fromJoin ? 'Sign in to join ' + clsShown.name + '.' : 'Welcome back.',
+      google: () => { this.setState({ busy: true }); clearTimeout(this.bt); this.bt = setTimeout(() => { if (s.fromJoin) this.setState({ busy: false, route: 'joined' }); else window.location.href = 'Quizzivy Student.dc.html'; }, 600); },
+      email: s.email, onEmail: e => this.setState({ email: e.target.value, err: null }),
+      pw: s.pw, onPw: e => this.setState({ pw: e.target.value, err: null }),
+      onEnter: e => { if (e.key === 'Enter') this.login(); },
+      pwType: s.showPw ? 'text' : 'password', pwIcon: s.showPw ? 'eye-off' : 'eye', pwShowLabel: s.showPw ? 'Hide password' : 'Show password', togglePwShow: () => this.setState({ showPw: !s.showPw }),
+      loginErr: s.err, busy: s.busy, loginLabel: s.busy ? 'Signing in…' : 'Sign in', loginOp: s.busy ? 0.7 : 1, submitLogin: () => this.login(),
+      goForgot: () => this.go('forgot'), goLogin: () => this.go('login'), goJoin: () => this.go('join'),
+      code: s.code, onCode: e => { let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4); this.setState({ code: v }); },
+      codeErr: norm.length === 8 && !cls ? 'No class uses this code. Check it with your teacher.' : null,
+      codeBorder: norm.length === 8 ? (cls ? 'var(--success)' : 'var(--danger)') : 'var(--border)',
+      found: !!cls, cls: clsShown,
+      confirmJoin: () => this.setState({ fromJoin: norm, route: 'login', err: null }),
+      np, onNp: e => this.setState({ np: e.target.value }), np2: s.np2, onNp2: e => this.setState({ np2: e.target.value }),
+      bars: [0, 1, 2, 3].map(i => i < score ? (score <= 1 ? 'var(--danger)' : score <= 2 ? 'var(--warning)' : 'var(--success)') : 'var(--muted)'),
+      checks: checks.map(c => ({ label: c[1], icon: c[0] ? 'circle-check' : 'circle', color: c[0] ? 'var(--success-ink)' : 'var(--muted-fg)' })),
+      mismatch: !!s.np2 && s.np2 !== np, np2Border: s.np2 && s.np2 !== np ? 'var(--danger)' : 'var(--border)',
+      saveOp: ok ? 1 : 0.5, savePw: () => { if (ok) window.location.href = 'Quizzivy Student.dc.html'; },
+      screens: [['login', 'Sign in'], ['forgot', 'Forgot'], ['join', 'Join'], ['change', 'First sign-in']].map(([id, label]) => ({ label, bg: s.route === id ? 'var(--primary)' : 'var(--card)', fg: s.route === id ? 'var(--primary-fg)' : 'var(--muted-fg)', go: () => this.setState({ route: id, err: null, busy: false, fromJoin: id === 'login' ? null : s.fromJoin }) })),
+      themeIcon: s.dark ? 'sun' : 'moon', toggleTheme: () => this.setState({ dark: !s.dark }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { AuthLayout } from "@/features/auth/AuthLayout";
+import { SystemFrame } from "@/app/pages/SystemFrame";
 
 /**
- * The shape all three failure screens share (E-01..E-03): the same two-panel
- * layout login uses, with the drawing in the panel and the answer in the card.
+ * The shape the failure screens share: the system frame with the drawing in
+ * the panel and the page's title, body, evidence and footnote in the column.
  */
 export function ErrorScreen({
   art,
@@ -22,11 +22,14 @@ export function ErrorScreen({
   children?: ReactNode;
 }>) {
   return (
-    <AuthLayout art={art} footer={footer}>
-      <h1 className="text-lg font-semibold tracking-tight lg:text-xl">{title}</h1>
-      <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{body}</p>
+    <SystemFrame art={art}>
+      <h1 className="text-h1 text-balance">{title}</h1>
+      <p className="text-muted-fg text-body mt-2 text-pretty">{body}</p>
       {children}
-    </AuthLayout>
+      {footer && (
+        <p className="text-muted-fg mt-6 text-center text-sm text-pretty">{footer}</p>
+      )}
+    </SystemFrame>
   );
 }
 
@@ -37,7 +40,7 @@ export function ErrorScreen({
  */
 export function ErrorActions({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="mt-5 space-y-2 *:h-11 *:w-full *:px-6 *:text-[0.9375rem] lg:*:h-9 lg:*:px-4 lg:*:text-sm">
+    <div className="*:rounded-ctl in-data-[scale=deck]:*:text-md mt-5 flex flex-col gap-2 *:h-11 *:w-full in-data-[scale=deck]:*:px-4.5 lg:*:h-9.5 in-data-[scale=deck]:lg:*:text-base">
       {children}
     </div>
   );

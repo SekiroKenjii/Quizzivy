@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryRouter,
@@ -64,9 +64,13 @@ afterEach(() => {
 describe("RequireSession", () => {
   it("waits while the session is still being restored", async () => {
     useAuthStore.setState({ isBootstrapping: true, user: null, accessToken: null });
-    renderAt("/app");
-    expect(await screen.findByRole("status")).toBeInTheDocument();
+    const router = renderAt("/app");
+    await waitFor(() => expect(router.state.initialized).toBe(true));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(router.state.location.pathname).toBe("/app");
     expect(screen.queryByText("login page")).not.toBeInTheDocument();
+    expect(screen.queryByText("student home")).not.toBeInTheDocument();
   });
 
   it("sends an anonymous visitor to /login with where they were going", async () => {
@@ -175,14 +179,14 @@ describe("losing the session", () => {
   it("leaves a visitor on a public screen where they are", async () => {
     const routes: RouteObject[] = [
       { path: "/login", element: <p>login page</p> },
-      { path: "/join/:code/confirm", element: <p>confirm page</p> },
+      { path: "/join/:code", element: <p>join page</p> },
       {
         element: <RequireSession />,
         children: [{ path: "/app", element: <p>student home</p> }],
       },
     ];
     const router = createMemoryRouter(routes, {
-      initialEntries: ["/join/K7M3P9QR/confirm"],
+      initialEntries: ["/join/K7M3P9QR"],
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -190,12 +194,12 @@ describe("losing the session", () => {
         <RouterProvider router={router} />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText("confirm page")).toBeInTheDocument();
+    expect(await screen.findByText("join page")).toBeInTheDocument();
 
     // What the API client does when a session turns out not to exist.
     useAuthStore.getState().clearSession();
 
-    expect(router.state.location.pathname).toBe("/join/K7M3P9QR/confirm");
-    expect(screen.getByText("confirm page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/join/K7M3P9QR");
+    expect(screen.getByText("join page")).toBeInTheDocument();
   });
 });

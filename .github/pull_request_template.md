@@ -1,6 +1,6 @@
 <!--
-One task from docs/plan/1*.md = one branch = one PR.
-Title: `T-<phase>.<n>: <imperative title>`
+One task from docs/plan/*.md = one branch = one PR.
+Title: `T-<phase>.<n>: <imperative title>` (Phase R: `T-R<k>.<n>`)
 -->
 
 ## Task
@@ -17,9 +17,28 @@ Closes **T-_._** — <title>
 - [ ] Lint clean
 - [ ] Loading / error / empty states present
 - [ ] Keyboard-operable; visible focus
-- [ ] All strings via `t()`, keys in both `vi` and `en`
+- [ ] All strings via `t()`, keys in both `vi` and `en` — new keys listed below
+      for review (vi written first; en from the deck)
 - [ ] Tests added or updated at the right level (spec §14)
+- [ ] Screens compared with `docs/design/deck/` at 360, 768, 1024, 1280 and
+      1440, light and dark (table below)
 - [ ] The task's own "Done when" boxes are all ticked
+
+<!--
+Deck comparison, one row per screen changed:
+| Screen | Deck page | Widths checked | Light | Dark | Differences |
+-->
+
+## New or changed operations
+
+<!--
+From R2 (Phase R). Delete if the contract did not change.
+-->
+
+- [ ] Every new or changed operation declares `x-permission`
+      (`docs/plan/70-redesign-overview.md` §4)
+- [ ] A second-teacher test proves the caller cannot reach another teacher's
+      data (owner, share grant or class membership)
 
 ## New dependencies
 

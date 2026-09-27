@@ -20,7 +20,7 @@ func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time)
 	}
 	defer tx.Rollback(ctx)
 
-	versionID, err := writable(ctx, tx, in, now)
+	versionID, deadlineAt, err := writable(ctx, tx, in, now)
 	if err != nil {
 		return domain.SaveResult{}, err
 	}
@@ -38,10 +38,10 @@ func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time)
 	if err := tx.Commit(ctx); err != nil {
 		return domain.SaveResult{}, fmt.Errorf("attempts: commit save: %w", err)
 	}
-	return domain.SaveResult{SavedAt: now, Saved: saved, Dropped: dropped}, nil
+	return domain.SaveResult{SavedAt: now, DeadlineAt: deadlineAt, Saved: saved, Dropped: dropped}, nil
 }
 
-func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time) (string, error) {
+func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time) (string, time.Time, error) {
 	var (
 		session    string
 		status     domain.Status
@@ -54,21 +54,21 @@ func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time
 		 WHERE id = $1::uuid AND student_id = $2::uuid
 		   FOR UPDATE`, in.AttemptID, in.StudentID).Scan(&session, &status, &deadlineAt, &versionID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", domain.ErrForbidden
+		return "", time.Time{}, domain.ErrForbidden
 	}
 	if err != nil {
-		return "", fmt.Errorf("attempts: lock attempt for save: %w", err)
+		return "", time.Time{}, fmt.Errorf("attempts: lock attempt for save: %w", err)
 	}
 
 	switch {
 	case status != domain.InProgress:
-		return "", domain.ErrAttemptClosed
+		return "", time.Time{}, domain.ErrAttemptClosed
 	case session != in.SessionID:
-		return "", domain.ErrSessionSuperseded
+		return "", time.Time{}, domain.ErrSessionSuperseded
 	case now.After(deadlineAt):
-		return "", domain.ErrDeadlinePassed
+		return "", time.Time{}, domain.ErrDeadlinePassed
 	}
-	return versionID, nil
+	return versionID, deadlineAt, nil
 }
 
 func upsertAnswers(ctx context.Context, tx pgx.Tx, in domain.SaveInput, versionID string) (int, []string, error) {

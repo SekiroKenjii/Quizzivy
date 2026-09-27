@@ -20,14 +20,31 @@ function escapePointer(segment: string): string {
   return segment.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
+function responsePointer(path: string, method: string, status: number): string {
+  const op = spec?.paths?.[path]?.[method] as Json;
+  const ref = op?.responses?.[String(status)]?.$ref as string | undefined;
+  if (ref?.startsWith("#/")) return `openapi${ref}`;
+  return `openapi#/paths/${escapePointer(path)}/${method}/responses/${status}`;
+}
+
+function responseAt(path: string, method: string, status: number): Json {
+  const op = spec?.paths?.[path]?.[method] as Json;
+  const response = op?.responses?.[String(status)] as Json;
+  const ref = response?.$ref as string | undefined;
+  if (!ref?.startsWith("#/components/responses/")) return response;
+  return spec?.components?.responses?.[
+    ref.slice("#/components/responses/".length)
+  ] as Json;
+}
+
 function validatorFor(path: string, method: string, status: number): ValidateFunction {
   const key = `${method} ${path} ${status}`;
   const cached = cache.get(key);
   if (cached) return cached;
 
   const pointer =
-    `openapi#/paths/${escapePointer(path)}/${method}` +
-    `/responses/${status}/content/${escapePointer("application/json")}/schema`;
+    responsePointer(path, method, status) +
+    `/content/${escapePointer("application/json")}/schema`;
 
   const validate = ajv.compile({ $ref: pointer });
   cache.set(key, validate);
@@ -36,9 +53,8 @@ function validatorFor(path: string, method: string, status: number): ValidateFun
 
 /** True when the contract actually defines a JSON body for this response. */
 function hasJsonBody(path: string, method: string, status: number): boolean {
-  const op = spec?.paths?.[path]?.[method] as Json;
   return Boolean(
-    op?.responses?.[String(status)]?.content?.["application/json"]?.schema,
+    responseAt(path, method, status)?.content?.["application/json"]?.schema,
   );
 }
 

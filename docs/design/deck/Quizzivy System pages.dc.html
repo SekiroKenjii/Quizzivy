@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+:root{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--ring:#9aa3a5;--shadow:0 1px 2px rgba(20,28,30,.05);--success:oklch(0.62 0.14 155);--success-ink:oklch(0.42 0.1 155);--warning-ink:oklch(0.48 0.11 60)}
+:root.dark,[data-qz-theme="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--ring:#5d6769;--success-ink:oklch(0.8 0.12 155);--warning-ink:oklch(0.85 0.12 80)}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+[class^="icon-"],[class*=" icon-"]{line-height:1;display:inline-flex;align-items:center;justify-content:center}
+[class^="icon-"]::before,[class*=" icon-"]::before{line-height:1}
+a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+a:hover{color:var(--muted-fg)}
+button{font-family:inherit;color:inherit}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="min-height:100vh;display:flex;background:var(--bg);font-size:14px;line-height:1.5">
+
+<sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}">
+<aside data-screen-label="Error art panel" style="flex:0 0 44%;max-width:620px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;padding:40px 48px">
+<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="brand/quizzivy-logo-horizontal-color.svg" alt="Quizzivy" style="height:32px;align-self:flex-start"></sc-if>
+<sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="brand/quizzivy-logo-horizontal-on-dark.svg" alt="Quizzivy" style="height:32px;align-self:flex-start"></sc-if>
+<div style="align-self:center;color:var(--fg)">
+<sc-if value="{{ is404 }}" hint-placeholder-val="{{ true }}">
+<svg viewBox="0 0 260 260" width="300" height="300" fill="none" stroke="currentColor" aria-hidden="true"><g stroke-opacity="0.4" stroke-width="2"><rect x="18" y="86" width="62" height="82" rx="8"></rect><rect x="99" y="86" width="62" height="82" rx="8"></rect></g><g fill="currentColor" fill-opacity="0.28" stroke="none"><rect x="30" y="104" width="38" height="5" rx="2.5"></rect><rect x="30" y="117" width="28" height="5" rx="2.5"></rect><rect x="30" y="130" width="34" height="5" rx="2.5"></rect><rect x="111" y="104" width="38" height="5" rx="2.5"></rect><rect x="111" y="117" width="24" height="5" rx="2.5"></rect><rect x="111" y="130" width="32" height="5" rx="2.5"></rect></g><rect x="180" y="86" width="62" height="82" rx="8" stroke-width="2" stroke-dasharray="7 7" stroke-opacity="0.8"></rect><path d="M49 200 H130" stroke-width="2" stroke-opacity="0.4" stroke-linecap="round"></path><path d="M130 200 H203" stroke-width="2" stroke-opacity="0.8" stroke-dasharray="2 8" stroke-linecap="round"></path><g fill="currentColor" stroke="none" fill-opacity="0.4"><circle cx="49" cy="200" r="4"></circle><circle cx="130" cy="200" r="4"></circle></g><circle cx="211" cy="200" r="5.5" stroke-width="2" stroke-opacity="0.8"></circle></svg>
+</sc-if>
+<sc-if value="{{ is403 }}" hint-placeholder-val="{{ false }}">
+<svg viewBox="0 0 260 260" width="300" height="300" fill="none" stroke="currentColor" aria-hidden="true"><rect x="128" y="60" width="104" height="140" rx="14" stroke-width="2" stroke-opacity="0.4"></rect><g fill="currentColor" fill-opacity="0.22" stroke="none"><rect x="148" y="86" width="60" height="6" rx="3"></rect><rect x="148" y="100" width="44" height="6" rx="3"></rect><rect x="148" y="114" width="52" height="6" rx="3"></rect></g><path d="M128 60 V200" stroke-width="5" stroke-linecap="round"></path><circle cx="44" cy="130" r="9" stroke-width="2" stroke-opacity="0.55"></circle><path d="M60 130 H108" stroke-width="2" stroke-opacity="0.55" stroke-dasharray="2 8" stroke-linecap="round"></path><rect x="114" y="122" width="28" height="22" rx="5" fill="currentColor" stroke="none"></rect><path d="M120.5 122 v-6 a7.5 7.5 0 0 1 15 0 v6" stroke-width="2.6"></path></svg>
+</sc-if>
+<sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+<svg viewBox="0 0 260 260" width="300" height="300" aria-hidden="true"><g fill="currentColor" fill-opacity="0.3"><rect x="40" y="52" width="180" height="12" rx="6"></rect><rect x="40" y="76" width="150" height="12" rx="6"></rect><rect x="40" y="100" width="172" height="12" rx="6"></rect></g><g fill="currentColor"><rect x="40" y="124" width="74" height="12" rx="6"></rect><rect x="136" y="132" width="62" height="12" rx="6"></rect><circle cx="125" cy="135" r="3.5"></circle></g><g fill="currentColor" fill-opacity="0.3"><rect x="40" y="162" width="164" height="12" rx="6"></rect><rect x="40" y="186" width="132" height="12" rx="6"></rect><rect x="40" y="210" width="176" height="12" rx="6"></rect></g></svg>
+</sc-if>
+<sc-if value="{{ isMaint }}" hint-placeholder-val="{{ false }}">
+<svg viewBox="0 0 260 260" width="300" height="300" fill="none" stroke="currentColor" aria-hidden="true"><g fill="currentColor" fill-opacity="0.3" stroke="none"><rect x="40" y="52" width="180" height="12" rx="6"></rect><rect x="40" y="76" width="150" height="12" rx="6"></rect><rect x="40" y="100" width="172" height="12" rx="6"></rect></g><rect x="40" y="124" width="158" height="12" rx="6" stroke-width="2" stroke-dasharray="6 6" stroke-opacity="0.8"></rect><g fill="currentColor" fill-opacity="0.3" stroke="none"><rect x="40" y="162" width="164" height="12" rx="6"></rect><rect x="40" y="186" width="132" height="12" rx="6"></rect><rect x="40" y="210" width="176" height="12" rx="6"></rect></g><path d="M212 130 H228" stroke-width="2" stroke-opacity="0.55" stroke-dasharray="2 6" stroke-linecap="round"></path><circle cx="236" cy="130" r="5.5" fill="currentColor" stroke="none"></circle></svg>
+</sc-if>
+</div>
+<span style="font-size:12.5px;color:var(--muted-fg)">Quizzivy English Centre</span>
+</aside>
+</sc-if>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:{{ mainPad }}">
+<sc-if value="{{ narrow }}" hint-placeholder-val="{{ false }}"><div style="margin-bottom:28px;align-self:center"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="brand/quizzivy-logo-horizontal-color.svg" alt="Quizzivy" style="height:28px"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="brand/quizzivy-logo-horizontal-on-dark.svg" alt="Quizzivy" style="height:28px"></sc-if></div></sc-if>
+<div data-screen-label="{{ p.label }}" style="width:100%;max-width:380px;display:flex;flex-direction:column">
+<h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;line-height:1.25;text-wrap:balance">{{ p.title }}</h1>
+<p style="margin:8px 0 0;font-size:14.5px;color:var(--muted-fg);line-height:1.6;text-wrap:pretty">{{ p.body }}</p>
+
+<sc-if value="{{ is404 }}" hint-placeholder-val="{{ true }}"><div style="margin-top:16px;background:var(--muted);border-radius:8px;padding:8px 12px"><code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--muted-fg);overflow-wrap:anywhere">/app/assignments/0192f7c4-old-link</code></div></sc-if>
+<sc-if value="{{ is403 }}" hint-placeholder-val="{{ false }}"><div style="margin-top:16px;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px"><span style="width:30px;height:30px;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11px;font-weight:600">BN</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">Nguyễn Gia Bảo</span><span style="display:block;font-size:12.5px;color:var(--muted-fg)">Signed in</span></span></div></sc-if>
+<sc-if value="{{ isMaint }}" hint-placeholder-val="{{ false }}"><div style="margin-top:16px;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden"><sc-for list="{{ maintRows }}" as="mr" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:{{ mr.border }};font-size:13.5px"><i class="icon-{{ mr.icon }}" style="font-size:15px;color:{{ mr.color }}"></i><span style="flex:1">{{ mr.text }}</span><span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap;font-variant-numeric:tabular-nums">{{ mr.meta }}</span></div></sc-for></div></sc-if>
+
+<div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ p.actions }}" as="ac" hint-placeholder-count="2"><button onClick="{{ ac.go }}" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:{{ btnH }};padding:0 18px;border-radius:9px;border:{{ ac.border }};background:{{ ac.bg }};color:{{ ac.fg }};cursor:pointer;font-size:{{ btnFs }};font-weight:500;white-space:nowrap" style-hover="opacity:.9">{{ ac.label }}</button></sc-for>
+</div>
+
+<sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+<div style="height:1px;background:var(--border);margin:20px 0"></div>
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+<span style="font-size:12px;color:var(--muted-fg)">Error ID</span>
+<code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;user-select:all">{{ errorId }}</code>
+<button onClick="{{ copyId }}" style="display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;border:0;border-radius:6px;background:transparent;cursor:pointer;font-size:12px;font-weight:500" style-hover="background:var(--hover)"><i class="icon-{{ copyIcon }}" style="font-size:13px"></i>{{ copyLabel }}</button>
+</div>
+</sc-if>
+
+<p style="margin:24px 0 0;font-size:13px;color:var(--muted-fg);text-align:center;text-wrap:pretty">{{ p.foot }}</p>
+</div>
+<div style="margin-top:36px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+<sc-for list="{{ screens }}" as="sc" hint-placeholder-count="4"><button onClick="{{ sc.go }}" style="height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:{{ sc.bg }};color:{{ sc.fg }};cursor:pointer;font-size:12px;font-weight:500">{{ sc.label }}</button></sc-for>
+<button onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="width:28px;height:28px;border-radius:999px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:grid;place-items:center"><i class="icon-{{ themeIcon }}" style="font-size:13px"></i></button>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { page: '404', dark: false, copied: false, w: 1200, errorId: '' };
+  rootRef = React.createRef();
+  componentDidMount() {
+    const hsh = (location.hash || '').replace('#', '');
+    let dark = false; try { dark = !!JSON.parse(localStorage.getItem('qz-student') || '{}').dark; } catch (e) {}
+    const b = crypto.getRandomValues(new Uint8Array(4)); const hex = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+    this.setState({ page: ['403', '404', 'error', 'maintenance'].includes(hsh) ? hsh : '404', dark, errorId: hex.slice(0, 4) + '-' + hex.slice(4) });
+    const el = this.rootRef.current;
+    if (el && window.ResizeObserver) { this.ro = new ResizeObserver(() => requestAnimationFrame(() => { const w = el.getBoundingClientRect().width; if (Math.abs(w - this.state.w) > 1) this.setState({ w }); })); this.ro.observe(el); }
+  }
+  componentWillUnmount() { this.ro && this.ro.disconnect(); clearTimeout(this.ct); clearTimeout(this._ar); }
+  afterRender() {
+    document.documentElement.classList.toggle('dark', this.state.dark);
+    if (this.rootRef.current) this.rootRef.current.setAttribute('data-qz-theme', this.state.dark ? 'dark' : 'light');
+    if (location.hash !== '#' + this.state.page) history.replaceState(null, '', '#' + this.state.page);
+  }
+  renderVals() {
+    clearTimeout(this._ar); this._ar = setTimeout(() => this.afterRender(), 0);
+    const s = this.state, wide = s.w >= 1024;
+    const nav = href => () => { window.location.href = href; };
+    const A = (label, primary, go) => ({ label, go, border: primary ? '0' : '1px solid var(--border)', bg: primary ? 'var(--primary)' : 'var(--card)', fg: primary ? 'var(--primary-fg)' : 'var(--fg)' });
+    const pages = {
+      '404': { label: '404', title: 'This page doesn’t exist', body: 'The link may be old, or the test or class it pointed to was removed.', foot: 'Got here from a teacher’s link? Ask them to send it again.', actions: [A('Go to home', true, nav('Quizzivy Student.dc.html')), A('Go back', false, () => history.length > 1 ? history.back() : nav('Quizzivy Student.dc.html')())] },
+      '403': { label: '403', title: 'You don’t have access to this page', body: 'Your account can’t open this page. Nothing is wrong with your account.', foot: 'Think you should have access? Ask the centre.', actions: [A('Go to my home', true, nav('Quizzivy Student.dc.html')), A('Sign in with another account', false, nav('Quizzivy Sign in.dc.html#login'))] },
+      error: { label: 'Unexpected error', title: 'Something went wrong', body: 'The problem is on our side, not something you did. If you were taking a test, your saved answers are safe.', foot: 'If it keeps happening, send the error ID to your teacher.', actions: [A('Reload the page', true, () => window.location.reload()), A('Go to home', false, nav('Quizzivy Student.dc.html'))] },
+      maintenance: { label: 'Maintenance', title: 'Quizzivy is being updated', body: 'We’ll be back by 22:30 tonight. Tests that close during the update are extended.', foot: 'Your answers and results are kept. Nothing is lost.', actions: [A('Check again', true, () => window.location.reload())] },
+    };
+    const p = pages[s.page];
+    return {
+      rootRef: this.rootRef, isDark: s.dark, isLight: !s.dark, wide, narrow: !wide,
+      mainPad: wide ? '48px' : '32px 20px', btnH: wide ? '38px' : '44px', btnFs: wide ? '14px' : '15px',
+      is404: s.page === '404', is403: s.page === '403', isError: s.page === 'error', isMaint: s.page === 'maintenance',
+      p,
+      maintRows: [['clock', 'var(--warning-ink)', 'Started 21:30', 'about 60 min'], ['circle-check', 'var(--success-ink)', 'Answers and results saved', '']].map((x, i) => ({ icon: x[0], color: x[1], text: x[2], meta: x[3], border: i ? '1px solid var(--border)' : '0' })),
+      errorId: s.errorId,
+      copyId: () => { try { navigator.clipboard && navigator.clipboard.writeText(s.errorId); } catch (e) {} this.setState({ copied: true }); clearTimeout(this.ct); this.ct = setTimeout(() => this.setState({ copied: false }), 2000); },
+      copyLabel: s.copied ? 'Copied' : 'Copy', copyIcon: s.copied ? 'check' : 'copy',
+      screens: [['404', '404'], ['403', '403'], ['error', 'Error'], ['maintenance', 'Maintenance']].map(([id, label]) => ({ label, bg: s.page === id ? 'var(--primary)' : 'var(--card)', fg: s.page === id ? 'var(--primary-fg)' : 'var(--muted-fg)', go: () => this.setState({ page: id, copied: false }) })),
+      themeIcon: s.dark ? 'sun' : 'moon', toggleTheme: () => this.setState({ dark: !s.dark }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -68,7 +68,7 @@ beforeEach(() => {
   vi.mocked(getAttempt).mockReset().mockResolvedValue(paper());
   vi.mocked(saveAnswers)
     .mockReset()
-    .mockResolvedValue({ serverTime: now, savedAt: now });
+    .mockResolvedValue({ serverTime: now, savedAt: now, deadlineAt: deadline });
   vi.mocked(submitAttempt)
     .mockReset()
     .mockResolvedValue(

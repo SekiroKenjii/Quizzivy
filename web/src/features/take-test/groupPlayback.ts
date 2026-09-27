@@ -26,6 +26,7 @@ type PlaybackState = {
   notePlay: (recordingId: string) => void;
   flush: () => Promise<boolean>;
   lockNow: (reason: PlaybackLock) => void;
+  adoptDeadline: (deadlineAt: number) => void;
   reset: (keepDraft?: boolean) => void;
 };
 
@@ -185,6 +186,13 @@ export const useGroupPlaybackStore = create<PlaybackState>((set, get) => ({
     } finally {
       if (active === request) active = null;
     }
+  },
+  adoptDeadline: (deadlineAt) => {
+    const state = get();
+    if (state.attemptId === null || state.deadlineAt === deadlineAt) return;
+    const pending = state.pending.map((play) => ({ ...play, deadlineAt }));
+    for (const play of pending) persistGroupPlay(play);
+    set({ deadlineAt, pending });
   },
   lockNow: (reason) => {
     cancelRetry();

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+:root{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--ring:#9aa3a5;--shadow:0 1px 2px rgba(20,28,30,.05);--accent-c:#a4ca3e;--accent-soft:#f1f7e0;--accent-ink:#4f6c12;--success:oklch(0.62 0.14 155);--warning-soft:oklch(0.96 0.04 80);--warning-ink:oklch(0.48 0.11 60);--danger-soft:oklch(0.96 0.03 27);--danger-ink:oklch(0.48 0.17 27);--info-soft:oklch(0.96 0.02 230);--info-ink:oklch(0.45 0.09 235)}
+:root.dark,[data-qz-theme="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--ring:#5d6769;--accent-soft:rgba(164,202,62,.13);--accent-ink:#c2e070;--warning-soft:oklch(0.32 0.06 70);--warning-ink:oklch(0.85 0.12 80);--danger-soft:oklch(0.3 0.08 27);--danger-ink:oklch(0.78 0.13 27);--info-soft:oklch(0.3 0.05 235);--info-ink:oklch(0.8 0.08 230)}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+[class^="icon-"],[class*=" icon-"]{line-height:1;display:inline-flex;align-items:center;justify-content:center}
+a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+a:hover{color:var(--muted-fg)}
+button{font-family:inherit;color:inherit}
+@keyframes qzBreath{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.94);opacity:.82}}
+@keyframes qzSpin{to{transform:rotate(360deg)}}
+@keyframes qzShimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@keyframes qzIndet{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="height:100vh;position:relative;overflow:hidden;background:var(--bg);font-size:14px;line-height:1.5">
+
+<sc-if value="{{ showSkeleton }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="App skeleton" aria-hidden="true" style="position:absolute;inset:0;display:flex;opacity:{{ skelOp }};transition:opacity .35s ease">
+<sc-if value="{{ skelSidebar }}" hint-placeholder-val="{{ true }}"><div style="width:248px;flex:none;border-right:1px solid var(--border);background:var(--sidebar);padding:14px 12px;display:flex;flex-direction:column;gap:10px">{{ skelSideBlocks }}</div></sc-if>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column">
+<div style="height:{{ skelTopH }};flex:none;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 20px">{{ skelTop }}</div>
+<div style="flex:1;padding:28px;display:flex;flex-direction:column;gap:18px;max-width:{{ skelMax }};width:100%;margin:0 auto">{{ skelBody }}</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showSplash }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Splash" role="status" aria-live="polite" style="position:absolute;inset:0;z-index:2;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px 100px;opacity:{{ splashOp }};transition:opacity .35s ease;pointer-events:{{ splashPe }}">
+<div style="width:100%;max-width:340px;display:flex;flex-direction:column;align-items:center;gap:28px;text-align:center">
+{{ markEl }}
+
+<sc-if value="{{ st.loading }}" hint-placeholder-val="{{ true }}">
+<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:14px">
+<div style="width:180px;height:3px;border-radius:3px;background:var(--muted);overflow:hidden"><div style="height:100%;width:{{ pct }};background:var(--fg);border-radius:3px;transition:width .45s cubic-bezier(.2,.8,.2,1)"></div></div>
+<span style="font-size:13px;color:var(--muted-fg);min-height:20px">{{ stepLabel }}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ st.slow }}" hint-placeholder-val="{{ false }}">
+<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:14px">
+<div style="width:180px;height:3px;border-radius:3px;background:var(--muted);overflow:hidden;position:relative">{{ indetEl }}</div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:14.5px;font-weight:600">{{ t.slowTitle }}</span><span style="font-size:13px;color:var(--muted-fg);line-height:1.55;text-wrap:pretty">{{ t.slowBody }}</span></div>
+<button onClick="{{ retry }}" style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px" style-hover="background:var(--muted)"><i class="icon-rotate-cw" style="font-size:14px"></i>{{ t.reload }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ st.offline }}" hint-placeholder-val="{{ false }}">
+<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:14px">
+<span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:var(--warning-soft);color:var(--warning-ink);font-size:12.5px;font-weight:500"><i class="icon-wifi-off" style="font-size:13px"></i>{{ t.offlinePill }}</span>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:600">{{ t.offlineTitle }}</span><span style="font-size:13px;color:var(--muted-fg);line-height:1.55;text-wrap:pretty">{{ t.offlineBody }}</span></div>
+<div style="display:flex;gap:8px"><button onClick="{{ retry }}" style="height:38px;padding:0 16px;border-radius:9px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px" style-hover="opacity:.9"><i class="icon-rotate-cw" style="font-size:14px"></i>{{ t.tryAgain }}</button></div>
+<span style="font-size:12px;color:var(--muted-fg)">{{ retryHint }}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ st.update }}" hint-placeholder-val="{{ false }}">
+<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:14px">
+<span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:var(--info-soft);color:var(--info-ink);font-size:12.5px;font-weight:500"><i class="icon-sparkles" style="font-size:13px"></i>{{ t.updatePill }}</span>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:600">{{ t.updateTitle }}</span><span style="font-size:13px;color:var(--muted-fg);line-height:1.55;text-wrap:pretty">{{ t.updateBody }}</span></div>
+<button onClick="{{ retry }}" style="height:38px;padding:0 16px;border-radius:9px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13.5px;font-weight:600" style-hover="opacity:.9">{{ t.updateNow }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ st.expired }}" hint-placeholder-val="{{ false }}">
+<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:14px">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:600">{{ t.expiredTitle }}</span><span style="font-size:13px;color:var(--muted-fg);line-height:1.55;text-wrap:pretty">{{ t.expiredBody }}</span></div>
+<a href="Quizzivy Sign in.dc.html#login" style="height:38px;padding:0 16px;border-radius:9px;background:var(--primary);color:var(--primary-fg);text-decoration:none;font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px">{{ t.signIn }}<i class="icon-arrow-right" style="font-size:14px"></i></a>
+</div>
+</sc-if>
+</div>
+<span style="position:absolute;bottom:64px;left:0;right:0;text-align:center;font-size:11.5px;color:var(--muted-fg)">Quizzivy · v2.8.1</span>
+</div>
+</sc-if>
+
+<div style="position:absolute;z-index:5;left:12px;right:12px;margin:0 auto;width:max-content;bottom:16px;display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:calc(100% - 24px);padding:5px;border-radius:999px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)">
+<sc-for list="{{ screens }}" as="sc" hint-placeholder-count="6"><button onClick="{{ sc.go }}" style="height:26px;padding:0 10px;border-radius:999px;border:0;background:{{ sc.bg }};color:{{ sc.fg }};cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap">{{ sc.label }}</button></sc-for>
+<button onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="width:26px;height:26px;border-radius:999px;border:0;background:transparent;cursor:pointer;display:grid;place-items:center" style-hover="background:var(--hover)"><i class="icon-{{ themeIcon }}" style="font-size:13px"></i></button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;destination&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;teacher&quot;,&quot;student&quot;,&quot;admin&quot;],&quot;default&quot;:&quot;student&quot;,&quot;tsType&quot;:&quot;'teacher' | 'student' | 'admin'&quot;}}">
+const TXT = {
+  en: { steps: ['Checking your session…', 'Loading your classes…', 'Getting things ready…'], slowTitle: 'Taking longer than usual', slowBody: 'Your connection may be slow. Keep this page open or reload.', reload: 'Reload', offlinePill: 'No connection', offlineTitle: 'Can’t reach Quizzivy', offlineBody: 'Check your Wi-Fi or mobile data. Answers you already saved are safe.', tryAgain: 'Try again', updatePill: 'New version', updateTitle: 'Quizzivy has been updated', updateBody: 'Reload to get the latest version. It takes a few seconds.', updateNow: 'Reload now', expiredTitle: 'Please sign in again', expiredBody: 'You were signed out for your security.', signIn: 'Sign in', retryIn: n => 'Trying again in ' + n + 's', retrying: 'Trying again…' },
+  vi: { steps: ['Đang kiểm tra phiên đăng nhập…', 'Đang tải lớp học của bạn…', 'Sắp xong rồi…'], slowTitle: 'Tải lâu hơn bình thường', slowBody: 'Kết nối có thể đang chậm. Hãy giữ trang này hoặc tải lại.', reload: 'Tải lại', offlinePill: 'Mất kết nối', offlineTitle: 'Không kết nối được Quizzivy', offlineBody: 'Kiểm tra Wi-Fi hoặc dữ liệu di động. Các câu trả lời đã lưu vẫn an toàn.', tryAgain: 'Thử lại', updatePill: 'Phiên bản mới', updateTitle: 'Quizzivy vừa được cập nhật', updateBody: 'Tải lại để dùng phiên bản mới nhất. Chỉ mất vài giây.', updateNow: 'Tải lại ngay', expiredTitle: 'Vui lòng đăng nhập lại', expiredBody: 'Bạn đã được đăng xuất để bảo mật tài khoản.', signIn: 'Đăng nhập', retryIn: n => 'Tự thử lại sau ' + n + 's', retrying: 'Đang thử lại…' },
+};
+const DEST = { student: 'Quizzivy Student.dc.html', teacher: 'Quizzivy Teacher.dc.html', admin: 'Quizzivy Admin.dc.html' };
+const h = React.createElement;
+
+class Component extends DCLogic {
+  state = { phase: 'loading', step: 0, dark: false, w: 1200, lang: 'en', out: false, count: 10 };
+  rootRef = React.createRef();
+  componentDidMount() {
+    let dark = false, lang = 'en';
+    try { dark = !!JSON.parse(localStorage.getItem('qz-student') || '{}').dark; lang = localStorage.getItem('qz-lang') || 'en'; } catch (e) {}
+    const hs = (location.hash || '').replace('#', '');
+    this.setState({ dark, lang }, () => this.start(['slow', 'offline', 'update', 'expired', 'skeleton'].includes(hs) ? hs : 'loading'));
+    const el = this.rootRef.current;
+    if (el && window.ResizeObserver) { this.ro = new ResizeObserver(() => requestAnimationFrame(() => { const w = el.getBoundingClientRect().width; if (Math.abs(w - this.state.w) > 1) this.setState({ w }); })); this.ro.observe(el); }
+  }
+  componentWillUnmount() { this.ro && this.ro.disconnect(); this.clear(); clearTimeout(this._ar); }
+  clear() { (this.timers || []).forEach(clearTimeout); clearInterval(this.cd); this.timers = []; }
+  later(fn, ms) { this.timers = this.timers || []; this.timers.push(setTimeout(fn, ms)); }
+  start(phase) {
+    this.clear();
+    if (phase === 'loading') {
+      this.setState({ phase: 'loading', step: 0, out: false });
+      this.later(() => this.setState({ step: 1 }), 700);
+      this.later(() => this.setState({ step: 2 }), 1500);
+      this.later(() => this.setState({ step: 3 }), 2200);
+      this.later(() => this.setState({ out: true }), 2600);
+    } else if (phase === 'skeleton') this.setState({ phase: 'loading', step: 3, out: true });
+    else if (phase === 'offline') { this.setState({ phase, out: false, count: 10 }); this.cd = setInterval(() => this.setState(s => s.count <= 1 ? (clearInterval(this.cd), { count: 0 }) : { count: s.count - 1 }), 1000); }
+    else this.setState({ phase, out: false, step: phase === 'slow' ? 1 : 0 });
+  }
+  afterRender() {
+    const s = this.state;
+    document.documentElement.classList.toggle('dark', s.dark);
+    if (this.rootRef.current) this.rootRef.current.setAttribute('data-qz-theme', s.dark ? 'dark' : 'light');
+    const tag = s.phase === 'loading' && s.out ? 'skeleton' : s.phase;
+    if (location.hash !== '#' + tag) history.replaceState(null, '', '#' + tag);
+  }
+  sk(w, hh, r, extra) { return h('span', { style: { display: 'block', width: w, height: hh, borderRadius: r || 6, background: 'linear-gradient(90deg,var(--muted) 0,var(--hover) 50%,var(--muted) 100%)', backgroundSize: '800px 100%', animation: 'qzShimmer 1.4s linear infinite', flex: 'none', ...(extra || {}) } }); }
+  renderVals() {
+    clearTimeout(this._ar); this._ar = setTimeout(() => this.afterRender(), 0);
+    const s = this.state, t = TXT[s.lang] || TXT.en, role = this.props.destination ?? 'teacher';
+    const mobile = s.w < 768, student = role === 'student';
+    const busy = s.phase === 'loading' || s.phase === 'slow';
+    const markEl = h('img', { key: 'mk', src: s.dark ? 'quizzivy-mark-on-dark.svg' : 'quizzivy-mark-color.svg', alt: 'Quizzivy', style: { width: 64, height: 64, animation: busy ? 'qzBreath 1.8s ease-in-out infinite' : 'none', filter: s.phase === 'offline' ? 'grayscale(1)' : 'none', opacity: s.phase === 'offline' ? 0.6 : 1, transition: 'filter .3s, opacity .3s' } });
+    const indetEl = h('span', { key: 'ind', style: { position: 'absolute', top: 0, bottom: 0, left: 0, width: '40%', borderRadius: 3, background: 'var(--fg)', animation: 'qzIndet 1.2s ease-in-out infinite' } });
+    const side = !student && !mobile;
+    const sideBlocks = h(React.Fragment, null, h('span', { key: 'a', style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } }, this.sk(32, 32, 8), this.sk(110, 12)), ...[0, 1, 2, 3, 4, 5, 6, 7].map(i => h('span', { key: 'n' + i, style: { display: 'flex', gap: 10, alignItems: 'center', height: 30, padding: '0 8px' } }, this.sk(16, 16, 4), this.sk(80 + (i * 23) % 60, 10))));
+    const top = h(React.Fragment, null, student ? this.sk(110, 22, 6) : this.sk(24, 24, 6), mobile ? null : this.sk(student ? 280 : 180, 12), h('span', { key: 'sp', style: { flex: 1 } }), this.sk(32, 32, 8), this.sk(32, 32, 16));
+    const card = (k, hh) => h('div', { key: k, style: { border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10, minHeight: hh } }, this.sk('40%', 12), this.sk('60%', 24), this.sk('30%', 10));
+    const body = student
+      ? h(React.Fragment, null, this.sk(240, 26), this.sk(320, 12), h('div', { key: 'hero', style: { border: '1px solid var(--border)', borderRadius: 14, padding: 20, display: 'flex', gap: 16, alignItems: 'center' } }, h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 10 } }, this.sk(140, 20, 999), this.sk('70%', 18), this.sk('50%', 12), this.sk('60%', 6, 6)), mobile ? null : this.sk(150, 46, 10)), ...[0, 1, 2].map(i => h('div', { key: 'r' + i, style: { display: 'flex', gap: 14, alignItems: 'center', padding: '6px 0' } }, this.sk(44, 44, 9), h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 8 } }, this.sk('55%', 13), this.sk('35%', 10)), this.sk(80, 22, 999))))
+      : h(React.Fragment, null, this.sk(200, 26), this.sk(280, 12), h('div', { key: 'k', style: { display: 'grid', gridTemplateColumns: mobile ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', gap: 12 } }, card('c1', 96), card('c2', 96), card('c3', 96), card('c4', 96)), h('div', { key: 'tbl', style: { border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' } }, h('div', { style: { height: 40, background: 'var(--muted)' } }), ...[0, 1, 2, 3, 4].map(i => h('div', { key: 't' + i, style: { display: 'flex', gap: 14, alignItems: 'center', padding: '14px 16px', borderTop: '1px solid var(--border)' } }, this.sk(28, 28, 14), this.sk('30%', 12), h('span', { style: { flex: 1 } }), this.sk(70, 20, 999), mobile ? null : this.sk(60, 12)))));
+    const P = ['loading', 'slow', 'offline', 'update', 'expired'];
+    const cur = s.phase === 'loading' && s.out ? 'skeleton' : s.phase;
+    return {
+      rootRef: this.rootRef, t, markEl, indetEl,
+      st: { loading: s.phase === 'loading', slow: s.phase === 'slow', offline: s.phase === 'offline', update: s.phase === 'update', expired: s.phase === 'expired' },
+      pct: ['12%', '46%', '78%', '100%'][s.step] || '100%', stepLabel: t.steps[Math.min(s.step, 2)],
+      retry: () => this.start('loading'), retryHint: s.count > 0 ? t.retryIn(s.count) : t.retrying,
+      showSplash: !(s.phase === 'loading' && s.out && s.gone), splashOp: s.phase === 'loading' && s.out ? 0 : 1, splashPe: s.phase === 'loading' && s.out ? 'none' : 'auto',
+      showSkeleton: s.phase === 'loading' && s.step >= 2, skelOp: s.out ? 1 : 0,
+      skelSidebar: side, skelSideBlocks: sideBlocks, skelTop: top, skelBody: body, skelTopH: student ? '60px' : '56px', skelMax: student ? '960px' : '1320px',
+      screens: [['loading', 'Loading'], ['skeleton', 'Hand-off'], ['slow', 'Slow'], ['offline', 'Offline'], ['update', 'Update'], ['expired', 'Session expired']].map(([id, label]) => ({ label, bg: cur === id ? 'var(--primary)' : 'transparent', fg: cur === id ? 'var(--primary-fg)' : 'var(--muted-fg)', go: () => this.start(id) })),
+      themeIcon: s.dark ? 'sun' : 'moon', toggleTheme: () => this.setState({ dark: !s.dark }),
+    };
+  }
+}
+</script>
+</body>
+</html>

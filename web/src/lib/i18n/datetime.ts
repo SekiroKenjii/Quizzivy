@@ -78,6 +78,12 @@ export function formatTime(utc: string | Date, locale: AppLocale = "vi") {
   });
 }
 
+/** clockTime is "22:30" on the day of `now`, and "22:30, 02/10" on any other day. */
+export function clockTime(utc: string | Date, now: string | Date = new Date()) {
+  const time = formatInTimeZone(utc, APP_TIME_ZONE, "HH:mm");
+  return sameAppDay(utc, now) ? time : `${time}, ${shortDate(utc)}`;
+}
+
 /**
  * "2 giờ trước", "hôm qua", then a plain date -- the deck's A-03 column.
  *

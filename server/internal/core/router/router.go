@@ -34,7 +34,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		return nil, err
 	}
 
-	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Deps: deps, Logger: logger}
+	server := &Server{Imports: deps.Modules.Imports, Dashboard: deps.Modules.Dashboard, Classes: deps.Modules.Classes, Identity: deps.Modules.Identity, Questions: deps.Modules.Questions, Media: deps.Modules.Media, Tests: deps.Modules.Tests, Assignments: deps.Modules.Assignments, Attempts: deps.Modules.Attempts, Availability: deps.Modules.Availability, Deps: deps, Logger: logger}
 	strict := openapi.NewStrictHandlerWithOptions(server, nil, openapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteError(w, r, http.StatusBadRequest, httpx.CodeValidationFailed, err.Error())
@@ -79,7 +79,34 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 		},
 	})
 
-	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(handler)))), nil
+	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance)(handler), handler)
+	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(gated)))), nil
+}
+
+var probeMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
+
+func routedOnly(mux *http.ServeMux, gated, ungated http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if routed(mux, r) {
+			gated.ServeHTTP(w, r)
+			return
+		}
+		ungated.ServeHTTP(w, r)
+	})
+}
+
+func routed(mux *http.ServeMux, r *http.Request) bool {
+	if _, pattern := mux.Handler(r); pattern != "" {
+		return true
+	}
+	probe := r.Clone(r.Context())
+	for _, method := range probeMethods {
+		probe.Method = method
+		if _, pattern := mux.Handler(probe); pattern != "" {
+			return true
+		}
+	}
+	return false
 }
 
 type health struct {

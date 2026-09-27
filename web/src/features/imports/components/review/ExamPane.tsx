@@ -196,7 +196,7 @@ function GroupBlock({
           question: labels.get(questionId) ?? "",
         })}
         onClick={() => onSelect(questionId)}
-        className="content-gap focus-visible:ring-ring cursor-pointer focus-visible:ring-2 focus-visible:outline-none"
+        className="content-gap cursor-pointer"
       >
         {gap.label}
       </button>

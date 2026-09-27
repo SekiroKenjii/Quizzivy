@@ -1233,6 +1233,7 @@ listed here matches the spec.
 | D-17 | `test_versions`: add `UNIQUE (id, test_id)`; `assignments` uses a composite FK | Prevents an assignment referencing a version of a different test |
 | D-18 | `assignments`: no `status` column; add `closed_at` | §7's status is a pure function of the window; storing it needs a scheduler and invents a stale-state bug class |
 | D-19 | `attempt_answers`: add `requires_manual`, `graded_by`, `graded_at` | `final_score` is VIRTUAL and unindexable, so `pendingManual` needs a real-column predicate |
+| D-20 | Add `maintenance_windows`, read-only for the app role; written only through `cmd/maintenance`, whose extensions are audited as System | §13 has no maintenance state; the API must be able to answer 503 without being able to schedule, move or cancel a window itself (T-R1.12) |
 
 ---
 
@@ -1295,6 +1296,7 @@ the file it adds.
 | `00050_add_word_import_files_removed_at.sql` | When retention removed an import's files, and the index its sweep reads | Word D-08 |
 | `00051_grant_word_import_draft_delete.sql` | Lets the retention sweep delete a review draft when it removes an import's files | Word D-08 |
 | `00052_allow_pdf_import_sources.sql` | PDF sources | Word D-10 |
+| `00053_create_maintenance_windows.sql` | `maintenance_windows`, read-only for the app role | R1 (T-R1.12) |
 
 Notes on migration mechanics (§13.7):
 
@@ -1848,3 +1850,39 @@ Enforcement:
 `00052` widens the source `format` check to `docx`, `doc` and `pdf`. Like
 `00048`, its Down restores the narrower check `NOT VALID`, so PDF rows written
 meanwhile do not block the rollback.
+
+## 27. Maintenance windows (T-R1.12)
+
+`00053_create_maintenance_windows.sql` adds `app.maintenance_windows (id uuid PK
+DEFAULT uuidv7(), starts_at, ends_at, created_at, created_by text DEFAULT
+current_user, cancelled_at)`.
+
+- `ends_at > starts_at` and `ends_at - starts_at <= interval '12 hours'` are
+  CHECKs.
+- `EXCLUDE USING gist (tstzrange(starts_at, ends_at) WITH &&) WHERE
+  (cancelled_at IS NULL)` keeps live windows from overlapping. It excludes on the
+  range alone, so `btree_gist` is not needed; `[)` bounds let one window start as
+  another ends. The same gist index serves the start guard's overlap query.
+- `created_by` is the database role that scheduled the window. No app user does.
+- The file revokes INSERT, UPDATE and DELETE from `quizzivy_app`, narrowing
+  `00009`'s default privileges: the API reads windows (T-R1.13), and only the
+  operator's role writes them (D-20). `privileges_test.go` pins it.
+
+`window-schedule` writes in one statement of data-modifying CTEs, under the
+advisory lock below: the window, the moved `attempts.deadline_at` and
+`assignments.closes_at` (PG18 `RETURNING old.…, new.…`, so each audit row
+carries only the column that moved), and their audit rows with a NULL actor.
+
+## 28. Advisory-lock registry (namespace 73819)
+
+Every transaction advisory lock this codebase takes is
+`pg_advisory_xact_lock(73819, <key>)`. Add a key here before it is used.
+
+| Key | Holder | Serialises |
+|---|---|---|
+| 10 | Word imports (W-10a, W-13b) | Upload quota reservation |
+| 11 | Word imports (W-11a) | Run capacity allocation and renewal |
+| 40 | Maintenance windows (T-R1.12, T-R1.13) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions |
+| 41 | Reserved: R4's legacy join-code rotation | Confirmed by R4 |
+| 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
+

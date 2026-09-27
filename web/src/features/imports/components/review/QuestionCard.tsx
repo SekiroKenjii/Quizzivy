@@ -77,7 +77,7 @@ export const QuestionCard = memo(function QuestionCard({
         <button
           type="button"
           onClick={() => onSelect(question.id)}
-          className="focus-visible:ring-ring rounded-sm text-sm font-medium hover:underline focus-visible:ring-2 focus-visible:outline-none"
+          className="rounded-sm text-sm font-medium hover:underline"
         >
           {t("imports.review.questionLabel", { label: question.label })}
         </button>
