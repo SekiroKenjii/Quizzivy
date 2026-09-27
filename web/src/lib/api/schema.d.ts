@@ -15,9 +15,9 @@ export interface paths {
         put?: never;
         /**
          * Look up a class by join code
-         * @description Backs the `/join/:code/confirm` step, which exists so the student sees
-         *     **which class they are joining** before authenticating. Never create an
-         *     account and enrol in one blind tap (§6.2).
+         * @description Backs the inline preview on `/join` and `/join/:code`, which exists so
+         *     the student sees **which class they are joining** before authenticating.
+         *     Never create an account and enrol in one blind tap (§6.2).
          *
          *     Lookup is by SHA-256 hash of the normalized code, compared in constant
          *     time. The plaintext is never stored (§6.5).
@@ -4089,7 +4089,7 @@ export interface operations {
                     codeVerifier: string;
                     /** Format: uri */
                     redirectUri: string;
-                    /** @description Present only from the `/join/:code/confirm` flow. Turns this into a signup. */
+                    /** @description Present only when signing in from a join (the preview on `/join/:code`). Turns this into a signup. */
                     joinCode?: string;
                 };
             };
