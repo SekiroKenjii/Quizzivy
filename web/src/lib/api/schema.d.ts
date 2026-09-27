@@ -2498,6 +2498,41 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
         };
         /**
+         * @description A console the signed-in user may enter: `teacher` for any `content.*`,
+         *     `teaching.*` or `people.students.*` permission; `admin` for
+         *     `people.users.manage`, `people.roles.manage`, `system.audit.read`,
+         *     `system.settings.write` or `scope.all`; `app` for
+         *     `learning.take_tests`.
+         * @enum {string}
+         */
+        Workspace: "teacher" | "admin" | "app";
+        /**
+         * @description The signed-in user, as only the user sees it: `User`'s properties plus
+         *     the permissions the user's role holds, in catalogue order, and the
+         *     workspaces they open. Written flat, because a closed schema cannot be
+         *     extended with `allOf` (issue #41). `User` stays where a response
+         *     describes someone else, so a student's permissions never reach a
+         *     teacher's payload.
+         *
+         *     `role` keeps its two legacy values, derived from the role, so a tab
+         *     still open on v0.7.0 keeps routing.
+         */
+        CurrentUser: {
+            id: components["schemas"]["Uuid"];
+            /** Format: email */
+            email: string;
+            fullName: string;
+            role: components["schemas"]["Role"];
+            /** @description false for Google-only accounts. Gates the unlink affordance. */
+            hasPassword: boolean;
+            linkedProviders: "google"[];
+            /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
+            mustChangePassword: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+            permissions: components["schemas"]["PermissionKey"][];
+            workspaces: components["schemas"]["Workspace"][];
+        };
+        /**
          * @description AuthSuccess plus the class a join code enrolled the student in.
          *
          *     Flat rather than `allOf: [AuthSuccess, ...]`: AuthSuccess is
@@ -2509,7 +2544,7 @@ export interface components {
             accessToken: string;
             /** @description Seconds. */
             expiresIn: number;
-            user: components["schemas"]["User"];
+            user: components["schemas"]["CurrentUser"];
             /** @description Present only when a `joinCode` produced an enrolment. */
             enrolledClass?: components["schemas"]["Class"] | null;
         };
@@ -2721,7 +2756,7 @@ export interface components {
             accessToken: string;
             /** @description Seconds. */
             expiresIn: number;
-            user: components["schemas"]["User"];
+            user: components["schemas"]["CurrentUser"];
         };
         Class: {
             id: components["schemas"]["Uuid"];
@@ -4251,7 +4286,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["CurrentUser"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -4279,7 +4314,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["CurrentUser"];
                 };
             };
             /** @description `VALIDATION_FAILED` — the name is empty or too long. */
@@ -4427,7 +4462,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["CurrentUser"];
                 };
             };
             /**
