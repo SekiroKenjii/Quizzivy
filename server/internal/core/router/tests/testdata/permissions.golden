@@ -1,0 +1,96 @@
+DELETE /admin/assignments/{id} teaching.assignments.write
+DELETE /admin/classes/{id} teaching.classes.write
+DELETE /admin/classes/{id}/join-code teaching.classes.write
+DELETE /admin/classes/{id}/members/{userId} teaching.classes.write
+DELETE /admin/media/{id} content.media.write
+DELETE /admin/question-groups/{id} content.questions.write | content.tests.write
+DELETE /admin/questions/{id} content.questions.write
+DELETE /admin/students/{id} people.users.manage
+DELETE /admin/tests/{id} content.tests.write
+DELETE /admin/tests/{id}/versions/{version} content.tests.publish
+DELETE /auth/google/link self
+GET /admin/assignments workspace.teacher
+GET /admin/assignments/{id} workspace.teacher
+GET /admin/assignments/{id}/answers teaching.grading
+GET /admin/assignments/{id}/attempts workspace.teacher
+GET /admin/attempts teaching.grading | teaching.attempts.intervene
+GET /admin/attempts/{id} teaching.grading | teaching.attempts.intervene
+GET /admin/attempts/{id}/events teaching.grading | teaching.attempts.intervene
+GET /admin/classes workspace.teacher
+GET /admin/classes/{id} workspace.teacher
+GET /admin/classes/{id}/members people.students.read
+GET /admin/dashboard workspace.teacher
+GET /admin/imports content.tests.write
+GET /admin/imports/capabilities content.tests.write
+GET /admin/imports/limits content.tests.write
+GET /admin/imports/{id} content.tests.write
+GET /admin/imports/{id}/review content.tests.write
+GET /admin/imports/{id}/source content.tests.write
+GET /admin/imports/{id}/sources/{sourceId}/download content.tests.write
+GET /admin/media workspace.teacher
+GET /admin/question-groups workspace.teacher
+GET /admin/question-groups/{id} workspace.teacher
+GET /admin/questions workspace.teacher
+GET /admin/questions/{id} workspace.teacher
+GET /admin/students people.students.read
+GET /admin/students/{id} people.students.read
+GET /admin/tests workspace.teacher
+GET /admin/tests/{id} workspace.teacher
+GET /admin/tests/{id}/preview workspace.teacher
+GET /admin/tests/{id}/versions workspace.teacher
+GET /app/assignments learning.take_tests
+GET /app/assignments/{id} learning.take_tests
+GET /app/attempts/{id} learning.take_tests
+GET /app/attempts/{id}/result learning.take_tests
+GET /app/classes learning.take_tests
+GET /app/media/{assetId}/url learning.take_tests
+GET /auth/me self
+PATCH /admin/assignments/{id} teaching.assignments.write
+PATCH /admin/attempts/{id}/note teaching.grading
+PATCH /admin/classes/{id} teaching.classes.write
+PATCH /admin/question-groups/{id}/archive content.questions.write
+PATCH /admin/questions/{id} content.questions.write | content.tests.write
+PATCH /admin/students/{id} people.students.create
+PATCH /admin/tests/{id} content.tests.write
+PATCH /app/attempts/{id}/answers learning.take_tests
+PATCH /auth/me self
+POST /admin/assignments teaching.assignments.write
+POST /admin/assignments/{id}/reopen teaching.assignments.write
+POST /admin/attempts/{id}/extend teaching.attempts.intervene
+POST /admin/attempts/{id}/finish-grading teaching.grading
+POST /admin/attempts/{id}/flag teaching.grading
+POST /admin/attempts/{id}/grade teaching.grading
+POST /admin/attempts/{id}/reset teaching.attempts.intervene
+POST /admin/attempts/{id}/void teaching.attempts.intervene
+POST /admin/classes teaching.classes.write
+POST /admin/classes/{id}/join-code teaching.classes.write
+POST /admin/classes/{id}/members teaching.classes.write
+POST /admin/docs-session system.api_reference
+POST /admin/imports content.tests.write
+POST /admin/imports/{id}/cancel content.tests.write
+POST /admin/imports/{id}/commit content.tests.write
+POST /admin/imports/{id}/process content.tests.write
+POST /admin/imports/{id}/review/adopt content.tests.write
+POST /admin/imports/{id}/sources content.tests.write
+POST /admin/media content.media.write
+POST /admin/question-groups content.questions.write | content.tests.write
+POST /admin/question-groups/{id}/copy content.questions.write | content.tests.write
+POST /admin/questions content.questions.write | content.tests.write
+POST /admin/questions/tags content.questions.write
+POST /admin/questions/{id}/duplicate content.questions.write | content.tests.write
+POST /admin/students people.students.create
+POST /admin/students/{id}/reset-password people.students.reset_password
+POST /admin/tests content.tests.write
+POST /admin/tests/{id}/duplicate content.tests.write
+POST /admin/tests/{id}/publish content.tests.publish
+POST /admin/tests/{id}/versions/{version}/current content.tests.publish
+POST /admin/tests/{id}/versions/{version}/draft content.tests.write
+POST /app/assignments/{id}/attempts learning.take_tests
+POST /app/attempts/{id}/audio-play learning.take_tests
+POST /app/attempts/{id}/group-audio-play learning.take_tests
+POST /app/attempts/{id}/submit learning.take_tests
+POST /app/classes/join learning.take_tests
+POST /auth/change-password self
+POST /auth/google/link self
+PUT /admin/imports/{id}/review content.tests.write
+PUT /admin/question-groups/{id} content.questions.write | content.tests.write
