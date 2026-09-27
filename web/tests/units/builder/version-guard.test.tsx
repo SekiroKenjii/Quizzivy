@@ -54,11 +54,11 @@ beforeEach(() => {
   accepted = 0;
 
   server.use(
-    http.get(`${BASE}/admin/tests/:id`, () =>
-      contractJson("/admin/tests/{id}", "get", 200, testBody()),
+    http.get(`${BASE}/teacher/tests/:id`, () =>
+      contractJson("/teacher/tests/{id}", "get", 200, testBody()),
     ),
-    http.get(`${BASE}/admin/questions/:id`, () =>
-      contractJson("/admin/questions/{id}", "get", 200, {
+    http.get(`${BASE}/teacher/questions/:id`, () =>
+      contractJson("/teacher/questions/{id}", "get", 200, {
         id: QUESTION_ID,
         type: "short_answer" as const,
         prompt: "Câu hỏi",
@@ -75,7 +75,7 @@ beforeEach(() => {
         updatedAt: "2026-01-01T00:00:00Z",
       }),
     ),
-    http.patch(`${BASE}/admin/tests/:id`, async ({ request }) => {
+    http.patch(`${BASE}/teacher/tests/:id`, async ({ request }) => {
       const body = (await request.json()) as { expectedUpdatedAt: string };
       if (body.expectedUpdatedAt !== currentVersion) {
         staleWrites += 1;
@@ -87,7 +87,7 @@ beforeEach(() => {
       accepted += 1;
       // Every write advances the version, outline-only included.
       currentVersion = `2026-01-02T00:00:0${accepted}.000000Z`;
-      return contractJson("/admin/tests/{id}", "patch", 200, testBody());
+      return contractJson("/teacher/tests/{id}", "patch", 200, testBody());
     }),
   );
 });

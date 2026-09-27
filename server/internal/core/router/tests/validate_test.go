@@ -97,7 +97,7 @@ func TestPathParametersAreValidatedToo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/admin/classes/not-a-uuid", nil)
+	req := httptest.NewRequest(http.MethodGet, "/teacher/classes/not-a-uuid", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	newAuthTestRouter(t, issuer).ServeHTTP(rec, req)

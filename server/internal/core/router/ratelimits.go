@@ -24,8 +24,10 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
 	reg.Add("GET /public/status", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(2000))
 
-	reg.Add("POST /admin/students/{id}/reset-password", capacity,
+	reg.Add("POST /teacher/students/{id}/reset-password", capacity,
 		ratelimit.PerMinute(5), ratelimit.PerHour(30))
+	reg.Add("POST /teacher/students", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(300))
+	reg.Add("POST /teacher/classes/{id}/join-code", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	reg.Add("POST /admin/docs-session", capacity, ratelimit.PerMinute(5), ratelimit.PerHour(30))
 
 	return reg

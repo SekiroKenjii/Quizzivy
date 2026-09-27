@@ -65,11 +65,11 @@ let patches: unknown[] = [];
 
 function serve(a: Assignment) {
   server.use(
-    http.get(`${BASE}/admin/assignments/${ID}`, () =>
-      contractJson("/admin/assignments/{id}", "get", 200, a),
+    http.get(`${BASE}/teacher/assignments/${ID}`, () =>
+      contractJson("/teacher/assignments/{id}", "get", 200, a),
     ),
-    http.get(`${BASE}/admin/tests/${TEST_ID}/versions`, () =>
-      contractJson("/admin/tests/{id}/versions", "get", 200, {
+    http.get(`${BASE}/teacher/tests/${TEST_ID}/versions`, () =>
+      contractJson("/teacher/tests/{id}/versions", "get", 200, {
         items: [
           {
             id: VERSION_ID,
@@ -85,8 +85,8 @@ function serve(a: Assignment) {
       }),
     ),
     // G-09: an open assignment draws the monitor (G-02) instead of the summary.
-    http.get(`${BASE}/admin/assignments/${ID}/attempts`, () =>
-      contractJson("/admin/assignments/{id}/attempts", "get", 200, {
+    http.get(`${BASE}/teacher/assignments/${ID}/attempts`, () =>
+      contractJson("/teacher/assignments/{id}/attempts", "get", 200, {
         serverTime: "2026-09-04T02:10:00Z",
         questionCount: 24,
         rows: [
@@ -100,9 +100,9 @@ function serve(a: Assignment) {
         ],
       }),
     ),
-    http.patch(`${BASE}/admin/assignments/${ID}`, async ({ request }) => {
+    http.patch(`${BASE}/teacher/assignments/${ID}`, async ({ request }) => {
       patches.push(await request.json());
-      return contractJson("/admin/assignments/{id}", "patch", 200, a);
+      return contractJson("/teacher/assignments/{id}", "patch", 200, a);
     }),
   );
 }
@@ -269,8 +269,8 @@ describe("the assignment detail", () => {
   it("closed: Mở bảng học viên opens the panel beside the page, grouped by what is left to do", async () => {
     serve(assignment({ status: "closed", window: pastWindow }));
     server.use(
-      http.get(`${BASE}/admin/assignments/${ID}/attempts`, () =>
-        contractJson("/admin/assignments/{id}/attempts", "get", 200, {
+      http.get(`${BASE}/teacher/assignments/${ID}/attempts`, () =>
+        contractJson("/teacher/assignments/{id}/attempts", "get", 200, {
           serverTime: "2026-09-04T02:10:00Z",
           questionCount: 24,
           rows: [
@@ -325,10 +325,10 @@ describe("the assignment detail", () => {
   it("closed: Gia hạn cho tất cả asks for a moment and a reason, then reopens", async () => {
     let sent: { closesAt: string; reason: string } | null = null;
     server.use(
-      http.post(`${BASE}/admin/assignments/${ID}/reopen`, async ({ request }) => {
+      http.post(`${BASE}/teacher/assignments/${ID}/reopen`, async ({ request }) => {
         sent = (await request.json()) as { closesAt: string; reason: string };
         return contractJson(
-          "/admin/assignments/{id}/reopen",
+          "/teacher/assignments/{id}/reopen",
           "post",
           200,
           assignment(),

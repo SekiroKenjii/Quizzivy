@@ -147,7 +147,7 @@ test("admin edits persist through selection, empty-group drops and immutable ver
   const created = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      response.url().endsWith("/admin/assignments"),
+      response.url().endsWith("/teacher/assignments"),
   );
   await page.getByRole("button", { name: "Giao bài", exact: true }).click();
   const assignment = (await (await created).json()) as { id: string };

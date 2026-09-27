@@ -184,7 +184,7 @@ test("bank summaries do not contain group content, answer keys or source documen
 
 test("mixed outline transport keeps the legacy question projection and explicit group format", () => {
   const schema =
-    spec.paths["/admin/tests/{id}"]!.patch.requestBody.content["application/json"]
+    spec.paths["/teacher/tests/{id}"]!.patch.requestBody.content["application/json"]
       .schema;
   const validate = ajv.compile({ ...schema, components: spec.components });
   const body = {

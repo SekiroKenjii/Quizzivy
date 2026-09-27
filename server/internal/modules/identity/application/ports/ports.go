@@ -5,6 +5,7 @@ import (
 	classescommand "quizzivy/internal/modules/classes/application/command"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/application/model"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/cqrs"
 )
 
@@ -17,9 +18,11 @@ type GoogleProvider interface {
 
 // Principals is the access module's principal cache. A command that changes a
 // user's access forgets the user on this machine, so the next request reads
-// the user's current state and session epoch.
+// the user's current state and session epoch; a new session resolves the
+// permissions the signed-in user is shown.
 type Principals interface {
 	Forget(userID string)
+	Resolve(ctx context.Context, userID string) (access.Principal, error)
 }
 
 // SelfEnroller creates an account from a join code and enrols it (§6.3): the classes module's EnrolNewMember command.

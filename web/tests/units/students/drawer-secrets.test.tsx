@@ -42,11 +42,11 @@ const DUNG_ROW = student(DUNG, "Hoàng Tiến Dũng", "dung@example.com");
 
 beforeEach(() => {
   server.use(
-    http.get(`${BASE}/admin/students`, ({ request }) => {
+    http.get(`${BASE}/teacher/students`, ({ request }) => {
       const q = new URL(request.url).searchParams.get("q") ?? "";
       const all = [HAN_ROW, DUNG_ROW];
       const items = q === "" ? all : all.filter((s) => s.fullName.includes(q));
-      return contractJson("/admin/students", "get", 200, {
+      return contractJson("/teacher/students", "get", 200, {
         items,
         page: 1,
         pageSize: 50,
@@ -54,16 +54,16 @@ beforeEach(() => {
         facets: { total: all.length, activeLast7Days: 0 },
       });
     }),
-    http.get(`${BASE}/admin/students/:id`, ({ params }) =>
+    http.get(`${BASE}/teacher/students/:id`, ({ params }) =>
       contractJson(
-        "/admin/students/{id}",
+        "/teacher/students/{id}",
         "get",
         200,
         params["id"] === HAN ? HAN_ROW : DUNG_ROW,
       ),
     ),
-    http.post(`${BASE}/admin/students/:id/reset-password`, ({ params }) =>
-      contractJson("/admin/students/{id}/reset-password", "post", 200, {
+    http.post(`${BASE}/teacher/students/:id/reset-password`, ({ params }) =>
+      contractJson("/teacher/students/{id}/reset-password", "post", 200, {
         temporaryPassword: params["id"] === HAN ? "tho-vang-42" : "cay-dua-13",
       }),
     ),
@@ -132,9 +132,9 @@ describe("suspending and restoring a student", () => {
       disabledAt: "2026-08-01T00:00:00Z",
     };
     server.use(
-      http.get(`${BASE}/admin/students`, ({ request }) => {
+      http.get(`${BASE}/teacher/students`, ({ request }) => {
         const status = new URL(request.url).searchParams.get("status");
-        return contractJson("/admin/students", "get", 200, {
+        return contractJson("/teacher/students", "get", 200, {
           items: status === "disabled" ? [suspended] : [DUNG_ROW],
           page: 1,
           pageSize: 50,
@@ -142,8 +142,8 @@ describe("suspending and restoring a student", () => {
           facets: { total: 1, activeLast7Days: 0 },
         });
       }),
-      http.get(`${BASE}/admin/students/:id`, () =>
-        contractJson("/admin/students/{id}", "get", 200, suspended),
+      http.get(`${BASE}/teacher/students/:id`, () =>
+        contractJson("/teacher/students/{id}", "get", 200, suspended),
       ),
     );
     const user = renderPage();

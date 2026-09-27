@@ -42,15 +42,15 @@ export function createWordImport(
   body: Schemas["CreateWordImport"],
   signal?: AbortSignal,
 ) {
-  return api("post", "/admin/imports", { body, ...(signal ? { signal } : {}) });
+  return api("post", "/teacher/imports", { body, ...(signal ? { signal } : {}) });
 }
 
 export function listWordImports(query: ImportHistoryFilter = {}, signal?: AbortSignal) {
-  return api("get", "/admin/imports", { query, ...(signal ? { signal } : {}) });
+  return api("get", "/teacher/imports", { query, ...(signal ? { signal } : {}) });
 }
 
 export function getWordImport(id: string, signal?: AbortSignal) {
-  return api("get", "/admin/imports/{id}", {
+  return api("get", "/teacher/imports/{id}", {
     path: { id },
     ...(signal ? { signal } : {}),
   });
@@ -68,24 +68,24 @@ export function uploadImportSource(
     expectedRevision: String(identity.expectedRevision),
   });
   return uploadFile<ImportUploadReceipt>(
-    `/admin/imports/${encodeURIComponent(id)}/sources?${query.toString()}`,
+    `/teacher/imports/${encodeURIComponent(id)}/sources?${query.toString()}`,
     file,
     options,
   );
 }
 
 export function downloadImportSource(id: string, sourceId: string) {
-  return api("get", "/admin/imports/{id}/sources/{sourceId}/download", {
+  return api("get", "/teacher/imports/{id}/sources/{sourceId}/download", {
     path: { id, sourceId },
   });
 }
 
 export function getWordImportCapabilities(signal?: AbortSignal) {
-  return api("get", "/admin/imports/capabilities", signal ? { signal } : {});
+  return api("get", "/teacher/imports/capabilities", signal ? { signal } : {});
 }
 
 export function getWordImportLimits(signal?: AbortSignal) {
-  return api("get", "/admin/imports/limits", signal ? { signal } : {});
+  return api("get", "/teacher/imports/limits", signal ? { signal } : {});
 }
 
 export function processWordImport(
@@ -93,7 +93,7 @@ export function processWordImport(
   body: Schemas["ProcessWordImport"],
   signal?: AbortSignal,
 ) {
-  return api("post", "/admin/imports/{id}/process", {
+  return api("post", "/teacher/imports/{id}/process", {
     path: { id },
     body,
     ...(signal ? { signal } : {}),
@@ -101,25 +101,25 @@ export function processWordImport(
 }
 
 export function cancelWordImport(id: string, body: Schemas["CancelWordImport"]) {
-  return api("post", "/admin/imports/{id}/cancel", { path: { id }, body });
+  return api("post", "/teacher/imports/{id}/cancel", { path: { id }, body });
 }
 
 export function getWordImportReview(id: string, signal?: AbortSignal) {
-  return api("get", "/admin/imports/{id}/review", {
+  return api("get", "/teacher/imports/{id}/review", {
     path: { id },
     ...(signal ? { signal } : {}),
   });
 }
 
 export function saveWordImportReview(id: string, body: SaveImportReview) {
-  return api("put", "/admin/imports/{id}/review", { path: { id }, body });
+  return api("put", "/teacher/imports/{id}/review", { path: { id }, body });
 }
 
 export function adoptWordImportReprocessed(
   id: string,
   body: Schemas["CancelWordImport"],
 ) {
-  return api("post", "/admin/imports/{id}/review/adopt", { path: { id }, body });
+  return api("post", "/teacher/imports/{id}/review/adopt", { path: { id }, body });
 }
 
 export function getWordImportSource(
@@ -127,7 +127,7 @@ export function getWordImportSource(
   role: ImportSourceRole,
   signal?: AbortSignal,
 ) {
-  return api("get", "/admin/imports/{id}/source", {
+  return api("get", "/teacher/imports/{id}/source", {
     path: { id },
     query: { role },
     ...(signal ? { signal } : {}),
@@ -135,5 +135,5 @@ export function getWordImportSource(
 }
 
 export function commitWordImport(id: string, body: Schemas["CommitWordImport"]) {
-  return api("post", "/admin/imports/{id}/commit", { path: { id }, body });
+  return api("post", "/teacher/imports/{id}/commit", { path: { id }, body });
 }

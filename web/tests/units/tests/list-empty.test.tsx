@@ -36,8 +36,8 @@ let creations = 0;
 beforeEach(() => {
   creations = 0;
   server.use(
-    http.get(`${BASE}/admin/tests`, () =>
-      contractJson("/admin/tests", "get", 200, {
+    http.get(`${BASE}/teacher/tests`, () =>
+      contractJson("/teacher/tests", "get", 200, {
         items: [],
         page: 1,
         pageSize: 50,
@@ -46,9 +46,9 @@ beforeEach(() => {
         tags: [],
       }),
     ),
-    http.post(`${BASE}/admin/tests`, () => {
+    http.post(`${BASE}/teacher/tests`, () => {
       creations += 1;
-      return contractJson("/admin/tests", "post", 201, created);
+      return contractJson("/teacher/tests", "post", 201, created);
     }),
   );
 });

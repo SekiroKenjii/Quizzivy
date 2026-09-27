@@ -41,7 +41,7 @@ let uploadCalls = 0;
 beforeEach(() => {
   uploadCalls = 0;
   server.use(
-    http.post(`${BASE}/admin/media`, () => {
+    http.post(`${BASE}/teacher/media`, () => {
       uploadCalls += 1;
       return new Response(null, { status: 500 });
     }),

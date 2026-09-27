@@ -46,8 +46,8 @@ beforeEach(() => {
     }),
   );
   server.use(
-    http.get(`${BASE}/admin/tests/${TEST_ID}`, () =>
-      contractJson("/admin/tests/{id}", "get", 200, {
+    http.get(`${BASE}/teacher/tests/${TEST_ID}`, () =>
+      contractJson("/teacher/tests/{id}", "get", 200, {
         id: TEST_ID,
         title: "Unit 5",
         description: null,
@@ -69,8 +69,8 @@ beforeEach(() => {
         updatedAt: "2026-01-01T00:00:00Z",
       }),
     ),
-    http.get(`${BASE}/admin/questions/${QUESTION_ID}`, () =>
-      contractJson("/admin/questions/{id}", "get", 200, question),
+    http.get(`${BASE}/teacher/questions/${QUESTION_ID}`, () =>
+      contractJson("/teacher/questions/{id}", "get", 200, question),
     ),
   );
 });

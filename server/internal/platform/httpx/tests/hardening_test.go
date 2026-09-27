@@ -16,7 +16,7 @@ func TestRequestLimitPreservesOrdinaryBodiesAndStreamingUploads(t *testing.T) {
 		body    string
 	}{
 		{name: "small JSON", pattern: "POST /auth/login", body: `{"email":"student@example.com"}`},
-		{name: "streaming media", pattern: "POST /admin/media", body: strings.Repeat("upload", 1000)},
+		{name: "streaming media", pattern: "POST /teacher/media", body: strings.Repeat("upload", 1000)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(test.body))
@@ -35,7 +35,7 @@ func TestRequestLimitPreservesOrdinaryBodiesAndStreamingUploads(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 			recorder := httptest.NewRecorder()
-			httpx.LimitRequestBody(map[string]struct{}{"POST /admin/media": {}}, 100, nil)(next).ServeHTTP(recorder, request)
+			httpx.LimitRequestBody(map[string]struct{}{"POST /teacher/media": {}}, 100, nil)(next).ServeHTTP(recorder, request)
 			if recorder.Code != http.StatusNoContent {
 				t.Fatalf("status=%d", recorder.Code)
 			}

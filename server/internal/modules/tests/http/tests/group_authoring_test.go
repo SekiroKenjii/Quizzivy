@@ -64,7 +64,7 @@ func TestGroupWriteRoundTripsPoliciesAndAcknowledgesSavedContentDuringMediaFailu
 					t.Fatal(err)
 				}
 			}))
-			req := httptest.NewRequest(http.MethodPost, "/admin/question-groups", nil)
+			req := httptest.NewRequest(http.MethodPost, "/teacher/question-groups", nil)
 			req.Header.Set("Authorization", "Bearer synthetic")
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, req)

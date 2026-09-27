@@ -51,9 +51,9 @@ let posts: unknown[] = [];
 let patches: { id: string; body: unknown }[] = [];
 
 function listOf(items: components["schemas"]["Class"][]) {
-  return http.get(`${BASE}/admin/classes`, ({ request }) => {
+  return http.get(`${BASE}/teacher/classes`, ({ request }) => {
     statuses.push(new URL(request.url).searchParams.get("status"));
-    return contractJson("/admin/classes", "get", 200, {
+    return contractJson("/teacher/classes", "get", 200, {
       items,
       page: 1,
       pageSize: 20,
@@ -75,9 +75,9 @@ beforeEach(() => {
   patches = [];
   server.use(
     listOf([LIVE, ARCHIVED]),
-    http.post(`${BASE}/admin/classes`, async ({ request }) => {
+    http.post(`${BASE}/teacher/classes`, async ({ request }) => {
       posts.push(await request.json());
-      return contractJson("/admin/classes", "post", 201, {
+      return contractJson("/teacher/classes", "post", 201, {
         ...LIVE,
         id: "018f0000-0000-7000-8000-0000000000c9",
         name: "Lớp mới",
@@ -86,10 +86,10 @@ beforeEach(() => {
         joinCode: null,
       });
     }),
-    http.patch(`${BASE}/admin/classes/:id`, async ({ request, params }) => {
+    http.patch(`${BASE}/teacher/classes/:id`, async ({ request, params }) => {
       const body = (await request.json()) as { archived?: boolean };
       patches.push({ id: String(params["id"]), body });
-      return contractJson("/admin/classes/{id}", "patch", 200, {
+      return contractJson("/teacher/classes/{id}", "patch", 200, {
         ...LIVE,
         archivedAt: body.archived ? "2026-09-04T00:00:00Z" : null,
       });

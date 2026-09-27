@@ -15,21 +15,21 @@ let essayScore: number | null = null;
 
 function serve() {
   server.use(
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}`, () =>
-      contractJson("/admin/attempts/{id}", "get", 200, review({ essayScore })),
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}`, () =>
+      contractJson("/teacher/attempts/{id}", "get", 200, review({ essayScore })),
     ),
-    http.post(`${BASE}/admin/attempts/${ATTEMPT_ID}/grade`, async ({ request }) => {
+    http.post(`${BASE}/teacher/attempts/${ATTEMPT_ID}/grade`, async ({ request }) => {
       const body = (await request.json()) as { items: { points: number }[] };
       graded.push(body);
       essayScore = body.items[0]?.points ?? null;
-      return contractJson("/admin/attempts/{id}/grade", "post", 200, {
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
         earned: 5 + (essayScore ?? 0),
         total: 10,
         pendingManual: 0,
       });
     }),
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}/events`, () =>
-      contractJson("/admin/attempts/{id}/events", "get", 200, {
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}/events`, () =>
+      contractJson("/teacher/attempts/{id}/events", "get", 200, {
         startedAt: "2026-09-04T02:10:00Z",
         events: [],
         summary: review().integrity,

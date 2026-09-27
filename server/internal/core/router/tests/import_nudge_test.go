@@ -34,7 +34,7 @@ func (c *countedWakes) Wake() { c.n++ }
 
 func TestWatchingAQueuedImportNudgesTheWorker(t *testing.T) {
 	for status, want := range map[string]int{"queued": 1, "processing": 0, "needs_review": 0} {
-		for _, path := range []string{"/admin/imports/01935000-0000-7000-8000-000000000001", "/admin/imports"} {
+		for _, path := range []string{"/teacher/imports/01935000-0000-7000-8000-000000000001", "/teacher/imports"} {
 			wakes := &countedWakes{}
 			send := importRouter(t, importshttp.New(importsapp.New(importsapp.Dependencies{Repo: listedImports{status: status}, Worker: wakes, Processing: true})))
 			if rec := send(http.MethodGet, path, "", ""); rec.Code != http.StatusOK {

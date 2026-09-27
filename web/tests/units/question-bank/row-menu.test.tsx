@@ -35,8 +35,8 @@ let duplicates = 0;
 beforeEach(() => {
   duplicates = 0;
   server.use(
-    http.get(`${BASE}/admin/questions`, () =>
-      contractJson("/admin/questions", "get", 200, {
+    http.get(`${BASE}/teacher/questions`, () =>
+      contractJson("/teacher/questions", "get", 200, {
         facets: {
           all: 1,
           single_choice: 1,
@@ -53,10 +53,10 @@ beforeEach(() => {
         total: duplicates === 0 ? 1 : 2,
       }),
     ),
-    http.post(`${BASE}/admin/questions/${ID}/duplicate`, () => {
+    http.post(`${BASE}/teacher/questions/${ID}/duplicate`, () => {
       duplicates += 1;
       return contractJson(
-        "/admin/questions/{id}/duplicate",
+        "/teacher/questions/{id}/duplicate",
         "post",
         201,
         question(COPY),

@@ -41,7 +41,7 @@ func TestDeleteMediaReportsBothPublishedAndGroupReferences(t *testing.T) {
 			t.Fatal(err)
 		}
 	}))
-	request := httptest.NewRequest(http.MethodDelete, "/admin/media/"+asset.String(), nil)
+	request := httptest.NewRequest(http.MethodDelete, "/teacher/media/"+asset.String(), nil)
 	request.Header.Set("Authorization", "Bearer fixture")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)

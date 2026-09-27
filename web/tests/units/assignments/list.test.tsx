@@ -58,8 +58,8 @@ function assignment(over: Record<string, unknown> = {}) {
 
 function serve(items: ReturnType<typeof assignment>[]) {
   server.use(
-    http.get(`${BASE}/admin/assignments`, () =>
-      contractJson("/admin/assignments", "get", 200, {
+    http.get(`${BASE}/teacher/assignments`, () =>
+      contractJson("/teacher/assignments", "get", 200, {
         page: 1,
         pageSize: 50,
         total: items.length,
@@ -238,8 +238,8 @@ describe("the list narrowed to one class (G-12)", () => {
   it("arrives filtered from G-06, says which class, and the chip drops it", async () => {
     const classIds: (string | null)[] = [];
     server.use(
-      http.get(`${BASE}/admin/classes/${CLASS_ID}`, () =>
-        contractJson("/admin/classes/{id}", "get", 200, {
+      http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
+        contractJson("/teacher/classes/{id}", "get", 200, {
           id: CLASS_ID,
           name: "IELTS Foundation — Lớp tối T3/T5",
           description: null,
@@ -251,9 +251,9 @@ describe("the list narrowed to one class (G-12)", () => {
           createdAt: "2026-06-01T00:00:00Z",
         }),
       ),
-      http.get(`${BASE}/admin/assignments`, ({ request }) => {
+      http.get(`${BASE}/teacher/assignments`, ({ request }) => {
         classIds.push(new URL(request.url).searchParams.get("classId"));
-        return contractJson("/admin/assignments", "get", 200, {
+        return contractJson("/teacher/assignments", "get", 200, {
           page: 1,
           pageSize: 20,
           total: 1,

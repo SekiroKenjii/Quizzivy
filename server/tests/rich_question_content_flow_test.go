@@ -50,26 +50,26 @@ func TestQuestionProseSurvivesSnapshotRestoreAndPolicyGatedDelivery(t *testing.T
 	teacher := w.browser()
 	teacher.login(email, password)
 	payload := prosePayload()
-	question := teacher.must(http.StatusCreated, http.MethodPost, "/admin/questions", payload)
+	question := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", payload)
 	assertProse(t, question, true)
-	assertProse(t, teacher.must(http.StatusCreated, http.MethodPost, "/admin/questions/"+id(question)+"/duplicate", nil), true)
-	test := teacher.must(http.StatusCreated, http.MethodPost, "/admin/tests", map[string]any{"title": "Prose flow " + nonce(t)})
-	teacher.must(http.StatusOK, http.MethodPatch, "/admin/tests/"+id(test), map[string]any{"expectedUpdatedAt": test["updatedAt"], "sections": []any{map[string]any{"title": "Reading", "questionIds": []string{id(question)}}}})
-	version := teacher.must(http.StatusCreated, http.MethodPost, "/admin/tests/"+id(test)+"/publish", nil)
+	assertProse(t, teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions/"+id(question)+"/duplicate", nil), true)
+	test := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/tests", map[string]any{"title": "Prose flow " + nonce(t)})
+	teacher.must(http.StatusOK, http.MethodPatch, "/teacher/tests/"+id(test), map[string]any{"expectedUpdatedAt": test["updatedAt"], "sections": []any{map[string]any{"title": "Reading", "questionIds": []string{id(question)}}}})
+	version := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/tests/"+id(test)+"/publish", nil)
 	payload["prompt"], payload["promptContent"] = "Edited bank", nil
 	payload["explanation"], payload["explanationContent"] = "Edited explanation", nil
-	teacher.must(http.StatusOK, http.MethodPatch, "/admin/questions/"+id(question), payload)
-	preview := teacher.must(http.StatusOK, http.MethodGet, "/admin/tests/"+id(test)+"/preview?version=1", nil)
+	teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload)
+	preview := teacher.must(http.StatusOK, http.MethodGet, "/teacher/tests/"+id(test)+"/preview?version=1", nil)
 	assertProse(t, preview["questions"].([]any)[0].(map[string]any), false)
-	current := teacher.must(http.StatusOK, http.MethodGet, "/admin/tests/"+id(test), nil)
-	restored := teacher.must(http.StatusOK, http.MethodPost, "/admin/tests/"+id(test)+"/versions/1/draft", map[string]any{"expectedUpdatedAt": current["updatedAt"]})
+	current := teacher.must(http.StatusOK, http.MethodGet, "/teacher/tests/"+id(test), nil)
+	restored := teacher.must(http.StatusOK, http.MethodPost, "/teacher/tests/"+id(test)+"/versions/1/draft", map[string]any{"expectedUpdatedAt": current["updatedAt"]})
 	copiedID := restored["sections"].([]any)[0].(map[string]any)["questionIds"].([]any)[0].(string)
 	if copiedID == id(question) {
 		t.Fatal("restore reused source identity")
 	}
-	assertProse(t, teacher.must(http.StatusOK, http.MethodGet, "/admin/questions/"+copiedID, nil), true)
+	assertProse(t, teacher.must(http.StatusOK, http.MethodGet, "/teacher/questions/"+copiedID, nil), true)
 	classID := teacher.class("Prose class " + nonce(t))
-	created := teacher.must(http.StatusCreated, http.MethodPost, "/admin/students", map[string]any{"email": "prose-" + nonce(t) + "@example.com", "fullName": "Học viên mẫu", "classIds": []string{classID}})
+	created := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{"email": "prose-" + nonce(t) + "@example.com", "fullName": "Học viên mẫu", "classIds": []string{classID}})
 	student := w.browser()
 	student.login(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
 	assignment := teacher.assign(id(version), classID)
@@ -88,11 +88,11 @@ func TestQuestionProseSurvivesSnapshotRestoreAndPolicyGatedDelivery(t *testing.T
 	}
 	update["targets"] = map[string]any{"classIds": []string{classID}, "studentIds": []string{}}
 	update["review"] = map[string]any{"showScore": true, "showCorrectAnswers": false, "showExplanations": true}
-	teacher.must(http.StatusOK, http.MethodPatch, "/admin/assignments/"+id(assignment), update)
+	teacher.must(http.StatusOK, http.MethodPatch, "/teacher/assignments/"+id(assignment), update)
 	result = student.must(http.StatusOK, http.MethodGet, "/app/attempts/"+attemptID+"/result", nil)
 	assertProse(t, result["questions"].([]any)[0].(map[string]any), true)
 	assertNoAnswerFields(t, result)
-	review := teacher.must(http.StatusOK, http.MethodGet, "/admin/attempts/"+attemptID, nil)
+	review := teacher.must(http.StatusOK, http.MethodGet, "/teacher/attempts/"+attemptID, nil)
 	assertProse(t, review["questions"].([]any)[0].(map[string]any), true)
 }
 
@@ -102,17 +102,17 @@ func TestLegacyQuestionWritesPreserveProseOrFailAtomically(t *testing.T) {
 	teacher := w.browser()
 	teacher.login(email, password)
 	payload := prosePayload()
-	question := teacher.must(http.StatusCreated, http.MethodPost, "/admin/questions", payload)
+	question := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", payload)
 	delete(payload, "promptContent")
 	delete(payload, "explanationContent")
 	payload["points"] = 2
-	assertProse(t, teacher.must(http.StatusOK, http.MethodPatch, "/admin/questions/"+id(question), payload), true)
+	assertProse(t, teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload), true)
 	for _, field := range []string{"prompt", "explanation"} {
 		original := payload[field]
 		payload[field] = "Changed by old client"
 		payload["points"] = 3
-		teacher.must(http.StatusBadRequest, http.MethodPatch, "/admin/questions/"+id(question), payload)
-		unchanged := teacher.must(http.StatusOK, http.MethodGet, "/admin/questions/"+id(question), nil)
+		teacher.must(http.StatusBadRequest, http.MethodPatch, "/teacher/questions/"+id(question), payload)
+		unchanged := teacher.must(http.StatusOK, http.MethodGet, "/teacher/questions/"+id(question), nil)
 		assertProse(t, unchanged, true)
 		if unchanged["points"] != float64(2) {
 			t.Fatal("rejected write changed other fields")
@@ -120,7 +120,7 @@ func TestLegacyQuestionWritesPreserveProseOrFailAtomically(t *testing.T) {
 		payload[field] = original
 	}
 	payload["promptContent"], payload["explanationContent"] = nil, nil
-	cleared := teacher.must(http.StatusOK, http.MethodPatch, "/admin/questions/"+id(question), payload)
+	cleared := teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload)
 	if cleared["promptContent"] != nil || cleared["explanationContent"] != nil {
 		t.Fatal("explicit null did not clear prose")
 	}
@@ -142,7 +142,7 @@ func TestQuestionProseRequestsRejectHiddenKeysAndDuplicateProperties(t *testing.
 				payload["prompt"] = "think"
 			}
 			payload[field] = json.RawMessage(raw)
-			teacher.must(http.StatusBadRequest, http.MethodPost, "/admin/questions", payload)
+			teacher.must(http.StatusBadRequest, http.MethodPost, "/teacher/questions", payload)
 		}
 	}
 }

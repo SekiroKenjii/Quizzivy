@@ -31,8 +31,8 @@ function test(id: string, title: string, status: "draft" | "published") {
 
 beforeEach(() => {
   server.use(
-    http.get(`${BASE}/admin/tests`, () =>
-      contractJson("/admin/tests", "get", 200, {
+    http.get(`${BASE}/teacher/tests`, () =>
+      contractJson("/teacher/tests", "get", 200, {
         items: [
           test(DRAFT_ID, "Listening practice 03", "draft"),
           test(PUBLISHED_ID, "Unit 5", "published"),

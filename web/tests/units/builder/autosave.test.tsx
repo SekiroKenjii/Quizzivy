@@ -61,15 +61,15 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   patches = [];
   server.use(
-    http.get(`${BASE}/admin/tests/:id`, () =>
-      contractJson("/admin/tests/{id}", "get", 200, test),
+    http.get(`${BASE}/teacher/tests/:id`, () =>
+      contractJson("/teacher/tests/{id}", "get", 200, test),
     ),
-    http.get(`${BASE}/admin/questions/:id`, () =>
-      contractJson("/admin/questions/{id}", "get", 200, question),
+    http.get(`${BASE}/teacher/questions/:id`, () =>
+      contractJson("/teacher/questions/{id}", "get", 200, question),
     ),
-    http.patch(`${BASE}/admin/tests/:id`, async ({ request }) => {
+    http.patch(`${BASE}/teacher/tests/:id`, async ({ request }) => {
       patches.push((await request.json()) as { title?: string });
-      return contractJson("/admin/tests/{id}", "patch", 200, test);
+      return contractJson("/teacher/tests/{id}", "patch", 200, test);
     }),
   );
 });
@@ -133,7 +133,7 @@ describe("the builder's autosave", () => {
 
   it("surfaces a stale write as 'open somewhere else', and stops saving", async () => {
     server.use(
-      http.patch(`${BASE}/admin/tests/:id`, () =>
+      http.patch(`${BASE}/teacher/tests/:id`, () =>
         Response.json(
           { error: { code: "STALE_WRITE", message: "Đã có thay đổi ở nơi khác." } },
           { status: 409 },
