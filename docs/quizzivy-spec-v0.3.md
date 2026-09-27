@@ -1,7 +1,30 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.43 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.44 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.43**
+
+R1, "Foundations and front door" (v0.7.0, `docs/plan/71-r1.md`):
+
+- §4 The organisation's name and front-desk details come from build-time config.
+- §5.2 A refused session keeps a signed-in user's page under a "sign in again"
+  overlay. A refresh that gets no answer is not a lost session.
+- §5.4 New passwords need 8 characters and a number or symbol, and must differ
+  from the current one (`PASSWORD_UNCHANGED`). `/forgot-password` exists.
+- §6.1 The alphabet prose now matches the alphabet, which contains `L`.
+- §6.2 Join previews the class inline on `/join/:code`, and ends on a Joined
+  state. `/join/:code/confirm` redirects.
+- §9 Covers `/forgot-password`, the system pages, the boot splash and the
+  overlays (maintenance, sign in again, a newer build).
+- §10.2 Integrity pauses under the maintenance and sign-in overlays. The
+  engine adopts the server's deadline from every autosave.
+- §12 Records the deck's foundations as built: tokens, Be Vietnam Pro, dark
+  mode, `data-scale="deck"`, the accessibility tokens and the motion list.
+- §13.9 Adds maintenance windows.
+- §15 Adds `GET /public/status` and the 503 during a window, plus
+  `MAINTENANCE_SCHEDULED`, `DEADLINE_NOT_REACHED`, `PASSWORD_UNCHANGED` and
+  `saveAnswers.deadlineAt`.
 
 **Changes since v0.42**
 
@@ -399,6 +422,8 @@ web/src/
 
 Display name **Quizzivy**, sentence case. Package `quizzivy-web`; Go module `quizzivy`. DB `quizzivy`, schema `app` (not `public`, §13.2). R2 bucket `quizzivy-media`. The literal string appears once, in `.env`; everything else reads `config.appName`.
 
+The organisation's own details are build-time config: `VITE_ORG_NAME`, `VITE_ORG_FRONT_DESK_PHONE` and `VITE_ORG_FRONT_DESK_HOURS` (`web/src/lib/config.ts`). An unset value hides what would show it, such as the front-desk row on `/forgot-password`. From R5 the admin's organisation settings take precedence, and these values stay as the fallback.
+
 ---
 
 ## 5. Auth
@@ -416,8 +441,17 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 
 - Access token: JWT, ~15 min, held **in memory** (Zustand). Never localStorage, never sessionStorage.
 - Refresh token: opaque, rotating, `httpOnly; Secure; SameSite=Lax; Path=/auth` cookie. Stored server-side as a hash (§13.5).
-- On 401 the client calls `POST /auth/refresh` once and retries. A second 401 logs out.
-- App load: `GET /auth/me`. 401 → `/login`.
+- On 401 the client calls `POST /auth/refresh` once and retries. The refresh is single-flight.
+- A **refused** refresh (401 or 403), or a second 401, ends the session.
+  - A user who was signed in keeps the page: the access token is dropped, the user stays, and the "Vui lòng đăng nhập lại" overlay covers the page (§9).
+  - "Đăng nhập" clears the session, keeps the answer drafts, and goes to `/login?next=<path>`.
+  - While that overlay is up, a 401 returns to its caller without another refresh.
+- A refresh that gets **no answer** (network failure, 503, another 5xx) is not a lost session. Waiting requests fail retryably and nobody is signed out.
+- App load: `GET /auth/me`, under the boot splash (§9).
+  - 401 → signed out.
+  - No answer → the splash's offline state, which retries.
+  - 503 `MAINTENANCE` → the maintenance overlay.
+- Every request sends `Accept-Language` set to the app's locale, so server messages match the UI rather than the browser.
 - Reuse detection: presenting an already-rotated token revokes the whole family and forces re-login.
 
 ### 5.3 Google flow
@@ -441,6 +475,13 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`.
 - Password reset in v1: admin sets a temporary password from the student detail page. No self-service email flow (§17.1).
+- New passwords have three rules:
+  - at least 8 characters;
+  - at least one number or symbol (`[\p{N}\p{P}\p{S}]`);
+  - different from the current password (the temporary one, while `mustChangePassword` is set).
+
+  The contract enforces the first two (`400 VALIDATION_FAILED`) and the server the third (`400 PASSWORD_UNCHANGED`). Existing passwords are never re-validated. `/change-password` shows the rules and a strength meter.
+- `/forgot-password` makes no request. It tells a Google user that no password is needed, and everyone else to ask the front desk (§4, when configured) or their teacher.
 
 ### 5.5 API reference session
 
@@ -458,7 +499,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 
 A join code belongs to a class and is a **bearer secret**: whoever holds it can enrol. Treat it accordingly.
 
-- Format: 8 characters from an unambiguous alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no `0/O`, `1/I/L`). Displayed grouped `XXXX-XXXX`; accepted with or without the dash, case-insensitive.
+- Format: 8 characters from an unambiguous alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no `0/O`, `1/I`). Displayed grouped `XXXX-XXXX`; accepted with or without the dash, case-insensitive.
 - Generated from a CSPRNG. Never sequential, never derived from the class ID.
 - Per-code controls: `expires_at` (default 30 days), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
 - One **active** code per class at a time. Rotating issues a new code and revokes the old one; previously enrolled students are unaffected.
@@ -466,16 +507,22 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
 ### 6.2 Student flow
 
 ```
-/join                → enter code
-/join/:code          → deep link (QR / message), code prefilled
-/join/:code/confirm  → shows class name + teacher name, "Tiếp tục với Google"
-                     → GIS → POST /auth/google {code, joinCode}
-                     → account created + enrolled → /app
+/join                → enter code; at 8 valid characters the class is previewed inline
+/join/:code          → deep link (QR / message): code prefilled and previewed
+                     → preview card: class name + teacher, "Tham gia {class}"
+                     → signed out: sign in (Google → POST /auth/google {code, joinCode};
+                       or password → POST /app/classes/join after sign-in)
+                     → signed in: POST /app/classes/join at once
+                     → Joined: "Bạn đã vào lớp {class}", "Đến lớp của tôi" → /app/classes
+/join/:code/confirm  → redirects to /join/:code
 ```
 
-The confirm step exists so the student sees **which class they are joining** before authenticating. Never create an account and enrol in one blind tap.
+The preview exists so the student sees **which class they are joining** before authenticating. Never create an account and enrol in one blind tap.
 
-Already-authenticated students hitting `/join/:code` skip straight to enrolment via `POST /app/classes/join`.
+- **Typing.** The field uppercases, drops spaces and dashes, and shows a dash after four characters. A character the alphabet never uses (`0`, `O`, `1`, `I`) marks the field invalid and sends nothing.
+- **Lookup.** One lookup runs per complete code, after a 250 ms debounce. Every failure (invalid, expired, exhausted, revoked) shows the same message, and nothing about any class reaches the page.
+- **Signed out.** The join context (code, class name, teacher) is kept for 30 minutes in `sessionStorage` across sign-in. A must-change-password account goes through `/change-password` first, and the join then continues.
+- **Outcomes.** `ALREADY_ENROLLED` counts as joined. Any other enrolment failure shows its message on the Joined page. An account that is not a student is told that joining is for student accounts.
 
 ### 6.3 Why Google-only for self-join
 
@@ -866,20 +913,44 @@ breakpoint. Home and classes fill the available width with adaptive card grids.
 Intro and results are centred at a maximum 720px reading width, with
 facts and primary actions in the same flow. The focus engine retains a separate
 resizable question navigator (256px default, 224–384px), with a preference
-independent of the teacher panel. `PublicLayout`: logo + centred content.
+independent of the teacher panel. `AuthLayout` is the brand frame (the brand panel from 900px) for sign-in, forgot password, join and change password. The system pages use `SystemFrame`.
 
 | Route | Layout | Key behaviour |
 |---|---|---|
-| `/join`, `/join/:code`, `/join/:code/confirm` | Public | §6.2. Invalid/expired/exhausted code → distinct, plain messages, no hints about which classes exist. |
-| `/login` | Public | Password form + "Tiếp tục với Google". |
+| `/join`, `/join/:code` | Public | §6.2: inline preview, then Joined. Every failed lookup shows one plain message, with no hint about which classes exist. `/join/:code/confirm` redirects to `/join/:code`. |
+| `/login` | Public | Password form + "Tiếp tục với Google". One message for an unknown email, a wrong password and a disabled account; a 429 shows the server's message. In a join context the subtitle names the class and a successful sign-in continues the join. |
+| `/forgot-password` | Public | Static help (§5.4); no request. |
 | `/app` | Student | All in-progress attempts ordered by deadline, then available / upcoming / completed (score if allowed). Class and status filters in the URL, clear-filter empty state. Available cards say "Xem chi tiết"; only the intro starts the clock. |
-| `/app/assignments/:id` | Student | Intro: title, instructions, duration, attempts used/allowed, review policy, **integrity rules stated plainly**, audio rules if any (the allowed plays and that additional plays are recorded, per §11.4). Start / Resume. |
+| `/app/assignments/:id` | Student | Intro: title, instructions, duration, attempts used/allowed, review policy, **integrity rules stated plainly**, audio rules if any (the allowed plays and that additional plays are recorded, per §11.4). Start / Resume. A start that would run into a scheduled maintenance window is refused (`409 MAINTENANCE_SCHEDULED`) with the server's message. |
 | `/app/attempts/:id` | Focus | The engine. §10, §11.3. |
 | `/app/attempts/:id/result` | Student | Score (if allowed), per-question review honoring `review.*`, transcript if `showTranscriptAfterSubmit`. "Pending grading" notice when the score is published and `pendingManual > 0`. Summary above answers, full paper title on phones. Wrong-answer filters exist only when scores are published; empty filters explain why and offer all questions. |
 | `/app/classes` | Student | Classes joined with assignment counts and links to `/app?classId=…`; one join action → `/join`. |
 | `/app/settings/:section?` | Student | Profile (default), security and preferences share section navigation with teacher settings. Forms remain mounted while changing section or viewport; mobile uses a section select. |
 
-Shared: `/change-password`, `/403`, `/404`, global error boundary with reload + copyable error ID.
+Shared:
+
+- `/change-password` (§5.4).
+- `/403`, and the 404 page for any unknown route.
+- The unexpected-error page, with a copyable error ID (the server's `requestId` when there is one).
+- The maintenance page.
+
+"Home" on these pages is the caller's console, or `/login` when signed out. They ship in the entry chunk, so they render when a lazy chunk cannot load.
+
+**Boot splash.** The app starts behind the deck's splash. Before the bundle runs, `index.html` paints the mark and the empty track.
+
+- It shows three steps, and the bar moves only when a step is done, with no minimum duration:
+  1. "Đang kiểm tra phiên đăng nhập…" — refresh and `/auth/me`.
+  2. "Đang tải lớp học của bạn…" — the first route's code.
+  3. "Sắp xong rồi…" — the hand-over.
+- **Slow:** eight seconds without a step shows "Tải lâu hơn bình thường" and "Tải lại".
+- **Offline:** a session restore with no answer shows "Mất kết nối" and retries after a ten-second countdown, or as soon as the browser is back online.
+
+**Overlays** stand over a mounted page, which becomes inert; focus moves into the overlay.
+
+- **Maintenance** closes when `GET /public/status` reports no window under way. It checks on "Kiểm tra lại", and every minute while the user is active. Closing refetches everything.
+- **Sign in again** (§5.2).
+- **A newer build.** `/version.json` is checked when the tab becomes visible and every ten minutes while the user is active. A different build shows "Quizzivy vừa được cập nhật" at the next navigation, never on the engine's route. A route whose code cannot load shows it at once.
+- **Precedence:** maintenance, then sign in again, then a newer build.
 
 ---
 
@@ -926,6 +997,8 @@ Announced, visible, never silent.
 - A small persistent indicator shows remaining strikes when a limit is set. `maxFocusLoss = 0` retains the unlimited default; `-1` permits no counted departure; positive values permit that many departures.
 - `onLimitExceeded`: `warn` = dialog only; `flag` = attempt marked for the admin, student told; `auto_submit` = immediate submission on exceeding the count, retaining answers for grading and recording the violation. There is no cancellation or extra strike. The final answer/event batch is saved before the server grades and closes. While offline, the attempt is locked locally, pending answers are retained and submission is retried with a visible notice.
 - Fullscreen exit shows a "Quay lại toàn màn hình" button. Never trap the student: `Esc` always works and there is always a visible way to leave and submit.
+- While the maintenance or sign-in-again overlay (§9) covers the engine, no focus change is recorded. An away episode already open when one appears is dropped, so time on an overlay never counts against the student.
+- The engine adopts the server's deadline from every autosave (`deadlineAt`). It also adopts it from a timer submit that came too early (`409 DEADLINE_NOT_REACHED`; the server allows 5 s of grace). So a teacher's extension, or a maintenance window's, reaches an open attempt on its next autosave.
 
 ### 10.3 Policy defaults (per assignment)
 
@@ -1040,19 +1113,42 @@ do not grant a new allowance.
 
 Deliberate. Do not "improve" them with trendy defaults.
 
-- **Neutral and unstyled by default.** Zinc scale, white surfaces, 1px borders, `shadow-sm` at most. Text `zinc-900`, secondary `zinc-500`.
-- **Primary action: dark charcoal (`zinc-900`) buttons, white text.** Not blue, not purple, not indigo.
+**As built in R1 (v0.7.0).** The deck (`docs/design/deck/`) is the source.
+
+- **Tokens.** `web/src/index.css` carries the deck's light and dark sets. `tokens.test.ts` pins their values and measured contrast, and `no-raw-colours.test.ts` refuses a literal colour or a Tailwind palette class in `src/`.
+- **Accessibility tokens beyond the deck** (DG-30, DG-31), each measured in both themes:
+  - `--focus`, the 2px `:focus-visible` ring on every control, 3:1 or more on every surface;
+  - `--input`, input borders, 3:1 or more;
+  - `--danger-solid` / `--danger-solid-fg`, danger buttons, 4.5:1 or more.
+- **Deck geometry** (sizes, radii, type scale) applies only inside `data-scale="deck"`, which rebuilt surfaces set on their root. The old consoles keep their layouts, and are forced light, until their release rebuilds them (R3–R5).
+
+The rules below are unchanged except where they name the deck's tokens.
+
+- **Neutral by default.** The deck's teal-grey scale (`--bg`, `--card`, `--muted`, `--border`, `--fg`, `--muted-fg`), 1px borders, `shadow-sm` at most.
+- **Primary action: the deck's charcoal `--primary` with `--primary-fg`.** Not blue, not purple, not indigo. The lime `--accent-c` (with its soft and ink tones) marks progress, counts and current states, never a primary button.
 - **Semantic color only where it carries meaning:** green = correct/success, red = incorrect/error/destructive, amber = warning/time-low. Never decorative.
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, oversized radii (max `rounded-md` controls, `rounded-lg` cards), emoji in UI chrome.
-- **Typography:** system UI stack or Inter. Match the mockup scale: xs 12px, sm 13px, base 14px, lg 17px, xl 20px, with proportional line heights. Phone text inputs stay at 16px to avoid input zoom; student phone buttons, icon controls and question navigation cells are at least 44px in both dimensions; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
+- **Typography:** Be Vietnam Pro, self-hosted (latin and vietnamese subsets, 400–700; the CSP allows no font host). The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, xl 20, stat 22, h1 24px. Phone text inputs stay at 16px to avoid input zoom; student phone buttons, icon controls and question navigation cells are at least 44px in both dimensions; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student discovery grids use one column on phones, two from 768px, three from 1536px. Reading pages are centred at 720px; settings use a 192px local navigation column beside a form column capped at 768px, with divided rows and light shadows. Student test view stays spacious, one question centred at max-width ~720px beside the navigator. This approved review supersedes S-13–S-17's placement of ordinary page content in a right panel.
 - **Action hierarchy:** resume is primary; opening assignment details and entering a class are secondary. Deadline badges turn amber only within 24 hours. The 320px test footer has previous, an icon-only question-list control and a flexible next/review action. Review submission remains outside the scrolling summary. Submission confirmation offers the submitted paper directly.
 - **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. Restored answers say they were loaded; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
-- **Motion:** 150ms ease-out for control feedback and settings section changes. Cards use subtle shadows and a 2px hover lift on pointer devices. Disable these transitions under `prefers-reduced-motion`; exam inputs remain stationary.
-- **Audio player:** monochrome. A filled `zinc-900` play button, a thin `zinc-200` track with a `zinc-900` fill. No waveform visualisation, no equaliser animation, no colored accents.
-- **Join screens:** single centered card, class name large, one primary button. This is the first thing a new student sees — it should look calm and legitimate, not like a marketing page.
-- **Dark mode:** not in v1, but theme via CSS variables / Tailwind tokens so it can be added without touching components.
+- **Motion:** the deck's list only.
+  - 150ms ease-out for control feedback and settings section changes.
+  - A 2px hover lift on cards, on pointer devices.
+  - The splash's .35s fade and its bar.
+  - `qz-breath`, `qz-indet`, `qz-shimmer`, `qz-spin`.
+  - `qz-pulse`, for the live dot.
+  - `qz-marquee`, only when a title overflows, paused on hover and focus.
+
+  Under `prefers-reduced-motion` each has a static state, not a shorter one: a still mark, a fixed 40% bar, flat `--muted`, a solid dot, an ellipsis. Exam inputs remain stationary.
+- **Audio player:** monochrome. A filled `--primary` play button, a thin `--secondary` track with a `--primary` fill. No waveform visualisation, no equaliser animation, no colored accents.
+- **Front door:** sign-in, join and change password share the brand frame. It is one column, with the brand panel from 900px. On join, the class name is large and there is one primary button. This is the first thing a new student sees — it should look calm and legitimate, not like a marketing page.
+- **Dark mode:** in scope from R1.
+  - The preference is light, dark or system, stored in `localStorage['quizzivy.theme']`.
+  - `web/public/boot.js` applies it before paint, since the CSP allows no inline script.
+  - Components read tokens and never branch on the theme.
+  - Content surfaces keep a light `--paper` surface in dark mode (DG-35). The tokens exist, and each surface adopts them when it is rebuilt.
 - **Empty states:** one short sentence + one primary action. No illustrations.
 - **Vietnamese first.** Design for longer Vietnamese strings; avoid fixed-width labels.
 - **Integrity UI is calm.** Plain dialogs, plain text. No alarm iconography, no shame.
@@ -1367,6 +1463,16 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - `EXPLAIN (ANALYZE, BUFFERS)` any query touching `attempts`, `attempt_answers`, or `attempt_events` before merging.
 - N+1 is the default failure mode of the grading and monitor screens — one query for an attempt's answers, one query for an assignment's monitor rows.
 
+### 13.9 Maintenance windows
+
+`app.maintenance_windows (id, starts_at, ends_at, created_at, created_by, cancelled_at)` (migration `00053`, `docs/plan/20-data-model.md` §27).
+
+- A window runs at most 12 hours, and windows that are not cancelled may not overlap (an exclusion constraint).
+- The app role only reads the table. The operator schedules, cancels and ends windows through `cmd/maintenance`.
+- Scheduling extends by the window's length every in-progress attempt that would still be running when it starts, and every published, open assignment that would close inside it. Every extension is audited as System.
+- The API reads the table into a snapshot at most every 30 s, and only while requests arrive. During an active window it answers 503 (§15), and it refuses an attempt start that would run into a window.
+- A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended.
+
 ---
 
 ## 14. Testing & definition of done
@@ -1405,6 +1511,9 @@ Base `VITE_API_BASE_URL`, JSON, `Authorization: Bearer <access>`.
 
 ```
 # public (unauthenticated — rate-limited, §6.5)
+GET    /public/status                   → {maintenance: {startsAt, endsAt, active} | null}
+                                          same answer for everyone, Cache-Control public 30 s,
+                                          120/min and 2,000/h per IP
 POST   /join/preview                    {joinCode} → {classId, className, teacherName}
 POST   /auth/login                      {email,password} → {accessToken,user}
 POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user}
@@ -1413,7 +1522,7 @@ POST   /auth/refresh                    (cookie) → {accessToken}
 # authenticated
 POST   /auth/logout
 GET    /auth/me                         → User
-POST   /auth/change-password
+POST   /auth/change-password            400 VALIDATION_FAILED on the rules (§5.4), 400 PASSWORD_UNCHANGED
 POST   /auth/google/link                link Google to current account
 DELETE /auth/google/link                rejected if it would leave no login method
 
@@ -1448,14 +1557,19 @@ GET    /app/classes
 GET    /app/assignments                 → {dueNow,upcoming,completed}
 GET    /app/assignments/:id
 POST   /app/assignments/:id/attempts    → create or resume → Attempt + ordered questions + sessionId
+                                          409 MAINTENANCE_SCHEDULED {startsAt, endsAt} for a start
+                                          that would run into a window
 GET    /app/attempts/:id                → Attempt + questions + serverTime + audioPlays
-PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]}
+PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]} → {savedAt, serverTime, deadlineAt}
 POST   /app/attempts/:id/events         standalone flush (sendBeacon path)
 POST   /app/attempts/:id/audio-play     {questionId} → {plays, maxPlays}
-POST   /app/attempts/:id/submit         idempotent; 409 if already closed
+POST   /app/attempts/:id/submit         idempotent; 409 if already closed; 409 DEADLINE_NOT_REACHED
+                                          {deadlineAt} for timer_expired more than 5 s early
 GET    /app/attempts/:id/result
 GET    /app/media/:assetId/url          → short-lived signed URL
 ```
+
+**During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it.
 
 List endpoints return `{ items, nextCursor }` (keyset, §13.8). Student payloads never include `isCorrect`, `sampleAnswer`, `acceptedAnswers`, or `transcript` (the last only per `showTranscriptAfterSubmit`, on the result endpoint).
 
