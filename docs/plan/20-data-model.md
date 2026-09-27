@@ -1234,6 +1234,7 @@ listed here matches the spec.
 | D-18 | `assignments`: no `status` column; add `closed_at` | §7's status is a pure function of the window; storing it needs a scheduler and invents a stale-state bug class |
 | D-19 | `attempt_answers`: add `requires_manual`, `graded_by`, `graded_at` | `final_score` is VIRTUAL and unindexable, so `pendingManual` needs a real-column predicate |
 | D-20 | Add `maintenance_windows`, read-only for the app role; written only through `cmd/maintenance`, whose extensions are audited as System | §13 has no maintenance state; the API must be able to answer 503 without being able to schedule, move or cancel a window itself (T-R1.12) |
+| D-21 | Reference data the app cannot run without is written by a migration, not `seed/`: the permission catalogue (`permissions`), the four built-in `roles` and their grants (`role_permissions`) | §13.7 keeps seed data out of migrations, but a production database with no roles cannot sign anyone in; plan 70 §3 (T-R2.1) |
 
 ---
 
@@ -1297,6 +1298,8 @@ the file it adds.
 | `00051_grant_word_import_draft_delete.sql` | Lets the retention sweep delete a review draft when it removes an import's files | Word D-08 |
 | `00052_allow_pdf_import_sources.sql` | PDF sources | Word D-10 |
 | `00053_create_maintenance_windows.sql` | `maintenance_windows`, read-only for the app role | R1 (T-R1.12) |
+| `00054_create_roles_and_permissions.sql` | `permissions`, `roles`, `role_permissions`, the built-in rows and their guard triggers; read-only for the app role | R2 (T-R2.1), D-21 |
+| `00055_create_student_like_roles_view.sql` | `student_like_roles`, the strict student predicate | R2 (T-R2.1) |
 
 Notes on migration mechanics (§13.7):
 
@@ -1886,3 +1889,56 @@ Every transaction advisory lock this codebase takes is
 | 41 | Reserved: R4's legacy join-code rotation | Confirmed by R4 |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
 
+## 29. Roles and permissions (T-R2.1)
+
+`00054_create_roles_and_permissions.sql` stores the access model of plan 70 §4.1
+as data. Its rows are reference data the app cannot run without, so the file
+writes them (D-21).
+
+- `app.permissions (key text PK, group_key, ordinal, in_matrix)` holds the
+  catalogue: the deck's eighteen matrix rows in the matrix's order, with
+  "Create student accounts" second in People (DG-03), then the four hidden keys
+  (`scope.all`, `system.api_reference`, `system.data_export`, `system.leads`)
+  with `in_matrix = false`, ordinals 4–7 of `system`. `key` is checked against
+  `^[a-z]+(\.[a-z_]+)+$`, and `(group_key, ordinal)` is unique.
+  `core/tests/catalogue_test.go` asserts that the table, `access.All()` and the
+  contract's `PermissionKey` enum are the same list in the same order.
+- `app.roles (id uuid PK DEFAULT uuidv7(), builtin_key UNIQUE, name, description,
+  icon, color, copied_from, revision, created_by, created_at, updated_at)`.
+  `builtin_key` is one of `admin`, `teacher`, `assistant`, `student`, or NULL for
+  a custom role, and `roles_builtin_key_immutable` refuses any change to it.
+  `icon` and `color` are checked against the Edit role dialog's twelve icons and
+  seven colours. Names are unique case-insensitively (`roles_name_lower_key`).
+  `revision` starts at 1 and moves with every grant change, so a cache keyed by
+  `(id, revision)` is never stale. `copied_from` and `created_by` are not
+  indexed: the table holds a handful of rows.
+- `app.role_permissions (role_id, permission_key)` is the grant table, PK on the
+  pair, with `role_permissions_permission_key_idx` for the foreign key to
+  `permissions` (`ON DELETE RESTRICT`). A role's grants go with it
+  (`ON DELETE CASCADE`), although nothing may delete a role (DG-52).
+- The built-in rows: Quản trị viên (shield, dark), Giáo viên (graduation-cap,
+  lime), Trợ giảng (hand-helping, blue), Học viên (user, gray), with the deck's
+  descriptions in Vietnamese (D2, D11). The Teacher holds 13 keys, the Assistant
+  6 and the Student `learning.take_tests`. The Admin stores nothing: it is the
+  wildcard, with "Take tests" off (DG-51).
+- Triggers on `role_permissions`, all row-level:
+  - `role_permissions_guard` (BEFORE INSERT OR UPDATE) refuses a hidden key for
+    any role, and any key but `learning.take_tests` for the Admin.
+  - `role_permissions_keep_student_take_tests` (BEFORE DELETE OR UPDATE) keeps
+    `learning.take_tests` on the built-in Student.
+  - `role_permissions_bump_revision` (AFTER INSERT OR UPDATE OR DELETE) moves
+    `roles.revision` for every role a grant leaves or joins. It runs as the
+    invoker; R5's role commands get UPDATE on `revision` with their writes.
+  UPDATE is covered although no role may update a grant: an update is a delete
+  and an insert in one statement.
+- All three tables are read-only for `quizzivy_app`, narrowing `00009`'s
+  default privileges; R5 (T-R5.8) grants the role commands' writes, never
+  DELETE on `roles` and never any write on `permissions`.
+
+`00055_create_student_like_roles_view.sql` adds `app.student_like_roles (id)`,
+the one definition of a strict student target (plan 70 §4.3): the built-in
+Student, or a custom role holding nothing but `learning.take_tests`. Built-in
+roles other than Student are excluded by key, because the Admin stores only its
+"Take tests" cell and would otherwise match. A single-table view is
+automatically updatable, so the file revokes INSERT, UPDATE and DELETE on it
+from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
