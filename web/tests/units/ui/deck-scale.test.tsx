@@ -9,6 +9,8 @@ import { Kbd } from "@/components/ui/kbd";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PasswordInput } from "@/components/shared/PasswordInput";
+import "@/lib/i18n";
 
 const SCOPE = "in-data-[scale=deck]:";
 
@@ -105,5 +107,20 @@ describe("deck geometry applies only on a deck surface", () => {
       expect.arrayContaining(["shadow-card", "rounded-xl"]),
     );
     expect(classesOf(<Kbd>K</Kbd>).scoped).toContain("text-caption");
+  });
+
+  it("keeps the large password field's show and hide button at the deck's 36px", () => {
+    const { container } = render(
+      <div data-scale="deck">
+        <PasswordInput id="password" size="xl" />
+      </div>,
+    );
+    const scoped = container
+      .querySelector("button")!
+      .className.split(" ")
+      .filter((c) => c.startsWith(SCOPE))
+      .map((c) => c.slice(SCOPE.length));
+    expect(scoped).toContain("size-9");
+    expect(scoped).not.toContain("size-8.5");
   });
 });

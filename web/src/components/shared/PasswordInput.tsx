@@ -26,7 +26,7 @@ export function PasswordInput({
         className={cn(
           "absolute inset-y-0 right-0 h-11 w-11",
           props.size === "xl" &&
-            "text-muted-fg hover:text-fg inset-y-auto top-1/2 right-1.5 size-9 -translate-y-1/2 [&_svg]:size-[17px]",
+            "text-muted-fg hover:text-fg inset-y-auto top-1/2 right-1.5 size-9 -translate-y-1/2 in-data-[scale=deck]:size-9 [&_svg]:size-[17px]",
         )}
         aria-label={t(visible ? "common.hidePassword" : "common.showPassword")}
         aria-controls={props.id}
