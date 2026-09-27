@@ -116,7 +116,6 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent,
 	if err != nil {
 		return model.Session{}, fmt.Errorf("resolve permissions: %w", err)
 	}
-	user.Permissions = principal.Permissions
 	access, err := s.Tokens.Issue(user.ID, user.Role, user.SessionEpoch)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("issue access token: %w", err)
@@ -150,5 +149,6 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent,
 		ExpiresIn:    int(s.Tokens.TTL().Seconds()),
 		RefreshToken: refresh,
 		User:         user,
+		Permissions:  principal.Permissions,
 	}, nil
 }

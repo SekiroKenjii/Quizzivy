@@ -39,7 +39,7 @@ func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject)
 		Body: openapi.AuthSuccess{
 			AccessToken: session.AccessToken,
 			ExpiresIn:   session.ExpiresIn,
-			User:        toCurrentUser(session.User, session.User.Permissions),
+			User:        toCurrentUser(session.User, session.Permissions),
 		},
 		Headers: openapi.Login200ResponseHeaders{
 			SetCookie: httpapi.Ptr(refreshCookie(session.RefreshToken, h.refreshTTL, h.cookieSecure).String()),

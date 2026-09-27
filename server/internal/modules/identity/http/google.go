@@ -68,7 +68,7 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 	var response openapi.GoogleAuth200JSONResponse
 	response.Body.AccessToken = result.Session.AccessToken
 	response.Body.ExpiresIn = result.Session.ExpiresIn
-	response.Body.User = toCurrentUser(result.Session.User, result.Session.User.Permissions)
+	response.Body.User = toCurrentUser(result.Session.User, result.Session.Permissions)
 
 	response.Headers.SetCookie = httpapi.Ptr(refreshCookie(
 		result.Session.RefreshToken, h.refreshTTL, h.cookieSecure).String())

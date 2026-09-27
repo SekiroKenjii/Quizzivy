@@ -3,6 +3,7 @@ package model
 import (
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/access"
 )
 
 // GoogleIdentity is what Google attests about the person who signed in; the
@@ -29,10 +30,12 @@ type RefreshResult struct {
 	User         domain.User
 }
 
-// Session is what a successful login produces.
+// Session is what a successful login produces: the tokens, the user, and the
+// permissions the user's role holds, which the response shows the user.
 type Session struct {
 	AccessToken  string
 	ExpiresIn    int
 	RefreshToken string
 	User         domain.User
+	Permissions  access.Set
 }

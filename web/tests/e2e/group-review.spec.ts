@@ -45,9 +45,20 @@ function result(): AttemptResult {
 }
 
 function review(): AttemptReview {
+  const { id, email, fullName, role, hasPassword, mustChangePassword, createdAt } =
+    studentUser;
   return {
     attempt: { ...attempt, score: { earned: 1, total: 2, pendingManual: 1 } },
-    student: { ...studentUser, linkedProviders: [] },
+    student: {
+      id,
+      email,
+      fullName,
+      role,
+      hasPassword,
+      linkedProviders: [],
+      mustChangePassword,
+      createdAt,
+    },
     testTitle: "Đọc hiểu và nghe theo nhóm",
     maxAttempts: 1,
     teacherNote: null,

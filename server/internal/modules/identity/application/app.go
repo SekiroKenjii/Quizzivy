@@ -30,7 +30,9 @@ func (a *Application) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnrol
 }
 
 // SetPrincipals attaches the access module's principal cache, so a disable or
-// a password reset takes effect on this machine's next request.
+// a password reset takes effect on this machine's next request, and a new
+// session shows the user the permissions their role holds. Without it,
+// sessions carry none.
 func (a *Application) SetPrincipals(p ports.Principals) {
 	a.students.Principals = p
 	a.service.Principals = p

@@ -37,8 +37,8 @@ func TestASessionShowsTheUserTheirPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(session.User.Permissions.Keys(), []access.Key{access.LearningTakeTests}) {
-		t.Errorf("session permissions = %v, want [learning.take_tests]", session.User.Permissions.Keys())
+	if !slices.Equal(session.Permissions.Keys(), []access.Key{access.LearningTakeTests}) {
+		t.Errorf("session permissions = %v, want [learning.take_tests]", session.Permissions.Keys())
 	}
 }
 
