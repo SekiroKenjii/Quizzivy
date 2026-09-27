@@ -17,8 +17,8 @@ let deletes = 0;
 beforeEach(() => {
   deletes = 0;
   server.use(
-    http.get(`${BASE}/admin/media`, () =>
-      contractJson("/admin/media", "get", 200, {
+    http.get(`${BASE}/teacher/media`, () =>
+      contractJson("/teacher/media", "get", 200, {
         totalBytes: 2_400_000,
         items: [
           {
@@ -50,7 +50,7 @@ beforeEach(() => {
         total: 1,
       }),
     ),
-    http.delete(`${BASE}/admin/media/:id`, () => {
+    http.delete(`${BASE}/teacher/media/:id`, () => {
       deletes += 1;
       return new Response(null, { status: 204 });
     }),

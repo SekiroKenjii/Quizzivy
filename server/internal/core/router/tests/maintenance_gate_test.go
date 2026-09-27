@@ -153,7 +153,7 @@ func TestNoRouteIsExemptBeyondTheThree(t *testing.T) {
 		{http.MethodPost, "/join/preview"},
 		{http.MethodPost, "/app/attempts/01935000-0000-7000-8000-0000000000b1/events"},
 		{http.MethodPut, "/app/attempts/01935000-0000-7000-8000-0000000000b1/answers"},
-		{http.MethodGet, "/admin/tests"},
+		{http.MethodGet, "/teacher/tests"},
 		{http.MethodGet, "/docs"},
 		{http.MethodPost, "/public/status"},
 	} {
@@ -183,7 +183,7 @@ func TestAPathNoRouteServesIsNeverAskedAboutAWindow(t *testing.T) {
 		{http.MethodDelete, "/auth/me"},
 		{http.MethodGet, "/auth/login"},
 		{http.MethodGet, "/app/attempts/01935000-0000-7000-8000-0000000000b1/answers"},
-		{http.MethodGet, "/admin/media/01935000-0000-7000-8000-0000000000c1"},
+		{http.MethodGet, "/teacher/media/01935000-0000-7000-8000-0000000000c1"},
 	} {
 		if rec := send(h, tc.method, tc.path, nil); rec.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s %s = %d during a window, want 503: a route's path stays gated under any method", tc.method, tc.path, rec.Code)

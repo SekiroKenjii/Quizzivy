@@ -30,8 +30,8 @@ const CREATED = {
 
 beforeEach(() => {
   server.use(
-    http.get(`${BASE}/admin/classes`, () =>
-      contractJson("/admin/classes", "get", 200, {
+    http.get(`${BASE}/teacher/classes`, () =>
+      contractJson("/teacher/classes", "get", 200, {
         facets: { all: 0, joinable: 0, archived: 0, students: 0 },
         page: 1,
         pageSize: 50,
@@ -39,8 +39,8 @@ beforeEach(() => {
         items: [],
       }),
     ),
-    http.post(`${BASE}/admin/students`, () =>
-      contractJson("/admin/students", "post", 201, {
+    http.post(`${BASE}/teacher/students`, () =>
+      contractJson("/teacher/students", "post", 201, {
         user: CREATED,
         temporaryPassword: "tho-vang-42",
       }),

@@ -103,13 +103,13 @@ func TestTheAssertionRefusesAnUndeclaredOperation(t *testing.T) {
 		missing bool
 		want    string
 	}{
-		{name: "undeclared", path: "/admin/tests", method: "GET", missing: true, want: "GET /admin/tests: declares no permission"},
+		{name: "undeclared", path: "/teacher/tests", method: "GET", missing: true, want: "GET /teacher/tests: declares no permission"},
 		{name: "open and declared", path: "/auth/login", method: "POST", value: "self", want: "POST /auth/login: an open operation declares a permission"},
-		{name: "unknown key", path: "/admin/media", method: "GET", value: "content.everything", want: `GET /admin/media: "content.everything" is neither a catalogue key nor a pseudo-key`},
-		{name: "empty list", path: "/admin/classes", method: "GET", value: []any{}, want: "GET /admin/classes: declares an empty list"},
-		{name: "repeated key", path: "/admin/students", method: "GET", value: []any{"people.students.read", "people.students.read"}, want: `GET /admin/students: repeats "people.students.read"`},
+		{name: "unknown key", path: "/teacher/media", method: "GET", value: "content.everything", want: `GET /teacher/media: "content.everything" is neither a catalogue key nor a pseudo-key`},
+		{name: "empty list", path: "/teacher/classes", method: "GET", value: []any{}, want: "GET /teacher/classes: declares an empty list"},
+		{name: "repeated key", path: "/teacher/students", method: "GET", value: []any{"people.students.read", "people.students.read"}, want: `GET /teacher/students: repeats "people.students.read"`},
 		{name: "hidden key outside admin", path: "/app/classes", method: "GET", value: "scope.all", want: `GET /app/classes: the hidden key "scope.all" is declared outside /admin/`},
-		{name: "not a key", path: "/admin/dashboard", method: "GET", value: 7, want: "GET /admin/dashboard: declares 7, which is neither a key nor a list of keys"},
+		{name: "not a key", path: "/teacher/dashboard", method: "GET", value: 7, want: "GET /teacher/dashboard: declares 7, which is neither a key nor a list of keys"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -233,9 +233,9 @@ func sendAs(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, method, 
 	return rec
 }
 
-func TestAStudentCannotReachTheAdminTree(t *testing.T) {
+func TestAStudentCannotReachTheTeacherTree(t *testing.T) {
 	issuer := testIssuer(t)
-	rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/admin/dashboard", studentUser, "")
+	rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/teacher/dashboard", studentUser, "")
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
 	}
@@ -244,17 +244,17 @@ func TestAStudentCannotReachTheAdminTree(t *testing.T) {
 	}
 }
 
-func TestATeacherReachesTheAdminTree(t *testing.T) {
+func TestATeacherReachesTheTeacherTree(t *testing.T) {
 	issuer := testIssuer(t)
 	h := roleRouter(t, issuer, rolePrincipals())
 	for _, user := range []string{adminUser, teacherUser} {
-		if rec := sendAs(t, h, issuer, http.MethodGet, "/admin/dashboard", user, ""); rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized {
+		if rec := sendAs(t, h, issuer, http.MethodGet, "/teacher/dashboard", user, ""); rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized {
 			t.Errorf("%s was refused the dashboard: %d", user, rec.Code)
 		}
 	}
 }
 
-func TestEveryAdminOperationIsGated(t *testing.T) {
+func TestEveryStaffOperationIsGated(t *testing.T) {
 	spec := freshSpec(t)
 	requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
 	if err != nil {
@@ -269,7 +269,7 @@ func TestEveryAdminOperationIsGated(t *testing.T) {
 		if _, gated := requirements[pattern]; !gated {
 			t.Errorf("%s has no requirement", pattern)
 		}
-		if strings.Contains(pattern, " /admin/") {
+		if strings.Contains(pattern, " /teacher/") || strings.Contains(pattern, " /admin/") {
 			admin++
 		}
 	})
@@ -289,9 +289,9 @@ func TestTheStudentTreeNeedsTakeTests(t *testing.T) {
 	}
 }
 
-func TestAnAnonymousCallerToTheAdminTreeGetsAuthenticationNotAuthorization(t *testing.T) {
+func TestAnAnonymousCallerToTheTeacherTreeGetsAuthenticationNotAuthorization(t *testing.T) {
 	issuer := testIssuer(t)
-	if rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/admin/dashboard", "", ""); rec.Code != http.StatusUnauthorized {
+	if rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/teacher/dashboard", "", ""); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }
@@ -311,7 +311,7 @@ func TestThePermissionGateRunsAfterAuthenticationAndBeforeTheBody(t *testing.T) 
 		{"admin with an oversized body", adminUser, oversized, http.StatusRequestEntityTooLarge},
 	}
 	for _, c := range cases {
-		if rec := sendAs(t, h, issuer, http.MethodPost, "/admin/classes", c.user, c.body); rec.Code != c.want {
+		if rec := sendAs(t, h, issuer, http.MethodPost, "/teacher/classes", c.user, c.body); rec.Code != c.want {
 			t.Errorf("%s: status %d, want %d", c.name, rec.Code, c.want)
 		}
 	}
@@ -319,7 +319,7 @@ func TestThePermissionGateRunsAfterAuthenticationAndBeforeTheBody(t *testing.T) 
 
 func TestRateLimitsRunBeforeAuthenticationAndThePermissionGate(t *testing.T) {
 	issuer := testIssuer(t)
-	path := "/admin/students/01935000-0000-7000-8000-0000000000e1/reset-password"
+	path := "/teacher/students/01935000-0000-7000-8000-0000000000e1/reset-password"
 	for name, c := range map[string]struct {
 		user string
 		want int
@@ -374,9 +374,9 @@ func throughGate(h http.Handler, pattern, token string) int {
 
 func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
-	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/students/{id}": true}
+	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true}
 	for pattern, requirement := range requirements {
-		staff := strings.Contains(pattern, " /admin/")
+		staff := strings.Contains(pattern, " /teacher/") || strings.Contains(pattern, " /admin/")
 		student := strings.Contains(pattern, " /app/")
 		self := slices.Equal(requirement.Keys(), []access.Key{access.Self})
 		for user, want := range map[string]int{
@@ -446,7 +446,7 @@ func TestADisabledUserAnUnknownUserAndAStaleTokenGet401(t *testing.T) {
 	principals.users["01935000-0000-7000-8000-0000000000ff"] = access.Principal{}
 	h, _, _ := isolatedGate(t, principals)
 	for name, c := range map[string]struct{ pattern, token string }{
-		"disabled":     {"GET /admin/dashboard", teacherUser + "@0"},
+		"disabled":     {"GET /teacher/dashboard", teacherUser + "@0"},
 		"stale epoch":  {"GET /app/assignments", studentUser + "@1"},
 		"unknown user": {"GET /auth/me", "01935000-0000-7000-8000-0000000000ff@0"},
 		"no token":     {"GET /auth/me", ""},
@@ -463,13 +463,74 @@ func TestADisabledUserAnUnknownUserAndAStaleTokenGet401(t *testing.T) {
 func TestAChangedRoleChangesTheNextAnswer(t *testing.T) {
 	principals := rolePrincipals()
 	h, _, _ := isolatedGate(t, principals)
-	if got := throughGate(h, "POST /admin/attempts/{id}/grade", teacherUser+"@0"); got != http.StatusNoContent {
+	if got := throughGate(h, "POST /teacher/attempts/{id}/grade", teacherUser+"@0"); got != http.StatusNoContent {
 		t.Fatalf("a Teacher grading: %d, want it passed", got)
 	}
 	revoked := builtinPrincipal(teacherUser, access.BuiltinTeacher)
 	revoked.Permissions = revoked.Permissions.Without(access.TeachingGrading)
 	principals.set(revoked)
-	if got := throughGate(h, "POST /admin/attempts/{id}/grade", teacherUser+"@0"); got != http.StatusForbidden {
+	if got := throughGate(h, "POST /teacher/attempts/{id}/grade", teacherUser+"@0"); got != http.StatusForbidden {
 		t.Errorf("after the grant is removed: %d, want 403", got)
+	}
+}
+
+func TestPermissionTreesMatchPaths(t *testing.T) {
+	cases := []struct {
+		name, path, method string
+		value              any
+		open               bool
+		want               string
+	}{
+		{name: "an unknown prefix", path: "/staff/things", method: "GET", value: "workspace.teacher", want: "GET /staff/things: lies outside every path tree"},
+		{name: "an admin key on the teacher tree", path: "/teacher/rosters", method: "GET", value: "people.users.manage", want: `GET /teacher/rosters: "people.users.manage" does not belong under /teacher/`},
+		{name: "a teaching key on the admin tree", path: "/admin/rosters", method: "GET", value: "teaching.grading", want: `GET /admin/rosters: "teaching.grading" does not belong under /admin/`},
+		{name: "self on the student tree", path: "/app/rosters", method: "GET", value: "self", want: `GET /app/rosters: "self" does not belong under /app/`},
+		{name: "a student key on the auth tree", path: "/auth/rosters", method: "GET", value: "learning.take_tests", want: `GET /auth/rosters: "learning.take_tests" does not belong under /auth/`},
+		{name: "a key on the me tree", path: "/me/rosters", method: "GET", value: "teaching.grading", want: `GET /me/rosters: "teaching.grading" does not belong under /me/`},
+		{name: "self on the teacher tree", path: "/teacher/rosters", method: "GET", value: "self", want: `GET /teacher/rosters: "self" does not belong under /teacher/`},
+		{name: "the admin workspace on the teacher tree", path: "/teacher/rosters", method: "GET", value: "workspace.admin", want: `GET /teacher/rosters: "workspace.admin" does not belong under /teacher/`},
+		{name: "a student key on the teacher tree", path: "/teacher/rosters", method: "GET", value: "learning.take_tests", want: `GET /teacher/rosters: "learning.take_tests" does not belong under /teacher/`},
+		{name: "one stray key in a list", path: "/teacher/rosters", method: "GET", value: []any{"teaching.grading", "people.roles.manage"}, want: `GET /teacher/rosters: "people.roles.manage" does not belong under /teacher/`},
+		{name: "a gated operation on the public tree", path: "/public/rosters", method: "GET", value: "self", want: `GET /public/rosters: "self" does not belong under /public/`},
+		{name: "a gated operation on the join tree", path: "/join/rosters", method: "GET", value: "self", want: `GET /join/rosters: "self" does not belong under /join/`},
+		{name: "an open operation under an unknown prefix", path: "/staff/open", method: "GET", open: true, want: "GET /staff/open: lies outside every path tree"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			spec := freshSpec(t)
+			op := &openapi3.Operation{OperationID: "probe", Responses: openapi3.NewResponses(), Extensions: map[string]any{}}
+			if c.open {
+				op.Security = openapi3.NewSecurityRequirements()
+			} else {
+				op.Extensions[httpx.PermissionExtension] = c.value
+			}
+			item := &openapi3.PathItem{}
+			item.SetOperation(c.method, op)
+			spec.Paths.Set(c.path, item)
+			_, err := httpx.PermissionRequirements(spec, "bearerAuth")
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Errorf("err = %v, want it to name %q", err, c.want)
+			}
+		})
+	}
+	for _, c := range []struct{ path, value string }{
+		{"/me/settings", "self"},
+		{"/teacher/rosters", "workspace.teacher"},
+		{"/admin/rosters", "workspace.admin"},
+		{"/admin/exports", "system.data_export"},
+		{"/admin/roles", "people.roles.manage"},
+		{"/admin/everything", "scope.all"},
+		{"/teacher/students", "people.students.create"},
+		{"/app/assignments", "learning.take_tests"},
+		{"/auth/sessions", "self"},
+	} {
+		spec := freshSpec(t)
+		op := &openapi3.Operation{OperationID: "probe", Responses: openapi3.NewResponses(), Extensions: map[string]any{httpx.PermissionExtension: c.value}}
+		item := &openapi3.PathItem{}
+		item.SetOperation("GET", op)
+		spec.Paths.Set(c.path, item)
+		if _, err := httpx.PermissionRequirements(spec, "bearerAuth"); err != nil {
+			t.Errorf("GET %s with %q refused: %v", c.path, c.value, err)
+		}
 	}
 }

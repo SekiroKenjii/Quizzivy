@@ -24,7 +24,8 @@ func TestBodyLimitPrecedesJSONValidation(t *testing.T) {
 }
 
 func TestSecurityHeadersOnSuccessFailureAndPreflight(t *testing.T) {
-	for _, path := range []string{"/livez", "/healthz", "/app/assignments", "/auth/login", "/missing"} {
+	private := map[string]bool{"/auth/login": true, "/app/assignments": true, "/teacher/dashboard": true, "/admin/docs-session": true}
+	for _, path := range []string{"/livez", "/healthz", "/app/assignments", "/auth/login", "/teacher/dashboard", "/admin/docs-session", "/missing"} {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			newTestRouter(t, fakeDB{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
@@ -33,10 +34,17 @@ func TestSecurityHeadersOnSuccessFailureAndPreflight(t *testing.T) {
 					t.Errorf("missing %s", header)
 				}
 			}
-			if strings.HasPrefix(path, "/auth/") && rec.Header().Get("Cache-Control") != "no-store" {
-				t.Error("auth response is cacheable")
+			if private[path] && rec.Header().Get("Cache-Control") != "no-store" {
+				t.Errorf("%s is cacheable: Cache-Control %q", path, rec.Header().Get("Cache-Control"))
 			}
 		})
+	}
+	window := underWay()
+	window.over.Store(true)
+	status := httptest.NewRecorder()
+	gatedRouter(t, window, testIssuer(t)).ServeHTTP(status, httptest.NewRequest(http.MethodGet, "/public/status", nil))
+	if got := status.Header().Get("Cache-Control"); got != "public, max-age=30" {
+		t.Errorf("/public/status Cache-Control = %q, want its own public, max-age=30", got)
 	}
 	request := httptest.NewRequest(http.MethodOptions, "/auth/login", nil)
 	request.Header.Set("Origin", "https://app.quizzivy.com")

@@ -1496,6 +1496,27 @@ func (e Workspace) Valid() bool {
 	}
 }
 
+// Defines values for SubmitAttemptJSONBodyReason.
+const (
+	SubmitAttemptJSONBodyReasonAutoSubmit   SubmitAttemptJSONBodyReason = "auto_submit"
+	SubmitAttemptJSONBodyReasonManual       SubmitAttemptJSONBodyReason = "manual"
+	SubmitAttemptJSONBodyReasonTimerExpired SubmitAttemptJSONBodyReason = "timer_expired"
+)
+
+// Valid indicates whether the value is a known member of the SubmitAttemptJSONBodyReason enum.
+func (e SubmitAttemptJSONBodyReason) Valid() bool {
+	switch e {
+	case SubmitAttemptJSONBodyReasonAutoSubmit:
+		return true
+	case SubmitAttemptJSONBodyReasonManual:
+		return true
+	case SubmitAttemptJSONBodyReasonTimerExpired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListClassesParamsStatus.
 const (
 	ListClassesParamsStatusActive   ListClassesParamsStatus = "active"
@@ -1577,27 +1598,6 @@ func (e UpdateTestJSONBodyOutlineFormat) Valid() bool {
 	}
 }
 
-// Defines values for SubmitAttemptJSONBodyReason.
-const (
-	SubmitAttemptJSONBodyReasonAutoSubmit   SubmitAttemptJSONBodyReason = "auto_submit"
-	SubmitAttemptJSONBodyReasonManual       SubmitAttemptJSONBodyReason = "manual"
-	SubmitAttemptJSONBodyReasonTimerExpired SubmitAttemptJSONBodyReason = "timer_expired"
-)
-
-// Valid indicates whether the value is a known member of the SubmitAttemptJSONBodyReason enum.
-func (e SubmitAttemptJSONBodyReason) Valid() bool {
-	switch e {
-	case SubmitAttemptJSONBodyReasonAutoSubmit:
-		return true
-	case SubmitAttemptJSONBodyReasonManual:
-		return true
-	case SubmitAttemptJSONBodyReasonTimerExpired:
-		return true
-	default:
-		return false
-	}
-}
-
 // AdminQuestion defines model for AdminQuestion.
 type AdminQuestion struct {
 	Audio  *AudioPolicy          `json:"audio,omitempty"`
@@ -1634,7 +1634,7 @@ type AdminQuestion struct {
 	Prompt        string          `json:"prompt"`
 	PromptContent json.RawMessage `json:"promptContent,omitempty"`
 
-	// SampleAnswer `short_answer` only. **Admin-only, shown during grading.** Never
+	// SampleAnswer `short_answer` only. **Teacher-only, shown during grading.** Never
 	// appears in any `/app/*` schema, including the result endpoint.
 	SampleAnswer *string      `json:"sampleAnswer,omitempty"`
 	Tags         []string     `json:"tags"`
@@ -1770,7 +1770,7 @@ type Assignment struct {
 	// UpdatedAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
 	UpdatedAt Timestamp `json:"updatedAt"`
 	Window    struct {
-		// ClosedAt Set when closed early by the admin.
+		// ClosedAt Set when closed early by the teacher.
 		ClosedAt *time.Time `json:"closedAt,omitempty"`
 
 		// ClosesAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
@@ -2064,7 +2064,7 @@ type Class struct {
 	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
 	Id Uuid `json:"id"`
 
-	// JoinCode Admin responses only. Never present on a `/app/*` response.
+	// JoinCode Teacher responses only. Never present on a `/app/*` response.
 	JoinCode *JoinCodeInfo `json:"joinCode,omitempty"`
 	Name     string        `json:"name"`
 
@@ -2324,7 +2324,7 @@ type CurrentUser struct {
 // CurrentUserLinkedProviders defines model for CurrentUser.LinkedProviders.
 type CurrentUserLinkedProviders string
 
-// Dashboard §8's `/admin` needs five counts that spec §15 has no endpoint for. One
+// Dashboard §8's teacher dashboard needs five counts that spec §15 has no endpoint for. One
 // round trip, not five.
 type Dashboard struct {
 	ActiveStudents  int `json:"activeStudents"`
@@ -2542,7 +2542,7 @@ type GroupQuestionInput struct {
 	Input QuestionInput `json:"input"`
 }
 
-// GroupRecording Admin-only authoring shape. One explicit playback binding per audio asset
+// GroupRecording Teacher-only authoring shape. One explicit playback binding per audio asset
 // used in the group's materials. All member questions share its allowance;
 // another group using the same asset has a different binding. Transcripts
 // require a separate policy-gated review projection, never a learner cast.
@@ -2597,7 +2597,7 @@ type GroupUpdateInput struct {
 type ImportCapabilities struct {
 	// IntakeEnabled Private import storage is configured, so imports can be created,
 	// listed, reviewed and committed. When false, every other
-	// /admin/imports operation answers 501.
+	// /teacher/imports operation answers 501.
 	IntakeEnabled bool `json:"intakeEnabled"`
 
 	// ProcessingEnabled A worker is deployed to process the queue, so processWordImport
@@ -3060,7 +3060,7 @@ type LegacyMarkdownContent struct {
 // LegacyMarkdownContentFormat defines model for LegacyMarkdownContent.Format.
 type LegacyMarkdownContentFormat string
 
-// LibraryAsset A MediaAsset as the admin library lists it, with how many published
+// LibraryAsset A MediaAsset as the teacher's media library lists it, with how many published
 // versions reference it. Flat for the same reason (issue #41) -- this is
 // the site that was actually shipping a body its own contract rejected.
 type LibraryAsset struct {
@@ -3389,7 +3389,7 @@ type QuestionContentTableType string
 // identities. Immutable asset bytes may be reused through protected bindings.
 // Validate graph references and aggregate limits in addition to JSON Schema.
 // The byte budget includes resolved question content/keys; a transport must
-// also bound original input before decoding. This is an admin authoring
+// also bound original input before decoding. This is a teacher authoring
 // shape, never a learner payload or an asset access grant.
 type QuestionGroup struct {
 	// Id uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
@@ -3412,7 +3412,7 @@ type QuestionGroupBundle struct {
 	// identities. Immutable asset bytes may be reused through protected bindings.
 	// Validate graph references and aggregate limits in addition to JSON Schema.
 	// The byte budget includes resolved question content/keys; a transport must
-	// also bound original input before decoding. This is an admin authoring
+	// also bound original input before decoding. This is a teacher authoring
 	// shape, never a learner payload or an asset access grant.
 	Group     QuestionGroup        `json:"group"`
 	Questions []GroupQuestionInput `json:"questions"`
@@ -3489,7 +3489,7 @@ type QuestionInput struct {
 	SampleAnswer *string   `json:"sampleAnswer,omitempty"`
 	Tags         *[]string `json:"tags,omitempty"`
 
-	// Transcript Audio questions only. Admin-authored; the student sees it only per policy.
+	// Transcript Audio questions only. Teacher-authored; the student sees it only per policy.
 	Transcript *string      `json:"transcript,omitempty"`
 	Type       QuestionType `json:"type"`
 }
@@ -3581,7 +3581,7 @@ type QuestionTypeFacets struct {
 	TrueFalse      int `json:"true_false"`
 }
 
-// ReferencingGroup Admin-only shared context that protects an immutable media asset, including archived bank groups.
+// ReferencingGroup Teacher-only shared context that protects an immutable media asset, including archived bank groups.
 type ReferencingGroup struct {
 	// Id uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
 	//
@@ -4352,13 +4352,122 @@ type TooManyRequests = ErrorResponse
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
 
+// SaveAnswersJSONBody defines parameters for SaveAnswers.
+type SaveAnswersJSONBody struct {
+	Answers *map[string]Answer     `json:"answers,omitempty"`
+	Events  *[]IntegrityEventInput `json:"events,omitempty"`
+
+	// SessionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
+	//
+	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
+	SessionId Uuid `json:"sessionId"`
+}
+
+// RecordAudioPlayJSONBody defines parameters for RecordAudioPlay.
+type RecordAudioPlayJSONBody struct {
+	// QuestionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
+	//
+	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
+	QuestionId Uuid `json:"questionId"`
+}
+
+// FlushEventsJSONBody defines parameters for FlushEvents.
+type FlushEventsJSONBody struct {
+	Events []IntegrityEventInput `json:"events"`
+
+	// SessionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
+	//
+	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
+	SessionId Uuid `json:"sessionId"`
+}
+
+// FlushEventsTextBody defines parameters for FlushEvents.
+type FlushEventsTextBody = string
+
+// SubmitAttemptJSONBody defines parameters for SubmitAttempt.
+type SubmitAttemptJSONBody struct {
+	Reason *SubmitAttemptJSONBodyReason `json:"reason,omitempty"`
+
+	// SessionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
+	//
+	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
+	SessionId *Uuid `json:"sessionId,omitempty"`
+}
+
+// SubmitAttemptJSONBodyReason defines parameters for SubmitAttempt.
+type SubmitAttemptJSONBodyReason string
+
+// JoinClassJSONBody defines parameters for JoinClass.
+type JoinClassJSONBody struct {
+	JoinCode string `json:"joinCode"`
+}
+
+// ChangePasswordJSONBody defines parameters for ChangePassword.
+type ChangePasswordJSONBody struct {
+	// CurrentPassword Required, EXCEPT while `mustChangePassword` is true.
+	//
+	// In that window the current password is one a teacher
+	// generated and read aloud, so re-entering it proves nothing
+	// the access token has not already proved — and demanding it
+	// strands the case G-07 is drawn for: a student whose password
+	// was reset, who then signs in with Google and is redirected
+	// here without ever having held the temporary one.
+	CurrentPassword *string `json:"currentPassword,omitempty"`
+
+	// NewPassword At least 8 characters, at least one of which is a digit, a
+	// punctuation mark or a symbol, in any script. It must also
+	// differ from the password it replaces, which only the server
+	// can check (`PASSWORD_UNCHANGED`). The rules apply to a new
+	// password only: existing passwords are never re-checked and
+	// sign-in does not change.
+	NewPassword string `json:"newPassword"`
+}
+
+// GoogleAuthJSONBody defines parameters for GoogleAuth.
+type GoogleAuthJSONBody struct {
+	Code         string `json:"code"`
+	CodeVerifier string `json:"codeVerifier"`
+
+	// JoinCode Present only when signing in to join a class, after the class preview on `/join` or `/join/:code`. Turns this into a signup.
+	JoinCode    *string `json:"joinCode,omitempty"`
+	RedirectUri string  `json:"redirectUri"`
+}
+
+// LinkGoogleJSONBody defines parameters for LinkGoogle.
+type LinkGoogleJSONBody struct {
+	Code         string `json:"code"`
+	CodeVerifier string `json:"codeVerifier"`
+	RedirectUri  string `json:"redirectUri"`
+}
+
+// LoginJSONBody defines parameters for Login.
+type LoginJSONBody struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+}
+
+// UpdateCurrentUserJSONBody defines parameters for UpdateCurrentUser.
+type UpdateCurrentUserJSONBody struct {
+	FullName string `json:"fullName"`
+}
+
+// PreviewJoinCodeJSONBody defines parameters for PreviewJoinCode.
+type PreviewJoinCodeJSONBody struct {
+	// JoinCode Accepted with or without the dash and in any case; normalized
+	// before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
+	//
+	//
+	// Examples: K7M3-P9QR, k7m3p9qr
+	JoinCode string `json:"joinCode"`
+}
+
 // ListAssignmentsParams defines parameters for ListAssignments.
 type ListAssignmentsParams struct {
 	Status  *AssignmentStatus `form:"status,omitempty" json:"status,omitempty"`
 	ClassId *Uuid             `form:"classId,omitempty" json:"classId,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4390,7 +4499,7 @@ type ListAttemptsParams struct {
 	PendingGrading *bool          `form:"pendingGrading,omitempty" json:"pendingGrading,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4461,7 +4570,7 @@ type ListClassesParams struct {
 	Q *Query `form:"q,omitempty" json:"q,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4521,7 +4630,7 @@ type ListClassMembersParams struct {
 	Q *Query `form:"q,omitempty" json:"q,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4545,7 +4654,7 @@ type AddClassMemberJSONBody struct {
 // ListWordImportsParams defines parameters for ListWordImports.
 type ListWordImportsParams struct {
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4584,7 +4693,7 @@ type ListMediaParams struct {
 	Kind *MediaKind `form:"kind,omitempty" json:"kind,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4605,7 +4714,7 @@ type UploadMediaMultipartBody struct {
 // ListQuestionGroupsParams defines parameters for ListQuestionGroups.
 type ListQuestionGroupsParams struct {
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4650,7 +4759,7 @@ type ListQuestionsParams struct {
 	Q *Query `form:"q,omitempty" json:"q,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4681,7 +4790,7 @@ type ListStudentsParams struct {
 	Status *ListStudentsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4720,7 +4829,7 @@ type ListTestsParams struct {
 	Q *Query `form:"q,omitempty" json:"q,omitempty"`
 
 	// Page 1-based page number. Lists are OFFSET-paginated so a client can draw
-	// numbered pages (O-20 overrides §13.8's keyset rule for the admin
+	// numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
 	// lists: at this scale the teacher wants "trang 3 / 26" more than
 	// stability under concurrent inserts). A page past the end is an empty
 	// `items` with the same `total`.
@@ -4785,114 +4894,44 @@ type CreateDraftFromTestVersionJSONBody struct {
 	ExpectedUpdatedAt Timestamp `json:"expectedUpdatedAt"`
 }
 
-// SaveAnswersJSONBody defines parameters for SaveAnswers.
-type SaveAnswersJSONBody struct {
-	Answers *map[string]Answer     `json:"answers,omitempty"`
-	Events  *[]IntegrityEventInput `json:"events,omitempty"`
+// SaveAnswersJSONRequestBody defines body for SaveAnswers for application/json ContentType.
+type SaveAnswersJSONRequestBody SaveAnswersJSONBody
 
-	// SessionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
-	//
-	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
-	SessionId Uuid `json:"sessionId"`
-}
+// RecordAudioPlayJSONRequestBody defines body for RecordAudioPlay for application/json ContentType.
+type RecordAudioPlayJSONRequestBody RecordAudioPlayJSONBody
 
-// RecordAudioPlayJSONBody defines parameters for RecordAudioPlay.
-type RecordAudioPlayJSONBody struct {
-	// QuestionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
-	//
-	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
-	QuestionId Uuid `json:"questionId"`
-}
+// FlushEventsJSONRequestBody defines body for FlushEvents for application/json ContentType.
+type FlushEventsJSONRequestBody FlushEventsJSONBody
 
-// FlushEventsJSONBody defines parameters for FlushEvents.
-type FlushEventsJSONBody struct {
-	Events []IntegrityEventInput `json:"events"`
+// FlushEventsTextRequestBody defines body for FlushEvents for text/plain ContentType.
+type FlushEventsTextRequestBody = FlushEventsTextBody
 
-	// SessionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
-	//
-	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
-	SessionId Uuid `json:"sessionId"`
-}
+// RecordGroupAudioPlayJSONRequestBody defines body for RecordGroupAudioPlay for application/json ContentType.
+type RecordGroupAudioPlayJSONRequestBody = GroupAudioPlayInput
 
-// FlushEventsTextBody defines parameters for FlushEvents.
-type FlushEventsTextBody = string
+// SubmitAttemptJSONRequestBody defines body for SubmitAttempt for application/json ContentType.
+type SubmitAttemptJSONRequestBody SubmitAttemptJSONBody
 
-// SubmitAttemptJSONBody defines parameters for SubmitAttempt.
-type SubmitAttemptJSONBody struct {
-	Reason *SubmitAttemptJSONBodyReason `json:"reason,omitempty"`
+// JoinClassJSONRequestBody defines body for JoinClass for application/json ContentType.
+type JoinClassJSONRequestBody JoinClassJSONBody
 
-	// SessionId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
-	//
-	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
-	SessionId *Uuid `json:"sessionId,omitempty"`
-}
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 
-// SubmitAttemptJSONBodyReason defines parameters for SubmitAttempt.
-type SubmitAttemptJSONBodyReason string
+// GoogleAuthJSONRequestBody defines body for GoogleAuth for application/json ContentType.
+type GoogleAuthJSONRequestBody GoogleAuthJSONBody
 
-// JoinClassJSONBody defines parameters for JoinClass.
-type JoinClassJSONBody struct {
-	JoinCode string `json:"joinCode"`
-}
+// LinkGoogleJSONRequestBody defines body for LinkGoogle for application/json ContentType.
+type LinkGoogleJSONRequestBody LinkGoogleJSONBody
 
-// ChangePasswordJSONBody defines parameters for ChangePassword.
-type ChangePasswordJSONBody struct {
-	// CurrentPassword Required, EXCEPT while `mustChangePassword` is true.
-	//
-	// In that window the current password is one an admin
-	// generated and read aloud, so re-entering it proves nothing
-	// the access token has not already proved — and demanding it
-	// strands the case G-07 is drawn for: a student whose password
-	// was reset, who then signs in with Google and is redirected
-	// here without ever having held the temporary one.
-	CurrentPassword *string `json:"currentPassword,omitempty"`
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody LoginJSONBody
 
-	// NewPassword At least 8 characters, at least one of which is a digit, a
-	// punctuation mark or a symbol, in any script. It must also
-	// differ from the password it replaces, which only the server
-	// can check (`PASSWORD_UNCHANGED`). The rules apply to a new
-	// password only: existing passwords are never re-checked and
-	// sign-in does not change.
-	NewPassword string `json:"newPassword"`
-}
+// UpdateCurrentUserJSONRequestBody defines body for UpdateCurrentUser for application/json ContentType.
+type UpdateCurrentUserJSONRequestBody UpdateCurrentUserJSONBody
 
-// GoogleAuthJSONBody defines parameters for GoogleAuth.
-type GoogleAuthJSONBody struct {
-	Code         string `json:"code"`
-	CodeVerifier string `json:"codeVerifier"`
-
-	// JoinCode Present only when signing in to join a class, after the class preview on `/join` or `/join/:code`. Turns this into a signup.
-	JoinCode    *string `json:"joinCode,omitempty"`
-	RedirectUri string  `json:"redirectUri"`
-}
-
-// LinkGoogleJSONBody defines parameters for LinkGoogle.
-type LinkGoogleJSONBody struct {
-	Code         string `json:"code"`
-	CodeVerifier string `json:"codeVerifier"`
-	RedirectUri  string `json:"redirectUri"`
-}
-
-// LoginJSONBody defines parameters for Login.
-type LoginJSONBody struct {
-	Email    openapi_types.Email `json:"email"`
-	Password string              `json:"password"`
-}
-
-// UpdateCurrentUserJSONBody defines parameters for UpdateCurrentUser.
-type UpdateCurrentUserJSONBody struct {
-	FullName string `json:"fullName"`
-}
-
-// PreviewJoinCodeJSONBody defines parameters for PreviewJoinCode.
-type PreviewJoinCodeJSONBody struct {
-	// JoinCode Accepted with or without the dash and in any case; normalized
-	// before hashing. Alphabet excludes `0/O` and `1/I/L` (§6.1).
-	//
-	//
-	// Examples: K7M3-P9QR, k7m3p9qr
-	JoinCode string `json:"joinCode"`
-}
+// PreviewJoinCodeJSONRequestBody defines body for PreviewJoinCode for application/json ContentType.
+type PreviewJoinCodeJSONRequestBody PreviewJoinCodeJSONBody
 
 // CreateAssignmentJSONRequestBody defines body for CreateAssignment for application/json ContentType.
 type CreateAssignmentJSONRequestBody = AssignmentInput
@@ -4995,45 +5034,6 @@ type SetCurrentTestVersionJSONRequestBody SetCurrentTestVersionJSONBody
 
 // CreateDraftFromTestVersionJSONRequestBody defines body for CreateDraftFromTestVersion for application/json ContentType.
 type CreateDraftFromTestVersionJSONRequestBody CreateDraftFromTestVersionJSONBody
-
-// SaveAnswersJSONRequestBody defines body for SaveAnswers for application/json ContentType.
-type SaveAnswersJSONRequestBody SaveAnswersJSONBody
-
-// RecordAudioPlayJSONRequestBody defines body for RecordAudioPlay for application/json ContentType.
-type RecordAudioPlayJSONRequestBody RecordAudioPlayJSONBody
-
-// FlushEventsJSONRequestBody defines body for FlushEvents for application/json ContentType.
-type FlushEventsJSONRequestBody FlushEventsJSONBody
-
-// FlushEventsTextRequestBody defines body for FlushEvents for text/plain ContentType.
-type FlushEventsTextRequestBody = FlushEventsTextBody
-
-// RecordGroupAudioPlayJSONRequestBody defines body for RecordGroupAudioPlay for application/json ContentType.
-type RecordGroupAudioPlayJSONRequestBody = GroupAudioPlayInput
-
-// SubmitAttemptJSONRequestBody defines body for SubmitAttempt for application/json ContentType.
-type SubmitAttemptJSONRequestBody SubmitAttemptJSONBody
-
-// JoinClassJSONRequestBody defines body for JoinClass for application/json ContentType.
-type JoinClassJSONRequestBody JoinClassJSONBody
-
-// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
-type ChangePasswordJSONRequestBody ChangePasswordJSONBody
-
-// GoogleAuthJSONRequestBody defines body for GoogleAuth for application/json ContentType.
-type GoogleAuthJSONRequestBody GoogleAuthJSONBody
-
-// LinkGoogleJSONRequestBody defines body for LinkGoogle for application/json ContentType.
-type LinkGoogleJSONRequestBody LinkGoogleJSONBody
-
-// LoginJSONRequestBody defines body for Login for application/json ContentType.
-type LoginJSONRequestBody LoginJSONBody
-
-// UpdateCurrentUserJSONRequestBody defines body for UpdateCurrentUser for application/json ContentType.
-type UpdateCurrentUserJSONRequestBody UpdateCurrentUserJSONBody
-
-// PreviewJoinCodeJSONRequestBody defines body for PreviewJoinCode for application/json ContentType.
-type PreviewJoinCodeJSONRequestBody PreviewJoinCodeJSONBody
 
 // AsChoiceAnswer returns the union data inside the Answer as a ChoiceAnswer
 func (t Answer) AsChoiceAnswer() (ChoiceAnswer, error) {
@@ -6378,243 +6378,12 @@ func (t *QuestionPromptContentInlines_Item) UnmarshalJSON(b []byte) error {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-
-	// (GET /admin/assignments)
-	ListAssignments(w http.ResponseWriter, r *http.Request, params ListAssignmentsParams)
-
-	// (POST /admin/assignments)
-	CreateAssignment(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /admin/assignments/{id})
-	DeleteAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/assignments/{id})
-	GetAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (PATCH /admin/assignments/{id})
-	UpdateAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
-	// ListAnswersForQuestion One question across every paper
-	// (GET /admin/assignments/{id}/answers)
-	ListAnswersForQuestion(w http.ResponseWriter, r *http.Request, id IdPath, params ListAnswersForQuestionParams)
-	// GetAssignmentMonitor Monitor rows, one per targeted student
-	// (GET /admin/assignments/{id}/attempts)
-	GetAssignmentMonitor(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/assignments/{id}/reopen)
-	ReopenAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
-	// ListAttempts Cross-assignment attempt list
-	// (GET /admin/attempts)
-	ListAttempts(w http.ResponseWriter, r *http.Request, params ListAttemptsParams)
-	// GetAttemptForReview Full attempt for review and grading
-	// (GET /admin/attempts/{id})
-	GetAttemptForReview(w http.ResponseWriter, r *http.Request, id IdPath)
-	// GetAttemptEvents Integrity timeline
-	// (GET /admin/attempts/{id}/events)
-	GetAttemptEvents(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/attempts/{id}/extend)
-	ExtendAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/attempts/{id}/finish-grading)
-	FinishGrading(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/attempts/{id}/flag)
-	FlagAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
-	// GradeAttempt Save manual grades
-	// (POST /admin/attempts/{id}/grade)
-	GradeAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (PATCH /admin/attempts/{id}/note)
-	SetAttemptNote(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/attempts/{id}/reset)
-	ResetAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/attempts/{id}/void)
-	VoidAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/classes)
-	ListClasses(w http.ResponseWriter, r *http.Request, params ListClassesParams)
-
-	// (POST /admin/classes)
-	CreateClass(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /admin/classes/{id})
-	DeleteClass(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/classes/{id})
-	GetClass(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (PATCH /admin/classes/{id})
-	UpdateClass(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (DELETE /admin/classes/{id}/join-code)
-	RevokeJoinCode(w http.ResponseWriter, r *http.Request, id IdPath)
-	// RotateJoinCode Issue a new join code, revoking the old one
-	// (POST /admin/classes/{id}/join-code)
-	RotateJoinCode(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/classes/{id}/members)
-	ListClassMembers(w http.ResponseWriter, r *http.Request, id IdPath, params ListClassMembersParams)
-
-	// (POST /admin/classes/{id}/members)
-	AddClassMember(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (DELETE /admin/classes/{id}/members/{userId})
-	RemoveClassMember(w http.ResponseWriter, r *http.Request, id IdPath, userId Uuid)
-
-	// (GET /admin/dashboard)
-	GetDashboard(w http.ResponseWriter, r *http.Request)
 	// OpenDocsSession Open the API reference for fifteen minutes
 	// (POST /admin/docs-session)
 	OpenDocsSession(w http.ResponseWriter, r *http.Request)
-	// ListWordImports Search private import history
-	// (GET /admin/imports)
-	ListWordImports(w http.ResponseWriter, r *http.Request, params ListWordImportsParams)
-	// CreateWordImport Create an empty private import idempotently
-	// (POST /admin/imports)
-	CreateWordImport(w http.ResponseWriter, r *http.Request)
-	// GetWordImportCapabilities Read what this deployment can do with Word imports
-	// (GET /admin/imports/capabilities)
-	GetWordImportCapabilities(w http.ResponseWriter, r *http.Request)
-	// GetWordImportLimits Read the accepted formats and size limit before uploading
-	// (GET /admin/imports/limits)
-	GetWordImportLimits(w http.ResponseWriter, r *http.Request)
-	// GetWordImport Read an import and its current completed sources
-	// (GET /admin/imports/{id})
-	GetWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
-	// CancelWordImport Stop processing, or close an uncommitted import
-	// (POST /admin/imports/{id}/cancel)
-	CancelWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
-	// CommitWordImport Create one draft test from the reviewed import
-	// (POST /admin/imports/{id}/commit)
-	CommitWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
-	// ProcessWordImport Queue recognition of the current source set
-	// (POST /admin/imports/{id}/process)
-	ProcessWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
-	// GetWordImportReview Read the reviewable draft with its current findings
-	// (GET /admin/imports/{id}/review)
-	GetWordImportReview(w http.ResponseWriter, r *http.Request, id IdPath)
-	// SaveWordImportReview Save the teacher's edits to the draft
-	// (PUT /admin/imports/{id}/review)
-	SaveWordImportReview(w http.ResponseWriter, r *http.Request, id IdPath)
-	// AdoptWordImportReprocessed Replace the edited draft with the newer machine draft
-	// (POST /admin/imports/{id}/review/adopt)
-	AdoptWordImportReprocessed(w http.ResponseWriter, r *http.Request, id IdPath)
-	// GetWordImportSource Read the extracted text of one source for comparison
-	// (GET /admin/imports/{id}/source)
-	GetWordImportSource(w http.ResponseWriter, r *http.Request, id IdPath, params GetWordImportSourceParams)
-	// UploadImportSource Upload a private Word or PDF source and create an immutable source set
-	// (POST /admin/imports/{id}/sources)
-	UploadImportSource(w http.ResponseWriter, r *http.Request, id IdPath, params UploadImportSourceParams)
-	// DownloadImportSource Authorize a short-lived original-file download
-	// (GET /admin/imports/{id}/sources/{sourceId}/download)
-	DownloadImportSource(w http.ResponseWriter, r *http.Request, id IdPath, sourceId Uuid)
 
-	// (GET /admin/media)
-	ListMedia(w http.ResponseWriter, r *http.Request, params ListMediaParams)
-	// UploadMedia Upload an audio or image asset
-	// (POST /admin/media)
-	UploadMedia(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /admin/media/{id})
-	DeleteMedia(w http.ResponseWriter, r *http.Request, id IdPath)
-	// ListQuestionGroups Independent groups in the question bank
-	// (GET /admin/question-groups)
-	ListQuestionGroups(w http.ResponseWriter, r *http.Request, params ListQuestionGroupsParams)
-	// CreateQuestionGroup Create a complete independent draft group
-	// (POST /admin/question-groups)
-	CreateQuestionGroup(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /admin/question-groups/{id})
-	DeleteQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath, params DeleteQuestionGroupParams)
-	// GetQuestionGroup Read a complete editable group including answer keys
-	// (GET /admin/question-groups/{id})
-	GetQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (PUT /admin/question-groups/{id})
-	UpdateQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (PATCH /admin/question-groups/{id}/archive)
-	ArchiveQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/question-groups/{id}/copy)
-	CopyQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/questions)
-	ListQuestions(w http.ResponseWriter, r *http.Request, params ListQuestionsParams)
-
-	// (POST /admin/questions)
-	CreateQuestion(w http.ResponseWriter, r *http.Request)
-	// TagQuestions Add tags to several questions at once
-	// (POST /admin/questions/tags)
-	TagQuestions(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /admin/questions/{id})
-	DeleteQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/questions/{id})
-	GetQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (PATCH /admin/questions/{id})
-	UpdateQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/questions/{id}/duplicate)
-	DuplicateQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/students)
-	ListStudents(w http.ResponseWriter, r *http.Request, params ListStudentsParams)
-
-	// (POST /admin/students)
-	CreateStudent(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /admin/students/{id})
-	DeleteStudent(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/students/{id})
-	GetStudent(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (PATCH /admin/students/{id})
-	UpdateStudent(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/students/{id}/reset-password)
-	ResetStudentPassword(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/tests)
-	ListTests(w http.ResponseWriter, r *http.Request, params ListTestsParams)
-
-	// (POST /admin/tests)
-	CreateTest(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /admin/tests/{id})
-	DeleteTest(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (GET /admin/tests/{id})
-	GetTest(w http.ResponseWriter, r *http.Request, id IdPath)
-	// UpdateTest Update metadata and the draft outline
-	// (PATCH /admin/tests/{id})
-	UpdateTest(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (POST /admin/tests/{id}/duplicate)
-	DuplicateTest(w http.ResponseWriter, r *http.Request, id IdPath)
-	// PreviewTest Student-eye preview of a published version
-	// (GET /admin/tests/{id}/preview)
-	PreviewTest(w http.ResponseWriter, r *http.Request, id IdPath, params PreviewTestParams)
-	// PublishTest Validate and snapshot a new version
-	// (POST /admin/tests/{id}/publish)
-	PublishTest(w http.ResponseWriter, r *http.Request, id IdPath)
-	// ListTestVersions Version history
-	// (GET /admin/tests/{id}/versions)
-	ListTestVersions(w http.ResponseWriter, r *http.Request, id IdPath)
-
-	// (DELETE /admin/tests/{id}/versions/{version})
-	DeleteTestVersion(w http.ResponseWriter, r *http.Request, id IdPath, version int)
-
-	// (POST /admin/tests/{id}/versions/{version}/current)
-	SetCurrentTestVersion(w http.ResponseWriter, r *http.Request, id IdPath, version int)
-
-	// (POST /admin/tests/{id}/versions/{version}/draft)
-	CreateDraftFromTestVersion(w http.ResponseWriter, r *http.Request, id IdPath, version int)
+	// (DELETE /admin/users/{id})
+	DeleteUser(w http.ResponseWriter, r *http.Request, id IdPath)
 
 	// (GET /app/assignments)
 	ListMyAssignments(w http.ResponseWriter, r *http.Request)
@@ -6687,6 +6456,237 @@ type ServerInterface interface {
 	// GetPublicStatus Whether the API is down for maintenance, or soon will be
 	// (GET /public/status)
 	GetPublicStatus(w http.ResponseWriter, r *http.Request)
+
+	// (GET /teacher/assignments)
+	ListAssignments(w http.ResponseWriter, r *http.Request, params ListAssignmentsParams)
+
+	// (POST /teacher/assignments)
+	CreateAssignment(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /teacher/assignments/{id})
+	DeleteAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/assignments/{id})
+	GetAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (PATCH /teacher/assignments/{id})
+	UpdateAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
+	// ListAnswersForQuestion One question across every paper
+	// (GET /teacher/assignments/{id}/answers)
+	ListAnswersForQuestion(w http.ResponseWriter, r *http.Request, id IdPath, params ListAnswersForQuestionParams)
+	// GetAssignmentMonitor Monitor rows, one per targeted student
+	// (GET /teacher/assignments/{id}/attempts)
+	GetAssignmentMonitor(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/assignments/{id}/reopen)
+	ReopenAssignment(w http.ResponseWriter, r *http.Request, id IdPath)
+	// ListAttempts Cross-assignment attempt list
+	// (GET /teacher/attempts)
+	ListAttempts(w http.ResponseWriter, r *http.Request, params ListAttemptsParams)
+	// GetAttemptForReview Full attempt for review and grading
+	// (GET /teacher/attempts/{id})
+	GetAttemptForReview(w http.ResponseWriter, r *http.Request, id IdPath)
+	// GetAttemptEvents Integrity timeline
+	// (GET /teacher/attempts/{id}/events)
+	GetAttemptEvents(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/attempts/{id}/extend)
+	ExtendAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/attempts/{id}/finish-grading)
+	FinishGrading(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/attempts/{id}/flag)
+	FlagAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
+	// GradeAttempt Save manual grades
+	// (POST /teacher/attempts/{id}/grade)
+	GradeAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (PATCH /teacher/attempts/{id}/note)
+	SetAttemptNote(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/attempts/{id}/reset)
+	ResetAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/attempts/{id}/void)
+	VoidAttempt(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/classes)
+	ListClasses(w http.ResponseWriter, r *http.Request, params ListClassesParams)
+
+	// (POST /teacher/classes)
+	CreateClass(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /teacher/classes/{id})
+	DeleteClass(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/classes/{id})
+	GetClass(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (PATCH /teacher/classes/{id})
+	UpdateClass(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (DELETE /teacher/classes/{id}/join-code)
+	RevokeJoinCode(w http.ResponseWriter, r *http.Request, id IdPath)
+	// RotateJoinCode Issue a new join code, revoking the old one
+	// (POST /teacher/classes/{id}/join-code)
+	RotateJoinCode(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/classes/{id}/members)
+	ListClassMembers(w http.ResponseWriter, r *http.Request, id IdPath, params ListClassMembersParams)
+
+	// (POST /teacher/classes/{id}/members)
+	AddClassMember(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (DELETE /teacher/classes/{id}/members/{userId})
+	RemoveClassMember(w http.ResponseWriter, r *http.Request, id IdPath, userId Uuid)
+
+	// (GET /teacher/dashboard)
+	GetDashboard(w http.ResponseWriter, r *http.Request)
+	// ListWordImports Search private import history
+	// (GET /teacher/imports)
+	ListWordImports(w http.ResponseWriter, r *http.Request, params ListWordImportsParams)
+	// CreateWordImport Create an empty private import idempotently
+	// (POST /teacher/imports)
+	CreateWordImport(w http.ResponseWriter, r *http.Request)
+	// GetWordImportCapabilities Read what this deployment can do with Word imports
+	// (GET /teacher/imports/capabilities)
+	GetWordImportCapabilities(w http.ResponseWriter, r *http.Request)
+	// GetWordImportLimits Read the accepted formats and size limit before uploading
+	// (GET /teacher/imports/limits)
+	GetWordImportLimits(w http.ResponseWriter, r *http.Request)
+	// GetWordImport Read an import and its current completed sources
+	// (GET /teacher/imports/{id})
+	GetWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
+	// CancelWordImport Stop processing, or close an uncommitted import
+	// (POST /teacher/imports/{id}/cancel)
+	CancelWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
+	// CommitWordImport Create one draft test from the reviewed import
+	// (POST /teacher/imports/{id}/commit)
+	CommitWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
+	// ProcessWordImport Queue recognition of the current source set
+	// (POST /teacher/imports/{id}/process)
+	ProcessWordImport(w http.ResponseWriter, r *http.Request, id IdPath)
+	// GetWordImportReview Read the reviewable draft with its current findings
+	// (GET /teacher/imports/{id}/review)
+	GetWordImportReview(w http.ResponseWriter, r *http.Request, id IdPath)
+	// SaveWordImportReview Save the teacher's edits to the draft
+	// (PUT /teacher/imports/{id}/review)
+	SaveWordImportReview(w http.ResponseWriter, r *http.Request, id IdPath)
+	// AdoptWordImportReprocessed Replace the edited draft with the newer machine draft
+	// (POST /teacher/imports/{id}/review/adopt)
+	AdoptWordImportReprocessed(w http.ResponseWriter, r *http.Request, id IdPath)
+	// GetWordImportSource Read the extracted text of one source for comparison
+	// (GET /teacher/imports/{id}/source)
+	GetWordImportSource(w http.ResponseWriter, r *http.Request, id IdPath, params GetWordImportSourceParams)
+	// UploadImportSource Upload a private Word or PDF source and create an immutable source set
+	// (POST /teacher/imports/{id}/sources)
+	UploadImportSource(w http.ResponseWriter, r *http.Request, id IdPath, params UploadImportSourceParams)
+	// DownloadImportSource Authorize a short-lived original-file download
+	// (GET /teacher/imports/{id}/sources/{sourceId}/download)
+	DownloadImportSource(w http.ResponseWriter, r *http.Request, id IdPath, sourceId Uuid)
+
+	// (GET /teacher/media)
+	ListMedia(w http.ResponseWriter, r *http.Request, params ListMediaParams)
+	// UploadMedia Upload an audio or image asset
+	// (POST /teacher/media)
+	UploadMedia(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /teacher/media/{id})
+	DeleteMedia(w http.ResponseWriter, r *http.Request, id IdPath)
+	// ListQuestionGroups Independent groups in the question bank
+	// (GET /teacher/question-groups)
+	ListQuestionGroups(w http.ResponseWriter, r *http.Request, params ListQuestionGroupsParams)
+	// CreateQuestionGroup Create a complete independent draft group
+	// (POST /teacher/question-groups)
+	CreateQuestionGroup(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /teacher/question-groups/{id})
+	DeleteQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath, params DeleteQuestionGroupParams)
+	// GetQuestionGroup Read a complete editable group including answer keys
+	// (GET /teacher/question-groups/{id})
+	GetQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (PUT /teacher/question-groups/{id})
+	UpdateQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (PATCH /teacher/question-groups/{id}/archive)
+	ArchiveQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/question-groups/{id}/copy)
+	CopyQuestionGroup(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/questions)
+	ListQuestions(w http.ResponseWriter, r *http.Request, params ListQuestionsParams)
+
+	// (POST /teacher/questions)
+	CreateQuestion(w http.ResponseWriter, r *http.Request)
+	// TagQuestions Add tags to several questions at once
+	// (POST /teacher/questions/tags)
+	TagQuestions(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /teacher/questions/{id})
+	DeleteQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/questions/{id})
+	GetQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (PATCH /teacher/questions/{id})
+	UpdateQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/questions/{id}/duplicate)
+	DuplicateQuestion(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/students)
+	ListStudents(w http.ResponseWriter, r *http.Request, params ListStudentsParams)
+
+	// (POST /teacher/students)
+	CreateStudent(w http.ResponseWriter, r *http.Request)
+
+	// (GET /teacher/students/{id})
+	GetStudent(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (PATCH /teacher/students/{id})
+	UpdateStudent(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/students/{id}/reset-password)
+	ResetStudentPassword(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/tests)
+	ListTests(w http.ResponseWriter, r *http.Request, params ListTestsParams)
+
+	// (POST /teacher/tests)
+	CreateTest(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /teacher/tests/{id})
+	DeleteTest(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (GET /teacher/tests/{id})
+	GetTest(w http.ResponseWriter, r *http.Request, id IdPath)
+	// UpdateTest Update metadata and the draft outline
+	// (PATCH /teacher/tests/{id})
+	UpdateTest(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (POST /teacher/tests/{id}/duplicate)
+	DuplicateTest(w http.ResponseWriter, r *http.Request, id IdPath)
+	// PreviewTest Student-eye preview of a published version
+	// (GET /teacher/tests/{id}/preview)
+	PreviewTest(w http.ResponseWriter, r *http.Request, id IdPath, params PreviewTestParams)
+	// PublishTest Validate and snapshot a new version
+	// (POST /teacher/tests/{id}/publish)
+	PublishTest(w http.ResponseWriter, r *http.Request, id IdPath)
+	// ListTestVersions Version history
+	// (GET /teacher/tests/{id}/versions)
+	ListTestVersions(w http.ResponseWriter, r *http.Request, id IdPath)
+
+	// (DELETE /teacher/tests/{id}/versions/{version})
+	DeleteTestVersion(w http.ResponseWriter, r *http.Request, id IdPath, version int)
+
+	// (POST /teacher/tests/{id}/versions/{version}/current)
+	SetCurrentTestVersion(w http.ResponseWriter, r *http.Request, id IdPath, version int)
+
+	// (POST /teacher/tests/{id}/versions/{version}/draft)
+	CreateDraftFromTestVersion(w http.ResponseWriter, r *http.Request, id IdPath, version int)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -6697,6 +6697,502 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// OpenDocsSession operation middleware
+func (siw *ServerInterfaceWrapper) OpenDocsSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenDocsSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUser operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUser(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyAssignments operation middleware
+func (siw *ServerInterfaceWrapper) ListMyAssignments(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyAssignments(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyAssignment operation middleware
+func (siw *ServerInterfaceWrapper) GetMyAssignment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyAssignment(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartOrResumeAttempt operation middleware
+func (siw *ServerInterfaceWrapper) StartOrResumeAttempt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartOrResumeAttempt(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAttempt operation middleware
+func (siw *ServerInterfaceWrapper) GetAttempt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAttempt(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveAnswers operation middleware
+func (siw *ServerInterfaceWrapper) SaveAnswers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveAnswers(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecordAudioPlay operation middleware
+func (siw *ServerInterfaceWrapper) RecordAudioPlay(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecordAudioPlay(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FlushEvents operation middleware
+func (siw *ServerInterfaceWrapper) FlushEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FlushEvents(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecordGroupAudioPlay operation middleware
+func (siw *ServerInterfaceWrapper) RecordGroupAudioPlay(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecordGroupAudioPlay(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAttemptResult operation middleware
+func (siw *ServerInterfaceWrapper) GetAttemptResult(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAttemptResult(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SubmitAttempt operation middleware
+func (siw *ServerInterfaceWrapper) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubmitAttempt(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyClasses operation middleware
+func (siw *ServerInterfaceWrapper) ListMyClasses(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyClasses(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// JoinClass operation middleware
+func (siw *ServerInterfaceWrapper) JoinClass(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.JoinClass(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMediaUrl operation middleware
+func (siw *ServerInterfaceWrapper) GetMediaUrl(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "assetId" -------------
+	var assetId Uuid
+
+	err = runtime.BindStyledParameterWithOptions("simple", "assetId", r.PathValue("assetId"), &assetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "assetId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMediaUrl(w, r, assetId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangePassword operation middleware
+func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GoogleAuth operation middleware
+func (siw *ServerInterfaceWrapper) GoogleAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GoogleAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlinkGoogle operation middleware
+func (siw *ServerInterfaceWrapper) UnlinkGoogle(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlinkGoogle(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LinkGoogle operation middleware
+func (siw *ServerInterfaceWrapper) LinkGoogle(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LinkGoogle(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCurrentUser operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCurrentUser operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshSession operation middleware
+func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewJoinCode operation middleware
+func (siw *ServerInterfaceWrapper) PreviewJoinCode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewJoinCode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListAssignments operation middleware
 func (siw *ServerInterfaceWrapper) ListAssignments(w http.ResponseWriter, r *http.Request) {
@@ -7625,20 +8121,6 @@ func (siw *ServerInterfaceWrapper) GetDashboard(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDashboard(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// OpenDocsSession operation middleware
-func (siw *ServerInterfaceWrapper) OpenDocsSession(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.OpenDocsSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8775,32 +9257,6 @@ func (siw *ServerInterfaceWrapper) CreateStudent(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteStudent operation middleware
-func (siw *ServerInterfaceWrapper) DeleteStudent(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteStudent(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetStudent operation middleware
 func (siw *ServerInterfaceWrapper) GetStudent(w http.ResponseWriter, r *http.Request) {
 
@@ -9281,462 +9737,6 @@ func (siw *ServerInterfaceWrapper) CreateDraftFromTestVersion(w http.ResponseWri
 	handler.ServeHTTP(w, r)
 }
 
-// ListMyAssignments operation middleware
-func (siw *ServerInterfaceWrapper) ListMyAssignments(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListMyAssignments(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetMyAssignment operation middleware
-func (siw *ServerInterfaceWrapper) GetMyAssignment(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetMyAssignment(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// StartOrResumeAttempt operation middleware
-func (siw *ServerInterfaceWrapper) StartOrResumeAttempt(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.StartOrResumeAttempt(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetAttempt operation middleware
-func (siw *ServerInterfaceWrapper) GetAttempt(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAttempt(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SaveAnswers operation middleware
-func (siw *ServerInterfaceWrapper) SaveAnswers(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SaveAnswers(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RecordAudioPlay operation middleware
-func (siw *ServerInterfaceWrapper) RecordAudioPlay(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RecordAudioPlay(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// FlushEvents operation middleware
-func (siw *ServerInterfaceWrapper) FlushEvents(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.FlushEvents(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RecordGroupAudioPlay operation middleware
-func (siw *ServerInterfaceWrapper) RecordGroupAudioPlay(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RecordGroupAudioPlay(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetAttemptResult operation middleware
-func (siw *ServerInterfaceWrapper) GetAttemptResult(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAttemptResult(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SubmitAttempt operation middleware
-func (siw *ServerInterfaceWrapper) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id IdPath
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SubmitAttempt(w, r, id)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListMyClasses operation middleware
-func (siw *ServerInterfaceWrapper) ListMyClasses(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListMyClasses(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// JoinClass operation middleware
-func (siw *ServerInterfaceWrapper) JoinClass(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.JoinClass(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetMediaUrl operation middleware
-func (siw *ServerInterfaceWrapper) GetMediaUrl(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "assetId" -------------
-	var assetId Uuid
-
-	err = runtime.BindStyledParameterWithOptions("simple", "assetId", r.PathValue("assetId"), &assetId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "assetId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetMediaUrl(w, r, assetId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ChangePassword operation middleware
-func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ChangePassword(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GoogleAuth operation middleware
-func (siw *ServerInterfaceWrapper) GoogleAuth(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GoogleAuth(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UnlinkGoogle operation middleware
-func (siw *ServerInterfaceWrapper) UnlinkGoogle(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UnlinkGoogle(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// LinkGoogle operation middleware
-func (siw *ServerInterfaceWrapper) LinkGoogle(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.LinkGoogle(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// Login operation middleware
-func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Login(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// Logout operation middleware
-func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Logout(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetCurrentUser operation middleware
-func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCurrentUser(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateCurrentUser operation middleware
-func (siw *ServerInterfaceWrapper) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateCurrentUser(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RefreshSession operation middleware
-func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RefreshSession(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PreviewJoinCode operation middleware
-func (siw *ServerInterfaceWrapper) PreviewJoinCode(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PreviewJoinCode(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetPublicStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetPublicStatus(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPublicStatus(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -9868,85 +9868,85 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/change-password", wrapper.ChangePassword)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/auth/google/link", wrapper.UnlinkGoogle)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/google/link", wrapper.LinkGoogle)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/question-groups", wrapper.ListQuestionGroups)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/question-groups", wrapper.CreateQuestionGroup)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/question-groups/{id}", wrapper.DeleteQuestionGroup)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/question-groups/{id}", wrapper.GetQuestionGroup)
-	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/admin/question-groups/{id}", wrapper.UpdateQuestionGroup)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/question-groups/{id}/copy", wrapper.CopyQuestionGroup)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/admin/question-groups/{id}/archive", wrapper.ArchiveQuestionGroup)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/tests", wrapper.ListTests)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/tests", wrapper.CreateTest)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/tests/{id}", wrapper.DeleteTest)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/tests/{id}", wrapper.GetTest)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/admin/tests/{id}", wrapper.UpdateTest)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/tests/{id}/publish", wrapper.PublishTest)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/tests/{id}/duplicate", wrapper.DuplicateTest)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/tests/{id}/versions", wrapper.ListTestVersions)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/tests/{id}/versions/{version}", wrapper.DeleteTestVersion)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/tests/{id}/versions/{version}/current", wrapper.SetCurrentTestVersion)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/tests/{id}/versions/{version}/draft", wrapper.CreateDraftFromTestVersion)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/tests/{id}/preview", wrapper.PreviewTest)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/questions", wrapper.ListQuestions)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/questions", wrapper.CreateQuestion)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/questions/tags", wrapper.TagQuestions)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/questions/{id}", wrapper.DeleteQuestion)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/questions/{id}", wrapper.GetQuestion)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/admin/questions/{id}", wrapper.UpdateQuestion)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/questions/{id}/duplicate", wrapper.DuplicateQuestion)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/imports", wrapper.ListWordImports)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/imports", wrapper.CreateWordImport)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/imports/{id}", wrapper.GetWordImport)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/imports/{id}/sources", wrapper.UploadImportSource)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/imports/{id}/sources/{sourceId}/download", wrapper.DownloadImportSource)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/imports/capabilities", wrapper.GetWordImportCapabilities)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/imports/limits", wrapper.GetWordImportLimits)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/imports/{id}/process", wrapper.ProcessWordImport)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/imports/{id}/cancel", wrapper.CancelWordImport)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/imports/{id}/review", wrapper.GetWordImportReview)
-	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/admin/imports/{id}/review", wrapper.SaveWordImportReview)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/imports/{id}/review/adopt", wrapper.AdoptWordImportReprocessed)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/imports/{id}/source", wrapper.GetWordImportSource)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/imports/{id}/commit", wrapper.CommitWordImport)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/media", wrapper.ListMedia)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/media", wrapper.UploadMedia)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/media/{id}", wrapper.DeleteMedia)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/assignments", wrapper.ListAssignments)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/assignments", wrapper.CreateAssignment)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/assignments/{id}", wrapper.DeleteAssignment)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/assignments/{id}", wrapper.GetAssignment)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/admin/assignments/{id}", wrapper.UpdateAssignment)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/assignments/{id}/answers", wrapper.ListAnswersForQuestion)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/assignments/{id}/reopen", wrapper.ReopenAssignment)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/assignments/{id}/attempts", wrapper.GetAssignmentMonitor)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/attempts", wrapper.ListAttempts)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/attempts/{id}", wrapper.GetAttemptForReview)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/attempts/{id}/events", wrapper.GetAttemptEvents)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/attempts/{id}/extend", wrapper.ExtendAttempt)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/attempts/{id}/reset", wrapper.ResetAttempt)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/attempts/{id}/void", wrapper.VoidAttempt)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/admin/attempts/{id}/note", wrapper.SetAttemptNote)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/attempts/{id}/flag", wrapper.FlagAttempt)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/attempts/{id}/grade", wrapper.GradeAttempt)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/attempts/{id}/finish-grading", wrapper.FinishGrading)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/dashboard", wrapper.GetDashboard)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/students", wrapper.ListStudents)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/students", wrapper.CreateStudent)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/students/{id}", wrapper.DeleteStudent)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/students/{id}", wrapper.GetStudent)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/admin/students/{id}", wrapper.UpdateStudent)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/students/{id}/reset-password", wrapper.ResetStudentPassword)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/question-groups", wrapper.ListQuestionGroups)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/question-groups", wrapper.CreateQuestionGroup)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/question-groups/{id}", wrapper.DeleteQuestionGroup)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/question-groups/{id}", wrapper.GetQuestionGroup)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/teacher/question-groups/{id}", wrapper.UpdateQuestionGroup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/question-groups/{id}/copy", wrapper.CopyQuestionGroup)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/teacher/question-groups/{id}/archive", wrapper.ArchiveQuestionGroup)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/tests", wrapper.ListTests)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/tests", wrapper.CreateTest)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/tests/{id}", wrapper.DeleteTest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/tests/{id}", wrapper.GetTest)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/teacher/tests/{id}", wrapper.UpdateTest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/tests/{id}/publish", wrapper.PublishTest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/tests/{id}/duplicate", wrapper.DuplicateTest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/tests/{id}/versions", wrapper.ListTestVersions)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/tests/{id}/versions/{version}", wrapper.DeleteTestVersion)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/tests/{id}/versions/{version}/current", wrapper.SetCurrentTestVersion)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/tests/{id}/versions/{version}/draft", wrapper.CreateDraftFromTestVersion)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/tests/{id}/preview", wrapper.PreviewTest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/questions", wrapper.ListQuestions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/questions", wrapper.CreateQuestion)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/questions/tags", wrapper.TagQuestions)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/questions/{id}", wrapper.DeleteQuestion)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/questions/{id}", wrapper.GetQuestion)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/teacher/questions/{id}", wrapper.UpdateQuestion)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/questions/{id}/duplicate", wrapper.DuplicateQuestion)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/imports", wrapper.ListWordImports)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/imports", wrapper.CreateWordImport)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/imports/{id}", wrapper.GetWordImport)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/imports/{id}/sources", wrapper.UploadImportSource)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/imports/{id}/sources/{sourceId}/download", wrapper.DownloadImportSource)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/imports/capabilities", wrapper.GetWordImportCapabilities)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/imports/limits", wrapper.GetWordImportLimits)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/imports/{id}/process", wrapper.ProcessWordImport)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/imports/{id}/cancel", wrapper.CancelWordImport)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/imports/{id}/review", wrapper.GetWordImportReview)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/teacher/imports/{id}/review", wrapper.SaveWordImportReview)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/imports/{id}/review/adopt", wrapper.AdoptWordImportReprocessed)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/imports/{id}/source", wrapper.GetWordImportSource)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/imports/{id}/commit", wrapper.CommitWordImport)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/media", wrapper.ListMedia)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/media", wrapper.UploadMedia)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/media/{id}", wrapper.DeleteMedia)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/assignments", wrapper.ListAssignments)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/assignments", wrapper.CreateAssignment)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/assignments/{id}", wrapper.DeleteAssignment)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/assignments/{id}", wrapper.GetAssignment)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/teacher/assignments/{id}", wrapper.UpdateAssignment)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/assignments/{id}/answers", wrapper.ListAnswersForQuestion)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/assignments/{id}/reopen", wrapper.ReopenAssignment)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/assignments/{id}/attempts", wrapper.GetAssignmentMonitor)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/attempts", wrapper.ListAttempts)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/attempts/{id}", wrapper.GetAttemptForReview)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/attempts/{id}/events", wrapper.GetAttemptEvents)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/attempts/{id}/extend", wrapper.ExtendAttempt)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/attempts/{id}/reset", wrapper.ResetAttempt)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/attempts/{id}/void", wrapper.VoidAttempt)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/teacher/attempts/{id}/note", wrapper.SetAttemptNote)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/attempts/{id}/flag", wrapper.FlagAttempt)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/attempts/{id}/grade", wrapper.GradeAttempt)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/attempts/{id}/finish-grading", wrapper.FinishGrading)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/dashboard", wrapper.GetDashboard)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/students", wrapper.ListStudents)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/students", wrapper.CreateStudent)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/students/{id}", wrapper.GetStudent)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/teacher/students/{id}", wrapper.UpdateStudent)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/students/{id}/reset-password", wrapper.ResetStudentPassword)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/users/{id}", wrapper.DeleteUser)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/docs-session", wrapper.OpenDocsSession)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/classes", wrapper.ListClasses)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/classes", wrapper.CreateClass)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/classes/{id}", wrapper.DeleteClass)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/classes/{id}", wrapper.GetClass)
-	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/admin/classes/{id}", wrapper.UpdateClass)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/admin/classes/{id}/members", wrapper.ListClassMembers)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/classes/{id}/members", wrapper.AddClassMember)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/classes/{id}/members/{userId}", wrapper.RemoveClassMember)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/admin/classes/{id}/join-code", wrapper.RevokeJoinCode)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/admin/classes/{id}/join-code", wrapper.RotateJoinCode)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/classes", wrapper.ListClasses)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/classes", wrapper.CreateClass)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/classes/{id}", wrapper.DeleteClass)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/classes/{id}", wrapper.GetClass)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/teacher/classes/{id}", wrapper.UpdateClass)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teacher/classes/{id}/members", wrapper.ListClassMembers)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/classes/{id}/members", wrapper.AddClassMember)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/classes/{id}/members/{userId}", wrapper.RemoveClassMember)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/teacher/classes/{id}/join-code", wrapper.RevokeJoinCode)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teacher/classes/{id}/join-code", wrapper.RotateJoinCode)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/app/classes", wrapper.ListMyClasses)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/app/classes/join", wrapper.JoinClass)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/app/assignments", wrapper.ListMyAssignments)
@@ -9992,6 +9992,1316 @@ type TooManyRequestsJSONResponse struct {
 }
 
 type UnauthorizedJSONResponse ErrorResponse
+
+type OpenDocsSessionRequestObject struct {
+}
+
+type OpenDocsSessionResponseObject interface {
+	VisitOpenDocsSessionResponse(w http.ResponseWriter) error
+}
+
+type OpenDocsSession204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type OpenDocsSession204Response struct {
+	Headers OpenDocsSession204ResponseHeaders
+}
+
+func (response OpenDocsSession204Response) VisitOpenDocsSessionResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteUserRequestObject struct {
+	Id IdPath `json:"id"`
+}
+
+type DeleteUserResponseObject interface {
+	VisitDeleteUserResponse(w http.ResponseWriter) error
+}
+
+type DeleteUser204Response struct {
+}
+
+func (response DeleteUser204Response) VisitDeleteUserResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteUser404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteUser404JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteUser409JSONResponse ErrorResponse
+
+func (response DeleteUser409JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyAssignmentsRequestObject struct {
+}
+
+type ListMyAssignmentsResponseObject interface {
+	VisitListMyAssignmentsResponse(w http.ResponseWriter) error
+}
+
+type ListMyAssignments200JSONResponse struct {
+	Completed []StudentAssignmentCard `json:"completed"`
+	DueNow    []StudentAssignmentCard `json:"dueNow"`
+	Upcoming  []StudentAssignmentCard `json:"upcoming"`
+}
+
+func (response ListMyAssignments200JSONResponse) VisitListMyAssignmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMyAssignmentRequestObject struct {
+	Id IdPath `json:"id"`
+}
+
+type GetMyAssignmentResponseObject interface {
+	VisitGetMyAssignmentResponse(w http.ResponseWriter) error
+}
+
+type GetMyAssignment200JSONResponse StudentAssignmentDetail
+
+func (response GetMyAssignment200JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMyAssignment403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetMyAssignment403JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMyAssignment404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetMyAssignment404JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartOrResumeAttemptRequestObject struct {
+	Id IdPath `json:"id"`
+}
+
+type StartOrResumeAttemptResponseObject interface {
+	VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error
+}
+
+type StartOrResumeAttempt200JSONResponse AttemptSession
+
+func (response StartOrResumeAttempt200JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartOrResumeAttempt403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response StartOrResumeAttempt403JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartOrResumeAttempt409JSONResponse ErrorResponse
+
+func (response StartOrResumeAttempt409JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttemptRequestObject struct {
+	Id IdPath `json:"id"`
+}
+
+type GetAttemptResponseObject interface {
+	VisitGetAttemptResponse(w http.ResponseWriter) error
+}
+
+type GetAttempt200JSONResponse AttemptSession
+
+func (response GetAttempt200JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttempt403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAttempt403JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttempt404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAttempt404JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAnswersRequestObject struct {
+	Id   IdPath `json:"id"`
+	Body *SaveAnswersJSONRequestBody
+}
+
+type SaveAnswersResponseObject interface {
+	VisitSaveAnswersResponse(w http.ResponseWriter) error
+}
+
+type SaveAnswers200JSONResponse struct {
+	// DeadlineAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
+	DeadlineAt Timestamp `json:"deadlineAt"`
+
+	// SavedAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
+	SavedAt Timestamp `json:"savedAt"`
+
+	// ServerTime RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
+	ServerTime Timestamp `json:"serverTime"`
+}
+
+func (response SaveAnswers200JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAnswers403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SaveAnswers403JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAnswers409JSONResponse ErrorResponse
+
+func (response SaveAnswers409JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAnswers503JSONResponse struct{ MaintenanceJSONResponse }
+
+func (response SaveAnswers503JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordAudioPlayRequestObject struct {
+	Id   IdPath `json:"id"`
+	Body *RecordAudioPlayJSONRequestBody
+}
+
+type RecordAudioPlayResponseObject interface {
+	VisitRecordAudioPlayResponse(w http.ResponseWriter) error
+}
+
+type RecordAudioPlay200JSONResponse struct {
+	MaxPlays *int `json:"maxPlays"`
+	Plays    int  `json:"plays"`
+}
+
+func (response RecordAudioPlay200JSONResponse) VisitRecordAudioPlayResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordAudioPlay403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RecordAudioPlay403JSONResponse) VisitRecordAudioPlayResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FlushEventsRequestObject struct {
+	Id       IdPath `json:"id"`
+	JSONBody *FlushEventsJSONRequestBody
+	TextBody *FlushEventsTextRequestBody
+}
+
+type FlushEventsResponseObject interface {
+	VisitFlushEventsResponse(w http.ResponseWriter) error
+}
+
+type FlushEvents202Response struct {
+}
+
+func (response FlushEvents202Response) VisitFlushEventsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type FlushEvents403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response FlushEvents403JSONResponse) VisitFlushEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FlushEvents429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response FlushEvents429JSONResponse) VisitFlushEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordGroupAudioPlayRequestObject struct {
+	Id   IdPath `json:"id"`
+	Body *RecordGroupAudioPlayJSONRequestBody
+}
+
+type RecordGroupAudioPlayResponseObject interface {
+	VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error
+}
+
+type RecordGroupAudioPlay200JSONResponse GroupAudioPlayResult
+
+func (response RecordGroupAudioPlay200JSONResponse) VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordGroupAudioPlay403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RecordGroupAudioPlay403JSONResponse) VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordGroupAudioPlay409JSONResponse ErrorResponse
+
+func (response RecordGroupAudioPlay409JSONResponse) VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttemptResultRequestObject struct {
+	Id IdPath `json:"id"`
+}
+
+type GetAttemptResultResponseObject interface {
+	VisitGetAttemptResultResponse(w http.ResponseWriter) error
+}
+
+type GetAttemptResult200JSONResponse struct {
+	Attempt Attempt `json:"attempt"`
+
+	// MaxAttempts For "Lượt 1/2" under the score (S-09).
+	MaxAttempts int              `json:"maxAttempts"`
+	Questions   []ResultQuestion `json:"questions"`
+	Review      ReviewPolicy     `json:"review"`
+
+	// SharedContext Frozen material for completed-attempt results and teacher grading.
+	// Learner transcripts contain only recordings whose own policy releases
+	// them after submission; teacher grading includes all available transcripts.
+	// No grading key is added to groups. Listening here never consumes a play.
+	SharedContext *SharedReviewContext `json:"sharedContext,omitempty"`
+	TestTitle     string               `json:"testTitle"`
+}
+
+func (response GetAttemptResult200JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttemptResult403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAttemptResult403JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttemptResult409JSONResponse ErrorResponse
+
+func (response GetAttemptResult409JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitAttemptRequestObject struct {
+	Id   IdPath `json:"id"`
+	Body *SubmitAttemptJSONRequestBody
+}
+
+type SubmitAttemptResponseObject interface {
+	VisitSubmitAttemptResponse(w http.ResponseWriter) error
+}
+
+type SubmitAttempt200JSONResponse Attempt
+
+func (response SubmitAttempt200JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitAttempt403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SubmitAttempt403JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitAttempt409JSONResponse ErrorResponse
+
+func (response SubmitAttempt409JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyClassesRequestObject struct {
+}
+
+type ListMyClassesResponseObject interface {
+	VisitListMyClassesResponse(w http.ResponseWriter) error
+}
+
+type ListMyClasses200JSONResponse struct {
+	Items []MyClass `json:"items"`
+}
+
+func (response ListMyClasses200JSONResponse) VisitListMyClassesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinClassRequestObject struct {
+	Body *JoinClassJSONRequestBody
+}
+
+type JoinClassResponseObject interface {
+	VisitJoinClassResponse(w http.ResponseWriter) error
+}
+
+type JoinClass200JSONResponse Class
+
+func (response JoinClass200JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinClass404JSONResponse ErrorResponse
+
+func (response JoinClass404JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinClass429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response JoinClass429JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMediaUrlRequestObject struct {
+	AssetId Uuid `json:"assetId"`
+}
+
+type GetMediaUrlResponseObject interface {
+	VisitGetMediaUrlResponse(w http.ResponseWriter) error
+}
+
+type GetMediaUrl200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetMediaUrl200JSONResponse struct {
+	Body struct {
+		// ExpiresAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
+		ExpiresAt Timestamp `json:"expiresAt"`
+		Url       string    `json:"url"`
+	}
+	Headers GetMediaUrl200ResponseHeaders
+}
+
+func (response GetMediaUrl200JSONResponse) VisitGetMediaUrlResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMediaUrl403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetMediaUrl403JSONResponse) VisitGetMediaUrlResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangePasswordRequestObject struct {
+	Body *ChangePasswordJSONRequestBody
+}
+
+type ChangePasswordResponseObject interface {
+	VisitChangePasswordResponse(w http.ResponseWriter) error
+}
+
+type ChangePassword204Response struct {
+}
+
+func (response ChangePassword204Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ChangePassword400JSONResponse ErrorResponse
+
+func (response ChangePassword400JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangePassword401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ChangePassword401JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GoogleAuthRequestObject struct {
+	Body *GoogleAuthJSONRequestBody
+}
+
+type GoogleAuthResponseObject interface {
+	VisitGoogleAuthResponse(w http.ResponseWriter) error
+}
+
+type GoogleAuth200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type GoogleAuth200JSONResponse struct {
+	Body    GoogleSignInSuccess
+	Headers GoogleAuth200ResponseHeaders
+}
+
+func (response GoogleAuth200JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GoogleAuth401JSONResponse ErrorResponse
+
+func (response GoogleAuth401JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GoogleAuth403JSONResponse ErrorResponse
+
+func (response GoogleAuth403JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GoogleAuth404JSONResponse ErrorResponse
+
+func (response GoogleAuth404JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GoogleAuth429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response GoogleAuth429JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkGoogleRequestObject struct {
+}
+
+type UnlinkGoogleResponseObject interface {
+	VisitUnlinkGoogleResponse(w http.ResponseWriter) error
+}
+
+type UnlinkGoogle204Response = NoContentResponse
+
+func (response UnlinkGoogle204Response) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnlinkGoogle401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UnlinkGoogle401JSONResponse) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkGoogle409JSONResponse ErrorResponse
+
+func (response UnlinkGoogle409JSONResponse) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkGoogleRequestObject struct {
+	Body *LinkGoogleJSONRequestBody
+}
+
+type LinkGoogleResponseObject interface {
+	VisitLinkGoogleResponse(w http.ResponseWriter) error
+}
+
+type LinkGoogle200JSONResponse CurrentUser
+
+func (response LinkGoogle200JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkGoogle401JSONResponse ErrorResponse
+
+func (response LinkGoogle401JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkGoogle409JSONResponse ErrorResponse
+
+func (response LinkGoogle409JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Login200JSONResponse struct {
+	Body    AuthSuccess
+	Headers Login200ResponseHeaders
+}
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login401JSONResponse ErrorResponse
+
+func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response Login429JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login503JSONResponse struct{ MaintenanceJSONResponse }
+
+func (response Login503JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Logout204Response struct {
+	Headers Logout204ResponseHeaders
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type Logout401JSONResponse ErrorResponse
+
+func (response Logout401JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentUserRequestObject struct {
+}
+
+type GetCurrentUserResponseObject interface {
+	VisitGetCurrentUserResponse(w http.ResponseWriter) error
+}
+
+type GetCurrentUser200JSONResponse CurrentUser
+
+func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentUser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentUser503JSONResponse struct{ MaintenanceJSONResponse }
+
+func (response GetCurrentUser503JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCurrentUserRequestObject struct {
+	Body *UpdateCurrentUserJSONRequestBody
+}
+
+type UpdateCurrentUserResponseObject interface {
+	VisitUpdateCurrentUserResponse(w http.ResponseWriter) error
+}
+
+type UpdateCurrentUser200JSONResponse CurrentUser
+
+func (response UpdateCurrentUser200JSONResponse) VisitUpdateCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCurrentUser400JSONResponse ErrorResponse
+
+func (response UpdateCurrentUser400JSONResponse) VisitUpdateCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCurrentUser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateCurrentUser401JSONResponse) VisitUpdateCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshSessionRequestObject struct {
+}
+
+type RefreshSessionResponseObject interface {
+	VisitRefreshSessionResponse(w http.ResponseWriter) error
+}
+
+type RefreshSession200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type RefreshSession200JSONResponse struct {
+	Body struct {
+		AccessToken string `json:"accessToken"`
+		ExpiresIn   int    `json:"expiresIn"`
+	}
+	Headers RefreshSession200ResponseHeaders
+}
+
+func (response RefreshSession200JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshSession401JSONResponse ErrorResponse
+
+func (response RefreshSession401JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshSession429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response RefreshSession429JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshSession503JSONResponse struct{ MaintenanceJSONResponse }
+
+func (response RefreshSession503JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewJoinCodeRequestObject struct {
+	Body *PreviewJoinCodeJSONRequestBody
+}
+
+type PreviewJoinCodeResponseObject interface {
+	VisitPreviewJoinCodeResponse(w http.ResponseWriter) error
+}
+
+type PreviewJoinCode200JSONResponse struct {
+	// ClassId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
+	//
+	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
+	ClassId     Uuid   `json:"classId"`
+	ClassName   string `json:"className"`
+	TeacherName string `json:"teacherName"`
+}
+
+func (response PreviewJoinCode200JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewJoinCode404JSONResponse ErrorResponse
+
+func (response PreviewJoinCode404JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewJoinCode429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response PreviewJoinCode429JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPublicStatusRequestObject struct {
+}
+
+type GetPublicStatusResponseObject interface {
+	VisitGetPublicStatusResponse(w http.ResponseWriter) error
+}
+
+type GetPublicStatus200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetPublicStatus200JSONResponse struct {
+	Body    PublicStatus
+	Headers GetPublicStatus200ResponseHeaders
+}
+
+func (response GetPublicStatus200JSONResponse) VisitGetPublicStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPublicStatus429JSONResponse struct{ TooManyRequestsJSONResponse }
+
+func (response GetPublicStatus429JSONResponse) VisitGetPublicStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListAssignmentsRequestObject struct {
 	Params ListAssignmentsParams
@@ -10443,7 +11753,7 @@ type GetAttemptForReview200JSONResponse struct {
 	Student       User                 `json:"student"`
 
 	// TeacherNote G-05's "Ghi chú của bạn": the teacher's private note on
-	// this attempt. Admin-only by construction — it lives on
+	// this attempt. Teacher-only by construction — it lives on
 	// this response and nowhere under `/app/*`.
 	TeacherNote *string `json:"teacherNote"`
 	TestTitle   string  `json:"testTitle"`
@@ -11332,29 +12642,6 @@ func (response GetDashboard200JSONResponse) VisitGetDashboardResponse(w http.Res
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
-}
-
-type OpenDocsSessionRequestObject struct {
-}
-
-type OpenDocsSessionResponseObject interface {
-	VisitOpenDocsSessionResponse(w http.ResponseWriter) error
-}
-
-type OpenDocsSession204ResponseHeaders struct {
-	SetCookie *string
-}
-
-type OpenDocsSession204Response struct {
-	Headers OpenDocsSession204ResponseHeaders
-}
-
-func (response OpenDocsSession204Response) VisitOpenDocsSessionResponse(w http.ResponseWriter) error {
-	if response.Headers.SetCookie != nil {
-		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
-	}
-	w.WriteHeader(204)
-	return nil
 }
 
 type ListWordImportsRequestObject struct {
@@ -13072,50 +14359,6 @@ func (response CreateStudent409JSONResponse) VisitCreateStudentResponse(w http.R
 	return err
 }
 
-type DeleteStudentRequestObject struct {
-	Id IdPath `json:"id"`
-}
-
-type DeleteStudentResponseObject interface {
-	VisitDeleteStudentResponse(w http.ResponseWriter) error
-}
-
-type DeleteStudent204Response struct {
-}
-
-func (response DeleteStudent204Response) VisitDeleteStudentResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeleteStudent404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeleteStudent404JSONResponse) VisitDeleteStudentResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteStudent409JSONResponse ErrorResponse
-
-func (response DeleteStudent409JSONResponse) VisitDeleteStudentResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type GetStudentRequestObject struct {
 	Id IdPath `json:"id"`
 }
@@ -13815,1488 +15058,14 @@ func (response CreateDraftFromTestVersion409JSONResponse) VisitCreateDraftFromTe
 	return err
 }
 
-type ListMyAssignmentsRequestObject struct {
-}
-
-type ListMyAssignmentsResponseObject interface {
-	VisitListMyAssignmentsResponse(w http.ResponseWriter) error
-}
-
-type ListMyAssignments200JSONResponse struct {
-	Completed []StudentAssignmentCard `json:"completed"`
-	DueNow    []StudentAssignmentCard `json:"dueNow"`
-	Upcoming  []StudentAssignmentCard `json:"upcoming"`
-}
-
-func (response ListMyAssignments200JSONResponse) VisitListMyAssignmentsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetMyAssignmentRequestObject struct {
-	Id IdPath `json:"id"`
-}
-
-type GetMyAssignmentResponseObject interface {
-	VisitGetMyAssignmentResponse(w http.ResponseWriter) error
-}
-
-type GetMyAssignment200JSONResponse StudentAssignmentDetail
-
-func (response GetMyAssignment200JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetMyAssignment403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetMyAssignment403JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetMyAssignment404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetMyAssignment404JSONResponse) VisitGetMyAssignmentResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type StartOrResumeAttemptRequestObject struct {
-	Id IdPath `json:"id"`
-}
-
-type StartOrResumeAttemptResponseObject interface {
-	VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error
-}
-
-type StartOrResumeAttempt200JSONResponse AttemptSession
-
-func (response StartOrResumeAttempt200JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type StartOrResumeAttempt403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response StartOrResumeAttempt403JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type StartOrResumeAttempt409JSONResponse ErrorResponse
-
-func (response StartOrResumeAttempt409JSONResponse) VisitStartOrResumeAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAttemptRequestObject struct {
-	Id IdPath `json:"id"`
-}
-
-type GetAttemptResponseObject interface {
-	VisitGetAttemptResponse(w http.ResponseWriter) error
-}
-
-type GetAttempt200JSONResponse AttemptSession
-
-func (response GetAttempt200JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAttempt403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetAttempt403JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAttempt404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetAttempt404JSONResponse) VisitGetAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SaveAnswersRequestObject struct {
-	Id   IdPath `json:"id"`
-	Body *SaveAnswersJSONRequestBody
-}
-
-type SaveAnswersResponseObject interface {
-	VisitSaveAnswersResponse(w http.ResponseWriter) error
-}
-
-type SaveAnswers200JSONResponse struct {
-	// DeadlineAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
-	DeadlineAt Timestamp `json:"deadlineAt"`
-
-	// SavedAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
-	SavedAt Timestamp `json:"savedAt"`
-
-	// ServerTime RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
-	ServerTime Timestamp `json:"serverTime"`
-}
-
-func (response SaveAnswers200JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SaveAnswers403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response SaveAnswers403JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SaveAnswers409JSONResponse ErrorResponse
-
-func (response SaveAnswers409JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SaveAnswers503JSONResponse struct{ MaintenanceJSONResponse }
-
-func (response SaveAnswers503JSONResponse) VisitSaveAnswersResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RecordAudioPlayRequestObject struct {
-	Id   IdPath `json:"id"`
-	Body *RecordAudioPlayJSONRequestBody
-}
-
-type RecordAudioPlayResponseObject interface {
-	VisitRecordAudioPlayResponse(w http.ResponseWriter) error
-}
-
-type RecordAudioPlay200JSONResponse struct {
-	MaxPlays *int `json:"maxPlays"`
-	Plays    int  `json:"plays"`
-}
-
-func (response RecordAudioPlay200JSONResponse) VisitRecordAudioPlayResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RecordAudioPlay403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response RecordAudioPlay403JSONResponse) VisitRecordAudioPlayResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type FlushEventsRequestObject struct {
-	Id       IdPath `json:"id"`
-	JSONBody *FlushEventsJSONRequestBody
-	TextBody *FlushEventsTextRequestBody
-}
-
-type FlushEventsResponseObject interface {
-	VisitFlushEventsResponse(w http.ResponseWriter) error
-}
-
-type FlushEvents202Response struct {
-}
-
-func (response FlushEvents202Response) VisitFlushEventsResponse(w http.ResponseWriter) error {
-	w.WriteHeader(202)
-	return nil
-}
-
-type FlushEvents403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response FlushEvents403JSONResponse) VisitFlushEventsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type FlushEvents429JSONResponse struct{ TooManyRequestsJSONResponse }
-
-func (response FlushEvents429JSONResponse) VisitFlushEventsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(429)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RecordGroupAudioPlayRequestObject struct {
-	Id   IdPath `json:"id"`
-	Body *RecordGroupAudioPlayJSONRequestBody
-}
-
-type RecordGroupAudioPlayResponseObject interface {
-	VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error
-}
-
-type RecordGroupAudioPlay200JSONResponse GroupAudioPlayResult
-
-func (response RecordGroupAudioPlay200JSONResponse) VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RecordGroupAudioPlay403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response RecordGroupAudioPlay403JSONResponse) VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RecordGroupAudioPlay409JSONResponse ErrorResponse
-
-func (response RecordGroupAudioPlay409JSONResponse) VisitRecordGroupAudioPlayResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAttemptResultRequestObject struct {
-	Id IdPath `json:"id"`
-}
-
-type GetAttemptResultResponseObject interface {
-	VisitGetAttemptResultResponse(w http.ResponseWriter) error
-}
-
-type GetAttemptResult200JSONResponse struct {
-	Attempt Attempt `json:"attempt"`
-
-	// MaxAttempts For "Lượt 1/2" under the score (S-09).
-	MaxAttempts int              `json:"maxAttempts"`
-	Questions   []ResultQuestion `json:"questions"`
-	Review      ReviewPolicy     `json:"review"`
-
-	// SharedContext Frozen material for completed-attempt results and teacher grading.
-	// Learner transcripts contain only recordings whose own policy releases
-	// them after submission; teacher grading includes all available transcripts.
-	// No grading key is added to groups. Listening here never consumes a play.
-	SharedContext *SharedReviewContext `json:"sharedContext,omitempty"`
-	TestTitle     string               `json:"testTitle"`
-}
-
-func (response GetAttemptResult200JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAttemptResult403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetAttemptResult403JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAttemptResult409JSONResponse ErrorResponse
-
-func (response GetAttemptResult409JSONResponse) VisitGetAttemptResultResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SubmitAttemptRequestObject struct {
-	Id   IdPath `json:"id"`
-	Body *SubmitAttemptJSONRequestBody
-}
-
-type SubmitAttemptResponseObject interface {
-	VisitSubmitAttemptResponse(w http.ResponseWriter) error
-}
-
-type SubmitAttempt200JSONResponse Attempt
-
-func (response SubmitAttempt200JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SubmitAttempt403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response SubmitAttempt403JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SubmitAttempt409JSONResponse ErrorResponse
-
-func (response SubmitAttempt409JSONResponse) VisitSubmitAttemptResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ListMyClassesRequestObject struct {
-}
-
-type ListMyClassesResponseObject interface {
-	VisitListMyClassesResponse(w http.ResponseWriter) error
-}
-
-type ListMyClasses200JSONResponse struct {
-	Items []MyClass `json:"items"`
-}
-
-func (response ListMyClasses200JSONResponse) VisitListMyClassesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type JoinClassRequestObject struct {
-	Body *JoinClassJSONRequestBody
-}
-
-type JoinClassResponseObject interface {
-	VisitJoinClassResponse(w http.ResponseWriter) error
-}
-
-type JoinClass200JSONResponse Class
-
-func (response JoinClass200JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type JoinClass404JSONResponse ErrorResponse
-
-func (response JoinClass404JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type JoinClass429JSONResponse struct{ TooManyRequestsJSONResponse }
-
-func (response JoinClass429JSONResponse) VisitJoinClassResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(429)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetMediaUrlRequestObject struct {
-	AssetId Uuid `json:"assetId"`
-}
-
-type GetMediaUrlResponseObject interface {
-	VisitGetMediaUrlResponse(w http.ResponseWriter) error
-}
-
-type GetMediaUrl200ResponseHeaders struct {
-	CacheControl string
-}
-
-type GetMediaUrl200JSONResponse struct {
-	Body struct {
-		// ExpiresAt RFC 3339, UTC. Rendered in `Asia/Ho_Chi_Minh` by the client.
-		ExpiresAt Timestamp `json:"expiresAt"`
-		Url       string    `json:"url"`
-	}
-	Headers GetMediaUrl200ResponseHeaders
-}
-
-func (response GetMediaUrl200JSONResponse) VisitGetMediaUrlResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetMediaUrl403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetMediaUrl403JSONResponse) VisitGetMediaUrlResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ChangePasswordRequestObject struct {
-	Body *ChangePasswordJSONRequestBody
-}
-
-type ChangePasswordResponseObject interface {
-	VisitChangePasswordResponse(w http.ResponseWriter) error
-}
-
-type ChangePassword204Response struct {
-}
-
-func (response ChangePassword204Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type ChangePassword400JSONResponse ErrorResponse
-
-func (response ChangePassword400JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ChangePassword401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ChangePassword401JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GoogleAuthRequestObject struct {
-	Body *GoogleAuthJSONRequestBody
-}
-
-type GoogleAuthResponseObject interface {
-	VisitGoogleAuthResponse(w http.ResponseWriter) error
-}
-
-type GoogleAuth200ResponseHeaders struct {
-	SetCookie *string
-}
-
-type GoogleAuth200JSONResponse struct {
-	Body    GoogleSignInSuccess
-	Headers GoogleAuth200ResponseHeaders
-}
-
-func (response GoogleAuth200JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if response.Headers.SetCookie != nil {
-		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
-	}
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GoogleAuth401JSONResponse ErrorResponse
-
-func (response GoogleAuth401JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GoogleAuth403JSONResponse ErrorResponse
-
-func (response GoogleAuth403JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GoogleAuth404JSONResponse ErrorResponse
-
-func (response GoogleAuth404JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GoogleAuth429JSONResponse struct{ TooManyRequestsJSONResponse }
-
-func (response GoogleAuth429JSONResponse) VisitGoogleAuthResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(429)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type UnlinkGoogleRequestObject struct {
-}
-
-type UnlinkGoogleResponseObject interface {
-	VisitUnlinkGoogleResponse(w http.ResponseWriter) error
-}
-
-type UnlinkGoogle204Response = NoContentResponse
-
-func (response UnlinkGoogle204Response) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type UnlinkGoogle401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response UnlinkGoogle401JSONResponse) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type UnlinkGoogle409JSONResponse ErrorResponse
-
-func (response UnlinkGoogle409JSONResponse) VisitUnlinkGoogleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type LinkGoogleRequestObject struct {
-	Body *LinkGoogleJSONRequestBody
-}
-
-type LinkGoogleResponseObject interface {
-	VisitLinkGoogleResponse(w http.ResponseWriter) error
-}
-
-type LinkGoogle200JSONResponse CurrentUser
-
-func (response LinkGoogle200JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type LinkGoogle401JSONResponse ErrorResponse
-
-func (response LinkGoogle401JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type LinkGoogle409JSONResponse ErrorResponse
-
-func (response LinkGoogle409JSONResponse) VisitLinkGoogleResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type LoginRequestObject struct {
-	Body *LoginJSONRequestBody
-}
-
-type LoginResponseObject interface {
-	VisitLoginResponse(w http.ResponseWriter) error
-}
-
-type Login200ResponseHeaders struct {
-	SetCookie *string
-}
-
-type Login200JSONResponse struct {
-	Body    AuthSuccess
-	Headers Login200ResponseHeaders
-}
-
-func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if response.Headers.SetCookie != nil {
-		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
-	}
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type Login401JSONResponse ErrorResponse
-
-func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type Login429JSONResponse struct{ TooManyRequestsJSONResponse }
-
-func (response Login429JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(429)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type Login503JSONResponse struct{ MaintenanceJSONResponse }
-
-func (response Login503JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type LogoutRequestObject struct {
-}
-
-type LogoutResponseObject interface {
-	VisitLogoutResponse(w http.ResponseWriter) error
-}
-
-type Logout204ResponseHeaders struct {
-	SetCookie *string
-}
-
-type Logout204Response struct {
-	Headers Logout204ResponseHeaders
-}
-
-func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
-	if response.Headers.SetCookie != nil {
-		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
-	}
-	w.WriteHeader(204)
-	return nil
-}
-
-type Logout401JSONResponse ErrorResponse
-
-func (response Logout401JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCurrentUserRequestObject struct {
-}
-
-type GetCurrentUserResponseObject interface {
-	VisitGetCurrentUserResponse(w http.ResponseWriter) error
-}
-
-type GetCurrentUser200JSONResponse CurrentUser
-
-func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCurrentUser401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetCurrentUser503JSONResponse struct{ MaintenanceJSONResponse }
-
-func (response GetCurrentUser503JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type UpdateCurrentUserRequestObject struct {
-	Body *UpdateCurrentUserJSONRequestBody
-}
-
-type UpdateCurrentUserResponseObject interface {
-	VisitUpdateCurrentUserResponse(w http.ResponseWriter) error
-}
-
-type UpdateCurrentUser200JSONResponse CurrentUser
-
-func (response UpdateCurrentUser200JSONResponse) VisitUpdateCurrentUserResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type UpdateCurrentUser400JSONResponse ErrorResponse
-
-func (response UpdateCurrentUser400JSONResponse) VisitUpdateCurrentUserResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type UpdateCurrentUser401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response UpdateCurrentUser401JSONResponse) VisitUpdateCurrentUserResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RefreshSessionRequestObject struct {
-}
-
-type RefreshSessionResponseObject interface {
-	VisitRefreshSessionResponse(w http.ResponseWriter) error
-}
-
-type RefreshSession200ResponseHeaders struct {
-	SetCookie *string
-}
-
-type RefreshSession200JSONResponse struct {
-	Body struct {
-		AccessToken string `json:"accessToken"`
-		ExpiresIn   int    `json:"expiresIn"`
-	}
-	Headers RefreshSession200ResponseHeaders
-}
-
-func (response RefreshSession200JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if response.Headers.SetCookie != nil {
-		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
-	}
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RefreshSession401JSONResponse ErrorResponse
-
-func (response RefreshSession401JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RefreshSession429JSONResponse struct{ TooManyRequestsJSONResponse }
-
-func (response RefreshSession429JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(429)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type RefreshSession503JSONResponse struct{ MaintenanceJSONResponse }
-
-func (response RefreshSession503JSONResponse) VisitRefreshSessionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PreviewJoinCodeRequestObject struct {
-	Body *PreviewJoinCodeJSONRequestBody
-}
-
-type PreviewJoinCodeResponseObject interface {
-	VisitPreviewJoinCodeResponse(w http.ResponseWriter) error
-}
-
-type PreviewJoinCode200JSONResponse struct {
-	// ClassId uuidv7 — time-ordered, so `id DESC` is a valid recency sort (§13.2).
-	//
-	// Examples: 019535d9-3df7-79fb-b466-fa907fa17f9e
-	ClassId     Uuid   `json:"classId"`
-	ClassName   string `json:"className"`
-	TeacherName string `json:"teacherName"`
-}
-
-func (response PreviewJoinCode200JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PreviewJoinCode404JSONResponse ErrorResponse
-
-func (response PreviewJoinCode404JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PreviewJoinCode429JSONResponse struct{ TooManyRequestsJSONResponse }
-
-func (response PreviewJoinCode429JSONResponse) VisitPreviewJoinCodeResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(429)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetPublicStatusRequestObject struct {
-}
-
-type GetPublicStatusResponseObject interface {
-	VisitGetPublicStatusResponse(w http.ResponseWriter) error
-}
-
-type GetPublicStatus200ResponseHeaders struct {
-	CacheControl string
-}
-
-type GetPublicStatus200JSONResponse struct {
-	Body    PublicStatus
-	Headers GetPublicStatus200ResponseHeaders
-}
-
-func (response GetPublicStatus200JSONResponse) VisitGetPublicStatusResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetPublicStatus429JSONResponse struct{ TooManyRequestsJSONResponse }
-
-func (response GetPublicStatus429JSONResponse) VisitGetPublicStatusResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Retry-After", fmt.Sprint(response.Headers.RetryAfter))
-	w.WriteHeader(429)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-
-	// (GET /admin/assignments)
-	ListAssignments(ctx context.Context, request ListAssignmentsRequestObject) (ListAssignmentsResponseObject, error)
-
-	// (POST /admin/assignments)
-	CreateAssignment(ctx context.Context, request CreateAssignmentRequestObject) (CreateAssignmentResponseObject, error)
-
-	// (DELETE /admin/assignments/{id})
-	DeleteAssignment(ctx context.Context, request DeleteAssignmentRequestObject) (DeleteAssignmentResponseObject, error)
-
-	// (GET /admin/assignments/{id})
-	GetAssignment(ctx context.Context, request GetAssignmentRequestObject) (GetAssignmentResponseObject, error)
-
-	// (PATCH /admin/assignments/{id})
-	UpdateAssignment(ctx context.Context, request UpdateAssignmentRequestObject) (UpdateAssignmentResponseObject, error)
-	// ListAnswersForQuestion One question across every paper
-	// (GET /admin/assignments/{id}/answers)
-	ListAnswersForQuestion(ctx context.Context, request ListAnswersForQuestionRequestObject) (ListAnswersForQuestionResponseObject, error)
-	// GetAssignmentMonitor Monitor rows, one per targeted student
-	// (GET /admin/assignments/{id}/attempts)
-	GetAssignmentMonitor(ctx context.Context, request GetAssignmentMonitorRequestObject) (GetAssignmentMonitorResponseObject, error)
-
-	// (POST /admin/assignments/{id}/reopen)
-	ReopenAssignment(ctx context.Context, request ReopenAssignmentRequestObject) (ReopenAssignmentResponseObject, error)
-	// ListAttempts Cross-assignment attempt list
-	// (GET /admin/attempts)
-	ListAttempts(ctx context.Context, request ListAttemptsRequestObject) (ListAttemptsResponseObject, error)
-	// GetAttemptForReview Full attempt for review and grading
-	// (GET /admin/attempts/{id})
-	GetAttemptForReview(ctx context.Context, request GetAttemptForReviewRequestObject) (GetAttemptForReviewResponseObject, error)
-	// GetAttemptEvents Integrity timeline
-	// (GET /admin/attempts/{id}/events)
-	GetAttemptEvents(ctx context.Context, request GetAttemptEventsRequestObject) (GetAttemptEventsResponseObject, error)
-
-	// (POST /admin/attempts/{id}/extend)
-	ExtendAttempt(ctx context.Context, request ExtendAttemptRequestObject) (ExtendAttemptResponseObject, error)
-
-	// (POST /admin/attempts/{id}/finish-grading)
-	FinishGrading(ctx context.Context, request FinishGradingRequestObject) (FinishGradingResponseObject, error)
-
-	// (POST /admin/attempts/{id}/flag)
-	FlagAttempt(ctx context.Context, request FlagAttemptRequestObject) (FlagAttemptResponseObject, error)
-	// GradeAttempt Save manual grades
-	// (POST /admin/attempts/{id}/grade)
-	GradeAttempt(ctx context.Context, request GradeAttemptRequestObject) (GradeAttemptResponseObject, error)
-
-	// (PATCH /admin/attempts/{id}/note)
-	SetAttemptNote(ctx context.Context, request SetAttemptNoteRequestObject) (SetAttemptNoteResponseObject, error)
-
-	// (POST /admin/attempts/{id}/reset)
-	ResetAttempt(ctx context.Context, request ResetAttemptRequestObject) (ResetAttemptResponseObject, error)
-
-	// (POST /admin/attempts/{id}/void)
-	VoidAttempt(ctx context.Context, request VoidAttemptRequestObject) (VoidAttemptResponseObject, error)
-
-	// (GET /admin/classes)
-	ListClasses(ctx context.Context, request ListClassesRequestObject) (ListClassesResponseObject, error)
-
-	// (POST /admin/classes)
-	CreateClass(ctx context.Context, request CreateClassRequestObject) (CreateClassResponseObject, error)
-
-	// (DELETE /admin/classes/{id})
-	DeleteClass(ctx context.Context, request DeleteClassRequestObject) (DeleteClassResponseObject, error)
-
-	// (GET /admin/classes/{id})
-	GetClass(ctx context.Context, request GetClassRequestObject) (GetClassResponseObject, error)
-
-	// (PATCH /admin/classes/{id})
-	UpdateClass(ctx context.Context, request UpdateClassRequestObject) (UpdateClassResponseObject, error)
-
-	// (DELETE /admin/classes/{id}/join-code)
-	RevokeJoinCode(ctx context.Context, request RevokeJoinCodeRequestObject) (RevokeJoinCodeResponseObject, error)
-	// RotateJoinCode Issue a new join code, revoking the old one
-	// (POST /admin/classes/{id}/join-code)
-	RotateJoinCode(ctx context.Context, request RotateJoinCodeRequestObject) (RotateJoinCodeResponseObject, error)
-
-	// (GET /admin/classes/{id}/members)
-	ListClassMembers(ctx context.Context, request ListClassMembersRequestObject) (ListClassMembersResponseObject, error)
-
-	// (POST /admin/classes/{id}/members)
-	AddClassMember(ctx context.Context, request AddClassMemberRequestObject) (AddClassMemberResponseObject, error)
-
-	// (DELETE /admin/classes/{id}/members/{userId})
-	RemoveClassMember(ctx context.Context, request RemoveClassMemberRequestObject) (RemoveClassMemberResponseObject, error)
-
-	// (GET /admin/dashboard)
-	GetDashboard(ctx context.Context, request GetDashboardRequestObject) (GetDashboardResponseObject, error)
 	// OpenDocsSession Open the API reference for fifteen minutes
 	// (POST /admin/docs-session)
 	OpenDocsSession(ctx context.Context, request OpenDocsSessionRequestObject) (OpenDocsSessionResponseObject, error)
-	// ListWordImports Search private import history
-	// (GET /admin/imports)
-	ListWordImports(ctx context.Context, request ListWordImportsRequestObject) (ListWordImportsResponseObject, error)
-	// CreateWordImport Create an empty private import idempotently
-	// (POST /admin/imports)
-	CreateWordImport(ctx context.Context, request CreateWordImportRequestObject) (CreateWordImportResponseObject, error)
-	// GetWordImportCapabilities Read what this deployment can do with Word imports
-	// (GET /admin/imports/capabilities)
-	GetWordImportCapabilities(ctx context.Context, request GetWordImportCapabilitiesRequestObject) (GetWordImportCapabilitiesResponseObject, error)
-	// GetWordImportLimits Read the accepted formats and size limit before uploading
-	// (GET /admin/imports/limits)
-	GetWordImportLimits(ctx context.Context, request GetWordImportLimitsRequestObject) (GetWordImportLimitsResponseObject, error)
-	// GetWordImport Read an import and its current completed sources
-	// (GET /admin/imports/{id})
-	GetWordImport(ctx context.Context, request GetWordImportRequestObject) (GetWordImportResponseObject, error)
-	// CancelWordImport Stop processing, or close an uncommitted import
-	// (POST /admin/imports/{id}/cancel)
-	CancelWordImport(ctx context.Context, request CancelWordImportRequestObject) (CancelWordImportResponseObject, error)
-	// CommitWordImport Create one draft test from the reviewed import
-	// (POST /admin/imports/{id}/commit)
-	CommitWordImport(ctx context.Context, request CommitWordImportRequestObject) (CommitWordImportResponseObject, error)
-	// ProcessWordImport Queue recognition of the current source set
-	// (POST /admin/imports/{id}/process)
-	ProcessWordImport(ctx context.Context, request ProcessWordImportRequestObject) (ProcessWordImportResponseObject, error)
-	// GetWordImportReview Read the reviewable draft with its current findings
-	// (GET /admin/imports/{id}/review)
-	GetWordImportReview(ctx context.Context, request GetWordImportReviewRequestObject) (GetWordImportReviewResponseObject, error)
-	// SaveWordImportReview Save the teacher's edits to the draft
-	// (PUT /admin/imports/{id}/review)
-	SaveWordImportReview(ctx context.Context, request SaveWordImportReviewRequestObject) (SaveWordImportReviewResponseObject, error)
-	// AdoptWordImportReprocessed Replace the edited draft with the newer machine draft
-	// (POST /admin/imports/{id}/review/adopt)
-	AdoptWordImportReprocessed(ctx context.Context, request AdoptWordImportReprocessedRequestObject) (AdoptWordImportReprocessedResponseObject, error)
-	// GetWordImportSource Read the extracted text of one source for comparison
-	// (GET /admin/imports/{id}/source)
-	GetWordImportSource(ctx context.Context, request GetWordImportSourceRequestObject) (GetWordImportSourceResponseObject, error)
-	// UploadImportSource Upload a private Word or PDF source and create an immutable source set
-	// (POST /admin/imports/{id}/sources)
-	UploadImportSource(ctx context.Context, request UploadImportSourceRequestObject) (UploadImportSourceResponseObject, error)
-	// DownloadImportSource Authorize a short-lived original-file download
-	// (GET /admin/imports/{id}/sources/{sourceId}/download)
-	DownloadImportSource(ctx context.Context, request DownloadImportSourceRequestObject) (DownloadImportSourceResponseObject, error)
 
-	// (GET /admin/media)
-	ListMedia(ctx context.Context, request ListMediaRequestObject) (ListMediaResponseObject, error)
-	// UploadMedia Upload an audio or image asset
-	// (POST /admin/media)
-	UploadMedia(ctx context.Context, request UploadMediaRequestObject) (UploadMediaResponseObject, error)
-
-	// (DELETE /admin/media/{id})
-	DeleteMedia(ctx context.Context, request DeleteMediaRequestObject) (DeleteMediaResponseObject, error)
-	// ListQuestionGroups Independent groups in the question bank
-	// (GET /admin/question-groups)
-	ListQuestionGroups(ctx context.Context, request ListQuestionGroupsRequestObject) (ListQuestionGroupsResponseObject, error)
-	// CreateQuestionGroup Create a complete independent draft group
-	// (POST /admin/question-groups)
-	CreateQuestionGroup(ctx context.Context, request CreateQuestionGroupRequestObject) (CreateQuestionGroupResponseObject, error)
-
-	// (DELETE /admin/question-groups/{id})
-	DeleteQuestionGroup(ctx context.Context, request DeleteQuestionGroupRequestObject) (DeleteQuestionGroupResponseObject, error)
-	// GetQuestionGroup Read a complete editable group including answer keys
-	// (GET /admin/question-groups/{id})
-	GetQuestionGroup(ctx context.Context, request GetQuestionGroupRequestObject) (GetQuestionGroupResponseObject, error)
-
-	// (PUT /admin/question-groups/{id})
-	UpdateQuestionGroup(ctx context.Context, request UpdateQuestionGroupRequestObject) (UpdateQuestionGroupResponseObject, error)
-
-	// (PATCH /admin/question-groups/{id}/archive)
-	ArchiveQuestionGroup(ctx context.Context, request ArchiveQuestionGroupRequestObject) (ArchiveQuestionGroupResponseObject, error)
-
-	// (POST /admin/question-groups/{id}/copy)
-	CopyQuestionGroup(ctx context.Context, request CopyQuestionGroupRequestObject) (CopyQuestionGroupResponseObject, error)
-
-	// (GET /admin/questions)
-	ListQuestions(ctx context.Context, request ListQuestionsRequestObject) (ListQuestionsResponseObject, error)
-
-	// (POST /admin/questions)
-	CreateQuestion(ctx context.Context, request CreateQuestionRequestObject) (CreateQuestionResponseObject, error)
-	// TagQuestions Add tags to several questions at once
-	// (POST /admin/questions/tags)
-	TagQuestions(ctx context.Context, request TagQuestionsRequestObject) (TagQuestionsResponseObject, error)
-
-	// (DELETE /admin/questions/{id})
-	DeleteQuestion(ctx context.Context, request DeleteQuestionRequestObject) (DeleteQuestionResponseObject, error)
-
-	// (GET /admin/questions/{id})
-	GetQuestion(ctx context.Context, request GetQuestionRequestObject) (GetQuestionResponseObject, error)
-
-	// (PATCH /admin/questions/{id})
-	UpdateQuestion(ctx context.Context, request UpdateQuestionRequestObject) (UpdateQuestionResponseObject, error)
-
-	// (POST /admin/questions/{id}/duplicate)
-	DuplicateQuestion(ctx context.Context, request DuplicateQuestionRequestObject) (DuplicateQuestionResponseObject, error)
-
-	// (GET /admin/students)
-	ListStudents(ctx context.Context, request ListStudentsRequestObject) (ListStudentsResponseObject, error)
-
-	// (POST /admin/students)
-	CreateStudent(ctx context.Context, request CreateStudentRequestObject) (CreateStudentResponseObject, error)
-
-	// (DELETE /admin/students/{id})
-	DeleteStudent(ctx context.Context, request DeleteStudentRequestObject) (DeleteStudentResponseObject, error)
-
-	// (GET /admin/students/{id})
-	GetStudent(ctx context.Context, request GetStudentRequestObject) (GetStudentResponseObject, error)
-
-	// (PATCH /admin/students/{id})
-	UpdateStudent(ctx context.Context, request UpdateStudentRequestObject) (UpdateStudentResponseObject, error)
-
-	// (POST /admin/students/{id}/reset-password)
-	ResetStudentPassword(ctx context.Context, request ResetStudentPasswordRequestObject) (ResetStudentPasswordResponseObject, error)
-
-	// (GET /admin/tests)
-	ListTests(ctx context.Context, request ListTestsRequestObject) (ListTestsResponseObject, error)
-
-	// (POST /admin/tests)
-	CreateTest(ctx context.Context, request CreateTestRequestObject) (CreateTestResponseObject, error)
-
-	// (DELETE /admin/tests/{id})
-	DeleteTest(ctx context.Context, request DeleteTestRequestObject) (DeleteTestResponseObject, error)
-
-	// (GET /admin/tests/{id})
-	GetTest(ctx context.Context, request GetTestRequestObject) (GetTestResponseObject, error)
-	// UpdateTest Update metadata and the draft outline
-	// (PATCH /admin/tests/{id})
-	UpdateTest(ctx context.Context, request UpdateTestRequestObject) (UpdateTestResponseObject, error)
-
-	// (POST /admin/tests/{id}/duplicate)
-	DuplicateTest(ctx context.Context, request DuplicateTestRequestObject) (DuplicateTestResponseObject, error)
-	// PreviewTest Student-eye preview of a published version
-	// (GET /admin/tests/{id}/preview)
-	PreviewTest(ctx context.Context, request PreviewTestRequestObject) (PreviewTestResponseObject, error)
-	// PublishTest Validate and snapshot a new version
-	// (POST /admin/tests/{id}/publish)
-	PublishTest(ctx context.Context, request PublishTestRequestObject) (PublishTestResponseObject, error)
-	// ListTestVersions Version history
-	// (GET /admin/tests/{id}/versions)
-	ListTestVersions(ctx context.Context, request ListTestVersionsRequestObject) (ListTestVersionsResponseObject, error)
-
-	// (DELETE /admin/tests/{id}/versions/{version})
-	DeleteTestVersion(ctx context.Context, request DeleteTestVersionRequestObject) (DeleteTestVersionResponseObject, error)
-
-	// (POST /admin/tests/{id}/versions/{version}/current)
-	SetCurrentTestVersion(ctx context.Context, request SetCurrentTestVersionRequestObject) (SetCurrentTestVersionResponseObject, error)
-
-	// (POST /admin/tests/{id}/versions/{version}/draft)
-	CreateDraftFromTestVersion(ctx context.Context, request CreateDraftFromTestVersionRequestObject) (CreateDraftFromTestVersionResponseObject, error)
+	// (DELETE /admin/users/{id})
+	DeleteUser(ctx context.Context, request DeleteUserRequestObject) (DeleteUserResponseObject, error)
 
 	// (GET /app/assignments)
 	ListMyAssignments(ctx context.Context, request ListMyAssignmentsRequestObject) (ListMyAssignmentsResponseObject, error)
@@ -15369,6 +15138,237 @@ type StrictServerInterface interface {
 	// GetPublicStatus Whether the API is down for maintenance, or soon will be
 	// (GET /public/status)
 	GetPublicStatus(ctx context.Context, request GetPublicStatusRequestObject) (GetPublicStatusResponseObject, error)
+
+	// (GET /teacher/assignments)
+	ListAssignments(ctx context.Context, request ListAssignmentsRequestObject) (ListAssignmentsResponseObject, error)
+
+	// (POST /teacher/assignments)
+	CreateAssignment(ctx context.Context, request CreateAssignmentRequestObject) (CreateAssignmentResponseObject, error)
+
+	// (DELETE /teacher/assignments/{id})
+	DeleteAssignment(ctx context.Context, request DeleteAssignmentRequestObject) (DeleteAssignmentResponseObject, error)
+
+	// (GET /teacher/assignments/{id})
+	GetAssignment(ctx context.Context, request GetAssignmentRequestObject) (GetAssignmentResponseObject, error)
+
+	// (PATCH /teacher/assignments/{id})
+	UpdateAssignment(ctx context.Context, request UpdateAssignmentRequestObject) (UpdateAssignmentResponseObject, error)
+	// ListAnswersForQuestion One question across every paper
+	// (GET /teacher/assignments/{id}/answers)
+	ListAnswersForQuestion(ctx context.Context, request ListAnswersForQuestionRequestObject) (ListAnswersForQuestionResponseObject, error)
+	// GetAssignmentMonitor Monitor rows, one per targeted student
+	// (GET /teacher/assignments/{id}/attempts)
+	GetAssignmentMonitor(ctx context.Context, request GetAssignmentMonitorRequestObject) (GetAssignmentMonitorResponseObject, error)
+
+	// (POST /teacher/assignments/{id}/reopen)
+	ReopenAssignment(ctx context.Context, request ReopenAssignmentRequestObject) (ReopenAssignmentResponseObject, error)
+	// ListAttempts Cross-assignment attempt list
+	// (GET /teacher/attempts)
+	ListAttempts(ctx context.Context, request ListAttemptsRequestObject) (ListAttemptsResponseObject, error)
+	// GetAttemptForReview Full attempt for review and grading
+	// (GET /teacher/attempts/{id})
+	GetAttemptForReview(ctx context.Context, request GetAttemptForReviewRequestObject) (GetAttemptForReviewResponseObject, error)
+	// GetAttemptEvents Integrity timeline
+	// (GET /teacher/attempts/{id}/events)
+	GetAttemptEvents(ctx context.Context, request GetAttemptEventsRequestObject) (GetAttemptEventsResponseObject, error)
+
+	// (POST /teacher/attempts/{id}/extend)
+	ExtendAttempt(ctx context.Context, request ExtendAttemptRequestObject) (ExtendAttemptResponseObject, error)
+
+	// (POST /teacher/attempts/{id}/finish-grading)
+	FinishGrading(ctx context.Context, request FinishGradingRequestObject) (FinishGradingResponseObject, error)
+
+	// (POST /teacher/attempts/{id}/flag)
+	FlagAttempt(ctx context.Context, request FlagAttemptRequestObject) (FlagAttemptResponseObject, error)
+	// GradeAttempt Save manual grades
+	// (POST /teacher/attempts/{id}/grade)
+	GradeAttempt(ctx context.Context, request GradeAttemptRequestObject) (GradeAttemptResponseObject, error)
+
+	// (PATCH /teacher/attempts/{id}/note)
+	SetAttemptNote(ctx context.Context, request SetAttemptNoteRequestObject) (SetAttemptNoteResponseObject, error)
+
+	// (POST /teacher/attempts/{id}/reset)
+	ResetAttempt(ctx context.Context, request ResetAttemptRequestObject) (ResetAttemptResponseObject, error)
+
+	// (POST /teacher/attempts/{id}/void)
+	VoidAttempt(ctx context.Context, request VoidAttemptRequestObject) (VoidAttemptResponseObject, error)
+
+	// (GET /teacher/classes)
+	ListClasses(ctx context.Context, request ListClassesRequestObject) (ListClassesResponseObject, error)
+
+	// (POST /teacher/classes)
+	CreateClass(ctx context.Context, request CreateClassRequestObject) (CreateClassResponseObject, error)
+
+	// (DELETE /teacher/classes/{id})
+	DeleteClass(ctx context.Context, request DeleteClassRequestObject) (DeleteClassResponseObject, error)
+
+	// (GET /teacher/classes/{id})
+	GetClass(ctx context.Context, request GetClassRequestObject) (GetClassResponseObject, error)
+
+	// (PATCH /teacher/classes/{id})
+	UpdateClass(ctx context.Context, request UpdateClassRequestObject) (UpdateClassResponseObject, error)
+
+	// (DELETE /teacher/classes/{id}/join-code)
+	RevokeJoinCode(ctx context.Context, request RevokeJoinCodeRequestObject) (RevokeJoinCodeResponseObject, error)
+	// RotateJoinCode Issue a new join code, revoking the old one
+	// (POST /teacher/classes/{id}/join-code)
+	RotateJoinCode(ctx context.Context, request RotateJoinCodeRequestObject) (RotateJoinCodeResponseObject, error)
+
+	// (GET /teacher/classes/{id}/members)
+	ListClassMembers(ctx context.Context, request ListClassMembersRequestObject) (ListClassMembersResponseObject, error)
+
+	// (POST /teacher/classes/{id}/members)
+	AddClassMember(ctx context.Context, request AddClassMemberRequestObject) (AddClassMemberResponseObject, error)
+
+	// (DELETE /teacher/classes/{id}/members/{userId})
+	RemoveClassMember(ctx context.Context, request RemoveClassMemberRequestObject) (RemoveClassMemberResponseObject, error)
+
+	// (GET /teacher/dashboard)
+	GetDashboard(ctx context.Context, request GetDashboardRequestObject) (GetDashboardResponseObject, error)
+	// ListWordImports Search private import history
+	// (GET /teacher/imports)
+	ListWordImports(ctx context.Context, request ListWordImportsRequestObject) (ListWordImportsResponseObject, error)
+	// CreateWordImport Create an empty private import idempotently
+	// (POST /teacher/imports)
+	CreateWordImport(ctx context.Context, request CreateWordImportRequestObject) (CreateWordImportResponseObject, error)
+	// GetWordImportCapabilities Read what this deployment can do with Word imports
+	// (GET /teacher/imports/capabilities)
+	GetWordImportCapabilities(ctx context.Context, request GetWordImportCapabilitiesRequestObject) (GetWordImportCapabilitiesResponseObject, error)
+	// GetWordImportLimits Read the accepted formats and size limit before uploading
+	// (GET /teacher/imports/limits)
+	GetWordImportLimits(ctx context.Context, request GetWordImportLimitsRequestObject) (GetWordImportLimitsResponseObject, error)
+	// GetWordImport Read an import and its current completed sources
+	// (GET /teacher/imports/{id})
+	GetWordImport(ctx context.Context, request GetWordImportRequestObject) (GetWordImportResponseObject, error)
+	// CancelWordImport Stop processing, or close an uncommitted import
+	// (POST /teacher/imports/{id}/cancel)
+	CancelWordImport(ctx context.Context, request CancelWordImportRequestObject) (CancelWordImportResponseObject, error)
+	// CommitWordImport Create one draft test from the reviewed import
+	// (POST /teacher/imports/{id}/commit)
+	CommitWordImport(ctx context.Context, request CommitWordImportRequestObject) (CommitWordImportResponseObject, error)
+	// ProcessWordImport Queue recognition of the current source set
+	// (POST /teacher/imports/{id}/process)
+	ProcessWordImport(ctx context.Context, request ProcessWordImportRequestObject) (ProcessWordImportResponseObject, error)
+	// GetWordImportReview Read the reviewable draft with its current findings
+	// (GET /teacher/imports/{id}/review)
+	GetWordImportReview(ctx context.Context, request GetWordImportReviewRequestObject) (GetWordImportReviewResponseObject, error)
+	// SaveWordImportReview Save the teacher's edits to the draft
+	// (PUT /teacher/imports/{id}/review)
+	SaveWordImportReview(ctx context.Context, request SaveWordImportReviewRequestObject) (SaveWordImportReviewResponseObject, error)
+	// AdoptWordImportReprocessed Replace the edited draft with the newer machine draft
+	// (POST /teacher/imports/{id}/review/adopt)
+	AdoptWordImportReprocessed(ctx context.Context, request AdoptWordImportReprocessedRequestObject) (AdoptWordImportReprocessedResponseObject, error)
+	// GetWordImportSource Read the extracted text of one source for comparison
+	// (GET /teacher/imports/{id}/source)
+	GetWordImportSource(ctx context.Context, request GetWordImportSourceRequestObject) (GetWordImportSourceResponseObject, error)
+	// UploadImportSource Upload a private Word or PDF source and create an immutable source set
+	// (POST /teacher/imports/{id}/sources)
+	UploadImportSource(ctx context.Context, request UploadImportSourceRequestObject) (UploadImportSourceResponseObject, error)
+	// DownloadImportSource Authorize a short-lived original-file download
+	// (GET /teacher/imports/{id}/sources/{sourceId}/download)
+	DownloadImportSource(ctx context.Context, request DownloadImportSourceRequestObject) (DownloadImportSourceResponseObject, error)
+
+	// (GET /teacher/media)
+	ListMedia(ctx context.Context, request ListMediaRequestObject) (ListMediaResponseObject, error)
+	// UploadMedia Upload an audio or image asset
+	// (POST /teacher/media)
+	UploadMedia(ctx context.Context, request UploadMediaRequestObject) (UploadMediaResponseObject, error)
+
+	// (DELETE /teacher/media/{id})
+	DeleteMedia(ctx context.Context, request DeleteMediaRequestObject) (DeleteMediaResponseObject, error)
+	// ListQuestionGroups Independent groups in the question bank
+	// (GET /teacher/question-groups)
+	ListQuestionGroups(ctx context.Context, request ListQuestionGroupsRequestObject) (ListQuestionGroupsResponseObject, error)
+	// CreateQuestionGroup Create a complete independent draft group
+	// (POST /teacher/question-groups)
+	CreateQuestionGroup(ctx context.Context, request CreateQuestionGroupRequestObject) (CreateQuestionGroupResponseObject, error)
+
+	// (DELETE /teacher/question-groups/{id})
+	DeleteQuestionGroup(ctx context.Context, request DeleteQuestionGroupRequestObject) (DeleteQuestionGroupResponseObject, error)
+	// GetQuestionGroup Read a complete editable group including answer keys
+	// (GET /teacher/question-groups/{id})
+	GetQuestionGroup(ctx context.Context, request GetQuestionGroupRequestObject) (GetQuestionGroupResponseObject, error)
+
+	// (PUT /teacher/question-groups/{id})
+	UpdateQuestionGroup(ctx context.Context, request UpdateQuestionGroupRequestObject) (UpdateQuestionGroupResponseObject, error)
+
+	// (PATCH /teacher/question-groups/{id}/archive)
+	ArchiveQuestionGroup(ctx context.Context, request ArchiveQuestionGroupRequestObject) (ArchiveQuestionGroupResponseObject, error)
+
+	// (POST /teacher/question-groups/{id}/copy)
+	CopyQuestionGroup(ctx context.Context, request CopyQuestionGroupRequestObject) (CopyQuestionGroupResponseObject, error)
+
+	// (GET /teacher/questions)
+	ListQuestions(ctx context.Context, request ListQuestionsRequestObject) (ListQuestionsResponseObject, error)
+
+	// (POST /teacher/questions)
+	CreateQuestion(ctx context.Context, request CreateQuestionRequestObject) (CreateQuestionResponseObject, error)
+	// TagQuestions Add tags to several questions at once
+	// (POST /teacher/questions/tags)
+	TagQuestions(ctx context.Context, request TagQuestionsRequestObject) (TagQuestionsResponseObject, error)
+
+	// (DELETE /teacher/questions/{id})
+	DeleteQuestion(ctx context.Context, request DeleteQuestionRequestObject) (DeleteQuestionResponseObject, error)
+
+	// (GET /teacher/questions/{id})
+	GetQuestion(ctx context.Context, request GetQuestionRequestObject) (GetQuestionResponseObject, error)
+
+	// (PATCH /teacher/questions/{id})
+	UpdateQuestion(ctx context.Context, request UpdateQuestionRequestObject) (UpdateQuestionResponseObject, error)
+
+	// (POST /teacher/questions/{id}/duplicate)
+	DuplicateQuestion(ctx context.Context, request DuplicateQuestionRequestObject) (DuplicateQuestionResponseObject, error)
+
+	// (GET /teacher/students)
+	ListStudents(ctx context.Context, request ListStudentsRequestObject) (ListStudentsResponseObject, error)
+
+	// (POST /teacher/students)
+	CreateStudent(ctx context.Context, request CreateStudentRequestObject) (CreateStudentResponseObject, error)
+
+	// (GET /teacher/students/{id})
+	GetStudent(ctx context.Context, request GetStudentRequestObject) (GetStudentResponseObject, error)
+
+	// (PATCH /teacher/students/{id})
+	UpdateStudent(ctx context.Context, request UpdateStudentRequestObject) (UpdateStudentResponseObject, error)
+
+	// (POST /teacher/students/{id}/reset-password)
+	ResetStudentPassword(ctx context.Context, request ResetStudentPasswordRequestObject) (ResetStudentPasswordResponseObject, error)
+
+	// (GET /teacher/tests)
+	ListTests(ctx context.Context, request ListTestsRequestObject) (ListTestsResponseObject, error)
+
+	// (POST /teacher/tests)
+	CreateTest(ctx context.Context, request CreateTestRequestObject) (CreateTestResponseObject, error)
+
+	// (DELETE /teacher/tests/{id})
+	DeleteTest(ctx context.Context, request DeleteTestRequestObject) (DeleteTestResponseObject, error)
+
+	// (GET /teacher/tests/{id})
+	GetTest(ctx context.Context, request GetTestRequestObject) (GetTestResponseObject, error)
+	// UpdateTest Update metadata and the draft outline
+	// (PATCH /teacher/tests/{id})
+	UpdateTest(ctx context.Context, request UpdateTestRequestObject) (UpdateTestResponseObject, error)
+
+	// (POST /teacher/tests/{id}/duplicate)
+	DuplicateTest(ctx context.Context, request DuplicateTestRequestObject) (DuplicateTestResponseObject, error)
+	// PreviewTest Student-eye preview of a published version
+	// (GET /teacher/tests/{id}/preview)
+	PreviewTest(ctx context.Context, request PreviewTestRequestObject) (PreviewTestResponseObject, error)
+	// PublishTest Validate and snapshot a new version
+	// (POST /teacher/tests/{id}/publish)
+	PublishTest(ctx context.Context, request PublishTestRequestObject) (PublishTestResponseObject, error)
+	// ListTestVersions Version history
+	// (GET /teacher/tests/{id}/versions)
+	ListTestVersions(ctx context.Context, request ListTestVersionsRequestObject) (ListTestVersionsResponseObject, error)
+
+	// (DELETE /teacher/tests/{id}/versions/{version})
+	DeleteTestVersion(ctx context.Context, request DeleteTestVersionRequestObject) (DeleteTestVersionResponseObject, error)
+
+	// (POST /teacher/tests/{id}/versions/{version}/current)
+	SetCurrentTestVersion(ctx context.Context, request SetCurrentTestVersionRequestObject) (SetCurrentTestVersionResponseObject, error)
+
+	// (POST /teacher/tests/{id}/versions/{version}/draft)
+	CreateDraftFromTestVersion(ctx context.Context, request CreateDraftFromTestVersionRequestObject) (CreateDraftFromTestVersionResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -15408,6 +15408,751 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// OpenDocsSession operation middleware
+func (sh *strictHandler) OpenDocsSession(w http.ResponseWriter, r *http.Request) {
+	var request OpenDocsSessionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.OpenDocsSession(ctx, request.(OpenDocsSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OpenDocsSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(OpenDocsSessionResponseObject); ok {
+		if err := validResponse.VisitOpenDocsSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteUser operation middleware
+func (sh *strictHandler) DeleteUser(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request DeleteUserRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteUser(ctx, request.(DeleteUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteUserResponseObject); ok {
+		if err := validResponse.VisitDeleteUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyAssignments operation middleware
+func (sh *strictHandler) ListMyAssignments(w http.ResponseWriter, r *http.Request) {
+	var request ListMyAssignmentsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyAssignments(ctx, request.(ListMyAssignmentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyAssignments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyAssignmentsResponseObject); ok {
+		if err := validResponse.VisitListMyAssignmentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMyAssignment operation middleware
+func (sh *strictHandler) GetMyAssignment(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request GetMyAssignmentRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMyAssignment(ctx, request.(GetMyAssignmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMyAssignment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMyAssignmentResponseObject); ok {
+		if err := validResponse.VisitGetMyAssignmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartOrResumeAttempt operation middleware
+func (sh *strictHandler) StartOrResumeAttempt(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request StartOrResumeAttemptRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartOrResumeAttempt(ctx, request.(StartOrResumeAttemptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartOrResumeAttempt")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartOrResumeAttemptResponseObject); ok {
+		if err := validResponse.VisitStartOrResumeAttemptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAttempt operation middleware
+func (sh *strictHandler) GetAttempt(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request GetAttemptRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAttempt(ctx, request.(GetAttemptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAttempt")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAttemptResponseObject); ok {
+		if err := validResponse.VisitGetAttemptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SaveAnswers operation middleware
+func (sh *strictHandler) SaveAnswers(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request SaveAnswersRequestObject
+
+	request.Id = id
+
+	var body SaveAnswersJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SaveAnswers(ctx, request.(SaveAnswersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SaveAnswers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SaveAnswersResponseObject); ok {
+		if err := validResponse.VisitSaveAnswersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RecordAudioPlay operation middleware
+func (sh *strictHandler) RecordAudioPlay(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request RecordAudioPlayRequestObject
+
+	request.Id = id
+
+	var body RecordAudioPlayJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RecordAudioPlay(ctx, request.(RecordAudioPlayRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RecordAudioPlay")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RecordAudioPlayResponseObject); ok {
+		if err := validResponse.VisitRecordAudioPlayResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FlushEvents operation middleware
+func (sh *strictHandler) FlushEvents(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request FlushEventsRequestObject
+
+	request.Id = id
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+
+		var body FlushEventsJSONRequestBody
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+		request.JSONBody = &body
+
+	}
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't read body: %w", err))
+			return
+		}
+		body := FlushEventsTextRequestBody(data)
+		request.TextBody = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FlushEvents(ctx, request.(FlushEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FlushEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FlushEventsResponseObject); ok {
+		if err := validResponse.VisitFlushEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RecordGroupAudioPlay operation middleware
+func (sh *strictHandler) RecordGroupAudioPlay(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request RecordGroupAudioPlayRequestObject
+
+	request.Id = id
+
+	var body RecordGroupAudioPlayJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RecordGroupAudioPlay(ctx, request.(RecordGroupAudioPlayRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RecordGroupAudioPlay")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RecordGroupAudioPlayResponseObject); ok {
+		if err := validResponse.VisitRecordGroupAudioPlayResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAttemptResult operation middleware
+func (sh *strictHandler) GetAttemptResult(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request GetAttemptResultRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAttemptResult(ctx, request.(GetAttemptResultRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAttemptResult")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAttemptResultResponseObject); ok {
+		if err := validResponse.VisitGetAttemptResultResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SubmitAttempt operation middleware
+func (sh *strictHandler) SubmitAttempt(w http.ResponseWriter, r *http.Request, id IdPath) {
+	var request SubmitAttemptRequestObject
+
+	request.Id = id
+
+	var body SubmitAttemptJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitAttempt(ctx, request.(SubmitAttemptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitAttempt")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SubmitAttemptResponseObject); ok {
+		if err := validResponse.VisitSubmitAttemptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyClasses operation middleware
+func (sh *strictHandler) ListMyClasses(w http.ResponseWriter, r *http.Request) {
+	var request ListMyClassesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyClasses(ctx, request.(ListMyClassesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyClasses")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyClassesResponseObject); ok {
+		if err := validResponse.VisitListMyClassesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// JoinClass operation middleware
+func (sh *strictHandler) JoinClass(w http.ResponseWriter, r *http.Request) {
+	var request JoinClassRequestObject
+
+	var body JoinClassJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.JoinClass(ctx, request.(JoinClassRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "JoinClass")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(JoinClassResponseObject); ok {
+		if err := validResponse.VisitJoinClassResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMediaUrl operation middleware
+func (sh *strictHandler) GetMediaUrl(w http.ResponseWriter, r *http.Request, assetId Uuid) {
+	var request GetMediaUrlRequestObject
+
+	request.AssetId = assetId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMediaUrl(ctx, request.(GetMediaUrlRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMediaUrl")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMediaUrlResponseObject); ok {
+		if err := validResponse.VisitGetMediaUrlResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChangePassword operation middleware
+func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var request ChangePasswordRequestObject
+
+	var body ChangePasswordJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangePassword(ctx, request.(ChangePasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangePassword")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
+		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GoogleAuth operation middleware
+func (sh *strictHandler) GoogleAuth(w http.ResponseWriter, r *http.Request) {
+	var request GoogleAuthRequestObject
+
+	var body GoogleAuthJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GoogleAuth(ctx, request.(GoogleAuthRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GoogleAuth")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GoogleAuthResponseObject); ok {
+		if err := validResponse.VisitGoogleAuthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnlinkGoogle operation middleware
+func (sh *strictHandler) UnlinkGoogle(w http.ResponseWriter, r *http.Request) {
+	var request UnlinkGoogleRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnlinkGoogle(ctx, request.(UnlinkGoogleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnlinkGoogle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnlinkGoogleResponseObject); ok {
+		if err := validResponse.VisitUnlinkGoogleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LinkGoogle operation middleware
+func (sh *strictHandler) LinkGoogle(w http.ResponseWriter, r *http.Request) {
+	var request LinkGoogleRequestObject
+
+	var body LinkGoogleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkGoogle(ctx, request.(LinkGoogleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkGoogle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LinkGoogleResponseObject); ok {
+		if err := validResponse.VisitLinkGoogleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx, request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		if err := validResponse.VisitLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var request LogoutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCurrentUser operation middleware
+func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	var request GetCurrentUserRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCurrentUser(ctx, request.(GetCurrentUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCurrentUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
+		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateCurrentUser operation middleware
+func (sh *strictHandler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
+	var request UpdateCurrentUserRequestObject
+
+	var body UpdateCurrentUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCurrentUser(ctx, request.(UpdateCurrentUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCurrentUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateCurrentUserResponseObject); ok {
+		if err := validResponse.VisitUpdateCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshSession operation middleware
+func (sh *strictHandler) RefreshSession(w http.ResponseWriter, r *http.Request) {
+	var request RefreshSessionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshSession(ctx, request.(RefreshSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshSessionResponseObject); ok {
+		if err := validResponse.VisitRefreshSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewJoinCode operation middleware
+func (sh *strictHandler) PreviewJoinCode(w http.ResponseWriter, r *http.Request) {
+	var request PreviewJoinCodeRequestObject
+
+	var body PreviewJoinCodeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewJoinCode(ctx, request.(PreviewJoinCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewJoinCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewJoinCodeResponseObject); ok {
+		if err := validResponse.VisitPreviewJoinCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPublicStatus operation middleware
+func (sh *strictHandler) GetPublicStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetPublicStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPublicStatus(ctx, request.(GetPublicStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPublicStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPublicStatusResponseObject); ok {
+		if err := validResponse.VisitGetPublicStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListAssignments operation middleware
@@ -16248,30 +16993,6 @@ func (sh *strictHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDashboardResponseObject); ok {
 		if err := validResponse.VisitGetDashboardResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// OpenDocsSession operation middleware
-func (sh *strictHandler) OpenDocsSession(w http.ResponseWriter, r *http.Request) {
-	var request OpenDocsSessionRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.OpenDocsSession(ctx, request.(OpenDocsSessionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "OpenDocsSession")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(OpenDocsSessionResponseObject); ok {
-		if err := validResponse.VisitOpenDocsSessionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -17237,32 +17958,6 @@ func (sh *strictHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteStudent operation middleware
-func (sh *strictHandler) DeleteStudent(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request DeleteStudentRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteStudent(ctx, request.(DeleteStudentRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteStudent")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeleteStudentResponseObject); ok {
-		if err := validResponse.VisitDeleteStudentResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // GetStudent operation middleware
 func (sh *strictHandler) GetStudent(w http.ResponseWriter, r *http.Request, id IdPath) {
 	var request GetStudentRequestObject
@@ -17690,1536 +18385,842 @@ func (sh *strictHandler) CreateDraftFromTestVersion(w http.ResponseWriter, r *ht
 	}
 }
 
-// ListMyAssignments operation middleware
-func (sh *strictHandler) ListMyAssignments(w http.ResponseWriter, r *http.Request) {
-	var request ListMyAssignmentsRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListMyAssignments(ctx, request.(ListMyAssignmentsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListMyAssignments")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListMyAssignmentsResponseObject); ok {
-		if err := validResponse.VisitListMyAssignmentsResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetMyAssignment operation middleware
-func (sh *strictHandler) GetMyAssignment(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request GetMyAssignmentRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetMyAssignment(ctx, request.(GetMyAssignmentRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetMyAssignment")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetMyAssignmentResponseObject); ok {
-		if err := validResponse.VisitGetMyAssignmentResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// StartOrResumeAttempt operation middleware
-func (sh *strictHandler) StartOrResumeAttempt(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request StartOrResumeAttemptRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.StartOrResumeAttempt(ctx, request.(StartOrResumeAttemptRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "StartOrResumeAttempt")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(StartOrResumeAttemptResponseObject); ok {
-		if err := validResponse.VisitStartOrResumeAttemptResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetAttempt operation middleware
-func (sh *strictHandler) GetAttempt(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request GetAttemptRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAttempt(ctx, request.(GetAttemptRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAttempt")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAttemptResponseObject); ok {
-		if err := validResponse.VisitGetAttemptResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// SaveAnswers operation middleware
-func (sh *strictHandler) SaveAnswers(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request SaveAnswersRequestObject
-
-	request.Id = id
-
-	var body SaveAnswersJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.SaveAnswers(ctx, request.(SaveAnswersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SaveAnswers")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SaveAnswersResponseObject); ok {
-		if err := validResponse.VisitSaveAnswersResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// RecordAudioPlay operation middleware
-func (sh *strictHandler) RecordAudioPlay(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request RecordAudioPlayRequestObject
-
-	request.Id = id
-
-	var body RecordAudioPlayJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RecordAudioPlay(ctx, request.(RecordAudioPlayRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RecordAudioPlay")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RecordAudioPlayResponseObject); ok {
-		if err := validResponse.VisitRecordAudioPlayResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// FlushEvents operation middleware
-func (sh *strictHandler) FlushEvents(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request FlushEventsRequestObject
-
-	request.Id = id
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-
-		var body FlushEventsJSONRequestBody
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-			return
-		}
-		request.JSONBody = &body
-
-	}
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
-		data, err := io.ReadAll(r.Body)
-		if err != nil {
-			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't read body: %w", err))
-			return
-		}
-		body := FlushEventsTextRequestBody(data)
-		request.TextBody = &body
-	}
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.FlushEvents(ctx, request.(FlushEventsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "FlushEvents")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(FlushEventsResponseObject); ok {
-		if err := validResponse.VisitFlushEventsResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// RecordGroupAudioPlay operation middleware
-func (sh *strictHandler) RecordGroupAudioPlay(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request RecordGroupAudioPlayRequestObject
-
-	request.Id = id
-
-	var body RecordGroupAudioPlayJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RecordGroupAudioPlay(ctx, request.(RecordGroupAudioPlayRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RecordGroupAudioPlay")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RecordGroupAudioPlayResponseObject); ok {
-		if err := validResponse.VisitRecordGroupAudioPlayResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetAttemptResult operation middleware
-func (sh *strictHandler) GetAttemptResult(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request GetAttemptResultRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAttemptResult(ctx, request.(GetAttemptResultRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAttemptResult")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAttemptResultResponseObject); ok {
-		if err := validResponse.VisitGetAttemptResultResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// SubmitAttempt operation middleware
-func (sh *strictHandler) SubmitAttempt(w http.ResponseWriter, r *http.Request, id IdPath) {
-	var request SubmitAttemptRequestObject
-
-	request.Id = id
-
-	var body SubmitAttemptJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-			return
-		}
-	} else {
-		request.Body = &body
-	}
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.SubmitAttempt(ctx, request.(SubmitAttemptRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SubmitAttempt")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SubmitAttemptResponseObject); ok {
-		if err := validResponse.VisitSubmitAttemptResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListMyClasses operation middleware
-func (sh *strictHandler) ListMyClasses(w http.ResponseWriter, r *http.Request) {
-	var request ListMyClassesRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListMyClasses(ctx, request.(ListMyClassesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListMyClasses")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListMyClassesResponseObject); ok {
-		if err := validResponse.VisitListMyClassesResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// JoinClass operation middleware
-func (sh *strictHandler) JoinClass(w http.ResponseWriter, r *http.Request) {
-	var request JoinClassRequestObject
-
-	var body JoinClassJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.JoinClass(ctx, request.(JoinClassRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "JoinClass")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(JoinClassResponseObject); ok {
-		if err := validResponse.VisitJoinClassResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetMediaUrl operation middleware
-func (sh *strictHandler) GetMediaUrl(w http.ResponseWriter, r *http.Request, assetId Uuid) {
-	var request GetMediaUrlRequestObject
-
-	request.AssetId = assetId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetMediaUrl(ctx, request.(GetMediaUrlRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetMediaUrl")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetMediaUrlResponseObject); ok {
-		if err := validResponse.VisitGetMediaUrlResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ChangePassword operation middleware
-func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	var request ChangePasswordRequestObject
-
-	var body ChangePasswordJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ChangePassword(ctx, request.(ChangePasswordRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ChangePassword")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
-		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GoogleAuth operation middleware
-func (sh *strictHandler) GoogleAuth(w http.ResponseWriter, r *http.Request) {
-	var request GoogleAuthRequestObject
-
-	var body GoogleAuthJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GoogleAuth(ctx, request.(GoogleAuthRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GoogleAuth")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GoogleAuthResponseObject); ok {
-		if err := validResponse.VisitGoogleAuthResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// UnlinkGoogle operation middleware
-func (sh *strictHandler) UnlinkGoogle(w http.ResponseWriter, r *http.Request) {
-	var request UnlinkGoogleRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UnlinkGoogle(ctx, request.(UnlinkGoogleRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UnlinkGoogle")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UnlinkGoogleResponseObject); ok {
-		if err := validResponse.VisitUnlinkGoogleResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// LinkGoogle operation middleware
-func (sh *strictHandler) LinkGoogle(w http.ResponseWriter, r *http.Request) {
-	var request LinkGoogleRequestObject
-
-	var body LinkGoogleJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.LinkGoogle(ctx, request.(LinkGoogleRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "LinkGoogle")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(LinkGoogleResponseObject); ok {
-		if err := validResponse.VisitLinkGoogleResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// Login operation middleware
-func (sh *strictHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var request LoginRequestObject
-
-	var body LoginJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Login(ctx, request.(LoginRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Login")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(LoginResponseObject); ok {
-		if err := validResponse.VisitLoginResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// Logout operation middleware
-func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	var request LogoutRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Logout")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(LogoutResponseObject); ok {
-		if err := validResponse.VisitLogoutResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetCurrentUser operation middleware
-func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
-	var request GetCurrentUserRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetCurrentUser(ctx, request.(GetCurrentUserRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetCurrentUser")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
-		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// UpdateCurrentUser operation middleware
-func (sh *strictHandler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
-	var request UpdateCurrentUserRequestObject
-
-	var body UpdateCurrentUserJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateCurrentUser(ctx, request.(UpdateCurrentUserRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateCurrentUser")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateCurrentUserResponseObject); ok {
-		if err := validResponse.VisitUpdateCurrentUserResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// RefreshSession operation middleware
-func (sh *strictHandler) RefreshSession(w http.ResponseWriter, r *http.Request) {
-	var request RefreshSessionRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RefreshSession(ctx, request.(RefreshSessionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RefreshSession")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RefreshSessionResponseObject); ok {
-		if err := validResponse.VisitRefreshSessionResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// PreviewJoinCode operation middleware
-func (sh *strictHandler) PreviewJoinCode(w http.ResponseWriter, r *http.Request) {
-	var request PreviewJoinCodeRequestObject
-
-	var body PreviewJoinCodeJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PreviewJoinCode(ctx, request.(PreviewJoinCodeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PreviewJoinCode")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PreviewJoinCodeResponseObject); ok {
-		if err := validResponse.VisitPreviewJoinCodeResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetPublicStatus operation middleware
-func (sh *strictHandler) GetPublicStatus(w http.ResponseWriter, r *http.Request) {
-	var request GetPublicStatusRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetPublicStatus(ctx, request.(GetPublicStatusRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetPublicStatus")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetPublicStatusResponseObject); ok {
-		if err := validResponse.VisitGetPublicStatusResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"LtVLJaDTh+8//P8HAA==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

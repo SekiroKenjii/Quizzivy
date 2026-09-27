@@ -59,11 +59,11 @@ let patches: unknown[] = [];
 beforeEach(() => {
   patches = [];
   server.use(
-    http.get(`${BASE}/admin/assignments/${ID}`, () =>
-      contractJson("/admin/assignments/{id}", "get", 200, saved),
+    http.get(`${BASE}/teacher/assignments/${ID}`, () =>
+      contractJson("/teacher/assignments/{id}", "get", 200, saved),
     ),
-    http.get(`${BASE}/admin/tests/${TEST_ID}/versions`, () =>
-      contractJson("/admin/tests/{id}/versions", "get", 200, {
+    http.get(`${BASE}/teacher/tests/${TEST_ID}/versions`, () =>
+      contractJson("/teacher/tests/{id}/versions", "get", 200, {
         items: [
           {
             id: VERSION_ID,
@@ -78,8 +78,8 @@ beforeEach(() => {
         ],
       }),
     ),
-    http.get(`${BASE}/admin/classes`, () =>
-      contractJson("/admin/classes", "get", 200, {
+    http.get(`${BASE}/teacher/classes`, () =>
+      contractJson("/teacher/classes", "get", 200, {
         items: [],
         page: 1,
         pageSize: 20,
@@ -87,8 +87,8 @@ beforeEach(() => {
         facets: { all: 0, joinable: 0, archived: 0, students: 0 },
       }),
     ),
-    http.get(`${BASE}/admin/students`, () =>
-      contractJson("/admin/students", "get", 200, {
+    http.get(`${BASE}/teacher/students`, () =>
+      contractJson("/teacher/students", "get", 200, {
         items: [],
         page: 1,
         pageSize: 20,
@@ -96,9 +96,9 @@ beforeEach(() => {
         facets: { total: 0, activeLast7Days: 0 },
       }),
     ),
-    http.patch(`${BASE}/admin/assignments/${ID}`, async ({ request }) => {
+    http.patch(`${BASE}/teacher/assignments/${ID}`, async ({ request }) => {
       patches.push(await request.json());
-      return contractJson("/admin/assignments/{id}", "patch", 200, saved);
+      return contractJson("/teacher/assignments/{id}", "patch", 200, saved);
     }),
   );
 });

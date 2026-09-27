@@ -65,8 +65,8 @@ beforeEach(() => {
     updatedAt: "2026-01-02T00:00:00Z",
   };
   server.use(
-    http.get(`${BASE}/admin/tests/:id/versions`, () =>
-      contractJson("/admin/tests/{id}/versions", "get", 200, {
+    http.get(`${BASE}/teacher/tests/:id/versions`, () =>
+      contractJson("/teacher/tests/{id}/versions", "get", 200, {
         items: [
           {
             id: "018f0000-0000-7000-8000-0000000000f1",
@@ -81,9 +81,9 @@ beforeEach(() => {
         ],
       }),
     ),
-    http.get(`${BASE}/admin/tests/:id/preview`, () => {
+    http.get(`${BASE}/teacher/tests/:id/preview`, () => {
       previewCalls += 1;
-      return contractJson("/admin/tests/{id}/preview", "get", 200, {
+      return contractJson("/teacher/tests/{id}/preview", "get", 200, {
         version: 1,
         questions: [
           {
@@ -103,8 +103,8 @@ beforeEach(() => {
         ],
       });
     }),
-    http.get(`${BASE}/admin/tests/:id`, () =>
-      contractJson("/admin/tests/{id}", "get", 200, draft),
+    http.get(`${BASE}/teacher/tests/:id`, () =>
+      contractJson("/teacher/tests/{id}", "get", 200, draft),
     ),
   );
 });
@@ -209,14 +209,14 @@ describe("the test detail preview", () => {
 
   it("offers the builder when there is nothing published to preview", async () => {
     server.use(
-      http.get(`${BASE}/admin/tests/:id/preview`, () =>
+      http.get(`${BASE}/teacher/tests/:id/preview`, () =>
         Response.json(
           { error: { code: "TEST_NOT_PUBLISHED", message: "Chưa phát hành." } },
           { status: 409 },
         ),
       ),
-      http.get(`${BASE}/admin/tests/:id/versions`, () =>
-        contractJson("/admin/tests/{id}/versions", "get", 200, { items: [] }),
+      http.get(`${BASE}/teacher/tests/:id/versions`, () =>
+        contractJson("/teacher/tests/{id}/versions", "get", 200, { items: [] }),
       ),
     );
     renderDetail();

@@ -84,11 +84,11 @@ describe("moving through findings", () => {
 
   it("continues from a resolved finding instead of going back to the first", async () => {
     server.use(
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         const body = (await request.json()) as SaveImportReview;
         state.puts.push(body);
         const saved = savedFrom(baseline(), body);
-        return contractJson("/admin/imports/{id}/review", "put", 200, {
+        return contractJson("/teacher/imports/{id}/review", "put", 200, {
           ...saved,
           findings: saved.findings.filter((finding) => finding.id !== "f-missing"),
         });
@@ -219,7 +219,7 @@ describe("moving between the exam and its source", () => {
   it("still asks before leaving when a narrowed window hides an unsaved edit", async () => {
     const resize = atWidth(1440);
     server.use(
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         state.puts.push((await request.json()) as SaveImportReview);
         return new Response(null, { status: 503 });
       }),
@@ -264,9 +264,9 @@ describe("a review that cannot be edited", () => {
   it("still lets the teacher browse a committed review", async () => {
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () =>
+      http.get(`${BASE}/teacher/imports/:id`, () =>
         contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport({
@@ -295,19 +295,19 @@ describe("a review that cannot be edited", () => {
     let reads = 0;
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () => {
+      http.get(`${BASE}/teacher/imports/:id`, () => {
         reads += 1;
         return contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport(reads > 1 ? { status: "cancelled" } : {}),
         );
       }),
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         state.puts.push((await request.json()) as SaveImportReview);
         return contractJson(
-          "/admin/imports/{id}/review",
+          "/teacher/imports/{id}/review",
           "put",
           409,
           errorBody("IMPORT_CONFLICT", "Lần nhập không còn ở trạng thái rà soát."),
@@ -329,9 +329,9 @@ describe("a review that cannot be edited", () => {
   it("names a reprocess that did not finish", async () => {
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () =>
+      http.get(`${BASE}/teacher/imports/:id`, () =>
         contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport({ draftRevision: 2, run: run({ status: "cancelled" }) }),
@@ -346,9 +346,9 @@ describe("a review that cannot be edited", () => {
     let finished = false;
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () =>
+      http.get(`${BASE}/teacher/imports/:id`, () =>
         contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           finished
@@ -385,9 +385,9 @@ describe("a review that cannot be edited", () => {
     let failed = false;
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () =>
+      http.get(`${BASE}/teacher/imports/:id`, () =>
         contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           failed
@@ -415,9 +415,9 @@ describe("a review that cannot be edited", () => {
   it("links a closed import's review to the import rather than to progress", async () => {
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () =>
+      http.get(`${BASE}/teacher/imports/:id`, () =>
         contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport({ status: "cancelled", draftRevision: 3 }),
@@ -456,20 +456,20 @@ describe("the review's data", () => {
   it("offers a retry inside the summary when the last save failed", async () => {
     let fail = true;
     server.use(
-      http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+      http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
         const body = (await request.json()) as SaveImportReview;
         state.puts.push(body);
         if (fail) {
           fail = false;
           return contractJson(
-            "/admin/imports/{id}/review",
+            "/teacher/imports/{id}/review",
             "put",
             422,
             errorBody("VALIDATION_FAILED", "Bản rà soát gửi lên không hợp lệ."),
           );
         }
         return contractJson(
-          "/admin/imports/{id}/review",
+          "/teacher/imports/{id}/review",
           "put",
           200,
           savedFrom(baseline(), body),
@@ -545,17 +545,17 @@ describe("a review that retention removed", () => {
   it("says so instead of failing to load", async () => {
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () =>
+      http.get(`${BASE}/teacher/imports/:id`, () =>
         contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport({ status: "committed", filesRemovedAt: "2026-10-26T00:00:00Z" }),
         ),
       ),
-      http.get(`${BASE}/admin/imports/:id/review`, () =>
+      http.get(`${BASE}/teacher/imports/:id/review`, () =>
         contractJson(
-          "/admin/imports/{id}/review",
+          "/teacher/imports/{id}/review",
           "get",
           410,
           errorBody("IMPORT_FILES_REMOVED", "Bản rà soát đã được xoá."),
@@ -581,8 +581,8 @@ describe("reprocessing with a chosen key paper", () => {
     serveReview(withPaperFinding(), state);
     server.use(
       capabilities(false),
-      http.get(`${BASE}/admin/imports/:id`, () =>
-        contractJson("/admin/imports/{id}", "get", 200, wordImport()),
+      http.get(`${BASE}/teacher/imports/:id`, () =>
+        contractJson("/teacher/imports/{id}", "get", 200, wordImport()),
       ),
     );
     renderWithDetail();
@@ -603,20 +603,20 @@ describe("reprocessing with a chosen key paper", () => {
     let processing = true;
     serveReview(withPaperFinding(), state);
     server.use(
-      http.get(`${BASE}/admin/imports/capabilities`, () =>
-        contractJson("/admin/imports/capabilities", "get", 200, {
+      http.get(`${BASE}/teacher/imports/capabilities`, () =>
+        contractJson("/teacher/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
           retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
         }),
       ),
-      http.get(`${BASE}/admin/imports/:id`, () =>
-        contractJson("/admin/imports/{id}", "get", 200, wordImport()),
+      http.get(`${BASE}/teacher/imports/:id`, () =>
+        contractJson("/teacher/imports/{id}", "get", 200, wordImport()),
       ),
-      http.post(`${BASE}/admin/imports/:id/process`, () => {
+      http.post(`${BASE}/teacher/imports/:id/process`, () => {
         processing = false;
         return contractJson(
-          "/admin/imports/{id}/process",
+          "/teacher/imports/{id}/process",
           "post",
           503,
           errorBody(
@@ -645,10 +645,10 @@ describe("reprocessing with a chosen key paper", () => {
     serveReview(withPaperFinding(), state);
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () => {
+      http.get(`${BASE}/teacher/imports/:id`, () => {
         reads += 1;
         return contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport(
@@ -656,7 +656,7 @@ describe("reprocessing with a chosen key paper", () => {
           ),
         );
       }),
-      http.post(`${BASE}/admin/imports/:id/process`, () => {
+      http.post(`${BASE}/teacher/imports/:id/process`, () => {
         posts += 1;
         return HttpResponse.error();
       }),
@@ -685,10 +685,10 @@ describe("reprocessing with a chosen key paper", () => {
     serveReview(withPaperFinding(), state);
     server.use(
       capabilities(),
-      http.get(`${BASE}/admin/imports/:id`, () => {
+      http.get(`${BASE}/teacher/imports/:id`, () => {
         reads += 1;
         return contractJson(
-          "/admin/imports/{id}",
+          "/teacher/imports/{id}",
           "get",
           200,
           wordImport(
@@ -696,7 +696,7 @@ describe("reprocessing with a chosen key paper", () => {
           ),
         );
       }),
-      http.post(`${BASE}/admin/imports/:id/process`, () => {
+      http.post(`${BASE}/teacher/imports/:id/process`, () => {
         posts += 1;
         return HttpResponse.error();
       }),
@@ -723,11 +723,11 @@ describe("reprocessing with a chosen key paper", () => {
     let posts = 0;
     serveReview(withPaperFinding(), state);
     server.use(
-      http.post(`${BASE}/admin/imports/:id/process`, async () => {
+      http.post(`${BASE}/teacher/imports/:id/process`, async () => {
         posts += 1;
         await gate.promise;
         return contractJson(
-          "/admin/imports/{id}/process",
+          "/teacher/imports/{id}/process",
           "post",
           202,
           wordImport({ status: "queued", run: run({ status: "queued" }) }),

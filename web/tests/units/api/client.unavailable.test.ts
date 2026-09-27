@@ -183,7 +183,7 @@ describe("uploads", () => {
   it("send the app's language and raise a maintenance window", async () => {
     let language: string | null = null;
     server.use(
-      http.post(`${BASE}/admin/media`, ({ request }) => {
+      http.post(`${BASE}/teacher/media`, ({ request }) => {
         language = request.headers.get("Accept-Language");
         return Response.json(
           {
@@ -200,7 +200,7 @@ describe("uploads", () => {
     );
 
     await expect(
-      uploadFile("/admin/media", new File(["x"], "clip.mp3", { type: "audio/mpeg" })),
+      uploadFile("/teacher/media", new File(["x"], "clip.mp3", { type: "audio/mpeg" })),
     ).rejects.toMatchObject({ code: "MAINTENANCE" });
     expect(language).toBe("vi");
     expect(maintenance).toHaveBeenCalledWith(WINDOW);

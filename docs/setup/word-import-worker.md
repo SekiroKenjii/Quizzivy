@@ -2,13 +2,13 @@
 
 `make import-worker` runs a separate process; `make dev` also starts it when
 `IMPORT_S3_BUCKET` is set. Teachers queue and cancel processing through
-`POST /admin/imports/{id}/process` and `/cancel`; a finished run writes the
+`POST /teacher/imports/{id}/process` and `/cancel`; a finished run writes the
 machine draft for review in the same transaction that marks it `needs_review`.
 
 The API accepts processing only where a worker runs. Set
 `IMPORT_PROCESSING_ENABLED=true` on the API beside the worker; `make dev` does this
 when it starts one. Without it, `process` answers 503
-`IMPORT_PROCESSING_UNAVAILABLE` and queues nothing. `GET /admin/imports/capabilities`
+`IMPORT_PROCESSING_UNAVAILABLE` and queues nothing. `GET /teacher/imports/capabilities`
 reports `intakeEnabled` (import storage configured) and `processingEnabled`, and the
 web follows it:
 

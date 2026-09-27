@@ -82,7 +82,7 @@ type reviewAnswer = struct {
 }
 
 // GetAttemptForReview backs G-03. This is the one response that carries the
-// grading key, and it lives under /admin.
+// grading key, and it lives under /teacher/.
 func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAttemptForReviewRequestObject) (openapi.GetAttemptForReviewResponseObject, error) {
 	if h.app == nil || h.students == nil {
 		return nil, httpx.ErrNotImplemented

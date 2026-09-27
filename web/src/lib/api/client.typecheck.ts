@@ -7,7 +7,7 @@ import { api } from "./client";
 
 export async function _valid() {
   // Path params are required and named.
-  const test = await api("get", "/admin/tests/{id}", { path: { id: "abc" } });
+  const test = await api("get", "/teacher/tests/{id}", { path: { id: "abc" } });
   const _title: string = test.title;
   void _title;
 
@@ -20,7 +20,7 @@ export async function _valid() {
   await api("post", "/auth/login", { body: { email: "a@b.c", password: "hunter22" } });
 
   // Query params are optional but typed.
-  await api("get", "/admin/questions", { query: { type: ["short_answer"] } });
+  await api("get", "/teacher/questions", { query: { type: ["short_answer"] } });
 
   // 204 endpoints resolve to void.
   const nothing: void = await api("post", "/auth/logout");
@@ -29,7 +29,7 @@ export async function _valid() {
 
 export async function _invalid() {
   // @ts-expect-error — no such path in the contract
-  await api("get", "/admin/not-a-real-endpoint");
+  await api("get", "/teacher/not-a-real-endpoint");
 
   // @ts-expect-error — /auth/me has no POST
   await api("post", "/auth/me");
@@ -38,10 +38,10 @@ export async function _invalid() {
   await api("post", "/auth/login", { body: { email: "a@b.c" } });
 
   // @ts-expect-error — `id` is the declared path param, not `testId`
-  await api("get", "/admin/tests/{id}", { path: { testId: "abc" } });
+  await api("get", "/teacher/tests/{id}", { path: { testId: "abc" } });
 
   // @ts-expect-error — question type is an enum; "essay" is not in it
-  await api("get", "/admin/questions", { query: { type: "essay" } });
+  await api("get", "/teacher/questions", { query: { type: "essay" } });
 }
 
 /**

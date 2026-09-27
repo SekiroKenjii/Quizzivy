@@ -31,10 +31,10 @@ let tagged: { questionIds: string[]; tags: string[] } | null = null;
 beforeEach(() => {
   tagged = null;
   server.use(
-    http.get(`${BASE}/admin/questions`, ({ request }) => {
+    http.get(`${BASE}/teacher/questions`, ({ request }) => {
       const q = new URL(request.url).searchParams.get("q") ?? "";
       const all = [question(A, "Câu một"), question(B, "Câu hai")];
-      return contractJson("/admin/questions", "get", 200, {
+      return contractJson("/teacher/questions", "get", 200, {
         items: q === "" ? all : all.filter((x) => x.prompt.includes(q)),
         page: 1,
         pageSize: 50,
@@ -51,7 +51,7 @@ beforeEach(() => {
         bankTotal: 0,
       });
     }),
-    http.post(`${BASE}/admin/questions/tags`, async ({ request }) => {
+    http.post(`${BASE}/teacher/questions/tags`, async ({ request }) => {
       tagged = (await request.json()) as { questionIds: string[]; tags: string[] };
       return HttpResponse.json({ updated: tagged.questionIds.length });
     }),
@@ -141,8 +141,8 @@ describe("the bulk tag dialog", () => {
 describe("A-06's tag rail", () => {
   it("offers tags no row on this page carries", async () => {
     server.use(
-      http.get(`${BASE}/admin/questions`, () =>
-        contractJson("/admin/questions", "get", 200, {
+      http.get(`${BASE}/teacher/questions`, () =>
+        contractJson("/teacher/questions", "get", 200, {
           // Neither row mentions unit-9 or past-simple.
           items: [question(A, "Câu một"), question(B, "Câu hai")],
           page: 1,
@@ -178,8 +178,8 @@ describe("A-06's tag rail", () => {
 
   it("shows the bank size and how much of it is showing", async () => {
     server.use(
-      http.get(`${BASE}/admin/questions`, () =>
-        contractJson("/admin/questions", "get", 200, {
+      http.get(`${BASE}/teacher/questions`, () =>
+        contractJson("/teacher/questions", "get", 200, {
           items: [question(A, "Câu một"), question(B, "Câu hai")],
           page: 1,
           pageSize: 50,

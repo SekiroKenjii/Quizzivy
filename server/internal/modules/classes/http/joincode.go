@@ -11,7 +11,7 @@ import (
 	"quizzivy/internal/platform/httpx"
 )
 
-// RotateJoinCode implements POST /admin/classes/{id}/join-code (§6.1).
+// RotateJoinCode implements POST /teacher/classes/{id}/join-code (§6.1).
 func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinCodeRequestObject) (openapi.RotateJoinCodeResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -50,7 +50,7 @@ func (h Classes) RotateJoinCode(ctx context.Context, request openapi.RotateJoinC
 	}, nil
 }
 
-// RevokeJoinCode implements DELETE /admin/classes/{id}/join-code (§6.4).
+// RevokeJoinCode implements DELETE /teacher/classes/{id}/join-code (§6.4).
 func (h Classes) RevokeJoinCode(ctx context.Context, request openapi.RevokeJoinCodeRequestObject) (openapi.RevokeJoinCodeResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented

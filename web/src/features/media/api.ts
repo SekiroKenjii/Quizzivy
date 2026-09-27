@@ -19,13 +19,13 @@ export function listMedia(params: ListMediaParams = {}, signal?: AbortSignal) {
   if (params.kind) query["kind"] = params.kind;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
-  return api("get", "/admin/media", signal ? { query, signal } : { query });
+  return api("get", "/teacher/media", signal ? { query, signal } : { query });
 }
 
 export function deleteMedia(id: string) {
-  return api("delete", "/admin/media/{id}", { path: { id } });
+  return api("delete", "/teacher/media/{id}", { path: { id } });
 }
 
 export function uploadMedia(file: File, options?: UploadOptions): Promise<MediaAsset> {
-  return uploadFile<MediaAsset>("/admin/media", file, options);
+  return uploadFile<MediaAsset>("/teacher/media", file, options);
 }

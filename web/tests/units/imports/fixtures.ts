@@ -25,8 +25,8 @@ export const TEST_ID = "018f0000-0000-7000-8000-0000000000e6";
 export const AT = "2026-09-20T01:00:00Z";
 
 export function capabilities(processingEnabled = true) {
-  return http.get(`${BASE}/admin/imports/capabilities`, () =>
-    contractJson("/admin/imports/capabilities", "get", 200, {
+  return http.get(`${BASE}/teacher/imports/capabilities`, () =>
+    contractJson("/teacher/imports/capabilities", "get", 200, {
       intakeEnabled: true,
       processingEnabled,
       retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },

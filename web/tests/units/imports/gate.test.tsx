@@ -11,7 +11,7 @@ import { BASE } from "./fixtures";
 import "@/lib/i18n";
 
 function serveCapabilities(answer: () => Response) {
-  server.use(http.get(`${BASE}/admin/imports/capabilities`, answer));
+  server.use(http.get(`${BASE}/teacher/imports/capabilities`, answer));
 }
 
 function renderGate() {
@@ -38,7 +38,7 @@ function renderGate() {
 describe("the Word import routes", () => {
   it("explain that import is not enabled instead of loading a screen that would fail", async () => {
     serveCapabilities(() =>
-      contractJson("/admin/imports/capabilities", "get", 200, {
+      contractJson("/teacher/imports/capabilities", "get", 200, {
         intakeEnabled: false,
         processingEnabled: false,
         retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
@@ -56,7 +56,7 @@ describe("the Word import routes", () => {
 
   it("open the screen when import storage is configured, even with processing off", async () => {
     serveCapabilities(() =>
-      contractJson("/admin/imports/capabilities", "get", 200, {
+      contractJson("/teacher/imports/capabilities", "get", 200, {
         intakeEnabled: true,
         processingEnabled: false,
         retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
@@ -72,7 +72,7 @@ describe("the Word import routes", () => {
     serveCapabilities(() =>
       failing
         ? new Response(null, { status: 503 })
-        : contractJson("/admin/imports/capabilities", "get", 200, {
+        : contractJson("/teacher/imports/capabilities", "get", 200, {
             intakeEnabled: true,
             processingEnabled: true,
             retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },

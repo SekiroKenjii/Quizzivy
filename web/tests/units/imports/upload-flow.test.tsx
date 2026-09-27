@@ -37,17 +37,17 @@ beforeEach(() => {
   revision = 1;
   rejectKeyOnce = false;
   server.use(
-    http.get(`${BASE}/admin/imports/limits`, () =>
-      contractJson("/admin/imports/limits", "get", 200, {
+    http.get(`${BASE}/teacher/imports/limits`, () =>
+      contractJson("/teacher/imports/limits", "get", 200, {
         maxBytes: 25 * 1024 * 1024,
         formats: ["docx", "pdf"],
       }),
     ),
-    http.post(`${BASE}/admin/imports`, async ({ request }) => {
+    http.post(`${BASE}/teacher/imports`, async ({ request }) => {
       const body = (await request.json()) as { requestId: string; title: string };
       calls.push({ kind: "create", ...body });
       return contractJson(
-        "/admin/imports",
+        "/teacher/imports",
         "post",
         201,
         wordImport({
@@ -59,7 +59,7 @@ beforeEach(() => {
         }),
       );
     }),
-    http.post(`${BASE}/admin/imports/:id/sources`, ({ request }) => {
+    http.post(`${BASE}/teacher/imports/:id/sources`, ({ request }) => {
       const url = new URL(request.url);
       const role = url.searchParams.get("role") ?? "";
       calls.push({
@@ -71,7 +71,7 @@ beforeEach(() => {
       if (role === "answer_key" && rejectKeyOnce) {
         rejectKeyOnce = false;
         return contractJson(
-          "/admin/imports/{id}/sources",
+          "/teacher/imports/{id}/sources",
           "post",
           415,
           errorBody(
@@ -83,7 +83,7 @@ beforeEach(() => {
       revision += 1;
       const exam = calls.some((call) => call.kind === "upload" && call.role === "exam");
       const key = role === "answer_key";
-      return contractJson("/admin/imports/{id}/sources", "post", 201, {
+      return contractJson("/teacher/imports/{id}/sources", "post", 201, {
         import: wordImport({
           status: "awaiting_sources",
           revision,
@@ -97,14 +97,14 @@ beforeEach(() => {
         sourceRevision: revision - 1,
       });
     }),
-    http.post(`${BASE}/admin/imports/:id/process`, async ({ request }) => {
+    http.post(`${BASE}/teacher/imports/:id/process`, async ({ request }) => {
       const body = (await request.json()) as {
         requestId: string;
         expectedRevision: number;
       };
       calls.push({ kind: "process", ...body });
       return contractJson(
-        "/admin/imports/{id}/process",
+        "/teacher/imports/{id}/process",
         "post",
         202,
         wordImport({ status: "queued", revision: revision + 1 }),
@@ -150,17 +150,17 @@ describe("starting a Word import", () => {
   it("stops offering the upload once the server says processing is switched off", async () => {
     let processing = true;
     server.use(
-      http.get(`${BASE}/admin/imports/capabilities`, () =>
-        contractJson("/admin/imports/capabilities", "get", 200, {
+      http.get(`${BASE}/teacher/imports/capabilities`, () =>
+        contractJson("/teacher/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
           retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
         }),
       ),
-      http.post(`${BASE}/admin/imports/:id/process`, () => {
+      http.post(`${BASE}/teacher/imports/:id/process`, () => {
         processing = false;
         return contractJson(
-          "/admin/imports/{id}/process",
+          "/teacher/imports/{id}/process",
           "post",
           503,
           errorBody(
@@ -185,8 +185,8 @@ describe("starting a Word import", () => {
   it("checks processing is still on before creating anything", async () => {
     let processing = true;
     server.use(
-      http.get(`${BASE}/admin/imports/capabilities`, () =>
-        contractJson("/admin/imports/capabilities", "get", 200, {
+      http.get(`${BASE}/teacher/imports/capabilities`, () =>
+        contractJson("/teacher/imports/capabilities", "get", 200, {
           intakeEnabled: true,
           processingEnabled: processing,
           retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },
@@ -317,12 +317,12 @@ describe("starting a Word import", () => {
   it("stops quietly when the teacher leaves before the upload finishes", async () => {
     const gate = deferred<void>();
     server.use(
-      http.post(`${BASE}/admin/imports`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports`, async ({ request }) => {
         const body = (await request.json()) as { requestId: string; title: string };
         calls.push({ kind: "create", ...body });
         await gate.promise;
         return contractJson(
-          "/admin/imports",
+          "/teacher/imports",
           "post",
           201,
           wordImport({ status: "awaiting_sources", revision: 1, sources: [] }),

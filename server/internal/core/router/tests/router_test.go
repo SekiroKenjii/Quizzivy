@@ -118,7 +118,7 @@ func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard", nil)
+	req := httptest.NewRequest(http.MethodGet, "/teacher/dashboard", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	rec := httptest.NewRecorder()
@@ -174,7 +174,7 @@ func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
 func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
 	handler := newTestRouter(t, fakeDB{})
 	for i := 0; i < 30; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/admin/tests", nil)
+		req := httptest.NewRequest(http.MethodGet, "/teacher/tests", nil)
 		req.RemoteAddr = "203.0.113.9:5555"
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)

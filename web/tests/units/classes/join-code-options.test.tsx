@@ -75,13 +75,13 @@ function renderFromServer() {
 function captureRotation() {
   const sent: Record<string, unknown>[] = [];
   server.use(
-    http.post(`${BASE}/admin/classes/:id/join-code`, async ({ request }) => {
+    http.post(`${BASE}/teacher/classes/:id/join-code`, async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       sent.push(body);
       const days =
         typeof body["expiresInDays"] === "number" ? body["expiresInDays"] : 30;
       const maxUses = typeof body["maxUses"] === "number" ? body["maxUses"] : 40;
-      return contractJson("/admin/classes/{id}/join-code", "post", 201, {
+      return contractJson("/teacher/classes/{id}/join-code", "post", 201, {
         code: FULL_CODE,
         expiresAt: new Date(NOW.getTime() + days * DAY_MS).toISOString(),
         maxUses,
@@ -181,19 +181,19 @@ describe("the card after a code is issued", () => {
   it("states the expiry and the usage the server came back with", async () => {
     let current = klass.joinCode ?? null;
     server.use(
-      http.get(`${BASE}/admin/classes/:id`, () =>
-        contractJson("/admin/classes/{id}", "get", 200, {
+      http.get(`${BASE}/teacher/classes/:id`, () =>
+        contractJson("/teacher/classes/{id}", "get", 200, {
           ...klass,
           joinCode: current,
         }),
       ),
-      http.post(`${BASE}/admin/classes/:id/join-code`, async ({ request }) => {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, async ({ request }) => {
         const body = (await request.json()) as Record<string, unknown>;
         const days = body["expiresInDays"] as number;
         const maxUses = (body["maxUses"] as number | undefined) ?? 40;
         const expiresAt = new Date(NOW.getTime() + days * DAY_MS).toISOString();
         current = { hint: "P9QR", expiresAt, maxUses, usesCount: 0 };
-        return contractJson("/admin/classes/{id}/join-code", "post", 201, {
+        return contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt,
           maxUses,

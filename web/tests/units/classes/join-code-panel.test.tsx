@@ -89,9 +89,9 @@ describe("rotating", () => {
   it("does nothing until the confirmation is accepted", async () => {
     let rotations = 0;
     server.use(
-      http.post(`${BASE}/admin/classes/:id/join-code`, () => {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, () => {
         rotations += 1;
-        return contractJson("/admin/classes/{id}/join-code", "post", 201, {
+        return contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt: "2026-09-27T00:00:00Z",
           maxUses: 40,
@@ -115,8 +115,8 @@ describe("rotating", () => {
 
   it("reveals the code exactly once, with a QR, after confirming", async () => {
     server.use(
-      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
-        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
+        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt: "2026-09-27T00:00:00Z",
           maxUses: 40,
@@ -142,8 +142,8 @@ describe("rotating", () => {
 
   it("copies the join link rather than the bare code", async () => {
     server.use(
-      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
-        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
+        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt: "2026-09-27T00:00:00Z",
           maxUses: 40,
@@ -171,9 +171,9 @@ describe("G-06's controls around the code", () => {
   it("pauses and resumes joining from the switch without touching the code", async () => {
     let sent: unknown = null;
     server.use(
-      http.patch(`${BASE}/admin/classes/:id`, async ({ request }) => {
+      http.patch(`${BASE}/teacher/classes/:id`, async ({ request }) => {
         sent = await request.json();
-        return contractJson("/admin/classes/{id}", "patch", 200, {
+        return contractJson("/teacher/classes/{id}", "patch", 200, {
           ...klass,
           selfJoinEnabled: false,
         });
@@ -199,8 +199,8 @@ describe("G-06's controls around the code", () => {
 
   it("offers the bare code and the QR to save beside the link", async () => {
     server.use(
-      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
-        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
+        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt: "2026-09-27T00:00:00Z",
           maxUses: 40,
@@ -274,7 +274,7 @@ describe("revoking", () => {
   it("asks first, like rotating does", async () => {
     let revocations = 0;
     server.use(
-      http.delete(`${BASE}/admin/classes/:id/join-code`, () => {
+      http.delete(`${BASE}/teacher/classes/:id/join-code`, () => {
         revocations += 1;
         return new Response(null, { status: 204 });
       }),
@@ -294,15 +294,15 @@ describe("revoking", () => {
 
   it("stops displaying a code it has just killed", async () => {
     server.use(
-      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
-        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
+        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt: "2026-09-27T00:00:00Z",
           maxUses: 40,
         }),
       ),
       http.delete(
-        `${BASE}/admin/classes/:id/join-code`,
+        `${BASE}/teacher/classes/:id/join-code`,
         () => new Response(null, { status: 204 }),
       ),
     );
@@ -337,7 +337,7 @@ describe("failures", () => {
   it("tells the teacher when a rotation fails", async () => {
     server.use(
       http.post(
-        `${BASE}/admin/classes/:id/join-code`,
+        `${BASE}/teacher/classes/:id/join-code`,
         () => new Response(null, { status: 500 }),
       ),
     );
@@ -359,11 +359,11 @@ describe("failures", () => {
   it("clears a stale error once something else succeeds", async () => {
     server.use(
       http.post(
-        `${BASE}/admin/classes/:id/join-code`,
+        `${BASE}/teacher/classes/:id/join-code`,
         () => new Response(null, { status: 500 }),
       ),
       http.delete(
-        `${BASE}/admin/classes/:id/join-code`,
+        `${BASE}/teacher/classes/:id/join-code`,
         () => new Response(null, { status: 204 }),
       ),
     );
@@ -406,8 +406,8 @@ describe("copying the join link", () => {
   // The copy button exists only once a rotation has produced a plaintext code.
   async function rotateThenGetCopyButton(user: ReturnType<typeof userEvent.setup>) {
     server.use(
-      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
-        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
+        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt: "2026-09-27T00:00:00Z",
           maxUses: 40,
@@ -461,8 +461,8 @@ describe("copying the join link", () => {
 describe("the fresh code dialog", () => {
   it("ignores Escape and closes only through Xong", async () => {
     server.use(
-      http.post(`${BASE}/admin/classes/:id/join-code`, () =>
-        contractJson("/admin/classes/{id}/join-code", "post", 201, {
+      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
+        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
           code: FULL_CODE,
           expiresAt: "2026-09-27T00:00:00Z",
           maxUses: 40,

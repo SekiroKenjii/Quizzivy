@@ -110,13 +110,13 @@ export interface ReviewServer {
 export function serveReview(initial: ImportReview, state: ReviewServer) {
   server.use(
     capabilities(),
-    http.get(`${BASE}/admin/imports/:id`, () =>
-      contractJson("/admin/imports/{id}", "get", 200, wordImport()),
+    http.get(`${BASE}/teacher/imports/:id`, () =>
+      contractJson("/teacher/imports/{id}", "get", 200, wordImport()),
     ),
-    http.get(`${BASE}/admin/imports/:id/review`, () =>
-      contractJson("/admin/imports/{id}/review", "get", 200, initial),
+    http.get(`${BASE}/teacher/imports/:id/review`, () =>
+      contractJson("/teacher/imports/{id}/review", "get", 200, initial),
     ),
-    http.get(`${BASE}/admin/imports/:id/source`, ({ request }) => {
+    http.get(`${BASE}/teacher/imports/:id/source`, ({ request }) => {
       const role =
         new URL(request.url).searchParams.get("role") === "answer_key"
           ? "answer_key"
@@ -133,17 +133,17 @@ export function serveReview(initial: ImportReview, state: ReviewServer) {
             ]
           : [{ id: "key-1", text: "1. B", spans: [] }];
       return contractJson(
-        "/admin/imports/{id}/source",
+        "/teacher/imports/{id}/source",
         "get",
         200,
         sourceView(role, blocks),
       );
     }),
-    http.put(`${BASE}/admin/imports/:id/review`, async ({ request }) => {
+    http.put(`${BASE}/teacher/imports/:id/review`, async ({ request }) => {
       const body = (await request.json()) as SaveImportReview;
       state.puts.push(body);
       return contractJson(
-        "/admin/imports/{id}/review",
+        "/teacher/imports/{id}/review",
         "put",
         200,
         savedFrom(initial, body),

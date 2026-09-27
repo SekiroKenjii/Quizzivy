@@ -14,7 +14,7 @@ func TestAStudentJoinsByCodeSitsTheTestAndTheTeacherSeesIt(t *testing.T) {
 	teacher.login(email, password)
 
 	classID := teacher.class("Lớp mã " + nonce(t))
-	issued := teacher.must(http.StatusCreated, http.MethodPost, "/admin/classes/"+classID+"/join-code", map[string]any{})
+	issued := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/classes/"+classID+"/join-code", map[string]any{})
 	code := issued["code"].(string)
 
 	anonymous := w.browser()
@@ -23,7 +23,7 @@ func TestAStudentJoinsByCodeSitsTheTestAndTheTeacherSeesIt(t *testing.T) {
 		t.Fatalf("preview names %v, want the class the code was issued for", preview)
 	}
 
-	created := teacher.must(http.StatusCreated, http.MethodPost, "/admin/students", map[string]any{
+	created := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "student-" + nonce(t) + "@example.com", "fullName": "Nguyễn Văn An", "classIds": []string{},
 	})
 	studentEmail := created["user"].(map[string]any)["email"].(string)
@@ -60,7 +60,7 @@ func TestAStudentJoinsByCodeSitsTheTestAndTheTeacherSeesIt(t *testing.T) {
 	}
 	student.must(http.StatusOK, http.MethodGet, "/app/attempts/"+id(attempt)+"/result", nil)
 
-	monitor := teacher.must(http.StatusOK, http.MethodGet, "/admin/assignments/"+id(assignment)+"/attempts", nil)
+	monitor := teacher.must(http.StatusOK, http.MethodGet, "/teacher/assignments/"+id(assignment)+"/attempts", nil)
 	rows, _ := monitor["rows"].([]any)
 	seen := false
 	for _, row := range rows {
