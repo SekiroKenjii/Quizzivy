@@ -31,6 +31,10 @@ info:
       ones. See `StudentQuestion` for why.
     - All timestamps are RFC 3339 UTC. Rendering in `Asia/Ho_Chi_Minh` is the
       client's job (§13.2).
+    - During a maintenance window every operation except `GET /livez`,
+      `GET /healthz` and `GET /public/status` answers `503 MAINTENANCE`
+      (`components/responses/Maintenance`). The operations the client branches
+      on declare it; every other one may answer it all the same.
 
 servers:
   - url: http://localhost:8080
@@ -143,6 +147,20 @@ components:
         Retry-After:
           required: true
           description: Seconds until the caller may retry.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Maintenance:
+      description: |
+        `MAINTENANCE` — a maintenance window is under way. `details.startsAt` and
+        `details.endsAt` name it, and `Retry-After` is the seconds until it ends.
+        Any operation except `GET /livez`, `GET /healthz` and `GET /public/status`
+        may answer this, whatever its authentication.
+      headers:
+        Retry-After:
+          required: true
+          description: Seconds until the window ends.
           schema: { type: integer, minimum: 1 }
       content:
         application/json:
@@ -375,6 +393,25 @@ components:
       minimum: 0
       maximum: 999999.99
 
+    PublicStatus:
+      type: object
+      description: What `GET /public/status` answers.
+      required: [maintenance]
+      additionalProperties: false
+      properties:
+        maintenance:
+          description: The next maintenance window that has not ended, or `null`.
+          oneOf: [{ $ref: '#/components/schemas/MaintenanceWindow' }, { type: 'null' }]
+
+    MaintenanceWindow:
+      type: object
+      required: [startsAt, endsAt, active]
+      additionalProperties: false
+      properties:
+        startsAt: { $ref: '#/components/schemas/Timestamp' }
+        endsAt: { $ref: '#/components/schemas/Timestamp' }
+        active: { type: boolean, description: True while the window is under way. }
+
     ErrorCode:
       type: string
       description: |
@@ -442,6 +479,7 @@ components:
         - VERSION_LOCKED
         # availability
         - MAINTENANCE
+        - MAINTENANCE_SCHEDULED
         # generic
         - VALIDATION_FAILED
         - NOT_FOUND
@@ -3017,6 +3055,39 @@ paths:
         perIp: { perMinute: 10, perHour: 60 }
         perCode: { perHour: 30 }
 
+  /public/status:
+    get:
+      operationId: getPublicStatus
+      tags: [public]
+      security: []
+      summary: Whether the API is down for maintenance, or soon will be
+      description: |
+        The earliest maintenance window that was not cancelled and has not
+        ended, or `null`. `active` is true while it is under way. During an
+        active window every other operation answers `503 MAINTENANCE`, and this
+        one keeps answering, so the client can tell the student when to come
+        back.
+
+        **Leak review (§6.5).** The answer is identical for every caller and
+        never depends on a token: two timestamps and a flag. No id, no creator,
+        no count, no free text. It is served from a snapshot the server
+        refreshes at most every 30 s, so neither its content nor its timing
+        says anything about the database.
+      responses:
+        '200':
+          description: OK
+          headers:
+            Cache-Control:
+              required: true
+              description: '`public, max-age=30`, the snapshot''s own refresh interval.'
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicStatus' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 120, perHour: 2000 }
+
   /auth/login:
     post:
       operationId: login
@@ -3057,6 +3128,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Maintenance' }
       x-rate-limit:
         perIp: { perMinute: 10, perHour: 60 }
         perEmail: { perHour: 20 }
@@ -3195,6 +3267,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Maintenance' }
       x-rate-limit:
         perIp: { perMinute: 30, perHour: 200 }
 
@@ -3213,6 +3286,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Maintenance' }
     patch:
       operationId: updateCurrentUser
       tags: [auth]
@@ -5870,7 +5944,12 @@ paths:
               schema: { $ref: '#/components/schemas/AttemptSession' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
-          description: '`ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.'
+          description: |
+            `ASSIGNMENT_NOT_OPEN` or `ATTEMPT_LIMIT_REACHED`.
+
+            `MAINTENANCE_SCHEDULED` — a new attempt would run into a maintenance
+            window. `details.startsAt` and `details.endsAt` name it. Resuming an
+            attempt never answers this.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -5954,6 +6033,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503': { $ref: '#/components/responses/Maintenance' }
 
   /app/attempts/{id}/events:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
