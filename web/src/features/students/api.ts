@@ -61,5 +61,5 @@ export function scorePercent(stats: StudentStats): number | null {
 }
 
 export function deleteStudent(id: string) {
-  return api("delete", "/admin/students/{id}", { path: { id } });
+  return api("delete", "/admin/users/{id}", { path: { id } });
 }
