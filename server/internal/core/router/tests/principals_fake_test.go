@@ -31,7 +31,6 @@ func builtinPrincipal(userID string, builtin access.Builtin) access.Principal {
 type fakePrincipals struct {
 	mu    sync.Mutex
 	users map[string]access.Principal
-	calls int
 }
 
 func newFakePrincipals() *fakePrincipals {
@@ -45,16 +44,9 @@ func (f *fakePrincipals) set(p access.Principal) *fakePrincipals {
 	return f
 }
 
-func (f *fakePrincipals) forget(userID string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.users, userID)
-}
-
 func (f *fakePrincipals) Resolve(_ context.Context, userID string) (access.Principal, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.calls++
 	if p, ok := f.users[userID]; ok {
 		if p.UserID == "" {
 			return access.Principal{}, httpx.ErrUnknownPrincipal

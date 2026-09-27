@@ -12,26 +12,34 @@ import (
 	"quizzivy/internal/core/router"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	identityhttp "quizzivy/internal/modules/identity/http"
+	"quizzivy/internal/shared/access"
+)
+
+const (
+	docsAdmin   = "01935000-0000-7000-8000-0000000000d1"
+	docsStudent = "01935000-0000-7000-8000-0000000000d2"
 )
 
 type docsHarness struct {
-	handler http.Handler
-	access  *identitytoken.Issuer
-	docs    *identitytoken.Issuer
+	handler    http.Handler
+	access     *identitytoken.Issuer
+	docs       *identitytoken.Issuer
+	principals *fakePrincipals
 }
 
 func newDocsRouter(t *testing.T, public bool) docsHarness {
 	t.Helper()
-	access := testIssuer(t)
+	tokens := testIssuer(t)
 	docs, err := identitytoken.NewDocsIssuer([]byte(strings.Repeat("k", 32)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	principals := newFakePrincipals().set(builtinPrincipal(docsStudent, access.BuiltinStudent))
 	h, err := router.New(router.Deps{
-		Principals: newFakePrincipals(),
+		Principals: principals,
 		DB:         fakeDB{},
-		Tokens:     access,
+		Tokens:     tokens,
 		Docs:       docs,
 		DocsPublic: public,
 		Modules:    router.Modules{Identity: identityhttp.NewIdentity(nil, time.Hour, true, docs)},
@@ -39,7 +47,7 @@ func newDocsRouter(t *testing.T, public bool) docsHarness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return docsHarness{handler: h, access: access, docs: docs}
+	return docsHarness{handler: h, access: tokens, docs: docs, principals: principals}
 }
 
 func (h docsHarness) get(t *testing.T, path string, prepare func(*http.Request)) *httptest.ResponseRecorder {
@@ -57,9 +65,9 @@ func withDocsCookie(value string) func(*http.Request) {
 	return func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "quizzivy_docs", Value: value}) }
 }
 
-func (h docsHarness) docsToken(t *testing.T, role string) string {
+func (h docsHarness) docsToken(t *testing.T, userID string) string {
 	t.Helper()
-	raw, err := h.docs.Issue("01935000-0000-7000-8000-0000000000d1", role, 0)
+	raw, err := h.docs.Issue(userID, "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,13 +98,13 @@ func TestTheDocsRefuseACallerWithoutADocsSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	valid := h.docsToken(t, "admin")
+	valid := h.docsToken(t, docsAdmin)
 	cases := map[string]func(*http.Request){
 		"no cookie":                     nil,
 		"an access token as a bearer":   func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+accessToken) },
 		"an access token as the cookie": withDocsCookie(accessToken),
 		"an expired docs token":         withDocsCookie(stale),
-		"a tampered docs token":         withDocsCookie(spliced(valid, h.docsToken(t, "student"))),
+		"a tampered docs token":         withDocsCookie(spliced(valid, h.docsToken(t, docsStudent))),
 	}
 	for _, path := range []string{"/docs", "/docs/openapi.json"} {
 		for name, prepare := range cases {
@@ -116,7 +124,7 @@ func TestTheDocsRefuseACallerWithoutADocsSession(t *testing.T) {
 
 func TestTheDocsRefuseANonAdminDocsSession(t *testing.T) {
 	h := newDocsRouter(t, false)
-	rec := h.get(t, "/docs", withDocsCookie(h.docsToken(t, "student")))
+	rec := h.get(t, "/docs", withDocsCookie(h.docsToken(t, docsStudent)))
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
 	}
@@ -126,7 +134,7 @@ func TestTheDocsRefuseANonAdminDocsSession(t *testing.T) {
 func TestTheDocsOpenForAnAdminDocsSession(t *testing.T) {
 	h := newDocsRouter(t, false)
 	for _, path := range []string{"/docs", "/docs/openapi.json"} {
-		rec := h.get(t, path, withDocsCookie(h.docsToken(t, "admin")))
+		rec := h.get(t, path, withDocsCookie(h.docsToken(t, docsAdmin)))
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s status = %d, want 200", path, rec.Code)
 		}
@@ -167,8 +175,8 @@ func spliced(signedFor, claimsFrom string) string {
 
 func TestOnlyAnAdminCanOpenADocsSession(t *testing.T) {
 	h := newDocsRouter(t, false)
-	post := func(role string) *httptest.ResponseRecorder {
-		raw, err := h.access.Issue("01935000-0000-7000-8000-0000000000d1", role, 0)
+	post := func(userID string) *httptest.ResponseRecorder {
+		raw, err := h.access.Issue(userID, "admin", 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -178,10 +186,10 @@ func TestOnlyAnAdminCanOpenADocsSession(t *testing.T) {
 		h.handler.ServeHTTP(rec, req)
 		return rec
 	}
-	if rec := post("student"); rec.Code != http.StatusForbidden {
+	if rec := post(docsStudent); rec.Code != http.StatusForbidden {
 		t.Fatalf("student status = %d, want 403", rec.Code)
 	}
-	rec := post("admin")
+	rec := post(docsAdmin)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("admin status = %d, want 204: %s", rec.Code, rec.Body.String())
 	}
@@ -195,5 +203,22 @@ func TestOnlyAnAdminCanOpenADocsSession(t *testing.T) {
 	}
 	if opened := h.get(t, "/docs", withDocsCookie(c.Value)); opened.Code != http.StatusOK {
 		t.Fatalf("the minted cookie did not open the docs: %d", opened.Code)
+	}
+}
+
+func TestTheDocsRefuseADisabledUserAndAStaleCookie(t *testing.T) {
+	h := newDocsRouter(t, false)
+	cookie := h.docsToken(t, docsAdmin)
+	moved := builtinPrincipal(docsAdmin, access.BuiltinAdmin)
+	moved.Epoch = 1
+	h.principals.set(moved)
+	if rec := h.get(t, "/docs", withDocsCookie(cookie)); rec.Code != http.StatusUnauthorized {
+		t.Errorf("a cookie older than the session epoch: %d, want 401", rec.Code)
+	}
+	disabled := builtinPrincipal(docsAdmin, access.BuiltinAdmin)
+	disabled.Disabled = true
+	h.principals.set(disabled)
+	if rec := h.get(t, "/docs", withDocsCookie(cookie)); rec.Code != http.StatusUnauthorized {
+		t.Errorf("a disabled Admin's cookie: %d, want 401", rec.Code)
 	}
 }
