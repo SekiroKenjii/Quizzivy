@@ -38,7 +38,7 @@ function ready() {
 }
 
 function committed() {
-  return contractJson("/admin/imports/{id}/commit", "post", 200, {
+  return contractJson("/teacher/imports/{id}/commit", "post", 200, {
     testId: TEST_ID,
     import: wordImport({ status: "committed", testId: TEST_ID, revision: 7 }),
   });
@@ -94,7 +94,7 @@ describe("creating the draft test from a review", () => {
     serveReview(ready(), state);
     let attempts = 0;
     server.use(
-      http.post(`${BASE}/admin/imports/:id/commit`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports/:id/commit`, async ({ request }) => {
         state.commits.push((await request.json()) as ReviewServer["commits"][number]);
         attempts += 1;
         if (attempts === 1) return HttpResponse.error();
@@ -129,7 +129,7 @@ describe("creating the draft test from a review", () => {
     serveReview(ready(), state);
     const gate = deferred<void>();
     server.use(
-      http.post(`${BASE}/admin/imports/:id/commit`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports/:id/commit`, async ({ request }) => {
         state.commits.push((await request.json()) as ReviewServer["commits"][number]);
         await gate.promise;
         return committed();
@@ -155,12 +155,12 @@ describe("creating the draft test from a review", () => {
     serveReview(review(ready().draft.sections, [], { reprocessed: true }), state);
     const adopted: number[] = [];
     server.use(
-      http.post(`${BASE}/admin/imports/:id/review/adopt`, async ({ request }) => {
+      http.post(`${BASE}/teacher/imports/:id/review/adopt`, async ({ request }) => {
         adopted.push(
           ((await request.json()) as { expectedRevision: number }).expectedRevision,
         );
         return contractJson(
-          "/admin/imports/{id}/review/adopt",
+          "/teacher/imports/{id}/review/adopt",
           "post",
           200,
           review(ready().draft.sections, [], { revision: 5, reprocessed: false }),

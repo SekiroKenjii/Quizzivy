@@ -71,9 +71,9 @@ let reset: unknown = null;
 
 function serve() {
   server.use(
-    http.get(`${BASE}/admin/assignments/${ASSIGNMENT_ID}`, () =>
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}`, () =>
       contractJson(
-        "/admin/assignments/{id}",
+        "/teacher/assignments/{id}",
         "get",
         200,
         assignment({
@@ -90,12 +90,12 @@ function serve() {
         }),
       ),
     ),
-    http.get(`${BASE}/admin/assignments/${ASSIGNMENT_ID}/attempts`, () =>
-      contractJson("/admin/assignments/{id}/attempts", "get", 200, monitor(rows())),
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/attempts`, () =>
+      contractJson("/teacher/assignments/{id}/attempts", "get", 200, monitor(rows())),
     ),
-    http.post(`${BASE}/admin/attempts/${VY_ATTEMPT}/reset`, async ({ request }) => {
+    http.post(`${BASE}/teacher/attempts/${VY_ATTEMPT}/reset`, async ({ request }) => {
       reset = await request.json();
-      return contractJson("/admin/attempts/{id}/reset", "post", 200, {
+      return contractJson("/teacher/attempts/{id}/reset", "post", 200, {
         id: VY_ATTEMPT,
         assignmentId: ASSIGNMENT_ID,
         studentId: VY,

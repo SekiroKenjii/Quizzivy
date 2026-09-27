@@ -108,7 +108,7 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   const deleted = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&
-      new URL(response.url()).pathname === `/admin/question-groups/${originalId}`,
+      new URL(response.url()).pathname === `/teacher/question-groups/${originalId}`,
   );
   await page
     .locator(`[data-outline-group="${originalId}"]`)

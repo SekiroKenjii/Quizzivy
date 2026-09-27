@@ -76,8 +76,8 @@ function renderTimeline(
   },
 ) {
   server.use(
-    http.get(`${BASE}/admin/attempts/${ATTEMPT_ID}/events`, () =>
-      contractJson("/admin/attempts/{id}/events", "get", 200, {
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}/events`, () =>
+      contractJson("/teacher/attempts/{id}/events", "get", 200, {
         startedAt: "2026-09-04T02:10:00Z",
         events,
         summary,

@@ -24,23 +24,23 @@ export function listAssignments(
   if (params.classId) query["classId"] = params.classId;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
-  return api("get", "/admin/assignments", signal ? { query, signal } : { query });
+  return api("get", "/teacher/assignments", signal ? { query, signal } : { query });
 }
 
 export function getAssignment(id: string, signal?: AbortSignal) {
   return api(
     "get",
-    "/admin/assignments/{id}",
+    "/teacher/assignments/{id}",
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
 
 export function createAssignment(body: AssignmentInput) {
-  return api("post", "/admin/assignments", { body });
+  return api("post", "/teacher/assignments", { body });
 }
 
 export function updateAssignment(id: string, body: AssignmentInput) {
-  return api("patch", "/admin/assignments/{id}", { path: { id }, body });
+  return api("patch", "/teacher/assignments/{id}", { path: { id }, body });
 }
 
 export type AssignmentFacets = components["schemas"]["AssignmentStatusFacets"];
@@ -50,7 +50,7 @@ export function reopenAssignment(
   id: string,
   body: { closesAt: string; reason: string },
 ) {
-  return api("post", "/admin/assignments/{id}/reopen", { path: { id }, body });
+  return api("post", "/teacher/assignments/{id}/reopen", { path: { id }, body });
 }
 
 export type StudentAssignmentCard = components["schemas"]["StudentAssignmentCard"];
@@ -69,5 +69,5 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
 }
 
 export function deleteAssignment(id: string) {
-  return api("delete", "/admin/assignments/{id}", { path: { id } });
+  return api("delete", "/teacher/assignments/{id}", { path: { id } });
 }

@@ -48,7 +48,7 @@ test("builder flushes rich edits before switching questions and previews the sav
   let received = false;
   await stubApi(page, {
     ...sessionAs(adminUser),
-    [`GET /admin/tests/${testID}`]: {
+    [`GET /teacher/tests/${testID}`]: {
       body: {
         id: testID,
         title: "Rich builder",
@@ -70,11 +70,11 @@ test("builder flushes rich edits before switching questions and previews the sav
         updatedAt: "2026-01-01T00:00:00Z",
       },
     },
-    [`GET /admin/questions/${QUESTION_ID}`]: (route) =>
+    [`GET /teacher/questions/${QUESTION_ID}`]: (route) =>
       route.fulfill({ json: question }),
-    [`GET /admin/questions/${secondID}`]: (route) =>
+    [`GET /teacher/questions/${secondID}`]: (route) =>
       route.fulfill({ json: { ...question, id: secondID, prompt: "Second question" } }),
-    "GET /admin/questions": {
+    "GET /teacher/questions": {
       body: {
         items: [],
         tags: [],
@@ -92,7 +92,7 @@ test("builder flushes rich edits before switching questions and previews the sav
         },
       },
     },
-    [`PATCH /admin/questions/${QUESTION_ID}`]: async (route) => {
+    [`PATCH /teacher/questions/${QUESTION_ID}`]: async (route) => {
       const body = route
         .request()
         .postDataJSON() as components["schemas"]["QuestionInput"];
@@ -177,9 +177,9 @@ test("bank formatting survives save and reload without changing the answer key",
   let writes = 0;
   await stubApi(page, {
     ...sessionAs(adminUser),
-    [`GET /admin/questions/${QUESTION_ID}`]: (route) =>
+    [`GET /teacher/questions/${QUESTION_ID}`]: (route) =>
       route.fulfill({ json: question }),
-    "GET /admin/questions": {
+    "GET /teacher/questions": {
       body: {
         items: [],
         tags: [],
@@ -197,7 +197,7 @@ test("bank formatting survives save and reload without changing the answer key",
         },
       },
     },
-    [`PATCH /admin/questions/${QUESTION_ID}`]: async (route) => {
+    [`PATCH /teacher/questions/${QUESTION_ID}`]: async (route) => {
       const body = route
         .request()
         .postDataJSON() as components["schemas"]["QuestionInput"];

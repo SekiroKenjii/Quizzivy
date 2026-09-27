@@ -4,12 +4,12 @@ import type { components, paths } from "@/lib/api/schema";
 export type MonitorRow = components["schemas"]["MonitorRow"];
 export type MonitorState = MonitorRow["state"];
 export type Monitor =
-  paths["/admin/assignments/{id}/attempts"]["get"]["responses"][200]["content"]["application/json"];
+  paths["/teacher/assignments/{id}/attempts"]["get"]["responses"][200]["content"]["application/json"];
 export type AttemptReview =
-  paths["/admin/attempts/{id}"]["get"]["responses"][200]["content"]["application/json"];
+  paths["/teacher/attempts/{id}"]["get"]["responses"][200]["content"]["application/json"];
 export type ReviewAnswer = AttemptReview["answers"][string];
 export type AttemptEvents =
-  paths["/admin/attempts/{id}/events"]["get"]["responses"][200]["content"]["application/json"];
+  paths["/teacher/attempts/{id}/events"]["get"]["responses"][200]["content"]["application/json"];
 export type IntegrityEvent = components["schemas"]["IntegrityEvent"];
 export type IntegritySummary = components["schemas"]["IntegritySummary"];
 export type AttemptListRow = components["schemas"]["AttemptListRow"];
@@ -19,7 +19,7 @@ export type Attempt = components["schemas"]["Attempt"];
 export type AttemptStatus = components["schemas"]["AttemptStatus"];
 
 export function getMonitor(assignmentId: string, signal?: AbortSignal) {
-  return api("get", "/admin/assignments/{id}/attempts", {
+  return api("get", "/teacher/assignments/{id}/attempts", {
     path: { id: assignmentId },
     ...(signal ? { signal } : {}),
   });
@@ -41,18 +41,18 @@ export function listAttempts(params: ListAttemptsParams = {}, signal?: AbortSign
     query["pendingGrading"] = params.pendingGrading;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
-  return api("get", "/admin/attempts", signal ? { query, signal } : { query });
+  return api("get", "/teacher/attempts", signal ? { query, signal } : { query });
 }
 
 export function getAttemptForReview(id: string, signal?: AbortSignal) {
-  return api("get", "/admin/attempts/{id}", {
+  return api("get", "/teacher/attempts/{id}", {
     path: { id },
     ...(signal ? { signal } : {}),
   });
 }
 
 export type AnswersByQuestion =
-  paths["/admin/assignments/{id}/answers"]["get"]["responses"][200]["content"]["application/json"];
+  paths["/teacher/assignments/{id}/answers"]["get"]["responses"][200]["content"]["application/json"];
 export type QuestionAnswerRow = components["schemas"]["QuestionAnswerRow"];
 
 /** G-04's read: one question across every handed-in paper of the assignment. */
@@ -64,38 +64,38 @@ export function listAnswersForQuestion(
   const params = { path: { id: assignmentId }, query: { questionId } };
   return api(
     "get",
-    "/admin/assignments/{id}/answers",
+    "/teacher/assignments/{id}/answers",
     signal ? { ...params, signal } : params,
   );
 }
 
 export function getAttemptEvents(id: string, signal?: AbortSignal) {
-  return api("get", "/admin/attempts/{id}/events", {
+  return api("get", "/teacher/attempts/{id}/events", {
     path: { id },
     ...(signal ? { signal } : {}),
   });
 }
 
 export function extendAttempt(id: string, body: { minutes: number; reason: string }) {
-  return api("post", "/admin/attempts/{id}/extend", { path: { id }, body });
+  return api("post", "/teacher/attempts/{id}/extend", { path: { id }, body });
 }
 
 /** G-05's mark, set or cleared by hand. */
 export function flagAttempt(id: string, body: { flagged: boolean; reason?: string }) {
-  return api("post", "/admin/attempts/{id}/flag", { path: { id }, body });
+  return api("post", "/teacher/attempts/{id}/flag", { path: { id }, body });
 }
 
 /** G-05's private note; null clears it. */
 export function setAttemptNote(id: string, note: string | null) {
-  return api("patch", "/admin/attempts/{id}/note", { path: { id }, body: { note } });
+  return api("patch", "/teacher/attempts/{id}/note", { path: { id }, body: { note } });
 }
 
 export function resetAttempt(id: string, body: { reason: string }) {
-  return api("post", "/admin/attempts/{id}/reset", { path: { id }, body });
+  return api("post", "/teacher/attempts/{id}/reset", { path: { id }, body });
 }
 
 export function voidAttempt(id: string, body: { reason: string }) {
-  return api("post", "/admin/attempts/{id}/void", { path: { id }, body });
+  return api("post", "/teacher/attempts/{id}/void", { path: { id }, body });
 }
 
 export interface GradeItem {
@@ -105,11 +105,11 @@ export interface GradeItem {
 }
 
 export function gradeAttempt(id: string, items: GradeItem[]) {
-  return api("post", "/admin/attempts/{id}/grade", { path: { id }, body: { items } });
+  return api("post", "/teacher/attempts/{id}/grade", { path: { id }, body: { items } });
 }
 
 export function finishGrading(id: string) {
-  return api("post", "/admin/attempts/{id}/finish-grading", { path: { id } });
+  return api("post", "/teacher/attempts/{id}/finish-grading", { path: { id } });
 }
 
 /** The monitor's "settled" states: the paper is out of the student's hands. */

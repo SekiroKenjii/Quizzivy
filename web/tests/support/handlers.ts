@@ -9,8 +9,8 @@ const BASE = "http://localhost:8080";
  * override per-case with `server.use(...)`.
  */
 export const handlers = [
-  http.get(`${BASE}/admin/questions`, () =>
-    contractJson("/admin/questions", "get", 200, {
+  http.get(`${BASE}/teacher/questions`, () =>
+    contractJson("/teacher/questions", "get", 200, {
       items: [],
       tags: [],
       bankTotal: 0,
@@ -28,8 +28,8 @@ export const handlers = [
     }),
   ),
   http.get(`${BASE}/auth/me`, () => contractJson("/auth/me", "get", 200, studentUser)),
-  http.get(`${BASE}/admin/imports/capabilities`, () =>
-    contractJson("/admin/imports/capabilities", "get", 200, {
+  http.get(`${BASE}/teacher/imports/capabilities`, () =>
+    contractJson("/teacher/imports/capabilities", "get", 200, {
       intakeEnabled: true,
       processingEnabled: true,
       retention: { afterCommitDays: 30, afterCancelDays: 7, idleDays: 60 },

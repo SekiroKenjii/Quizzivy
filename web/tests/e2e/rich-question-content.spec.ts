@@ -30,10 +30,10 @@ async function setup(page: Page, initial = sample(), delayed = false) {
   });
   await stubApi(page, {
     ...sessionAs(adminUser),
-    [`GET /admin/questions/${ID}`]: (route) => route.fulfill({ json: question }),
-    [`GET /admin/questions/${SECOND}`]: (route) =>
+    [`GET /teacher/questions/${ID}`]: (route) => route.fulfill({ json: question }),
+    [`GET /teacher/questions/${SECOND}`]: (route) =>
       route.fulfill({ json: { ...sample(), id: SECOND, prompt: "Câu thứ hai" } }),
-    "GET /admin/questions": {
+    "GET /teacher/questions": {
       body: {
         items: [],
         tags: [],
@@ -51,7 +51,7 @@ async function setup(page: Page, initial = sample(), delayed = false) {
         },
       },
     },
-    [`PATCH /admin/questions/${ID}`]: async (route) => {
+    [`PATCH /teacher/questions/${ID}`]: async (route) => {
       const body = route.request().postDataJSON() as QuestionInput;
       question = {
         ...question,
@@ -64,7 +64,7 @@ async function setup(page: Page, initial = sample(), delayed = false) {
       if (delayed) await gate;
       await route.fulfill({ json: question });
     },
-    [`GET /admin/tests/${TEST}`]: {
+    [`GET /teacher/tests/${TEST}`]: {
       body: {
         id: TEST,
         title: "Soạn nội dung",

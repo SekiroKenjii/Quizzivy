@@ -23,13 +23,13 @@ export function listStudents(params: ListStudentsParams = {}, signal?: AbortSign
   if (params.status) query["status"] = params.status;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
-  return api("get", "/admin/students", signal ? { query, signal } : { query });
+  return api("get", "/teacher/students", signal ? { query, signal } : { query });
 }
 
 export function getStudent(id: string, signal?: AbortSignal) {
   return api(
     "get",
-    "/admin/students/{id}",
+    "/teacher/students/{id}",
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
@@ -39,18 +39,18 @@ export function createStudent(body: {
   fullName: string;
   classIds?: string[];
 }) {
-  return api("post", "/admin/students", { body });
+  return api("post", "/teacher/students", { body });
 }
 
 export function updateStudent(
   id: string,
   body: { fullName?: string; email?: string; disabled?: boolean },
 ) {
-  return api("patch", "/admin/students/{id}", { path: { id }, body });
+  return api("patch", "/teacher/students/{id}", { path: { id }, body });
 }
 
 export function resetStudentPassword(id: string) {
-  return api("post", "/admin/students/{id}/reset-password", { path: { id } });
+  return api("post", "/teacher/students/{id}/reset-password", { path: { id } });
 }
 
 /** The percentage G-07 prints, from the (earned, total) pair the server sends. */

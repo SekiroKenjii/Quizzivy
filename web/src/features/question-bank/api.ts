@@ -23,23 +23,23 @@ export function listQuestions(params: ListQuestionsParams = {}, signal?: AbortSi
   if (params.q) query["q"] = params.q;
   if (params.page && params.page > 1) query["page"] = params.page;
   if (params.limit) query["limit"] = params.limit;
-  return api("get", "/admin/questions", signal ? { query, signal } : { query });
+  return api("get", "/teacher/questions", signal ? { query, signal } : { query });
 }
 
 export function getQuestion(id: string, signal?: AbortSignal) {
   return api(
     "get",
-    "/admin/questions/{id}",
+    "/teacher/questions/{id}",
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
 
 export function createQuestion(body: QuestionValues) {
-  return api("post", "/admin/questions", { body });
+  return api("post", "/teacher/questions", { body });
 }
 
 export function updateQuestion(id: string, body: QuestionValues) {
-  return api("patch", "/admin/questions/{id}", { path: { id }, body });
+  return api("patch", "/teacher/questions/{id}", { path: { id }, body });
 }
 
 /**
@@ -78,13 +78,13 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
 
 /** A-06's bulk "Gắn thẻ". Additive and idempotent; see the contract. */
 export function tagQuestions(questionIds: string[], tags: string[]) {
-  return api("post", "/admin/questions/tags", { body: { questionIds, tags } });
+  return api("post", "/teacher/questions/tags", { body: { questionIds, tags } });
 }
 
 export function duplicateQuestion(id: string) {
-  return api("post", "/admin/questions/{id}/duplicate", { path: { id } });
+  return api("post", "/teacher/questions/{id}/duplicate", { path: { id } });
 }
 
 export function deleteQuestion(id: string) {
-  return api("delete", "/admin/questions/{id}", { path: { id } });
+  return api("delete", "/teacher/questions/{id}", { path: { id } });
 }

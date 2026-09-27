@@ -22,8 +22,8 @@ it("loads attached tests on expansion and renders links in a nested table", asyn
   const testId = "018f0000-0000-7000-8000-0000000000a1";
   let details = 0;
   server.use(
-    http.get("http://localhost:8080/admin/questions", () =>
-      contractJson("/admin/questions", "get", 200, {
+    http.get("http://localhost:8080/teacher/questions", () =>
+      contractJson("/teacher/questions", "get", 200, {
         items: [question],
         page: 1,
         pageSize: 20,
@@ -40,9 +40,9 @@ it("loads attached tests on expansion and renders links in a nested table", asyn
         },
       }),
     ),
-    http.get(`http://localhost:8080/admin/questions/${question.id}`, () => {
+    http.get(`http://localhost:8080/teacher/questions/${question.id}`, () => {
       details += 1;
-      return contractJson("/admin/questions/{id}", "get", 200, {
+      return contractJson("/teacher/questions/{id}", "get", 200, {
         ...question,
         usedIn: [{ id: testId, title: "Grammar outline" }],
       });

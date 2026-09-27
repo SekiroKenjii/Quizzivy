@@ -25,8 +25,8 @@ test("rich blanks retain answers through conversion, table editing, undo, save a
   let writes = 0;
   await stubApi(page, {
     ...sessionAs(adminUser),
-    [`GET /admin/questions/${ID}`]: (route) => route.fulfill({ json: question }),
-    [`PATCH /admin/questions/${ID}`]: async (route) => {
+    [`GET /teacher/questions/${ID}`]: (route) => route.fulfill({ json: question }),
+    [`PATCH /teacher/questions/${ID}`]: async (route) => {
       const body = route
         .request()
         .postDataJSON() as components["schemas"]["QuestionInput"];
