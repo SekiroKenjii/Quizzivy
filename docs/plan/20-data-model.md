@@ -1976,26 +1976,39 @@ The expand half of moving users from `users.role` to `users.role_id` (plan 70
   constant default is metadata-only. A command that ends a user's access bumps
   it; in R2, a disable and a staff password reset.
 - `00059_add_users_last_admin_guard.sql` adds `users_last_admin`, AFTER UPDATE
-  OF `role`, `role_id`, `disabled_at` OR DELETE, row-level. When the old row
-  was an active Admin and the new one is not, it takes `FOR UPDATE` on the
-  Admin row of `app.roles`, then raises `check_violation` with constraint
-  `users_last_admin` if no active Admin remains. The count is its own statement,
-  so under READ COMMITTED it sees a concurrent demotion the lock waited for:
-  of two transactions disabling the only two Admins, exactly one commits. Any
-  other change returns before locking, so disabling a student takes no lock on
-  `roles`. `role` is in the column list for the old binary, because a column
-  list matches the columns an UPDATE names, not those a BEFORE trigger sets.
-- **The schema's first `SECURITY DEFINER` function.** The `FOR UPDATE` needs
-  UPDATE privilege on `app.roles`, which `00054` revokes from `quizzivy_app`.
-  Running as the invoker, R5's demote and disable would fail with 42501 instead
-  of the guard. The function is owned by `quizzivy_migrate` and pins
-  `search_path = app, pg_catalog`, so nothing a caller puts on its path is
-  resolved inside it. A trigger function cannot be called directly, so it
-  grants nothing beyond the guard.
+  OR DELETE, row-level, with no column list. When the old row was an active
+  Admin and the new one is not, it takes `FOR NO KEY UPDATE` on the Admin row of
+  `app.roles`, then raises `check_violation` with constraint `users_last_admin`
+  if no active Admin remains. The count is its own statement, so under READ
+  COMMITTED it sees a concurrent departure the lock waited for: of two
+  transactions disabling the only two Admins, exactly one commits. Any other
+  change returns before locking, so disabling a student takes no lock on
+  `roles`.
+  - `FOR NO KEY UPDATE`, not `FOR UPDATE`: it serialises the guard against
+    itself without conflicting with the `FOR KEY SHARE` a foreign-key check on
+    `users.role_id` takes, so promoting one user to Admin does not hold up
+    another Admin's departure (and two transfers cannot deadlock).
+  - No column list: the v0.7.0 binary demotes by writing `role`, and a column
+    list matches the columns an UPDATE names, not those a BEFORE trigger sets.
+    Naming `role` would also make R3's `DROP COLUMN role` depend on the trigger.
+- **The schema's first `SECURITY DEFINER` function.** The row lock needs UPDATE
+  privilege on `app.roles`, which `00054` revokes from `quizzivy_app`. Running
+  as the invoker, R5's demote and disable would fail with 42501 instead of the
+  guard. It is owned by `quizzivy_migrate` and hardened as the PostgreSQL docs
+  require for definer functions:
+  - `search_path = pg_catalog, app, pg_temp`. An unlisted `pg_temp` is searched
+    first for relations and types, so a session that can create temporary
+    objects could otherwise plant a `pg_temp.uuid` domain whose CHECK runs as
+    the owner.
+  - Every type and relation inside is schema-qualified.
+  - EXECUTE is revoked from PUBLIC, so no role can attach it to a table of its
+    own. A trigger fires regardless of EXECUTE.
 
 `platform/db/tests/expand_r2_test.go` proves all of this on a scratch database.
 It migrates to the version before `create_roles_and_permissions`, writes users
 the v0.7.0 way, migrates the rest of the way up, then checks the backfill and
 `updated_at`. As the app role, it checks both insert paths, the last-Admin
 refusals and the two-transaction race, and it checks the definer's
-attributes. It runs where `TEST_DESTRUCTIVE=1` is set, as CI does.
+attributes and that a foreign-key check on the Admin role does not hold the
+guard up. It carries the `integration` tag and runs where `TEST_DESTRUCTIVE=1`
+is set, as CI does.

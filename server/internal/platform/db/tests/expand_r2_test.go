@@ -1,3 +1,5 @@
+//go:build integration
+
 package db_test
 
 import (
@@ -309,6 +311,32 @@ func TestTheR2ExpandKeepsTheOldBinaryWorking(t *testing.T) {
 		}
 	})
 
+	t.Run("a foreign-key check on the Admin role does not hold up the guard", func(t *testing.T) {
+		if _, err := migrate.Exec(`UPDATE app.users SET disabled_at = NULL WHERE id = ANY($1::uuid[])`,
+			[]string{owner, legacy["second-admin@example.com"].id}); err != nil {
+			t.Fatal(err)
+		}
+		promoting, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = promoting.Rollback() }()
+		if _, err := promoting.Exec(`UPDATE app.users SET role_id = (SELECT id FROM app.roles WHERE builtin_key = 'admin') WHERE id = $1`, legacy["an@example.com"].id); err != nil {
+			t.Fatalf("promoting a student: %v", err)
+		}
+		disabling, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = disabling.Rollback() }()
+		if _, err := disabling.Exec(`SET LOCAL lock_timeout = '2s'`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := disabling.Exec(`UPDATE app.users SET disabled_at = now() WHERE id = $1`, legacy["second-admin@example.com"].id); err != nil {
+			t.Errorf("disabling an Admin while another transaction's foreign-key check holds the Admin role: %v", err)
+		}
+	})
+
 	t.Run("the guard runs as its owner with a pinned search path", func(t *testing.T) {
 		var definer bool
 		var owner, config string
@@ -318,8 +346,15 @@ func TestTheR2ExpandKeepsTheOldBinaryWorking(t *testing.T) {
 			 WHERE n.nspname = 'app' AND p.proname = 'users_last_admin'`).Scan(&definer, &owner, &config); err != nil {
 			t.Fatal(err)
 		}
-		if !definer || owner != "quizzivy_migrate" || config != "search_path=app, pg_catalog" {
+		if !definer || owner != "quizzivy_migrate" || config != "search_path=pg_catalog, app, pg_temp" {
 			t.Errorf("users_last_admin: prosecdef %v, owner %s, proconfig %q", definer, owner, config)
+		}
+		var executable bool
+		if err := migrate.QueryRow(`SELECT has_function_privilege($1, 'app.users_last_admin()', 'EXECUTE')`, appRole).Scan(&executable); err != nil {
+			t.Fatal(err)
+		}
+		if executable {
+			t.Error("quizzivy_app can EXECUTE users_last_admin and attach it to a table of its own")
 		}
 		if hasTablePrivilege(t, migrate, appRole, "app.roles", "UPDATE") {
 			t.Error("quizzivy_app can UPDATE app.roles; the guard would not need to be a definer")
