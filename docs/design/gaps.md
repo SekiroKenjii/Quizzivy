@@ -33,20 +33,20 @@ redrawn to match. **Answered** — resolved by a later export.
 
 | ID | Gap | Meanwhile | Needed by |
 |---|---|---|---|
-| DG-20 | Only Landing and Splash carry Vietnamese; Admin, Teacher, Student, Sign in and System pages are English only, and Settings › Language defaults to English. | We write vi first from the existing glossary, en from the deck, and Vietnamese is the default. Please review the glossary: workspace, admin console, roles & permissions, audit log, shared with me, can use / can edit, gradebook, attendance, flashcards. | R1 |
+| DG-20 | Only Landing and Splash carry Vietnamese; Admin, Teacher, Student, Sign in and System pages are English only, and Settings › Language defaults to English. | We write vi first from the existing glossary, en from the deck, and Vietnamese is the default. Please review the glossary: workspace, admin console, roles & permissions, audit log, shared with me, can use / can edit, gradebook, attendance, flashcards. **Built in R1:** `vi` is the default locale and the fallback, and every R1 string was written vi first. The glossary review goes to the design team with R1's new and changed keys (listed in the T-R1.18 PR). | R1 |
 | DG-21 | Fixed-width labels clip longer Vietnamese strings: navigator text (min-width 92px), change-kind chips (70px), a 170px status column, 110/100px access and date columns. | Columns size to content with a minimum. | R3, R4 |
-| DG-22 | Avatar initials differ: lists, sharing and Landing use given + family name (Hoàng Thương → TH), the sidebar avatars use HT / TQ. | Given + family (TH) everywhere. | R1 |
+| DG-22 | Avatar initials differ: lists, sharing and Landing use given + family name (Hoàng Thương → TH), the sidebar avatars use HT / TQ. | Given + family (TH) everywhere. **Built in R1:** `Avatar` (`components/ui/avatar.tsx`) takes given + family everywhere, so Nguyễn Văn An is AN. | R1 |
 
 ### Foundations and accessibility
 
 | ID | Gap | Meanwhile | Needed by |
 |---|---|---|---|
-| DG-30 | No focus states: inputs only change border colour and buttons have none. The light `--ring` (#9aa3a5) is about 2.6:1 on white, under the 3:1 a focus indicator needs. | A 2px `:focus-visible` ring from a darker ring token. | R1 |
-| DG-31 | `--border` #e4e7e8 on white is about 1.25:1, so input outlines fall below 3:1 non-text contrast. White text on `--danger` is about 4.47:1. | Inputs use a darker border token; danger buttons use a darker fill. The token test measures both. | R1 |
-| DG-32 | Toasts always show a green success check, even for "Pick a score first". | Error, warning and info tones with their own icons. | R1 |
-| DG-33 | Continuous motion (infinite marquee titles, the pulsing live dot) conflicts with WCAG 2.2.2. | Marquee only on overflow, paused on hover and focus; both static under reduced motion. | R1 |
-| DG-34 | Hard-coded colours: switch knob #fff, danger button text, badge text #1b2123, QR tile, the white "paper" of the import page view, theme preview swatches, the serif used for quotes (Georgia/Times). The "Match device" swatch is a gradient. | Tokens for each, including a `--font-serif`; the swatch is split, not a gradient. | R1 |
-| DG-35 | Dark mode is not drawn for content surfaces: transparent question images, the import page view, rich-text tables, the Landing product mocks. | Content keeps a light "paper" surface in dark mode. | R1 |
+| DG-30 | No focus states: inputs only change border colour and buttons have none. The light `--ring` (#9aa3a5) is about 2.6:1 on white, under the 3:1 a focus indicator needs. | A 2px `:focus-visible` ring from a darker ring token. **Built in R1:** `--focus` and a 2px `:focus-visible` ring on every control. `tokens.test.ts` holds `--focus` at 3:1 or more on `--bg`, `--card`, `--sidebar` and `--muted`, in both themes. | R1 |
+| DG-31 | `--border` #e4e7e8 on white is about 1.25:1, so input outlines fall below 3:1 non-text contrast. White text on `--danger` is about 4.47:1. | Inputs use a darker border token; danger buttons use a darker fill. The token test measures both. **Built in R1:** `--input` for input borders (3:1 or more on `--bg` and `--card`), and `--danger-solid` / `--danger-solid-fg` for danger buttons (4.5:1 or more), both held by `tokens.test.ts` in both themes. | R1 |
+| DG-32 | Toasts always show a green success check, even for "Pick a score first". | Error, warning and info tones with their own icons. **Built in R1:** the Toaster (`components/ui/sonner.tsx`) has error, warning and info tones, each with its own icon. | R1 |
+| DG-33 | Continuous motion (infinite marquee titles, the pulsing live dot) conflicts with WCAG 2.2.2. | Marquee only on overflow, paused on hover and focus; both static under reduced motion. **Built in R1:** `MarqueeText` and `LiveDot` (`components/shared/`) pause on hover and focus and are static under `prefers-reduced-motion`. | R1 |
+| DG-34 | Hard-coded colours: switch knob #fff, danger button text, badge text #1b2123, QR tile, the white "paper" of the import page view, theme preview swatches, the serif used for quotes (Georgia/Times). The "Match device" swatch is a gradient. | Tokens for each, including a `--font-serif`; the swatch is split, not a gradient. **Built in R1:** `--switch-thumb`, `--danger-solid-fg`, `--accent-fg`, `--qr-bg` / `--qr-fg`, `--paper` / `--paper-fg` and `--font-serif`; `no-raw-colours.test.ts` refuses a literal colour in `src/`. | R1 |
+| DG-35 | Dark mode is not drawn for content surfaces: transparent question images, the import page view, rich-text tables, the Landing product mocks. | Content keeps a light "paper" surface in dark mode. **Built in R1:** the `--paper` / `--paper-fg` tokens. The surfaces that use them arrive with their rebuilds (R3, R4, R6); the old consoles stay light until then. | R1 |
 | DG-36 | Keyboard: the share dialog has no Esc or focus trap, the palette has no arrow keys or no-results state, menus lack roving focus, the toast has no live region. | Built to the WAI-ARIA patterns. | R4 |
 | DG-37 | "Compact tables" has no drawn effect. | Rows 32px instead of 40px, cell padding halved. | R4 |
 
@@ -54,10 +54,10 @@ redrawn to match. **Answered** — resolved by a later export.
 
 | ID | Gap | Meanwhile | Needed by |
 |---|---|---|---|
-| DG-40 | Auth states not drawn: Google callback and its errors, 429 rate-limit copy, disabled account, a signed-in user opening `/join/:code`, enrolment failing after sign-in. | Deck primitives on the auth layout, listed for sign-off. | R1 |
+| DG-40 | Auth states not drawn: Google callback and its errors, 429 rate-limit copy, disabled account, a signed-in user opening `/join/:code`, enrolment failing after sign-in. | Deck primitives on the auth layout, listed for sign-off. **Built in R1:** the Google callback's loading and error states, the server's 429 message, the disabled-account message, the non-student note on `/join/:code` and the enrolment-failure variant of Joined, all on `AuthLayout`. | R1 |
 | DG-41 | Forgot password shows the front-desk phone and hours, but Admin › Organization has no field for them (nor contact email and address the Landing shows). | Fields added to Organization settings. | R1, R5 |
-| DG-42 | Maintenance: no Admin control to schedule a window, no "all systems normal" status page, no rule for how long tests closing during maintenance are extended. | Windows are scheduled from the command line; in-progress attempts and closing tests extend by the window length. | R1 |
-| DG-43 | Home targets on system pages all go to the Student app; teachers and admins need their own, and signed-out visitors go to sign in. | Home = the caller's console. | R1 |
+| DG-42 | Maintenance: no Admin control to schedule a window, no "all systems normal" status page, no rule for how long tests closing during maintenance are extended. | Windows are scheduled from the command line; in-progress attempts and closing tests extend by the window length. **Built in R1:** `cmd/maintenance`'s `window-schedule`, `window-list`, `window-cancel` and `window-end` (T-R1.12); in-progress attempts and tests closing inside a window move by its length, audited as System; the API answers 503 during it and refuses a start that would run into it (T-R1.13). | R1 |
+| DG-43 | Home targets on system pages all go to the Student app; teachers and admins need their own, and signed-out visitors go to sign in. | Home = the caller's console. **Built in R1:** "Home" on the system pages is `homePathFor(user)`, or `/login` signed out. | R1 |
 
 ### Roles, users and the Admin console
 
