@@ -4,14 +4,21 @@ package maintenance_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
+	"math/rand/v2"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/core/maintenance"
+	attemptsdomain "quizzivy/internal/modules/attempts/domain"
+	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/platform/db"
 )
 
@@ -334,5 +341,125 @@ func TestEndingKeepsTheExtensionsAndOnlyEndsAnActiveWindow(t *testing.T) {
 	}
 	if endAudits != 1 {
 		t.Errorf("%d maintenance.ended rows, want 1", endAudits)
+	}
+}
+
+type committed struct {
+	pool       *pgxpool.Pool
+	teacher    string
+	test       string
+	version    string
+	assignment string
+	students   []string
+}
+
+func commitAssignment(t *testing.T, base time.Time) *committed {
+	t.Helper()
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, db.TestDSN(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &committed{pool: pool}
+	t.Cleanup(func() {
+		for _, q := range []string{
+			`DELETE FROM app.maintenance_windows WHERE starts_at >= $1 AND starts_at < $1 + interval '30 days'`,
+			`DELETE FROM app.attempts WHERE assignment_id::text = $2`,
+			`DELETE FROM app.assignments WHERE id::text = $2`,
+			`DELETE FROM app.test_versions WHERE test_id::text = $3`,
+			`DELETE FROM app.tests WHERE id::text = $3`,
+			`DELETE FROM app.users WHERE id::text = ANY($4::text[])`,
+		} {
+			_, _ = pool.Exec(ctx, q, base, c.assignment, c.test, append([]string{c.teacher}, c.students...))
+		}
+		pool.Close()
+	})
+	err = pool.QueryRow(ctx, `
+	 WITH teacher AS (
+	   INSERT INTO app.users(email,full_name,role) VALUES($1 || '@example.com','Teacher','admin') RETURNING id
+	 ), test AS (
+	   INSERT INTO app.tests(title,status,current_version,created_by)
+	   SELECT 'Window race fixture','published',1,id FROM teacher RETURNING id,created_by
+	 ), version AS (
+	   INSERT INTO app.test_versions(test_id,version,total_points,published_by)
+	   SELECT id,1,1,created_by FROM test RETURNING id,test_id,published_by
+	 ), assignment AS (
+	   INSERT INTO app.assignments(test_id,test_version_id,opens_at,closes_at,duration_minutes,created_by,published_at)
+	   SELECT test_id,id,$2::timestamptz - interval '1 day',$2::timestamptz + interval '400 days',45,published_by,now() FROM version
+	   RETURNING id,test_id,test_version_id,created_by
+	 )
+	 SELECT created_by::text,test_id::text,test_version_id::text,id::text FROM assignment`,
+		uuid.NewString(), base).Scan(&c.teacher, &c.test, &c.version, &c.assignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func (c *committed) student(t *testing.T) string {
+	t.Helper()
+	var id string
+	if err := c.pool.QueryRow(context.Background(), `
+		INSERT INTO app.users(email,full_name,role) VALUES($1 || '@example.com','Student','student')
+		RETURNING id::text`, uuid.NewString()).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	c.students = append(c.students, id)
+	return id
+}
+
+func TestWindowScheduleSerialisesAgainstAttemptStart(t *testing.T) {
+	base := time.Now().Add(40*365*24*time.Hour + time.Duration(rand.IntN(80000))*time.Hour).Truncate(time.Second)
+	c := commitAssignment(t, base)
+	starts := attemptsrepo.NewPostgres(db.NewContext(c.pool), adapters.AttemptStartGuard{})
+	ctx := context.Background()
+
+	for attempt := range 8 {
+		windowStart := base.Add(time.Duration(attempt) * 24 * time.Hour)
+		hash := sha256.Sum256([]byte(uuid.NewString()))
+		in := attemptsdomain.CreateInput{
+			AssignmentID:  c.assignment,
+			TestVersionID: c.version,
+			StudentID:     c.student(t),
+			AttemptNo:     1,
+			SessionID:     uuid.NewString(),
+			Seed:          1,
+			BeaconHash:    hash[:],
+			StartedAt:     windowStart.Add(-10 * time.Minute),
+			DeadlineAt:    windowStart.Add(30 * time.Minute),
+		}
+
+		var wg sync.WaitGroup
+		var created attemptsdomain.AttemptRecord
+		var createErr, scheduleErr error
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			created, createErr = starts.Create(ctx, in)
+		}()
+		go func() {
+			defer wg.Done()
+			_, scheduleErr = maintenance.ScheduleWindow(ctx, c.pool, windowStart, windowStart.Add(time.Hour), true)
+		}()
+		wg.Wait()
+
+		if scheduleErr != nil {
+			t.Fatalf("attempt %d: schedule: %v", attempt, scheduleErr)
+		}
+		var refused *attemptsdomain.MaintenanceScheduledError
+		switch {
+		case errors.As(createErr, &refused):
+		case createErr != nil:
+			t.Fatalf("attempt %d: start failed with %v, want the attempt or MaintenanceScheduledError", attempt, createErr)
+		default:
+			var deadline time.Time
+			if err := c.pool.QueryRow(ctx, `SELECT deadline_at FROM app.attempts WHERE id = $1::uuid`, created.ID).Scan(&deadline); err != nil {
+				t.Fatal(err)
+			}
+			if want := in.DeadlineAt.Add(time.Hour); !deadline.Equal(want) {
+				t.Fatalf("attempt %d: an attempt started across a new window kept deadline %v, want %v; "+
+					"it will be cut off by the maintenance", attempt, deadline, want)
+			}
+		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"quizzivy/internal/core/adapters"
 	"strings"
 	"sync"
 	"testing"
@@ -69,7 +70,7 @@ func sharedAudioAttempt(t *testing.T, pool *pgxpool.Pool) (*application.Applicat
 	}
 	dbx := db.NewContext(pool)
 	papers := testsapp.New(testsrepo.NewPostgres(dbx, nil, nil))
-	svc := application.New(repositories.NewTimelines(dbx), nil, repositories.NewPostgres(dbx)).WithGroupContexts(papers.Queries.GroupContexts)
+	svc := application.New(repositories.NewTimelines(dbx), nil, repositories.NewPostgres(dbx, adapters.AttemptStartGuard{})).WithGroupContexts(papers.Queries.GroupContexts)
 	session, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +197,7 @@ func TestSharedPlaysRejectForeignAndUnwritableRequestsWithoutReceipts(t *testing
 			}
 		})
 	}
-	repo := repositories.NewPostgres(db.NewContext(pool))
+	repo := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{})
 	if _, err := repo.RecordGroupPlay(context.Background(), input, session.Attempt.DeadlineAt.Add(time.Second)); !errors.Is(err, domain.ErrDeadlinePassed) {
 		t.Fatalf("expired attempt wrote: %v", err)
 	}
@@ -233,7 +234,7 @@ func TestSharedAudioEventFailureRollsBackCounterAndReceipt(t *testing.T) {
 	pool := newPool(t)
 	svc, w, session, recording, _ := sharedAudioAttempt(t, pool)
 	input := domain.GroupPlayInput{AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID, RecordingID: recording, PlayID: uuid.NewString()}
-	repo := repositories.NewPostgres(db.NewContext(failingAudioEvents{pool}))
+	repo := repositories.NewPostgres(db.NewContext(failingAudioEvents{pool}), adapters.AttemptStartGuard{})
 	if _, err := repo.RecordGroupPlay(context.Background(), input, time.Now()); !errors.Is(err, errAudioEventWrite) {
 		t.Fatalf("write failure: %v", err)
 	}

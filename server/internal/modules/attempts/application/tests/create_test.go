@@ -4,12 +4,22 @@ package application_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"math/rand/v2"
+	"quizzivy/internal/core/adapters"
+	"quizzivy/internal/modules/attempts/application"
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/modules/attempts/repositories"
+	"quizzivy/internal/platform/db"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestStartingAnAttemptDealsThePaperAndOpensASession(t *testing.T) {
@@ -218,5 +228,106 @@ func TestAVoidedAttemptDoesNotSpendTheStudentsLastTry(t *testing.T) {
 	}
 	if second.Attempt.AttemptNo != 2 {
 		t.Errorf("attemptNo %d, want 2", second.Attempt.AttemptNo)
+	}
+}
+
+func farFuture() time.Time {
+	return time.Now().Add(25*365*24*time.Hour + time.Duration(rand.IntN(80000))*time.Hour).Truncate(time.Second)
+}
+
+func maintenanceWindow(t *testing.T, pool *pgxpool.Pool, startsAt, endsAt time.Time) {
+	t.Helper()
+	var id string
+	if err := pool.QueryRow(context.Background(), `
+		INSERT INTO app.maintenance_windows (starts_at, ends_at)
+		VALUES ($1, $2) RETURNING id::text`, startsAt, endsAt).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM app.maintenance_windows WHERE id = $1::uuid`, id)
+	})
+}
+
+func createAt(pool *pgxpool.Pool, w world, startedAt, deadline time.Time) (domain.AttemptRecord, error) {
+	hash := sha256.Sum256([]byte(uuid.NewString()))
+	return repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Create(context.Background(), domain.CreateInput{
+		AssignmentID:  w.assignment,
+		TestVersionID: w.versionID,
+		StudentID:     w.student,
+		AttemptNo:     1,
+		SessionID:     uuid.NewString(),
+		Seed:          1,
+		BeaconHash:    hash[:],
+		StartedAt:     startedAt,
+		DeadlineAt:    deadline,
+	})
+}
+
+func attemptsOf(t *testing.T, pool *pgxpool.Pool, w world) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM app.attempts WHERE assignment_id = $1::uuid`, w.assignment).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestAStartThatWouldRunIntoMaintenanceIsRefused(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	start := farFuture()
+	maintenanceWindow(t, pool, start.Add(30*time.Minute), start.Add(90*time.Minute))
+
+	_, err := createAt(pool, w, start, start.Add(time.Hour))
+
+	var scheduled *domain.MaintenanceScheduledError
+	if !errors.As(err, &scheduled) {
+		t.Fatalf("start = %v, want MaintenanceScheduledError", err)
+	}
+	if !scheduled.Window.StartsAt.Equal(start.Add(30*time.Minute)) || !scheduled.Window.EndsAt.Equal(start.Add(90*time.Minute)) {
+		t.Errorf("refused for %+v, want the window thirty minutes in", scheduled.Window)
+	}
+	if n := attemptsOf(t, pool, w); n != 0 {
+		t.Errorf("%d attempts written by a refused start, want 0", n)
+	}
+}
+
+func TestAStartThatEndsBeforeMaintenanceGoesAhead(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	start := farFuture()
+	maintenanceWindow(t, pool, start.Add(time.Hour), start.Add(2*time.Hour))
+
+	got, err := createAt(pool, w, start, start.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("start = %v, want the attempt", err)
+	}
+	if !got.DeadlineAt.Equal(start.Add(time.Hour)) {
+		t.Errorf("deadline %v, want %v", got.DeadlineAt, start.Add(time.Hour))
+	}
+}
+
+type scheduledWindow struct{ window domain.MaintenanceWindow }
+
+func (s scheduledWindow) GuardAttemptStart(context.Context, pgx.Tx, time.Time, time.Time) (*domain.MaintenanceWindow, error) {
+	window := s.window
+	return &window, nil
+}
+
+func TestARefusedStartReachesTheStudentAsMaintenanceScheduled(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	window := domain.MaintenanceWindow{StartsAt: time.Now().Add(10 * time.Minute), EndsAt: time.Now().Add(40 * time.Minute)}
+	svc := application.New(nil, nil, repositories.NewPostgres(db.NewContext(pool), scheduledWindow{window: window}))
+
+	_, err := svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+
+	var scheduled *domain.MaintenanceScheduledError
+	if !errors.As(err, &scheduled) || !scheduled.Window.StartsAt.Equal(window.StartsAt) {
+		t.Fatalf("start = %v, want MaintenanceScheduledError for the window", err)
+	}
+	if n := attemptsOf(t, pool, w); n != 0 {
+		t.Errorf("%d attempts written by a refused start, want 0", n)
 	}
 }

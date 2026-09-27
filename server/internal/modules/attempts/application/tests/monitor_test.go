@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"os"
+	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
@@ -113,7 +114,7 @@ func TestTheMonitorIsTwoQueriesForFiftyStudentsAndThirtyAttempts(t *testing.T) {
 		handIn(t, pool, w, id, 1, status)
 	}
 
-	store := repositories.NewPostgres(db.NewContext(pool))
+	store := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{})
 	counter.n.Store(0)
 	monitor, err := store.Monitor(context.Background(), w.assignment, time.Now())
 	if err != nil {
@@ -207,7 +208,7 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 
 func TestAnUnknownAssignmentIsNotAnEmptyMonitor(t *testing.T) {
 	pool := newPool(t)
-	_, err := repositories.NewPostgres(db.NewContext(pool)).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
+	_, err := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
 	if err != domain.ErrNotFound {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}
