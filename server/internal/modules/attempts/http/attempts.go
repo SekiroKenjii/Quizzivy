@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/text/language"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
@@ -27,7 +28,14 @@ func (h Attempts) StartOrResumeAttempt(ctx context.Context, request openapi.Star
 	}
 
 	session, err := h.app.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: request.Id.String(), StudentID: principal.UserID})
+	var scheduled *domain.MaintenanceScheduledError
 	switch {
+	case errors.As(err, &scheduled):
+		return openapi.StartOrResumeAttempt409JSONResponse(httpapi.ErrorWithDetails(ctx,
+			openapi.MAINTENANCESCHEDULED, scheduledMessage(ctx), map[string]interface{}{
+				"startsAt": scheduled.Window.StartsAt.UTC().Format(time.RFC3339),
+				"endsAt":   scheduled.Window.EndsAt.UTC().Format(time.RFC3339),
+			})), nil
 	case errors.Is(err, domain.ErrForbidden), errors.Is(err, domain.ErrNotFound):
 
 		return openapi.StartOrResumeAttempt403JSONResponse{
@@ -455,4 +463,13 @@ func (h Attempts) SubmitAttempt(ctx context.Context, request openapi.SubmitAttem
 		return nil, err
 	}
 	return openapi.SubmitAttempt200JSONResponse(toAPIAttempt(closed)), nil
+}
+
+var attemptLanguages = language.NewMatcher([]language.Tag{language.Vietnamese, language.English})
+
+func scheduledMessage(ctx context.Context) string {
+	if _, index := language.MatchStrings(attemptLanguages, httpx.RequestMetaFromContext(ctx).Language); index == 1 {
+		return "Quizzivy will be updated before this attempt would end. Start it once the update is over."
+	}
+	return "Quizzivy sắp được cập nhật trước khi bài làm kết thúc. Hãy bắt đầu sau khi cập nhật xong."
 }

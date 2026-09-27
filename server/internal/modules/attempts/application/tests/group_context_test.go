@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"quizzivy/internal/core/adapters"
 	"reflect"
 	"strings"
 	"testing"
@@ -39,7 +40,7 @@ func TestAttemptSharedContextIsFrozenSafeAndOwned(t *testing.T) {
 	_, otherAsset := attemptGroupFixture(t, tx, other)
 	dbx := db.NewContext(tx)
 	papers := testsapp.New(testsrepo.NewPostgres(dbx, nil, nil))
-	svc := application.New(nil, nil, repositories.NewPostgres(dbx)).WithGroupContexts(papers.Queries.GroupContexts)
+	svc := application.New(nil, nil, repositories.NewPostgres(dbx, adapters.AttemptStartGuard{})).WithGroupContexts(papers.Queries.GroupContexts)
 	reachable, err := mediarepo.ReachableByStudent(ctx, tx, w.student, assetID)
 	if err != nil || reachable {
 		t.Fatalf("targeting alone granted shared media: %v, %v", reachable, err)
@@ -88,7 +89,7 @@ func TestAttemptSharedContextIsFrozenSafeAndOwned(t *testing.T) {
 	if err != nil || resumed.SessionID == session.SessionID || !reflect.DeepEqual(resumed.Groups, session.Groups) {
 		t.Fatalf("takeover changed context: %v", err)
 	}
-	unconfigured := application.New(nil, nil, repositories.NewPostgres(dbx))
+	unconfigured := application.New(nil, nil, repositories.NewPostgres(dbx, adapters.AttemptStartGuard{}))
 	if _, err := unconfigured.Queries.Get.Handle(ctx, query.Get{AttemptID: session.Attempt.ID, StudentID: w.student}); !errors.Is(err, domain.ErrGroupContextUnavailable) {
 		t.Fatalf("missing reader silently discarded context: %v", err)
 	}

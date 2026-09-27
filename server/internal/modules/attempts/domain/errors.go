@@ -63,3 +63,19 @@ type DeadlineNotReachedError struct {
 func (e *DeadlineNotReachedError) Error() string {
 	return "attempts: deadline not reached until " + e.DeadlineAt.UTC().Format(time.RFC3339)
 }
+
+// MaintenanceWindow is a maintenance window as the attempts module sees it.
+type MaintenanceWindow struct {
+	StartsAt time.Time
+	EndsAt   time.Time
+}
+
+// MaintenanceScheduledError refuses to start an attempt that would run into a
+// maintenance window. Resuming an attempt never meets it.
+type MaintenanceScheduledError struct {
+	Window MaintenanceWindow
+}
+
+func (e *MaintenanceScheduledError) Error() string {
+	return "attempts: a maintenance window starts at " + e.Window.StartsAt.UTC().Format(time.RFC3339)
+}

@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/core/adapters"
 	"reflect"
 	"testing"
 
@@ -71,7 +72,7 @@ func TestSharedReviewContextSeparatesReleasedAndTeacherTranscripts(t *testing.T)
 	}
 	dbx := db.NewContext(pool)
 	papers := testsapp.New(testsrepo.NewPostgres(dbx, nil, nil))
-	full := application.New(repositories.NewTimelines(dbx), repositories.NewReviews(dbx), repositories.NewPostgres(dbx)).WithGroupContexts(papers.Queries.GroupContexts)
+	full := application.New(repositories.NewTimelines(dbx), repositories.NewReviews(dbx), repositories.NewPostgres(dbx, adapters.AttemptStartGuard{})).WithGroupContexts(papers.Queries.GroupContexts)
 	review, err := full.Queries.Review.Handle(ctx, query.Review{AttemptID: session.Attempt.ID})
 	if err != nil || review.SharedContext == nil || len(review.SharedContext.Transcripts) != 2 || review.SharedContext.Transcripts[second] != "Private group transcript" {
 		t.Fatalf("teacher lost shared transcript: %+v, %v", review.SharedContext, err)
@@ -93,7 +94,7 @@ func TestSharedReviewContextSeparatesReleasedAndTeacherTranscripts(t *testing.T)
 	if err != nil || result.SharedContext == nil || len(result.SharedContext.Transcripts) != 0 {
 		t.Fatalf("score/key/explanation flags overrode transcript policy: %+v, %v", result.SharedContext, err)
 	}
-	missing := application.New(nil, repositories.NewReviews(dbx), repositories.NewPostgres(dbx))
+	missing := application.New(nil, repositories.NewReviews(dbx), repositories.NewPostgres(dbx, adapters.AttemptStartGuard{}))
 	if _, err := missing.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student}); !errors.Is(err, domain.ErrGroupContextUnavailable) {
 		t.Fatalf("missing result reader: %v", err)
 	}
