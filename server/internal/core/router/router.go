@@ -26,6 +26,9 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	if err := httpx.AssertPublicRoutesLimited(spec, limits); err != nil {
 		return nil, err
 	}
+	if _, err := httpx.PermissionRequirements(spec, "bearerAuth"); err != nil {
+		return nil, err
+	}
 
 	openRoutes := httpx.OpenRoutes(spec, "bearerAuth")
 

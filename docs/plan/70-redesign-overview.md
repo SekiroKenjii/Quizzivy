@@ -165,8 +165,8 @@ integration test asserts they are equal. Labels and defaults are the deck's
   list meaning any of them. A list is used only where one operation serves two matrix rows:
   question and question-group writes (`[content.questions.write, content.tests.write]`) and the
   attempt-review reads (`[teaching.grading, teaching.attempts.intervene]`). The handler narrows
-  the check when the body decides which row applies. Open operations (`security: []`) declare
-  none. A startup assertion, `permissions_test.go` and `testdata/permissions.golden` fail the
+  the check when the body decides which row applies (question-group writes: T-R2.12a). Open
+  operations, those that do not require the bearer token, declare none. A startup assertion, `permissions_test.go` and `testdata/permissions.golden` fail the
   build on any operation that breaks this.
 - **Open operations.** There are six at v0.6.0 (login, Google, refresh, logout,
   `/join/preview`, the integrity beacon). R1 adds `getPublicStatus` (7). R5 adds

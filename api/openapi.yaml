@@ -27,6 +27,22 @@ info:
       one of them to be rate-limited; the server asserts this at startup by
       cross-referencing this file, so adding a public operation without a
       limiter fails the process rather than shipping.
+    - Every operation that requires a bearer token declares the permission it
+      needs in `x-permission`, in one of three forms:
+      - a `PermissionKey`;
+      - a pseudo-key: `self` (any signed-in user), `workspace.teacher` (any
+        `content.*`, `teaching.*` or `people.students.*` key) or
+        `workspace.admin` (`people.users.manage`, `people.roles.manage`,
+        `system.audit.read`, `system.settings.write` or `scope.all`);
+      - a list, met by any one of its keys. A list is used only where one
+        operation serves two matrix rows, and the server narrows the check
+        when the body decides which row applies.
+
+      An operation that does not require the bearer token (the seven open
+      operations) declares none. The server refuses to start when an
+      operation breaks this, and a hidden key (`scope.all`,
+      `system.api_reference`, `system.data_export`, `system.leads`) may appear
+      only under `/admin/`.
     - Student-facing schemas are deliberately separate components from admin
       ones. See `StudentQuestion` for why.
     - All timestamps are RFC 3339 UTC. Rendering in `Asia/Ho_Chi_Minh` is the
@@ -3331,6 +3347,7 @@ paths:
   /auth/me:
     get:
       operationId: getCurrentUser
+      x-permission: self
       tags: [auth]
       summary: Current session
       description: Called on app load. A 401 sends the client to `/login` (§5.4).
@@ -3344,6 +3361,7 @@ paths:
         '503': { $ref: '#/components/responses/Maintenance' }
     patch:
       operationId: updateCurrentUser
+      x-permission: self
       tags: [auth]
       summary: Rename yourself
       description: |
@@ -3418,6 +3436,7 @@ paths:
   /auth/change-password:
     post:
       operationId: changePassword
+      x-permission: self
       tags: [auth]
       summary: Change own password
       description: |
@@ -3487,6 +3506,7 @@ paths:
   /auth/google/link:
     post:
       operationId: linkGoogle
+      x-permission: self
       tags: [auth]
       summary: Link Google to the current account
       description: Same `email_verified` rule as sign-in (§5.1).
@@ -3540,6 +3560,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     delete:
       operationId: unlinkGoogle
+      x-permission: self
       tags: [auth]
       summary: Unlink Google
       description: |
@@ -3559,6 +3580,7 @@ paths:
   /admin/question-groups:
     get:
       operationId: listQuestionGroups
+      x-permission: workspace.teacher
       tags: [admin-tests]
       summary: Independent groups in the question bank
       description: Lists bank-owned groups only, without member keys or transcripts. Search matches group titles and member prompts without accents.
@@ -3582,6 +3604,7 @@ paths:
                       items: { type: array, items: { $ref: '#/components/schemas/QuestionGroupSummary' } }
     post:
       operationId: createQuestionGroup
+      x-permission: [content.questions.write, content.tests.write]
       tags: [admin-tests]
       x-max-body-bytes: 4194304
       summary: Create a complete independent draft group
@@ -3619,6 +3642,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getQuestionGroup
+      x-permission: workspace.teacher
       tags: [admin-tests]
       summary: Read a complete editable group including answer keys
       description: Reads one coherent independent graph and its revisions. Teacher-only; asset links never grant access to an unrelated source document.
@@ -3631,6 +3655,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       operationId: updateQuestionGroup
+      x-permission: [content.questions.write, content.tests.write]
       tags: [admin-tests]
       x-max-body-bytes: 4194304
       description: Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first.
@@ -3664,6 +3689,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     delete:
       operationId: deleteQuestionGroup
+      x-permission: [content.questions.write, content.tests.write]
       tags: [admin-tests]
       description: Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision.
       parameters:
@@ -3682,6 +3708,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: copyQuestionGroup
+      x-permission: [content.questions.write, content.tests.write]
       tags: [admin-tests]
       description: Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section.
       requestBody:
@@ -3713,6 +3740,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     patch:
       operationId: archiveQuestionGroup
+      x-permission: content.questions.write
       tags: [admin-tests]
       description: Archives/restores an independent bank group; section-owned groups follow the test lifecycle.
       requestBody:
@@ -3743,6 +3771,7 @@ paths:
   /admin/tests:
     get:
       operationId: listTests
+      x-permission: workspace.teacher
       description: Backs the §8 tests list. Soft-deleted tests are excluded; keyset paginated (§13.8).
       tags: [admin-tests]
       parameters:
@@ -3795,6 +3824,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       operationId: createTest
+      x-permission: content.tests.write
       description: Creates an empty draft. Content is added through the builder, and nothing is assignable until it is published.
       tags: [admin-tests]
       requestBody:
@@ -3821,6 +3851,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     delete:
       operationId: deleteTest
+      x-permission: content.tests.write
       tags: [admin-tests]
       description: Permanently deletes an archived test and its unused versions. Assignments or attempts referencing the test block deletion.
       responses:
@@ -3833,6 +3864,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getTest
+      x-permission: workspace.teacher
       description: Full test including the draft outline. Published content lives in versions, not here.
       tags: [admin-tests]
       responses:
@@ -3844,6 +3876,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateTest
+      x-permission: content.tests.write
       tags: [admin-tests]
       summary: Update metadata and the draft outline
       description: |
@@ -3907,6 +3940,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: publishTest
+      x-permission: content.tests.publish
       tags: [admin-tests]
       summary: Validate and snapshot a new version
       description: |
@@ -3940,6 +3974,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: duplicateTest
+      x-permission: content.tests.write
       tags: [admin-tests]
       description: Copies the draft structure only — never the versions. The copy starts as a draft.
       responses:
@@ -3954,6 +3989,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: listTestVersions
+      x-permission: workspace.teacher
       tags: [admin-tests]
       summary: Version history
       description: Backs §8's test-detail version history. Spec §15 has no endpoint for this.
@@ -3978,6 +4014,7 @@ paths:
         schema: { type: integer, minimum: 1 }
     delete:
       operationId: deleteTestVersion
+      x-permission: content.tests.publish
       tags: [admin-tests]
       description: Deletes an unused, non-current version. Existing assignments and attempts prevent deletion.
       responses:
@@ -3998,6 +4035,7 @@ paths:
         schema: { type: integer, minimum: 1 }
     post:
       operationId: setCurrentTestVersion
+      x-permission: content.tests.publish
       tags: [admin-tests]
       description: Selects the default published version for future assignments. Existing assignments and snapshots are unchanged.
       requestBody:
@@ -4032,6 +4070,7 @@ paths:
         schema: { type: integer, minimum: 1 }
     post:
       operationId: createDraftFromTestVersion
+      x-permission: content.tests.write
       tags: [admin-tests]
       description: Replaces the draft outline with independent bank-question copies of this snapshot. Published content and existing assignments are unchanged. The caller confirms replacement of any existing draft.
       requestBody:
@@ -4061,6 +4100,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: previewTest
+      x-permission: workspace.teacher
       tags: [admin-tests]
       summary: Student-eye preview of a published version
       description: |
@@ -4093,6 +4133,7 @@ paths:
   /admin/questions:
     get:
       operationId: listQuestions
+      x-permission: workspace.teacher
       description: The §8 question bank, with type and tag filters plus search.
       tags: [admin-questions]
       parameters:
@@ -4174,6 +4215,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestion
+      x-permission: [content.questions.write, content.tests.write]
       description: Adds a question to the bank. Options and blanks are written in the same transaction, with ordinals normalized dense.
       tags: [admin-questions]
       requestBody:
@@ -4192,6 +4234,7 @@ paths:
   /admin/questions/tags:
     post:
       operationId: tagQuestions
+      x-permission: content.questions.write
       tags: [admin-questions]
       summary: Add tags to several questions at once
       description: |
@@ -4244,6 +4287,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getQuestion
+      x-permission: workspace.teacher
       description: A single bank question, including its grading key. Admin-only by construction.
       tags: [admin-questions]
       responses:
@@ -4255,6 +4299,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateQuestion
+      x-permission: [content.questions.write, content.tests.write]
       description: Edits the bank copy only. Published versions hold their own snapshot and are unaffected (§7).
       tags: [admin-questions]
       requestBody:
@@ -4272,6 +4317,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteQuestion
+      x-permission: content.questions.write
       tags: [admin-questions]
       description: Soft delete (§13.2). Version snapshots that reference it keep working.
       responses:
@@ -4290,6 +4336,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: duplicateQuestion
+      x-permission: [content.questions.write, content.tests.write]
       tags: [admin-questions]
       description: |
         A-06a's "Nhân bản": copies the question, its options, blanks and
@@ -4307,6 +4354,7 @@ paths:
   /admin/imports:
     post:
       operationId: createWordImport
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Create an empty private import idempotently
       description: Creates a persistent intake identity without uploading files or starting recognition.
@@ -4333,6 +4381,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: listWordImports
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Search private import history
       description: Paginated shared teacher history with accent-insensitive title and current filename search.
@@ -4359,6 +4408,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getWordImport
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Read an import and its current completed sources
       description: Returns a consistent source-set snapshot and the number of incomplete upload reservations.
@@ -4377,6 +4427,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: uploadImportSource
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Upload a private Word or PDF source and create an immutable source set
       description: |
@@ -4450,6 +4501,7 @@ paths:
       - { name: sourceId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
     get:
       operationId: downloadImportSource
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Authorize a short-lived original-file download
       description: |
@@ -4477,6 +4529,7 @@ paths:
   /admin/imports/capabilities:
     get:
       operationId: getWordImportCapabilities
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Read what this deployment can do with Word imports
       description: |
@@ -4493,6 +4546,7 @@ paths:
   /admin/imports/limits:
     get:
       operationId: getWordImportLimits
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Read the accepted formats and size limit before uploading
       description: Lets the upload page state its limits before a file is chosen.
@@ -4506,6 +4560,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: processWordImport
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Queue recognition of the current source set
       description: |
@@ -4549,6 +4604,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: cancelWordImport
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Stop processing, or close an uncommitted import
       description: >-
@@ -4581,6 +4637,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getWordImportReview
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Read the reviewable draft with its current findings
       description: Findings are recomputed on every read, so they always describe the saved revision.
@@ -4602,6 +4659,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     put:
       operationId: saveWordImportReview
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Save the teacher's edits to the draft
       description: |
@@ -4638,6 +4696,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: adoptWordImportReprocessed
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Replace the edited draft with the newer machine draft
       description: |
@@ -4668,6 +4727,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getWordImportSource
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Read the extracted text of one source for comparison
       description: Private teacher evidence; the response is never cached and never reaches students.
@@ -4696,6 +4756,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: commitWordImport
+      x-permission: content.tests.write
       tags: [admin-imports]
       summary: Create one draft test from the reviewed import
       description: |
@@ -4731,6 +4792,7 @@ paths:
   /admin/media:
     get:
       operationId: listMedia
+      x-permission: workspace.teacher
       description: The §8 media library, with a usage count so referenced assets can be shown as undeletable.
       tags: [admin-media]
       parameters:
@@ -4778,6 +4840,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: uploadMedia
+      x-permission: content.media.write
       tags: [admin-media]
       summary: Upload an audio or image asset
       description: |
@@ -4834,6 +4897,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     delete:
       operationId: deleteMedia
+      x-permission: content.media.write
       description: Soft-deletes an unreferenced asset. The R2 object itself is retained; lifecycle cleanup is deliberately out of v1 scope.
       tags: [admin-media]
       responses:
@@ -4854,6 +4918,7 @@ paths:
   /admin/assignments:
     get:
       operationId: listAssignments
+      x-permission: workspace.teacher
       description: |
         Backs the §8 assignments list. `status` is derived per assignment, not
         stored (D-18). `classId` narrows the list to assignments that target
@@ -4889,6 +4954,7 @@ paths:
                       facets: { $ref: '#/components/schemas/AssignmentStatusFacets' }
     post:
       operationId: createAssignment
+      x-permission: teaching.assignments.write
       tags: [admin-assignments]
       description: Only a **published** version may be assigned (§8).
       requestBody:
@@ -4913,6 +4979,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     delete:
       operationId: deleteAssignment
+      x-permission: teaching.assignments.write
       tags: [admin-assignments]
       description: Permanently deletes a draft or closed assignment with no attempts. Open or scheduled assignments and any historical attempts block deletion.
       responses:
@@ -4925,6 +4992,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getAssignment
+      x-permission: workspace.teacher
       description: A single assignment with its targets, window, and review and integrity policies.
       tags: [admin-assignments]
       responses:
@@ -4936,6 +5004,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateAssignment
+      x-permission: teaching.assignments.write
       tags: [admin-assignments]
       description: |
         `testVersionId` may be changed **only while no attempt exists**.
@@ -4965,6 +5034,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: listAnswersForQuestion
+      x-permission: teaching.grading
       tags: [admin-attempts]
       summary: One question across every paper
       description: |
@@ -5005,6 +5075,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: reopenAssignment
+      x-permission: teaching.assignments.write
       tags: [admin-assignments]
       description: |
         G-09's "Gia hạn cho tất cả": a closed assignment gets a later
@@ -5040,6 +5111,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getAssignmentMonitor
+      x-permission: workspace.teacher
       tags: [admin-assignments, admin-attempts]
       summary: Monitor rows, one per targeted student
       description: |
@@ -5073,6 +5145,7 @@ paths:
   /admin/attempts:
     get:
       operationId: listAttempts
+      x-permission: [teaching.grading, teaching.attempts.intervene]
       tags: [admin-attempts]
       summary: Cross-assignment attempt list
       description: |
@@ -5111,6 +5184,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getAttemptForReview
+      x-permission: [teaching.grading, teaching.attempts.intervene]
       tags: [admin-attempts]
       summary: Full attempt for review and grading
       description: |
@@ -5162,6 +5236,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getAttemptEvents
+      x-permission: [teaching.grading, teaching.attempts.intervene]
       tags: [admin-attempts]
       summary: Integrity timeline
       description: |
@@ -5194,6 +5269,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: extendAttempt
+      x-permission: teaching.attempts.intervene
       tags: [admin-attempts]
       description: |
         May push the deadline past the assignment's `closesAt` — that is the
@@ -5228,6 +5304,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: resetAttempt
+      x-permission: teaching.attempts.intervene
       tags: [admin-attempts]
       description: |
         **Voids** the existing attempt and permits a new one at `attemptNo + 1`.
@@ -5261,6 +5338,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: voidAttempt
+      x-permission: teaching.attempts.intervene
       description: Marks an attempt void with a required reason. Nothing is deleted, and the audit row is written in the same statement (§13.4).
       tags: [admin-attempts]
       requestBody:
@@ -5291,6 +5369,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     patch:
       operationId: setAttemptNote
+      x-permission: teaching.grading
       tags: [admin-attempts]
       description: |
         G-05's "Ghi chú của bạn": a note only the teacher reads, kept on the
@@ -5323,6 +5402,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: flagAttempt
+      x-permission: teaching.grading
       tags: [admin-attempts]
       description: |
         G-05's "Đánh dấu" and "Bỏ đánh dấu": marks an attempt to look at
@@ -5357,6 +5437,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: gradeAttempt
+      x-permission: teaching.grading
       tags: [admin-attempts]
       summary: Save manual grades
       description: |
@@ -5400,6 +5481,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: finishGrading
+      x-permission: teaching.grading
       tags: [admin-attempts]
       description: |
         Recomputes the score from `SUM(final_score)` — the PG18 virtual generated
@@ -5421,6 +5503,7 @@ paths:
   /admin/dashboard:
     get:
       operationId: getDashboard
+      x-permission: workspace.teacher
       tags: [admin-attempts]
       description: The five counts §8 needs and spec §15 has no endpoint for. One round trip.
       responses:
@@ -5435,6 +5518,7 @@ paths:
   /admin/students:
     get:
       operationId: listStudents
+      x-permission: people.students.read
       description: Backs the §8 students table. CSV import is P1 and deliberately not built (§16).
       tags: [admin-students]
       parameters:
@@ -5477,6 +5561,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createStudent
+      x-permission: people.students.create
       tags: [admin-students]
       description: |
         Admin-created accounts get a temporary password and
@@ -5515,6 +5600,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     delete:
       operationId: deleteStudent
+      x-permission: people.users.manage
       tags: [admin-students]
       description: Permanently deletes a disabled student account only when no assignment, attempt, or retained audit record references it. Historical identities use the approved manual anonymization process instead.
       responses:
@@ -5527,6 +5613,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getStudent
+      x-permission: people.students.read
       description: A student with their class memberships, linked providers and `joinedVia` (§8).
       tags: [admin-students]
       responses:
@@ -5538,6 +5625,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateStudent
+      x-permission: people.students.create
       description: Edits profile fields, or disables the account. Disabling blocks login without deleting any attempt history.
       tags: [admin-students]
       requestBody:
@@ -5571,6 +5659,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: resetStudentPassword
+      x-permission: people.students.reset_password
       tags: [admin-students]
       description: |
         Sets a temporary password and `mustChangePassword`. There is no
@@ -5592,6 +5681,7 @@ paths:
   /admin/docs-session:
     post:
       operationId: openDocsSession
+      x-permission: system.api_reference
       tags: [admin-docs]
       summary: Open the API reference for fifteen minutes
       description: |
@@ -5614,6 +5704,7 @@ paths:
   /admin/classes:
     get:
       operationId: listClasses
+      x-permission: workspace.teacher
       description: |
         Classes, newest first. Paginated and searchable like every other list:
         §1.3 promised single-digit classes, and a development database already
@@ -5653,6 +5744,7 @@ paths:
                       facets: { $ref: '#/components/schemas/ClassFacets' }
     post:
       operationId: createClass
+      x-permission: teaching.classes.write
       description: Creates a class. A join code is not issued automatically; rotate to get one (§6.4).
       tags: [admin-classes]
       requestBody:
@@ -5678,6 +5770,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     delete:
       operationId: deleteClass
+      x-permission: teaching.classes.write
       tags: [admin-classes]
       description: Permanently deletes an archived class and its owned memberships/join codes. Assignment references block deletion; student accounts and papers are retained.
       responses:
@@ -5690,6 +5783,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
     get:
       operationId: getClass
+      x-permission: workspace.teacher
       description: A single class, including its active join code metadata -- but never the code itself (§13.3).
       tags: [admin-classes]
       responses:
@@ -5701,6 +5795,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateClass
+      x-permission: teaching.classes.write
       description: Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
       tags: [admin-classes]
       requestBody:
@@ -5727,6 +5822,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: listClassMembers
+      x-permission: people.students.read
       tags: [admin-classes]
       description: |
         Shows `joinedVia` and `joinedAt` so the teacher can spot unexpected
@@ -5757,6 +5853,7 @@ paths:
                       items: { type: array, items: { $ref: '#/components/schemas/ClassMember' } }
     post:
       operationId: addClassMember
+      x-permission: teaching.classes.write
       description: 'Enrols an existing user directly, bypassing the join code. Recorded as `joinedVia: admin` so the teacher can tell the two apart.'
       tags: [admin-classes]
       requestBody:
@@ -5784,6 +5881,7 @@ paths:
       - { name: userId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
     delete:
       operationId: removeClassMember
+      x-permission: teaching.classes.write
       tags: [admin-classes]
       description: |
         Revokes access. **Attempts are retained, not deleted** (§6.4), and an
@@ -5802,6 +5900,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: rotateJoinCode
+      x-permission: teaching.classes.write
       tags: [admin-classes]
       summary: Issue a new join code, revoking the old one
       description: |
@@ -5858,6 +5957,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: revokeJoinCode
+      x-permission: teaching.classes.write
       tags: [admin-classes]
       description: |
         Revokes without issuing a replacement, and sets `selfJoinEnabled: false`
@@ -5878,6 +5978,7 @@ paths:
   /app/classes:
     get:
       operationId: listMyClasses
+      x-permission: learning.take_tests
       description: Classes the signed-in student belongs to. Backs §9 `/app/classes`.
       tags: [student]
       responses:
@@ -5895,6 +5996,7 @@ paths:
   /app/classes/join:
     post:
       operationId: joinClass
+      x-permission: learning.take_tests
       tags: [student]
       summary: Enrol with a code, already signed in
       description: |
@@ -5930,6 +6032,7 @@ paths:
   /app/assignments:
     get:
       operationId: listMyAssignments
+      x-permission: learning.take_tests
       tags: [student]
       description: The three §9 sections — **Đến hạn**, **Sắp tới**, **Đã hoàn thành**.
       responses:
@@ -5950,6 +6053,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getMyAssignment
+      x-permission: learning.take_tests
       tags: [student]
       summary: Intro page
       description: |
@@ -5975,6 +6079,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: startOrResumeAttempt
+      x-permission: learning.take_tests
       tags: [take-test]
       summary: Create or resume an attempt
       description: |
@@ -6013,6 +6118,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getAttempt
+      x-permission: learning.take_tests
       tags: [take-test]
       summary: The take-test payload
       description: |
@@ -6035,6 +6141,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     patch:
       operationId: saveAnswers
+      x-permission: learning.take_tests
       tags: [take-test]
       summary: Autosave answers and flush buffered events
       description: |
@@ -6140,6 +6247,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: recordAudioPlay
+      x-permission: learning.take_tests
       tags: [take-test]
       summary: Increment the server-authoritative play counter
       description: |
@@ -6179,6 +6287,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: recordGroupAudioPlay
+      x-permission: learning.take_tests
       tags: [take-test]
       summary: Record one shared listening gesture, deduplicating retries
       description: |
@@ -6214,6 +6323,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
       operationId: submitAttempt
+      x-permission: learning.take_tests
       tags: [take-test]
       description: |
         **Idempotent.** A second call on an already-closed attempt is `409
@@ -6257,6 +6367,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
       operationId: getAttemptResult
+      x-permission: learning.take_tests
       tags: [take-test]
       summary: Post-submission review
       description: |
@@ -6295,6 +6406,7 @@ paths:
       - { name: assetId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
     get:
       operationId: getMediaUrl
+      x-permission: learning.take_tests
       tags: [take-test]
       summary: Mint a short-lived signed URL
       description: |
