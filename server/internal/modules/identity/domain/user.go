@@ -6,6 +6,7 @@ package domain
 import (
 	"fmt"
 	classesdomain "quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/shared/access"
 	"time"
 )
 
@@ -21,6 +22,9 @@ type User struct {
 	CreatedAt          time.Time
 	SessionEpoch       int
 	LinkedProviders    []string
+	// Permissions is what the user's role holds, filled in where a response
+	// shows the user to themselves; empty everywhere else.
+	Permissions access.Set
 }
 
 // JoinCodeRejected is a join code that did not pass. It carries the outcome so

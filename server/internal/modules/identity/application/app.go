@@ -33,6 +33,7 @@ func (a *Application) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnrol
 // a password reset takes effect on this machine's next request.
 func (a *Application) SetPrincipals(p ports.Principals) {
 	a.students.Principals = p
+	a.service.Principals = p
 }
 
 type Commands struct {

@@ -71,6 +71,12 @@ func (a *Application) CheckCatalogue(ctx context.Context) error {
 	return nil
 }
 
+// Resolve returns who userID acts as, from the principal cache, or
+// domain.ErrUnknownUser.
+func (a *Application) Resolve(ctx context.Context, userID string) (access.Principal, error) {
+	return a.service.Resolve(ctx, userID)
+}
+
 // Forget drops a user's cached principal on this machine, so a write that
 // changed the user's access applies on the next request.
 func (a *Application) Forget(userID string) { a.service.Forget(userID) }

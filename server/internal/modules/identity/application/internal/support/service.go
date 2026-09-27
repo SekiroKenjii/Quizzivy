@@ -22,6 +22,7 @@ type Service struct {
 	Now        func() time.Time
 	Google     ports.GoogleProvider
 	Enroller   ports.SelfEnroller
+	Principals ports.Principals
 }
 
 // SetGoogle wires the provider. Nil leaves Google sign-in unavailable rather
@@ -104,13 +105,18 @@ func (s *Service) AlreadyLinked(ctx context.Context, user domain.User, identity 
 }
 
 func NewService(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration) *Service {
-	return &Service{Users: users, Tokens: tokens, RefreshTTL: refreshTTL, Now: time.Now}
+	return &Service{Users: users, Tokens: tokens, RefreshTTL: refreshTTL, Now: time.Now, Principals: noPrincipals{}}
 }
 
 // SetClock replaces the time source. Tests only.
 func (s *Service) SetClock(now func() time.Time) { s.Now = now }
 
 func (s *Service) IssueSession(ctx context.Context, user domain.User, userAgent, ip string) (model.Session, error) {
+	principal, err := s.Principals.Resolve(ctx, user.ID)
+	if err != nil {
+		return model.Session{}, fmt.Errorf("resolve permissions: %w", err)
+	}
+	user.Permissions = principal.Permissions
 	access, err := s.Tokens.Issue(user.ID, user.Role, user.SessionEpoch)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("issue access token: %w", err)

@@ -33,7 +33,7 @@ func (h Identity) GetCurrentUser(ctx context.Context, _ openapi.GetCurrentUserRe
 		return nil, err
 	}
 
-	return openapi.GetCurrentUser200JSONResponse(toAPIUser(user)), nil
+	return openapi.GetCurrentUser200JSONResponse(toCurrentUser(user, principal.Access.Permissions)), nil
 }
 
 // UpdateCurrentUser implements PATCH /auth/me: the "Hồ sơ" card's save.
@@ -61,7 +61,7 @@ func (h Identity) UpdateCurrentUser(ctx context.Context, request openapi.UpdateC
 	})
 	switch {
 	case err == nil:
-		return openapi.UpdateCurrentUser200JSONResponse(toAPIUser(user)), nil
+		return openapi.UpdateCurrentUser200JSONResponse(toCurrentUser(user, principal.Access.Permissions)), nil
 
 	case errors.Is(err, domain.ErrNameRequired):
 		return openapi.UpdateCurrentUser400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED,
