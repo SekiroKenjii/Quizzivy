@@ -15,12 +15,15 @@ this file describe the code as it is and name the release that changes them.
   not cite them. Deliberate departures from the deck are in
   `docs/design/gaps.md`.
 - **Since R1** (v0.7.0) the deck's tokens, Be Vietnam Pro and the primitives
-  are in. Deck geometry (sizes, radii, type scale) applies only inside
-  `data-scale="deck"`, which a rebuilt surface sets on its root; the old
-  consoles keep their layouts, force light (`useForcedLightTheme`), and move to
-  deck defaults when R5 retires the last of them. `web/public/boot.js` applies
-  the theme and language before paint, since the CSP allows no inline script.
-  Do not restyle an old console's screen ad hoc: its release rebuilds it.
+  are in. Deck geometry that would change an existing primitive (control
+  heights, radii, badge and card shapes) applies only inside
+  `data-scale="deck"`, which a rebuilt surface sets on its root. The old
+  consoles keep their layouts and force light (`useForcedLightTheme`) until
+  their release rebuilds them: R3 the student app and engine, R4 the teacher
+  console. R5 makes the deck geometry the default and removes `data-scale`
+  (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
+  since the CSP allows no inline script. Do not restyle an old console's screen
+  ad hoc: its release rebuilds it.
 - **R2** replaces the `/admin/` prefix gate with per-operation permissions and
   moves teaching operations to `/teacher/*`.
 - **R3** replaces the student layout rules in "Design" below with the deck's.
@@ -295,8 +298,10 @@ has the placement rule. `@/` is `src/`, `@tests/` is `tests/`.
 Go tests stay beside the code they cover, as is idiomatic.
 
 **A database test that commits rows owns their removal, and must not disturb
-anyone else's.** Most integration tests roll back one transaction; a test that
-needs two (a race, a start against a schedule) commits instead, and then:
+anyone else's.** Most integration tests commit through a pool and delete their
+rows in `t.Cleanup`; a few roll back one transaction, the better choice when a
+test needs only one (a race, or a start against a schedule, needs two and has
+to commit). A test that commits:
 
 - registers `t.Cleanup` before its first insert, gives each cleanup statement
   only the arguments it uses (pgx refuses one with unused ones), and fails the
@@ -362,12 +367,14 @@ provider: `GoogleMark` on a button that hands the user to Google, and the
 deck's Google G that marks a Google sign-in in the admin Users table. Do not
 add another without the same argument.
 
-`tests/units/styles/no-raw-colours.test.ts` refuses a literal colour or a
-Tailwind palette class anywhere in `src/`.
+`tests/units/styles/no-raw-colours.test.ts` refuses a Tailwind palette class,
+or a literal hex, `rgb()`/`rgba()` or `oklch()` colour, in every `.ts`/`.tsx`
+file under `src/` except `GoogleMark.tsx`; the literal values behind the tokens
+live in `src/index.css`, which it does not scan.
 
 Every control has a visible `:focus-visible` ring, although the deck draws none.
-Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on every
-surface in both themes.
+Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
+`--card`, `--sidebar` and `--muted` in both themes.
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 
