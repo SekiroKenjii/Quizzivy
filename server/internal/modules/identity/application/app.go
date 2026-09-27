@@ -29,6 +29,12 @@ func (a *Application) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnrol
 	a.service.SetGoogle(p, enroller)
 }
 
+// SetPrincipals attaches the access module's principal cache, so a disable or
+// a password reset takes effect on this machine's next request.
+func (a *Application) SetPrincipals(p ports.Principals) {
+	a.students.Principals = p
+}
+
 type Commands struct {
 	DeleteStudent        cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
 	ChangePassword       cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]

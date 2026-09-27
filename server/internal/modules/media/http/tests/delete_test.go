@@ -31,7 +31,7 @@ func TestDeleteMediaReportsBothPublishedAndGroupReferences(t *testing.T) {
 	})}}
 	transport := mediahttp.NewMedia(app)
 	handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-		return httpx.Principal{UserID: uuid.NewString(), Role: "admin"}, nil
+		return httpx.Principal{UserID: uuid.NewString()}, nil
 	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response, err := transport.DeleteMedia(r.Context(), openapi.DeleteMediaRequestObject{Id: asset})
 		if err != nil {

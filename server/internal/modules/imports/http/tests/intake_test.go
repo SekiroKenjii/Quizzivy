@@ -25,6 +25,7 @@ import (
 	"quizzivy/internal/modules/imports/repositories"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/storage"
+	"quizzivy/internal/shared/access"
 	"strings"
 	"testing"
 	"time"
@@ -71,15 +72,15 @@ func setup(t *testing.T) intake {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, err := issuer.Issue(actor, "admin")
+	token, err := issuer.Issue(actor, "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	student, err := issuer.Issue(uuid.NewString(), "student")
+	student, err := issuer.Issue(uuid.NewString(), "student", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := router.New(router.Deps{Tokens: issuer, Modules: router.Modules{Imports: importshttp.New(app)}}, slog.New(slog.NewTextHandler(io.Discard, nil)), []string{"http://localhost:4173"}, "")
+	handler, err := router.New(router.Deps{Tokens: issuer, Principals: intakePrincipals{owner: actor}, Modules: router.Modules{Imports: importshttp.New(app)}}, slog.New(slog.NewTextHandler(io.Discard, nil)), []string{"http://localhost:4173"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,4 +254,13 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	if err := h.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.media_assets WHERE id=$1`, receipt.Source.Id).Scan(&mediaCount); err != nil || mediaCount != 0 {
 		t.Fatal("source leaked into learner media")
 	}
+}
+
+type intakePrincipals struct{ owner string }
+
+func (p intakePrincipals) Resolve(_ context.Context, userID string) (access.Principal, error) {
+	if userID == p.owner {
+		return access.Principal{UserID: userID, BuiltinKey: access.BuiltinAdmin, Permissions: access.NewSet(access.All()...).Without(access.LearningTakeTests)}, nil
+	}
+	return access.Principal{UserID: userID, BuiltinKey: access.BuiltinStudent, Permissions: access.NewSet(access.LearningTakeTests)}, nil
 }

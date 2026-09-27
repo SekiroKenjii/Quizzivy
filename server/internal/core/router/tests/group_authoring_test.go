@@ -11,7 +11,7 @@ import (
 
 func TestGroupAuthoringRemainsTeacherOnlyBeforeReadingContent(t *testing.T) {
 	issuer := testIssuer(t)
-	handler := newAuthTestRouter(t, issuer)
+	handler := roleRouter(t, issuer, rolePrincipals())
 	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatal(err)
@@ -27,14 +27,14 @@ func TestGroupAuthoringRemainsTeacherOnlyBeforeReadingContent(t *testing.T) {
 			if method == http.MethodDelete {
 				target += "?expectedRevision=1"
 			}
-			for _, role := range []string{"", "student"} {
-				response := requestAs(t, handler, issuer, method, target, role)
+			for _, user := range []string{"", studentUser} {
+				response := sendAs(t, handler, issuer, method, target, user, "")
 				want := http.StatusForbidden
-				if role == "" {
+				if user == "" {
 					want = http.StatusUnauthorized
 				}
 				if response.Code != want {
-					t.Fatalf("%s %s (%s): %d %s", method, path, role, response.Code, response.Body.String())
+					t.Fatalf("%s %s (%s): %d %s", method, path, user, response.Code, response.Body.String())
 				}
 			}
 			count++
@@ -48,7 +48,7 @@ func TestGroupAuthoringRemainsTeacherOnlyBeforeReadingContent(t *testing.T) {
 func TestGroupBodyBudgetIsBoundedBeforeJSONValidation(t *testing.T) {
 	issuer := testIssuer(t)
 	handler := newAuthTestRouter(t, issuer)
-	token, err := issuer.Issue("01935000-0000-7000-8000-000000000001", "admin")
+	token, err := issuer.Issue("01935000-0000-7000-8000-000000000001", "admin", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

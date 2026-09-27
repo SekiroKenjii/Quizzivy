@@ -29,5 +29,5 @@ func (d Deps) verifyAccessToken(bearer string) (httpx.Principal, error) {
 	if err != nil {
 		return httpx.Principal{}, err
 	}
-	return httpx.Principal{UserID: claims.Subject, Role: claims.Role}, nil
+	return httpx.Principal{UserID: claims.Subject, Epoch: claims.Epoch}, nil
 }

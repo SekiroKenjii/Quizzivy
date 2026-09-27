@@ -60,7 +60,9 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 	return s.Get(ctx, id)
 }
 
-// Update edits profile fields, or disables the account.
+// Update edits profile fields, or disables the account. A disable revokes every
+// refresh family the student has and moves the session epoch, so no session,
+// live or idle, survives it, including after the account is enabled again.
 func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domain.StudentPatch) (domain.Student, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -76,7 +78,8 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		                       WHEN $4::boolean IS NULL THEN disabled_at
 		                       WHEN $4 THEN coalesce(disabled_at, $5)
 		                       ELSE NULL
-		                     END
+		                     END,
+		       session_epoch = session_epoch + CASE WHEN $4::boolean IS TRUE THEN 1 ELSE 0 END
 		 WHERE id = $1::uuid AND role = 'student'`,
 		in.ID, in.FullName, in.Email, in.Disabled, in.Now)
 	if db.IsUniqueViolation(err, "") {
@@ -87,6 +90,14 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	}
 	if tag.RowsAffected() == 0 {
 		return domain.Student{}, domain.ErrStudentNotFound
+	}
+	if in.Disabled != nil && *in.Disabled {
+		if _, err := tx.Exec(ctx, `
+			UPDATE app.refresh_tokens
+			   SET revoked_at = $2
+			 WHERE user_id = $1::uuid AND revoked_at IS NULL`, in.ID, in.Now); err != nil {
+			return domain.Student{}, fmt.Errorf("students: revoke sessions: %w", err)
+		}
 	}
 
 	if err := audit.Write(ctx, tx, audit.Entry{
@@ -107,8 +118,8 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	return s.get(ctx, in.ID, true)
 }
 
-// ResetPassword sets a temporary password and revokes every session the student
-// has.
+// ResetPassword sets a temporary password, revokes every session the student
+// has and moves the session epoch, so a live access token stops working too.
 func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -118,7 +129,7 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 
 	tag, err := tx.Exec(ctx, `
 		UPDATE app.users
-		   SET password_hash = $2, must_change_password = true
+		   SET password_hash = $2, must_change_password = true, session_epoch = session_epoch + 1
 		 WHERE id = $1::uuid AND role = 'student' AND disabled_at IS NULL`, id, hash)
 	if err != nil {
 		return fmt.Errorf("students: reset password: %w", err)

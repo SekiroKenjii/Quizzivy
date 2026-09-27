@@ -21,7 +21,7 @@ import (
 func serve(t *testing.T, student uuid.UUID, handle func(w http.ResponseWriter, r *http.Request)) *httptest.ResponseRecorder {
 	t.Helper()
 	handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
-		return httpx.Principal{UserID: student.String(), Role: "student"}, nil
+		return httpx.Principal{UserID: student.String()}, nil
 	})(http.HandlerFunc(handle))
 	request := httptest.NewRequest(http.MethodPost, "/app/attempts/x", nil)
 	request.Header.Set("Authorization", "Bearer fixture")

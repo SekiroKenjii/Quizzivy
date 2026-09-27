@@ -2,6 +2,7 @@ package support
 
 import (
 	"context"
+	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/shared/stats"
 	"time"
@@ -9,14 +10,19 @@ import (
 
 // Students carries what the students handlers share: their ports and the helpers they call.
 type Students struct {
-	Repo  domain.Students
-	Stats stats.Source
-	Now   func() time.Time
+	Repo       domain.Students
+	Stats      stats.Source
+	Principals ports.Principals
+	Now        func() time.Time
 }
 
 func NewStudents(repo domain.Students, stats stats.Source) *Students {
-	return &Students{Repo: repo, Stats: stats, Now: time.Now}
+	return &Students{Repo: repo, Stats: stats, Principals: noPrincipals{}, Now: time.Now}
 }
+
+type noPrincipals struct{}
+
+func (noPrincipals) Forget(string) {}
 
 func (s *Students) WithStats(ctx context.Context, student domain.Student) (domain.Student, error) {
 	list := []domain.Student{student}

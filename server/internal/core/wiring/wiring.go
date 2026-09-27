@@ -42,6 +42,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
+	identityApp.SetPrincipals(principals)
 	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)
 	if err != nil {
 		return Assembly{}, err

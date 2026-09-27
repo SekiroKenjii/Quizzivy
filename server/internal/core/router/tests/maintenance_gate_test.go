@@ -45,6 +45,7 @@ func gatedRouter(t *testing.T, window *maintenanceWindow, issuer *identitytoken.
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h, err := router.New(router.Deps{
+		Principals:  newFakePrincipals(),
 		DB:          fakeDB{},
 		Tokens:      issuer,
 		Maintenance: window,
@@ -193,7 +194,7 @@ func TestAPathNoRouteServesIsNeverAskedAboutAWindow(t *testing.T) {
 func TestAnExpiredTokenDuringAWindowIs503Not401(t *testing.T) {
 	issuer := testIssuer(t)
 	issuer.SetClock(func() time.Time { return time.Now().Add(-time.Hour) })
-	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "student")
+	token, err := issuer.Issue("01935000-0000-7000-8000-0000000000a1", "student", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -44,7 +44,7 @@ func (f *fakeJoin) app() *classesapp.Application {
 func joinRouter(t *testing.T, fake *fakeJoin) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := router.New(router.Deps{DB: fakeDB{}, Modules: router.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
+	h, err := router.New(router.Deps{Principals: newFakePrincipals(), DB: fakeDB{}, Modules: router.Modules{Classes: classeshttp.NewClasses(fake.app())}, Tokens: testIssuer(t)}, logger,
 		[]string{"https://app.quizzivy.com"}, "")
 	if err != nil {
 		t.Fatalf("core.NewRouter: %v", err)
