@@ -140,8 +140,8 @@ func createMember(ctx context.Context, tx pgx.Tx, m domain.NewMember) (string, e
 
 	var userID string
 	err := tx.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role)
-		 VALUES ($1, $2, 'student') RETURNING id::text`,
+		`INSERT INTO app.users (email, full_name, role_id)
+		 VALUES ($1, $2, (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'student')) RETURNING id::text`,
 		m.Email, name).Scan(&userID)
 	if err != nil {
 		var pgErr *pgconn.PgError

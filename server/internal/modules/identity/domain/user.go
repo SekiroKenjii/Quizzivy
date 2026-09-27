@@ -19,6 +19,7 @@ type User struct {
 	MustChangePassword bool
 	DisabledAt         *time.Time
 	CreatedAt          time.Time
+	SessionEpoch       int
 	LinkedProviders    []string
 }
 

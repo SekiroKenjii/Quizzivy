@@ -1300,6 +1300,10 @@ the file it adds.
 | `00053_create_maintenance_windows.sql` | `maintenance_windows`, read-only for the app role | R1 (T-R1.12) |
 | `00054_create_roles_and_permissions.sql` | `permissions`, `roles`, `role_permissions`, the built-in rows and their guard triggers; read-only for the app role | R2 (T-R2.1), D-21 |
 | `00055_create_student_like_roles_view.sql` | `student_like_roles`, the strict student predicate | R2 (T-R2.1) |
+| `00056_add_users_role_id.sql` | `users.role_id`, backfilled, `NOT NULL NOT VALID`, with the legacy-role sync trigger | R2 (T-R2.2) |
+| `00057_index_users_role_id.sql` | `users_role_id_active_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.2) |
+| `00058_add_users_session_epoch.sql` | `users.session_epoch` | R2 (T-R2.2) |
+| `00059_add_users_last_admin_guard.sql` | the `users_last_admin` trigger, the schema's first `SECURITY DEFINER` function | R2 (T-R2.2) |
 
 Notes on migration mechanics (§13.7):
 
@@ -1942,3 +1946,75 @@ roles other than Student are excluded by key, because the Admin stores only its
 "Take tests" cell and would otherwise match. A single-table view is
 automatically updatable, so the file revokes INSERT, UPDATE and DELETE on it
 from `quizzivy_app`. `access.IsStudentLike` is the same predicate in Go.
+
+## 30. A role per user, the session epoch and the last Admin (T-R2.2)
+
+The expand half of moving users from `users.role` to `users.role_id` (plan 70
+§3). R3 validates the constraint, drops the sync trigger, `users.role`,
+`users_role_active_idx` and `app.user_role`.
+
+- `00056_add_users_role_id.sql` adds `role_id uuid REFERENCES app.roles ON
+  DELETE RESTRICT`, nullable, and backfills it: `admin` → the Admin role,
+  `student` → the Student role. `users_set_updated_at` is disabled for the
+  backfill, so `updated_at` keeps meaning "the user changed". The file raises if
+  a row is still NULL, then adds `users_role_id_not_null NOT NULL role_id NOT
+  VALID` (PG18), which holds for every new and updated row.
+- `users_sync_legacy_role` (BEFORE INSERT OR UPDATE OF `role`, `role_id`) keeps
+  the two columns in step while v0.7.0 and v0.8.0 machines overlap:
+  - an insert without `role_id` is the old binary's and takes it from `role`;
+  - an insert or update with `role_id` derives `role`: `student` for a role in
+    `student_like_roles`, `admin` for any other, over the column default;
+  - an update of `role` alone re-derives `role_id`.
+  The new binary inserts `role_id` (the built-in Student, found by
+  `builtin_key` in the statement) and reads the legacy value through
+  `student_like_roles`.
+- `00057_index_users_role_id.sql` builds `users_role_id_active_idx ON app.users
+  (role_id) WHERE disabled_at IS NULL` `CONCURRENTLY`, in a `NO TRANSACTION`
+  file, because the table is populated.
+- `00058_add_users_session_epoch.sql` adds `session_epoch integer NOT NULL
+  DEFAULT 0` with `users_session_epoch_check (session_epoch >= 0)`. The
+  constant default is metadata-only. A command that ends a user's access bumps
+  it; in R2, a disable and a staff password reset.
+- `00059_add_users_last_admin_guard.sql` adds `users_last_admin`, AFTER UPDATE
+  OR DELETE, row-level, with no column list. When the old row was an active
+  Admin and the new one is not, it takes `FOR NO KEY UPDATE` on the Admin row of
+  `app.roles`, then raises `check_violation` with constraint `users_last_admin`
+  if no active Admin remains. The count is its own statement, so under READ
+  COMMITTED it sees a concurrent departure the lock waited for: of two
+  transactions disabling the only two Admins, exactly one commits. Any other
+  change returns before locking, so disabling a student takes no lock on
+  `roles`.
+  - The guarantee holds under READ COMMITTED, which every writer in the app
+    uses, and under SERIALIZABLE. Two REPEATABLE READ transactions count on
+    their own snapshots and could both pass; only a hand-written transaction
+    runs that way. Locking the remaining Admins `FOR SHARE` would close it, but
+    two departures that leave a third Admin would then deadlock, and that is
+    the likelier case.
+  - `FOR NO KEY UPDATE`, not `FOR UPDATE`: it serialises the guard against
+    itself without conflicting with the `FOR KEY SHARE` a foreign-key check on
+    `users.role_id` takes, so promoting one user to Admin does not hold up
+    another Admin's departure (and two transfers cannot deadlock).
+  - No column list: the v0.7.0 binary demotes by writing `role`, and a column
+    list matches the columns an UPDATE names, not those a BEFORE trigger sets.
+    Naming `role` would also make R3's `DROP COLUMN role` depend on the trigger.
+- **The schema's first `SECURITY DEFINER` function.** The row lock needs UPDATE
+  privilege on `app.roles`, which `00054` revokes from `quizzivy_app`. Running
+  as the invoker, R5's demote and disable would fail with 42501 instead of the
+  guard. It is owned by `quizzivy_migrate` and hardened as the PostgreSQL docs
+  require for definer functions:
+  - `search_path = pg_catalog, app, pg_temp`. An unlisted `pg_temp` is searched
+    first for relations and types, so a session that can create temporary
+    objects could otherwise plant a `pg_temp.uuid` domain whose CHECK runs as
+    the owner.
+  - Every type and relation inside is schema-qualified.
+  - EXECUTE is revoked from PUBLIC, so no role can attach it to a table of its
+    own. A trigger fires regardless of EXECUTE.
+
+`platform/db/tests/expand_r2_test.go` proves all of this on a scratch database.
+It migrates to the version before `create_roles_and_permissions`, writes users
+the v0.7.0 way, migrates the rest of the way up, then checks the backfill and
+`updated_at`. As the app role, it checks both insert paths, the last-Admin
+refusals and the two-transaction race, and it checks the definer's
+attributes and that a foreign-key check on the Admin role does not hold the
+guard up. It carries the `integration` tag and runs where `TEST_DESTRUCTIVE=1`
+is set, as CI does.

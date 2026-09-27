@@ -54,7 +54,7 @@ func (w world) assignment(t *testing.T, closesAt time.Time) string {
 	var id string
 	err := w.tx.QueryRow(w.ctx, `
 	 WITH teacher AS (
-	   INSERT INTO app.users(email,full_name,role) VALUES($1 || '@example.com','Teacher','admin') RETURNING id
+	   INSERT INTO app.users(email,full_name,role_id) VALUES($1 || '@example.com','Teacher',(SELECT id FROM app.roles WHERE builtin_key='teacher')) RETURNING id
 	 ), test AS (
 	   INSERT INTO app.tests(title,status,current_version,created_by)
 	   SELECT 'Window fixture','published',1,id FROM teacher RETURNING id,created_by
@@ -381,7 +381,7 @@ func commitAssignment(t *testing.T, base time.Time) *committed {
 	})
 	err = pool.QueryRow(ctx, `
 	 WITH teacher AS (
-	   INSERT INTO app.users(email,full_name,role) VALUES($1 || '@example.com','Teacher','admin') RETURNING id
+	   INSERT INTO app.users(email,full_name,role_id) VALUES($1 || '@example.com','Teacher',(SELECT id FROM app.roles WHERE builtin_key='teacher')) RETURNING id
 	 ), test AS (
 	   INSERT INTO app.tests(title,status,current_version,created_by)
 	   SELECT 'Window race fixture','published',1,id FROM teacher RETURNING id,created_by
