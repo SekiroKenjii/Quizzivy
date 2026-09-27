@@ -158,7 +158,7 @@ export default function AttemptReviewPage() {
         meta={
           <>
             {/* F-12: the bar keeps the title and the primary action legible at 768; the rest yields. */}
-            <span className="text-muted-foreground hidden text-xs xl:inline">
+            <span className="text-muted-foreground hidden min-w-0 shrink-[1000] truncate text-xs xl:inline">
               {headerMeta(data, t)}
             </span>
             <Tabs

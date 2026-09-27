@@ -20,8 +20,8 @@ const badgeVariants = cva(
         // The deck mixes each status colour toward the surface rather than
         // using it flat, so a badge reads as a label and not as an alert.
         success: [
-          "border-[color-mix(in_oklab,var(--success)_28%,transparent)] bg-[color-mix(in_oklab,var(--success)_12%,var(--background))] text-[color-mix(in_oklab,var(--success)_78%,var(--foreground))]",
-          "in-data-[scale=deck]:bg-success-soft in-data-[scale=deck]:text-success-ink in-data-[scale=deck]:border-transparent",
+          "text-success-ink border-[color-mix(in_oklab,var(--success)_28%,transparent)] bg-[color-mix(in_oklab,var(--success)_12%,var(--background))]",
+          "in-data-[scale=deck]:bg-success-soft in-data-[scale=deck]:border-transparent",
         ],
         warning: [
           "border-[color-mix(in_oklab,var(--warning)_35%,transparent)] bg-[color-mix(in_oklab,var(--warning)_18%,var(--background))] text-[color-mix(in_oklab,var(--warning)_45%,var(--foreground))]",
