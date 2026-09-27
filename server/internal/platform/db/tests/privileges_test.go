@@ -10,6 +10,8 @@ import (
 
 const appRole = "quizzivy_app"
 
+var readOnlyForApp = map[string]bool{"maintenance_windows": true}
+
 // TestAppRoleCanReadAndWriteEveryTable loops over information_schema rather than
 // naming tables, which is the same property ALTER DEFAULT PRIVILEGES was chosen
 // for: a table added later is covered without anyone extending this test.
@@ -42,7 +44,11 @@ func TestAppRoleCanReadAndWriteEveryTable(t *testing.T) {
 	}
 
 	for _, table := range tables {
-		for _, priv := range []string{"SELECT", "INSERT"} {
+		privileges := []string{"SELECT", "INSERT"}
+		if readOnlyForApp[table] {
+			privileges = []string{"SELECT"}
+		}
+		for _, priv := range privileges {
 			if !hasTablePrivilege(t, conn, appRole, "app."+table, priv) {
 				t.Errorf("%s cannot %s app.%s -- ALTER DEFAULT PRIVILEGES did not cover it, "+
 					"so production would fail every query against this table",
@@ -75,6 +81,19 @@ func TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTheAppRoleOnlyReadsMaintenanceWindows(t *testing.T) {
+	conn := migrated(t)
+
+	if !hasTablePrivilege(t, conn, appRole, "app.maintenance_windows", "SELECT") {
+		t.Errorf("%s cannot SELECT app.maintenance_windows; the API reads windows", appRole)
+	}
+	for _, priv := range []string{"INSERT", "UPDATE", "DELETE"} {
+		if hasTablePrivilege(t, conn, appRole, "app.maintenance_windows", priv) {
+			t.Errorf("%s can %s app.maintenance_windows; only the operator writes windows", appRole, priv)
+		}
 	}
 }
 

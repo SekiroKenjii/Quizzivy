@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"time"
 )
 
 var (
@@ -47,3 +48,34 @@ var (
 	ErrPaperVoided       = errors.New("review: attempt is voided")
 	ErrGradingIncomplete = errors.New("review: a manual answer is still ungraded")
 )
+
+// TimerGrace is how early a timer_expired submission may arrive and still
+// close the attempt: clocks disagree by a little, never by more.
+const TimerGrace = 5 * time.Second
+
+// DeadlineNotReachedError refuses a timer_expired submission that arrived
+// more than TimerGrace before the attempt's deadline, which moved after the
+// client last saved. DeadlineAt is the deadline to wait for.
+type DeadlineNotReachedError struct {
+	DeadlineAt time.Time
+}
+
+func (e *DeadlineNotReachedError) Error() string {
+	return "attempts: deadline not reached until " + e.DeadlineAt.UTC().Format(time.RFC3339)
+}
+
+// MaintenanceWindow is a maintenance window as the attempts module sees it.
+type MaintenanceWindow struct {
+	StartsAt time.Time
+	EndsAt   time.Time
+}
+
+// MaintenanceScheduledError refuses to start an attempt that would run into a
+// maintenance window. Resuming an attempt never meets it.
+type MaintenanceScheduledError struct {
+	Window MaintenanceWindow
+}
+
+func (e *MaintenanceScheduledError) Error() string {
+	return "attempts: a maintenance window starts at " + e.Window.StartsAt.UTC().Format(time.RFC3339)
+}

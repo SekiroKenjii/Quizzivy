@@ -58,8 +58,10 @@ describe("the settings cards say what the deck writes", () => {
     render(<PasswordSection />);
 
     const field = screen.getByLabelText("Mật khẩu mới");
-    expect(screen.getByText("Ít nhất 8 ký tự.")).toBeInTheDocument();
-    expect(field).toHaveAccessibleDescription("Ít nhất 8 ký tự.");
+    expect(
+      screen.getByText("Ít nhất 8 ký tự, có số hoặc ký hiệu."),
+    ).toBeInTheDocument();
+    expect(field).toHaveAccessibleDescription("Ít nhất 8 ký tự, có số hoặc ký hiệu.");
   });
 
   it("says what unlinking would leave behind when both ways in exist (S-17)", () => {

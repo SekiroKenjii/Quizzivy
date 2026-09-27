@@ -22,10 +22,11 @@ import (
 // it. That makes "forgot to protect the new endpoint" impossible by
 // construction, and makes the small set of exceptions worth pinning.
 
-// theOpenSix is every operation reachable without an access token. It is short
+// theOpenSeven is every operation reachable without an access token. It is short
 // on purpose. If this list grows, someone opened an endpoint, and that should
 // take an argument rather than a diff nobody reads.
-var theOpenSix = []string{
+var theOpenSeven = []string{
+	"GET /public/status",             // the splash asks before it has a session; same answer for everyone
 	"POST /app/attempts/{id}/events", // D-03's beacon path; see above
 	"POST /auth/google",              // sign-in, by definition pre-session
 	"POST /auth/login",               // ditto
@@ -34,7 +35,7 @@ var theOpenSix = []string{
 	"POST /join/preview",             // §6.5's public join surface
 }
 
-func TestOnlySixOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
+func TestOnlySevenOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
@@ -47,8 +48,8 @@ func TestOnlySixOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 	}
 	sort.Strings(got)
 
-	if strings.Join(got, "\n") != strings.Join(theOpenSix, "\n") {
-		t.Errorf("open routes changed.\n got: %v\nwant: %v", got, theOpenSix)
+	if strings.Join(got, "\n") != strings.Join(theOpenSeven, "\n") {
+		t.Errorf("open routes changed.\n got: %v\nwant: %v", got, theOpenSeven)
 	}
 
 	total := 0

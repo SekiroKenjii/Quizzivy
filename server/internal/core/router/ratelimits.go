@@ -22,6 +22,7 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
 		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
+	reg.Add("GET /public/status", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(2000))
 
 	reg.Add("POST /admin/students/{id}/reset-password", capacity,
 		ratelimit.PerMinute(5), ratelimit.PerHour(30))

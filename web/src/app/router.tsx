@@ -1,5 +1,6 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
-import { ErrorBoundary, NotFound } from "@/app/ErrorBoundary";
+import { createBrowserRouter, redirect, type RouteObject } from "react-router";
+import { ErrorBoundary } from "@/app/ErrorBoundary";
+import NotFoundPage from "@/app/pages/NotFoundPage";
 import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { AdminOnly, StudentArea } from "@/app/guards/RequireRole";
@@ -18,35 +19,26 @@ const page = (load: () => Promise<{ default: React.ComponentType }>) => async ()
 });
 
 /**
- * The signed-out screens that own the whole viewport.
- *
- * Outside PublicLayout on purpose. That layout is §9's "logo + content" shell,
- * and these two already carry the brand themselves -- nesting them would put a
- * header above a full-height split and a `<main>` inside a `<main>`.
+ * The signed-out screens. Each owns the whole viewport and draws its own brand
+ * frame, so there is no shared layout route above them.
  */
 const authTree: RouteObject = {
   children: [
     { path: "login", lazy: page(() => import("@/features/auth/pages/LoginPage")) },
     {
+      path: "forgot-password",
+      lazy: page(() => import("@/features/auth/pages/ForgotPasswordPage")),
+    },
+    {
       path: "auth/google/callback",
       lazy: page(() => import("@/features/auth/pages/GoogleCallbackPage")),
     },
-  ],
-};
-
-/**
- * §9's public shell: logo + content. §12 wants the join screens as a single
- * centered card under it -- "calm and legitimate, not a marketing page", since
- * this is the first thing a new student sees.
- */
-const publicTree: RouteObject = {
-  lazy: page(() => import("@/layouts/PublicLayout")),
-  children: [
     { path: "join", lazy: page(() => import("@/features/join/pages/JoinPage")) },
     { path: "join/:code", lazy: page(() => import("@/features/join/pages/JoinPage")) },
     {
       path: "join/:code/confirm",
-      lazy: page(() => import("@/features/join/pages/JoinConfirmPage")),
+      loader: ({ params }) =>
+        redirect(`/join/${encodeURIComponent(params["code"] ?? "")}`),
     },
   ],
 };
@@ -213,6 +205,7 @@ const studentTree: RouteObject = {
  */
 const takeTestTree: RouteObject = {
   path: "app/attempts/:attemptId",
+  handle: { focus: true },
   lazy: page(() => import("@/layouts/FocusLayout")),
   children: [
     {
@@ -243,14 +236,14 @@ const protectedTree: RouteObject = {
 export const router = createBrowserRouter([
   {
     ErrorBoundary,
+    HydrateFallback: () => null,
     children: [
       { index: true, element: <HomeRedirect /> },
       authTree,
-      publicTree,
       protectedTree,
       // Eager, like the guard that also renders it.
       { path: "403", element: <ForbiddenPage /> },
-      { path: "*", element: <NotFound /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

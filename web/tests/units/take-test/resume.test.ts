@@ -19,7 +19,7 @@ const deadline = "2026-09-01T09:00:00.000Z";
 beforeEach(() => {
   clearAnswerDrafts();
   saved.mockReset();
-  saved.mockResolvedValue({ serverTime: now, savedAt: now });
+  saved.mockResolvedValue({ serverTime: now, savedAt: now, deadlineAt: deadline });
   useTakeTestStore.getState().reset();
 });
 
@@ -145,7 +145,8 @@ describe("an answer edited while its flush is in the air", () => {
     saved.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ serverTime: now, savedAt: now });
+          release = () =>
+            resolve({ serverTime: now, savedAt: now, deadlineAt: deadline });
         }),
     );
     useTakeTestStore
@@ -167,7 +168,8 @@ describe("an answer edited while its flush is in the air", () => {
     saved.mockImplementation(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ serverTime: now, savedAt: now });
+          release = () =>
+            resolve({ serverTime: now, savedAt: now, deadlineAt: deadline });
         }),
     );
 
@@ -192,7 +194,8 @@ describe("an answer edited while its flush is in the air", () => {
     saved.mockImplementation(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ serverTime: now, savedAt: now });
+          release = () =>
+            resolve({ serverTime: now, savedAt: now, deadlineAt: deadline });
         }),
     );
 

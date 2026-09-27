@@ -17,7 +17,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<"input">) {
       type="checkbox"
       data-slot="checkbox"
       className={cn(
-        "border-input bg-background focus-visible:ring-ring checked:bg-primary checked:border-primary relative inline-grid size-4 flex-none cursor-pointer appearance-none place-content-center rounded-sm border transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        "border-input bg-background checked:bg-primary checked:border-primary relative inline-grid size-4 flex-none cursor-pointer appearance-none place-content-center rounded-sm border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         "checked:after:bg-primary-foreground checked:after:size-2.5 checked:after:content-['']",
         "checked:after:[clip-path:polygon(14%_47%,0_61%,39%_100%,100%_20%,85%_8%,38%_70%)]",
         className,

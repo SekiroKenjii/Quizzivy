@@ -10,6 +10,13 @@ const alertVariants = cva(
         default: "bg-card text-card-foreground",
         destructive:
           "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current",
+        muted:
+          "bg-muted text-fg rounded-[10px] border-transparent px-3 py-2.5 *:data-[slot=alert-description]:text-fg",
+        info: "bg-info-soft text-info-ink rounded-[10px] border-transparent px-3 py-2.5 *:data-[slot=alert-description]:text-info-ink",
+        warning:
+          "bg-warning-soft text-warning-ink rounded-[10px] border-transparent px-3 py-2.5 *:data-[slot=alert-description]:text-warning-ink",
+        danger:
+          "bg-danger-soft text-danger-ink rounded-[10px] border-transparent px-3 py-2.5 *:data-[slot=alert-description]:text-danger-ink",
       },
     },
     defaultVariants: {

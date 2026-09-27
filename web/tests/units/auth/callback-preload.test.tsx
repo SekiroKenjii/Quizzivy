@@ -37,6 +37,7 @@ function arrive(pending: { joinCode?: string }) {
     [
       { path: "/auth/google/callback", element: <GoogleCallbackPage /> },
       { path: "/app", element: <p>student home</p> },
+      { path: "/join/:code", element: <p>join page</p> },
       { path: "/login", element: <p>login</p> },
     ],
     { initialEntries: [`/auth/google/callback?code=abc&state=${state}`] },
@@ -81,7 +82,7 @@ describe("the student's home during the code exchange", () => {
     );
 
     arrive({ joinCode: "ABCD-EFGH" });
-    expect(await screen.findByText("student home")).toBeInTheDocument();
+    expect(await screen.findByText("join page")).toBeInTheDocument();
     expect(startedFirst).toBe(true);
     expect(preload).toHaveBeenCalledTimes(1);
   });

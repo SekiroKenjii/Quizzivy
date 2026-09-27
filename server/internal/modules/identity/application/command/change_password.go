@@ -45,14 +45,8 @@ func (s ChangePasswordHandler) Handle(ctx context.Context, cmd ChangePassword) (
 		return cqrs.Nothing{}, domain.ErrNoPasswordSet
 	}
 
-	if !user.MustChangePassword {
-		ok, err := domain.Passwords.Verify(ctx, cmd.CurrentPassword, *user.PasswordHash)
-		if err != nil {
-			return cqrs.Nothing{}, fmt.Errorf("verify current password for %s: %w", user.ID, err)
-		}
-		if !ok {
-			return cqrs.Nothing{}, domain.ErrInvalidCredentials
-		}
+	if err := checkReplacement(ctx, user, cmd); err != nil {
+		return cqrs.Nothing{}, err
 	}
 
 	newHash, err := domain.Passwords.Hash(ctx, cmd.NewPassword)
@@ -74,4 +68,28 @@ func (s ChangePasswordHandler) Handle(ctx context.Context, cmd ChangePassword) (
 		IP:            opt.String(cmd.IP),
 		UserAgent:     opt.String(cmd.UserAgent),
 	})
+}
+
+func checkReplacement(ctx context.Context, user domain.User, cmd ChangePassword) error {
+	if user.MustChangePassword {
+		same, err := domain.Passwords.Verify(ctx, cmd.NewPassword, *user.PasswordHash)
+		if err != nil {
+			return fmt.Errorf("compare new password with the temporary one for %s: %w", user.ID, err)
+		}
+		if same {
+			return domain.ErrPasswordUnchanged
+		}
+		return nil
+	}
+	ok, err := domain.Passwords.Verify(ctx, cmd.CurrentPassword, *user.PasswordHash)
+	if err != nil {
+		return fmt.Errorf("verify current password for %s: %w", user.ID, err)
+	}
+	if !ok {
+		return domain.ErrInvalidCredentials
+	}
+	if cmd.NewPassword == cmd.CurrentPassword {
+		return domain.ErrPasswordUnchanged
+	}
+	return nil
 }

@@ -178,7 +178,7 @@ export default function StudentHomePage() {
                 type="button"
                 aria-pressed={view === value}
                 onClick={() => filter("view", value)}
-                className={`focus-visible:ring-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:ring-2 motion-reduce:transition-none ${view === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 motion-reduce:transition-none ${view === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}
               >
                 {t(`student.views.${value}`)}
                 <span className="bg-muted min-w-5 rounded px-1.5 text-xs tabular-nums">
@@ -269,7 +269,7 @@ export default function StudentHomePage() {
                 {card.lastAttemptId ? (
                   <Link
                     to={`/app/attempts/${card.lastAttemptId}/result`}
-                    className="focus-visible:ring-ring flex min-h-11 items-center rounded-sm text-sm font-medium hover:underline focus-visible:ring-2"
+                    className="flex min-h-11 items-center rounded-sm text-sm font-medium hover:underline"
                   >
                     {card.testTitle}
                   </Link>

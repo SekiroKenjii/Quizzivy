@@ -125,7 +125,7 @@ export function BulkTagDialog({
               <Input
                 list={suggestionId}
                 id="bulk-tag"
-                className="h-6 min-w-32 flex-1 border-0 p-0 shadow-none focus-visible:ring-0"
+                className="h-6 min-w-32 flex-1 border-0 p-0 shadow-none"
                 placeholder={t("bank.tagPlaceholder")}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}

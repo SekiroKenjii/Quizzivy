@@ -67,30 +67,34 @@
     "view": "Xem",
     "delete": "Xoá"
   },
+  "api": {
+    "unavailable": "Không kết nối được với máy chủ. Vui lòng thử lại.",
+    "failed": "Đã xảy ra lỗi. Vui lòng thử lại."
+  },
   "error": {
     "title": "Đã xảy ra lỗi",
-    "body": "Một lỗi ngoài dự kiến đã xảy ra. Bạn có thể tải lại trang để tiếp tục.",
+    "body": "Sự cố nằm ở phía chúng tôi, không phải do bạn. Nếu bạn đang làm bài kiểm tra, các câu trả lời đã lưu vẫn an toàn.",
     "reload": "Tải lại trang",
-    "errorId": "Mã lỗi",
-    "copyId": "Sao chép mã lỗi",
-    "copied": "Đã sao chép",
     "home": "Về trang chủ",
-    "footnote": "Nếu tải lại vẫn lỗi, gửi mã này cho giáo viên — mã cho biết chính xác yêu cầu nào đã hỏng."
+    "errorId": "Mã lỗi",
+    "copyFailed": "Không sao chép được. Hãy chọn mã lỗi rồi sao chép.",
+    "footnote": "Nếu lỗi cứ lặp lại, hãy gửi mã lỗi cho giáo viên."
   },
   "notFound": {
-    "title": "Không tìm thấy trang",
-    "body": "Đường dẫn này không tồn tại hoặc đã bị thay đổi.",
+    "title": "Trang này không tồn tại",
+    "body": "Đường dẫn có thể đã cũ, hoặc bài kiểm tra hay lớp học mà nó trỏ tới đã bị xoá.",
     "action": "Về trang chủ",
     "back": "Quay lại",
-    "footnote": "Nếu bạn tới đây từ đường dẫn giáo viên gửi, hãy báo lại để giáo viên gửi lại link mới."
+    "footnote": "Bạn đến đây từ đường dẫn của giáo viên? Hãy nhờ giáo viên gửi lại."
   },
   "forbidden": {
-    "title": "Bạn không có quyền truy cập",
-    "body": "Tài khoản của bạn không được phép xem trang này. Nếu bạn nghĩ đây là nhầm lẫn, hãy liên hệ giáo viên.",
-    "action": "Về trang của tôi",
-    "signedInAs": "Đang đăng nhập bằng",
+    "title": "Bạn không có quyền mở trang này",
+    "body": "Tài khoản của bạn không mở được trang này. Tài khoản của bạn không có vấn đề gì.",
+    "signedIn": "Đang đăng nhập",
+    "home": "Về trang chủ của tôi",
     "switchAccount": "Đăng nhập bằng tài khoản khác",
-    "footnote": "Học viên và giáo viên dùng hai khu vực khác nhau. Trang này thuộc khu vực của giáo viên."
+    "signIn": "Đăng nhập",
+    "footnote": "Bạn nghĩ mình cần được mở trang này? Hãy hỏi trung tâm."
   },
   "nav": {
     "dashboard": "Tổng quan",
@@ -205,62 +209,80 @@
     "assignmentCountsFailed": "Chưa tải được số bài của các lớp. Bạn vẫn có thể mở danh sách bài."
   },
   "changePassword": {
-    "title": "Đổi mật khẩu",
-    "body": "Bạn cần đặt mật khẩu mới trước khi tiếp tục.",
+    "title": "Chọn mật khẩu của bạn",
+    "body": "Bạn đã đăng nhập bằng mật khẩu tạm. Hãy chọn một mật khẩu chỉ mình bạn biết.",
     "current": "Mật khẩu hiện tại",
     "new": "Mật khẩu mới",
-    "hint": "Ít nhất 8 ký tự.",
+    "again": "Nhập lại mật khẩu",
+    "hint": "Ít nhất 8 ký tự, có số hoặc ký hiệu.",
     "submit": "Đổi mật khẩu",
-    "currentHint": "Bỏ trống nếu bạn đăng nhập bằng Google hoặc không nhớ mật khẩu tạm.",
+    "save": "Lưu và tiếp tục",
+    "saving": "Đang lưu…",
+    "rules": {
+      "length": "Ít nhất 8 ký tự",
+      "numberOrSymbol": "Có số hoặc ký hiệu",
+      "different": "Khác mật khẩu tạm",
+      "met": "đã đạt",
+      "unmet": "chưa đạt"
+    },
     "errors": {
-      "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự."
+      "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự.",
+      "numberOrSymbol": "Mật khẩu mới cần có số hoặc ký hiệu.",
+      "mismatch": "Hai mật khẩu không giống nhau.",
+      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại."
     }
   },
   "login": {
     "title": "Đăng nhập",
-    "subtitle": "Nhập email và mật khẩu giáo viên đã cấp cho bạn.",
+    "subtitle": "Chào mừng bạn trở lại.",
+    "joinSubtitle": "Đăng nhập để tham gia {{className}}.",
     "email": "Email",
     "password": "Mật khẩu",
     "submit": "Đăng nhập",
-    "or": "hoặc",
     "continueWithGoogle": "Tiếp tục với Google",
     "failed": "Không thể đăng nhập. Vui lòng thử lại.",
     "googleUnavailable": "Hiện chưa thể đăng nhập bằng Google.",
     "googleFailed": "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
     "completingGoogle": "Đang hoàn tất đăng nhập…",
     "backToSignIn": "Quay lại đăng nhập",
-    "noSignup": "Tài khoản do giáo viên tạo. Nếu bạn có mã lớp, hãy dùng đường dẫn tham gia lớp mà giáo viên gửi.",
     "errors": {
       "emailRequired": "Vui lòng nhập email.",
       "emailInvalid": "Email không hợp lệ.",
       "passwordRequired": "Vui lòng nhập mật khẩu."
     },
-    "panelBlurb": "Nền tảng luyện thi tiếng Anh dành riêng cho lớp học của bạn."
+    "orWithEmail": "hoặc dùng email",
+    "emailPlaceholder": "ban@example.com",
+    "forgot": "Quên mật khẩu?",
+    "submitting": "Đang đăng nhập…",
+    "missingFields": "Hãy nhập email và mật khẩu.",
+    "invalidCredentials": "Email và mật khẩu không khớp. Hãy kiểm tra lỗi gõ, hoặc nhờ giáo viên đặt lại mật khẩu.",
+    "haveCode": "Bạn có mã lớp?",
+    "joinClass": "Tham gia lớp",
+    "googleFailedTitle": "Không đăng nhập được bằng Google"
   },
   "join": {
     "title": "Tham gia lớp học",
-    "subtitle": "Nhập mã lớp giáo viên đã gửi cho bạn.",
+    "subtitle": "Nhập mã 8 ký tự giáo viên gửi cho bạn.",
     "codeLabel": "Mã lớp",
-    "codeHint": "8 ký tự, ví dụ K7M3-P9QR. Không phân biệt hoa thường.",
-    "continue": "Tiếp tục",
-    "youAreJoining": "Bạn đang tham gia lớp",
-    "teacher": "Giáo viên: {{name}}",
-    "confirmWithGoogle": "Tiếp tục với Google",
-    "confirmSignedIn": "Tham gia lớp này",
-    "googleExplainer": "Tài khoản của bạn sẽ được tạo bằng Google. Chúng tôi chỉ dùng tên và email của bạn.",
-    "cannotJoin": "Không thể tham gia lớp",
-    "tryAnotherCode": "Thử mã khác",
-    "enrolling": "Đang thêm bạn vào lớp…",
-    "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
-    "errors": {
-      "incomplete": "Mã lớp phải có đủ 8 ký tự."
-    },
-    "haveAccount": "Đã có tài khoản?",
+    "excluded": "Mã lớp không bao giờ có 0, O, 1 hoặc I.",
+    "notFound": "Không có lớp nào dùng mã này. Hãy kiểm tra lại với giáo viên.",
+    "lookupFailed": "Chưa kiểm tra được mã. Vui lòng thử lại.",
+    "checking": "Đang tìm lớp…",
+    "found": "Đã tìm thấy lớp",
+    "joinClass": "Tham gia {{className}}",
+    "nextStep": "Tiếp theo, bạn sẽ đăng nhập hoặc tạo tài khoản.",
+    "alreadyInClass": "Đã ở trong một lớp?",
     "signIn": "Đăng nhập",
-    "anotherCode": "Nhập mã khác",
-    "panelNote": "Bạn sẽ thấy tên lớp và giáo viên trước khi xác nhận tham gia.",
-    "signedInAs": "Bạn đang đăng nhập với tên {{name}}.",
-    "backToClasses": "Quay lại lớp của tôi"
+    "studentsOnly": "Chỉ tài khoản học viên mới tham gia lớp được.",
+    "goHome": "Về trang chủ của tôi",
+    "joining": "Đang thêm bạn vào {{className}}…",
+    "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
+    "goToClasses": "Đến lớp của tôi",
+    "joined": {
+      "title": "Bạn đã vào lớp {{className}}",
+      "body": "{{teacherName}} sẽ thấy bạn trong danh sách lớp.",
+      "failedTitle": "Chưa thể thêm bạn vào {{className}}"
+    }
   },
   "classDetail": {
     "joinCode": "Mã tham gia lớp",
@@ -2416,5 +2438,59 @@
       "viewImport": "Xem lượt nhập",
       "sourceRemoved": "Tệp gốc đã được xoá theo chính sách lưu trữ nên không còn xem được nội dung trích ra."
     }
+  },
+  "toast": {
+    "region": "Thông báo",
+    "close": "Đóng thông báo"
+  },
+  "auth": {
+    "panel": {
+      "headline": "Bài kiểm tra, bài học và luyện tập cho lớp tiếng Anh của bạn.",
+      "help": "Cần hỗ trợ đăng nhập? Hãy hỏi giáo viên hoặc quầy lễ tân."
+    }
+  },
+  "forgot": {
+    "title": "Quên mật khẩu?",
+    "body": "Giáo viên hoặc trung tâm có thể đặt lại mật khẩu cho bạn. Bạn sẽ nhận một mật khẩu tạm và chọn mật khẩu mới khi đăng nhập.",
+    "googleTitle": "Bạn đăng ký bằng Google?",
+    "googleBody": "Bạn không cần mật khẩu. Hãy dùng Tiếp tục với Google.",
+    "frontDesk": "Quầy lễ tân"
+  },
+  "maintenance": {
+    "title": "Quizzivy đang được cập nhật",
+    "body": "Chúng tôi sẽ trở lại lúc {{time}}. Bài kiểm tra đóng trong lúc cập nhật sẽ được gia hạn.",
+    "started": "Bắt đầu lúc {{time}}",
+    "duration": "khoảng {{minutes}} phút",
+    "saved": "Bài làm và kết quả đã được lưu",
+    "check": "Kiểm tra lại",
+    "footnote": "Bài làm và kết quả của bạn vẫn được giữ nguyên. Không có gì bị mất."
+  },
+  "splash": {
+    "steps": {
+      "session": "Đang kiểm tra phiên đăng nhập…",
+      "classes": "Đang tải lớp học của bạn…",
+      "ready": "Sắp xong rồi…"
+    },
+    "slowTitle": "Tải lâu hơn bình thường",
+    "slowBody": "Kết nối có thể đang chậm. Hãy giữ trang này hoặc tải lại.",
+    "reload": "Tải lại",
+    "offlinePill": "Mất kết nối",
+    "offlineTitle": "Không kết nối được Quizzivy",
+    "offlineBody": "Kiểm tra Wi-Fi hoặc dữ liệu di động. Các câu trả lời đã lưu vẫn an toàn.",
+    "tryAgain": "Thử lại",
+    "retryIn": "Tự thử lại sau {{seconds}}s",
+    "retrying": "Đang thử lại…",
+    "updatePill": "Phiên bản mới",
+    "updateTitle": "Quizzivy vừa được cập nhật",
+    "updateBody": "Tải lại để dùng phiên bản mới nhất. Chỉ mất vài giây.",
+    "updateNow": "Tải lại ngay",
+    "expiredTitle": "Vui lòng đăng nhập lại",
+    "expiredBody": "Bạn đã được đăng xuất để bảo mật tài khoản.",
+    "signIn": "Đăng nhập",
+    "version": "Quizzivy · v{{version}}"
+  },
+  "copy": {
+    "copy": "Sao chép",
+    "copied": "Đã sao chép"
   }
 }

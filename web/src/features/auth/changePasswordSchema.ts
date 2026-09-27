@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+import { passwordRules } from "@/lib/password";
+
+/**
+ * newPasswordSchema is the contract's rules for a new password: at least
+ * eight characters, and a number or a symbol. That it differs from the old
+ * one only the server can tell.
+ */
+export const newPasswordSchema = z
+  .string()
+  .refine((value) => passwordRules(value).length, "changePassword.errors.tooShort")
+  .refine(
+    (value) => passwordRules(value).numberOrSymbol,
+    "changePassword.errors.numberOrSymbol",
+  );
+
 /**
  * Form validation for §5.4's password change.
  *
@@ -10,7 +25,7 @@ import { z } from "zod";
  */
 export const changePasswordSchema = z.object({
   currentPassword: z.string(),
-  newPassword: z.string().min(8, "changePassword.errors.tooShort"),
+  newPassword: newPasswordSchema,
 });
 
 export type ChangePasswordValues = z.infer<typeof changePasswordSchema>;

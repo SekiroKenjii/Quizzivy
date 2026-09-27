@@ -141,7 +141,7 @@ export function AudioPlayer({
         disabled={disabled}
         aria-label={playing ? t("media.pause") : t("media.play")}
         className={cn(
-          "bg-primary text-primary-foreground focus-visible:ring-ring grid flex-none place-content-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+          "bg-primary text-primary-foreground grid flex-none place-content-center rounded-full",
           size === "sm" ? "size-9" : "size-11",
         )}
       >
@@ -182,7 +182,7 @@ export function AudioPlayer({
                 "absolute inset-0 w-full cursor-pointer appearance-none bg-transparent",
                 "[&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full",
                 "[&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0",
-                "focus-visible:ring-ring rounded-full focus-visible:ring-2 focus-visible:outline-none",
+                "rounded-full",
               )}
             />
           ) : null}

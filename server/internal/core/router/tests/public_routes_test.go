@@ -1,6 +1,8 @@
 package router_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"quizzivy/internal/core/router"
 	"strings"
 	"testing"
@@ -84,5 +86,25 @@ func TestRegistryHasNoStaleEntries(t *testing.T) {
 		if !known[pattern] {
 			t.Errorf("registry limits %q, which is not an operation in api/openapi.yaml", pattern)
 		}
+	}
+}
+
+func TestPublicStatusFitsAClassroomBehindOneAddressAndNoMore(t *testing.T) {
+	handler := newTestRouter(t, fakeDB{})
+	get := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/public/status", nil)
+		req.RemoteAddr = "203.0.113.30:5555"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec
+	}
+	for i := 1; i <= 120; i++ {
+		if rec := get(); rec.Code == http.StatusTooManyRequests {
+			t.Fatalf("request %d was limited; 120 a minute are allowed", i)
+		}
+	}
+	rec := get()
+	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
+		t.Fatalf("request 121: status = %d, Retry-After %q; want 429 with Retry-After", rec.Code, rec.Header().Get("Retry-After"))
 	}
 }

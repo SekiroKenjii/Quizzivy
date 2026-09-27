@@ -259,12 +259,14 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
           for (const [id, answer] of Object.entries(answers)) {
             if (current.answers[id] === answer) dirty.delete(id);
           }
+          const deadlineAt = serverDeadline(saved.deadlineAt);
           return {
             dirty,
             flushInFlight: false,
             retryDelayMs: RETRY_BASE_MS,
             offsetMs: Date.parse(saved.serverTime) - Date.now(),
             lastSavedAt: saved.savedAt,
+            ...(deadlineAt === null ? {} : { deadlineAt }),
           };
         });
         if (get().dirty.size > 0) scheduleFlush();
@@ -337,7 +339,11 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
         });
         return;
       }
-      set({ submitState: "idle", lock: lock ?? state.lock });
+      set({
+        submitState: "idle",
+        lock: lock ?? state.lock,
+        deadlineAt: refusedDeadline(error) ?? get().deadlineAt,
+      });
     }
   },
 
@@ -404,11 +410,18 @@ useTakeTestStore.subscribe((state, previous) => {
     state.studentId !== null &&
     (state.answers !== previous.answers ||
       state.dirty !== previous.dirty ||
-      state.lock !== previous.lock)
+      state.lock !== previous.lock ||
+      state.deadlineAt !== previous.deadlineAt)
   ) {
     persistPending(state);
     if (state.attemptId !== previous.attemptId && state.dirty.size > 0) scheduleFlush();
   }
+  if (
+    state.attemptId !== null &&
+    state.attemptId === previous.attemptId &&
+    state.deadlineAt !== previous.deadlineAt
+  )
+    useGroupPlaybackStore.getState().adoptDeadline(state.deadlineAt);
   if (
     state.deadlineAt !== previous.deadlineAt ||
     state.offsetMs !== previous.offsetMs ||
@@ -470,6 +483,18 @@ export function remainingMs(
 ): number {
   // Never Date.now() alone.
   return Math.max(0, state.deadlineAt - (Date.now() + state.offsetMs));
+}
+
+function refusedDeadline(error: unknown): number | null {
+  return error instanceof ApiError && error.code === "DEADLINE_NOT_REACHED"
+    ? serverDeadline(error.details?.["deadlineAt"])
+    : null;
+}
+
+function serverDeadline(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? at : null;
 }
 
 /** An attempt that arrives already finished is read-only from the first render. */

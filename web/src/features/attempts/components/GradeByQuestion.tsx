@@ -218,7 +218,7 @@ export function GradeByQuestion({
                   {t("byQuestion.namesHidden")}{" "}
                   <button
                     type="button"
-                    className="text-foreground focus-visible:outline-ring rounded-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="text-foreground rounded-sm underline underline-offset-4"
                     aria-pressed={showNames}
                     onClick={() => setShowNames((value) => !value)}
                   >

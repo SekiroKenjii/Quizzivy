@@ -38,7 +38,7 @@ function ToolButton({ tool }: Readonly<{ tool: Tool }>) {
       disabled={tool.disabled}
       onClick={tool.run}
       className={cn(
-        "hover:bg-muted focus-visible:outline-ring inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-transparent transition-colors focus-visible:outline-2 disabled:opacity-40 motion-reduce:transition-none",
+        "hover:bg-muted inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-transparent transition-colors disabled:opacity-40 motion-reduce:transition-none",
         tool.active && "border-border bg-muted",
       )}
     >
@@ -246,7 +246,7 @@ export function ContentToolbar({
               type="button"
               onClick={tool.run}
               disabled={tool.disabled}
-              className="hover:bg-muted focus-visible:outline-ring rounded-md px-2 py-1.5 text-xs focus-visible:outline-2 disabled:opacity-40"
+              className="hover:bg-muted rounded-md px-2 py-1.5 text-xs disabled:opacity-40"
             >
               {t(`contentEditor.${tool.key}`)}
             </button>

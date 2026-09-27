@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/modules/attempts/application"
 	"quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/platform/db"
@@ -252,5 +253,5 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 
 func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
-	return application.New(nil, nil, repositories.NewPostgres(db.NewContext(pool)))
+	return application.New(nil, nil, repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}))
 }

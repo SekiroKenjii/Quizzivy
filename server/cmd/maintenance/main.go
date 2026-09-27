@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"quizzivy/internal/core/maintenance"
@@ -21,31 +19,21 @@ func main() {
 }
 
 func run() error {
-	apply := flag.Bool("apply", false, "apply changes; omitted means dry-run")
-	batch := flag.Int("batch", 1000, "maximum integrity events in one batch (1..10000)")
-	student := flag.String("student", "", "student UUID for anonymize-student")
-	flag.Parse()
-	command := flag.Arg(0)
-	if command != "retain-integrity" && command != "anonymize-student" {
-		return errors.New("usage: maintenance [-apply] [-batch N] [-student UUID] retain-integrity|anonymize-student")
+	command, err := maintenance.Parse(os.Args[1:])
+	if err != nil {
+		return err
 	}
 	dsn := os.Getenv("MAINTENANCE_DATABASE_URL")
 	if dsn == "" {
 		return errors.New("MAINTENANCE_DATABASE_URL is required; use the privileged maintenance/owner role")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
+	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return errors.New("invalid maintenance database configuration")
 	}
 	defer pool.Close()
-	var report any
-	if command == "retain-integrity" {
-		report, err = maintenance.RetainEvents(ctx, pool, *apply, *batch)
-	} else {
-		report, err = maintenance.AnonymizeStudent(ctx, pool, *student, *apply)
-	}
+	report, err := command.Execute(ctx, pool)
 	if err != nil {
 		return fmt.Errorf("maintenance failed: %w", err)
 	}
