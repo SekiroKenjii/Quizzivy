@@ -66,7 +66,11 @@ async function start(page: Page, data: Session = paper()) {
     ...sessionAs(studentUser),
     "GET /app/attempts/paper": { body: data },
     "PATCH /app/attempts/paper/answers": {
-      body: { serverTime: data.serverTime, savedAt: data.serverTime },
+      body: {
+        serverTime: data.serverTime,
+        savedAt: data.serverTime,
+        deadlineAt: data.attempt.deadlineAt,
+      },
     },
     "POST /app/attempts/paper/events": { body: {} },
   });
@@ -129,7 +133,11 @@ test("rich table blanks preserve frozen answer bindings and reload on a 320px ph
     const payload = route.request().postDataJSON() as { answers?: Session["answers"] };
     data.answers = { ...data.answers, ...payload.answers };
     await route.fulfill({
-      json: { serverTime: data.serverTime, savedAt: data.serverTime },
+      json: {
+        serverTime: data.serverTime,
+        savedAt: data.serverTime,
+        deadlineAt: data.attempt.deadlineAt,
+      },
     });
   });
   await page.getByRole("button", { name: "Câu sau", exact: true }).click();

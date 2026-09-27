@@ -419,3 +419,34 @@ func TestAReplayedBatchIsNotAdrop(t *testing.T) {
 		t.Errorf("a replayed batch reported %v as dropped", again.Dropped)
 	}
 }
+
+func TestAutosaveCarriesTheDeadlineATeacherExtended(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	first, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, session, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !first.DeadlineAt.Equal(session.Attempt.DeadlineAt) {
+		t.Errorf("the first save reports deadline %v, want the attempt's %v", first.DeadlineAt, session.Attempt.DeadlineAt)
+	}
+
+	extended, err := svc.Commands.Extend.Handle(ctx, command.Extend{Request: teacher(w), AttemptID: session.Attempt.ID, Minutes: 10, Reason: "Mất điện"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditRows(t, pool, session.Attempt.ID, "attempt.extended")
+
+	second, err := svc.Commands.Save.Handle(ctx, command.Save{Input: batch(w, session, 3)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !second.DeadlineAt.Equal(extended.DeadlineAt) {
+		t.Errorf("the save after the extension reports %v, want the extended %v", second.DeadlineAt, extended.DeadlineAt)
+	}
+	if got := second.DeadlineAt.Sub(first.DeadlineAt); got != 10*time.Minute {
+		t.Errorf("the reported deadline moved by %v, want 10m", got)
+	}
+}

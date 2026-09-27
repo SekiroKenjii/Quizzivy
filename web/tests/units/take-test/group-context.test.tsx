@@ -33,7 +33,12 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(play);
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
   const now = new Date().toISOString();
-  vi.mocked(saveAnswers).mockResolvedValue({ serverTime: now, savedAt: now });
+  const deadline = new Date(Date.now() + 3600000).toISOString();
+  vi.mocked(saveAnswers).mockResolvedValue({
+    serverTime: now,
+    savedAt: now,
+    deadlineAt: deadline,
+  });
   vi.mocked(recordGroupAudioPlay).mockImplementation(async (_id, input) => ({
     playId: input.playId,
     plays: 1,
@@ -42,7 +47,7 @@ beforeEach(() => {
   vi.mocked(getAttempt).mockResolvedValue({
     ...session({
       serverTime: now,
-      deadlineAt: new Date(Date.now() + 3600000).toISOString(),
+      deadlineAt: deadline,
     }),
     sections: [previewSection],
     questions: previewQuestions.slice(1),
