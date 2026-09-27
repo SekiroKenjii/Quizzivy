@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// UploadMedia implements POST /admin/media (§11.1).
+// UploadMedia implements POST /teacher/media (§11.1).
 func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaRequestObject) (openapi.UploadMediaResponseObject, error) {
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -96,7 +96,7 @@ func ToAPIMediaAsset(a domain.Asset, url string) openapi.MediaAsset {
 	return out
 }
 
-// ListMedia implements GET /admin/media -- the §8 media library.
+// ListMedia implements GET /teacher/media -- the §8 media library.
 func (h Media) ListMedia(ctx context.Context, request openapi.ListMediaRequestObject) (openapi.ListMediaResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -156,7 +156,7 @@ func ToAPIReferencingTests(refs []domain.TestRef) []openapi.ReferencingTest {
 	return out
 }
 
-// DeleteMedia implements DELETE /admin/media/{id}.
+// DeleteMedia implements DELETE /teacher/media/{id}.
 func (h Media) DeleteMedia(ctx context.Context, request openapi.DeleteMediaRequestObject) (openapi.DeleteMediaResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented

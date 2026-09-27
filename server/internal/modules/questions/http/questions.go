@@ -13,7 +13,7 @@ import (
 	"strconv"
 )
 
-// ListQuestions implements GET /admin/questions -- the §8 bank, with type and
+// ListQuestions implements GET /teacher/questions -- the §8 bank, with type and
 // tag filters plus accent-insensitive search (D-11).
 func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuestionsRequestObject) (openapi.ListQuestionsResponseObject, error) {
 	if h.app == nil {

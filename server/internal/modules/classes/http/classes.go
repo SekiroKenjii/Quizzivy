@@ -16,7 +16,7 @@ import (
 
 const msgClassNotFound = "Không tìm thấy lớp học."
 
-// GetClass implements GET /admin/classes/{id} (§6.4).
+// GetClass implements GET /teacher/classes/{id} (§6.4).
 func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestObject) (openapi.GetClassResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -33,7 +33,7 @@ func (h Classes) GetClass(ctx context.Context, request openapi.GetClassRequestOb
 	return openapi.GetClass200JSONResponse(toAPIAdminClass(class)), nil
 }
 
-// UpdateClass implements PATCH /admin/classes/{id}.
+// UpdateClass implements PATCH /teacher/classes/{id}.
 func (h Classes) UpdateClass(ctx context.Context, request openapi.UpdateClassRequestObject) (openapi.UpdateClassResponseObject, error) {
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -81,7 +81,7 @@ func (h Classes) CreateClass(ctx context.Context, request openapi.CreateClassReq
 	return openapi.CreateClass201JSONResponse(toAPIAdminClass(class)), nil
 }
 
-// ListClasses implements GET /admin/classes.
+// ListClasses implements GET /teacher/classes.
 func (h Classes) ListClasses(ctx context.Context, request openapi.ListClassesRequestObject) (openapi.ListClassesResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -121,7 +121,7 @@ func (h Classes) ListClasses(ctx context.Context, request openapi.ListClassesReq
 	}, nil
 }
 
-// ListClassMembers implements GET /admin/classes/{id}/members (§6.4).
+// ListClassMembers implements GET /teacher/classes/{id}/members (§6.4).
 func (h Classes) ListClassMembers(ctx context.Context, request openapi.ListClassMembersRequestObject) (openapi.ListClassMembersResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -190,7 +190,7 @@ func toAPIMember(m domain.Member) openapi.ClassMember {
 	}
 }
 
-// RemoveClassMember implements DELETE /admin/classes/{id}/members/{userId}.
+// RemoveClassMember implements DELETE /teacher/classes/{id}/members/{userId}.
 func (h Classes) RemoveClassMember(ctx context.Context, request openapi.RemoveClassMemberRequestObject) (openapi.RemoveClassMemberResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
