@@ -10,7 +10,12 @@ import (
 
 const appRole = "quizzivy_app"
 
-var readOnlyForApp = map[string]bool{"maintenance_windows": true}
+var readOnlyForApp = map[string]bool{
+	"maintenance_windows": true,
+	"permissions":         true,
+	"roles":               true,
+	"role_permissions":    true,
+}
 
 // TestAppRoleCanReadAndWriteEveryTable loops over information_schema rather than
 // naming tables, which is the same property ALTER DEFAULT PRIVILEGES was chosen
