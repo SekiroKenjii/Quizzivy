@@ -48,15 +48,16 @@ const movingAttempts = `SELECT count(id) FROM app.attempts
  WHERE status = 'in_progress' AND deadline_at > $1`
 
 const movingAssignments = `SELECT count(id) FROM app.assignments
- WHERE closed_at IS NULL AND closes_at >= $1 AND closes_at < $2`
+ WHERE closed_at IS NULL AND published_at IS NOT NULL AND closes_at >= $1 AND closes_at < $2`
 
 // ScheduleWindow schedules a window from startsAt to endsAt, no earlier than a
 // minute ago, and in the same statement extends by its length the deadline of
 // every running attempt that would still be running when it starts and the
-// close of every open assignment that would close inside it. Every change is
-// audited as System, with no actor. A dry run reports the counts and changes
-// nothing. It holds the maintenance-windows advisory lock, which the start
-// guard takes shared, so no attempt starts between the check and the write.
+// close of every published, open assignment that would close inside it.
+// Every change is audited as System, with no actor. A dry run reports the
+// counts and refusals and changes nothing, taking no lock. Applying holds the
+// maintenance-windows advisory lock, which the start guard takes shared, so
+// no attempt starts between the check and the write.
 func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Time, apply bool) (ScheduleReport, error) {
 	out := ScheduleReport{StartsAt: startsAt, EndsAt: endsAt}
 	if !endsAt.After(startsAt) {
@@ -70,8 +71,10 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		return out, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73819, $1)`, WindowLockKey); err != nil {
-		return out, fmt.Errorf("lock maintenance windows: %w", err)
+	if apply {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73819, $1)`, WindowLockKey); err != nil {
+			return out, fmt.Errorf("lock maintenance windows: %w", err)
+		}
 	}
 	var tooEarly bool
 	if err := tx.QueryRow(ctx, `SELECT $1::timestamptz < now() - interval '1 minute'`, startsAt).Scan(&tooEarly); err != nil {
@@ -105,7 +108,8 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		  UPDATE app.assignments s
 		     SET closes_at = s.closes_at + w.length
 		    FROM scheduled w
-		   WHERE s.closed_at IS NULL AND s.closes_at >= w.starts_at AND s.closes_at < w.ends_at
+		   WHERE s.closed_at IS NULL AND s.published_at IS NOT NULL
+		     AND s.closes_at >= w.starts_at AND s.closes_at < w.ends_at
 		  RETURNING s.id, old.closes_at AS before, new.closes_at AS after, w.id AS window_id
 		), audited AS (
 		  INSERT INTO app.audit_log (action, entity, entity_id, diff)

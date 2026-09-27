@@ -64,6 +64,15 @@ func (w world) assignment(t *testing.T, closesAt time.Time) string {
 	return id
 }
 
+func (w world) draft(t *testing.T, closesAt time.Time) string {
+	t.Helper()
+	id := w.assignment(t, closesAt)
+	if _, err := w.tx.Exec(w.ctx, `UPDATE app.assignments SET published_at = NULL WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
 func (w world) attempt(t *testing.T, assignment string, deadline time.Time) string {
 	t.Helper()
 	student := uuid.NewString()
@@ -141,8 +150,13 @@ func TestAnAssignmentIsExtendedOnlyIfItClosesInsideTheWindow(t *testing.T) {
 	inside := w.assignment(t, start.Add(20*time.Minute))
 	after := w.assignment(t, end.Add(time.Minute))
 	atTheEnd := w.assignment(t, end)
+	draft := w.draft(t, start.Add(20*time.Minute))
 
 	w.schedule(t, start, end)
+
+	if got := w.closes(t, draft); !got.Equal(start.Add(20 * time.Minute)) {
+		t.Errorf("a draft closing inside the window moved to %v; no one can take a draft", got)
+	}
 
 	if got := w.closes(t, inside); !got.Equal(start.Add(80 * time.Minute)) {
 		t.Errorf("an assignment closing inside the window closes at %v, want %v", got, start.Add(80*time.Minute))
@@ -276,11 +290,20 @@ func TestCancellingKeepsTheExtensions(t *testing.T) {
 
 func TestEndingKeepsTheExtensionsAndOnlyEndsAnActiveWindow(t *testing.T) {
 	w := newWorld(t)
-	start := w.now.Add(-30 * time.Second)
-	assignment := w.assignment(t, w.now.Add(24*time.Hour))
-	attempt := w.attempt(t, assignment, w.now.Add(10*time.Minute))
+	start := far(w, 8)
+	assignment := w.assignment(t, start.Add(24*time.Hour))
+	attempt := w.attempt(t, assignment, start.Add(10*time.Minute))
 	report := w.schedule(t, start, start.Add(time.Hour))
 
+	if _, err := maintenance.EndWindow(w.ctx, w.tx, report.WindowID, true); err == nil {
+		t.Error("a window that has not started was ended")
+	}
+
+	if _, err := w.tx.Exec(w.ctx,
+		`UPDATE app.maintenance_windows SET starts_at = $2, ends_at = $3 WHERE id = $1`,
+		report.WindowID, w.now.Add(-30*time.Second), w.now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
 	listed, err := maintenance.ListWindows(w.ctx, w.tx)
 	if err != nil {
 		t.Fatal(err)
@@ -300,12 +323,16 @@ func TestEndingKeepsTheExtensionsAndOnlyEndsAnActiveWindow(t *testing.T) {
 	if !ended.Applied || !ended.Window.EndsAt.Equal(w.now) {
 		t.Errorf("end report = %+v, want it to end at %v", ended, w.now)
 	}
-	if got := w.deadline(t, attempt); !got.Equal(w.now.Add(70 * time.Minute)) {
-		t.Errorf("ending moved the deadline to %v", got)
+	if got := w.deadline(t, attempt); !got.Equal(start.Add(70 * time.Minute)) {
+		t.Errorf("ending moved the extended deadline to %v", got)
 	}
-
-	future := w.schedule(t, far(w, 7), far(w, 7).Add(time.Hour))
-	if _, err := maintenance.EndWindow(w.ctx, w.tx, future.WindowID, true); err == nil {
-		t.Error("a window that has not started was ended")
+	var endAudits int
+	if err := w.tx.QueryRow(w.ctx,
+		`SELECT count(id) FROM app.audit_log WHERE action = 'maintenance.ended' AND entity_id = $1::uuid AND actor_user_id IS NULL`,
+		report.WindowID).Scan(&endAudits); err != nil {
+		t.Fatal(err)
+	}
+	if endAudits != 1 {
+		t.Errorf("%d maintenance.ended rows, want 1", endAudits)
 	}
 }
