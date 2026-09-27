@@ -233,7 +233,7 @@ func sendAs(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, method, 
 	return rec
 }
 
-func TestAStudentCannotReachTheAdminTree(t *testing.T) {
+func TestAStudentCannotReachTheTeacherTree(t *testing.T) {
 	issuer := testIssuer(t)
 	rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/teacher/dashboard", studentUser, "")
 	if rec.Code != http.StatusForbidden {
@@ -244,7 +244,7 @@ func TestAStudentCannotReachTheAdminTree(t *testing.T) {
 	}
 }
 
-func TestATeacherReachesTheAdminTree(t *testing.T) {
+func TestATeacherReachesTheTeacherTree(t *testing.T) {
 	issuer := testIssuer(t)
 	h := roleRouter(t, issuer, rolePrincipals())
 	for _, user := range []string{adminUser, teacherUser} {
@@ -254,7 +254,7 @@ func TestATeacherReachesTheAdminTree(t *testing.T) {
 	}
 }
 
-func TestEveryAdminOperationIsGated(t *testing.T) {
+func TestEveryStaffOperationIsGated(t *testing.T) {
 	spec := freshSpec(t)
 	requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
 	if err != nil {
@@ -289,7 +289,7 @@ func TestTheStudentTreeNeedsTakeTests(t *testing.T) {
 	}
 }
 
-func TestAnAnonymousCallerToTheAdminTreeGetsAuthenticationNotAuthorization(t *testing.T) {
+func TestAnAnonymousCallerToTheTeacherTreeGetsAuthenticationNotAuthorization(t *testing.T) {
 	issuer := testIssuer(t)
 	if rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/teacher/dashboard", "", ""); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
@@ -487,6 +487,10 @@ func TestPermissionTreesMatchPaths(t *testing.T) {
 		{name: "self on the student tree", path: "/app/rosters", method: "GET", value: "self", want: `GET /app/rosters: "self" does not belong under /app/`},
 		{name: "a student key on the auth tree", path: "/auth/rosters", method: "GET", value: "learning.take_tests", want: `GET /auth/rosters: "learning.take_tests" does not belong under /auth/`},
 		{name: "a key on the me tree", path: "/me/rosters", method: "GET", value: "teaching.grading", want: `GET /me/rosters: "teaching.grading" does not belong under /me/`},
+		{name: "self on the teacher tree", path: "/teacher/rosters", method: "GET", value: "self", want: `GET /teacher/rosters: "self" does not belong under /teacher/`},
+		{name: "the admin workspace on the teacher tree", path: "/teacher/rosters", method: "GET", value: "workspace.admin", want: `GET /teacher/rosters: "workspace.admin" does not belong under /teacher/`},
+		{name: "a student key on the teacher tree", path: "/teacher/rosters", method: "GET", value: "learning.take_tests", want: `GET /teacher/rosters: "learning.take_tests" does not belong under /teacher/`},
+		{name: "one stray key in a list", path: "/teacher/rosters", method: "GET", value: []any{"teaching.grading", "people.roles.manage"}, want: `GET /teacher/rosters: "people.roles.manage" does not belong under /teacher/`},
 		{name: "a gated operation on the public tree", path: "/public/rosters", method: "GET", value: "self", want: `GET /public/rosters: "self" does not belong under /public/`},
 		{name: "a gated operation on the join tree", path: "/join/rosters", method: "GET", value: "self", want: `GET /join/rosters: "self" does not belong under /join/`},
 		{name: "an open operation under an unknown prefix", path: "/staff/open", method: "GET", open: true, want: "GET /staff/open: lies outside every path tree"},
@@ -514,6 +518,11 @@ func TestPermissionTreesMatchPaths(t *testing.T) {
 		{"/teacher/rosters", "workspace.teacher"},
 		{"/admin/rosters", "workspace.admin"},
 		{"/admin/exports", "system.data_export"},
+		{"/admin/roles", "people.roles.manage"},
+		{"/admin/everything", "scope.all"},
+		{"/teacher/students", "people.students.create"},
+		{"/app/assignments", "learning.take_tests"},
+		{"/auth/sessions", "self"},
 	} {
 		spec := freshSpec(t)
 		op := &openapi3.Operation{OperationID: "probe", Responses: openapi3.NewResponses(), Extensions: map[string]any{httpx.PermissionExtension: c.value}}

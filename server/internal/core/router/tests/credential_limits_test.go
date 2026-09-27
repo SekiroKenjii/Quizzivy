@@ -20,33 +20,28 @@ var theCredentialMinters = map[string]bool{
 	"OpenDocsSession":      true,
 }
 
+const joinCodeShape = "{code, expiresAt}"
+
 func propertyNames(ref *openapi3.SchemaRef, seen map[*openapi3.Schema]bool, out map[string]bool) {
 	if ref == nil || ref.Value == nil || seen[ref.Value] {
 		return
 	}
 	seen[ref.Value] = true
 	s := ref.Value
+	if s.Properties["code"] != nil && s.Properties["expiresAt"] != nil {
+		out[joinCodeShape] = true
+	}
 	for name, prop := range s.Properties {
 		out[name] = true
 		propertyNames(prop, seen, out)
 	}
 	propertyNames(s.Items, seen, out)
+	propertyNames(s.AdditionalProperties.Schema, seen, out)
 	for _, group := range []openapi3.SchemaRefs{s.AllOf, s.OneOf, s.AnyOf} {
 		for _, sub := range group {
 			propertyNames(sub, seen, out)
 		}
 	}
-}
-
-func topLevelNames(ref *openapi3.SchemaRef) map[string]bool {
-	out := map[string]bool{}
-	if ref == nil || ref.Value == nil {
-		return out
-	}
-	for name := range ref.Value.Properties {
-		out[name] = true
-	}
-	return out
 }
 
 func mintsACredential(op *openapi3.Operation) bool {
@@ -63,7 +58,7 @@ func mintsACredential(op *openapi3.Operation) bool {
 		}
 		names := map[string]bool{}
 		propertyNames(media.Schema, map[*openapi3.Schema]bool{}, names)
-		if names["temporaryPassword"] || names["accessToken"] || topLevelNames(media.Schema)["code"] {
+		if names["temporaryPassword"] || names["accessToken"] || names[joinCodeShape] {
 			return true
 		}
 	}
@@ -121,5 +116,39 @@ func TestTheDetectorSeesATokenInsideAnArrayOfObjects(t *testing.T) {
 	bulk.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithJSONSchema(body)})
 	if !mintsACredential(bulk) {
 		t.Error("items[].temporaryPassword was not detected")
+	}
+}
+
+func TestTheDetectorSeesATokenInsideAMapOfObjects(t *testing.T) {
+	bulk := &openapi3.Operation{Responses: openapi3.NewResponses()}
+	item := openapi3.NewObjectSchema().WithProperty("temporaryPassword", openapi3.NewStringSchema())
+	body := openapi3.NewObjectSchema().WithProperty("passwords", openapi3.NewObjectSchema().WithAdditionalProperties(item))
+	bulk.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithJSONSchema(body)})
+	if !mintsACredential(bulk) {
+		t.Error("passwords{*}.temporaryPassword was not detected")
+	}
+}
+
+func TestTheDetectorSeesAJoinCodeAtAnyDepth(t *testing.T) {
+	code := openapi3.NewObjectSchema().
+		WithProperty("code", openapi3.NewStringSchema()).
+		WithProperty("expiresAt", openapi3.NewDateTimeSchema())
+	for name, body := range map[string]*openapi3.Schema{
+		"nested":   openapi3.NewObjectSchema().WithProperty("joinCode", code),
+		"in items": openapi3.NewObjectSchema().WithProperty("items", openapi3.NewArraySchema().WithItems(code)),
+		"in oneOf": openapi3.NewOneOfSchema(code, openapi3.NewObjectSchema()),
+	} {
+		op := &openapi3.Operation{Responses: openapi3.NewResponses()}
+		op.Responses.Set("201", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithJSONSchema(body)})
+		if !mintsACredential(op) {
+			t.Errorf("a join code %s was not detected", name)
+		}
+	}
+	notice := openapi3.NewObjectSchema().WithProperty("notices", openapi3.NewArraySchema().WithItems(
+		openapi3.NewObjectSchema().WithProperty("code", openapi3.NewStringSchema())))
+	op := &openapi3.Operation{Responses: openapi3.NewResponses()}
+	op.Responses.Set("200", &openapi3.ResponseRef{Value: openapi3.NewResponse().WithJSONSchema(notice)})
+	if mintsACredential(op) {
+		t.Error("a notice's code with no expiry was taken for a join code")
 	}
 }
