@@ -2136,6 +2136,13 @@ after an interrupted build.
 | `users_created_by_idx` | `(created_by) WHERE created_by IS NOT NULL` | the accounts a staff member made; the SET NULL scan when they go |
 | `assignments_creator_idx` | `(created_by, id DESC)` | a teacher's assignments |
 
+The four partial indexes (tests, questions, question groups, media) cannot
+serve the `owner_id` RESTRICT checks from `00066`–`00069`, which run on every
+user delete (today only a student's) and do not filter on the partial
+predicate. Each check scans its table, as the unindexed `created_by` and
+`uploaded_by` checks already did, which is cheap at today's sizes. Only
+`classes_teacher_idx` covers its check.
+
 No plan is forced. At today's volumes a sequential scan is often the right
 plan (§14), and the indexes earn their place as teachers and rows grow.
 
