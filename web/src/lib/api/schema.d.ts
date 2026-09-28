@@ -1360,6 +1360,10 @@ export interface paths {
         /**
          * @description Teacher-created accounts get a temporary password and
          *     `mustChangePassword: true`. Self-signup requires Google (§6.3).
+         *
+         *     Every `classIds` entry must be a class the caller teaches, or any class
+         *     with `scope.all`. Anything else answers 404, exactly as a missing class
+         *     does, and nothing is created.
          */
         post: operations["createStudent"];
         delete?: never;
@@ -1516,7 +1520,14 @@ export interface paths {
          */
         get: operations["listClassMembers"];
         put?: never;
-        /** @description Enrols an existing user directly, bypassing the join code. Recorded as `joinedVia: admin` so the teacher can tell the two apart. */
+        /**
+         * @description Enrols an existing user directly, bypassing the join code. Recorded as
+         *     `joinedVia: admin` so the teacher can tell the two apart.
+         *
+         *     `userId` must be an active student the caller reaches. Anything else
+         *     answers 404, whatever the reason, so the answer reveals nothing about
+         *     accounts beyond the caller's reach.
+         */
         post: operations["addClassMember"];
         delete?: never;
         options?: never;
@@ -2700,7 +2711,9 @@ export interface components {
         };
         /**
          * @description Per-student teaching figures for §8's students table (G-07) and the class
-         *     roster (G-06).
+         *     roster (G-06), over only the assignments the caller reaches: those they
+         *     created and those targeting a class they teach, or every one with
+         *     `scope.all`.
          *
          *     Deliberately NOT on `User`. `User` is the `/auth/me`, `/auth/login` and
          *     `/auth/refresh` payload, so a field added there is shipped to the student
@@ -2754,13 +2767,15 @@ export interface components {
              *     them again.
              */
             disabledAt: string | null;
-            /** @description All memberships. The table truncates; the drawer lists them. */
+            /** @description Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them. */
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
         };
         /**
          * @description G-07's "31 học viên · 23 hoạt động 7 ngày qua". Counts a page
-         *     cannot express, in the same shape as TestStatusFacets.
+         *     cannot express, in the same shape as TestStatusFacets. Both count only
+         *     the students the caller reaches, and `activeLast7Days` only work on
+         *     assignments the caller reaches.
          *
          *     `active` reuses the dashboard's window verbatim rather than defining a
          *     second meaning of active on a second screen.
@@ -2838,7 +2853,7 @@ export interface components {
             id: components["schemas"]["Uuid"];
             name: string;
             description: string | null;
-            /** @description The teacher's display name, null only while no admin account exists. */
+            /** @description The display name of the class's own teacher. */
             teacherName: string | null;
             joinedAt: components["schemas"]["Timestamp"];
         };
@@ -7003,6 +7018,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
             /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
             409: {
                 headers: {
