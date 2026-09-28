@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strings"
@@ -10,12 +11,20 @@ import (
 // KeyFunc derives a bucket key from a request. Returning "" skips that bucket.
 type KeyFunc func(*http.Request) string
 
-// Route is the limiting policy for one operation.
+// Route is the limiting policy for one operation: the per-address bucket every
+// public route has (§6.5), then its keyed buckets in the order they were
+// added. A request is refused by the first bucket that is exhausted.
 type Route struct {
-	// Per-IP is always present on a public route (§6.5).
-	PerIP  *Limiter
-	Key    KeyFunc
-	PerKey *Limiter
+	PerIP *Limiter
+	Keyed []Keyed
+}
+
+// Keyed is one keyed bucket. Name is the bucket's name in the contract's
+// x-rate-limit block; a Key that yields "" skips the bucket for that request.
+type Keyed struct {
+	Name    string
+	Key     KeyFunc
+	Limiter *Limiter
 }
 
 // Registry maps a Go 1.22 mux pattern ("POST /join/preview") to its policy.
@@ -34,11 +43,39 @@ func (reg *Registry) Add(pattern string, capacity int, rules ...Rule) *Route {
 	return route
 }
 
-// WithKey attaches the secondary bucket.
-func (r *Route) WithKey(key KeyFunc, capacity int, rules ...Rule) *Route {
-	r.Key = key
-	r.PerKey = New(capacity, rules...)
+// WithKey adds a keyed bucket after those already on the route.
+func (r *Route) WithKey(name string, key KeyFunc, capacity int, rules ...Rule) *Route {
+	r.Keyed = append(r.Keyed, Keyed{Name: name, Key: key, Limiter: New(capacity, rules...)})
 	return r
+}
+
+// Compose joins several keys into one bucket key, and yields "" when any part
+// is "", so a composite bucket is skipped whenever a part is missing.
+func Compose(keys ...KeyFunc) KeyFunc {
+	return func(r *http.Request) string {
+		parts := make([]string, len(keys))
+		for i, key := range keys {
+			if parts[i] = key(r); parts[i] == "" {
+				return ""
+			}
+		}
+		return strings.Join(parts, "\x00")
+	}
+}
+
+type addressKey struct{}
+
+// WithAddress records on the request the client address the rate limiter
+// resolved, for Address to read back inside a composite key.
+func WithAddress(r *http.Request, address string) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), addressKey{}, address))
+}
+
+// Address is the KeyFunc for the client address WithAddress recorded, or ""
+// when none was.
+func Address(r *http.Request) string {
+	address, _ := r.Context().Value(addressKey{}).(string)
+	return address
 }
 
 func (reg *Registry) Lookup(pattern string) (*Route, bool) {

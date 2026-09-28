@@ -11,16 +11,19 @@ func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
 	const maxKeyBodyBytes = 8 * 1024
-	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
-	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
-	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKey("email", maxKeyBodyBytes), capacity, ratelimit.PerHour(20))
-	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
-	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(30), ratelimit.PerHour(200))
-	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(10), ratelimit.PerHour(60)).
-		WithKey(ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize), capacity, ratelimit.PerHour(30))
+	joinCode := ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize)
+	email := ratelimit.JSONFieldKey("email", maxKeyBodyBytes)
+	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
+		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
+	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
+		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
+	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
+		WithKey("perAddressAndEmail", ratelimit.Compose(ratelimit.Address, email), capacity, ratelimit.PerMinute(10)).
+		WithKey("perEmail", email, capacity, ratelimit.PerHour(20))
+	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1200))
+	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1200))
+	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
+		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
 	reg.Add("GET /public/status", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(2000))
 
