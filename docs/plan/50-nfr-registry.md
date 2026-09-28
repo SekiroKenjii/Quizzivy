@@ -30,9 +30,9 @@ at the end says how much is covered and what the next round is.
 | NFR-S02 | Access token lives in memory only (~15 min); refresh token is an `httpOnly; Secure; SameSite=Lax; Path=/auth` cookie, stored hashed, rotated on use, with reuse detection revoking the family | §5.2, R-06 | ✅ | `server/internal/auth`, `web/src/stores/auth.ts`, single-flight refresh in `lib/api/client.ts` |
 | NFR-S03 | Google sign-in verifies the ID token (`iss`, `aud`, `exp`, JWKS) and rejects unverified emails; PKCE on the authorization request | §5.1, §5.3, O-13 | ✅ | `server/internal/auth/google*`, `web/src/features/auth` |
 | NFR-S04 | A student on `/admin/*` gets a 403 page, never a redirect; `mustChangePassword` fences every route | §5.4 | ✅ | `web/src/app/guards` |
-| NFR-S05 | Every unauthenticated operation is rate-limited (per IP 10/min · 60/h; per code 30/h); the API refuses to start if a `public` route has no limiter | §6.5, §18 | 🟡 | `httpx/publicroutes.go` `AssertPublicRoutesLimited`, `ratelimit/`; **T-5.2** still has to drive each limit past its threshold and prove the LRU evicts |
+| NFR-S05 | Every unauthenticated operation is rate-limited, sized so a class of 40 behind one school address can sign in and join: per address 120/min · 600/h for login, Google sign-in, join preview and in-app join, and 120/min · 1,200/h for refresh and logout; per join code 200/h; login per address and email 10/min, per email 20/h. A keyed body is at most 8 KiB (413). The API refuses to start if a `public` route has no limiter | §6.5, §18, T-R2.15 | 🟡 | `httpx/publicroutes.go` `AssertPublicRoutesLimited`, `core/router/ratelimits.go`; `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry; `classroom_limits_test.go` (40 students from one address see no 429; the 11th login for one email is 429); `join_preview_test.go` (the 121st preview in a minute, the 201st try on one code); `join-classroom.live.spec.ts` (thirty students join at once). **T-5.2** still has to drive the other limits past their thresholds and prove the LRU evicts |
 | NFR-S06 | Public responses leak nothing: `/join/preview` returns only class and teacher name; join failures do not reveal which classes exist; login does not distinguish unknown user from wrong password | §6.5, §9 | 🟡 | Structural (see #27); the second leak review in **T-5.2** is not done |
-| NFR-S07 | Join codes are stored as SHA-256 hashes, shown once, expire, carry `max_uses`, and are rotatable in two clicks | §6.1, §13.3, R-02 | ✅ | `server/internal/join`, G-06 panel |
+| NFR-S07 | Join codes expire, carry `max_uses`, and are rotatable in two clicks; how they are stored is NFR-S18 | §6.1, §13.3, R-02 | ✅ | `server/internal/modules/classes`, the class page's join-code panel |
 | NFR-S08 | The student attempt payload never carries `isCorrect`, `sampleAnswer`, `acceptedAnswers`, `transcript` or `teacherNote` | §13.5, §14 E2E 9 | ✅ | Explicit column projections; `web/tests/e2e/payload-leak.live.spec.ts` |
 | NFR-S09 | No server secret reaches the SPA bundle; only `VITE_*` values that are public by design | AGENTS.md, #8 | ✅ | `web/tests/integration/bundle-secrets.test.ts`, deploy preflight |
 | NFR-S10 | CORS is an exact-origin allowlist with credentials, never `*`; `Vary: Origin` | §4.1 overview, R-07 | ✅ | `httpx/cors.go` + `cors_test.go` |
@@ -41,6 +41,9 @@ at the end says how much is covered and what the next round is.
 | NFR-S13 | Browser hardening headers on both hosts: HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `frame-ancestors 'none'`, and a CSP matching PKCE, the API and private media origins | good practice; not in spec | 🟡 | API middleware and Pages `_headers` implemented; deployed CSP/login/media verification pending. `core/router/tests/hardening_test.go`, `../setup/operations.md`. |
 | NFR-S14 | Request bodies are size-limited and the server has read/header/idle timeouts | good practice | ✅ | 1 MiB cap before schema validation, streaming media exemption and security-header tests; existing server timeouts unchanged. |
 | NFR-S15 | Dependencies: none added without a stated reason; Sonar runs on every push | §14 DoD, §18 | ✅ | CI `Sonar` job; PR template |
+| NFR-S16 | Every operation declares `x-permission` (a key, a pseudo-key or an any-of list) or is open, and `httpx.RequirePermission` enforces it on every request; the API refuses to start when an operation breaks that rule, names a key outside the catalogue or its path's tree, or `app.permissions` lacks a compiled key | 70 §4.2 and D6, T-R2.4, T-R2.5 | ✅ | `httpx.PermissionRequirements` in `router.New`; `CheckCatalogue` in `wiring.Build`; `core/router/tests/permissions_test.go` with `testdata/permissions.golden` (97 operations); `core/tests/catalogue_test.go`; `web/tests/units/contract/openapi-contract.test.ts` |
+| NFR-S17 | Another owner's id is answered as a missing id: for every id an operation under `/teacher/*`, `/app/*` or `/me/*` takes, a second teacher or student gets the status and body a random id gets, never sees the first one's rows in a list, and leaves them unchanged; a scoped uuid that names no resource kind fails the build | 70 §4.2, PR-1, T-R2.16 | ✅ | `server/tests/isolation_*_test.go` (tag `e2e`, CI Server job), driven by the contract's `x-resource` and `x-resource-list`; `core/router/tests/resource_contract_test.go`. No leak found |
+| NFR-S18 | Join codes are encrypted at rest: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, bound to its class and code ids, and found by an HMAC-SHA256 under a key the database never holds; rotating the key is documented and scripted | 70 D5, §6.5, §13.3, T-R2.14a, T-R2.14b | 🟡 | `migrations/00078`, `classes/domain/joincode_keys.go`, `joincode_encryption_test.go`, `server/tests/join_code_key_flow_test.go`; `maintenance rekey-join-codes` and `../setup/operations.md` "Join-code key". Codes issued before v0.8.0 keep their SHA-256, which a dump reverses in 2^20 guesses, until R4 rotates them (D5) |
 
 ## B. Privacy and data honesty
 
@@ -166,7 +169,7 @@ at the end says how much is covered and what the next round is.
 | NFR-O01 | Structured JSON logs with a request id on every line; the id is returned in the error envelope and shown by the error boundary | overview §7, §9 | ✅ | `httpx/requestid.go`, `logging.go`, `ErrorBoundary.tsx` |
 | NFR-O02 | Health is observable: `/healthz` answers only when the database does | `router.go` | ✅ | `healthz(deps.DB)` |
 | NFR-O03 | A person is told when it breaks (see A05/A06) | — | 🟡 | Repository uptime workflow prepared; owner notification setup and delivery test pending. `../setup/operations.md`. |
-| NFR-O04 | The five dashboard counts and the sidebar counts are one round trip each, so the admin shell never fans out | §8, D-19 | ✅ | `GET /admin/dashboard` |
+| NFR-O04 | The five dashboard counts and the sidebar counts are one round trip each, so the admin shell never fans out | §8, D-19 | ✅ | `GET /teacher/dashboard` |
 
 ---
 
@@ -174,7 +177,7 @@ at the end says how much is covered and what the next round is.
 
 | Category | ✅ | 🟡 | ⬜ | ❌ | ❓ | Total |
 |---|---|---|---|---|---|---|
-| A. Security | 12 | 3 | 0 | 0 | 0 | 15 |
+| A. Security | 14 | 4 | 0 | 0 | 0 | 18 |
 | B. Privacy | 6 | 0 | 0 | 0 | 0 | 6 |
 | C. Reliability | 9 | 1 | 0 | 0 | 0 | 10 |
 | D. Availability | 6 | 3 | 0 | 0 | 1 | 10 |
@@ -185,7 +188,7 @@ at the end says how much is covered and what the next round is.
 | I. Compatibility | 3 | 2 | 0 | 0 | 0 | 5 |
 | J. Maintainability | 12 | 0 | 0 | 0 | 0 | 12 |
 | K. Observability | 3 | 1 | 0 | 0 | 0 | 4 |
-| **Total** | **72** | **14** | **4** | **0** | **1** | **91** |
+| **Total** | **74** | **15** | **4** | **0** | **1** | **94** |
 
 Counts include all twelve maintainability requirements. Implemented mechanisms
 remain partial where deployment, notification delivery or device evidence is

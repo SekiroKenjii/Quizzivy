@@ -1324,7 +1324,7 @@ skill. Proposed responsibilities:
 
 | Relations | Integrity and access expectations |
 | --- | --- |
-| Imports / source sets | UUIDv7 identity, creator, current source/draft revision, status, resulting test; single-organization admin scope with checks on every resource |
+| Imports / source sets | UUIDv7 identity, creator, current source/draft revision, status, resulting test; owned by the creator, `scope.all` reaching every import, with scope checks on every resource (T-R2.12f) |
 | Sources / artifacts | Role exam/key, checksum, detected MIME, bytes, immutable private key, lineage, source revision; originals and answer files never become student media |
 | Runs / stage artifacts | Fencing token, lease, attempt count, source/component versions, bounded cost/time, cancellation intent and outcome |
 | Blocks / source references | Stable IDs per source revision, part/paragraph/table-cell/run offsets, marks and coverage; rendered page coordinates only when actually available |
