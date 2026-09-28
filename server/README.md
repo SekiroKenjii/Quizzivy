@@ -1,6 +1,6 @@
 # Backend
 
-Go module `quizzivy`: a modular monolith. One process, one database, eight
+Go module `quizzivy`: a modular monolith. One process, one database, eleven
 bounded contexts that talk to each other only through the ports they declare.
 The decision record is `docs/plan/60-backend-architecture.md`; this file is the
 map.
@@ -10,21 +10,27 @@ server/
   cmd/            api (the server), migrate, seedadmin — entry points only
   internal/
     core/         the composition root: wiring/ builds each module, router/ fronts them,
-                  adapters/ bridge ports, jobs/ run background commands
+                  adapters/ bridge ports, jobs/ run background commands, maintenance/ holds
+                  the operator's commands cmd/maintenance runs
     platform/     technical adapters: config, db (pgx; the Context and Repository every module embeds),
                   storage (S3), google (OIDC), probe (audio), httpx (middleware), httpserver,
                   ratelimit, httpapi (transport helpers), apidocs (Scalar)
     shared/       the kernel every layer may use: cqrs (handler contracts), actor, paging, audit,
-                  stats, opt, validation
+                  stats, opt, validation, content (versioned learner content), access (the
+                  permission model: keys, requirements, the principal and its scope),
+                  visibility (who a teacher reaches)
     modules/      the bounded contexts
-      identity/    User aggregate, sessions, the teacher's roster of students, PasswordManager
-      classes/     Class aggregate, members, join codes (JoinCodeManager, CodeState)
-      questions/   Question aggregate with options and blanks, QuestionManager
-      media/       Asset aggregate in object storage, AssetManager
-      tests/       Test aggregate, drafts and published versions, PublishManager
-      assignments/ Assignment aggregate, policies, ScheduleManager
-      attempts/    Attempt aggregate: the deal, answers, grading, review, monitor, timeline
-      dashboard/   read models for the teacher's home (no aggregate)
+      identity/     User aggregate, sessions, the teacher's roster of students, PasswordManager
+      classes/      Class aggregate, members, join codes (JoinCodeManager, CodeState, JoinCodeKeys)
+      questions/    Question aggregate with options and blanks, QuestionManager
+      media/        Asset aggregate in object storage, AssetManager
+      tests/        Test aggregate, drafts and published versions, PublishManager
+      assignments/  Assignment aggregate, policies, ScheduleManager
+      attempts/     Attempt aggregate: the deal, answers, grading, review, monitor, timeline
+      dashboard/    read models for the teacher's home (no aggregate)
+      imports/      Word and PDF imports: private sources, processing runs, the review draft, the commit
+      availability/ the maintenance windows the operator schedules, as the API reads them
+      access/       roles and their grants, PermissionManager, the cached principal (no transport until R5)
   tests/          end-to-end: the whole application in-process, over HTTP
   gen/openapi/    generated from api/openapi.yaml, committed, never hand-edited
 ```
@@ -46,7 +52,7 @@ with their repository and ports, and a transport reaches a use case as
 `h.app.Queries.Get.Handle(ctx, query.Get{…})`. A port another module fills with
 one operation is typed as that module's handler (identity's `SelfEnroller` is
 the classes `EnrolNewMember` command; the attempts transport's `Students` is the
-identity `GetStudent` query).
+identity `StudentAccount` query).
 
 ## Tests
 
