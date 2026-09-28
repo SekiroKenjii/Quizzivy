@@ -53,7 +53,7 @@ func TestDeleteSoftDeletesAndAudits(t *testing.T) {
 	}
 
 	// Gone from the library.
-	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: 100}})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Scope: everyone, Limit: 100}})
 	assets := listResult.Items
 	if err != nil {
 		t.Fatal(err)
