@@ -230,3 +230,29 @@ func TestACommitBelongsToTheImportsCreatorWhoeverCommitsIt(t *testing.T) {
 }
 
 func second[T any](_ T, err error) error { return err }
+
+func TestScopeAllWritesReachPastTheGate(t *testing.T) {
+	ctx := context.Background()
+	admin := actor.Actor{ID: "X", Scope: access.Scope{UserID: "X", All: true}}
+	s := &ownedShelf{}
+	app := application.New(application.Dependencies{Repo: s, Drafts: s, Runs: s, Materializer: s, Store: &objects{}, Inspector: inspector{},
+		WorkDir: t.TempDir(), Processing: true, Quotas: domain.DefaultQuotas()})
+	for op, err := range map[string]error{
+		"upload": second(app.Commands.Upload.Handle(ctx, command.Upload{ImportID: "import-1", UploadID: "u", Role: "exam", Filename: "de.docx", Actor: admin,
+			Body: strings.NewReader("PK"), End: func() error { return nil }})),
+		"process": second(app.Commands.Process.Handle(ctx, command.Process{ImportID: "import-1", RequestID: "r", ExpectedRevision: 2, Actor: admin})),
+		"save":    second(app.Commands.SaveReview.Handle(ctx, command.SaveReview{ImportID: "import-1", ExpectedRevision: 1, Title: "X", Actor: admin})),
+	} {
+		if errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("scope.all's %s stopped at the gate", op)
+		}
+	}
+	for _, seen := range s.scopes {
+		if seen != admin.Scope {
+			t.Errorf("a write read in %+v, want the Admin's scope", seen)
+		}
+	}
+	if len(s.scopes) != 4 {
+		t.Errorf("%d gated reads, want 4 (upload, process twice, save)", len(s.scopes))
+	}
+}
