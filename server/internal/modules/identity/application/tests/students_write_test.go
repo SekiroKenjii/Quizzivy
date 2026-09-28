@@ -132,7 +132,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 	}
 
 	// Findable again, which is what makes the disable reversible.
-	back, err := store.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: w.student})
+	back, err := store.Queries.GetStudent.Handle(ctx, query.GetStudent{Scope: everyone, ID: w.student})
 	if err != nil {
 		t.Fatalf("Get on a disabled student: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		t.Error("the row does not report that it is disabled")
 	}
 
-	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{}})
+	listStudentsResult, err := store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Scope: everyone}})
 	active := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +151,7 @@ func TestDisablingHidesAStudentWithoutDeletingTheirWork(t *testing.T) {
 		}
 	}
 
-	listStudentsResult, err = store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Status: domain.StudentsDisabled}})
+	listStudentsResult, err = store.Queries.ListStudents.Handle(ctx, query.ListStudents{Query: domain.StudentQuery{Scope: everyone, Status: domain.StudentsDisabled}})
 	found := listStudentsResult.Items
 	if err != nil {
 		t.Fatal(err)
