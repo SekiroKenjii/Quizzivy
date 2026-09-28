@@ -4,6 +4,7 @@ import { expect, type Page } from "@playwright/test";
 
 export const ADMIN = { email: "thuong@quizzivy.com", password: "quizzivy-dev" };
 export const STUDENT = { email: "hocvien@quizzivy.com", password: "quizzivy-dev" };
+export const TEACHER = { email: "giaovien@quizzivy.com", password: "quizzivy-dev" };
 
 /** The assignments seed/04-dev-e2e.sql exists to provide. */
 export const ASSIGNMENT = {

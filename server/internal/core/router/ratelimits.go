@@ -11,8 +11,8 @@ func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
 	const maxKeyBodyBytes = 8 * 1024
-	joinCode := ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, classesdomain.JoinCodes.Normalize)
-	email := ratelimit.JSONFieldKey("email", maxKeyBodyBytes)
+	joinCode := ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, 9, classesdomain.JoinCodes.Normalize)
+	email := ratelimit.JSONFieldKey("email", maxKeyBodyBytes, 254)
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
 		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).

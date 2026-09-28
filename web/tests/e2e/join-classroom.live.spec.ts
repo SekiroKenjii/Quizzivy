@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { ADMIN } from "./support/live";
+import { TEACHER } from "./support/live";
 
 const API = "http://localhost:8080";
 
@@ -19,7 +19,7 @@ test("thirty students behind one address sign in, preview and join without a 429
 }) => {
   test.setTimeout(180_000);
   const teacherApi = await playwright.request.newContext();
-  const teacher = await signIn(teacherApi, ADMIN.email, ADMIN.password);
+  const teacher = await signIn(teacherApi, TEACHER.email, TEACHER.password);
   const auth = { Authorization: `Bearer ${teacher}` };
 
   const created = await teacherApi.post(`${API}/teacher/classes`, {

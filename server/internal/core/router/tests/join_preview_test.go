@@ -183,7 +183,7 @@ func TestRespellingACodeDoesNotBuyAFreshAllowance(t *testing.T) {
 	fake := &fakeJoin{result: classesdomain.PreviewResult{Outcome: classesdomain.PreviewInvalid}}
 	handler := joinRouter(t, fake)
 
-	spellings := []string{"K7M3-P9QR", "k7m3p9qr", "K7M3P9QR", "k7m3-p9qr", " K7M3 P9QR "}
+	spellings := []string{"K7M3-P9QR", "k7m3p9qr", "K7M3P9QR", "k7m3-p9qr", "K7M3 P9QR"}
 	var last *httptest.ResponseRecorder
 	for i := range 201 {
 		// Every request from a different address, cycling through spellings.

@@ -31,7 +31,7 @@ func login(h http.Handler, ip, email string) int {
 
 func TestEveryKeyedBucketIsConsultedAndTheHandlerKeepsTheBody(t *testing.T) {
 	reg := ratelimit.NewRegistry()
-	email := ratelimit.JSONFieldKey("email", 4096)
+	email := ratelimit.JSONFieldKey("email", 4096, 254)
 	reg.Add("POST /auth/login", 100, ratelimit.PerMinute(100)).
 		WithKey("perAddressAndEmail", ratelimit.Compose(ratelimit.Address, email), 100, ratelimit.PerMinute(2)).
 		WithKey("perEmail", email, 100, ratelimit.PerMinute(3))
@@ -65,7 +65,7 @@ func TestEveryKeyedBucketIsConsultedAndTheHandlerKeepsTheBody(t *testing.T) {
 func TestAnEmptyKeySkipsItsBucket(t *testing.T) {
 	reg := ratelimit.NewRegistry()
 	reg.Add("POST /auth/login", 100, ratelimit.PerMinute(100)).
-		WithKey("perEmail", ratelimit.JSONFieldKey("email", 4096), 100, ratelimit.PerMinute(1))
+		WithKey("perEmail", ratelimit.JSONFieldKey("email", 4096, 254), 100, ratelimit.PerMinute(1))
 	var bodies []string
 	h := limitedLogin(reg, &bodies)
 	for i := range 3 {
