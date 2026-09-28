@@ -243,6 +243,9 @@ func TestADraftReferencesOnlyItsOwnersQuestions(t *testing.T) {
 	if err := outline(w.anyone, another.ID, another.UpdatedAt, w.questionB); !errors.Is(err, domain.ErrUnknownQuestion) {
 		t.Errorf("the Admin putting B's question in A's test: %v, want unknown question: a draft holds only its owner's questions", err)
 	}
+	if err := outline(w.anyone, another.ID, another.UpdatedAt, w.questionA); err != nil {
+		t.Errorf("the Admin putting A's question in A's test: %v, want it accepted: the owner compared is the test's, not the actor's", err)
+	}
 }
 
 func TestTheAdminEditsAnotherTeachersTestWithoutTakingIt(t *testing.T) {
