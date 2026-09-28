@@ -113,8 +113,8 @@ func TestAnotherCreatorsImportAnswersAsAMissingOne(t *testing.T) {
 func TestEachCreatorListsAndSearchesOnlyTheirOwnImports(t *testing.T) {
 	a, b := setup(t), setup(t)
 	ctx := context.Background()
-	mark := uuid.NewString()[:8]
-	titled, err := a.repo.Create(ctx, domain.Create{RequestID: uuid.NewString(), Title: "Riêng " + mark, Actor: a.actor}, a.quotas)
+	mark, request := uuid.NewString()[:8], uuid.NewString()
+	titled, err := a.repo.Create(ctx, domain.Create{RequestID: request, Title: "Riêng " + mark, Actor: a.actor}, a.quotas)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestEachCreatorListsAndSearchesOnlyTheirOwnImports(t *testing.T) {
 			t.Errorf("the zero scope's history totals %d", listed.Page.Total)
 		}
 	}
-	replayed, err := b.repo.Create(ctx, domain.Create{RequestID: titled.ID, Title: "Riêng " + mark, Actor: b.actor}, b.quotas)
+	replayed, err := b.repo.Create(ctx, domain.Create{RequestID: request, Title: "Riêng " + mark, Actor: b.actor}, b.quotas)
 	if err != nil || replayed.ID == titled.ID || replayed.CreatedBy != b.actor.ID {
 		t.Errorf("B reusing an id A used made %+v (%v), want B's own import", replayed, err)
 	}

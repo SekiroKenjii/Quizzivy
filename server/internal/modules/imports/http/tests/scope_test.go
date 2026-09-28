@@ -1,7 +1,9 @@
 package http_test
 
 import (
+	"bytes"
 	"context"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -80,6 +82,7 @@ func TestEveryImportOperationCarriesTheCallersScope(t *testing.T) {
 				},
 				Commands: application.Commands{
 					Create:     recordCommand[command.Create, domain.Import](seen, "create", func(c command.Create) actor.Actor { return c.Actor }),
+					Upload:     recordCommand[command.Upload, domain.Receipt](seen, "upload", func(c command.Upload) actor.Actor { return c.Actor }),
 					Process:    recordCommand[command.Process, domain.Import](seen, "process", func(c command.Process) actor.Actor { return c.Actor }),
 					Cancel:     recordCommand[command.Cancel, domain.Import](seen, "cancel", func(c command.Cancel) actor.Actor { return c.Actor }),
 					SaveReview: recordCommand[command.SaveReview, domain.ReviewState](seen, "save", func(c command.SaveReview) actor.Actor { return c.Actor }),
@@ -104,6 +107,23 @@ func TestEveryImportOperationCarriesTheCallersScope(t *testing.T) {
 				},
 				"create": func() (any, error) {
 					return h.CreateWordImport(ctx, openapi.CreateWordImportRequestObject{Body: &openapi.CreateWordImportJSONRequestBody{RequestId: uuid.New(), Title: "Đề"}})
+				},
+				"upload": func() (any, error) {
+					var body bytes.Buffer
+					form := multipart.NewWriter(&body)
+					part, err := form.CreateFormFile("file", "de.docx")
+					if err != nil {
+						return nil, err
+					}
+					if _, err := part.Write([]byte("PK")); err != nil {
+						return nil, err
+					}
+					if err := form.Close(); err != nil {
+						return nil, err
+					}
+					return h.UploadImportSource(ctx, openapi.UploadImportSourceRequestObject{Id: id,
+						Params: openapi.UploadImportSourceParams{Role: openapi.ImportSourceRole("exam"), UploadId: uuid.New(), ExpectedRevision: 1},
+						Body:   multipart.NewReader(&body, form.Boundary())})
 				},
 				"process": func() (any, error) {
 					return h.ProcessWordImport(ctx, openapi.ProcessWordImportRequestObject{Id: id, Body: &openapi.ProcessWordImportJSONRequestBody{RequestId: uuid.New(), ExpectedRevision: 1}})

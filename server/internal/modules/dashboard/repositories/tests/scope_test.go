@@ -258,7 +258,7 @@ func TestScopeAllReadsExactlyWhatTheUnscopedHomeRead(t *testing.T) {
 		t.Fatalf("the fixture moved open by %d and students by %d, want 4 and 8",
 			after.OpenAssignments-before.OpenAssignments, after.TotalStudents-before.TotalStudents)
 	}
-	for name, scope := range map[string]access.Scope{"everyone": everyone, "a scope.all reader reaching nothing": {UserID: w.b, All: true}} {
+	for name, scope := range map[string]access.Scope{"everyone": everyone, "a scope.all reader who teaches classes of their own": {UserID: w.b, All: true}} {
 		if got, want := figuresOf(w.summary(t, scope)), figuresOf(after); !sameFigures(got, want) {
 			t.Errorf("%s reads %+v, the unscoped home %+v", name, got, want)
 		}
