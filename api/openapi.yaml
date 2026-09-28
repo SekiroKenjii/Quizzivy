@@ -3669,7 +3669,7 @@ paths:
       tags: [teacher-tests]
       x-max-body-bytes: 4194304
       summary: Create a complete independent draft group
-      description: Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination.
+      description: Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404.
       requestBody:
         required: true
         content:
@@ -3682,6 +3682,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Stale revision, archived owner or duplicate graph identity.
@@ -3719,7 +3720,7 @@ paths:
       x-permission: [content.questions.write, content.tests.write]
       tags: [teacher-tests]
       x-max-body-bytes: 4194304
-      description: Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first.
+      description: Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404.
       requestBody:
         required: true
         content:
@@ -3732,6 +3733,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Stale revision, archived group/test or identity conflict.
@@ -3752,12 +3754,13 @@ paths:
       operationId: deleteQuestionGroup
       x-permission: [content.questions.write, content.tests.write]
       tags: [teacher-tests]
-      description: Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision.
+      description: Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404.
       parameters:
         - { name: expectedRevision, in: query, required: true, schema: { type: integer, format: int64, minimum: 1 } }
         - { name: expectedTestUpdatedAt, in: query, schema: { type: string, format: date-time } }
       responses:
         '204': { description: Deleted. }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Stale revision, archived enclosing test, or bank group not archived.
@@ -3771,7 +3774,7 @@ paths:
       operationId: copyQuestionGroup
       x-permission: [content.questions.write, content.tests.write]
       tags: [teacher-tests]
-      description: Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section.
+      description: Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section. The source must be one the caller can see. Either permission admits the call; the destination then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404.
       requestBody:
         required: true
         content:
@@ -3784,6 +3787,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Stale source/destination revision or archived enclosing test.
