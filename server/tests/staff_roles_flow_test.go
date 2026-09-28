@@ -22,7 +22,11 @@ func TestEachBuiltInStaffRoleSignsInWithItsEpochAndWorkspaces(t *testing.T) {
 		{builtin: "assistant", workspaces: []string{"teacher"}, deleteUser: http.StatusForbidden},
 	} {
 		t.Run(c.builtin, func(t *testing.T) {
+			w := &world{t: t, server: w.server, pool: w.pool}
 			email, password := w.createStaff(c.builtin)
+			if _, err := w.pool.Exec(context.Background(), `UPDATE app.users SET session_epoch = 3 WHERE lower(email) = lower($1)`, email); err != nil {
+				t.Fatal(err)
+			}
 			browser := w.browser()
 			_, epoch := browser.signIn(email, password)
 			var stored int

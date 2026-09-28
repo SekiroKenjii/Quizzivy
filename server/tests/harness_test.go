@@ -94,11 +94,15 @@ func (w *world) createStaff(builtinKey string) (email, password string) {
 		w.t.Fatal(err)
 	}
 	email = builtinKey + "-" + nonce(w.t) + "@example.com"
-	if _, err := w.pool.Exec(context.Background(),
+	tag, err := w.pool.Exec(context.Background(),
 		`INSERT INTO app.users (email, full_name, role_id, password_hash)
-		 VALUES ($1, 'Cô Thương', (SELECT id FROM app.roles WHERE builtin_key = $3), $2)`,
-		email, hash, builtinKey); err != nil {
+		 SELECT $1, 'Cô Thương', r.id, $2 FROM app.roles r WHERE r.builtin_key = $3`,
+		email, hash, builtinKey)
+	if err != nil {
 		w.t.Fatalf("staff %s: %v", builtinKey, err)
+	}
+	if tag.RowsAffected() != 1 {
+		w.t.Fatalf("staff %s: no built-in role has that key", builtinKey)
 	}
 	return email, password
 }

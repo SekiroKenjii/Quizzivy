@@ -7,8 +7,8 @@ number per file in merge order; a file's header names the seeds it relies on.
 
 What is here:
 
-- `01-dev.sql` — the Admin, one student, one class, a handful of questions.
-  Enough to click through the app.
+- `01-dev.sql` — the Admin, one student and one class with that student in it.
+  Enough to sign in and click through the app.
 - `02-dev-assignments.sql` — one published test, one open assignment, one
   submitted-and-flagged attempt, so the dashboard has something to count.
 - `03-dev-students.sql` — a few more students, including a Google-only one.
