@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 96 {
-		t.Errorf("%d operations declare a permission, want 96", len(requirements))
+	if len(requirements) != 97 {
+		t.Errorf("%d operations declare a permission, want 97", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -421,8 +421,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 32 {
-		t.Errorf("the Assistant is refused %d operations, want 32: twenty staff operations and the twelve /app ones", refused)
+	if refused != 33 {
+		t.Errorf("the Assistant is refused %d operations, want 33: twenty-one staff operations and the twelve /app ones", refused)
 	}
 }
 

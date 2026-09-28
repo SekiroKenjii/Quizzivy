@@ -19,6 +19,9 @@ var ErrEmailTaken = errors.New("join: email already registered")
 
 var ErrClassNotFound = errors.New("join: class not found")
 
+// ErrNoActiveCode is a class the caller reaches that has no active join code.
+var ErrNoActiveCode = errors.New("join: no active code")
+
 // ErrNoTeacher means a class names no teacher, which classes.teacher_id's
 // constraint rules out. An operational fault, not a bad request.
 var ErrNoTeacher = errors.New("join: no active teacher account")

@@ -25,6 +25,7 @@ GET /teacher/attempts/{id} teaching.grading | teaching.attempts.intervene
 GET /teacher/attempts/{id}/events teaching.grading | teaching.attempts.intervene
 GET /teacher/classes workspace.teacher
 GET /teacher/classes/{id} workspace.teacher
+GET /teacher/classes/{id}/join-code teaching.classes.write
 GET /teacher/classes/{id}/members people.students.read
 GET /teacher/dashboard workspace.teacher
 GET /teacher/imports content.tests.write

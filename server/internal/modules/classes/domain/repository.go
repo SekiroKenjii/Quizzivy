@@ -25,7 +25,7 @@ type Repository interface {
 	RemoveMember(ctx context.Context, in RemoveMemberInput) error
 	Rotate(ctx context.Context, in RotateInput) (IssuedCode, error)
 	Revoke(ctx context.Context, in RevokeInput) error
-	ActiveCode(ctx context.Context, classID string) (*IssuedCode, error)
+	ActiveCode(ctx context.Context, scope access.Scope, classID string) (StoredCode, error)
 	Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error)
 	LookupByCode(ctx context.Context, code JoinCodeLookup) (*CodeRow, error)
 }

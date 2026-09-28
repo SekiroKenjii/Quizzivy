@@ -72,6 +72,10 @@ func recording() (*seen, *application.Application) {
 				s.scopes["members"] = q.Scope
 				return query.MembersResult{}, nil
 			}),
+			ActiveCode: cqrs.HandlerFunc[query.ActiveCode, domain.ActiveJoinCode](func(_ context.Context, q query.ActiveCode) (domain.ActiveJoinCode, error) {
+				s.scopes["joinCode"] = q.Scope
+				return domain.ActiveJoinCode{}, domain.ErrClassNotFound
+			}),
 		},
 		Commands: application.Commands{
 			Create: cqrs.HandlerFunc[command.Create, domain.Class](func(_ context.Context, c command.Create) (domain.Class, error) {
@@ -143,6 +147,9 @@ func TestEveryClassOperationCarriesTheCallersScope(t *testing.T) {
 				"delete": func() (any, error) { return h.DeleteClass(ctx, openapi.DeleteClassRequestObject{Id: id}) },
 				"rotate": func() (any, error) { return h.RotateJoinCode(ctx, openapi.RotateJoinCodeRequestObject{Id: id}) },
 				"revoke": func() (any, error) { return h.RevokeJoinCode(ctx, openapi.RevokeJoinCodeRequestObject{Id: id}) },
+				"joinCode": func() (any, error) {
+					return h.GetJoinCode(ctx, openapi.GetJoinCodeRequestObject{Id: id})
+				},
 			}
 			responses := map[string]any{}
 			for op, call := range calls {
@@ -152,7 +159,7 @@ func TestEveryClassOperationCarriesTheCallersScope(t *testing.T) {
 				}
 				responses[op] = response
 			}
-			for _, op := range []string{"list", "facets", "get", "update", "members", "create", "archive", "delete", "add", "remove", "rotate", "revoke"} {
+			for _, op := range []string{"list", "facets", "get", "update", "members", "create", "archive", "delete", "add", "remove", "rotate", "revoke", "joinCode"} {
 				if s.scopes[op] != want {
 					t.Errorf("%s ran in %+v, want %+v", op, s.scopes[op], want)
 				}
@@ -161,6 +168,9 @@ func TestEveryClassOperationCarriesTheCallersScope(t *testing.T) {
 				if owner != principal.UserID {
 					t.Errorf("%s ran as %s, want %s", op, owner, principal.UserID)
 				}
+			}
+			if _, ok := responses["joinCode"].(openapi.GetJoinCode404JSONResponse); !ok {
+				t.Errorf("another teacher's class answered %T, want the 404 a missing class gets", responses["joinCode"])
 			}
 			if _, ok := responses["add"].(openapi.AddClassMember404JSONResponse); !ok {
 				t.Errorf("an unreachable student answered %T, want the 404 a missing account gets", responses["add"])

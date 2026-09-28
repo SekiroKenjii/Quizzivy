@@ -31,3 +31,37 @@ func TestAJoinCodeRedeemsAcrossAKeyRotationAndNotWithoutTheOldKey(t *testing.T) 
 		t.Fatalf("with the old key gone, the preview answered %d %v, want 404 JOIN_CODE_INVALID", status, body)
 	}
 }
+
+func TestATeacherReadsTheirJoinCodeBackAndNoOneElseCan(t *testing.T) {
+	w := boot(t)
+	email, password := w.createStaff("teacher")
+	owner := w.browser()
+	owner.login(email, password)
+	classID := owner.class("Lớp đọc mã " + nonce(t))
+	path := "/teacher/classes/" + classID + "/join-code"
+	if status, _ := owner.call(http.MethodGet, path, nil); status != http.StatusNotFound {
+		t.Fatalf("a class without a code answered %d, want 404", status)
+	}
+	issued := owner.must(http.StatusCreated, http.MethodPost, path, map[string]any{})
+
+	status, body := owner.call(http.MethodGet, path, nil)
+	if status != http.StatusOK || body["code"] != issued["code"] || body["legacy"] != false || body["hint"] == nil {
+		t.Fatalf("the owner read %d %v, want the issued code %v", status, body, issued["code"])
+	}
+
+	otherEmail, otherPassword := w.createStaff("teacher")
+	other := w.browser()
+	other.login(otherEmail, otherPassword)
+	if status, body := other.call(http.MethodGet, path, nil); status != http.StatusNotFound || body["code"] != nil {
+		t.Errorf("another teacher read %d %v, want 404", status, body)
+	}
+
+	created := owner.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
+		"email": "reader-" + nonce(t) + "@example.com", "fullName": "Học viên đọc mã", "classIds": []string{classID},
+	})
+	student := w.browser()
+	student.login(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
+	if status, body := student.call(http.MethodGet, path, nil); status != http.StatusForbidden || body["code"] != nil {
+		t.Errorf("a student read %d %v, want 403", status, body)
+	}
+}
