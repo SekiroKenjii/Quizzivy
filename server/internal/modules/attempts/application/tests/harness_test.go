@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/attempts/application"
 	"quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -25,6 +26,8 @@ const (
 	secretBlankAnswer  = "DAP-AN-CHO-TRONG-KHONG-DANH-CHO-HOC-VIEN"
 	secretTranscript   = "LOI-THOAI-KHONG-DANH-CHO-HOC-VIEN"
 )
+
+var everyone = access.Scope{All: true}
 
 func newPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()

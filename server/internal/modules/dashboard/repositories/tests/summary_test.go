@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"os"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/modules/dashboard/repositories"
 )
+
+var everyone = access.Scope{All: true}
 
 func newPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -303,7 +306,7 @@ func TestCountsDeduplicateRetakesAndCountPartiallyGradedQuestions(t *testing.T) 
 	if after.ClosingSoon != before.ClosingSoon+1 || after.WaitingStudents != before.WaitingStudents+1 || after.AwaitingGrading != before.AwaitingGrading+2 || after.TotalStudents != before.TotalStudents+1 {
 		t.Fatalf("unexpected counts before=%+v after=%+v", before, after)
 	}
-	assignment, err := assignmentrepo.NewPostgres(db.NewContext(tx)).Get(ctx, f.assignment)
+	assignment, err := assignmentrepo.NewPostgres(db.NewContext(tx)).Get(ctx, everyone, f.assignment)
 	if err != nil {
 		t.Fatal(err)
 	}

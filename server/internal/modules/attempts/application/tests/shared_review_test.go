@@ -73,14 +73,14 @@ func TestSharedReviewContextSeparatesReleasedAndTeacherTranscripts(t *testing.T)
 	dbx := db.NewContext(pool)
 	papers := testsapp.New(testsrepo.NewPostgres(dbx, nil, nil))
 	full := application.New(repositories.NewTimelines(dbx), repositories.NewReviews(dbx), repositories.NewPostgres(dbx, adapters.AttemptStartGuard{})).WithGroupContexts(papers.Queries.GroupContexts)
-	review, err := full.Queries.Review.Handle(ctx, query.Review{AttemptID: session.Attempt.ID})
+	review, err := full.Queries.Review.Handle(ctx, query.Review{Scope: everyone, AttemptID: session.Attempt.ID})
 	if err != nil || review.SharedContext == nil || len(review.SharedContext.Transcripts) != 2 || review.SharedContext.Transcripts[second] != "Private group transcript" {
 		t.Fatalf("teacher lost shared transcript: %+v, %v", review.SharedContext, err)
 	}
 	if review.SharedContext.AudioPlays[first] != 1 {
 		t.Fatal("teacher lost shared listening count")
 	}
-	byQ, err := full.Queries.AnswersForQuestion.Handle(ctx, query.AnswersForQuestion{AssignmentID: w.assignment, QuestionID: w.essay})
+	byQ, err := full.Queries.AnswersForQuestion.Handle(ctx, query.AnswersForQuestion{Scope: everyone, AssignmentID: w.assignment, QuestionID: w.essay})
 	if err != nil || byQ.SharedContext == nil {
 		t.Fatalf("cross-attempt context: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestSharedReviewContextSeparatesReleasedAndTeacherTranscripts(t *testing.T)
 	if _, err := missing.Queries.Result.Handle(ctx, query.Result{AttemptID: session.Attempt.ID, StudentID: w.student}); !errors.Is(err, domain.ErrGroupContextUnavailable) {
 		t.Fatalf("missing result reader: %v", err)
 	}
-	if _, err := missing.Queries.Review.Handle(ctx, query.Review{AttemptID: session.Attempt.ID}); !errors.Is(err, domain.ErrGroupContextUnavailable) {
+	if _, err := missing.Queries.Review.Handle(ctx, query.Review{Scope: everyone, AttemptID: session.Attempt.ID}); !errors.Is(err, domain.ErrGroupContextUnavailable) {
 		t.Fatalf("missing teacher reader: %v", err)
 	}
 }
