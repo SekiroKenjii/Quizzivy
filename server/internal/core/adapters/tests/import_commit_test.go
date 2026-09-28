@@ -174,7 +174,7 @@ func TestCommitCreatesOneTestWithItsSectionsGroupsAndBankQuestionsInOrder(t *tes
 	h := commitSetup(t)
 	ctx := context.Background()
 	importID := h.underReview(t)
-	testID, err := h.committer.Materialize(ctx, plan(t), h.by, h.record(importID, uuid.NewString()))
+	testID, err := h.committer.Materialize(ctx, plan(t), h.by.ID, h.by, h.record(importID, uuid.NewString()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestCommitCreatesOneTestWithItsSectionsGroupsAndBankQuestionsInOrder(t *tes
 	if members != 1 || correct != 2 {
 		t.Fatalf("group members %d correct options %d", members, correct)
 	}
-	current, err := h.imports.Get(ctx, importID)
+	current, err := h.imports.Get(ctx, access.Scope{All: true}, importID)
 	if err != nil || current.Status != "committed" || current.TestID == nil || *current.TestID != testID {
 		t.Fatalf("import %+v err %v", current, err)
 	}
@@ -204,7 +204,7 @@ func TestCommitCreatesOneTestWithItsSectionsGroupsAndBankQuestionsInOrder(t *tes
 func TestACommittedImportBelongsToTheImporter(t *testing.T) {
 	h := commitSetup(t)
 	ctx := context.Background()
-	testID, err := h.committer.Materialize(ctx, plan(t), h.by, h.record(h.underReview(t), uuid.NewString()))
+	testID, err := h.committer.Materialize(ctx, plan(t), h.by.ID, h.by, h.record(h.underReview(t), uuid.NewString()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,11 +266,11 @@ func TestAFailedCommitLeavesNoTestBehind(t *testing.T) {
 	h := commitSetup(t)
 	importID := h.underReview(t)
 	refused := errors.New("record refused")
-	_, err := h.committer.Materialize(context.Background(), plan(t), h.by, func(context.Context, importsdomain.CommitStore, string) error { return refused })
+	_, err := h.committer.Materialize(context.Background(), plan(t), h.by.ID, h.by, func(context.Context, importsdomain.CommitStore, string) error { return refused })
 	if !errors.Is(err, refused) || h.testsCreated(t) != 0 {
 		t.Fatalf("err %v tests %d", err, h.testsCreated(t))
 	}
-	if current, err := h.imports.Get(context.Background(), importID); err != nil || current.Status != "needs_review" {
+	if current, err := h.imports.Get(context.Background(), access.Scope{All: true}, importID); err != nil || current.Status != "needs_review" {
 		t.Fatalf("import %+v err %v", current, err)
 	}
 }
@@ -284,7 +284,7 @@ func TestConcurrentCommitsProduceExactlyOneTest(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, errs[i] = h.committer.Materialize(context.Background(), plan(t), h.by, h.record(importID, uuid.NewString()))
+			_, errs[i] = h.committer.Materialize(context.Background(), plan(t), h.by.ID, h.by, h.record(importID, uuid.NewString()))
 		}()
 	}
 	wg.Wait()

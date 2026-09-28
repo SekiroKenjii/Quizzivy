@@ -10,12 +10,13 @@ import (
 	importsapp "quizzivy/internal/modules/imports/application"
 	"quizzivy/internal/modules/imports/domain"
 	importshttp "quizzivy/internal/modules/imports/http"
+	"quizzivy/internal/shared/access"
 )
 
 type removedImport struct{ listedImports }
 
-func (r removedImport) Get(ctx context.Context, id string) (domain.Import, error) {
-	v, _ := r.listedImports.Get(ctx, id)
+func (r removedImport) Get(ctx context.Context, scope access.Scope, id string) (domain.Import, error) {
+	v, _ := r.listedImports.Get(ctx, scope, id)
 	removed := time.Date(2026, 10, 25, 0, 0, 0, 0, time.UTC)
 	v.FilesRemovedAt = &removed
 	return v, nil

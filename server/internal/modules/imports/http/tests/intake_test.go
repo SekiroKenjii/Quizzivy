@@ -31,6 +31,8 @@ import (
 	"time"
 )
 
+var everyone = access.Scope{All: true}
+
 type intake struct {
 	handler               http.Handler
 	token, student, actor string
@@ -246,7 +248,7 @@ func TestPrivateIntakeRoundTripsThroughRouterPostgresAndMinIO(t *testing.T) {
 	if !strings.HasPrefix(response.Header.Get("Content-Disposition"), "attachment") {
 		t.Fatal("original can be interpreted as inline content")
 	}
-	current, err := h.repo.Get(context.Background(), v.Id.String())
+	current, err := h.repo.Get(context.Background(), everyone, v.Id.String())
 	if err != nil || current.PendingUploads != 0 || len(current.Sources) != 1 {
 		t.Fatalf("source state: %+v %v", current, err)
 	}

@@ -9,6 +9,7 @@ import (
 	importsapp "quizzivy/internal/modules/imports/application"
 	"quizzivy/internal/modules/imports/domain"
 	importshttp "quizzivy/internal/modules/imports/http"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/paging"
 )
 
@@ -22,7 +23,9 @@ func (r listedImports) item() domain.Import {
 	return domain.Import{ID: "01935000-0000-7000-8000-000000000001", Title: "Đề", Status: r.status, Revision: 1, CreatedBy: "01935000-0000-7000-8000-0000000000a1", CreatedAt: at, UpdatedAt: at}
 }
 
-func (r listedImports) Get(context.Context, string) (domain.Import, error) { return r.item(), nil }
+func (r listedImports) Get(context.Context, access.Scope, string) (domain.Import, error) {
+	return r.item(), nil
+}
 
 func (r listedImports) List(context.Context, domain.Filter) (domain.List, error) {
 	return domain.List{Items: []domain.Import{r.item()}, Page: paging.Page{Number: 1, Size: 20, Total: 1}}, nil
