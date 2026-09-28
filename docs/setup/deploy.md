@@ -183,6 +183,31 @@ DROP INDEX CONCURRENTLY IF EXISTS app.tvq_section_identity_key;
 Deploy outside active assignment windows. The other new migrations hold brief
 ACCESS EXCLUSIVE locks on test-version tables while they validate new CHECKs.
 
+## Interrupted index builds in v0.8.0 (R2)
+
+R2 (v0.8.0) builds eight indexes `CONCURRENTLY`, one per file: `00057` and
+`00071`–`00077`. An interrupted build leaves an INVALID index that the rerun's
+`CREATE INDEX CONCURRENTLY` would trip over. Find it, as `quizzivy_migrate`:
+
+```sql
+SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
+```
+
+Drop only the index that query names, then redeploy. The files before it are
+already recorded as applied, so dropping their valid indexes would lose them
+for good:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.users_role_id_active_idx;        -- 00057
+DROP INDEX CONCURRENTLY IF EXISTS app.classes_teacher_idx;             -- 00071
+DROP INDEX CONCURRENTLY IF EXISTS app.tests_owner_idx;                 -- 00072
+DROP INDEX CONCURRENTLY IF EXISTS app.questions_owner_bank_idx;        -- 00073
+DROP INDEX CONCURRENTLY IF EXISTS app.question_groups_owner_bank_idx;  -- 00074
+DROP INDEX CONCURRENTLY IF EXISTS app.media_assets_owner_idx;          -- 00075
+DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
+DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
+```
+
 ## Backups and operational verification
 
 See [operations](operations.md) for the recovery rehearsal, retention commands,

@@ -1317,6 +1317,13 @@ the file it adds.
 | `00068_add_question_groups_owner_fkey.sql` | `question_groups_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
 | `00069_add_media_assets_owner_fkey.sql` | `media_assets_owner_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
 | `00070_add_classes_teacher_fkey.sql` | `classes_teacher_id_fkey`, `ON DELETE RESTRICT`, apart from its column | R2 (T-R2.9) |
+| `00071_index_classes_teacher.sql` | `classes_teacher_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00072_index_tests_owner.sql` | `tests_owner_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00073_index_questions_owner.sql` | `questions_owner_bank_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00074_index_question_groups_owner.sql` | `question_groups_owner_bank_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00075_index_media_assets_owner.sql` | `media_assets_owner_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00076_index_users_created_by.sql` | `users_created_by_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 
 Notes on migration mechanics (§13.7):
 
@@ -2111,4 +2118,31 @@ constraint stays NOT VALID.
 holds a v0.7.0-style student insert open across `00065`, enrols the student
 into a class after it, and checks the foreign-key files wait for the commit
 instead of deadlocking.
+
+## 32. Ownership indexes (T-R2.10)
+
+`00071`–`00077` each hold one `CREATE INDEX CONCURRENTLY` in a `NO
+TRANSACTION` file, because every table is populated and in use; Down is `DROP
+INDEX CONCURRENTLY IF EXISTS`. `docs/setup/deploy.md` lists the drops to run
+after an interrupted build.
+
+| Index | Definition | Serves |
+|---|---|---|
+| `classes_teacher_idx` | `(teacher_id)` | a teacher's classes; the RESTRICT check on a user delete |
+| `tests_owner_idx` | `(owner_id, id DESC) WHERE deleted_at IS NULL` | a teacher's tests list |
+| `questions_owner_bank_idx` | `(owner_id, id DESC) WHERE deleted_at IS NULL AND context_group_id IS NULL` | a teacher's bank, without group members |
+| `question_groups_owner_bank_idx` | `(owner_id, updated_at DESC, id DESC) WHERE owner_section_id IS NULL AND archived_at IS NULL` | a teacher's bank groups, in `00049`'s order |
+| `media_assets_owner_idx` | `(owner_id, kind, created_at DESC) WHERE deleted_at IS NULL` | a teacher's media library, as `media_assets_kind_created_idx` serves everyone's |
+| `users_created_by_idx` | `(created_by) WHERE created_by IS NOT NULL` | the accounts a staff member made; the SET NULL scan when they go |
+| `assignments_creator_idx` | `(created_by, id DESC)` | a teacher's assignments |
+
+The four partial indexes (tests, questions, question groups, media) cannot
+serve the `owner_id` RESTRICT checks from `00066`–`00069`, which run on every
+user delete (today only a student's) and do not filter on the partial
+predicate. Each check scans its table, as the unindexed `created_by` and
+`uploaded_by` checks already did, which is cheap at today's sizes. Only
+`classes_teacher_idx` covers its check.
+
+No plan is forced. At today's volumes a sequential scan is often the right
+plan (§14), and the indexes earn their place as teachers and rows grow.
 
