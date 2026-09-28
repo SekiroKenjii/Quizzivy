@@ -15,7 +15,9 @@ import (
 
 const entityClass = "class"
 
-// Delete removes an inactive class while preserving assigned work and retained history.
+// Delete removes an inactive class the actor teaches, or any with the actor's
+// scope.all, while preserving assigned work and retained history. Another
+// teacher's class answers ErrNotFound before either refusal can reveal it.
 func (s *Postgres) Delete(ctx context.Context, classID string, by actor.Actor, now time.Time) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -23,7 +25,8 @@ func (s *Postgres) Delete(ctx context.Context, classID string, by actor.Actor, n
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var allowed bool
-	err = tx.QueryRow(ctx, `SELECT archived_at IS NOT NULL FROM app.classes WHERE id = $1 FOR UPDATE`, classID).Scan(&allowed)
+	err = tx.QueryRow(ctx, `SELECT archived_at IS NOT NULL FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR UPDATE`,
+		classID, by.Scope.All, opt.String(by.ID)).Scan(&allowed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

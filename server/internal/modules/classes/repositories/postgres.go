@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
+	"quizzivy/internal/shared/visibility"
 	"strings"
 	"time"
 
@@ -20,10 +23,14 @@ type Postgres struct{ db.Repository }
 
 func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
+var anyClass = access.Scope{All: true}
+
 const (
 	DefaultLimit = 20
 	MaxLimit     = 100
 )
+
+const taughtClass = `($2::boolean OR teacher_id = $3::uuid)`
 
 const nameSearch = `app.immutable_unaccent(lower(c.name))` +
 	` LIKE '%%' || app.immutable_unaccent(lower($%[1]d)) || '%%' ESCAPE '\'`
@@ -77,21 +84,25 @@ func scanClass(row pgx.Row) (domain.Class, error) {
 	return c, nil
 }
 
-func (s *Postgres) Get(ctx context.Context, classID string) (domain.Class, error) {
-	c, err := scanClass(s.QueryRow(ctx, classProjection+` WHERE c.id = $1`, classID))
+// Get returns one class the scope reaches; another teacher's answers
+// ErrNotFound, exactly as a missing one does.
+func (s *Postgres) Get(ctx context.Context, scope access.Scope, classID string) (domain.Class, error) {
+	c, err := scanClass(s.QueryRow(ctx, classProjection+` WHERE c.id = $1 AND ($2::boolean OR c.teacher_id = $3::uuid)`,
+		classID, scope.All, opt.String(scope.UserID)))
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return domain.Class{}, fmt.Errorf("load class %s: %w", classID, err)
 	}
 	return c, err
 }
 
-// List returns one page of classes, newest first, with the paging beside it
-// (O-20). §1.3 promised single-digit classes; a development database already
-// holds over a hundred, which is what broke the pickers reading this whole.
+// List returns one page of the classes the input's scope reaches, newest
+// first, with the paging beside it (O-20). §1.3 promised single-digit classes;
+// a development database already holds over a hundred, which is what broke the
+// pickers reading this whole.
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Class, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	args, where := searchClause(in.Query)
+	args, where := searchClause(in.Scope, in.Query)
 	switch in.Status {
 	case "archived":
 		where = append(where, "c.archived_at IS NOT NULL")
@@ -129,9 +140,12 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Clas
 	return out, page, rows.Err()
 }
 
-func searchClause(query string) ([]any, []string) {
-	var args []any
-	where := []string{"TRUE"}
+func searchClause(scope access.Scope, query string) ([]any, []string) {
+	args, where := []any{}, []string{"TRUE"}
+	if !scope.All {
+		args = append(args, opt.String(scope.UserID))
+		where = append(where, "c.teacher_id = $1::uuid")
+	}
 	if q := strings.TrimSpace(query); q != "" {
 		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(nameSearch, len(args)))
@@ -139,8 +153,10 @@ func searchClause(query string) ([]any, []string) {
 	return args, where
 }
 
-func (s *Postgres) Facets(ctx context.Context, query string) (domain.Facets, error) {
-	args, where := searchClause(query)
+// Facets counts the classes the scope reaches that match the search, and
+// their live members.
+func (s *Postgres) Facets(ctx context.Context, scope access.Scope, query string) (domain.Facets, error) {
+	args, where := searchClause(scope, query)
 	var f domain.Facets
 	err := s.QueryRow(ctx, `
 	SELECT count(*),
@@ -160,14 +176,12 @@ func (s *Postgres) Facets(ctx context.Context, query string) (domain.Facets, err
 
 // ListMine is §9's /app/classes: the classes this student belongs to, most
 // recently joined first, in the student's own shape -- never the join code,
-// whose hint is the teacher's, and never the roster. The teacher is the
-// practice's one admin account (§1.1).
+// whose hint is the teacher's, and never the roster. The teacher named is each
+// class's own.
 func (s *Postgres) ListMine(ctx context.Context, userID string) ([]domain.MyClass, error) {
 	rows, err := s.Query(ctx, `
 	SELECT c.id::text, c.name, c.description, me.joined_at,
-	       (SELECT t.full_name FROM app.users t
-	         WHERE t.role = 'admin' AND t.disabled_at IS NULL
-	         ORDER BY t.created_at, t.id LIMIT 1)
+	       (SELECT t.full_name FROM app.users t WHERE t.id = c.teacher_id)
 	  FROM app.classes c
 	  JOIN app.class_members me ON me.class_id = c.id AND me.user_id = $1::uuid
 	  JOIN app.users student ON student.id = me.user_id AND student.disabled_at IS NULL
@@ -189,12 +203,13 @@ func (s *Postgres) ListMine(ctx context.Context, userID string) ([]domain.MyClas
 	return out, rows.Err()
 }
 
-// Members lists who is in the class and HOW they got in.
-func (s *Postgres) Members(ctx context.Context, classID string, in domain.MembersInput) ([]domain.Member, paging.Page, error) {
+// Members lists who is in a class the scope reaches and HOW they got in.
+// Another teacher's class lists nobody, exactly as a missing one does.
+func (s *Postgres) Members(ctx context.Context, scope access.Scope, classID string, in domain.MembersInput) ([]domain.Member, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	args := []any{classID}
-	where := []string{`m.class_id = $1`}
+	args := []any{classID, scope.All, opt.String(scope.UserID)}
+	where := []string{`m.class_id = $1`, `EXISTS (SELECT 1 FROM app.classes c WHERE c.id = $1::uuid AND ($2::boolean OR c.teacher_id = $3::uuid))`}
 	if q := strings.TrimSpace(in.Query); q != "" {
 		args = append(args, db.EscapeLike(q))
 		where = append(where, fmt.Sprintf(`(app.immutable_unaccent(lower(u.full_name))
@@ -249,7 +264,8 @@ func scanMember(row pgx.Row) (domain.Member, error) {
 	return m, nil
 }
 
-// RemoveMember revokes access. It does NOT touch attempts (§6.4).
+// RemoveMember revokes access to a class the actor teaches. It does NOT touch
+// attempts (§6.4).
 func (s *Postgres) RemoveMember(ctx context.Context, in domain.RemoveMemberInput) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -258,8 +274,10 @@ func (s *Postgres) RemoveMember(ctx context.Context, in domain.RemoveMemberInput
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	tag, err := tx.Exec(ctx,
-		`DELETE FROM app.class_members WHERE class_id = $1 AND user_id = $2`,
-		in.ClassID, in.UserID)
+		`DELETE FROM app.class_members m USING app.classes c
+		  WHERE m.class_id = $1 AND m.user_id = $4 AND c.id = m.class_id
+		    AND ($2::boolean OR c.teacher_id = $3::uuid)`,
+		in.ClassID, in.All, opt.String(in.ActorUserID), in.UserID)
 	if err != nil {
 		return fmt.Errorf("remove member: %w", err)
 	}
@@ -281,10 +299,11 @@ func (s *Postgres) RemoveMember(ctx context.Context, in domain.RemoveMemberInput
 	return tx.Commit(ctx)
 }
 
-// Update edits a class's own fields.
-func (s *Postgres) Update(ctx context.Context, classID string, in domain.UpdateInput) (domain.Class, error) {
+// Update edits the own fields of a class the scope reaches; another teacher's
+// class answers ErrNotFound, even when nothing would change.
+func (s *Postgres) Update(ctx context.Context, scope access.Scope, classID string, in domain.UpdateInput) (domain.Class, error) {
 	sets := []string{}
-	args := []any{classID}
+	args := []any{classID, scope.All, opt.String(scope.UserID)}
 
 	if in.Name != nil {
 		args = append(args, *in.Name)
@@ -299,18 +318,18 @@ func (s *Postgres) Update(ctx context.Context, classID string, in domain.UpdateI
 		sets = append(sets, fmt.Sprintf("self_join_enabled = $%d", len(args)))
 	}
 	if len(sets) == 0 {
-		return s.Get(ctx, classID)
+		return s.Get(ctx, scope, classID)
 	}
 
 	tag, err := s.Exec(ctx,
-		`UPDATE app.classes SET `+strings.Join(sets, ", ")+` WHERE id = $1`, args...)
+		`UPDATE app.classes SET `+strings.Join(sets, ", ")+` WHERE id = $1 AND `+taughtClass, args...)
 	if err != nil {
 		return domain.Class{}, fmt.Errorf("update class %s: %w", classID, err)
 	}
 	if tag.RowsAffected() == 0 {
 		return domain.Class{}, domain.ErrNotFound
 	}
-	return s.Get(ctx, classID)
+	return s.Get(ctx, scope, classID)
 }
 
 func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Class, error) {
@@ -342,10 +361,11 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.Cl
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Class{}, fmt.Errorf("commit create class: %w", err)
 	}
-	return s.Get(ctx, id)
+	return s.Get(ctx, anyClass, id)
 }
 
-// Archive sets or clears archived_at. Idempotent: a repeat is not audited.
+// Archive sets or clears archived_at on a class the actor teaches. Idempotent:
+// a repeat is not audited.
 func (s *Postgres) Archive(ctx context.Context, in domain.ArchiveInput) (domain.Class, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -356,10 +376,10 @@ func (s *Postgres) Archive(ctx context.Context, in domain.ArchiveInput) (domain.
 	var changed bool
 	err = tx.QueryRow(ctx, `
 		UPDATE app.classes
-		   SET archived_at = CASE WHEN $2 THEN coalesce(archived_at, $3::timestamptz) END
-		 WHERE id = $1::uuid
+		   SET archived_at = CASE WHEN $4 THEN coalesce(archived_at, $5::timestamptz) END
+		 WHERE id = $1::uuid AND `+taughtClass+`
 		RETURNING (old.archived_at IS NULL) <> (new.archived_at IS NULL)`,
-		in.ClassID, in.Archived, in.Now).Scan(&changed)
+		in.ClassID, in.All, opt.String(in.ActorUserID), in.Archived, in.Now).Scan(&changed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Class{}, domain.ErrNotFound
 	}
@@ -386,10 +406,13 @@ func (s *Postgres) Archive(ctx context.Context, in domain.ArchiveInput) (domain.
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Class{}, fmt.Errorf("commit archive class: %w", err)
 	}
-	return s.Get(ctx, in.ClassID)
+	return s.Get(ctx, anyClass, in.ClassID)
 }
 
-// AddMember enrols an existing student directly, as joined_via 'admin'.
+// AddMember enrols, as joined_via 'admin', an active student the actor
+// reaches into a class the actor teaches. Another teacher's class answers
+// ErrNotFound; a user who is not an active student the actor reaches answers
+// ErrNotAStudent, whatever the reason.
 func (s *Postgres) AddMember(ctx context.Context, in domain.AddMemberInput) (domain.Member, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -397,25 +420,26 @@ func (s *Postgres) AddMember(ctx context.Context, in domain.AddMemberInput) (dom
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var exists bool
-	if err := tx.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM app.classes WHERE id = $1::uuid)`,
-		in.ClassID).Scan(&exists); err != nil {
-		return domain.Member{}, fmt.Errorf("add member: %w", err)
-	}
-	if !exists {
+	var locked bool
+	err = tx.QueryRow(ctx, `SELECT true FROM app.classes WHERE id = $1::uuid AND `+taughtClass+` FOR SHARE`,
+		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Member{}, domain.ErrNotFound
 	}
-
-	var role string
-	switch err := tx.QueryRow(ctx,
-		`SELECT role::text FROM app.users WHERE id = $1::uuid AND disabled_at IS NULL`,
-		in.UserID).Scan(&role); {
-	case err == nil && role == "student":
-	case err == nil, errors.Is(err, pgx.ErrNoRows):
-		return domain.Member{}, domain.ErrNotAStudent
-	default:
+	if err != nil {
 		return domain.Member{}, fmt.Errorf("add member: %w", err)
+	}
+
+	var student bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.users u
+		 WHERE u.id = $1::uuid AND u.disabled_at IS NULL
+		   AND u.role_id IN (SELECT r.id FROM app.student_like_roles r)
+		   AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`))`,
+		in.UserID, in.All, opt.String(in.ActorUserID)).Scan(&student); err != nil {
+		return domain.Member{}, fmt.Errorf("add member: %w", err)
+	}
+	if !student {
+		return domain.Member{}, domain.ErrNotAStudent
 	}
 
 	tag, err := tx.Exec(ctx, `

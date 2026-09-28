@@ -6,13 +6,16 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Delete removes an inactive student while preserving assigned work and retained history.
+// Delete removes an inactive student the actor reaches, or any with All, while
+// preserving assigned work and retained history. Another teacher's student
+// answers ErrStudentNotFound before either refusal can reveal it.
 func (s *Students) Delete(ctx context.Context, req domain.WriteRequest, id string, now time.Time) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -20,7 +23,9 @@ func (s *Students) Delete(ctx context.Context, req domain.WriteRequest, id strin
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var allowed bool
-	err = tx.QueryRow(ctx, `SELECT disabled_at IS NOT NULL FROM app.users WHERE id = $1 AND role = 'student' FOR UPDATE`, id).Scan(&allowed)
+	err = tx.QueryRow(ctx, `SELECT u.disabled_at IS NOT NULL FROM app.users u
+		 WHERE u.id = $1 AND u.role = 'student' AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`) FOR UPDATE`,
+		id, req.All, opt.String(req.ActorID)).Scan(&allowed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrStudentNotFound
 	}

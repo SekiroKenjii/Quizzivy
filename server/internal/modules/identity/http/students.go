@@ -16,13 +16,14 @@ import (
 const msgStudentNotFound = "Không tìm thấy học viên."
 
 // ListStudents backs §8's students table (G-07) and the two pickers that add a
-// student to a class (G-06) or to an assignment (G-01).
+// student to a class (G-06) or to an assignment (G-01), over the students the
+// caller reaches.
 func (h Identity) ListStudents(ctx context.Context, request openapi.ListStudentsRequestObject) (openapi.ListStudentsResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.StudentQuery{}
+	in := domain.StudentQuery{Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Q != nil {
 		in.Query = string(*request.Params.Q)
 	}
@@ -70,7 +71,7 @@ func (h Identity) GetStudent(ctx context.Context, request openapi.GetStudentRequ
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	student, err := h.app.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: request.Id.String()})
+	student, err := h.app.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrStudentNotFound) {
 		return openapi.GetStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgStudentNotFound))}, nil
@@ -103,6 +104,9 @@ func (h Identity) CreateStudent(ctx context.Context, request openapi.CreateStude
 	student, temporary := createStudentResult.Student, createStudentResult.TemporaryPassword
 	switch {
 	case err == nil:
+	case errors.Is(err, domain.ErrClassNotFound):
+		return openapi.CreateStudent404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, "Không tìm thấy lớp học."))}, nil
 	case errors.Is(err, domain.ErrEmailTaken):
 		return openapi.CreateStudent409JSONResponse(httpapi.Error(ctx, openapi.EMAILTAKEN,
 			"Địa chỉ email này đã được dùng cho một tài khoản khác.")), nil
@@ -173,14 +177,8 @@ func (h Identity) ResetStudentPassword(ctx context.Context, request openapi.Rese
 }
 
 func studentRequest(ctx context.Context) (domain.WriteRequest, bool) {
-	principal, ok := httpx.PrincipalFromContext(ctx)
-	if !ok {
-		return domain.WriteRequest{}, false
-	}
-	meta := httpx.RequestMetaFromContext(ctx)
-	return domain.WriteRequest{
-		ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent,
-	}, true
+	who, ok := httpapi.ActorFromContext(ctx)
+	return domain.WriteRequest{ActorID: who.ID, All: who.Scope.All, IP: who.IP, UserAgent: who.UserAgent}, ok
 }
 
 func toAPIStudent(student domain.Student) openapi.StudentRow {

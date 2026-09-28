@@ -7,19 +7,30 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
+	"slices"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const entityUser = "user"
 
 // Create adds a student who signs in with a temporary password (§6.3: only
-// Google self-signup exists, so an admin-created account has to carry one).
+// Google self-signup exists, so an admin-created account has to carry one),
+// created by the actor. Every class it names must be one the actor teaches, or
+// any with All; otherwise nothing is written and it answers ErrClassNotFound,
+// before the email is checked.
 func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domain.NewStudent) (domain.Student, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Student{}, fmt.Errorf("students: begin create: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := lockTaughtClasses(ctx, tx, req, in.ClassIDs); err != nil {
+		return domain.Student{}, err
+	}
 
 	var id string
 	err = tx.QueryRow(ctx, `
@@ -57,12 +68,35 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Student{}, fmt.Errorf("students: commit create: %w", err)
 	}
-	return s.Get(ctx, id)
+	return s.get(ctx, req.Scope(), id, true)
 }
 
-// Update edits profile fields, or disables the account. A disable revokes every
-// refresh family the student has and moves the session epoch, so no session,
-// live or idle, survives it, including after the account is enabled again.
+func lockTaughtClasses(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, classIDs []string) error {
+	wanted := slices.Compact(slices.Sorted(slices.Values(classIDs)))
+	if len(wanted) == 0 {
+		return nil
+	}
+	rows, err := tx.Query(ctx, `SELECT c.id::text FROM app.classes c
+		 WHERE c.id = ANY($1::uuid[]) AND ($2::boolean OR c.teacher_id = $3::uuid)
+		 ORDER BY c.id FOR SHARE`, wanted, req.All, opt.String(req.ActorID))
+	if err != nil {
+		return fmt.Errorf("students: lock classes: %w", err)
+	}
+	taught, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return fmt.Errorf("students: lock classes: %w", err)
+	}
+	if len(taught) != len(wanted) {
+		return domain.ErrClassNotFound
+	}
+	return nil
+}
+
+// Update edits profile fields of a student the actor reaches, or disables the
+// account; another teacher's student answers ErrStudentNotFound and is never
+// touched. A disable revokes every refresh family the student has and moves the
+// session epoch, so no session, live or idle, survives it, including after the
+// account is enabled again.
 func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domain.StudentPatch) (domain.Student, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -71,7 +105,7 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	tag, err := tx.Exec(ctx, `
-		UPDATE app.users
+		UPDATE app.users u
 		   SET full_name   = coalesce($2, full_name),
 		       email       = coalesce($3, email),
 		       disabled_at = CASE
@@ -80,8 +114,9 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		                       ELSE NULL
 		                     END,
 		       session_epoch = session_epoch + CASE WHEN $4::boolean IS TRUE THEN 1 ELSE 0 END
-		 WHERE id = $1::uuid AND role = 'student'`,
-		in.ID, in.FullName, in.Email, in.Disabled, in.Now)
+		 WHERE u.id = $1::uuid AND u.role = 'student'
+		   AND ($6::boolean OR u.id IN `+visibility.StudentIDs(7)+`)`,
+		in.ID, in.FullName, in.Email, in.Disabled, in.Now, req.All, opt.String(req.ActorID))
 	if db.IsUniqueViolation(err, "") {
 		return domain.Student{}, domain.ErrEmailTaken
 	}
@@ -115,11 +150,13 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		return domain.Student{}, fmt.Errorf("students: commit update: %w", err)
 	}
 
-	return s.get(ctx, in.ID, true)
+	return s.get(ctx, req.Scope(), in.ID, true)
 }
 
-// ResetPassword sets a temporary password, revokes every session the student
-// has and moves the session epoch, so a live access token stops working too.
+// ResetPassword sets a temporary password on a student the actor reaches,
+// revokes every session the student has and moves the session epoch, so a live
+// access token stops working too. Another teacher's student answers
+// ErrStudentNotFound.
 func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, id, hash string, now time.Time) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -128,9 +165,10 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	tag, err := tx.Exec(ctx, `
-		UPDATE app.users
+		UPDATE app.users u
 		   SET password_hash = $2, must_change_password = true, session_epoch = session_epoch + 1
-		 WHERE id = $1::uuid AND role = 'student' AND disabled_at IS NULL`, id, hash)
+		 WHERE u.id = $1::uuid AND u.role = 'student' AND u.disabled_at IS NULL
+		   AND ($3::boolean OR u.id IN `+visibility.StudentIDs(4)+`)`, id, hash, req.All, opt.String(req.ActorID))
 	if err != nil {
 		return fmt.Errorf("students: reset password: %w", err)
 	}

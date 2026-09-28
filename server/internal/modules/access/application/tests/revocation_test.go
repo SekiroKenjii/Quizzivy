@@ -140,7 +140,7 @@ func reached(code int) bool { return code != http.StatusUnauthorized && code != 
 func (r *revocation) setDisabled(t *testing.T, student string, disabled bool) {
 	t.Helper()
 	if _, err := r.identity.Commands.UpdateStudent.Handle(context.Background(), identitycommand.UpdateStudent{
-		Request: identitydomain.WriteRequest{ActorID: r.actor},
+		Request: identitydomain.WriteRequest{ActorID: r.actor, All: true},
 		Input:   identitydomain.StudentPatch{ID: student, Disabled: &disabled},
 	}); err != nil {
 		t.Fatalf("set disabled %v: %v", disabled, err)
@@ -191,7 +191,7 @@ func TestResettingAPasswordRefusesTheLiveTokenAndTheNewSessionCarriesTheEpoch(t 
 		t.Fatalf("before the reset: %d, want the gate passed", code)
 	}
 	temporary, err := r.identity.Commands.ResetStudentPassword.Handle(context.Background(), identitycommand.ResetStudentPassword{
-		Request: identitydomain.WriteRequest{ActorID: r.actor},
+		Request: identitydomain.WriteRequest{ActorID: r.actor, All: true},
 		ID:      student,
 	})
 	if err != nil {

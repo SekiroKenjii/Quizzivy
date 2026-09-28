@@ -38,13 +38,21 @@ the "one package per feature" layout AGENTS.md described until then.
 - **Ports at the application boundary.** identity declares `GoogleProvider`;
   media declares `AudioProbe` and `ObjectStore`; questions declares
   `MediaKinds`; classes and identity read student figures through
-  `shared/stats.Source`, which attempts implements; tests' repository takes
+  `shared/stats.Source`, which attempts implements, over only the
+  assignments the reader reaches; tests' repository takes
   `QuestionLocks` and `MediaLocks` for the row locks another module holds
   inside its transaction, and for the ownership and readability checks that
   run under those locks (`NotOwnedBy`, `RequireReadable`). A port one operation fills is typed as the other
   module's handler (identity's `SelfEnroller` is the classes `EnrolNewMember`
-  command; attempts' `Students` is the identity `GetStudent` query); the
+  command; attempts' `Students` is the identity `StudentAccount` query); the
   rest `core/adapters` adapts.
+- **Reach rules in the kernel.** `shared/visibility` holds the two rules
+  every teaching read shares, each one SQL subquery of ids: `StudentIDs`, the
+  students a teacher reaches, and `AssignmentIDs`, the assignments a teacher
+  reaches. identity, classes and attempts splice them into their own
+  statements, and callers lift them under `scope.all`. Like `shared/audit`,
+  it is SQL in the kernel, because a port cannot splice a predicate into
+  another module's list or aggregate.
 - **One database context, one repository base.** `platform/db.Context` wraps
   a pool or a transaction (`Exec`, `Query`, `QueryRow`, `InTx`); every module
   Postgres type embeds `db.Repository` and uses the generic `QueryOne`,

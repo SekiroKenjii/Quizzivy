@@ -1,12 +1,13 @@
 package domain
 
 import (
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/stats"
 	"time"
 )
 
 // Student is §7's User narrowed to the role this listing returns, plus what
-// G-07 draws beside it.
+// G-07 draws beside it: the memberships and figures the reader's scope reaches.
 type Student struct {
 	ID                 string
 	Email              string
@@ -43,6 +44,9 @@ const (
 	StudentsAny      StudentStatus = "all"
 )
 
+// StudentQuery selects the students Scope reaches (visibility.StudentIDs), or
+// every student under scope.all; a zero Scope matches nothing. A ClassID the
+// scope does not reach matches nothing either.
 type StudentQuery struct {
 	// StudentStatus defaults to StudentsActive when empty.
 	Status  StudentStatus
@@ -50,13 +54,23 @@ type StudentQuery struct {
 	ClassID string
 	Page    int
 	Limit   int
+	Scope   access.Scope
 }
 
-// WriteRequest is the admin behind a write, for the audit row.
+// WriteRequest is the actor behind a write, for the audit row and for reach: a
+// write touches only students ActorID reaches and classes ActorID teaches,
+// unless All, the actor's scope.all, is set.
 type WriteRequest struct {
 	ActorID   string
+	All       bool
 	IP        string
 	UserAgent string
+}
+
+// Scope is the scope the request reads under: ActorID's own, or everyone's
+// with All.
+func (r WriteRequest) Scope() access.Scope {
+	return access.Scope{UserID: r.ActorID, All: r.All}
 }
 
 type NewStudent struct {

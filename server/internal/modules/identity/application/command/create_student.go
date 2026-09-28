@@ -32,6 +32,6 @@ func (s CreateStudentHandler) Handle(ctx context.Context, cmd CreateStudent) (Cr
 	if err != nil {
 		return CreateStudentResult{Student: domain.Student{}, TemporaryPassword: ""}, err
 	}
-	student, err = s.WithStats(ctx, student)
+	student, err = s.WithStats(ctx, cmd.Request.Scope(), student)
 	return CreateStudentResult{Student: student, TemporaryPassword: temporary}, err
 }

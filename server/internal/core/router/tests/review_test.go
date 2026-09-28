@@ -36,8 +36,10 @@ func (f fakeReview) app() *attemptsapp.Application {
 type fakeStudents struct{ student identitydomain.Student }
 
 func (f fakeStudents) handler() attemptshttp.Students {
-	get := func(context.Context, identityquery.GetStudent) (identitydomain.Student, error) { return f.student, nil }
-	return cqrs.HandlerFunc[identityquery.GetStudent, identitydomain.Student](get)
+	get := func(context.Context, identityquery.StudentAccount) (identitydomain.Student, error) {
+		return f.student, nil
+	}
+	return cqrs.HandlerFunc[identityquery.StudentAccount, identitydomain.Student](get)
 }
 
 // A disabled account is refused a session, but its papers are still the

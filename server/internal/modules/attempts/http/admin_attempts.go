@@ -99,7 +99,7 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 		return nil, err
 	}
 
-	student, err := h.students.Handle(ctx, identityquery.GetStudent{ID: rv.Attempt.StudentID})
+	student, err := h.students.Handle(ctx, identityquery.StudentAccount{ID: rv.Attempt.StudentID})
 	if err != nil {
 		return nil, err
 	}

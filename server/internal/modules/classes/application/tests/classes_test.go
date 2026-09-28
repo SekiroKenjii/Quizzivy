@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"testing"
 	"time"
@@ -47,6 +48,8 @@ func nonce(t *testing.T) string {
 	return hex.EncodeToString(b)
 }
 
+var everyone = access.Scope{All: true}
+
 func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID string) {
 	t.Helper()
 	ctx := context.Background()
@@ -58,8 +61,8 @@ func makeClass(t *testing.T, pool *pgxpool.Pool) (classID, teacherID, studentID 
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO app.users (email, full_name, role_id) VALUES ($1,'Nguyễn Văn A',(SELECT id FROM app.roles WHERE builtin_key = 'student')) RETURNING id::text`,
-		"s-"+n+"@example.com").Scan(&studentID); err != nil {
+		`INSERT INTO app.users (email, full_name, role_id, created_by) VALUES ($1,'Nguyễn Văn A',(SELECT id FROM app.roles WHERE builtin_key = 'student'),$2) RETURNING id::text`,
+		"s-"+n+"@example.com", teacherID).Scan(&studentID); err != nil {
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx,
@@ -90,7 +93,7 @@ func TestAClassCarriesItsCodesMetadataAndNeverTheCode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := svc.Queries.Get.Handle(context.Background(), query.Get{ClassID: classID})
+	got, err := svc.Queries.Get.Handle(context.Background(), query.Get{ClassID: classID, Scope: everyone})
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -118,7 +121,7 @@ func TestAClassWithNoActiveCodeReportsNone(t *testing.T) {
 	classID, _, _ := makeClass(t, pool)
 	svc := application.New(repositories.NewPostgres(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
 
-	got, err := svc.Queries.Get.Handle(context.Background(), query.Get{ClassID: classID})
+	got, err := svc.Queries.Get.Handle(context.Background(), query.Get{ClassID: classID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +150,7 @@ func TestMembersShowHowEachOneGotIn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{ClassID: classID, Input: domain.MembersInput{}})
+	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{Scope: everyone, ClassID: classID, Input: domain.MembersInput{}})
 	members := membersResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +194,7 @@ func TestRemovingAMemberRevokesAccessAndKeepsTheirWork(t *testing.T) {
 		t.Fatalf("RemoveMember: %v", err)
 	}
 
-	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{ClassID: classID, Input: domain.MembersInput{}})
+	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{Scope: everyone, ClassID: classID, Input: domain.MembersInput{}})
 	members := membersResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +256,7 @@ func TestAddingAStudentRecordsThatAnAdminDidIt(t *testing.T) {
 		t.Errorf("userId = %s, want %s", m.UserID, studentID)
 	}
 
-	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{ClassID: classID, Input: domain.MembersInput{}})
+	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{Scope: everyone, ClassID: classID, Input: domain.MembersInput{}})
 	members := membersResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -277,7 +280,7 @@ func TestAddingSomebodyTwiceIsNotAnError(t *testing.T) {
 		t.Fatalf("second add: %v", err)
 	}
 
-	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{ClassID: classID, Input: domain.MembersInput{}})
+	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{Scope: everyone, ClassID: classID, Input: domain.MembersInput{}})
 	members := membersResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -331,7 +334,7 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 	if _, err := svc.Commands.AddMember.Handle(ctx, command.AddMember{ClassID: classID, UserID: studentID, Actor: actor.Actor{ID: teacherID, IP: "", UserAgent: ""}}); err != nil {
 		t.Fatal(err)
 	}
-	before, err := svc.Queries.Get.Handle(ctx, query.Get{ClassID: classID})
+	before, err := svc.Queries.Get.Handle(ctx, query.Get{ClassID: classID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +347,7 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	after, err := svc.Queries.Get.Handle(ctx, query.Get{ClassID: classID})
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ClassID: classID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +355,7 @@ func TestADisabledStudentLeavesTheClassCount(t *testing.T) {
 		t.Errorf("studentCount = %d after disabling the only member, want 0", after.StudentCount)
 	}
 
-	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{ClassID: classID, Input: domain.MembersInput{}})
+	membersResult, err := svc.Queries.Members.Handle(ctx, query.Members{Scope: everyone, ClassID: classID, Input: domain.MembersInput{}})
 	members := membersResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -375,7 +378,7 @@ func TestMembersCarryTheSameFiguresAsTheStudentsTable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	members, _, err := store.Members(ctx, classID, domain.MembersInput{})
+	members, _, err := store.Members(ctx, everyone, classID, domain.MembersInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -462,14 +465,14 @@ func TestClassesPageAndSearchByName(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM app.classes WHERE id = ANY($1::uuid[])`, mine)
 	})
 
-	first, page, err := store.List(ctx, domain.ListInput{Query: "phan trang " + tag, Limit: 2})
+	first, page, err := store.List(ctx, domain.ListInput{Scope: everyone, Query: "phan trang " + tag, Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if page.Total != 3 || page.Number != 1 || page.Size != 2 || len(first) != 2 {
 		t.Fatalf("page 1: %+v with %d rows, want total 3 and 2 rows", page, len(first))
 	}
-	second, page, err := store.List(ctx, domain.ListInput{Query: "phan trang " + tag, Limit: 2, Page: 2})
+	second, page, err := store.List(ctx, domain.ListInput{Scope: everyone, Query: "phan trang " + tag, Limit: 2, Page: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +483,7 @@ func TestClassesPageAndSearchByName(t *testing.T) {
 		t.Error("the pages overlap")
 	}
 	// Past the end: no rows, same total, so the client can still draw the count.
-	empty, page, err := store.List(ctx, domain.ListInput{Query: "phan trang " + tag, Limit: 2, Page: 9})
+	empty, page, err := store.List(ctx, domain.ListInput{Scope: everyone, Query: "phan trang " + tag, Limit: 2, Page: 9})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -518,21 +521,21 @@ func TestMembersPageAndSearchByNameOrEmail(t *testing.T) {
 		}
 	}
 
-	all, page, err := store.Members(ctx, classID, domain.MembersInput{Limit: 2})
+	all, page, err := store.Members(ctx, everyone, classID, domain.MembersInput{Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if page.Total != 3 || len(all) != 2 {
 		t.Fatalf("members page 1: %+v with %d rows", page, len(all))
 	}
-	byName, page, err := store.Members(ctx, classID, domain.MembersInput{Query: "thanh vien " + tag})
+	byName, page, err := store.Members(ctx, everyone, classID, domain.MembersInput{Query: "thanh vien " + tag})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if page.Total != 2 || len(byName) != 2 {
 		t.Errorf("by name: %+v with %d rows, want the two tagged", page, len(byName))
 	}
-	byEmail, page, err := store.Members(ctx, classID, domain.MembersInput{Query: "m-" + tag + "-1@"})
+	byEmail, page, err := store.Members(ctx, everyone, classID, domain.MembersInput{Query: "m-" + tag + "-1@"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -623,7 +626,7 @@ func TestMembersWhoJoinedInTheSameInstantPageExactlyOnce(t *testing.T) {
 	seen := map[string]int{}
 	served := 0
 	for number := 1; number*pageSize <= size; number++ {
-		members, page, err := store.Members(ctx, classID, domain.MembersInput{
+		members, page, err := store.Members(ctx, everyone, classID, domain.MembersInput{
 			Page:  number,
 			Limit: pageSize,
 		})
@@ -763,10 +766,10 @@ func TestArchivingHidesAClassFromPickersAndKeepsEverything(t *testing.T) {
 		}
 		return false
 	}
-	if has(domain.ListInput{Query: name}) {
+	if has(domain.ListInput{Scope: everyone, Query: name}) {
 		t.Error("the default (active) list still offers the archived class")
 	}
-	if !has(domain.ListInput{Query: name, Status: "archived"}) || !has(domain.ListInput{Query: name, Status: "all"}) {
+	if !has(domain.ListInput{Scope: everyone, Query: name, Status: "archived"}) || !has(domain.ListInput{Scope: everyone, Query: name, Status: "all"}) {
 		t.Error("the archived and all lists must still carry it")
 	}
 	mine, err := store.ListMine(ctx, studentID)
@@ -776,7 +779,7 @@ func TestArchivingHidesAClassFromPickersAndKeepsEverything(t *testing.T) {
 	if len(mine) != 0 {
 		t.Errorf("the student still lists the archived class: %+v", mine)
 	}
-	facets, err := store.Facets(ctx, name)
+	facets, err := store.Facets(ctx, everyone, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -795,7 +798,7 @@ func TestArchivingHidesAClassFromPickersAndKeepsEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restored.ArchivedAt != nil || !has(domain.ListInput{Query: name}) {
+	if restored.ArchivedAt != nil || !has(domain.ListInput{Scope: everyone, Query: name}) {
 		t.Error("restoring must put the class back in the default list")
 	}
 	var actions []string

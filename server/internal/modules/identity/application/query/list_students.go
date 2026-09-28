@@ -25,7 +25,7 @@ func (s ListStudentsHandler) Handle(ctx context.Context, q ListStudents) (ListSt
 	if err != nil {
 		return ListStudentsResult{Items: nil, Page: paging.Page{}}, err
 	}
-	if err := s.AttachStats(ctx, found); err != nil {
+	if err := s.AttachStats(ctx, q.Query.Scope, found); err != nil {
 		return ListStudentsResult{Items: nil, Page: paging.Page{}}, err
 	}
 	return ListStudentsResult{Items: found, Page: page}, nil

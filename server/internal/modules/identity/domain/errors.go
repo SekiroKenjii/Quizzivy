@@ -65,6 +65,7 @@ var (
 var (
 	ErrStudentNotFound = errors.New("students: not found")
 	ErrEmailTaken      = errors.New("students: email already in use")
+	ErrClassNotFound   = errors.New("students: class not found")
 )
 
 var (
