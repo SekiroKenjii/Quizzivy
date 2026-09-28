@@ -7,7 +7,8 @@ import (
 	"quizzivy/internal/shared/access"
 )
 
-// Monitor reads G-02 for an assignment Scope reaches.
+// Monitor reads the live roster of an assignment Scope reaches: one row per
+// targeted student the scope reaches.
 type Monitor struct {
 	AssignmentID string
 	Scope        access.Scope

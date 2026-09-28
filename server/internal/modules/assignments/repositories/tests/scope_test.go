@@ -165,9 +165,11 @@ func TestAnAssignmentNamesOnlyTheTargetsTheReaderReaches(t *testing.T) {
 		students []string
 		total    int
 	}{
-		"A":         {access.Scope{UserID: w.a}, []string{w.classA}, []string{}, 1},
-		"B":         {access.Scope{UserID: w.b}, []string{w.classB}, []string{w.studentB}, 1},
-		"scope.all": {access.Scope{UserID: w.admin, All: true}, sortedIDs(w.classA, w.classB), []string{w.studentB}, 2},
+		"A":                                 {access.Scope{UserID: w.a}, []string{w.classA}, []string{}, 1},
+		"B":                                 {access.Scope{UserID: w.b}, []string{w.classB}, []string{w.studentB}, 1},
+		"scope.all":                         {access.Scope{UserID: w.admin, All: true}, sortedIDs(w.classA, w.classB), []string{w.studentB}, 2},
+		"scope.all, not the author":         {access.Scope{UserID: w.a, All: true}, sortedIDs(w.classA, w.classB), []string{w.studentB}, 2},
+		"scope.all reaching nothing itself": {access.Scope{All: true}, sortedIDs(w.classA, w.classB), []string{w.studentB}, 2},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := w.store.Get(context.Background(), c.scope, w.shared)
@@ -377,8 +379,18 @@ func TestScopeAllWritesAnotherTeachersAssignment(t *testing.T) {
 	if reopened.ClosedAt != nil {
 		t.Error("the reopened assignment is still closed")
 	}
-	w.id(t, `UPDATE app.assignments SET closed_at = now() - interval '1 minute' WHERE id = $1 RETURNING id::text`, w.mineB)
+	w.id(t, `INSERT INTO app.assignment_students (assignment_id, user_id) VALUES ($1, $2) RETURNING user_id::text`, w.mineA, w.studentA)
+	if _, err := w.store.Update(ctx, admin, input(w.versionA, []string{w.classB}, []string{w.studentB})); err != nil {
+		t.Fatalf("scope.all updating A's assignment: %v", err)
+	}
+	if got := w.state(t, w.mineA); !strings.HasSuffix(got, "|"+w.classB+"|"+w.studentB) {
+		t.Errorf("scope.all's update left targets %s, want only B's class and B's student", got)
+	}
 	admin.ID = w.mineB
+	if _, err := w.store.Reopen(ctx, admin, time.Now().Add(time.Hour), "Gia hạn", time.Now()); !errors.Is(err, domain.ErrNotClosed) {
+		t.Errorf("scope.all reopening B's open assignment: %v, want the not-closed answer", err)
+	}
+	w.id(t, `UPDATE app.assignments SET closed_at = now() - interval '1 minute' WHERE id = $1 RETURNING id::text`, w.mineB)
 	if err := w.store.Delete(ctx, admin, time.Now()); err != nil {
 		t.Fatalf("scope.all deleting B's closed assignment: %v", err)
 	}

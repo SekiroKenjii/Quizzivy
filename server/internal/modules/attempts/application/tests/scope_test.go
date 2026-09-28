@@ -218,6 +218,9 @@ func TestTheOwnerAndScopeAllReachEveryPaper(t *testing.T) {
 		})
 	}
 	req := domain.Request{ActorID: w.admin, All: true}
+	if _, err := w.store.Extend(ctx, req, w.paperA, 5, "thêm giờ", time.Now()); !errors.Is(err, domain.ErrAttemptClosed) {
+		t.Errorf("scope.all extending A's handed-in paper: %v, want the closed answer", err)
+	}
 	if _, err := w.store.Void(ctx, req, w.paperA, "huỷ", time.Now()); err != nil {
 		t.Errorf("scope.all voiding: %v", err)
 	}
@@ -353,6 +356,9 @@ func TestListsOfPapersShowOnlyTheStudentsTheReaderReaches(t *testing.T) {
 	if got := w.monitored(t, admin, w.byAdmin); !slices.Equal(got, sorted(w.studentB, w.loose)) {
 		t.Errorf("scope.all's monitor lists %v, want both", got)
 	}
+	if got := w.monitored(t, access.Scope{UserID: w.a, All: true}, w.byAdmin); !slices.Equal(got, sorted(w.studentB, w.loose)) {
+		t.Errorf("scope.all's monitor of an assignment it did not create lists %v, want both", got)
+	}
 	if got := w.byQuestion(t, b, w.byAdmin); !slices.Equal(got, []string{w.paperB}) {
 		t.Errorf("B's answers by question list %v, want only B's student's paper", got)
 	}
@@ -398,5 +404,16 @@ func TestAMixedAssignmentShowsOnlyWhatTheReaderReaches(t *testing.T) {
 	}
 	if !slices.ContainsFunc(found, func(r dashboarddomain.Recent) bool { return r.ID == w.paperB }) {
 		t.Error("B's attempt list lost B's student's paper on the assignment B reaches")
+	}
+}
+
+func TestScopeAllReachesPapersItNeitherCreatedNorReaches(t *testing.T) {
+	w := newPaperWorld(t)
+	all := access.Scope{UserID: w.b, All: true}
+	if due, err := w.store.DueAttempts(context.Background(), all, w.ofA, time.Now()); err != nil || !slices.Equal(due, []string{w.overdue}) {
+		t.Errorf("scope.all's overdue sweep of A's assignment finds %v (%v), want A's overdue attempt", due, err)
+	}
+	if got := w.byQuestion(t, all, w.ofA); !slices.Equal(got, []string{w.paperA}) {
+		t.Errorf("scope.all's answers by question on A's assignment list %v, want A's student's paper", got)
 	}
 }

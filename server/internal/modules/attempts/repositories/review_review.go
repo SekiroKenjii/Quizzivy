@@ -23,10 +23,10 @@ func NewReviews(dbx db.Context) *Reviews {
 	return &Reviews{Repository: db.NewRepository(dbx), now: time.Now}
 }
 
-// Get reads one attempt for review, in the version's own order rather than
-// the student's shuffled one: question 23 is the essay for every paper.
 // Get reads one paper on an assignment the scope reaches, with its grading
-// key; another teacher's answers ErrPaperNotFound.
+// key, in the version's own order rather than the student's shuffled one:
+// question 23 is the essay for every paper. Another teacher's answers
+// ErrPaperNotFound.
 func (s *Reviews) Get(ctx context.Context, scope access.Scope, attemptID string) (domain.Review, error) {
 	var (
 		out   domain.Review

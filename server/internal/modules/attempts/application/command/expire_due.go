@@ -8,8 +8,8 @@ import (
 	"quizzivy/internal/shared/cqrs"
 )
 
-// ExpireDue closes every attempt on the assignment whose time has run out, so a monitor read after it never shows a live row past its deadline.
-// ExpireDue closes the overdue live attempts of an assignment Scope reaches.
+// ExpireDue closes every overdue live attempt on an assignment Scope reaches,
+// so a monitor read after it never shows a live row past its deadline.
 type ExpireDue struct {
 	AssignmentID string
 	Scope        access.Scope
