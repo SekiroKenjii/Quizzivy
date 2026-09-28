@@ -8,7 +8,12 @@ import JoinPage from "@/features/join/pages/JoinPage";
 import { readJoinContext, saveJoinContext } from "@/features/join/context";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import { adminUser, sampleClass, studentUser } from "@tests/support/fixtures";
+import {
+  adminUser,
+  adminWhoTakesTests,
+  sampleClass,
+  studentUser,
+} from "@tests/support/fixtures";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
 
@@ -255,9 +260,12 @@ describe("/join", () => {
     expect(screen.queryByText("Đã ở trong một lớp?")).toBeNull();
   });
 
-  it("tells an account that is not a student's that joining is for students", async () => {
+  it.each([
+    ["the Admin", adminUser],
+    ["an Admin who takes tests", adminWhoTakesTests],
+  ])("tells %s that joining is for students", async (_, account) => {
     previewFinds();
-    useAuthStore.getState().setSession("token", adminUser);
+    useAuthStore.getState().setSession("token", account);
     const user = userEvent.setup();
     const router = renderJoin(`/join/${CODE}`);
     expect(
