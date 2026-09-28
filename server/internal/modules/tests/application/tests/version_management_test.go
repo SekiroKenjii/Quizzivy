@@ -155,7 +155,7 @@ func TestQuestionUsageListsCurrentOutlinesButExcludesFrozenSnapshots(t *testing.
 	beta := b.draft("Beta outline", questionID)
 	alpha := b.draft("Alpha outline", questionID)
 	ctx := context.Background()
-	question, err := b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{ID: questionID})
+	question, err := b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{Scope: everyone, ID: questionID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestQuestionUsageListsCurrentOutlinesButExcludesFrozenSnapshots(t *testing.
 	if _, err := b.tests.Commands.Update.Handle(ctx, command.Update{Request: reqFor(alpha.ID, b.author), Input: domain.UpdateInput{ExpectedUpdatedAt: current.UpdatedAt, Sections: sections, SetSections: true}}); err != nil {
 		t.Fatal(err)
 	}
-	question, err = b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{ID: questionID})
+	question, err = b.qsvc.Queries.Get.Handle(ctx, questionsquery.Get{Scope: everyone, ID: questionID})
 	if err != nil {
 		t.Fatal(err)
 	}

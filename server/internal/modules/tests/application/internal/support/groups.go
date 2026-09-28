@@ -4,6 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/tests/application/ports"
 	"quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
 	"slices"
 	"strings"
 	"time"
@@ -16,8 +17,9 @@ type Groups struct {
 	Now   func() time.Time
 }
 
-// Prepare resolves member attachments once per asset before the common aggregate validation.
-func (s *Groups) Prepare(ctx context.Context, bundle domain.GroupBundle) (domain.GroupBundle, error) {
+// Prepare resolves member attachments once per asset, as the scope may read
+// them, before the common aggregate validation.
+func (s *Groups) Prepare(ctx context.Context, scope access.Scope, bundle domain.GroupBundle) (domain.GroupBundle, error) {
 	if s.Repo == nil {
 		return domain.GroupBundle{}, domain.ErrGroupUnavailable
 	}
@@ -36,7 +38,7 @@ func (s *Groups) Prepare(ctx context.Context, bundle domain.GroupBundle) (domain
 		kind, exists := kinds[id]
 		if !exists {
 			var err error
-			kind, err = s.Media.Kind(ctx, id)
+			kind, err = s.Media.Kind(ctx, scope, id)
 			if err != nil {
 				return domain.GroupBundle{}, err
 			}

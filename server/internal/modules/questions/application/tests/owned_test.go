@@ -27,7 +27,7 @@ func TestOwnedQuestionsRequireTheirGroupForReadsWritesAndCopies(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	repo := repositories.NewPostgres(db.NewContext(tx))
-	before, _, err := repo.Counts(ctx, domain.ListInput{})
+	before, _, err := repo.Counts(ctx, domain.ListInput{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestOwnedQuestionsRequireTheirGroupForReadsWritesAndCopies(t *testing.T) {
 	if err != nil || created.ID != in.ID {
 		t.Fatalf("owned create: %s, %v", created.ID, err)
 	}
-	if _, err := repo.Get(ctx, created.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := repo.Get(ctx, everyone, created.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("standalone read detached context: %v", err)
 	}
 	if _, err := repo.GetIncludingDeleted(ctx, created.ID); !errors.Is(err, domain.ErrNotFound) {
@@ -64,7 +64,7 @@ func TestOwnedQuestionsRequireTheirGroupForReadsWritesAndCopies(t *testing.T) {
 	if err := repo.LockForDraftUse(ctx, tx, created.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("lone child could enter a legacy outline: %v", err)
 	}
-	if changed, err := repo.AddTags(ctx, []string{created.ID}, []string{"bypass"}); err != nil || changed != 0 {
+	if changed, err := repo.AddTags(ctx, everyone, []string{created.ID}, []string{"bypass"}); err != nil || changed != 0 {
 		t.Fatalf("bulk tag bypass: %d, %v", changed, err)
 	}
 	svc := application.New(repo, nil)
@@ -83,7 +83,7 @@ func TestOwnedQuestionsRequireTheirGroupForReadsWritesAndCopies(t *testing.T) {
 	if err != nil || len(members) != 1 || members[0].Question.ID != created.ID || members[0].Ordinal != 0 || members[0].OptionOrder != "fixed" || len(members[0].Question.Options) != 2 {
 		t.Fatalf("resolved members: %+v, %v", members, err)
 	}
-	filters := domain.ListInput{Tags: in.Input.Tags}
+	filters := domain.ListInput{Scope: everyone, Tags: in.Input.Tags}
 	items, page, err := repo.List(ctx, filters)
 	if err != nil || len(items) != 0 || page.Total != 0 {
 		t.Fatalf("bank listed context-only child: %d/%d, %v", len(items), page.Total, err)
@@ -96,7 +96,7 @@ func TestOwnedQuestionsRequireTheirGroupForReadsWritesAndCopies(t *testing.T) {
 	if err != nil || total != before || filtered != 0 {
 		t.Fatalf("bank counts included owned child: %d/%d, previous=%d, %v", total, filtered, before, err)
 	}
-	tags, err := repo.Tags(ctx, domain.ListInput{Query: in.Input.Prompt})
+	tags, err := repo.Tags(ctx, domain.ListInput{Scope: everyone, Query: in.Input.Prompt})
 	if err != nil {
 		t.Fatal(err)
 	}

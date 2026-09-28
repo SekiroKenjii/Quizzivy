@@ -31,7 +31,7 @@ func TestSectionGroupsAndDuplicatesBelongToTheTestsOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bankGroup, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), ActorID: other, Now: time.Now(), Scope: access.Scope{UserID: other}, Grants: bothKeys})
+	bankGroup, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, storedGroupAsset(t, tx, other, "audio")), ActorID: other, Now: time.Now(), Scope: access.Scope{UserID: other}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}

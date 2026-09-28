@@ -2,7 +2,7 @@ package adapters
 
 import (
 	"context"
-	"errors"
+	"strings"
 	"time"
 
 	attemptshttp "quizzivy/internal/modules/attempts/http"
@@ -13,23 +13,29 @@ import (
 	questionsdomain "quizzivy/internal/modules/questions/domain"
 	questionshttp "quizzivy/internal/modules/questions/http"
 	testshttp "quizzivy/internal/modules/tests/http"
+	"quizzivy/internal/shared/access"
 )
 
-// MediaKinds answers questions' MediaKinds port from the media application; a nil application knows no asset.
+// MediaKinds answers the questions and tests MediaKinds ports from the media
+// application's Readable: the kind of an asset the scope may read, or
+// ErrMediaNotFound alike for a missing, deleted or unreadable one. A nil
+// application knows no asset.
 type MediaKinds struct{ Media *mediaapp.Application }
 
-func (m MediaKinds) Kind(ctx context.Context, assetID string) (string, error) {
+func (m MediaKinds) Kind(ctx context.Context, scope access.Scope, assetID string) (string, error) {
 	if m.Media == nil {
 		return "", questionsdomain.ErrMediaNotFound
 	}
-	asset, err := m.Media.Queries.Get.Handle(ctx, mediaquery.Get{ID: assetID})
-	if errors.Is(err, mediadomain.ErrNotFound) {
-		return "", questionsdomain.ErrMediaNotFound
-	}
+	id := strings.ToLower(assetID)
+	kinds, err := m.Media.Queries.Readable.Handle(ctx, mediaquery.Readable{Scope: scope, IDs: []string{id}})
 	if err != nil {
 		return "", err
 	}
-	return string(asset.Kind), nil
+	kind, ok := kinds[id]
+	if !ok {
+		return "", questionsdomain.ErrMediaNotFound
+	}
+	return string(kind), nil
 }
 
 // Media serves the media port the questions, tests and attempts transports render attachments through.

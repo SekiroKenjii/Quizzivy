@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -167,6 +168,24 @@ func Readable(ctx context.Context, q db.Querier, scope access.Scope, assetIDs []
 	return out, nil
 }
 
+// RequireReadable is Readable for a binding write inside its transaction: it
+// answers ErrNotFound unless the scope may read every one of assetIDs, so an
+// unreadable asset is refused exactly as a missing or deleted one is. Callers
+// run it after LockForVersionUse has locked each id and before writing any row
+// that names one, so a write never authorizes itself.
+func RequireReadable(ctx context.Context, q db.Querier, scope access.Scope, assetIDs []string) error {
+	readable, err := Readable(ctx, q, scope, assetIDs)
+	if err != nil {
+		return err
+	}
+	for _, id := range assetIDs {
+		if _, ok := readable[strings.ToLower(id)]; !ok {
+			return domain.ErrNotFound
+		}
+	}
+	return nil
+}
+
 func (s *Postgres) ReferencesFor(ctx context.Context, assetIDs []string) (map[string][]domain.TestRef, error) {
 	return ReferencesFor(ctx, s.Conn(), assetIDs)
 }
@@ -181,4 +200,8 @@ func (s *Postgres) LockForVersionUse(ctx context.Context, tx pgx.Tx, assetID str
 
 func (s *Postgres) Readable(ctx context.Context, scope access.Scope, assetIDs []string) (map[string]domain.Kind, error) {
 	return Readable(ctx, s.Conn(), scope, assetIDs)
+}
+
+func (s *Postgres) RequireReadable(ctx context.Context, tx pgx.Tx, scope access.Scope, assetIDs []string) error {
+	return RequireReadable(ctx, tx, scope, assetIDs)
 }

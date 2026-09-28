@@ -23,9 +23,12 @@ const scopedTest = `($2::boolean OR owner_id = $3::uuid)`
 
 // QuestionLocks and MediaLocks are the row locks other modules take on this
 // module's behalf inside its transactions, so a draft cannot outlive what it
-// names. NotOwnedBy reads, without locking, which of questions the draft's
-// owner does not own; it runs after LockForDraftUse has locked every one of
-// them in the same transaction.
+// names, and the checks that run under them. NotOwnedBy reads, without
+// locking, which of questions the draft's owner does not own; it runs after
+// LockForDraftUse has locked every one of them in the same transaction.
+// RequireReadable refuses, as a missing asset, any asset the scope may not
+// read; it runs after LockForVersionUse and before any row naming the asset is
+// written.
 type QuestionLocks interface {
 	LockForDraftUse(ctx context.Context, tx pgx.Tx, questionID string) error
 	NotOwnedBy(ctx context.Context, tx pgx.Tx, ownerID string, questionIDs []string) ([]string, error)
@@ -33,6 +36,7 @@ type QuestionLocks interface {
 
 type MediaLocks interface {
 	LockForVersionUse(ctx context.Context, tx pgx.Tx, assetID string) error
+	RequireReadable(ctx context.Context, tx pgx.Tx, scope access.Scope, assetIDs []string) error
 }
 
 type Postgres struct {

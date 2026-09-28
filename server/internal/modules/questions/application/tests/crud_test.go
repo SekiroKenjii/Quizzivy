@@ -34,7 +34,7 @@ func TestSoftDeleteLeavesTheQuestionResolvableByID(t *testing.T) {
 	}
 
 	// Absent from the bank.
-	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Limit: repositories.MaxLimit}})
+	listResult, err := svc.Queries.List.Handle(ctx, query.List{Input: domain.ListInput{Scope: everyone, Limit: repositories.MaxLimit}})
 	listed := listResult.Items
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestSoftDeleteLeavesTheQuestionResolvableByID(t *testing.T) {
 	}
 
 	// And not resolvable by the normal path either.
-	if _, err := svc.Queries.Get.Handle(ctx, query.Get{ID: q.ID}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{Scope: everyone, ID: q.ID}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("Get on a deleted question returned %v, want ErrNotFound", err)
 	}
 	revived, err := svc.Queries.GetIncludingDeleted.Handle(ctx, query.GetIncludingDeleted{ID: q.ID})
@@ -140,7 +140,7 @@ func TestReorderingOptionsRoundTrips(t *testing.T) {
 		t.Fatalf("update: %v", err)
 	}
 	assertOptionOrder(t, updated, []string{"Huế", "Đà Nẵng", "Hà Nội"}, []bool{false, false, true})
-	reread, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
+	reread, err := svc.Queries.Get.Handle(ctx, query.Get{Scope: everyone, ID: created.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func TestUpdateRejectedByTheDatabaseLeavesTheOldVersion(t *testing.T) {
 		t.Fatal("an out-of-range points value was accepted")
 	}
 
-	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{Scope: everyone, ID: created.ID})
 	if err != nil {
 		t.Fatalf("the question vanished after a failed update: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestDeletingAQuestionADraftUsesIsRefused(t *testing.T) {
 	}
 
 	// Refused, not half-done: the question is still live and still listed.
-	if _, err := svc.Queries.Get.Handle(ctx, query.Get{ID: q.ID}); err != nil {
+	if _, err := svc.Queries.Get.Handle(ctx, query.Get{Scope: everyone, ID: q.ID}); err != nil {
 		t.Errorf("the question was deleted anyway: %v", err)
 	}
 	var audited int
