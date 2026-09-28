@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -95,7 +96,7 @@ func TestGroupMediaLockSerializesCreateBeforeSoftDelete(t *testing.T) {
 	store := repositories.NewGroupsPostgres(db.NewContext(pool), adapters.GroupQuestions{}, pausedGroupMedia{locked: locked, release: release})
 	created := make(chan error, 1)
 	go func() {
-		_, err := store.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now()})
+		_, err := store.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 		created <- err
 	}()
 	var pid int
@@ -144,7 +145,7 @@ func TestGroupMediaLockRejectsAssetDeletedBeforeCreate(t *testing.T) {
 	}
 	bundle := storedGroupFixture(t, asset)
 	store := repositories.NewGroupsPostgres(db.NewContext(pool), adapters.GroupQuestions{}, media)
-	if _, err := store.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now()}); !errors.Is(err, mediadomain.ErrNotFound) {
+	if _, err := store.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}); !errors.Is(err, mediadomain.ErrNotFound) {
 		t.Fatalf("group revived an already deleted asset: %v", err)
 	}
 	var count int
@@ -163,7 +164,7 @@ func TestGroupConcurrentEditsHaveOneRevisionWinner(t *testing.T) {
 	cleanupStoredGroup(t, pool, bundle.Group.ID)
 	media := mediarepo.NewPostgres(db.NewContext(pool))
 	store := repositories.NewGroupsPostgres(db.NewContext(pool), adapters.GroupQuestions{}, media)
-	stored, err := store.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now()})
+	stored, err := store.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +196,7 @@ func TestGroupConcurrentEditsHaveOneRevisionWinner(t *testing.T) {
 	if err := <-loser; !errors.Is(err, domain.ErrStaleWrite) {
 		t.Fatalf("concurrent stale overwrite: %v", err)
 	}
-	loaded, err := store.Get(ctx, bundle.Group.ID)
+	loaded, err := store.Get(ctx, everyone, bundle.Group.ID)
 	if err != nil || loaded.Revision != 2 || loaded.Bundle.Group.Title != "First edit" {
 		t.Fatalf("lost winner: %+v, %v", loaded, err)
 	}

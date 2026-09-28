@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/tests/application/command"
 	"quizzivy/internal/modules/tests/application/query"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -43,7 +44,7 @@ func TestListVersionsIsNewestFirstAndCountsFrozenRows(t *testing.T) {
 		t.Fatalf("publish v2: %v", err)
 	}
 
-	versions, err := svc.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: draft.ID})
+	versions, err := svc.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: draft.ID, Scope: everyone})
 	if err != nil {
 		t.Fatalf("list versions: %v", err)
 	}
@@ -83,7 +84,7 @@ func TestThePublishResultCountsWhatTheVersionHistoryCounts(t *testing.T) {
 		t.Fatalf("publish result counts %d questions, %d audio, %d manual; want 2, 1, 2",
 			published.QuestionCount, published.AudioCount, published.ManualCount)
 	}
-	versions, err := svc.Queries.ListVersions.Handle(context.Background(), query.ListVersions{TestID: draft.ID})
+	versions, err := svc.Queries.ListVersions.Handle(context.Background(), query.ListVersions{TestID: draft.ID, Scope: everyone})
 	if err != nil {
 		t.Fatalf("list versions: %v", err)
 	}
@@ -132,7 +133,7 @@ func TestPreviewRendersTheFrozenVersionNotTheDraft(t *testing.T) {
 		t.Fatalf("edit the bank question: %v", err)
 	}
 
-	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
+	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0, Scope: everyone})
 	version, questionsOut := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview: %v", err)
@@ -166,7 +167,7 @@ func TestPreviewOfAnUnpublishedTestSaysSoRatherThanReturningNothing(t *testing.T
 	draft := b.draft("Chưa phát hành", b.shortAnswer("Câu một", "1.00"))
 
 	// An empty list would render as a published test with no questions.
-	if _, err := svc.Queries.Preview.Handle(context.Background(), query.Preview{TestID: draft.ID, Version: 0}); !errors.Is(err, domain.ErrNotPublished) {
+	if _, err := svc.Queries.Preview.Handle(context.Background(), query.Preview{TestID: draft.ID, Version: 0, Scope: everyone}); !errors.Is(err, domain.ErrNotPublished) {
 		t.Fatalf("want ErrNotPublished, got %v", err)
 	}
 }
@@ -185,11 +186,11 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 	}
 
 	two := b.shortAnswer("Thêm ở v2", "1.00")
-	reread, err := svc.Queries.Get.Handle(ctx, query.Get{ID: draft.ID})
+	reread, err := svc.Queries.Get.Handle(ctx, query.Get{ID: draft.ID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: draft.ID, ActorID: author}, Input: domain.UpdateInput{
+	if _, err := svc.Commands.Update.Handle(ctx, command.Update{Request: domain.Request{ID: draft.ID, ActorID: author, Scope: access.Scope{UserID: author}}, Input: domain.UpdateInput{
 		ExpectedUpdatedAt: reread.UpdatedAt,
 		SetSections:       true,
 		Sections:          []domain.SectionInput{{Title: "Phần 1", QuestionIDs: []string{one, two}}},
@@ -200,7 +201,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 		t.Fatalf("publish v2: %v", err)
 	}
 
-	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 1})
+	previewResult, err := svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 1, Scope: everyone})
 	v1, questionsV1 := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview v1: %v", err)
@@ -209,7 +210,7 @@ func TestPreviewPinsAnOlderVersion(t *testing.T) {
 		t.Fatalf("v1: want version 1 with 1 question, got %d with %d", v1, len(questionsV1))
 	}
 
-	previewResult, err = svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0})
+	previewResult, err = svc.Queries.Preview.Handle(ctx, query.Preview{TestID: draft.ID, Version: 0, Scope: everyone})
 	v2, questionsV2 := previewResult.Version, previewResult.Questions
 	if err != nil {
 		t.Fatalf("preview current: %v", err)

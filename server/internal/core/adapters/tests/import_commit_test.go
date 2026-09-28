@@ -15,6 +15,7 @@ import (
 	testsapp "quizzivy/internal/modules/tests/application"
 	testsrepo "quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"sync"
 	"testing"
@@ -54,7 +55,7 @@ func commitSetup(t *testing.T) commitHarness {
 			return questionsapp.New(questionsrepo.NewPostgres(scoped), adapters.MediaKinds{})
 		},
 	}
-	return commitHarness{pool: pool, imports: importsrepo.NewPostgres(dbx), committer: committer, by: actor.Actor{ID: id}}
+	return commitHarness{pool: pool, imports: importsrepo.NewPostgres(dbx), committer: committer, by: actor.Actor{ID: id, Scope: access.Scope{UserID: id}}}
 }
 
 func cleanupCommits(t *testing.T, pool *pgxpool.Pool, userID string) {

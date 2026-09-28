@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 )
@@ -18,7 +19,7 @@ func TestDuplicateKeepsMixedUnitOrderAndSurvivesSourceTestDeletion(t *testing.T)
 	tx, author, groups := groupTransaction(t)
 	testID, section, updated := snapshotDraft(t, tx, author)
 	asset := storedGroupAsset(t, tx, author, "audio")
-	source, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()})
+	source, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), OwnerSectionID: &section, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestDuplicateKeepsMixedUnitOrderAndSurvivesSourceTestDeletion(t *testing.T)
 	}
 	media := mediarepo.NewPostgres(db.NewContext(tx))
 	repo := repositories.NewPostgres(db.NewContext(tx), adapters.GroupQuestions{}, media).WithGroupQuestions(adapters.GroupQuestions{})
-	copy, err := repo.Duplicate(ctx, domain.DuplicateInput{ID: testID, ActorID: author, Now: time.Now()})
+	copy, err := repo.Duplicate(ctx, domain.DuplicateInput{ID: testID, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +43,7 @@ func TestDuplicateKeepsMixedUnitOrderAndSurvivesSourceTestDeletion(t *testing.T)
 		WHERE s.test_id=$1 AND u.ordinal=0`, copy.ID).Scan(&groupID); err != nil {
 		t.Fatal(err)
 	}
-	copied, err := groups.Get(ctx, groupID)
+	copied, err := groups.Get(ctx, everyone, groupID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,17 +56,17 @@ func TestDuplicateKeepsMixedUnitOrderAndSurvivesSourceTestDeletion(t *testing.T)
 	if _, err := tx.Exec(ctx, `UPDATE app.tests SET status='archived' WHERE id=$1`, testID); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Delete(ctx, domain.Request{ID: testID, ActorID: author}, time.Now()); err != nil {
+	if err := repo.Delete(ctx, domain.Request{ID: testID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := groups.Get(ctx, groupID); err != nil {
+	if _, err := groups.Get(ctx, everyone, groupID); err != nil {
 		t.Fatalf("source test deletion destroyed copied group: %v", err)
 	}
 	var orphans int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM app.questions WHERE context_group_id=$1`, source.Bundle.Group.ID).Scan(&orphans); err != nil || orphans != 0 {
 		t.Fatalf("deleted source stranded owned children: %d, %v", orphans, err)
 	}
-	published, err := repo.Publish(ctx, domain.PublishRequest{TestID: copy.ID, ActorID: author}, time.Now(), domain.Publishing.Validate)
+	published, err := repo.Publish(ctx, domain.PublishRequest{TestID: copy.ID, ActorID: author, Scope: access.Scope{UserID: author}}, time.Now(), domain.Publishing.Validate)
 	if err != nil || published.QuestionCount != 3 || published.TotalPoints != "2.00" {
 		t.Fatalf("copied context failed publication: %+v, %v", published, err)
 	}

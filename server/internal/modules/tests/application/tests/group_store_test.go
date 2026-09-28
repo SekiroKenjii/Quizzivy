@@ -14,6 +14,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -85,11 +86,11 @@ func TestGroupStoreRoundTripKeepsContextAndProtectsMedia(t *testing.T) {
 	tx, author, repo := groupTransaction(t)
 	asset := storedGroupAsset(t, tx, author, "audio")
 	source := storedGroupFixture(t, asset)
-	written, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: source, ActorID: author, Now: time.Now()})
+	written, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: source, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := repo.Get(ctx, written.Bundle.Group.ID)
+	loaded, err := repo.Get(ctx, everyone, written.Bundle.Group.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,7 @@ func TestGroupStoreRoundTripKeepsContextAndProtectsMedia(t *testing.T) {
 	if _, err := tx.Exec(ctx, `DELETE FROM app.group_stimulus_assets WHERE group_id=$1`, source.Group.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Get(ctx, source.Group.ID); err == nil {
+	if _, err := repo.Get(ctx, everyone, source.Group.ID); err == nil {
 		t.Fatal("read accepted missing relational media bindings")
 	}
 }
@@ -122,7 +123,7 @@ func TestGroupStoreRollsBackMembersAndAuditWhenAssetKindFails(t *testing.T) {
 	tx, author, repo := groupTransaction(t)
 	image := storedGroupAsset(t, tx, author, "image")
 	source := storedGroupFixture(t, image)
-	if _, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: source, ActorID: author, Now: time.Now()}); err == nil {
+	if _, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: source, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}); err == nil {
 		t.Fatal("audio binding accepted an image asset")
 	}
 	for _, statement := range []string{
@@ -153,7 +154,7 @@ func TestGroupStoreMountsEmptyGroupAndChecksDraftRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	bundle := domain.GroupBundle{Group: domain.QuestionGroup{ID: groupIdentity(t), Title: "Nhóm trống"}}
-	in := domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated.Add(-time.Second), ActorID: author, Now: time.Now()}
+	in := domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated.Add(-time.Second), ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}
 	if _, err := repo.Create(ctx, in); !errors.Is(err, domain.ErrStaleWrite) {
 		t.Fatalf("stale outline accepted a group: %v", err)
 	}
@@ -172,7 +173,7 @@ func TestGroupStoreCopySurvivesSourceEditsAndDeletion(t *testing.T) {
 	ctx := context.Background()
 	tx, author, repo := groupTransaction(t)
 	asset := storedGroupAsset(t, tx, author, "audio")
-	source, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), ActorID: author, Now: time.Now()})
+	source, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +181,7 @@ func TestGroupStoreCopySurvivesSourceEditsAndDeletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	copied, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now()})
+	copied, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +202,7 @@ func TestGroupStoreCopySurvivesSourceEditsAndDeletion(t *testing.T) {
 	if _, err := tx.Exec(ctx, `SET CONSTRAINTS ALL IMMEDIATE`); err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := repo.Get(ctx, copied.Bundle.Group.ID)
+	loaded, err := repo.Get(ctx, everyone, copied.Bundle.Group.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +237,7 @@ func TestGroupStorePreservesStandaloneOrderWhenMounting(t *testing.T) {
 		}
 	}
 	bundle := domain.GroupBundle{Group: domain.QuestionGroup{ID: groupIdentity(t), Title: "Nhóm trống"}}
-	if _, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()}); err != nil {
+	if _, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := tx.Query(ctx, `SELECT coalesce(question_id,group_id)::text FROM app.test_section_units WHERE test_section_id=$1 ORDER BY ordinal`, sectionID)
@@ -257,7 +258,7 @@ func TestGroupStoreArchivedGroupStillProtectsMemberAudio(t *testing.T) {
 	bundle.Questions[0].Input.MediaAssetID = &asset
 	bundle.Questions[0].MediaAssetKind = groupValue("audio")
 	bundle.Questions[0].Input.Audio = &questions.AudioPolicy{MaxPlays: groupValue(1)}
-	if _, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now()}); err != nil {
+	if _, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE app.question_groups SET archived_at=clock_timestamp() WHERE id=$1`, bundle.Group.ID); err != nil {
