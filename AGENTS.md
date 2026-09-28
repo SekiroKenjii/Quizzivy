@@ -217,7 +217,8 @@ unit, integration and end-to-end in that order.
   fails naming an operation the table lacks, and `resource_contract_test.go`
   a uuid without a kind.
 - **The v0.7.0 `/admin/*` teaching paths answer until R3.** The router
-  rewrites each to its `/teacher/*` path (`LegacyAdminPaths`) and logs
+  rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
+  `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
 - **Everything the contract does not explicitly open requires a bearer token**,
   derived from `api/openapi.yaml`'s `security`. Seven operations are open —
@@ -458,8 +459,9 @@ Design for longer Vietnamese strings; avoid fixed-width labels.
 - [ ] New dependencies listed with reasons
 - [ ] Screens compared with the deck at 360, 768, 1024, 1280 and 1440, light
       and dark, in the browser — not from code
-- [ ] Every new or changed operation declares `x-permission`, and a
-      `/teacher/*`, `/app/*` or `/me/*` one has its isolation-suite entry
+- [ ] Every new or changed operation that requires the bearer token declares
+      `x-permission` (an open one declares none), and a `/teacher/*`,
+      `/app/*` or `/me/*` one has its isolation-suite entry
 
 ## High-risk areas — extra care
 

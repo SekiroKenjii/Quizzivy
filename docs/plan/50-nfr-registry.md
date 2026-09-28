@@ -183,12 +183,12 @@ at the end says how much is covered and what the next round is.
 | D. Availability | 6 | 3 | 0 | 0 | 1 | 10 |
 | E. Performance | 5 | 1 | 2 | 0 | 0 | 8 |
 | F. Accessibility | 3 | 2 | 1 | 0 | 0 | 6 |
-| G. Usability | 9 | 1 | 0 | 0 | 0 | 10 |
+| G. Usability | 8 | 2 | 0 | 0 | 0 | 10 |
 | H. i18n | 4 | 0 | 1 | 0 | 0 | 5 |
 | I. Compatibility | 3 | 2 | 0 | 0 | 0 | 5 |
 | J. Maintainability | 12 | 0 | 0 | 0 | 0 | 12 |
 | K. Observability | 3 | 1 | 0 | 0 | 0 | 4 |
-| **Total** | **74** | **15** | **4** | **0** | **1** | **94** |
+| **Total** | **73** | **16** | **4** | **0** | **1** | **94** |
 
 Counts include all twelve maintainability requirements. Implemented mechanisms
 remain partial where deployment, notification delivery or device evidence is

@@ -7,7 +7,9 @@ map.
 
 ```
 server/
-  cmd/            api (the server), migrate, seedadmin — entry points only
+  cmd/            entry points only: api (the server), import-worker, maintenance, migrate,
+                  seedadmin, and the Word tools (word-convert, word-extract, word-inspect,
+                  word-recognize, verify-import-storage)
   internal/
     core/         the composition root: wiring/ builds each module, router/ fronts them,
                   adapters/ bridge ports, jobs/ run background commands, maintenance/ holds
@@ -64,7 +66,7 @@ exports. A test that needs a private function is a test of the wrong thing.
 |---|---|---|---|---|
 | unit | none | `<layer>/tests/` | nothing | `make test-api-unit` |
 | integration | `integration` | `repositories/tests/`, `application/tests/` | `TEST_DATABASE_URL` | `make test-api-integration` |
-| end-to-end | `e2e` | `server/tests/` | `TEST_DATABASE_URL` | `make test-api-e2e` |
+| end-to-end | `e2e` | `server/tests/` | `TEST_DATABASE_URL`, and MinIO (`make up`) for the isolation suite | `make test-api-e2e` |
 
 `make test-api` runs all three in that order; CI runs them as three steps.
 

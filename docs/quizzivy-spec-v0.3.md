@@ -12,9 +12,10 @@ R2, "Access" (v0.8.0, `docs/plan/72-r2.md`):
 - §1.3 One organization with several teachers. Every class, test, question,
   question group and media asset has an owner, and every Word import its
   creator.
-- §5 Every operation declares `x-permission`, which `RequirePermission`
-  enforces on every request from a 10-second principal cache. Seven operations
-  are open. Another teacher's id answers as a missing one does.
+- §5 Every operation that requires the bearer token declares `x-permission`,
+  which `RequirePermission` enforces on every request from a 10-second
+  principal cache; the seven open operations declare none. Another teacher's
+  id answers as a missing one does.
 - §5.2 The session epoch: disabling a student or resetting their password ends
   their live sessions at once, and a disabled user is refused on the next
   request.
@@ -568,7 +569,7 @@ A join code belongs to a class and is a **bearer secret**: whoever holds it can 
 - Per-code controls: `expires_at` (default 30 days), `max_uses` (default null = unlimited), `uses_count`, `revoked_at`.
 - One **active** code per class at a time. Rotating issues a new code and revokes the old one; previously enrolled students are unaffected.
 - Stored encrypted, so it can be read back for its teacher and for admins (D5), and found by a keyed hash (§6.5). A code issued from v0.8.0 on is sealed under the server's `JOIN_CODE_KEY`, which the database never holds (§13.3). A code issued before v0.8.0 is held only as its SHA-256: it still redeems but cannot be read back, and R4 rotates every such code.
-- The key is standard base64 of exactly 32 random bytes, kept as a Fly secret with an offline copy. The API refuses to start without it and never logs it.
+- The key is standard base64 of exactly 32 random bytes, kept as a Fly secret with an offline copy. The API refuses to start without it and never logs it. HKDF-SHA256 derives three values from it, each under its own label: the AES-256-GCM key, the HMAC-SHA256 lookup key and a 16-bit key id; a key whose id derives to 0 is refused.
 - Rotating the key: one deploy sets `JOIN_CODE_KEY_PREVIOUS` to the old key and `JOIN_CODE_KEY` to the new one, and codes under either key redeem and read back. `maintenance rekey-join-codes -apply` then re-seals every code under the old key with the new one, and the old key is unset (`docs/setup/operations.md`, "Join-code key"). A lost key leaves every code sealed under it unreadable and unredeemable: rotate every class's code.
 
 ### 6.2 Student flow
@@ -655,7 +656,7 @@ interface Class {
   id; name; description?;
   studentCount: number;
   selfJoinEnabled: boolean;
-  joinCode?: { code: string; expiresAt: string; maxUses: number | null; usesCount: number }; // admin only
+  joinCode?: { hint: string; expiresAt: string; maxUses: number | null; usesCount: number } | null; // teacher responses only; the code itself comes from getJoinCode (§6.4)
   createdAt;
 }
 
@@ -1734,7 +1735,7 @@ GET    /app/media/:assetId/url          → short-lived signed URL
 
 **`CurrentUser`** is `User`'s fields plus `permissions`, the keys the user's role holds in catalogue order, and `workspaces`, the consoles the user may open (`teacher`, `admin`, `app`). Only a response about the caller carries it: login, Google sign-in, `GET` and `PATCH /auth/me`, and `POST /auth/google/link`. A payload about someone else, such as the student on an attempt under review, carries `User`, so one user's permissions never reach another user's payload.
 
-`RESOURCE_REFERENCED` always carries `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`.
+`deleteClass` and `deleteUser` answer `RESOURCE_REFERENCED` with `details.referencedBy`, which names what still references the row: `assignments`, `attempts`, `audit`, `members`, `owned_content` or `other`. Later releases add values, and a client treats one it does not know as `other`. The other permanent deletes (`deleteAssignment`, `deleteTest`, `deleteTestVersion`) answer `RESOURCE_REFERENCED` without details.
 
 **During a maintenance window**, every route answers `503 MAINTENANCE`, with `details {startsAt, endsAt}`, `Retry-After` (seconds until the end) and a vi/en message. The exceptions are `GET`/`HEAD` `/livez`, `/healthz` and `/public/status`. The 503 comes before authentication and rate limiting, so an expired token also gets it.
 

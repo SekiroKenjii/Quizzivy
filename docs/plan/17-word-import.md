@@ -944,7 +944,7 @@ reads each asset separately. The publish response's zero `manualCount` and
 Whether import works depends on the deployment, and the product now says which
 case applies.
 
-**The contract.** `GET /admin/imports/capabilities` answers `intakeEnabled` (the
+**The contract.** `GET /teacher/imports/capabilities` answers `intakeEnabled` (the
 private import store is configured) and `processingEnabled`. It answers on every
 deployment, including one without imports.
 
