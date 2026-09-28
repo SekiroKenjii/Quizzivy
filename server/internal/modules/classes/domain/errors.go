@@ -6,6 +6,9 @@ import (
 
 var ErrNotFound = errors.New("classes: not found")
 
+// ErrNotAStudent means the user is not an active student the actor reaches:
+// missing, disabled, staff or another teacher's student all answer alike, so a
+// body id reveals nothing about accounts beyond the actor's reach.
 var ErrNotAStudent = errors.New("classes: not a student")
 
 // ErrEmailTaken is a signup racing another signup for the same address. The
@@ -16,8 +19,8 @@ var ErrEmailTaken = errors.New("join: email already registered")
 
 var ErrClassNotFound = errors.New("join: class not found")
 
-// ErrNoTeacher means the install has no active admin, so no class can name one.
-// An operational fault, not a bad request.
+// ErrNoTeacher means a class names no teacher, which classes.teacher_id's
+// constraint rules out. An operational fault, not a bad request.
 var ErrNoTeacher = errors.New("join: no active teacher account")
 
 var (

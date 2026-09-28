@@ -8,7 +8,10 @@ import (
 	dashboarddomain "quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
+	"quizzivy/internal/shared/visibility"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -29,8 +32,34 @@ const searchCondition = `(
 		OR lower(u.email) LIKE '%%' || lower($%[1]d) || '%%' ESCAPE '\'
 	)`
 
-const classCondition = `EXISTS (SELECT 1 FROM app.class_members m
-		  WHERE m.user_id = u.id AND m.class_id = $%d::uuid)`
+const classCondition = `EXISTS (SELECT 1 FROM app.class_members m JOIN app.classes c ON c.id = m.class_id
+		  WHERE m.user_id = u.id AND m.class_id = $%d::uuid%s)`
+
+const reachedStudent = `($2::boolean OR u.id IN ` + "%s" + `)`
+
+func scopedStudents(scope access.Scope, args []any) ([]any, []string, string) {
+	where := []string{`u.role = 'student'`}
+	if scope.All {
+		return args, where, ``
+	}
+	args = append(args, opt.String(scope.UserID))
+	owner := len(args)
+	return args, append(where, `u.id IN `+visibility.StudentIDs(owner)), fmt.Sprintf(` AND c.teacher_id = $%d::uuid`, owner)
+}
+
+func filterStudents(in domain.StudentQuery, args []any) ([]any, []string, string) {
+	args, where, classScope := scopedStudents(in.Scope, args)
+	where = append(where, statusCondition(in.Status))
+	if in.Query != "" {
+		args = append(args, db.EscapeLike(in.Query))
+		where = append(where, fmt.Sprintf(searchCondition, len(args)))
+	}
+	if in.ClassID != "" {
+		args = append(args, in.ClassID)
+		where = append(where, fmt.Sprintf(classCondition, len(args), classScope))
+	}
+	return args, where, classScope
+}
 
 func statusCondition(status domain.StudentStatus) string {
 	switch status {
@@ -43,7 +72,8 @@ func statusCondition(status domain.StudentStatus) string {
 	}
 }
 
-const selectStudents = `
+func selectStudents(classScope string) string {
+	return `
 		SELECT u.id::text, u.email, u.full_name,
 		       u.password_hash IS NOT NULL,
 		       coalesce((SELECT array_agg(i.provider::text)
@@ -56,8 +86,9 @@ const selectStudents = `
 		                        ORDER BY m.joined_at DESC)
 		                   FROM app.class_members m
 		                   JOIN app.classes c ON c.id = m.class_id
-		                  WHERE m.user_id = u.id), '[]'::jsonb)
+		                  WHERE m.user_id = u.id` + classScope + `), '[]'::jsonb)
 		  FROM app.users u`
+}
 
 func scanStudent(row pgx.Row) (domain.Student, error) {
 	var student domain.Student
@@ -74,21 +105,12 @@ func scanStudent(row pgx.Row) (domain.Student, error) {
 	return student, nil
 }
 
-// List returns one page of students, newest first.
+// List returns one page of the students the query's scope reaches, newest
+// first, each with only the memberships of classes the scope reaches.
 func (s *Students) List(ctx context.Context, in domain.StudentQuery) ([]domain.Student, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 
-	var args []any
-	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
-
-	if in.Query != "" {
-		args = append(args, db.EscapeLike(in.Query))
-		where = append(where, fmt.Sprintf(searchCondition, len(args)))
-	}
-	if in.ClassID != "" {
-		args = append(args, in.ClassID)
-		where = append(where, fmt.Sprintf(classCondition, len(args)))
-	}
+	args, where, classScope := filterStudents(in, []any{})
 	from := `
 		 WHERE ` + strings.Join(where, "\n		   AND ")
 
@@ -98,7 +120,7 @@ func (s *Students) List(ctx context.Context, in domain.StudentQuery) ([]domain.S
 	}
 
 	args = append(args, limit, offset)
-	rows, err := s.Query(ctx, selectStudents+from+fmt.Sprintf(`
+	rows, err := s.Query(ctx, selectStudents(classScope)+from+fmt.Sprintf(`
 		 ORDER BY u.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
@@ -120,18 +142,21 @@ func (s *Students) List(ctx context.Context, in domain.StudentQuery) ([]domain.S
 	return out, page, nil
 }
 
-// Get returns one student, disabled or not.
-func (s *Students) Get(ctx context.Context, id string) (domain.Student, error) {
-	return s.get(ctx, id, true)
+// Get returns one student the scope reaches, disabled or not, with only the
+// memberships of classes the scope reaches. Another teacher's student answers
+// ErrStudentNotFound, exactly as a missing one does.
+func (s *Students) Get(ctx context.Context, scope access.Scope, id string) (domain.Student, error) {
+	return s.get(ctx, scope, id, true)
 }
 
-func (s *Students) get(ctx context.Context, id string, includeDisabled bool) (domain.Student, error) {
-	where := ` WHERE u.id = $1::uuid AND u.role = 'student'`
+func (s *Students) get(ctx context.Context, scope access.Scope, id string, includeDisabled bool) (domain.Student, error) {
+	where := ` WHERE u.id = $1::uuid AND u.role = 'student' AND ` + fmt.Sprintf(reachedStudent, visibility.StudentIDs(3))
 	if !includeDisabled {
 		where += ` AND u.disabled_at IS NULL`
 	}
 
-	student, err := scanStudent(s.QueryRow(ctx, selectStudents+where, id))
+	student, err := scanStudent(s.QueryRow(ctx, selectStudents(` AND ($2::boolean OR c.teacher_id = $3::uuid)`)+where,
+		id, scope.All, opt.String(scope.UserID)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Student{}, domain.ErrStudentNotFound
 	}
@@ -141,19 +166,15 @@ func (s *Students) get(ctx context.Context, id string, includeDisabled bool) (do
 	return student, nil
 }
 
-// StudentFacets backs G-07's header. "StudentsActive" is the dashboard's window, not a second
-// definition of the same word on a second screen.
+// Facets backs G-07's header over the students the query's scope reaches;
+// "active" counts only work on assignments the scope reaches. "StudentsActive"
+// is the dashboard's window, not a second definition of the same word on a
+// second screen.
 func (s *Students) Facets(ctx context.Context, in domain.StudentQuery) (domain.StudentFacets, error) {
-	args := []any{dashboarddomain.ActiveWindow}
-	where := []string{`u.role = 'student'`, statusCondition(in.Status)}
-
-	if in.Query != "" {
-		args = append(args, db.EscapeLike(in.Query))
-		where = append(where, fmt.Sprintf(searchCondition, len(args)))
-	}
-	if in.ClassID != "" {
-		args = append(args, in.ClassID)
-		where = append(where, fmt.Sprintf(classCondition, len(args)))
+	args, where, _ := filterStudents(in, []any{dashboarddomain.ActiveWindow})
+	worked := ``
+	if !in.Scope.All {
+		worked = ` AND a.assignment_id IN ` + visibility.AssignmentIDs(2)
 	}
 
 	var f domain.StudentFacets
@@ -163,7 +184,7 @@ func (s *Students) Facets(ctx context.Context, in domain.StudentQuery) (domain.S
 		         SELECT 1 FROM app.attempts a
 		          WHERE a.student_id = u.id
 		            AND a.status <> 'voided'
-		            AND a.started_at > now() - $1::interval))
+		            AND a.started_at > now() - $1::interval`+worked+`))
 		  FROM app.users u
 		 WHERE `+strings.Join(where, "\n		   AND "), args...).
 		Scan(&f.Total, &f.ActiveLast7Days); err != nil {

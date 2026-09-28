@@ -29,20 +29,20 @@ func (noPrincipals) Resolve(_ context.Context, userID string) (access.Principal,
 	return access.Principal{UserID: userID}, nil
 }
 
-func (s *Students) WithStats(ctx context.Context, student domain.Student) (domain.Student, error) {
+func (s *Students) WithStats(ctx context.Context, scope access.Scope, student domain.Student) (domain.Student, error) {
 	list := []domain.Student{student}
-	if err := s.AttachStats(ctx, list); err != nil {
+	if err := s.AttachStats(ctx, scope, list); err != nil {
 		return domain.Student{}, err
 	}
 	return list[0], nil
 }
 
-func (s *Students) AttachStats(ctx context.Context, students []domain.Student) error {
+func (s *Students) AttachStats(ctx context.Context, scope access.Scope, students []domain.Student) error {
 	ids := make([]string, len(students))
 	for i, st := range students {
 		ids[i] = st.ID
 	}
-	byStudent, err := s.Stats.StudentStats(ctx, ids)
+	byStudent, err := s.Stats.StudentStats(ctx, scope, ids)
 	if err != nil {
 		return err
 	}

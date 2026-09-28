@@ -35,6 +35,7 @@ func (s RotateHandler) Handle(ctx context.Context, cmd Rotate) (domain.Rotated, 
 	issued, err := s.Repo.Rotate(ctx, domain.RotateInput{
 		ClassID:     cmd.Request.ClassID,
 		ActorUserID: cmd.Request.ActorUserID,
+		All:         cmd.Request.All,
 		CodeHash:    domain.JoinCodes.Hash(code),
 		Hint:        domain.JoinCodes.Hint(code),
 		ExpiresAt:   now.AddDate(0, 0, days),

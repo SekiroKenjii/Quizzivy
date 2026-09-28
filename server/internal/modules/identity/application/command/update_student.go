@@ -24,5 +24,5 @@ func (s UpdateStudentHandler) Handle(ctx context.Context, cmd UpdateStudent) (do
 	if cmd.Input.Disabled != nil {
 		s.Principals.Forget(cmd.Input.ID)
 	}
-	return s.WithStats(ctx, student)
+	return s.WithStats(ctx, cmd.Request.Scope(), student)
 }

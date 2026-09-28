@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Rotate revokes the class's active code and issues a replacement in one
-// transaction, so a class is never left with two active codes or none.
+// Rotate revokes the active code of a class the actor teaches and issues a
+// replacement in one transaction, so a class is never left with two active
+// codes or none. Another teacher's class answers ErrClassNotFound.
 func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.IssuedCode, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -20,8 +22,8 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 	defer func() { _ = tx.Rollback(ctx) }()
 	var exists bool
 	err = tx.QueryRow(ctx,
-		`SELECT true FROM app.classes WHERE id = $1 FOR UPDATE`,
-		in.ClassID).Scan(&exists)
+		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR UPDATE`,
+		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.IssuedCode{}, domain.ErrClassNotFound
 	}
@@ -85,8 +87,9 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 	return out, nil
 }
 
-// Revoke ends the active code without issuing a replacement, and turns off
-// self-join (§6.4).
+// Revoke ends the active code of a class the actor teaches without issuing a
+// replacement, and turns off self-join (§6.4). Another teacher's class answers
+// ErrClassNotFound.
 func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -96,8 +99,8 @@ func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 
 	var exists bool
 	err = tx.QueryRow(ctx,
-		`SELECT true FROM app.classes WHERE id = $1 FOR UPDATE`,
-		in.ClassID).Scan(&exists)
+		`SELECT true FROM app.classes WHERE id = $1 AND `+taughtClass+` FOR UPDATE`,
+		in.ClassID, in.All, opt.String(in.ActorUserID)).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrClassNotFound
 	}

@@ -1,17 +1,20 @@
 package domain
 
 import (
+	"quizzivy/internal/shared/access"
 	"time"
 )
 
-// ListInput selects a page of classes. Query matches the name, accent-folded
-// on both sides like every other search here (D-11).
+// ListInput selects a page of the classes Scope reaches: the caller's own, or
+// every teacher's under scope.all; a zero Scope matches nothing. Query matches
+// the name, accent-folded on both sides like every other search here (D-11).
 type ListInput struct {
 	Query string
 	Page  int
 	Limit int
 	// One of active (the default), joinable, archived, all.
 	Status string
+	Scope  access.Scope
 }
 
 // MembersInput selects a page of one class's roster. Query matches name or
@@ -41,10 +44,15 @@ type CreateInput struct {
 	UserAgent       *string
 }
 
+// ArchiveInput archives or restores a class ActorUserID teaches, or any class
+// with All, the actor's scope.all; another teacher's class answers ErrNotFound.
+// AddMemberInput, RemoveMemberInput, RotateInput and RevokeInput reach classes
+// the same way.
 type ArchiveInput struct {
 	ClassID     string
 	Archived    bool
 	ActorUserID string
+	All         bool
 	Now         time.Time
 	IP          *string
 	UserAgent   *string
@@ -54,6 +62,7 @@ type AddMemberInput struct {
 	ClassID     string
 	UserID      string
 	ActorUserID string
+	All         bool
 	Now         time.Time
 	IP          *string
 	UserAgent   *string
@@ -63,6 +72,7 @@ type RemoveMemberInput struct {
 	ClassID     string
 	UserID      string
 	ActorUserID string
+	All         bool
 	Now         time.Time
 	IP          *string
 	UserAgent   *string
@@ -71,6 +81,7 @@ type RemoveMemberInput struct {
 type RotateInput struct {
 	ClassID     string
 	ActorUserID string
+	All         bool
 	CodeHash    []byte
 	Hint        string
 	ExpiresAt   time.Time
@@ -83,14 +94,18 @@ type RotateInput struct {
 type RevokeInput struct {
 	ClassID     string
 	ActorUserID string
+	All         bool
 	Now         time.Time
 	IP          *string
 	UserAgent   *string
 }
 
+// RotateRequest and RevokeRequest reach a class ActorUserID teaches, or any
+// class with All, the actor's scope.all.
 type RotateRequest struct {
 	ClassID       string
 	ActorUserID   string
+	All           bool
 	ExpiresInDays *int
 	MaxUses       *int
 	IP            string
@@ -108,6 +123,7 @@ type Rotated struct {
 type RevokeRequest struct {
 	ClassID     string
 	ActorUserID string
+	All         bool
 	IP          string
 	UserAgent   string
 }

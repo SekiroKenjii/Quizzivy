@@ -9,16 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// LookupByCodeHash finds a code by its hash, revoked or not.
+// LookupByCodeHash finds a code by its hash, revoked or not, with its class's
+// own teacher.
 func (s *Postgres) LookupByCodeHash(ctx context.Context, hash []byte) (*domain.CodeRow, error) {
 	const q = `
 		SELECT c.id::text, c.name, c.self_join_enabled AND c.archived_at IS NULL,
 		       jc.code_hash, jc.revoked_at, jc.expires_at, jc.max_uses, jc.uses_count,
-		       (SELECT u.full_name
-		          FROM app.users u
-		         WHERE u.role = 'admin' AND u.disabled_at IS NULL
-		         ORDER BY u.created_at
-		         LIMIT 1)
+		       (SELECT t.full_name FROM app.users t WHERE t.id = c.teacher_id)
 		  FROM app.class_join_codes jc
 		  JOIN app.classes c ON c.id = jc.class_id
 		 WHERE jc.code_hash = $1`
