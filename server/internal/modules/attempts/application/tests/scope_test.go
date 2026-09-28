@@ -375,3 +375,28 @@ func TestListsOfPapersShowOnlyTheStudentsTheReaderReaches(t *testing.T) {
 		t.Errorf("A's attempt list after the student left shows %v, want every attempt on A's assignment", got)
 	}
 }
+
+func TestAMixedAssignmentShowsOnlyWhatTheReaderReaches(t *testing.T) {
+	w := newPaperWorld(t)
+	b := access.Scope{UserID: w.b}
+	w.id(t, `INSERT INTO app.assignment_classes (assignment_id, class_id) VALUES ($1, $2) RETURNING class_id::text`, w.byAdmin, w.classA)
+	if got := w.monitored(t, b, w.byAdmin); !slices.Equal(got, []string{w.studentB}) {
+		t.Errorf("B's monitor lists %v, want only B's student and none of A's class", got)
+	}
+	if got := w.monitored(t, access.Scope{UserID: w.admin, All: true}, w.byAdmin); !slices.Equal(got, sorted(w.studentA, w.studentB, w.loose)) {
+		t.Errorf("scope.all's monitor lists %v, want all three", got)
+	}
+
+	elsewhere := w.assignment(t, w.admin, w.classA, &w.studentB)
+	paper := w.attempt(t, elsewhere, w.studentB, 1, "submitted", "now() + interval '5 minutes'")
+	found, _, err := dashboardrepo.NewPostgres(db.NewContext(w.tx)).List(context.Background(), dashboarddomain.ListQuery{Scope: b, Limit: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(found, func(r dashboarddomain.Recent) bool { return r.ID == paper }) {
+		t.Error("B's attempt list shows B's student's paper on an assignment B does not reach")
+	}
+	if !slices.ContainsFunc(found, func(r dashboarddomain.Recent) bool { return r.ID == w.paperB }) {
+		t.Error("B's attempt list lost B's student's paper on the assignment B reaches")
+	}
+}

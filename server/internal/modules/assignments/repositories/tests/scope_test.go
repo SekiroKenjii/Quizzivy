@@ -174,16 +174,26 @@ func TestAnAssignmentNamesOnlyTheTargetsTheReaderReaches(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			classes, students := []string{}, []string{}
-			for _, class := range got.Classes {
-				classes = append(classes, class.ID)
+			listed, _, err := w.store.List(context.Background(), domain.ListInput{Scope: c.scope, Limit: 100})
+			if err != nil {
+				t.Fatal(err)
 			}
-			for _, student := range got.Students {
-				students = append(students, student.ID)
+			i := slices.IndexFunc(listed, func(a domain.Assignment) bool { return a.ID == w.shared })
+			if i < 0 {
+				t.Fatal("the list omits the assignment")
 			}
-			slices.Sort(classes)
-			if !slices.Equal(classes, c.classes) || !slices.Equal(students, c.students) || got.TargetCount != c.total {
-				t.Errorf("names classes %v, students %v and %d targets, want %v, %v and %d", classes, students, got.TargetCount, c.classes, c.students, c.total)
+			for source, a := range map[string]domain.Assignment{"get": got, "list": listed[i]} {
+				classes, students := []string{}, []string{}
+				for _, class := range a.Classes {
+					classes = append(classes, class.ID)
+				}
+				for _, student := range a.Students {
+					students = append(students, student.ID)
+				}
+				slices.Sort(classes)
+				if !slices.Equal(classes, c.classes) || !slices.Equal(students, c.students) || a.TargetCount != c.total {
+					t.Errorf("%s names classes %v, students %v and %d targets, want %v, %v and %d", source, classes, students, a.TargetCount, c.classes, c.students, c.total)
+				}
 			}
 		})
 	}
@@ -235,6 +245,8 @@ func TestAWriteNamesOnlyWhatTheWriterReaches(t *testing.T) {
 	ctx := context.Background()
 	b := as(w.b, false)
 	staffOfB := w.user(t, "teacher", &w.b)
+	disabledOfB := w.user(t, "student", &w.b)
+	w.id(t, `UPDATE app.users SET disabled_at = now() WHERE id = $1 RETURNING id::text`, disabledOfB)
 	for label, c := range map[string]struct {
 		version string
 		classes []string
@@ -247,6 +259,7 @@ func TestAWriteNamesOnlyWhatTheWriterReaches(t *testing.T) {
 		"A's student":            {w.versionB, []string{w.classB}, []string{w.studentA}},
 		"a missing student":      {w.versionB, []string{w.classB}, []string{uuid.NewString()}},
 		"a staff account B made": {w.versionB, []string{w.classB}, []string{staffOfB}},
+		"B's disabled student":   {w.versionB, []string{w.classB}, []string{disabledOfB}},
 	} {
 		_, err := w.store.Create(ctx, b, input(c.version, c.classes, c.student))
 		var invalid *domain.ValidationError
@@ -272,6 +285,17 @@ func TestAWriteNamesOnlyWhatTheWriterReaches(t *testing.T) {
 		if answers[0] != answers[1] {
 			t.Errorf("B naming A's %s answered %q, a missing one %q", pair, answers[0], answers[1])
 		}
+	}
+	repoint := as(w.b, false)
+	repoint.ID = w.mineB
+	before := w.state(t, w.mineB)
+	for label, version := range map[string]string{"A's version": w.versionA, "a missing version": uuid.NewString()} {
+		if _, err := w.store.Update(ctx, repoint, input(version, []string{w.classB}, nil)); !errors.Is(err, domain.ErrTestNotPublished) {
+			t.Errorf("B re-pointing B's assignment to %s: %v, want the answer a missing version gets", label, err)
+		}
+	}
+	if after := w.state(t, w.mineB); after != before {
+		t.Errorf("B's refused re-pointing changed the assignment from %s to %s", before, after)
 	}
 	if _, err := w.store.Create(ctx, b, input(w.versionB, []string{w.classB}, []string{w.studentB})); err != nil {
 		t.Errorf("B assigning B's own version, class and student: %v", err)
@@ -301,6 +325,7 @@ func TestAClassArmTeacherCanCloseAnAdminsAssignmentAndKeepsHiddenTargets(t *test
 	ctx := context.Background()
 	b := as(w.b, false)
 	b.ID = w.shared
+	w.id(t, `INSERT INTO app.assignment_students (assignment_id, user_id) VALUES ($1, $2) RETURNING user_id::text`, w.shared, w.studentA)
 	in := input(w.versionA, []string{w.classB}, []string{w.studentB})
 	in.CloseNow = true
 	saved, err := w.store.Update(ctx, b, in)
@@ -321,9 +346,43 @@ func TestAClassArmTeacherCanCloseAnAdminsAssignmentAndKeepsHiddenTargets(t *test
 	if !slices.Equal(classes, sortedIDs(w.classA, w.classB)) {
 		t.Errorf("B's save left classes %v, want A's class kept beside B's", classes)
 	}
+	rows, err = w.tx.Query(ctx, `SELECT user_id::text FROM app.assignment_students WHERE assignment_id = $1 ORDER BY user_id`, w.shared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	students, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(students, sortedIDs(w.studentA, w.studentB)) {
+		t.Errorf("B's save left students %v, want A's student kept beside B's", students)
+	}
 	in = input(w.versionA, []string{w.classA, w.classB}, nil)
 	var invalid *domain.ValidationError
 	if _, err := w.store.Update(ctx, b, in); !errors.As(err, &invalid) {
 		t.Errorf("B adding A's class: %v, want the missing-class answer", err)
+	}
+}
+
+func TestScopeAllWritesAnotherTeachersAssignment(t *testing.T) {
+	w := newReachWorld(t)
+	ctx := context.Background()
+	admin := as(w.admin, true)
+	w.id(t, `UPDATE app.assignments SET published_at = now() - interval '2 hours', closed_at = now() - interval '1 minute' WHERE id = $1 RETURNING id::text`, w.mineA)
+	admin.ID = w.mineA
+	reopened, err := w.store.Reopen(ctx, admin, time.Now().Add(time.Hour), "Gia hạn", time.Now())
+	if err != nil {
+		t.Fatalf("scope.all reopening A's assignment: %v", err)
+	}
+	if reopened.ClosedAt != nil {
+		t.Error("the reopened assignment is still closed")
+	}
+	w.id(t, `UPDATE app.assignments SET closed_at = now() - interval '1 minute' WHERE id = $1 RETURNING id::text`, w.mineB)
+	admin.ID = w.mineB
+	if err := w.store.Delete(ctx, admin, time.Now()); err != nil {
+		t.Fatalf("scope.all deleting B's closed assignment: %v", err)
+	}
+	if _, err := w.store.Get(ctx, access.Scope{All: true}, w.mineB); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("B's assignment is still there: %v", err)
 	}
 }
