@@ -32,7 +32,7 @@ func TestAssignmentDeletionRequiresDraftOrClosedWithoutAttempts(t *testing.T) {
 	if err := repo.Delete(ctx, req, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Get(ctx, created.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := repo.Get(ctx, everyone, created.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("deleted assignment still accessible: %v", err)
 	}
 }

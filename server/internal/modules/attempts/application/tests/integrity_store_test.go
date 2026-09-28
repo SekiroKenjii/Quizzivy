@@ -110,7 +110,7 @@ func TestTheTimelineReadsTheLogAcrossAResumeAndTheReplaysFromThePlaysTable(t *te
 		}
 	}
 
-	timeline, err := repositories.NewTimelines(db.NewContext(pool)).Timeline(ctx, attemptID)
+	timeline, err := repositories.NewTimelines(db.NewContext(pool)).Timeline(ctx, everyone, attemptID)
 	if err != nil {
 		t.Fatalf("timeline: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestTheTimelineReadsTheLogAcrossAResumeAndTheReplaysFromThePlaysTable(t *te
 		t.Errorf("summary %+v, want %+v", timeline.Summary, want)
 	}
 
-	if _, err := repositories.NewTimelines(db.NewContext(pool)).Timeline(ctx, "01935000-0000-7000-8000-00000000dead"); err != domain.ErrTimelineNotFound {
+	if _, err := repositories.NewTimelines(db.NewContext(pool)).Timeline(ctx, everyone, "01935000-0000-7000-8000-00000000dead"); err != domain.ErrTimelineNotFound {
 		t.Errorf("unknown attempt: %v, want ErrTimelineNotFound", err)
 	}
 }

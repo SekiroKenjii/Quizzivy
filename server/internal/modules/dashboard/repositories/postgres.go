@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -88,11 +90,18 @@ func (p *Postgres) Summary(ctx context.Context) (domain.Summary, error) {
 	return out, nil
 }
 
+// List returns one page of the attempts on assignments the query's scope
+// reaches, as visibility.Papers shows them, newest hand-in first.
 func (p *Postgres) List(ctx context.Context, q domain.ListQuery) ([]domain.Recent, paging.Page, error) {
 	number, limit, offset := paging.Clamp(q.Page, q.Limit, defaultLimit, maxLimit)
 
 	var args []any
 	where := []string{"TRUE"}
+	if !q.Scope.All {
+		args = append(args, q.Scope.All, opt.String(q.Scope.UserID))
+		where = append(where, `at.assignment_id IN `+visibility.AssignmentIDs(2),
+			visibility.Papers(1, 2, "at.assignment_id", "at.student_id"))
+	}
 	if q.Status != nil {
 		args = append(args, *q.Status)
 		where = append(where, fmt.Sprintf("at.status = $%d::app.attempt_status", len(args)))

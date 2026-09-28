@@ -3,11 +3,15 @@ package domain
 import (
 	"context"
 	testsdomain "quizzivy/internal/modules/tests/domain"
+	"quizzivy/internal/shared/access"
 	"time"
 )
 
 // Repository persists attempts: their creation and resumption, the answers
-// and events saved while they run, and the teacher's interventions.
+// and events saved while they run, and the teacher's interventions. Every
+// teacher read and intervention reaches only attempts on an assignment the
+// scope reaches (visibility.AssignmentIDs); another teacher's answers exactly
+// as a missing one does. The student paths take no scope.
 type Repository interface {
 	Rules(ctx context.Context, assignmentID, studentID string) (Rules, error)
 	RulesFor(ctx context.Context, assignmentID string) (Rules, error)
@@ -30,9 +34,9 @@ type Repository interface {
 	Flush(ctx context.Context, in FlushInput, now time.Time) error
 	Submit(ctx context.Context, attemptID, studentID string, reason Reason, now time.Time) (AttemptRecord, error)
 	ExpireIfDue(ctx context.Context, attemptID string, now time.Time) error
-	DueAttempts(ctx context.Context, assignmentID string, now time.Time) ([]string, error)
+	DueAttempts(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) ([]string, error)
 	LoadResult(ctx context.Context, a AttemptRecord) (Result, error)
-	Monitor(ctx context.Context, assignmentID string, now time.Time) (Monitor, error)
+	Monitor(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) (Monitor, error)
 	Extend(ctx context.Context, req Request, attemptID string, minutes int, reason string, now time.Time) (Attempt, error)
 	Void(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)
 	Reset(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)
@@ -40,18 +44,20 @@ type Repository interface {
 }
 
 // ReviewRepository is the teacher's side of a paper: reading it with the
-// grading key, marking it, and noting it.
+// grading key, marking it, and noting it, each only on an assignment the scope
+// reaches.
 type ReviewRepository interface {
 	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
 	GroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
-	Get(ctx context.Context, attemptID string) (Review, error)
-	Grade(ctx context.Context, attemptID, graderID string, items []GradeItem) (Score, error)
-	Finish(ctx context.Context, attemptID string) (Attempt, error)
-	SetNote(ctx context.Context, attemptID string, note *string) error
-	AnswersForQuestion(ctx context.Context, assignmentID, questionID string) (ByQuestion, error)
+	Get(ctx context.Context, scope access.Scope, attemptID string) (Review, error)
+	Grade(ctx context.Context, scope access.Scope, attemptID, graderID string, items []GradeItem) (Score, error)
+	Finish(ctx context.Context, scope access.Scope, attemptID string) (Attempt, error)
+	SetNote(ctx context.Context, scope access.Scope, attemptID string, note *string) error
+	AnswersForQuestion(ctx context.Context, scope access.Scope, assignmentID, questionID string) (ByQuestion, error)
 }
 
-// TimelineRepository reads the integrity events an attempt recorded.
+// TimelineRepository reads the integrity events an attempt recorded, on an
+// assignment the scope reaches.
 type TimelineRepository interface {
-	Timeline(ctx context.Context, attemptID string) (Timeline, error)
+	Timeline(ctx context.Context, scope access.Scope, attemptID string) (Timeline, error)
 }

@@ -102,7 +102,7 @@ func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 	store := repositories.NewPostgres(db.NewContext(tx))
 
-	before, err := store.Facets(ctx, domain.ListInput{})
+	before, err := store.Facets(ctx, domain.ListInput{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestFacetsFollowTheDerivedStatus(t *testing.T) {
 		}
 	}
 
-	after, err := store.Facets(ctx, domain.ListInput{})
+	after, err := store.Facets(ctx, domain.ListInput{Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}

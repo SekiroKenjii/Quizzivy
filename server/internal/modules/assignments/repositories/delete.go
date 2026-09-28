@@ -6,6 +6,7 @@ import (
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,7 +15,9 @@ import (
 
 const entityAssignment = "assignment"
 
-// Delete removes an inactive assignment while preserving assigned work and retained history.
+// Delete removes an inactive assignment the actor reaches while preserving
+// assigned work and retained history. Another teacher's answers ErrNotFound
+// before either refusal can reveal it.
 func (s *Postgres) Delete(ctx context.Context, req domain.Request, now time.Time) error {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -22,7 +25,9 @@ func (s *Postgres) Delete(ctx context.Context, req domain.Request, now time.Time
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var allowed bool
-	err = tx.QueryRow(ctx, `SELECT published_at IS NULL OR closed_at IS NOT NULL OR closes_at <= $2 FROM app.assignments WHERE id = $1 FOR UPDATE`, req.ID, now).Scan(&allowed)
+	err = tx.QueryRow(ctx, `SELECT published_at IS NULL OR closed_at IS NOT NULL OR closes_at <= $2 FROM app.assignments
+		 WHERE id = $1 AND ($3::boolean OR id IN `+visibility.AssignmentIDs(4)+`) FOR UPDATE`,
+		req.ID, now, req.All, opt.String(req.ActorID)).Scan(&allowed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

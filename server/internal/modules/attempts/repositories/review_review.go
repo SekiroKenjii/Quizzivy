@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,9 +23,11 @@ func NewReviews(dbx db.Context) *Reviews {
 	return &Reviews{Repository: db.NewRepository(dbx), now: time.Now}
 }
 
-// Get reads one attempt for review, in the version's own order rather than
-// the student's shuffled one: question 23 is the essay for every paper.
-func (s *Reviews) Get(ctx context.Context, attemptID string) (domain.Review, error) {
+// Get reads one paper on an assignment the scope reaches, with its grading
+// key, in the version's own order rather than the student's shuffled one:
+// question 23 is the essay for every paper. Another teacher's answers
+// ErrPaperNotFound.
+func (s *Reviews) Get(ctx context.Context, scope access.Scope, attemptID string) (domain.Review, error) {
 	var (
 		out   domain.Review
 		total *float64
@@ -37,7 +42,8 @@ func (s *Reviews) Get(ctx context.Context, attemptID string) (domain.Review, err
 		  JOIN app.assignments asg ON asg.id = at.assignment_id
 		  JOIN app.tests t ON t.id = asg.test_id
 		  JOIN app.test_versions v ON v.id = at.test_version_id
-		 WHERE at.id = $1::uuid`, attemptID).Scan(
+		 WHERE at.id = $1::uuid AND ($2::boolean OR at.assignment_id IN `+visibility.AssignmentIDs(3)+`)`,
+		attemptID, scope.All, opt.String(scope.UserID)).Scan(
 		&a.ID, &a.AssignmentID, &a.StudentID, &a.TestVersionID,
 		&a.AttemptNo, &a.Status, &a.StartedAt, &a.DeadlineAt, &a.SubmittedAt, &a.GradedAt,
 		&a.FocusLossCount, &a.Flagged, &total, &out.TeacherNote,
@@ -79,12 +85,14 @@ func (s *Reviews) Get(ctx context.Context, attemptID string) (domain.Review, err
 	return out, nil
 }
 
-// SetNote keeps or clears the teacher's note. Not audited: it is the
-// teacher's own memory aid, and the actions it explains are audited already.
-func (s *Reviews) SetNote(ctx context.Context, attemptID string, note *string) error {
+// SetNote keeps or clears the teacher's note on a paper of an assignment the
+// scope reaches. Not audited: it is the teacher's own memory aid, and the
+// actions it explains are audited already.
+func (s *Reviews) SetNote(ctx context.Context, scope access.Scope, attemptID string, note *string) error {
 	tag, err := s.Exec(ctx,
-		`UPDATE app.attempts SET teacher_note = nullif(btrim($2), '') WHERE id = $1::uuid`,
-		attemptID, note)
+		`UPDATE app.attempts SET teacher_note = nullif(btrim($2), '')
+		  WHERE id = $1::uuid AND ($3::boolean OR assignment_id IN `+visibility.AssignmentIDs(4)+`)`,
+		attemptID, note, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return fmt.Errorf("review: set note: %w", err)
 	}

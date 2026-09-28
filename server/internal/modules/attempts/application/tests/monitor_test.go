@@ -116,7 +116,7 @@ func TestTheMonitorIsTwoQueriesForFiftyStudentsAndThirtyAttempts(t *testing.T) {
 
 	store := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{})
 	counter.n.Store(0)
-	monitor, err := store.Monitor(context.Background(), w.assignment, time.Now())
+	monitor, err := store.Monitor(context.Background(), everyone, w.assignment, time.Now())
 	if err != nil {
 		t.Fatalf("monitor: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestARowShowsTheAttemptThatStillCountsAndReadsProgressFromTheAnswers(t *tes
 	handIn(t, pool, w, other, 1, "voided")
 	live := handIn(t, pool, w, other, 2, "submitted")
 
-	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{Scope: everyone, AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,10 +192,10 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := svc.Commands.ExpireDue.Handle(context.Background(), command.ExpireDue{AssignmentID: w.assignment}); err != nil {
+	if _, err := svc.Commands.ExpireDue.Handle(context.Background(), command.ExpireDue{Scope: everyone, AssignmentID: w.assignment}); err != nil {
 		t.Fatal(err)
 	}
-	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{AssignmentID: w.assignment})
+	monitor, err := svc.Queries.Monitor.Handle(context.Background(), query.Monitor{Scope: everyone, AssignmentID: w.assignment})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestTheMonitorClosesAnAttemptWhoseTimeRanOutBeforeReporting(t *testing.T) {
 
 func TestAnUnknownAssignmentIsNotAnEmptyMonitor(t *testing.T) {
 	pool := newPool(t)
-	_, err := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Monitor(context.Background(), "01935000-0000-7000-8000-00000000dead", time.Now())
+	_, err := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}).Monitor(context.Background(), everyone, "01935000-0000-7000-8000-00000000dead", time.Now())
 	if err != domain.ErrNotFound {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}

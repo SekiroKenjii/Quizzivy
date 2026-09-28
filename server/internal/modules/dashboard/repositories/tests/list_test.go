@@ -25,7 +25,7 @@ func TestTheAttemptListFiltersTheGradingQueueAndTheFlaggedOnes(t *testing.T) {
 	}
 
 	yes := true
-	queue, page, err := store.List(ctx, domain.ListQuery{PendingGrading: &yes, Limit: 100})
+	queue, page, err := store.List(ctx, domain.ListQuery{Scope: everyone, PendingGrading: &yes, Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestTheAttemptListFiltersTheGradingQueueAndTheFlaggedOnes(t *testing.T) {
 		t.Errorf("page %+v", page)
 	}
 
-	marked, _, err := store.List(ctx, domain.ListQuery{Flagged: &yes, Limit: 100})
+	marked, _, err := store.List(ctx, domain.ListQuery{Scope: everyone, Flagged: &yes, Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}

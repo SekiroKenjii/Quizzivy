@@ -26,10 +26,10 @@ func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetA
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	if _, err := h.app.Commands.ExpireDue.Handle(ctx, command.ExpireDue{AssignmentID: request.Id.String()}); err != nil {
+	if _, err := h.app.Commands.ExpireDue.Handle(ctx, command.ExpireDue{AssignmentID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)}); err != nil {
 		return nil, err
 	}
-	monitor, err := h.app.Queries.Monitor.Handle(ctx, query.Monitor{AssignmentID: request.Id.String()})
+	monitor, err := h.app.Queries.Monitor.Handle(ctx, query.Monitor{AssignmentID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetAssignmentMonitor404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, "Không tìm thấy bài giao."))}, nil
@@ -87,7 +87,7 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 	if h.app == nil || h.students == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	rv, err := h.app.Queries.Review.Handle(ctx, query.Review{AttemptID: request.Id.String()})
+	rv, err := h.app.Queries.Review.Handle(ctx, query.Review{AttemptID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrGroupContextUnavailable) {
 		return nil, httpx.ErrNotImplemented
 	}
@@ -103,7 +103,7 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 	if err != nil {
 		return nil, err
 	}
-	timeline, err := h.app.Queries.Timeline.Handle(ctx, query.Timeline{AttemptID: rv.Attempt.ID})
+	timeline, err := h.app.Queries.Timeline.Handle(ctx, query.Timeline{AttemptID: rv.Attempt.ID, Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (h Attempts) ListAnswersForQuestion(ctx context.Context, request openapi.Li
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	byQ, err := h.app.Queries.AnswersForQuestion.Handle(ctx, query.AnswersForQuestion{AssignmentID: request.Id.String(), QuestionID: request.Params.QuestionId.String()})
+	byQ, err := h.app.Queries.AnswersForQuestion.Handle(ctx, query.AnswersForQuestion{AssignmentID: request.Id.String(), QuestionID: request.Params.QuestionId.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	switch {
 	case errors.Is(err, domain.ErrPaperNotFound):
 		return openapi.ListAnswersForQuestion404JSONResponse(httpapi.NotFound(ctx, "Không tìm thấy bài giao.")), nil
@@ -231,7 +231,7 @@ func (h Attempts) SetAttemptNote(ctx context.Context, request openapi.SetAttempt
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	_, err := h.app.Commands.SetNote.Handle(ctx, command.SetNote{AttemptID: request.Id.String(), Note: request.Body.Note})
+	_, err := h.app.Commands.SetNote.Handle(ctx, command.SetNote{AttemptID: request.Id.String(), Note: request.Body.Note, Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrPaperNotFound) {
 		return openapi.SetAttemptNote404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
@@ -239,7 +239,7 @@ func (h Attempts) SetAttemptNote(ctx context.Context, request openapi.SetAttempt
 	if err != nil {
 		return nil, err
 	}
-	rv, err := h.app.Queries.Review.Handle(ctx, query.Review{AttemptID: request.Id.String()})
+	rv, err := h.app.Queries.Review.Handle(ctx, query.Review{AttemptID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (h Attempts) GetAttemptEvents(ctx context.Context, request openapi.GetAttem
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	timeline, err := h.app.Queries.Timeline.Handle(ctx, query.Timeline{AttemptID: request.Id.String()})
+	timeline, err := h.app.Queries.Timeline.Handle(ctx, query.Timeline{AttemptID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrTimelineNotFound) {
 		return openapi.GetAttemptEvents404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
@@ -372,12 +372,8 @@ func (h Attempts) GetAttemptEvents(ctx context.Context, request openapi.GetAttem
 }
 
 func attemptRequest(ctx context.Context) (domain.Request, bool) {
-	principal, ok := httpx.PrincipalFromContext(ctx)
-	if !ok {
-		return domain.Request{}, false
-	}
-	meta := httpx.RequestMetaFromContext(ctx)
-	return domain.Request{ActorID: principal.UserID, IP: meta.IP, UserAgent: meta.UserAgent}, true
+	who, ok := httpapi.ActorFromContext(ctx)
+	return domain.Request{ActorID: who.ID, All: who.Scope.All, IP: who.IP, UserAgent: who.UserAgent}, ok
 }
 
 // ExtendAttempt is the first of §8's three interventions; each takes a reason.
@@ -493,7 +489,7 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	for i, it := range request.Body.Items {
 		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: it.Points, Comment: it.Comment}
 	}
-	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{AttemptID: request.Id.String(), GraderID: principal.UserID, Items: items})
+	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{AttemptID: request.Id.String(), GraderID: principal.UserID, Items: items, Scope: httpapi.ScopeFromContext(ctx)})
 	var invalid *domain.GradeValidationError
 	switch {
 	case errors.As(err, &invalid):
@@ -536,7 +532,7 @@ func (h Attempts) FinishGrading(ctx context.Context, request openapi.FinishGradi
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	graded, err := h.app.Commands.Finish.Handle(ctx, command.Finish{AttemptID: request.Id.String()})
+	graded, err := h.app.Commands.Finish.Handle(ctx, command.Finish{AttemptID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	switch {
 	case errors.Is(err, domain.ErrPaperNotFound):
 		return openapi.FinishGrading404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, msgAttemptNotFound))}, nil
