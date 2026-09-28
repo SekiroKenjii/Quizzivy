@@ -368,13 +368,13 @@ func TestReadableReachesAnAssetThroughWhatTheCallerOwns(t *testing.T) {
 		}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			asset := w.asset(t, w.a, c.kind)
+			asset, bystander := w.asset(t, w.a, c.kind), w.asset(t, w.a, c.kind)
 			if w.reads(t, w.scopeB, asset) {
 				t.Fatal("B reads A's asset before anything of B's uses it")
 			}
 			revoke := c.grant(t, asset)
-			if kinds := w.readable(t, w.scopeB, asset); kinds[asset] != c.kind {
-				t.Errorf("B reads %v through it, want %s as %s", kinds, asset, c.kind)
+			if kinds := w.readable(t, w.scopeB, asset, bystander); len(kinds) != 1 || kinds[asset] != c.kind {
+				t.Errorf("B reads %v through it, want only %s as %s", kinds, asset, c.kind)
 			}
 			if w.reads(t, access.Scope{}, asset) {
 				t.Error("the zero scope reads it too")
@@ -397,9 +397,12 @@ func TestReadableIgnoresUsesTheCallerDoesNotOwn(t *testing.T) {
 	w.question(t, w.b, asset, domain.KindImage, &groupOfA)
 	w.question(t, w.a, asset, domain.KindImage, nil)
 	w.stimulus(t, w.group(t, w.a, nil), asset)
+	testOfA := w.test(t, w.a)
 	w.exec(t, `INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, media_asset_id, media_asset_kind) VALUES ($1, 0, 'short_answer', 'Xem', 1, $2, 'image')`,
-		w.versionSection(t, w.test(t, w.a)), asset)
+		w.versionSection(t, testOfA), asset)
+	section := w.id(t, `INSERT INTO app.test_sections (test_id, ordinal, title) VALUES ($1, 0, 'Phần 1') RETURNING id::text`, testOfA)
+	w.stimulus(t, w.group(t, w.b, &section), asset)
 	if w.reads(t, w.scopeB, asset) {
-		t.Error("B reads A's asset through A's content, or through a member question B owns inside A's group")
+		t.Error("B reads A's asset through A's content, through a member question B owns inside A's group, or through a section group recorded as B's inside A's test")
 	}
 }
