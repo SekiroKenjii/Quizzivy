@@ -576,6 +576,120 @@ func TestTheOwnershipExpandKeepsTheOldBinaryWorking(t *testing.T) {
 	})
 }
 
+func TestTheJoinCodeEncryptionKeepsTheOldBinaryWorking(t *testing.T) {
+	dsn := expandScratch(t)
+	migrate := openAs(t, dsn)
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetLogger(goose.NopLogger())
+	dir := db.MigrationsDir(t)
+	before := versionBefore(t, dir, "_add_join_code_encryption.sql")
+	if err := goose.UpTo(migrate, dir, before); err != nil {
+		t.Fatalf("up to the release before: %v", err)
+	}
+	var teacher, class, legacy string
+	if err := migrate.QueryRow(`INSERT INTO app.users (email, full_name, role_id) VALUES ('teacher@example.com', 'Teacher', (SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`).Scan(&teacher); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate.QueryRow(`INSERT INTO app.classes (name, teacher_id) VALUES ('Class', $1) RETURNING id::text`, teacher).Scan(&class); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate.QueryRow(`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
+		VALUES ($1, sha256('before'::bytea), 'FORE', now() + interval '30 days', $2) RETURNING id::text`, class, teacher).Scan(&legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.Up(migrate, dir); err != nil {
+		t.Fatalf("up: %v", err)
+	}
+	legacyRow := func(q interface {
+		QueryRow(string, ...any) *sql.Row
+	}, query string, args ...any) {
+		t.Helper()
+		var scheme int
+		var keyless, plain bool
+		if err := q.QueryRow(query, args...).Scan(&scheme, &keyless, &plain); err != nil {
+			t.Fatal(err)
+		}
+		if scheme != 1 || !keyless || !plain {
+			t.Errorf("scheme %d, key id null %v, ciphertext null %v; want a legacy row", scheme, keyless, plain)
+		}
+	}
+	legacyRow(migrate, `SELECT lookup_scheme, key_id IS NULL, code_ciphertext IS NULL FROM app.class_join_codes WHERE id = $1`, legacy)
+
+	app := openAs(t, appRoleDSN(t, dsn))
+	t.Run("the old binary's insert is a legacy row", func(t *testing.T) {
+		tx, err := app.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		if _, err := tx.Exec(`UPDATE app.class_join_codes SET revoked_at = now() WHERE class_id = $1 AND revoked_at IS NULL`, class); err != nil {
+			t.Fatal(err)
+		}
+		legacyRow(tx, `INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, created_by, created_at)
+			VALUES ($1, sha256('old binary'::bytea), 'NARY', now() + interval '30 days', 40, $2, now())
+			RETURNING lookup_scheme, key_id IS NULL, code_ciphertext IS NULL`, class, teacher)
+	})
+
+	t.Run("down refuses only while a live sealed code exists", func(t *testing.T) {
+		gone := func() {
+			t.Helper()
+			var columns int
+			if err := migrate.QueryRow(`SELECT count(*) FROM information_schema.columns
+				 WHERE table_schema = 'app' AND table_name = 'class_join_codes'
+				   AND column_name IN ('code_ciphertext', 'key_id', 'lookup_scheme')`).Scan(&columns); err != nil {
+				t.Fatal(err)
+			}
+			if columns != 0 {
+				t.Errorf("down left %d of the three columns", columns)
+			}
+		}
+		seal := func() string {
+			t.Helper()
+			if _, err := migrate.Exec(`UPDATE app.class_join_codes SET revoked_at = now() WHERE class_id = $1 AND revoked_at IS NULL`, class); err != nil {
+				t.Fatal(err)
+			}
+			var id string
+			if err := migrate.QueryRow(`INSERT INTO app.class_join_codes (class_id, code_hash, code_ciphertext, key_id, lookup_scheme, code_hint, expires_at, created_by)
+				VALUES ($1, sha256(gen_random_uuid()::text::bytea), decode(repeat('ab', 36), 'hex'), 7, 2, 'ALED', now() + interval '30 days', $2) RETURNING id::text`, class, teacher).Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			return id
+		}
+
+		live := seal()
+		if err := goose.DownTo(migrate, dir, before); err == nil || !strings.Contains(err.Error(), "live encrypted join code") {
+			t.Fatalf("down with a live sealed code: %v", err)
+		}
+		if _, err := migrate.Exec(`UPDATE app.class_join_codes SET expires_at = created_at + interval '1 microsecond' WHERE id = $1`, live); err != nil {
+			t.Fatal(err)
+		}
+		if err := goose.DownTo(migrate, dir, before); err != nil {
+			t.Fatalf("down once the sealed code has expired: %v", err)
+		}
+		gone()
+		if err := goose.Up(migrate, dir); err != nil {
+			t.Fatalf("up again: %v", err)
+		}
+
+		revoked := seal()
+		if err := goose.DownTo(migrate, dir, before); err == nil {
+			t.Fatal("down went through with a live sealed code")
+		}
+		if _, err := migrate.Exec(`UPDATE app.class_join_codes SET revoked_at = now() WHERE id = $1`, revoked); err != nil {
+			t.Fatal(err)
+		}
+		if err := goose.DownTo(migrate, dir, before); err != nil {
+			t.Fatalf("down once the sealed code is revoked: %v", err)
+		}
+		gone()
+		if err := goose.Up(migrate, dir); err != nil {
+			t.Fatalf("up again: %v", err)
+		}
+	})
+}
+
 func TestAddingTheClassTeacherWaitsForTheOldStudentCreateInsteadOfDeadlocking(t *testing.T) {
 	dsn := expandScratch(t)
 	migrate := openAs(t, dsn)

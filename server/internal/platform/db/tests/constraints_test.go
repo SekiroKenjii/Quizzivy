@@ -242,6 +242,37 @@ func TestAnExpiredCodeStillOccupiesTheActiveSlot(t *testing.T) {
 	})
 }
 
+func TestAJoinCodeRowIsEitherLegacyOrFullySealed(t *testing.T) {
+	const insert = `INSERT INTO app.class_join_codes
+		       (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, code_ciphertext, key_id)
+		VALUES ($1, sha256(gen_random_uuid()::text::bytea), 'AB12', now() + interval '30 days', $2, $3, $4, $5)`
+	sealed := make([]byte, 36)
+	for name, c := range map[string]struct {
+		constraint string
+		scheme     int
+		ciphertext []byte
+		keyID      any
+	}{
+		"a keyed row without its ciphertext": {"class_join_codes_scheme_consistent", 2, nil, 7},
+		"a keyed row without its key id":     {"class_join_codes_scheme_consistent", 2, sealed, nil},
+		"a legacy row with a ciphertext":     {"class_join_codes_scheme_consistent", 1, sealed, 7},
+		"a ciphertext of the wrong length":   {"class_join_codes_ciphertext_length", 2, make([]byte, 35), 7},
+		"key id zero":                        {"class_join_codes_key_id_nonzero", 2, sealed, 0},
+		"an unknown scheme":                  {"class_join_codes_lookup_scheme_known", 3, nil, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				rejectsWith(t, tx, c.constraint, insert, f.classID, f.adminID, c.scheme, c.ciphertext, c.keyID)
+			})
+		})
+	}
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx, insert, f.classID, f.adminID, 2, sealed, 7)
+		mustExec(t, tx, `UPDATE app.class_join_codes SET revoked_at = now() WHERE class_id = $1`, f.classID)
+		mustExec(t, tx, insert, f.classID, f.adminID, 1, nil, nil)
+	})
+}
+
 // -------------------------------------------------------- class_members
 
 func TestJoinSourceMustMatchTheCodeReference(t *testing.T) {
