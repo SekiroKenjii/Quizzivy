@@ -20,7 +20,7 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Type != nil {
 		for _, t := range *request.Params.Type {
 			in.Types = append(in.Types, domain.Type(t))
@@ -91,7 +91,7 @@ func (h Questions) GetQuestion(ctx context.Context, request openapi.GetQuestionR
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	q, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String()})
+	q, err := h.app.Queries.Get.Handle(ctx, query.Get{ID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.GetQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
@@ -110,18 +110,12 @@ func (h Questions) CreateQuestion(ctx context.Context, request openapi.CreateQue
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	req, ok := writeRequest(ctx, "", ToQuestionInput(*request.Body))
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
-	q, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: domain.WriteRequest{
-		Input:     ToQuestionInput(*request.Body),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
-	}})
+	q, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: req})
 	if resp, handled := questionWriteError(ctx, err); handled {
 		return openapi.CreateQuestion400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(resp)}, nil
 	}
@@ -139,18 +133,12 @@ func (h Questions) DuplicateQuestion(ctx context.Context, request openapi.Duplic
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	req, ok := writeRequest(ctx, request.Id.String(), domain.Input{})
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
-	q, err := h.app.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: domain.WriteRequest{
-		ID:        request.Id.String(),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
-	}})
+	q, err := h.app.Commands.Duplicate.Handle(ctx, command.Duplicate{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
 		return openapi.DuplicateQuestion404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
 			httpapi.NotFound(ctx, "Không tìm thấy câu hỏi."))}, nil
@@ -169,19 +157,12 @@ func (h Questions) UpdateQuestion(ctx context.Context, request openapi.UpdateQue
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	req, ok := writeRequest(ctx, request.Id.String(), ToQuestionInput(*request.Body))
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
-	q, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: domain.WriteRequest{
-		ID:        request.Id.String(),
-		Input:     ToQuestionInput(*request.Body),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
-	}})
+	q, err := h.app.Commands.Update.Handle(ctx, command.Update{Request: req})
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil, httpx.ErrNotImplemented
 	}
@@ -202,18 +183,12 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	principal, ok := httpx.PrincipalFromContext(ctx)
+	req, ok := writeRequest(ctx, request.Id.String(), domain.Input{})
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 
-	meta := httpx.RequestMetaFromContext(ctx)
-	_, err := h.app.Commands.Delete.Handle(ctx, command.Delete{Request: domain.WriteRequest{
-		ID:        request.Id.String(),
-		ActorID:   principal.UserID,
-		IP:        meta.IP,
-		UserAgent: meta.UserAgent,
-	}})
+	_, err := h.app.Commands.Delete.Handle(ctx, command.Delete{Request: req})
 	switch {
 	case err == nil:
 		return openapi.DeleteQuestion204Response{}, nil
@@ -390,11 +365,16 @@ func (h Questions) TagQuestions(ctx context.Context, request openapi.TagQuestion
 		ids[i] = id.String()
 	}
 
-	updated, err := h.app.Commands.AddTags.Handle(ctx, command.AddTags{IDs: ids, Tags: request.Body.Tags})
+	updated, err := h.app.Commands.AddTags.Handle(ctx, command.AddTags{IDs: ids, Tags: request.Body.Tags, Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return nil, err
 	}
 	return openapi.TagQuestions200JSONResponse{Updated: updated}, nil
+}
+
+func writeRequest(ctx context.Context, id string, input domain.Input) (domain.WriteRequest, bool) {
+	actor, ok := httpapi.ActorFromContext(ctx)
+	return domain.WriteRequest{ID: id, Input: input, ActorID: actor.ID, All: actor.Scope.All, IP: actor.IP, UserAgent: actor.UserAgent}, ok
 }
 
 func optionID(id *openapi.Uuid) *string {

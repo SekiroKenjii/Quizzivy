@@ -21,7 +21,7 @@ type CreateGroup struct {
 type CreateGroupHandler struct{ *support.Groups }
 
 func (s CreateGroupHandler) Handle(ctx context.Context, cmd CreateGroup) (domain.StoredGroup, error) {
-	bundle, err := s.Prepare(ctx, cmd.Bundle)
+	bundle, err := s.Prepare(ctx, cmd.Actor.Scope, cmd.Bundle)
 	if err != nil {
 		return domain.StoredGroup{}, err
 	}

@@ -44,7 +44,7 @@ func (s *GroupsPostgres) create(ctx context.Context, in domain.CreateGroupInput)
 	if err := s.mountGroup(ctx, tx, in); err != nil {
 		return domain.StoredGroup{}, err
 	}
-	if err := s.lockGroupAssets(ctx, tx, in.Bundle); err != nil {
+	if err := s.lockGroupAssets(ctx, tx, in.Scope, in.Bundle); err != nil {
 		return domain.StoredGroup{}, err
 	}
 	if err := s.insertGroupMembers(ctx, tx, in); err != nil {

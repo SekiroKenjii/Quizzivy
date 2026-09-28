@@ -21,7 +21,7 @@ type DuplicateHandler struct {
 }
 
 func (s DuplicateHandler) Handle(ctx context.Context, cmd Duplicate) (domain.Question, error) {
-	source, err := s.Repo.Get(ctx, cmd.Request.ID)
+	source, err := s.Repo.Get(ctx, cmd.Request.Scope(), cmd.Request.ID)
 	if err != nil {
 		return domain.Question{}, err
 	}
