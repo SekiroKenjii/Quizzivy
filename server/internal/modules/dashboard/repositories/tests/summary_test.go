@@ -139,7 +139,7 @@ func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx)
+	before, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
 	// Already finished: outside the window, so not "open".
 	seed(t, tx, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour), false)
 
-	after, err := store.Summary(ctx)
+	after, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,13 +164,13 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx)
+	before, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 
-	after, err := store.Summary(ctx)
+	after, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 		  WHERE attempt_id = $1`, f.attempt); err != nil {
 		t.Fatal(err)
 	}
-	graded, err := store.Summary(ctx)
+	graded, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,13 +199,13 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx)
+	before, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true)
 
-	after, err := store.Summary(ctx)
+	after, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,13 +236,13 @@ func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
 
-	before, err := store.Summary(ctx)
+	before, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 
-	after, err := store.Summary(ctx)
+	after, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
 		f.attempt); err != nil {
 		t.Fatal(err)
 	}
-	stale, err := store.Summary(ctx)
+	stale, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestCountsDeduplicateRetakesAndCountPartiallyGradedQuestions(t *testing.T) 
 	tx := isolated(t, pool)
 	ctx := context.Background()
 	store := repositories.NewPostgres(db.NewContext(tx))
-	before, err := store.Summary(ctx)
+	before, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestCountsDeduplicateRetakesAndCountPartiallyGradedQuestions(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	after, err := store.Summary(ctx)
+	after, err := store.Summary(ctx, everyone)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/imports/application/ports"
 	"quizzivy/internal/modules/imports/application/query"
 	"quizzivy/internal/modules/imports/domain"
+	"quizzivy/internal/shared/access"
 )
 
 type processRepo struct {
@@ -18,7 +19,7 @@ type processRepo struct {
 	status string
 }
 
-func (r *processRepo) Get(context.Context, string) (domain.Import, error) {
+func (r *processRepo) Get(context.Context, access.Scope, string) (domain.Import, error) {
 	r.reads++
 	status := r.status
 	if status == "" {

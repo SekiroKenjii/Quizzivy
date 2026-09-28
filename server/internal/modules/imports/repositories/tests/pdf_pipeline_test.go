@@ -106,7 +106,7 @@ func TestAPDFExamAndKeyReachReviewWithoutConversion(t *testing.T) {
 	if engine.normalizations != 0 || strings.Join(engine.formats, ",") != "pdf,pdf" {
 		t.Fatalf("normalized %d times, extracted %v", engine.normalizations, engine.formats)
 	}
-	updated, err := h.repo.Get(ctx, parent.ID)
+	updated, err := h.repo.Get(ctx, everyone, parent.ID)
 	if err != nil || updated.Status != "needs_review" {
 		t.Fatalf("import = %+v, %v", updated, err)
 	}
@@ -190,7 +190,7 @@ func TestAScannedPDFFailsForGoodWithItsOwnCode(t *testing.T) {
 	if code := errorCode(run); run.Status != "failed" || code != "PDF_NO_TEXT" {
 		t.Fatalf("run = %s %q", run.Status, code)
 	}
-	updated, err := h.repo.Get(context.Background(), run.ImportID)
+	updated, err := h.repo.Get(context.Background(), everyone, run.ImportID)
 	if err != nil || updated.Status != "failed" {
 		t.Fatalf("import = %+v, %v", updated, err)
 	}

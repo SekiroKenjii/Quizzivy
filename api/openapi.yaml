@@ -582,7 +582,7 @@ components:
       additionalProperties: false
       required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt]
       description: |
-        Shared teacher scope within this installation, with creator attribution.
+        Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
         Sources are private originals, never learner media. Source revision zero
         means no completed source set. Upload completion does not mean recognition.
         Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -2919,19 +2919,22 @@ components:
       type: object
       description: |
         §8's teacher dashboard needs five counts that spec §15 has no endpoint for. One
-        round trip, not five.
+        round trip, not five. Every figure covers what the caller reaches: the assignments
+        they created or that target a class they teach, the papers the grading queue shows
+        them on those assignments, and the students of the classes they teach. With
+        `scope.all` it covers everything.
       required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, recentAttempts]
       additionalProperties: false
       properties:
         closingSoon: { type: integer, minimum: 0, description: Open assignments closing within the next 24 hours. }
         waitingStudents: { type: integer, minimum: 0, description: Distinct students with unmarked manual answers in handed-in papers. }
         oldestWaitingAt: { type: [string, 'null'], format: date-time }
-        totalStudents: { type: integer, minimum: 0, description: Enabled student accounts. }
+        totalStudents: { type: integer, minimum: 0, description: 'Enabled student accounts in the classes the caller teaches; every enabled student account with `scope.all`.' }
         nextClosing:
           oneOf: [{ $ref: '#/components/schemas/ClosingAssignment' }, { type: 'null' }]
         openAssignments: { type: integer, minimum: 0 }
         awaitingGrading: { type: integer, minimum: 0 }
-        activeStudents: { type: integer, minimum: 0 }
+        activeStudents: { type: integer, minimum: 0, description: 'Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. With `scope.all`, every enabled account that started an attempt in the last seven days, whatever its role.' }
         flaggedAttempts: { type: integer, minimum: 0 }
         recentAttempts:
           type: array
@@ -2947,7 +2950,7 @@ components:
         title: { type: string }
         closesAt: { type: string, format: date-time }
         submittedCount: { type: integer, minimum: 0, description: Distinct enabled students who have handed in at least one non-voided attempt. }
-        targetCount: { type: integer, minimum: 0, description: Enabled students in the union of class and individual targets. }
+        targetCount: { type: integer, minimum: 0, description: 'Enabled students in the union of class and individual targets, counting only the classes the caller teaches and the students they reach.' }
 
     StudentAssignmentCard:
       type: object
@@ -4453,7 +4456,7 @@ paths:
       x-permission: content.tests.write
       tags: [teacher-imports]
       summary: Search private import history
-      description: Paginated shared teacher history with accent-insensitive title and current filename search.
+      description: Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Query'
@@ -4574,8 +4577,9 @@ paths:
       tags: [teacher-imports]
       summary: Authorize a short-lived original-file download
       description: |
-        The completed source must belong to the requested import. Historical
-        completed sources remain accessible to teachers. A 60-second bearer URL
+        The completed source must belong to the requested import, which the caller
+        created (any import with `scope.all`). Historical completed sources remain
+        downloadable. A 60-second bearer URL
         forces attachment download as application/octet-stream. Response is no-store.
         Pending storage reservations are never downloadable.
       responses:
@@ -5574,7 +5578,7 @@ paths:
       operationId: getDashboard
       x-permission: workspace.teacher
       tags: [teacher-attempts]
-      description: The five counts §8 needs and spec §15 has no endpoint for. One round trip.
+      description: The five counts §8 needs and spec §15 has no endpoint for, over what the caller reaches. One round trip.
       responses:
         '200':
           description: OK

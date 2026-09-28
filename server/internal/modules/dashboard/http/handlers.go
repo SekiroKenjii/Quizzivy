@@ -23,7 +23,7 @@ func (h Dashboard) GetDashboard(ctx context.Context, _ openapi.GetDashboardReque
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{})
+	summary, err := h.app.Queries.Summary.Handle(ctx, query.Summary{Scope: httpapi.ScopeFromContext(ctx)})
 	if err != nil {
 		return nil, err
 	}

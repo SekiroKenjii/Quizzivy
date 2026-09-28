@@ -33,7 +33,7 @@ func (h CommitHandler) Handle(ctx context.Context, in Commit) (CommitResult, err
 	if result, done, err := h.replay(ctx, in); done || err != nil {
 		return result, err
 	}
-	stored, err := h.Drafts.Draft(ctx, in.ImportID)
+	stored, err := h.Drafts.Draft(ctx, reach(in.Actor), in.ImportID)
 	if err != nil {
 		return CommitResult{}, err
 	}
@@ -52,7 +52,7 @@ func (h CommitHandler) Handle(ctx context.Context, in Commit) (CommitResult, err
 		return CommitResult{}, err
 	}
 	digest := sha256.Sum256(body)
-	_, err = h.Materializer.Materialize(ctx, plan, in.Actor, func(ctx context.Context, store domain.CommitStore, testID string) error {
+	_, err = h.Materializer.Materialize(ctx, plan, stored.CreatedBy, in.Actor, func(ctx context.Context, store domain.CommitStore, testID string) error {
 		return store.RecordCommit(ctx, domain.CommitRecord{Commit: domain.Commit{ImportID: in.ImportID, RequestID: in.RequestID, DraftRevision: in.DraftRevision, Digest: digest[:], TestID: &testID}, Actor: in.Actor})
 	})
 	if errors.Is(err, domain.ErrConflict) {
@@ -68,7 +68,7 @@ func (h CommitHandler) Handle(ctx context.Context, in Commit) (CommitResult, err
 }
 
 func (h CommitHandler) replay(ctx context.Context, in Commit) (CommitResult, bool, error) {
-	previous, err := h.Drafts.Commit(ctx, in.ImportID)
+	previous, err := h.Drafts.Commit(ctx, reach(in.Actor), in.ImportID)
 	if errors.Is(err, domain.ErrNotFound) {
 		return CommitResult{}, false, nil
 	}
@@ -78,6 +78,6 @@ func (h CommitHandler) replay(ctx context.Context, in Commit) (CommitResult, boo
 	if previous.RequestID != in.RequestID || previous.TestID == nil {
 		return CommitResult{}, false, domain.ErrConflict
 	}
-	current, err := h.Repo.Get(ctx, in.ImportID)
+	current, err := h.Repo.Get(ctx, reach(in.Actor), in.ImportID)
 	return CommitResult{TestID: *previous.TestID, Import: current}, true, err
 }

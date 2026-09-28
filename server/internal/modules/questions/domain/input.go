@@ -30,11 +30,14 @@ type Input struct {
 
 // WriteRequest is a write to the bank by ActorID. It reaches only ActorID's own
 // questions and binds only assets ActorID may read, unless All, the actor's
-// scope.all, is set; anything else answers exactly as a missing id does.
+// scope.all, is set; anything else answers exactly as a missing id does. On a
+// create, OwnerID owns the new question instead of ActorID; only a Word-import
+// commit sets it, and a group member still follows its group.
 type WriteRequest struct {
 	ID        string
 	Input     Input
 	ActorID   string
+	OwnerID   string
 	All       bool
 	IP        string
 	UserAgent string
@@ -49,11 +52,13 @@ func (r WriteRequest) Scope() access.Scope {
 // WriteInput is a create or an update, depending on whether ID is set. An
 // update or delete of a bank question needs ActorID to own it unless All is
 // set; a group member's write is authorized by its group and ignores both.
+// OwnerID applies to a create only, as on WriteRequest.
 type WriteInput struct {
 	ID             string
 	Input          Input
 	MediaAssetKind *string
 	ActorID        string
+	OwnerID        string
 	All            bool
 	Now            time.Time
 	IP             string

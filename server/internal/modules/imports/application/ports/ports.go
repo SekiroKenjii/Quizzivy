@@ -56,7 +56,8 @@ type Runs interface {
 }
 
 // Materializer creates the plan's draft test and runs record in the same transaction, returning the test ID;
-// nothing persists unless both succeed.
+// nothing persists unless both succeed. The test, its section groups and its bank questions belong to owner,
+// the import's creator, while by is recorded as the actor who created them.
 type Materializer interface {
-	Materialize(ctx context.Context, plan domain.CommitPlan, by actor.Actor, record func(context.Context, domain.CommitStore, string) error) (string, error)
+	Materialize(ctx context.Context, plan domain.CommitPlan, owner string, by actor.Actor, record func(context.Context, domain.CommitStore, string) error) (string, error)
 }

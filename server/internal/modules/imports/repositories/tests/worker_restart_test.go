@@ -55,7 +55,7 @@ func TestKilledWorkerCanBeReclaimedWithoutLosingSources(t *testing.T) {
 		t.Fatalf("claim was not committed: %v", err)
 	}
 	readCtx, stop := context.WithTimeout(context.Background(), time.Second)
-	parent, err := h.repo.Get(readCtx, scheduled.ImportID)
+	parent, err := h.repo.Get(readCtx, everyone, scheduled.ImportID)
 	stop()
 	if err != nil || len(parent.Sources) != 1 {
 		t.Fatalf("processing held a database transaction or lost input: %v", err)

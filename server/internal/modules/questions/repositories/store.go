@@ -229,13 +229,13 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
 			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
 			        coalesce($16::uuid, uuidv7()), $17, $18, $19,
-			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $13))
+			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13))
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
 			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
-			createID, groupID, ordinal, optionOrder).Scan(&id)
+			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID)).Scan(&id)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound

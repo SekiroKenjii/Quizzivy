@@ -19,11 +19,13 @@ type ListInput struct {
 	Scope access.Scope
 }
 
-// CreateInput is a new empty draft.
+// CreateInput is a new empty draft, owned by OwnerID when set and by ActorID
+// otherwise; ActorID is recorded as its creator either way.
 type CreateInput struct {
 	Title       string
 	Description *string
 	ActorID     string
+	OwnerID     string
 	Now         time.Time
 	IP          string
 	UserAgent   string

@@ -49,6 +49,7 @@ the "one package per feature" layout AGENTS.md described until then.
 - **Reach rules in the kernel.** `shared/visibility` holds the rules every
   teaching read shares, each defined once as SQL:
   - `TaughtClassIDs`: the classes a teacher teaches;
+  - `TaughtMemberIDs`: the accounts in those classes;
   - `AuthoredAssignmentIDs`: the assignments a teacher created;
   - `StudentIDs`: the students a teacher reaches;
   - `AssignmentIDs`: the assignments a teacher reaches;

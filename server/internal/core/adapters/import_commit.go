@@ -29,14 +29,15 @@ type ImportCommitter struct {
 type materialization struct {
 	tests     *testsapp.Application
 	questions *questionsapp.Application
+	owner     string
 	by        actor.Actor
 }
 
-func (c ImportCommitter) Materialize(ctx context.Context, plan importsdomain.CommitPlan, by actor.Actor, record func(context.Context, importsdomain.CommitStore, string) error) (string, error) {
+func (c ImportCommitter) Materialize(ctx context.Context, plan importsdomain.CommitPlan, owner string, by actor.Actor, record func(context.Context, importsdomain.CommitStore, string) error) (string, error) {
 	var testID string
 	err := c.DB.InTx(ctx, "commit word import", func(tx pgx.Tx) error {
 		scoped := db.NewContext(tx)
-		m := materialization{tests: c.Tests(scoped), questions: c.Questions(scoped), by: by}
+		m := materialization{tests: c.Tests(scoped), questions: c.Questions(scoped), owner: owner, by: by}
 		id, err := m.run(ctx, plan)
 		if err != nil {
 			return err
@@ -48,7 +49,7 @@ func (c ImportCommitter) Materialize(ctx context.Context, plan importsdomain.Com
 }
 
 func (m materialization) run(ctx context.Context, plan importsdomain.CommitPlan) (string, error) {
-	test, err := m.tests.Commands.Create.Handle(ctx, testscmd.Create{Request: m.request(""), Title: plan.Title})
+	test, err := m.tests.Commands.Create.Handle(ctx, testscmd.Create{Request: m.request(""), Title: plan.Title, OwnerID: m.owner})
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +96,7 @@ func (m materialization) standaloneQuestions(ctx context.Context, plan importsdo
 			if unit.Question == nil {
 				continue
 			}
-			created, err := m.questions.Commands.Create.Handle(ctx, questionscmd.Create{Request: questionsdomain.WriteRequest{Input: *unit.Question, ActorID: m.by.ID, IP: m.by.IP, UserAgent: m.by.UserAgent}})
+			created, err := m.questions.Commands.Create.Handle(ctx, questionscmd.Create{Request: questionsdomain.WriteRequest{Input: *unit.Question, ActorID: m.by.ID, OwnerID: m.owner, IP: m.by.IP, UserAgent: m.by.UserAgent}})
 			if err != nil {
 				return nil, err
 			}
@@ -138,6 +139,6 @@ func (m materialization) request(id string) testsdomain.Request {
 
 func (m materialization) actor() actor.Actor {
 	by := m.by
-	by.Scope = access.Scope{UserID: m.by.ID}
+	by.Scope = access.Scope{UserID: m.owner}
 	return by
 }
