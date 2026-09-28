@@ -144,6 +144,47 @@ func TestAnonymizationRejectsAdminAndActiveAttempt(t *testing.T) {
 	}
 }
 
+func TestAnonymizationRefusesEveryRoleThatIsNotStudentLike(t *testing.T) {
+	ctx, tx, _, _ := setup(t)
+	role := func(key string) string {
+		var id string
+		if err := tx.QueryRow(ctx, `INSERT INTO app.roles (name, icon, color) VALUES ('Ẩn danh ' || gen_random_uuid()::text, 'user', 'gray') RETURNING id::text`).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO app.role_permissions (role_id, permission_key) VALUES ($1::uuid, $2)`, id, key); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	holder := func(role string) string {
+		var id string
+		if err := tx.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id) VALUES (gen_random_uuid()::text || '@example.test', 'Vai tuỳ chỉnh', $1::uuid) RETURNING id::text`, role).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	grader := role("learning.take_tests")
+	graderHolder := holder(grader)
+	if _, err := tx.Exec(ctx, `INSERT INTO app.role_permissions (role_id, permission_key) VALUES ($1::uuid, 'teaching.grading')`, grader); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := maintenance.AnonymizeStudent(ctx, tx, graderHolder, true); err == nil || err.Error() != "only student accounts may be anonymized" {
+		t.Fatalf("anonymizing a holder of a role granted grading after assignment: %v", err)
+	}
+	var name string
+	if err := tx.QueryRow(ctx, `SELECT full_name FROM app.users WHERE id = $1`, graderHolder).Scan(&name); err != nil || name != "Vai tuỳ chỉnh" {
+		t.Fatalf("the refused account changed: %q (%v)", name, err)
+	}
+	emptied := role("teaching.grading")
+	emptiedHolder := holder(emptied)
+	if _, err := tx.Exec(ctx, `DELETE FROM app.role_permissions WHERE role_id = $1::uuid`, emptied); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := maintenance.AnonymizeStudent(ctx, tx, emptiedHolder, false); err != nil {
+		t.Fatalf("a holder of a role emptied after assignment is a student to anonymize: %v", err)
+	}
+}
+
 func TestApplicationRoleStillCannotPruneEvents(t *testing.T) {
 	ctx, tx, _, _ := setup(t)
 	var forbidden bool

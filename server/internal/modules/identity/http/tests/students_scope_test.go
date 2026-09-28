@@ -50,7 +50,8 @@ func TestEveryStudentOperationCarriesTheCallersScope(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			want := access.Scope{UserID: principal.UserID, All: principal.Permissions.Has(access.ScopeAll)}
 			scopes := map[string]access.Scope{}
-			write := func(op string, req domain.WriteRequest) { scopes[op] = req.Scope() }
+			manages := map[string]bool{}
+			write := func(op string, req domain.WriteRequest) { scopes[op], manages[op] = req.Scope(), req.ManagesUsers() }
 			app := &application.Application{
 				Queries: application.Queries{
 					ListStudents: cqrs.HandlerFunc[query.ListStudents, query.ListStudentsResult](func(_ context.Context, q query.ListStudents) (query.ListStudentsResult, error) {
@@ -113,6 +114,11 @@ func TestEveryStudentOperationCarriesTheCallersScope(t *testing.T) {
 			for _, op := range []string{"list", "facets", "get", "create", "update", "reset", "delete"} {
 				if scopes[op] != want {
 					t.Errorf("%s ran in %+v, want %+v", op, scopes[op], want)
+				}
+			}
+			for _, op := range []string{"create", "update", "reset", "delete"} {
+				if manages[op] != principal.Permissions.Has(access.PeopleUsersManage) {
+					t.Errorf("%s carried the caller's account management as %v", op, manages[op])
 				}
 			}
 			if _, ok := responses["create"].(openapi.CreateStudent404JSONResponse); !ok {

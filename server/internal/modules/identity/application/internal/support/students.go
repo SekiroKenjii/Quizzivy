@@ -2,6 +2,8 @@ package support
 
 import (
 	"context"
+	"errors"
+	accessdomain "quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/shared/access"
@@ -48,6 +50,32 @@ func (s *Students) AttachStats(ctx context.Context, scope access.Scope, students
 	}
 	for i := range students {
 		students[i].Stats = byStudent[students[i].ID]
+	}
+	return nil
+}
+
+// MayActOn checks the guards a write to a student's account passes before it
+// runs, in the order that keeps another teacher's student indistinguishable
+// from a missing one: the student must be one the request reaches
+// (ErrStudentNotFound); when needsManage, the actor must manage accounts; and
+// the student's permissions, except learning.take_tests, must be a subset of
+// the actor's (ErrForbidden for either).
+func (s *Students) MayActOn(ctx context.Context, req domain.WriteRequest, id string, needsManage bool) error {
+	if _, err := s.Repo.Get(ctx, req.Scope(), id); err != nil {
+		return err
+	}
+	if needsManage && !req.ManagesUsers() {
+		return domain.ErrForbidden
+	}
+	target, err := s.Principals.Resolve(ctx, id)
+	if errors.Is(err, accessdomain.ErrUnknownUser) {
+		return domain.ErrStudentNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if !access.CanActOn(req.Grants, target.Permissions) {
+		return domain.ErrForbidden
 	}
 	return nil
 }

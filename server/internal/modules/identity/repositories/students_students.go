@@ -37,8 +37,10 @@ const classCondition = `EXISTS (SELECT 1 FROM app.class_members m JOIN app.class
 
 const reachedStudent = `($2::boolean OR u.id IN ` + "%s" + `)`
 
+const studentLike = `u.role_id IN (SELECT r.id FROM app.student_like_roles r)`
+
 func scopedStudents(scope access.Scope, args []any) ([]any, []string, string) {
-	where := []string{`u.role = 'student'`}
+	where := []string{studentLike}
 	if scope.All {
 		return args, where, ``
 	}
@@ -150,7 +152,7 @@ func (s *Students) Get(ctx context.Context, scope access.Scope, id string) (doma
 }
 
 func (s *Students) get(ctx context.Context, scope access.Scope, id string, includeDisabled bool) (domain.Student, error) {
-	where := ` WHERE u.id = $1::uuid AND u.role = 'student' AND ` + fmt.Sprintf(reachedStudent, visibility.StudentIDs(3))
+	where := ` WHERE u.id = $1::uuid AND ` + studentLike + ` AND ` + fmt.Sprintf(reachedStudent, visibility.StudentIDs(3))
 	if !includeDisabled {
 		where += ` AND u.disabled_at IS NULL`
 	}
@@ -164,6 +166,31 @@ func (s *Students) get(ctx context.Context, scope access.Scope, id string, inclu
 		return domain.Student{}, err
 	}
 	return student, nil
+}
+
+// Account reads one account by id, whatever its role or reach, for a caller
+// that already holds a parent row naming the user, such as an attempt under
+// review. A missing id answers ErrStudentNotFound.
+func (s *Students) Account(ctx context.Context, id string) (domain.Account, error) {
+	var a domain.Account
+	err := s.QueryRow(ctx, `
+		SELECT u.id::text, u.email, u.full_name,
+		       CASE WHEN EXISTS (SELECT 1 FROM app.student_like_roles r WHERE r.id = u.role_id)
+		            THEN 'student' ELSE 'admin' END,
+		       u.password_hash IS NOT NULL,
+		       coalesce((SELECT array_agg(i.provider::text)
+		                   FROM app.user_identities i WHERE i.user_id = u.id), '{}'),
+		       u.must_change_password, u.created_at
+		  FROM app.users u
+		 WHERE u.id = $1::uuid`, id).Scan(&a.ID, &a.Email, &a.FullName, &a.Role,
+		&a.HasPassword, &a.LinkedProviders, &a.MustChangePassword, &a.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Account{}, domain.ErrStudentNotFound
+	}
+	if err != nil {
+		return domain.Account{}, fmt.Errorf("students: account: %w", err)
+	}
+	return a, nil
 }
 
 // Facets backs G-07's header over the students the query's scope reaches;

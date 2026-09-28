@@ -44,6 +44,8 @@ const (
 	attemptStudent    = "at.student_id"
 )
 
+const studentLike = ` AND u.role_id IN (SELECT r.id FROM app.student_like_roles r)`
+
 type reach struct {
 	args        []any
 	assignments string
@@ -54,9 +56,9 @@ type reach struct {
 
 func reachOf(scope access.Scope) reach {
 	if scope.All {
-		return reach{students: `(SELECT count(*) FROM app.users WHERE role = 'student' AND disabled_at IS NULL)`}
+		return reach{students: `(SELECT count(*) FROM app.users u WHERE u.disabled_at IS NULL` + studentLike + `)`}
 	}
-	members := ` AND u.role_id IN (SELECT r.id FROM app.student_like_roles r) AND u.id IN ` + visibility.TaughtMemberIDs(2)
+	members := studentLike + ` AND u.id IN ` + visibility.TaughtMemberIDs(2)
 	papers := ` AND at.assignment_id IN ` + visibility.AssignmentIDs(2) + ` AND ` + visibility.Papers(1, 2, attemptAssignment, attemptStudent)
 	return reach{
 		args:        []any{false, opt.String(scope.UserID)},

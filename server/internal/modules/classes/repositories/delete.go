@@ -4,16 +4,31 @@ import (
 	"context"
 	"errors"
 	"quizzivy/internal/modules/classes/domain"
+	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const entityClass = "class"
+
+var classReferences = map[string]domain.Reference{
+	"assignment_classes_class_id_fkey": domain.ReferencedByAssignments,
+	"class_members_join_code_id_fkey":  domain.ReferencedByMembers,
+}
+
+// ClassReferencedBy names what a foreign key holds when it refuses a class's
+// deletion, directly or through the cascade to its join codes. A constraint
+// the map does not name is ReferencedByOther, so the refusal is still a 409.
+func ClassReferencedBy(constraint string) domain.Reference {
+	if by, ok := classReferences[constraint]; ok {
+		return by
+	}
+	return domain.ReferencedByOther
+}
 
 // Delete removes an inactive class the actor teaches, or any with the actor's
 // scope.all, while preserving assigned work and retained history. Another
@@ -38,9 +53,8 @@ func (s *Postgres) Delete(ctx context.Context, classID string, by actor.Actor, n
 	}
 
 	if _, err := tx.Exec(ctx, `DELETE FROM app.classes WHERE id = $1`, classID); err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && (pgErr.Code == "23503" || pgErr.Code == "23001") {
-			return domain.ErrReferenced
+		if constraint, ok := db.ForeignKeyViolation(err); ok {
+			return &domain.ReferencedError{By: ClassReferencedBy(constraint)}
 		}
 		return err
 	}

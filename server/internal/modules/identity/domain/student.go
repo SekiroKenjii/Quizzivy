@@ -21,6 +21,20 @@ type Student struct {
 	Stats              stats.Student
 }
 
+// Account is one user's account fields, whatever their role, with the legacy
+// role derived from what that role holds now: "student" for a student-like
+// role and "admin" otherwise, as tokens and /auth/me derive it.
+type Account struct {
+	ID                 string
+	Email              string
+	FullName           string
+	Role               string
+	HasPassword        bool
+	LinkedProviders    []string
+	MustChangePassword bool
+	CreatedAt          time.Time
+}
+
 // Membership is one class the student is in, and how they got there (D-10).
 type Membership struct {
 	ID        string
@@ -57,14 +71,24 @@ type StudentQuery struct {
 	Scope   access.Scope
 }
 
-// WriteRequest is the actor behind a write, for the audit row and for reach: a
-// write touches only students ActorID reaches and classes ActorID teaches,
-// unless All, the actor's scope.all, is set.
+// WriteRequest is the actor behind a write, for the audit row, for reach and
+// for the guards that are not permissions: a write touches only students
+// ActorID reaches and classes ActorID teaches, unless All, the actor's
+// scope.all, is set. Grants are the actor's effective permissions; they decide
+// whether the actor manages accounts and whether a student's permissions are a
+// subset of the actor's.
 type WriteRequest struct {
 	ActorID   string
 	All       bool
+	Grants    access.Set
 	IP        string
 	UserAgent string
+}
+
+// ManagesUsers reports whether the actor holds people.users.manage, which
+// disables and enables accounts and lifts the shared-student guard.
+func (r WriteRequest) ManagesUsers() bool {
+	return r.Grants.Has(access.PeopleUsersManage)
 }
 
 // Scope is the scope the request reads under: ActorID's own, or everyone's

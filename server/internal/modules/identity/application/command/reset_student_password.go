@@ -17,6 +17,9 @@ type ResetStudentPasswordHandler struct {
 }
 
 func (s ResetStudentPasswordHandler) Handle(ctx context.Context, cmd ResetStudentPassword) (string, error) {
+	if err := s.MayActOn(ctx, cmd.Request, cmd.ID, false); err != nil {
+		return "", err
+	}
 	temporary, hash, err := support.TemporaryPassword(ctx)
 	if err != nil {
 		return "", err

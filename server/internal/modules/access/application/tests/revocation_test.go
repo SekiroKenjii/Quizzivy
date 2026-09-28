@@ -26,6 +26,7 @@ import (
 	identitydomain "quizzivy/internal/modules/identity/domain"
 	identityrepo "quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 )
 
 type revocation struct {
@@ -140,7 +141,7 @@ func reached(code int) bool { return code != http.StatusUnauthorized && code != 
 func (r *revocation) setDisabled(t *testing.T, student string, disabled bool) {
 	t.Helper()
 	if _, err := r.identity.Commands.UpdateStudent.Handle(context.Background(), identitycommand.UpdateStudent{
-		Request: identitydomain.WriteRequest{ActorID: r.actor, All: true},
+		Request: identitydomain.WriteRequest{ActorID: r.actor, All: true, Grants: access.NewSet(access.All()...)},
 		Input:   identitydomain.StudentPatch{ID: student, Disabled: &disabled},
 	}); err != nil {
 		t.Fatalf("set disabled %v: %v", disabled, err)
@@ -191,7 +192,7 @@ func TestResettingAPasswordRefusesTheLiveTokenAndTheNewSessionCarriesTheEpoch(t 
 		t.Fatalf("before the reset: %d, want the gate passed", code)
 	}
 	temporary, err := r.identity.Commands.ResetStudentPassword.Handle(context.Background(), identitycommand.ResetStudentPassword{
-		Request: identitydomain.WriteRequest{ActorID: r.actor, All: true},
+		Request: identitydomain.WriteRequest{ActorID: r.actor, All: true, Grants: access.NewSet(access.All()...)},
 		ID:      student,
 	})
 	if err != nil {

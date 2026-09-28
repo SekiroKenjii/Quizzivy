@@ -122,5 +122,23 @@ func IsUniqueViolation(err error, name string) bool {
 	return name == "" || pg.ConstraintName == name
 }
 
+// ForeignKeyViolation reports whether err is Postgres refusing a statement over
+// a foreign key, as 23503 foreign_key_violation or 23001 restrict_violation,
+// and returns the violated constraint's name.
+func ForeignKeyViolation(err error) (string, bool) {
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || (pg.Code != pgerrcode.ForeignKeyViolation && pg.Code != pgerrcode.RestrictViolation) {
+		return "", false
+	}
+	return pg.ConstraintName, true
+}
+
+// IsCheckViolation reports whether err is Postgres raising check_violation for
+// the named constraint, as a table CHECK or a trigger naming it does.
+func IsCheckViolation(err error, name string) bool {
+	var pg *pgconn.PgError
+	return errors.As(err, &pg) && pg.Code == pgerrcode.CheckViolation && pg.ConstraintName == name
+}
+
 // EscapeLike makes user text safe inside a LIKE pattern with ESCAPE '\'.
 func EscapeLike(s string) string { return likeEscaper.Replace(s) }

@@ -1,0 +1,23 @@
+package domain
+
+// Reference names what still holds a user whose permanent deletion was refused.
+// Its values are the contract's ReferencedBy enum.
+type Reference string
+
+// ReferencedByAssignments and the other values are the reasons a refused
+// deleteUser names in details.referencedBy.
+const (
+	ReferencedByAssignments  Reference = "assignments"
+	ReferencedByAttempts     Reference = "attempts"
+	ReferencedByAudit        Reference = "audit"
+	ReferencedByOwnedContent Reference = "owned_content"
+	ReferencedByOther        Reference = "other"
+)
+
+// ReferencedError is ErrReferenced naming what still holds the user;
+// errors.Is(err, ErrReferenced) holds for it.
+type ReferencedError struct{ By Reference }
+
+func (e *ReferencedError) Error() string { return ErrReferenced.Error() + ": " + string(e.By) }
+
+func (e *ReferencedError) Is(target error) bool { return target == ErrReferenced }

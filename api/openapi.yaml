@@ -463,6 +463,7 @@ components:
         - ALREADY_ENROLLED
         # students
         - EMAIL_TAKEN
+        - STUDENT_SHARED
         # authoring
         - RESOURCE_REFERENCED
         - RESOURCE_NOT_ARCHIVED
@@ -1252,6 +1253,16 @@ components:
           type: [string, 'null']
           format: uuid
           description: Owning test, absent for an independent bank group.
+
+    ReferencedBy:
+      type: string
+      description: |
+        What still references a row whose permanent delete answered
+        `RESOURCE_REFERENCED`, carried as `details.referencedBy` by
+        `deleteClass` and `deleteUser`. `other` is a reference the server does
+        not name. Later releases add values; a client treats an unknown one as
+        `other`.
+      enum: [assignments, attempts, audit, members, owned_content, other]
 
     LibraryAsset:
       type: object
@@ -5691,7 +5702,15 @@ paths:
     patch:
       operationId: updateStudent
       x-permission: people.students.create
-      description: Edits profile fields, or disables the account. Disabling blocks login without deleting any attempt history.
+      description: |
+        Edits profile fields, or disables the account. Disabling blocks login
+        without deleting any attempt history. `disabled`, either value, also
+        needs `people.users.manage`. A new `email` needs `people.users.manage`
+        too unless no one else reaches the student, by the rule
+        `resetStudentPassword` states, because a new address can take over the
+        account through Google sign-in. Sending the address the student already
+        has is not a change. The student's permissions, except
+        `learning.take_tests`, must be a subset of the caller's.
       tags: [teacher-students]
       requestBody:
         required: true
@@ -5713,6 +5732,15 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StudentRow' }
+        '403':
+          description: |
+            `FORBIDDEN` — `disabled` without `people.users.manage`, or a student
+            whose permissions are not a subset of the caller's.
+            `STUDENT_SHARED` — a new `email` for a student someone else also
+            reaches, without `people.users.manage`. Nothing is written.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`EMAIL_TAKEN` — another account already uses that address.'
@@ -5729,7 +5757,12 @@ paths:
       description: |
         Sets a temporary password and `mustChangePassword`. There is no
         self-service email reset in v1 — that needs an email provider, which is
-        the same dependency §6.3 declines (§5.4, §17.1).
+        the same dependency §6.3 declines (§5.4, §17.1). Only a student no one
+        else reaches may be reset by a teacher: every class they are in,
+        archived ones included, is the caller's; no other account created them;
+        no other account's assignment targets them individually; and a student
+        in no class must have been created by the caller. A holder of
+        `people.users.manage` resets any student.
       responses:
         '200':
           description: Reset. Password returned **once**.
@@ -5741,6 +5774,15 @@ paths:
                 additionalProperties: false
                 properties:
                   temporaryPassword: { type: string }
+        '403':
+          description: |
+            `STUDENT_SHARED` — someone else also reaches the student, so only a
+            holder of `people.users.manage` may reset them. `FORBIDDEN` — the
+            student's permissions are not a subset of the caller's. Nothing is
+            written.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/users/{id}:
@@ -5749,12 +5791,25 @@ paths:
       operationId: deleteUser
       x-permission: people.users.manage
       tags: [admin-users]
-      description: Permanently deletes a disabled student account only when no assignment, attempt, or retained audit record references it. Historical identities use the approved manual anonymization process instead.
+      description: Permanently deletes a disabled student account only when no assignment, attempt, retained audit record or owned content references it, and only when the student's permissions, except `learning.take_tests`, are a subset of the caller's. Historical identities use the approved manual anonymization process instead.
       responses:
         '204': { description: Deleted. }
+        '403':
+          description: '`FORBIDDEN` — the student''s permissions are not a subset of the caller''s.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: The resource is still referenced or has not reached its required inactive state.
+          description: |
+            `RESOURCE_NOT_ARCHIVED` — the account is not disabled.
+            `RESOURCE_REFERENCED` — something still references it, and
+            `details.referencedBy` (`ReferencedBy`) always names what:
+            `assignments` (an individual assignment target, or an assignment it
+            created), `attempts`, `audit` (audit history it acted in),
+            `owned_content` (tests, questions, question groups, media, classes,
+            join codes, published versions or Word imports it owns or created),
+            or `other`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -5857,7 +5912,13 @@ paths:
         '204': { description: Deleted. }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: The resource is still referenced or has not reached its required inactive state.
+          description: |
+            `RESOURCE_NOT_ARCHIVED` — the class is not archived.
+            `RESOURCE_REFERENCED` — something still references it, and
+            `details.referencedBy` (`ReferencedBy`) always names what:
+            `assignments` (an assignment targets the class), `members` (a
+            membership in another class came through one of its join codes),
+            or `other`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

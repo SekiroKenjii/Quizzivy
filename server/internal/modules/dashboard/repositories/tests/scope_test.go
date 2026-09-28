@@ -294,7 +294,7 @@ func legacySummary(t *testing.T, q db.Querier) domain.Summary {
              WHERE at.status IN ('submitted','timed_out') AND EXISTS (
                SELECT 1 FROM app.attempt_answers ans WHERE ans.attempt_id = at.id
                  AND ans.requires_manual AND ans.manual_score IS NULL)),
-          (SELECT count(*) FROM app.users WHERE role = 'student' AND disabled_at IS NULL)
+          (SELECT count(*) FROM app.users u WHERE u.disabled_at IS NULL AND u.role_id IN (SELECT r.id FROM app.student_like_roles r))
 	`, domain.ActiveWindow).Scan(
 		&out.OpenAssignments, &out.AwaitingGrading, &out.ActiveStudents, &out.FlaggedAttempts,
 		&out.ClosingSoon, &out.WaitingStudents, &out.OldestWaitingAt, &out.TotalStudents); err != nil {
@@ -350,4 +350,34 @@ func legacySummary(t *testing.T, q db.Querier) domain.Summary {
 		t.Fatal(err)
 	}
 	return out
+}
+
+func TestScopeAllCountsStudentsByWhatTheirRoleHoldsNow(t *testing.T) {
+	w := &homeWorld{tx: isolated(t, newPool(t))}
+	total := func() int { return w.summary(t, everyone).TotalStudents }
+	role := func(key string) string {
+		id := w.id(t, `INSERT INTO app.roles (name, icon, color) VALUES ('Trang chủ ' || gen_random_uuid()::text, 'user', 'gray') RETURNING id::text`)
+		w.id(t, `INSERT INTO app.role_permissions (role_id, permission_key) VALUES ($1::uuid, $2) RETURNING permission_key`, id, key)
+		return id
+	}
+	holder := func(role string) {
+		w.id(t, `INSERT INTO app.users (email, full_name, role_id) VALUES (gen_random_uuid()::text || '@example.test', 'Vai tuỳ chỉnh', $1::uuid) RETURNING id::text`, role)
+	}
+	start := total()
+	grader := role("learning.take_tests")
+	holder(grader)
+	w.id(t, `INSERT INTO app.role_permissions (role_id, permission_key) VALUES ($1::uuid, 'teaching.grading') RETURNING permission_key`, grader)
+	if got := total(); got != start {
+		t.Errorf("a role granted grading after it was assigned moved the student count by %d", got-start)
+	}
+	emptied := role("teaching.grading")
+	holder(emptied)
+	w.id(t, `DELETE FROM app.role_permissions WHERE role_id = $1::uuid RETURNING permission_key`, emptied)
+	if got := total(); got != start+1 {
+		t.Errorf("a role emptied after it was assigned moved the student count by %d, want 1", got-start)
+	}
+	w.user(t, "admin", nil)
+	if got := total(); got != start+1 {
+		t.Errorf("an Admin moved the student count by %d, want 1 in all", got-start)
+	}
 }

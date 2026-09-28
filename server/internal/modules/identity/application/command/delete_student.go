@@ -14,5 +14,12 @@ type DeleteStudent struct {
 type DeleteStudentHandler struct{ *support.Students }
 
 func (s DeleteStudentHandler) Handle(ctx context.Context, cmd DeleteStudent) (cqrs.Nothing, error) {
-	return cqrs.Nothing{}, s.Repo.Delete(ctx, cmd.Request, cmd.ID, s.Now())
+	if err := s.MayActOn(ctx, cmd.Request, cmd.ID, false); err != nil {
+		return cqrs.Nothing{}, err
+	}
+	if err := s.Repo.Delete(ctx, cmd.Request, cmd.ID, s.Now()); err != nil {
+		return cqrs.Nothing{}, err
+	}
+	s.Principals.Forget(cmd.ID)
+	return cqrs.Nothing{}, nil
 }
