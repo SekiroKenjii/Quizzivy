@@ -77,7 +77,7 @@ func TestTheSubsetRuleAndAccountManagementGuardEveryStudentWrite(t *testing.T) {
 	manager := domain.WriteRequest{ActorID: "manager", Grants: access.NewSet(access.PeopleUsersManage, access.PeopleStudentsResetPassword)}
 	teacher := domain.WriteRequest{ActorID: "teacher", Grants: access.NewSet(access.PeopleStudentsCreate, access.PeopleStudentsResetPassword, access.TeachingGrading)}
 	everyone := domain.WriteRequest{ActorID: "admin", All: true, Grants: access.NewSet(access.All()...)}
-	yes := true
+	yes, no := true, false
 	name := "Tên mới"
 	for label, c := range map[string]struct {
 		run    func(*application.Application) error
@@ -86,6 +86,10 @@ func TestTheSubsetRuleAndAccountManagementGuardEveryStudentWrite(t *testing.T) {
 	}{
 		"a Teacher disabling": {func(app *application.Application) error {
 			_, err := app.Commands.UpdateStudent.Handle(context.Background(), command.UpdateStudent{Request: teacher, Input: domain.StudentPatch{ID: "pupil", Disabled: &yes}})
+			return err
+		}, domain.ErrForbidden, 0},
+		"a Teacher enabling": {func(app *application.Application) error {
+			_, err := app.Commands.UpdateStudent.Handle(context.Background(), command.UpdateStudent{Request: teacher, Input: domain.StudentPatch{ID: "pupil", Disabled: &no}})
 			return err
 		}, domain.ErrForbidden, 0},
 		"a manager disabling a student who grades": {func(app *application.Application) error {

@@ -58,7 +58,7 @@ type Queries struct {
 	CurrentUser    cqrs.QueryHandler[query.CurrentUser, domain.User]
 	GetStudent     cqrs.QueryHandler[query.GetStudent, domain.Student]
 	ListStudents   cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
-	StudentAccount cqrs.QueryHandler[query.StudentAccount, domain.Student]
+	StudentAccount cqrs.QueryHandler[query.StudentAccount, domain.Account]
 	StudentFacets  cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
 }
 

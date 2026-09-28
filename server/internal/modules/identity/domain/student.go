@@ -21,6 +21,20 @@ type Student struct {
 	Stats              stats.Student
 }
 
+// Account is one user's account fields, whatever their role, with the legacy
+// role derived from what that role holds now: "student" for a student-like
+// role and "admin" otherwise, as tokens and /auth/me derive it.
+type Account struct {
+	ID                 string
+	Email              string
+	FullName           string
+	Role               string
+	HasPassword        bool
+	LinkedProviders    []string
+	MustChangePassword bool
+	CreatedAt          time.Time
+}
+
 // Membership is one class the student is in, and how they got there (D-10).
 type Membership struct {
 	ID        string

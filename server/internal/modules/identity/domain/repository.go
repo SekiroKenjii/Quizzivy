@@ -31,7 +31,7 @@ type Students interface {
 	Delete(ctx context.Context, req WriteRequest, id string, now time.Time) error
 	List(ctx context.Context, q StudentQuery) ([]Student, paging.Page, error)
 	Get(ctx context.Context, scope access.Scope, id string) (Student, error)
-	Account(ctx context.Context, id string) (Student, error)
+	Account(ctx context.Context, id string) (Account, error)
 	Facets(ctx context.Context, q StudentQuery) (StudentFacets, error)
 	Create(ctx context.Context, req WriteRequest, in NewStudent) (Student, error)
 	Update(ctx context.Context, req WriteRequest, in StudentPatch) (Student, error)

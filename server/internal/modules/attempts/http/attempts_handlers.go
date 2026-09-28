@@ -24,7 +24,7 @@ type Media interface {
 // Students names the student behind a paper for the teacher's review: the
 // identity module's StudentAccount query, unscoped because the attempt is the
 // parent the reviewer already reached.
-type Students = cqrs.QueryHandler[identityquery.StudentAccount, identitydomain.Student]
+type Students = cqrs.QueryHandler[identityquery.StudentAccount, identitydomain.Account]
 
 type Attempts struct {
 	app      *application.Application

@@ -106,7 +106,7 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if in.Email != nil && !req.ManagesUsers() {
-		if err := unshared(ctx, tx, req, in.ID, false); err != nil {
+		if err := unshared(ctx, tx, req, in.ID, in.Email, false); err != nil {
 			return domain.Student{}, err
 		}
 	}
@@ -176,7 +176,7 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if !req.ManagesUsers() {
-		if err := unshared(ctx, tx, req, id, true); err != nil {
+		if err := unshared(ctx, tx, req, id, nil, true); err != nil {
 			return err
 		}
 	}
@@ -213,14 +213,14 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 	return tx.Commit(ctx)
 }
 
-func unshared(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, id string, activeOnly bool) error {
+func unshared(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, id string, email *string, activeOnly bool) error {
 	active := ``
 	if activeOnly {
 		active = ` AND u.disabled_at IS NULL`
 	}
 	var alone bool
 	err := tx.QueryRow(ctx, `
-		SELECT coalesce(
+		SELECT u.email IS NOT DISTINCT FROM $4::text OR coalesce(
 		         NOT EXISTS (SELECT 1 FROM app.class_members m WHERE m.user_id = u.id AND m.class_id NOT IN `+visibility.TaughtClassIDs(3)+`)
 		         AND (u.created_by IS NULL OR u.created_by = $3::uuid)
 		         AND NOT EXISTS (SELECT 1 FROM app.assignment_students s JOIN app.assignments x ON x.id = s.assignment_id
@@ -230,7 +230,7 @@ func unshared(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, id string
 		  FROM app.users u
 		 WHERE u.id = $1::uuid AND `+studentLike+active+`
 		   AND ($2::boolean OR u.id IN `+visibility.StudentIDs(3)+`)
-		   FOR NO KEY UPDATE OF u`, id, req.All, opt.String(req.ActorID)).Scan(&alone)
+		   FOR NO KEY UPDATE OF u`, id, req.All, opt.String(req.ActorID), email).Scan(&alone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrStudentNotFound
 	}

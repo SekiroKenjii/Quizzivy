@@ -127,7 +127,7 @@ func (h Attempts) GetAttemptForReview(ctx context.Context, request openapi.GetAt
 	return openapi.GetAttemptForReview200JSONResponse{
 		SharedContext: shared,
 		Attempt:       attempt,
-		Student:       toAPIUserFromStudent(student),
+		Student:       toAPIUserFromAccount(student),
 		TestTitle:     rv.TestTitle,
 		MaxAttempts:   rv.MaxAttempts,
 		Questions:     questions,
@@ -548,7 +548,7 @@ func (h Attempts) FinishGrading(ctx context.Context, request openapi.FinishGradi
 	return openapi.FinishGrading200JSONResponse(toAPIAttempt(graded)), nil
 }
 
-func toAPIUserFromStudent(st identitydomain.Student) openapi.User {
+func toAPIUserFromAccount(st identitydomain.Account) openapi.User {
 	providers := make([]openapi.UserLinkedProviders, 0, len(st.LinkedProviders))
 	for _, p := range st.LinkedProviders {
 		providers = append(providers, openapi.UserLinkedProviders(p))
@@ -557,7 +557,7 @@ func toAPIUserFromStudent(st identitydomain.Student) openapi.User {
 		Id:                 httpapi.ParseUUID(st.ID),
 		Email:              openapi_types.Email(st.Email),
 		FullName:           st.FullName,
-		Role:               openapi.RoleStudent,
+		Role:               openapi.Role(st.Role),
 		HasPassword:        st.HasPassword,
 		LinkedProviders:    providers,
 		MustChangePassword: st.MustChangePassword,

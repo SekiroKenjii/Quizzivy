@@ -168,6 +168,31 @@ func (l *ladder) accepted(t *testing.T, label, target string) {
 	if err := l.assign(ctx, assignmentsdomain.Request{ActorID: l.a}, target); err != nil {
 		t.Errorf("%s: A assigning them individually: %v", label, err)
 	}
+	if account, err := l.app.Queries.StudentAccount.Handle(ctx, query.StudentAccount{ID: target}); err != nil || account.Role != "student" {
+		t.Errorf("%s: their account reads as %q (%v), want student", label, account.Role, err)
+	}
+
+	root := domain.WriteRequest{ActorID: l.root, All: true, Grants: everything}
+	yes := true
+	if _, err := l.app.Queries.GetStudent.Handle(ctx, query.GetStudent{ID: target, Scope: root.Scope()}); err != nil {
+		t.Errorf("%s: scope.all's get: %v", label, err)
+	}
+	if _, err := l.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: root, Input: domain.StudentPatch{ID: target, FullName: &name}}); err != nil {
+		t.Errorf("%s: scope.all's update: %v", label, err)
+	}
+	if temporary, err := l.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: root, ID: target}); err != nil || temporary == "" {
+		t.Errorf("%s: scope.all's reset: %q (%v)", label, temporary, err)
+	}
+	if _, err := l.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: root, Input: domain.StudentPatch{ID: target, Disabled: &yes}}); err != nil {
+		t.Errorf("%s: scope.all's disable: %v", label, err)
+	}
+	var held *domain.ReferencedError
+	if _, err := l.app.Commands.DeleteStudent.Handle(ctx, command.DeleteStudent{Request: root, ID: target}); !errors.As(err, &held) || held.By != domain.ReferencedByAssignments {
+		t.Errorf("%s: scope.all deleting them answered %v, want the individual assignment's refusal", label, err)
+	}
+	if err := repositories.NewStudents(db.NewContext(l.tx)).Delete(ctx, root, target, time.Now()); !errors.As(err, &held) || held.By != domain.ReferencedByAssignments {
+		t.Errorf("%s: the store's own delete lock answered %v, want the individual assignment's refusal", label, err)
+	}
 }
 
 func TestAnAdminWhoTakesTestsIsNeverAStudentTarget(t *testing.T) {
@@ -180,7 +205,7 @@ func TestAnAdminWhoTakesTestsIsNeverAStudentTarget(t *testing.T) {
 	if _, err := l.app.Queries.GetStudent.Handle(context.Background(), query.GetStudent{ID: pupil, Scope: access.Scope{UserID: l.a}}); err != nil {
 		t.Fatalf("a student who joined by the same code is not A's: %v", err)
 	}
-	if account, err := l.app.Queries.StudentAccount.Handle(context.Background(), query.StudentAccount{ID: taker}); err != nil || account.ID != taker {
+	if account, err := l.app.Queries.StudentAccount.Handle(context.Background(), query.StudentAccount{ID: taker}); err != nil || account.ID != taker || account.Role != "admin" {
 		t.Errorf("the account of an attempt's sitter who is an Admin: %+v (%v)", account, err)
 	}
 	l.refused(t, "the Admin who takes tests", taker)
@@ -289,13 +314,29 @@ func TestOnlyAStudentNoOneElseReachesIsResetOrReaddressedByATeacher(t *testing.T
 	if _, err := l.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: b, ID: gone}); !errors.Is(err, domain.ErrStudentNotFound) {
 		t.Errorf("B resetting a disabled shared student answered %v, want ErrStudentNotFound", err)
 	}
+	before := l.snapshot(t, gone)
+	if _, err := l.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: b, Input: domain.StudentPatch{ID: gone, Email: &email}}); !errors.Is(err, domain.ErrStudentShared) {
+		t.Errorf("B re-addressing a disabled shared student answered %v, want ErrStudentShared", err)
+	}
+	if l.snapshot(t, gone) != before {
+		t.Error("a refused email change changed the disabled shared student")
+	}
 	name := "Chỉ đổi tên"
 	if _, err := l.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: b, Input: domain.StudentPatch{ID: l.shared, FullName: &name}}); err != nil {
 		t.Errorf("B renaming a shared student: %v", err)
 	}
+	var current string
+	if err := l.tx.QueryRow(ctx, `SELECT email FROM app.users WHERE id = $1`, l.shared).Scan(&current); err != nil {
+		t.Fatal(err)
+	}
+	formName := "Đổi tên từ biểu mẫu"
+	renamed, err := l.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: b, Input: domain.StudentPatch{ID: l.shared, FullName: &formName, Email: &current}})
+	if err != nil || renamed.FullName != formName || renamed.Email != current {
+		t.Errorf("B renaming a shared student with the unchanged email the form sends: %+v (%v)", renamed, err)
+	}
 
 	yes := true
-	before := l.snapshot(t, l.member)
+	before = l.snapshot(t, l.member)
 	if _, err := l.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: a, Input: domain.StudentPatch{ID: l.member, Disabled: &yes}}); !errors.Is(err, domain.ErrForbidden) {
 		t.Errorf("a Teacher disabling their own student answered %v, want ErrForbidden", err)
 	}
