@@ -21,13 +21,13 @@ import (
 )
 
 type homeWorld struct {
-	tx                                  pgx.Tx
-	a, b, admin                         string
-	classA, classB, classB2             string
-	s1, s2, s3, s4, s5, s6, s7, s8, t1  string
-	version, question                   string
-	aA, aB, aB2, aM, aOldB              string
-	p1, p2, p3, p4, p5, p6, p7, p8, p10 string
+	tx                                     pgx.Tx
+	a, b, admin                            string
+	classA, classB, classB2                string
+	s1, s2, s3, s4, s5, s6, s7, s8, s9, t1 string
+	version, question                      string
+	aA, aB, aB2, aM, aOldB                 string
+	p1, p2, p3, p4, p5, p6, p7, p8, p10    string
 }
 
 func (w *homeWorld) id(t *testing.T, sql string, args ...any) string {
@@ -96,7 +96,7 @@ func buildHome(t *testing.T, tx pgx.Tx) *homeWorld {
 	w.a, w.b, w.admin = w.user(t, "teacher", nil), w.user(t, "teacher", nil), w.user(t, "admin", nil)
 	w.s1, w.s2, w.s3, w.s4 = w.user(t, "student", nil), w.user(t, "student", nil), w.user(t, "student", nil), w.user(t, "student", nil)
 	w.s5, w.s6, w.s7, w.s8 = w.user(t, "student", &w.b), w.user(t, "student", nil), w.user(t, "student", nil), w.user(t, "student", nil)
-	w.t1 = w.user(t, "teacher", nil)
+	w.s9, w.t1 = w.user(t, "student", nil), w.user(t, "teacher", nil)
 	w.id(t, `UPDATE app.users SET disabled_at = now() WHERE id = $1 RETURNING id::text`, w.s6)
 	w.classA = w.class(t, w.a, w.s2, w.s3)
 	w.classB = w.class(t, w.b, w.s1, w.s3, w.s6, w.t1, w.s8)
@@ -110,7 +110,7 @@ func buildHome(t *testing.T, tx pgx.Tx) *homeWorld {
 	w.aA = w.assignment(t, w.a, "-2 hours", "30 minutes", []string{w.classA}, nil)
 	w.aB = w.assignment(t, w.b, "-2 hours", "5 hours", []string{w.classB}, nil)
 	w.aB2 = w.assignment(t, w.b, "-2 hours", "48 hours", nil, []string{w.s4})
-	w.aM = w.assignment(t, w.admin, "-2 hours", "1 hour", []string{w.classA, w.classB}, []string{w.s4})
+	w.aM = w.assignment(t, w.admin, "-2 hours", "1 hour", []string{w.classA, w.classB}, []string{w.s4, w.s9})
 	w.aOldB = w.assignment(t, w.b, "-3 days", "-1 day", []string{w.classB}, nil)
 
 	w.p1 = w.paper(t, w.aB, w.s1, "50 minutes", true, true)
@@ -180,7 +180,7 @@ func TestEachReaderSeesOnlyWhatTheyReachOnTheirHome(t *testing.T) {
 		"A": {access.Scope{UserID: w.a}, figures{open: 2, awaiting: 3, active: 2, flagged: 3, closingSoon: 2, waiting: 2, total: 2,
 			oldest: w.submitted(t, w.p2), next: w.aA, submittedCount: 2, targetCount: 2, recent: []string{w.p4, w.p3, w.p2}}},
 		"the Admin without scope.all": {access.Scope{UserID: w.admin}, figures{open: 1, awaiting: 2, active: 0, flagged: 1, closingSoon: 1, waiting: 2, total: 0,
-			oldest: w.submitted(t, w.p4), next: w.aM, submittedCount: 2, targetCount: 1, recent: []string{w.p5, w.p4}}},
+			oldest: w.submitted(t, w.p4), next: w.aM, submittedCount: 2, targetCount: 2, recent: []string{w.p5, w.p4}}},
 		"the zero scope": {access.Scope{}, figures{recent: []string{}}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -254,8 +254,8 @@ func TestScopeAllReadsExactlyWhatTheUnscopedHomeRead(t *testing.T) {
 	before := legacySummary(t, tx)
 	w := buildHome(t, tx)
 	after := legacySummary(t, tx)
-	if after.OpenAssignments-before.OpenAssignments != 4 || after.TotalStudents-before.TotalStudents != 7 {
-		t.Fatalf("the fixture moved open by %d and students by %d, want 4 and 7",
+	if after.OpenAssignments-before.OpenAssignments != 4 || after.TotalStudents-before.TotalStudents != 8 {
+		t.Fatalf("the fixture moved open by %d and students by %d, want 4 and 8",
 			after.OpenAssignments-before.OpenAssignments, after.TotalStudents-before.TotalStudents)
 	}
 	for name, scope := range map[string]access.Scope{"everyone": everyone, "a scope.all reader reaching nothing": {UserID: w.b, All: true}} {
