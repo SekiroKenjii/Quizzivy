@@ -3225,6 +3225,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+      x-max-body-bytes: 8192
       x-rate-limit:
         perIp: { perMinute: 120, perHour: 600 }
         perCode: { perHour: 200 }
@@ -3303,6 +3309,12 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/Maintenance' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+      x-max-body-bytes: 8192
       x-rate-limit:
         perIp: { perMinute: 120, perHour: 600 }
         perAddressAndEmail: { perMinute: 10 }
@@ -3386,6 +3398,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+      x-max-body-bytes: 8192
       x-rate-limit:
         perIp: { perMinute: 120, perHour: 600 }
         perCode: { perHour: 200 }
@@ -6232,6 +6250,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+      x-max-body-bytes: 8192
       x-rate-limit:
         perIp: { perMinute: 120, perHour: 600 }
         perCode: { perHour: 200 }
