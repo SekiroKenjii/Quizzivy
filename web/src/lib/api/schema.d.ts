@@ -1389,7 +1389,16 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Edits profile fields, or disables the account. Disabling blocks login without deleting any attempt history. */
+        /**
+         * @description Edits profile fields, or disables the account. Disabling blocks login
+         *     without deleting any attempt history. `disabled`, either value, also
+         *     needs `people.users.manage`. Changing `email` of a student someone else
+         *     also reaches (another teacher's class, another creator, or another
+         *     teacher's individual target) needs `people.users.manage` too, because a
+         *     new address can take over the account through Google sign-in. The
+         *     student's permissions, except `learning.take_tests`, must be a subset
+         *     of the caller's.
+         */
         patch: operations["updateStudent"];
         trace?: never;
     };
@@ -1407,7 +1416,11 @@ export interface paths {
         /**
          * @description Sets a temporary password and `mustChangePassword`. There is no
          *     self-service email reset in v1 — that needs an email provider, which is
-         *     the same dependency §6.3 declines (§5.4, §17.1).
+         *     the same dependency §6.3 declines (§5.4, §17.1). Only a student no one
+         *     else reaches may be reset by a teacher: every class they are in is the
+         *     caller's, no other teacher created them or targets them individually,
+         *     and a student in no class must have been created by the caller. A
+         *     holder of `people.users.manage` resets any student.
          */
         post: operations["resetStudentPassword"];
         delete?: never;
@@ -1428,7 +1441,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Permanently deletes a disabled student account only when no assignment, attempt, or retained audit record references it. Historical identities use the approved manual anonymization process instead. */
+        /** @description Permanently deletes a disabled student account only when no assignment, attempt, retained audit record or owned content references it, and only when the student's permissions, except `learning.take_tests`, are a subset of the caller's. Historical identities use the approved manual anonymization process instead. */
         delete: operations["deleteUser"];
         options?: never;
         head?: never;
@@ -2126,7 +2139,7 @@ export interface components {
          *     driven by `message`, never reconstructed from this.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "ALREADY_ENROLLED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -2622,6 +2635,15 @@ export interface components {
              */
             testId?: string | null;
         };
+        /**
+         * @description What still references a row whose permanent delete answered
+         *     `RESOURCE_REFERENCED`, carried as `details.referencedBy` by
+         *     `deleteClass` and `deleteUser`. `other` is a reference the server does
+         *     not name. Later releases add values; a client treats an unknown one as
+         *     `other`.
+         * @enum {string}
+         */
+        ReferencedBy: "assignments" | "attempts" | "audit" | "members" | "owned_content" | "other";
         /**
          * @description A MediaAsset as the teacher's media library lists it, with how many published
          *     versions reference it. Flat for the same reason (issue #41) -- this is
@@ -7087,6 +7109,20 @@ export interface operations {
                     "application/json": components["schemas"]["StudentRow"];
                 };
             };
+            /**
+             * @description `FORBIDDEN` — `disabled` without `people.users.manage`, or a student
+             *     whose permissions are not a subset of the caller's.
+             *     `STUDENT_SHARED` — `email` for a student someone else also reaches,
+             *     without `people.users.manage`. Nothing is written.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             404: components["responses"]["NotFound"];
             /** @description `EMAIL_TAKEN` — another account already uses that address. */
             409: {
@@ -7121,6 +7157,20 @@ export interface operations {
                     };
                 };
             };
+            /**
+             * @description `STUDENT_SHARED` — someone else also reaches the student, so only a
+             *     holder of `people.users.manage` may reset them. `FORBIDDEN` — the
+             *     student's permissions are not a subset of the caller's. Nothing is
+             *     written.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             404: components["responses"]["NotFound"];
         };
     };
@@ -7142,8 +7192,26 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description `FORBIDDEN` — the student's permissions are not a subset of the caller's. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             404: components["responses"]["NotFound"];
-            /** @description The resource is still referenced or has not reached its required inactive state. */
+            /**
+             * @description `RESOURCE_NOT_ARCHIVED` — the account is not disabled.
+             *     `RESOURCE_REFERENCED` — something still references it, and
+             *     `details.referencedBy` (`ReferencedBy`) always names what:
+             *     `assignments` (an individual assignment target, or an assignment it
+             *     created), `attempts`, `audit` (audit history it acted in),
+             *     `owned_content` (tests, questions, question groups, media, classes,
+             *     join codes, published versions or Word imports it owns or created),
+             *     or `other`.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7287,7 +7355,14 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
-            /** @description The resource is still referenced or has not reached its required inactive state. */
+            /**
+             * @description `RESOURCE_NOT_ARCHIVED` — the class is not archived.
+             *     `RESOURCE_REFERENCED` — something still references it, and
+             *     `details.referencedBy` (`ReferencedBy`) always names what:
+             *     `assignments` (an assignment targets the class), `members` (a
+             *     membership in another class came through one of its join codes),
+             *     or `other`.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
