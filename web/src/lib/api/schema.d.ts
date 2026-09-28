@@ -7849,6 +7849,7 @@ export interface operations {
             content: {
                 "application/json": {
                     sessionId: components["schemas"]["Uuid"];
+                    /** @description Keyed by the version question's id. */
                     answers?: {
                         [key: string]: components["schemas"]["Answer"];
                     };
