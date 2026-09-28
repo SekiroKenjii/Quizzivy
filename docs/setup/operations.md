@@ -192,27 +192,50 @@ The rekey runs from the operator's machine, never from a scheduled workflow.
 The operator supplies `JOIN_CODE_KEY` and `JOIN_CODE_KEY_PREVIOUS` to
 `cmd/maintenance` from the offline copies, with `MAINTENANCE_DATABASE_URL`.
 
-1. Set `JOIN_CODE_KEY_PREVIOUS` to the old key and `JOIN_CODE_KEY` to the new
-   one, as Fly secrets.
+1. Stage both keys in **one** command, so they reach the machines in the
+   same release:
+   ```sh
+   fly secrets set --stage JOIN_CODE_KEY_PREVIOUS=<old key> JOIN_CODE_KEY=<new key>
+   ```
+   Never set them one at a time. Without `--stage` every `fly secrets set`
+   restarts the machines, and a half-changed pair either stops the API from
+   starting (the two keys equal) or makes every code under the old key
+   unredeemable until the second command lands.
 2. Deploy. The API now issues codes under the new key and still finds and
-   reads codes under the old one.
+   reads codes under the old one. Its startup log line `join code keys`
+   names `current_key_id` and `previous_key_id`.
 3. Run the dry run and read its report:
    ```sh
    maintenance rekey-join-codes
    ```
-   `pending` is the number of codes under the old key. `legacy` is the number
-   of codes issued before v0.8.0: they hold no ciphertext and cannot be
-   re-keyed, and R4 rotates them.
-4. Apply it. It works in batches of 500 (`-batch`), one transaction each, and
-   writes only `code_hash`, `code_ciphertext` and `key_id`:
+   - `currentKeyId` and `previousKeyId` must equal the ids in the API's log
+     line. If they do not, the keys on the operator's machine are not the
+     pair the API runs with: stop.
+   - `unknown` must be 0: it counts active codes sealed under a key that is
+     neither of the two. `-apply` refuses while it is not.
+   - `pending` is the number of codes that will move.
+   - `unopened` lists the codes under the old key whose ciphertext does not
+     open, by row and class id, never by code.
+   - `legacy` counts the codes issued before v0.8.0. They hold no ciphertext
+     and cannot be re-keyed; R4 rotates them.
+4. Apply it. It walks the codes in batches of 500 (`-batch`), one
+   transaction each, and writes only `code_hash`, `code_ciphertext` and
+   `key_id`. Joins to the codes in a batch wait until that batch commits, so
+   run it at a quiet time:
    ```sh
    maintenance rekey-join-codes -apply
    ```
-   A code that does not open under the old key stops the run, naming the row
-   and never the code. Revoke that class's code and run it again.
-5. Verify that `pending` is 0 and `sealedByKey` names no row under the old
-   `previousKeyId`.
-6. Unset `JOIN_CODE_KEY_PREVIOUS` (`fly secrets unset JOIN_CODE_KEY_PREVIOUS`).
+   A code that does not open is listed under `unopened` and left where it
+   is; the others move. For each listed code with `revoked: false`, rotate
+   that class's code (from the class page, or by `POST
+   /teacher/classes/{id}/join-code`): once the old key is unset, it can
+   neither be read nor redeemed. A revoked one needs nothing.
+5. Run the dry run again and verify: `pending` is 0, `unknown` is 0, and
+   every `unopened` code shows `revoked: true`.
+6. Stage the removal of the old key:
+   ```sh
+   fly secrets unset --stage JOIN_CODE_KEY_PREVIOUS
+   ```
 7. Deploy.
 
 The report is JSON, like every other maintenance command's.
