@@ -4172,6 +4172,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -4233,6 +4242,15 @@ export interface operations {
              *     the same thing.
              */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4310,6 +4328,15 @@ export interface operations {
             };
             /** @description The supplied `joinCode` was invalid, expired, exhausted or revoked. **No account is created.** */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7680,6 +7707,15 @@ export interface operations {
             };
             /** @description Invalid, expired, exhausted or revoked. Same leak rules as `/join/preview`. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
