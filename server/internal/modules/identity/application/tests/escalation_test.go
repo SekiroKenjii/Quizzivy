@@ -176,6 +176,9 @@ func TestAnAdminWhoTakesTestsIsNeverAStudentTarget(t *testing.T) {
 	if _, err := l.app.Queries.GetStudent.Handle(context.Background(), query.GetStudent{ID: pupil, Scope: access.Scope{UserID: l.a}}); err != nil {
 		t.Fatalf("a student who joined by the same code is not A's: %v", err)
 	}
+	if account, err := l.app.Queries.StudentAccount.Handle(context.Background(), query.StudentAccount{ID: taker}); err != nil || account.ID != taker {
+		t.Errorf("the account of an attempt's sitter who is an Admin: %+v (%v)", account, err)
+	}
 	l.refused(t, "the Admin who takes tests", taker)
 }
 
@@ -266,6 +269,13 @@ func TestOnlyAStudentNoOneElseReachesIsResetOrReaddressedByATeacher(t *testing.T
 		if c.want != nil && l.snapshot(t, c.student) != before {
 			t.Errorf("a refused email change by %s changed the student", label)
 		}
+	}
+	gone := l.user(t, "student", "Đã khoá, dùng chung", nil)
+	l.enrol(t, l.classA, gone)
+	l.enrol(t, l.classB, gone)
+	l.exec(t, `UPDATE app.users SET disabled_at = now() WHERE id = $1`, gone)
+	if _, err := l.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: b, ID: gone}); !errors.Is(err, domain.ErrStudentNotFound) {
+		t.Errorf("B resetting a disabled shared student answered %v, want ErrStudentNotFound", err)
 	}
 	name := "Chỉ đổi tên"
 	if _, err := l.app.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: b, Input: domain.StudentPatch{ID: l.shared, FullName: &name}}); err != nil {
