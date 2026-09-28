@@ -1324,6 +1324,7 @@ the file it adds.
 | `00075_index_media_assets_owner.sql` | `media_assets_owner_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00076_index_users_created_by.sql` | `users_created_by_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
 | `00077_index_assignments_creator.sql` | `assignments_creator_idx`, built `CONCURRENTLY` (no transaction) | R2 (T-R2.10) |
+| `00078_add_join_code_encryption.sql` | `class_join_codes.code_ciphertext`, `key_id`, `lookup_scheme` and their four checks; Down refuses a live scheme-2 code | R2 (T-R2.14a), D5 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2147,3 +2148,28 @@ predicate. Each check scans its table, as the unindexed `created_by` and
 No plan is forced. At today's volumes a sequential scan is often the right
 plan (§14), and the indexes earn their place as teachers and rows grow.
 
+## 33. Encrypted join codes (T-R2.14a)
+
+`00078` lets a join code be read back (D5) without letting a database dump
+redeem one. Three columns join `app.class_join_codes`:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `code_ciphertext` | `bytea`, 36 bytes when set | a 12-byte nonce, the 8-byte code and a 16-byte AES-256-GCM tag; the additional data is the class id's 16 bytes, then the code id's |
+| `key_id` | `smallint`, never 0 | the 16-bit HKDF fingerprint of the key that sealed the code and keyed its hash |
+| `lookup_scheme` | `smallint NOT NULL DEFAULT 1`, 1 or 2 | 1: `code_hash` is the SHA-256 of the code (v0.7.0); 2: it is the HMAC-SHA256 under `key_id`'s lookup key |
+
+- **`class_join_codes_scheme_consistent`** makes a row either legacy (scheme
+  1, no ciphertext, no key) or fully sealed (scheme 2 with both). The v0.7.0
+  binary's insert names none of the columns and is a legacy row.
+- **`code_hash` keeps its `UNIQUE` index**, and it is still the only lookup
+  path: a typed code is searched as `code_hash = ANY(candidates)`, the keyed
+  hash under the current and the previous key and the legacy SHA-256. The
+  newest matching row is taken, and it counts only against the candidate of
+  its own scheme and key.
+- **The keys never reach the database.** A dump yields ciphertexts and keyed
+  hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
+  40-bit code space. A legacy row's SHA-256 still can, which is why R4
+  rotates the legacy codes (D5).
+- **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
+  because the previous binary looks codes up by SHA-256 alone.
