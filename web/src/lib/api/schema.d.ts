@@ -264,7 +264,7 @@ export interface paths {
         put?: never;
         /**
          * Create a complete independent draft group
-         * @description Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination.
+         * @description Caller-generated UUIDs must be fresh. A duplicate identity is a conflict, never an overwrite. Section creation checks the enclosing test revision; bank creation has no destination. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404.
          */
         post: operations["createQuestionGroup"];
         delete?: never;
@@ -287,10 +287,10 @@ export interface paths {
          * @description Reads one coherent independent graph and its revisions. Teacher-only; asset links never grant access to an unrelated source document.
          */
         get: operations["getQuestionGroup"];
-        /** @description Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first. */
+        /** @description Replaces a group's complete graph under its aggregate revision and, for a section owner, its test revision. Cannot move a group or change its ID. Archived groups must be restored first. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404. */
         put: operations["updateQuestionGroup"];
         post?: never;
-        /** @description Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision. */
+        /** @description Deletes a complete archived bank group, or removes a section-owned group from its editable draft. Never deletes independently copied groups or published snapshots. Section deletion also requires the current test revision. Either permission admits the call; the target then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404. */
         delete: operations["deleteQuestionGroup"];
         options?: never;
         head?: never;
@@ -308,7 +308,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section. */
+        /** @description Copies all members, materials, keys and policies from the observed revision with fresh identities. The independent destination is a bank group or an active draft section. The source must be one the caller can see. Either permission admits the call; the destination then needs its own key, `content.questions.write` for a bank group and `content.tests.write` for a group in a test section. The other key alone answers 403, after a target the caller cannot see has answered 404. */
         post: operations["copyQuestionGroup"];
         delete?: never;
         options?: never;
@@ -4610,6 +4610,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived owner or duplicate graph identity. */
             409: {
@@ -4688,6 +4689,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived group/test or identity conflict. */
             409: {
@@ -4739,6 +4741,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived enclosing test, or bank group not archived. */
             409: {
@@ -4776,6 +4779,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale source/destination revision or archived enclosing test. */
             409: {

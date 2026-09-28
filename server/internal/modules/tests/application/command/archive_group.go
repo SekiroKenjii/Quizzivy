@@ -18,7 +18,7 @@ func (s ArchiveGroupHandler) Handle(ctx context.Context, cmd ArchiveGroup) (doma
 	if s.Repo == nil {
 		return domain.StoredGroup{}, domain.ErrGroupUnavailable
 	}
-	group, err := s.Repo.Get(ctx, cmd.Mutation.ID)
+	group, err := s.Repo.Get(ctx, cmd.Mutation.Actor.Scope, cmd.Mutation.ID)
 	if err != nil {
 		return domain.StoredGroup{}, err
 	}

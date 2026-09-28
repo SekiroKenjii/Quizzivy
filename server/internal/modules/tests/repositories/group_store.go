@@ -7,6 +7,8 @@ import (
 	questions "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -32,19 +34,23 @@ func NewGroupsPostgres(dbx db.Context, questions GroupQuestionStore, media Media
 	return &GroupsPostgres{Repository: db.NewRepository(dbx), questions: questions, media: media}
 }
 
-// Get reads a complete group while holding its shared aggregate lock, including archived bank groups.
-func (s *GroupsPostgres) Get(ctx context.Context, id string) (domain.StoredGroup, error) {
+// Get reads a complete group while holding its shared aggregate lock,
+// including archived bank groups; a group outside scope is domain.ErrNotFound.
+func (s *GroupsPostgres) Get(ctx context.Context, scope access.Scope, id string) (domain.StoredGroup, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.StoredGroup{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := lockGroupReadOwner(ctx, tx, id); err != nil {
+	if err := lockGroupReadOwner(ctx, tx, id, scope); err != nil {
 		return domain.StoredGroup{}, err
 	}
 	group, err := readGroup(ctx, tx, id)
 	if err != nil {
 		return domain.StoredGroup{}, err
+	}
+	if !inScope(scope, group.OwnerID) {
+		return domain.StoredGroup{}, domain.ErrNotFound
 	}
 	if err := s.readGraph(ctx, tx, &group); err != nil {
 		return domain.StoredGroup{}, err
@@ -62,18 +68,23 @@ func readGroup(ctx context.Context, tx pgx.Tx, id string) (domain.StoredGroup, e
 func readLockedGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.StoredGroup, error) {
 	var stored domain.StoredGroup
 	err := tx.QueryRow(ctx, `SELECT g.id::text, g.title, g.instructions, g.owner_section_id::text,
+		CASE WHEN g.owner_section_id IS NULL THEN g.owner_id ELSE t.owner_id END::text,
 		g.revision, g.archived_at, g.created_at, g.updated_at, t.updated_at
 		FROM app.question_groups g LEFT JOIN app.test_sections s ON s.id=g.owner_section_id
 		LEFT JOIN app.tests t ON t.id=s.test_id WHERE g.id=$1 `+lock+` OF g`, id).
 		Scan(&stored.Bundle.Group.ID, &stored.Bundle.Group.Title, &stored.Bundle.Group.Instructions,
-			&stored.OwnerSectionID, &stored.Revision, &stored.ArchivedAt, &stored.CreatedAt, &stored.UpdatedAt, &stored.TestUpdatedAt)
+			&stored.OwnerSectionID, &stored.OwnerID, &stored.Revision, &stored.ArchivedAt, &stored.CreatedAt, &stored.UpdatedAt, &stored.TestUpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StoredGroup{}, domain.ErrNotFound
 	}
 	return stored, err
 }
 
-func lockGroupReadOwner(ctx context.Context, tx pgx.Tx, id string) error {
+func inScope(scope access.Scope, owner string) bool {
+	return scope.All || (scope.UserID != "" && owner == scope.UserID)
+}
+
+func lockGroupReadOwner(ctx context.Context, tx pgx.Tx, id string, scope access.Scope) error {
 	var testID *string
 	err := tx.QueryRow(ctx, `SELECT s.test_id::text FROM app.question_groups g
 		LEFT JOIN app.test_sections s ON s.id=g.owner_section_id WHERE g.id=$1`, id).Scan(&testID)
@@ -84,7 +95,8 @@ func lockGroupReadOwner(ctx context.Context, tx pgx.Tx, id string) error {
 		return err
 	}
 	var locked string
-	err = tx.QueryRow(ctx, `SELECT id::text FROM app.tests WHERE id=$1 AND deleted_at IS NULL FOR SHARE`, *testID).Scan(&locked)
+	err = tx.QueryRow(ctx, `SELECT id::text FROM app.tests WHERE id=$1 AND deleted_at IS NULL AND `+scopedTest+` FOR SHARE`,
+		*testID, scope.All, opt.String(scope.UserID)).Scan(&locked)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

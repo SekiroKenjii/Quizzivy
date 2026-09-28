@@ -11,6 +11,7 @@ import (
 	testscmd "quizzivy/internal/modules/tests/application/command"
 	testsdomain "quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 	"time"
 
@@ -113,7 +114,8 @@ func (m materialization) groups(ctx context.Context, plan importsdomain.CommitPl
 			if unit.Group == nil {
 				continue
 			}
-			stored, err := m.tests.Commands.CreateGroup.Handle(ctx, testscmd.CreateGroup{Bundle: *unit.Group, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updatedAt, Actor: m.by})
+			stored, err := m.tests.Commands.CreateGroup.Handle(ctx, testscmd.CreateGroup{Bundle: *unit.Group, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updatedAt,
+				Actor: m.actor(), Grants: access.NewSet(access.ContentTestsWrite)})
 			if err != nil {
 				return updatedAt, grouped, err
 			}
@@ -131,5 +133,11 @@ func (m materialization) outline(ctx context.Context, test testsdomain.Test, sec
 }
 
 func (m materialization) request(id string) testsdomain.Request {
-	return testsdomain.Request{ID: id, ActorID: m.by.ID, IP: m.by.IP, UserAgent: m.by.UserAgent}
+	return testsdomain.Request{ID: id, ActorID: m.by.ID, IP: m.by.IP, UserAgent: m.by.UserAgent, Scope: m.actor().Scope}
+}
+
+func (m materialization) actor() actor.Actor {
+	by := m.by
+	by.Scope = access.Scope{UserID: m.by.ID}
+	return by
 }

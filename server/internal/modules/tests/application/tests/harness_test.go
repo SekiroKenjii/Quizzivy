@@ -9,6 +9,7 @@ import (
 	"os"
 	questionscommand "quizzivy/internal/modules/questions/application/command"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -66,10 +67,12 @@ func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	return application.New(repositories.NewPostgres(db.NewContext(pool), questionsrepo.NewPostgres(db.NewContext(pool)), mediarepo.NewPostgres(db.NewContext(pool))))
 }
 
-func req(author string) domain.Request { return domain.Request{ActorID: author} }
+func req(author string) domain.Request {
+	return domain.Request{ActorID: author, Scope: access.Scope{UserID: author}}
+}
 
 func reqFor(id, author string) domain.Request {
-	return domain.Request{ID: id, ActorID: author}
+	return domain.Request{ID: id, ActorID: author, Scope: access.Scope{UserID: author}}
 }
 
 // newQuestion adds a bank question the outline can reference.
@@ -87,3 +90,7 @@ func newQuestion(t *testing.T, pool *pgxpool.Pool, author, prompt string) string
 	}
 	return q.ID
 }
+
+var everyone = access.Scope{All: true}
+
+var bothKeys = access.NewSet(access.ContentQuestionsWrite, access.ContentTestsWrite)

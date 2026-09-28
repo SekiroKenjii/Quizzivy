@@ -10,6 +10,7 @@ var (
 	ErrNotFound         = errors.New("tests: not found")
 	ErrStaleWrite       = errors.New("tests: edited elsewhere since the version read")
 	ErrUnknownQuestion  = errors.New("tests: outline references a question that does not exist")
+	ErrForbidden        = errors.New("tests: the caller lacks the permission this target needs")
 )
 
 // ErrNotPublished is returned when a test has no version to render.

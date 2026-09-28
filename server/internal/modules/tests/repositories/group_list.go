@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
 	"strings"
 )
@@ -14,6 +15,10 @@ func (s *GroupsPostgres) List(ctx context.Context, in domain.GroupListInput) ([]
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 	conditions := []string{"g.owner_section_id IS NULL"}
 	args := []any{}
+	if !in.Scope.All {
+		args = append(args, opt.String(in.Scope.UserID))
+		conditions = append(conditions, "g.owner_id = $1::uuid")
+	}
 	switch in.Status {
 	case "all":
 	case "archived":

@@ -48,7 +48,7 @@ func TestAStaleUpdatedAtIsRejected(t *testing.T) {
 		t.Errorf("stale save returned %v, want ErrStaleWrite", err)
 	}
 
-	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestARejectedOutlineLeavesThePreviousOneIntact(t *testing.T) {
 		t.Fatalf("got %v, want ErrUnknownQuestion", err)
 	}
 
-	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID})
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: created.ID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}

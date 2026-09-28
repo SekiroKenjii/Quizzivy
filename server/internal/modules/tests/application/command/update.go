@@ -26,5 +26,6 @@ func (s UpdateHandler) Handle(ctx context.Context, cmd Update) (domain.Test, err
 		Now:       s.Now(),
 		IP:        cmd.Request.IP,
 		UserAgent: cmd.Request.UserAgent,
+		Scope:     cmd.Request.Scope,
 	})
 }

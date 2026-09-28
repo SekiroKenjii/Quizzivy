@@ -12,6 +12,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/modules/tests/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"testing"
 	"time"
 
@@ -19,13 +20,13 @@ import (
 )
 
 func groupMutation(group domain.StoredGroup, author string) domain.GroupMutation {
-	return domain.GroupMutation{ID: group.Bundle.Group.ID, ExpectedRevision: group.Revision, ActorID: author, Now: time.Now()}
+	return domain.GroupMutation{ID: group.Bundle.Group.ID, ExpectedRevision: group.Revision, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}
 }
 
 func createStoredFixture(t *testing.T, tx pgx.Tx, author string, repo *repositories.GroupsPostgres) domain.StoredGroup {
 	t.Helper()
 	asset := storedGroupAsset(t, tx, author, "audio")
-	stored, err := repo.Create(context.Background(), domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), ActorID: author, Now: time.Now()})
+	stored, err := repo.Create(context.Background(), domain.CreateGroupInput{Bundle: storedGroupFixture(t, asset), ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +109,7 @@ func TestGroupUpdateRollsBackAfterLateMediaFailure(t *testing.T) {
 	if _, err := repo.Update(ctx, domain.UpdateGroupInput{GroupMutation: groupMutation(before, author), Bundle: bundle}); err == nil {
 		t.Fatal("image accepted as shared audio")
 	}
-	after, err := repo.Get(ctx, before.Bundle.Group.ID)
+	after, err := repo.Get(ctx, everyone, before.Bundle.Group.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +152,7 @@ func TestGroupArchiveRestoreAndDeleteRequireCurrentRevision(t *testing.T) {
 	if err := repo.Delete(ctx, groupMutation(archived, author)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Get(ctx, stored.Bundle.Group.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := repo.Get(ctx, everyone, stored.Bundle.Group.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("deleted group still readable: %v", err)
 	}
 	var members, events int
@@ -181,7 +182,7 @@ func TestGroupUpdateChecksParentDraftAndCannotArchiveOwnedGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	bundle := storedGroupFixture(t, "")
-	stored, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()})
+	stored, err := repo.Create(ctx, domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +229,7 @@ func TestGroupCopyAndSectionRemovalKeepIndependentContext(t *testing.T) {
 	if err := tx.QueryRow(ctx, `INSERT INTO app.test_sections (test_id,ordinal,title) VALUES ($1,0,'Part') RETURNING id::text`, testID).Scan(&sectionID); err != nil {
 		t.Fatal(err)
 	}
-	in := domain.CopyGroupInput{SourceID: source.Bundle.Group.ID, ExpectedSourceRevision: 0, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now()}
+	in := domain.CopyGroupInput{SourceID: source.Bundle.Group.ID, ExpectedSourceRevision: 0, OwnerSectionID: &sectionID, ExpectedTestUpdatedAt: updated, ActorID: author, Now: time.Now(), Scope: access.Scope{UserID: author}, Grants: bothKeys}
 	if _, err := repo.Copy(ctx, in); !errors.Is(err, domain.ErrStaleWrite) {
 		t.Fatalf("stale source copied: %v", err)
 	}
@@ -263,7 +264,7 @@ func TestGroupCopyAndSectionRemovalKeepIndependentContext(t *testing.T) {
 	if err := repo.Delete(ctx, groupMutation(archived, author)); err != nil {
 		t.Fatal(err)
 	}
-	remaining, err := repo.Get(ctx, second.Bundle.Group.ID)
+	remaining, err := repo.Get(ctx, everyone, second.Bundle.Group.ID)
 	if err != nil || len(remaining.Bundle.Questions) != 2 || remaining.Bundle.Group.Recordings[0].AssetID != source.Bundle.Group.Recordings[0].AssetID {
 		t.Fatalf("source lifecycle damaged independent section copy: %+v, %v", remaining, err)
 	}

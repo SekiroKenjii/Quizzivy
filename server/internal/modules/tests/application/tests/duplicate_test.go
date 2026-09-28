@@ -99,7 +99,7 @@ func TestDuplicateCopiesTheDraftAndNoVersions(t *testing.T) {
 	}
 
 	// The source is untouched.
-	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: source.ID})
+	after, err := svc.Queries.Get.Handle(ctx, query.Get{ID: source.ID, Scope: everyone})
 	if err != nil {
 		t.Fatal(err)
 	}

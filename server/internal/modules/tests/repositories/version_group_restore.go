@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -84,7 +85,7 @@ func restoreSectionGroups(ctx context.Context, tx pgx.Tx, groups *GroupsPostgres
 			return err
 		}
 		stored, err := groups.Create(ctx, domain.CreateGroupInput{Bundle: bundle, OwnerSectionID: &destination, ExpectedTestUpdatedAt: updated,
-			ActorID: req.ActorID, Now: now, IP: req.IP, UserAgent: req.UserAgent})
+			ActorID: req.ActorID, Now: now, IP: req.IP, UserAgent: req.UserAgent, Scope: req.Scope, Grants: access.NewSet(access.ContentTestsWrite)})
 		if err != nil {
 			return err
 		}
