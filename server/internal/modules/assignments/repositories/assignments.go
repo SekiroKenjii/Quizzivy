@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
+	"quizzivy/internal/shared/visibility"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -19,7 +22,10 @@ type Postgres struct{ db.Repository }
 
 func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
-const selectAssignment = `
+func selectAssignment(all, viewer int) string {
+	taught := fmt.Sprintf(`($%d::boolean OR c.id IN `, all) + visibility.TaughtClassIDs(viewer) + `)`
+	reached := fmt.Sprintf(`($%d::boolean OR ast.user_id IN `, all) + visibility.StudentIDs(viewer) + `)`
+	return `
 		SELECT a.id::text, a.test_id::text, a.test_version_id::text, v.version, t.title,
 		       a.opens_at, a.closes_at, a.closed_at, a.published_at,
 		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
@@ -34,12 +40,12 @@ const selectAssignment = `
 		                                  ORDER BY c.name)
 		                   FROM app.assignment_classes ac
 		                   JOIN app.classes c ON c.id = ac.class_id
-		                  WHERE ac.assignment_id = a.id), '[]'::jsonb),
+		                  WHERE ac.assignment_id = a.id AND ` + taught + `), '[]'::jsonb),
 		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', u.id::text, 'name', u.full_name)
 		                                  ORDER BY u.full_name)
 		                   FROM app.assignment_students ast
 		                   JOIN app.users u ON u.id = ast.user_id
-		                  WHERE ast.assignment_id = a.id), '[]'::jsonb),
+		                  WHERE ast.assignment_id = a.id AND ` + reached + `), '[]'::jsonb),
 		       a.updated_at,
 		       (SELECT count(DISTINCT aa.attempt_id) FROM app.attempt_answers aa
 		          JOIN app.attempts at ON at.id = aa.attempt_id
@@ -69,17 +75,19 @@ const selectAssignment = `
 		       (SELECT count(*) FROM (
 		            SELECT m.user_id
 		              FROM app.assignment_classes ac
+		              JOIN app.classes c ON c.id = ac.class_id AND ` + taught + `
 		              JOIN app.class_members m ON m.class_id = ac.class_id
 		             WHERE ac.assignment_id = a.id
 		            UNION
 		            SELECT ast.user_id FROM app.assignment_students ast
-		             WHERE ast.assignment_id = a.id
+		             WHERE ast.assignment_id = a.id AND ` + reached + `
 		        ) roster
 		        JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL)
 		  FROM app.assignments a
 		  JOIN app.tests t ON t.id = a.test_id
 		  JOIN app.test_versions v ON v.id = a.test_version_id
 `
+}
 
 func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 	var a domain.Assignment
@@ -94,14 +102,20 @@ func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 	return a, err
 }
 
-// Get returns one assignment.
-func (s *Postgres) Get(ctx context.Context, id string) (domain.Assignment, error) {
-	return s.get(ctx, s.Conn(), id)
+// Get returns one assignment the scope reaches, its targets filtered to the
+// classes and students the scope reaches. Another teacher's answers
+// ErrNotFound, exactly as a missing one does.
+func (s *Postgres) Get(ctx context.Context, scope access.Scope, id string) (domain.Assignment, error) {
+	return s.get(ctx, s.Conn(), scope, id, true)
 }
 
-func (s *Postgres) get(ctx context.Context, q db.Querier, id string) (domain.Assignment, error) {
-	a, err := scanAssignment(q.QueryRow(ctx, selectAssignment+`
-		 WHERE a.id = $1::uuid`, id))
+func (s *Postgres) get(ctx context.Context, q db.Querier, scope access.Scope, id string, gated bool) (domain.Assignment, error) {
+	gate := ``
+	if gated {
+		gate = ` AND ($2::boolean OR a.id IN ` + visibility.AssignmentIDs(3) + `)`
+	}
+	a, err := scanAssignment(q.QueryRow(ctx, selectAssignment(2, 3)+`
+		 WHERE a.id = $1::uuid`+gate, id, scope.All, opt.String(scope.UserID)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Assignment{}, domain.ErrNotFound
 	}
@@ -123,7 +137,7 @@ const derivedStatus = `
 // Facets counts every status within the same narrowing List applies, minus
 // the status itself, so the tabs never disagree with the rows.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
-	where, args := narrow(domain.ListInput{ClassID: in.ClassID})
+	where, args := narrow(domain.ListInput{ClassID: in.ClassID, Scope: in.Scope})
 	var f domain.Facets
 	err := s.QueryRow(ctx, `
 		SELECT count(*),
@@ -142,6 +156,12 @@ func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Face
 func narrow(in domain.ListInput) ([]string, []any) {
 	var args []any
 	where := []string{"TRUE"}
+	classTaught := ``
+	if !in.Scope.All {
+		args = append(args, opt.String(in.Scope.UserID))
+		where = append(where, `a.id IN `+visibility.AssignmentIDs(1))
+		classTaught = ` AND ac.class_id IN ` + visibility.TaughtClassIDs(1)
+	}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
 		where = append(where, fmt.Sprintf(derivedStatus+` = $%d`, len(args)))
@@ -149,11 +169,13 @@ func narrow(in domain.ListInput) ([]string, []any) {
 	if in.ClassID != nil {
 		args = append(args, *in.ClassID)
 		where = append(where, fmt.Sprintf(`EXISTS (SELECT 1 FROM app.assignment_classes ac
-		                   WHERE ac.assignment_id = a.id AND ac.class_id = $%d::uuid)`, len(args)))
+		                   WHERE ac.assignment_id = a.id AND ac.class_id = $%d::uuid`, len(args))+classTaught+`)`)
 	}
 	return where, args
 }
 
+// List returns one page of the assignments the input's scope reaches, newest
+// first, their targets filtered to the classes and students the scope reaches.
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assignment, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 	where, args := narrow(in)
@@ -164,8 +186,10 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assi
 		return nil, paging.Page{}, fmt.Errorf("assignments: count: %w", err)
 	}
 
+	args = append(args, in.Scope.All, opt.String(in.Scope.UserID))
+	embeds := selectAssignment(len(args)-1, len(args))
 	args = append(args, limit, offset)
-	rows, err := s.Query(ctx, selectAssignment+`
+	rows, err := s.Query(ctx, embeds+`
 		 WHERE `+join(where)+fmt.Sprintf(`
 		 ORDER BY a.id DESC
 		 LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)

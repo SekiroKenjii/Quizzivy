@@ -51,7 +51,7 @@ func (h Dashboard) ListAttempts(ctx context.Context, request openapi.ListAttempt
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	q := domain.ListQuery{Flagged: request.Params.Flagged, PendingGrading: request.Params.PendingGrading}
+	q := domain.ListQuery{Flagged: request.Params.Flagged, PendingGrading: request.Params.PendingGrading, Scope: httpapi.ScopeFromContext(ctx)}
 	if request.Params.Status != nil {
 		status := string(*request.Params.Status)
 		q.Status = &status
