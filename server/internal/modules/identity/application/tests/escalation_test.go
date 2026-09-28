@@ -42,7 +42,7 @@ func newLadder(t *testing.T) *ladder {
 	t.Helper()
 	w := newRosterWorld(t)
 	dbx := db.NewContext(w.tx)
-	l := &ladder{rosterWorld: w, classes: classesapp.New(classesrepo.NewPostgres(dbx), attemptsrepo.NewStudentStats(dbx)), assignments: assignmentsrepo.NewPostgres(dbx)}
+	l := &ladder{rosterWorld: w, classes: classesapp.New(classesrepo.NewPostgres(dbx), attemptsrepo.NewStudentStats(dbx), joinKeys), assignments: assignmentsrepo.NewPostgres(dbx)}
 	l.root = w.user(t, "admin", "Quản trị gốc", nil)
 	l.spare = w.class(t, w.a)
 	test := w.id(t, `INSERT INTO app.tests (title, status, current_version, created_by, owner_id) VALUES ('Đề leo thang', 'published', 1, $1, $1) RETURNING id::text`, w.a)

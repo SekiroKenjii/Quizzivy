@@ -13,8 +13,10 @@ type NewMember struct {
 	ProviderUserID string
 }
 
+// EnrolInput names the typed code by every hash it may be stored under; the
+// caller has already refused a code that normalises to nothing.
 type EnrolInput struct {
-	RawCode        string
+	Code           JoinCodeLookup
 	ExistingUserID string
 	NewMember      *NewMember
 

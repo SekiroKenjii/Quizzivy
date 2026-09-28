@@ -67,7 +67,7 @@ func newClassWorld(t *testing.T) *classWorld {
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 	dbx := db.NewContext(tx)
-	w := &classWorld{tx: tx, svc: application.New(repositories.NewPostgres(dbx), attemptsrepo.NewStudentStats(dbx)), marker: "pham-vi-" + uuid.NewString()[:8]}
+	w := &classWorld{tx: tx, svc: application.New(repositories.NewPostgres(dbx), attemptsrepo.NewStudentStats(dbx), joinKeys), marker: "pham-vi-" + uuid.NewString()[:8]}
 	w.a, w.b, w.admin = w.user(t, "teacher", "Giáo viên A", nil), w.user(t, "teacher", "Giáo viên B", nil), w.user(t, "admin", "Quản trị", nil)
 	w.classA, w.classB = w.class(t, w.a), w.class(t, w.b)
 	w.studentA = w.user(t, "student", "Học viên A", &w.a)

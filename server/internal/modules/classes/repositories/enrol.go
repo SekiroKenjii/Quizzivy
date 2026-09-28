@@ -18,23 +18,21 @@ import (
 // Enrol validates a join code and enrols a student, creating the account first
 // when there is none, in a single transaction.
 func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.EnrolResult, error) {
-	normalized := domain.JoinCodes.Normalize(in.RawCode)
-	if normalized == "" {
-		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
-	}
-
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.EnrolResult{}, fmt.Errorf("begin enrol: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	code, err := claimCode(ctx, tx, domain.JoinCodes.Hash(normalized))
+	code, err := claimCode(ctx, tx, in.Code)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
 	}
 	if err != nil {
 		return domain.EnrolResult{}, fmt.Errorf("claim join code: %w", err)
+	}
+	if !in.Code.Matches(code.lookup) {
+		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
 	}
 	if outcome := code.Usable(in.Now); outcome != domain.PreviewOK {
 		return domain.EnrolResult{Outcome: outcome}, nil
@@ -77,20 +75,25 @@ type claimedCode struct {
 	domain.CodeState
 	id      string
 	classID string
+	lookup  domain.StoredLookup
 }
 
-func claimCode(ctx context.Context, tx pgx.Tx, codeHash []byte) (claimedCode, error) {
+func claimCode(ctx context.Context, tx pgx.Tx, code domain.JoinCodeLookup) (claimedCode, error) {
 	const claim = `
-		SELECT jc.id::text, jc.class_id::text, jc.revoked_at, jc.expires_at,
-		       jc.max_uses, jc.uses_count, c.self_join_enabled AND c.archived_at IS NULL
+		SELECT jc.id::text, jc.class_id::text, jc.lookup_scheme, jc.key_id, jc.code_hash,
+		       jc.revoked_at, jc.expires_at, jc.max_uses, jc.uses_count,
+		       c.self_join_enabled AND c.archived_at IS NULL
 		  FROM app.class_join_codes jc
 		  JOIN app.classes c ON c.id = jc.class_id
-		 WHERE jc.code_hash = $1
+		 WHERE jc.code_hash = ANY($1::bytea[])
+		 ORDER BY jc.created_at DESC, jc.id DESC
+		 LIMIT 1
 		   FOR UPDATE OF jc`
 
 	var c claimedCode
-	err := tx.QueryRow(ctx, claim, codeHash).Scan(
-		&c.id, &c.classID, &c.RevokedAt, &c.ExpiresAt, &c.MaxUses, &c.UsesCount, &c.SelfJoinEnabled)
+	err := tx.QueryRow(ctx, claim, code.Hashes()).Scan(
+		&c.id, &c.classID, &c.lookup.Scheme, &c.lookup.KeyID, &c.lookup.Hash,
+		&c.RevokedAt, &c.ExpiresAt, &c.MaxUses, &c.UsesCount, &c.SelfJoinEnabled)
 	return c, err
 }
 
